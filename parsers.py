@@ -36,7 +36,7 @@ import logging
 import struct
 import re
 import sys
-from date_conversion import nt_to_unix
+from .date_conversion import nt_to_unix
 
 
 __all__ = ['SimradNMEAParser', 'SimradDepthParser', 'SimradBottomParser',
@@ -670,7 +670,7 @@ class SimradConfigParser(_SimradDatagramParser):
 
             #  handle Python 3 strings
             if (sys.version_info.major > 2) and isinstance(data[field], bytes):
-                data[field] = data[field].decode()
+                data[field] = data[field].decode('latin_1')
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
 
