@@ -37,7 +37,7 @@ $Id$
 from io import FileIO, SEEK_SET, SEEK_CUR, SEEK_END
 import struct
 import logging
-import parsers
+from . import parsers
 
 __all__ = ['RawSimradFile']
 
