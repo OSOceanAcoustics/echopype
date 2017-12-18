@@ -24,9 +24,7 @@ import datetime
 from pytz import timezone
 import logging
 import numpy as np
-from util.raw_file import RawSimradFile, SimradEOF
-from util import unit_conversion
-from collections import defaultdict
+from .util.raw_file import RawSimradFile, SimradEOF
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +59,7 @@ class EK60(object):
         #  n_channels stores the total number of channels in the object
         self.n_channels = 0
 
-        #  create a dictionary to store the EK60RawData objects
+        #  create a dictionary to store the RawData objects
         self.raw_data = {}
 
         #  Define the class's "private" properties. These should not be generally be directly
@@ -175,7 +173,7 @@ class EK60(object):
                     #  next datagram was something else, move along
                     CON1_datagram = None
 
-                #  check if we need to create an EK60RawData object for this channel
+                #  check if we need to create an RawData object for this channel
                 self._channel_map = {}
                 for channel in config_datagram['transceivers']:
                     #  get the channel ID
@@ -194,10 +192,10 @@ class EK60(object):
                         #  so we just move along...
                         continue
 
-                    #  check if an EK60RawData object exists for this channel
+                    #  check if an RawData object exists for this channel
                     if channel_id not in self.raw_data:
                         #  no - create it
-                        self.raw_data[channel_id] = EK60RawData(channel_id, store_power=self.read_power,
+                        self.raw_data[channel_id] = RawData(channel_id, store_power=self.read_power,
                                 store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
 
                         #  and add it to our list of channel_ids
@@ -211,8 +209,8 @@ class EK60(object):
                     #  the datagrams. This mapping is only valid for the current file that is being read.
                     self._channel_map[channel] = channel_id
 
-                    #  create a EK60ChannelMetadata object to store this channel's configuration and rawfile metadata.
-                    channel_metadata = EK60ChannelMetadata(filename,
+                    #  create a ChannelMetadata object to store this channel's configuration and rawfile metadata.
+                    channel_metadata = ChannelMetadata(filename,
                                                config_datagram['transceivers'][channel],
                                                config_datagram['survey_name'],
                                                config_datagram['transect_name'],
@@ -354,7 +352,7 @@ class EK60(object):
 
     def get_rawdata(self, channel_number=1, channel_id=None):
         '''
-        get_rawdata returns a reference to the specified EK60RawData object for the
+        get_rawdata returns a reference to the specified RawData object for the
         specified channel id or channel number.
         '''
 
@@ -391,10 +389,10 @@ class EK60(object):
         return msg
 
 
-class EK60RawData(object):
+class RawData(object):
     '''
-    the EK60RawData class contains a single channel's data extracted from a Simrad raw
-    file. collected from an EK/ES60 or ES70. A EK60RawData object is created for each
+    the RawData class contains a single channel's data extracted from a Simrad raw
+    file. collected from an EK/ES60 or ES70. A RawData object is created for each
     unique channel in an EK/ES60 ES70 raw file.
 
     '''
@@ -422,7 +420,7 @@ class EK60RawData(object):
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
         '''
-        Creates a new, empty EK60RawData object. The EK60RawData class stores raw
+        Creates a new, empty RawData object. The RawData class stores raw
         echosounder data from a single channel of an EK60 or ES60/70 system.
 
         if rolling is True, arrays of size (n_pings, n_samples) are created for power
@@ -441,14 +439,14 @@ class EK60RawData(object):
         #  array size and roll it when it fills or if we expand the array when it fills
         self.rolling_array = bool(rolling)
 
-        #  current_metadata stores a reference to the current EK60ChannelMetadata object. The
-        #  EK60ChannelMetadata class stores rawfile and channel configuration properties
+        #  current_metadata stores a reference to the current ChannelMetadata object. The
+        #  ChannelMetadata class stores rawfile and channel configuration properties
         #  contained in the .raw file header. When opening a new .raw file, this property
         #  must be updated before appending pings from the new file.
         self.current_metadata = None
 
-        #  the channel ID is the unique identifier
-        self.channel_id = channel_id
+        #  the channel ID is the unique identifier of the channel(s) stored in the object
+        self.channel_id = [channel_id]
 
         #  a counter incremented when a ping is added - a value of -1 indicates that the
         #  data arrays have not been allocated yet.
@@ -505,7 +503,7 @@ class EK60RawData(object):
         #  the data properties.
 
         #  create a logger instance
-        self.logger = logging.getLogger('EK60RawData')
+        self.logger = logging.getLogger('RawData')
 
 
     def append_ping(self, sample_datagram):
@@ -602,10 +600,10 @@ class EK60RawData(object):
                 #  roll our array 1 ping
                 self._roll_arrays(1)
 
-        #  append the EK60ChannelMetadata object reference for this ping
+        #  append the ChannelMetadata object reference for this ping
         self.channel_metadata.append(self.current_metadata)
 
-        #  update the EK60ChannelMetadata object with this ping number and time
+        #  update the ChannelMetadata object with this ping number and time
         self.current_metadata.end_ping = self.n_pings
         self.current_metadata.end_time = sample_datagram['timestamp']
 
@@ -679,9 +677,6 @@ class EK60RawData(object):
                 self.angles_athwartship_e[this_ping,:] = athwartship_e
 
 
-
-
-
     def delete_pings(self, remove=True, **kwargs):
         '''
         delete_pings deletes ping data defined by the start and end bounds.
@@ -702,79 +697,112 @@ class EK60RawData(object):
 
     def append(self, rawdata_object):
         '''
-        append appends another EK60RawData object to this one.
+        append appends another RawData object to this one.
         '''
 
-        #TODO: insert seems to insert before the specified index (at least with
-        #      append.) Make sure that insert and append are getting the indexes
-        #      right.
-
+        #  append simply inserts at the end of our internal array.
         self.insert(rawdata_object, ping_number=self.ping_number[-1])
 
 
-    def insert(self, raw_data_obj, ping_number=None, ping_time=None):
+    def insert(self, raw_data_obj, ping_number=None, ping_time=None, insert_after=True):
         '''
-        insert inserts the data from the provided EK60RawData object into
-        this EK60RawData object. The insertion point is specified by ping number or
+        insert inserts the data from the provided RawData object into
+        this RawData object. The insertion point is specified by ping number or
         time.
+
+        By default, the insert is *after* the provided ping number or time. Set the
+        insert_after keyword to False to insert *before* the provided ping number or time.
+
+        The insert and append methods only insert or append your data. They do not
+        update any of the properties such as ping_number. Those details are left
+        to you. Understand that if you insert or append a channel that has overlapping
+        ping numbers or time, subsequent inserts or appends will insert at the index
+        of the first time or ping number that matches the insertion point. This
+        may not be what you want and you will have to adjust these values appropriately
+        before the second insert/append.
         '''
 
+        #  check that we have been given an insetion point
         if ping_number is None and ping_time is None:
-            raise ValueError('Either ping_number or ping_time needs to be defined.')
+            raise ValueError('Either ping_number or ping_time needs to be defined to specify an insertion point.')
+
+        #  make sure that raw_data_obj is an EK60.RawData raw data object
+        if (not isinstance(raw_data_obj, RawData)):
+            raise TypeError('The object you are inserting/appending must be an instance of the EK60.RawData class')
+
+        #  make sure that the frequencies match - we don't allow insrting/appending of different frequencies
+        if (self.frequency[0] != raw_data_obj.frequency[0]):
+            raise TypeError('The frequency of the RawData object you are inserting/appending does not match the ' +
+                    'frequency of this object. Frequencies must match to append or insert.')
 
         #  determine the index of the insertion point
         idx = self.get_index(time=ping_time, ping=ping_number)
 
-        #  check if we have a valid index
-        if idx <= self.n_pings - 1:
+        #  check if we're inserting before or after the provided insert point and adjust as necessary
+        if (insert_after):
+            #  we're inserting *after* - increment the index by 1
+            idx += 1
 
-            #  get some info about the shape of the data we're inserting
-            my_pings = self.ping_number.shape[0]
-            new_pings = raw_data_obj.ping_number.shape[0]
-            my_samples = self.power.shape[1]
-            new_samples = raw_data_obj.power.shape[1]
+        #  get some info about the shape of the data we're inserting
+        my_pings = self.ping_number.shape[0]
+        new_pings = raw_data_obj.ping_number.shape[0]
+        my_samples = self.power.shape[1]
+        new_samples = raw_data_obj.power.shape[1]
 
-            #  check if we need to vertically resize one of the arrays
-            if (my_samples < new_samples):
-                #  resize our data arrays
-                self._resize_arrays(my_pings, new_samples, my_pings, my_samples)
-            elif (my_samples > new_samples):
-                #  resize arrays of raw_data_obj
+        #  check if we need to vertically resize one of the arrays - we resize the smaller to
+        #  the size of the larger array. It will automatically be padded with NaNs
+        if (my_samples < new_samples):
+            #  resize our data arrays
+            #  check if the new array exceeds our max_sample_count
+            if ((self.max_sample_number) and (new_samples > self.max_sample_number)):
+                #  it does - we have to change our new_samples
+                new_samples = self.max_sample_number
+                #  and trim the array we're appending
                 raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
+            #  and resize our arrays
+            self._resize_arrays(my_pings, new_samples, my_pings, my_samples)
+        elif (my_samples > new_samples):
+            #  resize arrays of raw_data_obj
+            raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
 
-            #  work thru our data properties inserting the new data
-            for attribute, data in self.get_data():
-                try:
-                    data_to_insert = getattr(raw_data_obj, attribute)
-                except Exception as err:
-                    log.error('Error reading data from raw_data_obj, ', raw_data_obj, attribute, ': ',  type(err), err)
-                    return
+        #  work thru our data properties inserting the new data
+        for attribute, data in self.get_data():
+            try:
+                data_to_insert = getattr(raw_data_obj, attribute)
+            except Exception as err:
+                log.error('Error reading data from raw_data_obj, ', raw_data_obj, attribute, ': ',  type(err), err)
+                return
 
-                #  create views of the data that will be split
-                data_before_insert = data[0:idx]
-                data_after_insert = data[idx:]
+            #  create views of the data that will be split
+            data_before_insert = data[0:idx]
+            data_after_insert = data[idx:]
 
-                #  handle lists and numpy arrays appropriately
-                if isinstance(data, list):
-                    #  this attribute is a list
-                    new_data = data_before_insert + data_to_insert + data_after_insert
-                    setattr(self, attribute, new_data)
-                elif isinstance(data, np.ndarray):
-                    #  this attribute is a numpy array
+            #  handle lists and numpy arrays appropriately
+            if isinstance(data, list):
+                #  this attribute is a list
+                new_data = data_before_insert + data_to_insert + data_after_insert
+                setattr(self, attribute, new_data)
+            elif isinstance(data, np.ndarray):
+                #  this attribute is a numpy array
 
-                    #  if we're not storing a data type, skip it
-                    if ((attribute == 'power') and (not self.store_power)):
-                        continue
-                    elif ((attribute == 'angles_alongship_e') and (not self.store_angles)):
-                        continue
-                    elif ((attribute == 'angles_athwartship_e') and (not self.store_angles)):
-                        continue
+                #  if we're not storing a data type, skip it
+                if ((attribute == 'power') and (not self.store_power)):
+                    continue
+                elif ((attribute == 'angles_alongship_e') and (not self.store_angles)):
+                    continue
+                elif ((attribute == 'angles_athwartship_e') and (not self.store_angles)):
+                    continue
 
-                    #  create concatenate the data
-                    new_data = np.concatenate((data_before_insert, data_to_insert, data_after_insert))
+                #  concatenate the data
+                new_data = np.concatenate((data_before_insert, data_to_insert, data_after_insert))
 
-                    #  update this attribute
-                    setattr(self, attribute, new_data)
+                #  update this attribute
+                setattr(self, attribute, new_data)
+
+        #  now update our global properties
+        if (raw_data_obj.channel_id not in self.channel_id):
+            self.channel_id += raw_data_obj.channel_id
+        self.n_pings = self.ping_number.shape[0]
 
 
     def trim(self):
@@ -782,11 +810,18 @@ class EK60RawData(object):
         trim deletes the empty portions of pre-allocated arrays. This should be called
         when you are done adding pings to a non-rolling raw_data instance.
         '''
+
+        #  determine the number of samples we're storing
         n_samples = self.power.shape[1]
-        self._resize_arrays(self.n_pings, n_samples, self.n_pings, n_samples)
+
+        #  calling _resize_arrays with
+        self._resize_arrays(self.n_pings, n_samples, 0, n_samples)
 
 
     def get_index(self, time=None, ping=None):
+        '''
+        get_index returns the index into the data arrays given a ping number or ping time.
+        '''
 
         def nearest_idx_list(list, value):
             '''
@@ -795,10 +830,10 @@ class EK60RawData(object):
             '''
             return list.index(min(list, key=lambda x: abs(x - value)))
 
+
         def nearest_idx_array(array, value):
             '''
             return the index of the nearest value in a numpy array.
-            Adapted from: https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
             '''
             return (np.abs(array - value)).argmin()
 
@@ -831,70 +866,24 @@ class EK60RawData(object):
         '''
         get_indices maps ping number and/or ping time to an index into the acoustic
         data arrays.
-
-        This should be extended to handle sample_start/sample_end, range_start/range_end
-        but this would require calculating range if range was provided. Not a big deal,
-        but there will need to be some mechanics to determine if range has been calculated
-        and if it is still valid (i.e. no data has changed that would null the cached range
-        data)
-
         '''
 
-        def nearest_idx(list, value):
-            '''
-            return the index of the nearest value in a list.
-            Adapted from: https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
-            '''
-            return list.index(min(list, key=lambda x: abs(x - value)))
+        #  if starts and/or ends are omitted, assume fist and last respectively
+        if (start_ping == start_time == None):
+            start_ping = self.ping_number[0]
+        if (end_ping == end_time == None):
+            end_ping = self.ping_number[-1]
 
-        #  check if we have an start time defined and determine index
-        if (start_ping == None and start_time == None):
-            start_index = 0
-        elif (start_ping == None):
-            #  start must be defined by start_time
-            #  make sure we've been passed a datetime object defining the start time
-            if (not type(start_time) is datetime.datetime):
-                raise TypeError('start_time must be a datetime object.')
-
-            #  and find the index of the closest ping_time
-            start_index = nearest_idx(self.ping_time, start_time)
-        else:
-            #  start_ping must have been provided
-            #  make sure we've been passed an integer defining the start ping
-            start_ping = int(start_ping)
-            if (not type(end_ping) is int):
-                raise TypeError('start_ping must be an Integer.')
-
-            #  and find the index of the closest ping_number
-            start_index = nearest_idx(self.ping_number, start_ping)
-
-        #  check if we have an end time defined and determine index
-        if (end_ping == None and end_time == None):
-            end_index = -1
-        elif (end_ping == None):
-            #  start must be defined by end_time
-            #  make sure we've been passed a datetime object defining the end time
-            if (not type(end_time) is datetime.datetime):
-                raise TypeError('end_time must be a datetime object.')
-
-            #  and find the index of the closest ping_time
-            end_index = nearest_idx(self.ping_time, end_time)
-        else:
-            #  end_ping must have been provided
-            #  make sure we've been passed an integer defining the end ping
-            end_ping = int(end_ping)
-            if (not type(end_ping) is int):
-                raise TypeError('end_ping must be an Integer.')
-
-            #  and find the index of the closest ping_number
-            end_index = nearest_idx(self.ping_number, end_ping)
+        #  get the indices
+        start_idx = self.get_index(ping = start_ping, time = start_time)
+        end_idx = self.get_index(ping = end_ping, time = end_time)
 
         #  make sure the indices are sane
-        if (start_index > end_index):
+        if (start_idx > end_idx):
             raise ValueError('The end_ping or end_time provided comes before ' +
                     'the start_ping or start_time.')
 
-        return (start_index, end_index)
+        return (start_idx, end_idx)
 
 
     def get_sv(self, cal_parameters=None, linear=False, **kwargs):
@@ -951,6 +940,9 @@ class EK60RawData(object):
         resample = RawData.to_shortest
 
         '''
+
+
+
 
 
     def get_electrical_angles(self, **kwargs):
@@ -1030,23 +1022,24 @@ class EK60RawData(object):
         '''
 
         #  resize the arrays
-        self.ping_number.resize((new_ping_dim))
-        self.transducer_depth.resize((new_ping_dim))
-        self.frequency.resize((new_ping_dim))
-        self.transmit_power.resize((new_ping_dim))
-        self.pulse_length.resize((new_ping_dim))
-        self.bandwidth.resize((new_ping_dim))
-        self.sample_interval.resize((new_ping_dim))
-        self.sound_velocity.resize((new_ping_dim))
-        self.absorption_coefficient.resize((new_ping_dim))
-        self.heave.resize((new_ping_dim))
-        self.pitch.resize((new_ping_dim))
-        self.roll.resize((new_ping_dim))
-        self.temperature.resize((new_ping_dim))
-        self.heading.resize((new_ping_dim))
-        self.transmit_mode.resize((new_ping_dim))
-        self.sample_offset.resize((new_ping_dim))
-        self.sample_count.resize((new_ping_dim))
+        if (new_ping_dim != old_ping_dim):
+            self.ping_number.resize((new_ping_dim))
+            self.transducer_depth.resize((new_ping_dim))
+            self.frequency.resize((new_ping_dim))
+            self.transmit_power.resize((new_ping_dim))
+            self.pulse_length.resize((new_ping_dim))
+            self.bandwidth.resize((new_ping_dim))
+            self.sample_interval.resize((new_ping_dim))
+            self.sound_velocity.resize((new_ping_dim))
+            self.absorption_coefficient.resize((new_ping_dim))
+            self.heave.resize((new_ping_dim))
+            self.pitch.resize((new_ping_dim))
+            self.roll.resize((new_ping_dim))
+            self.temperature.resize((new_ping_dim))
+            self.heading.resize((new_ping_dim))
+            self.transmit_mode.resize((new_ping_dim))
+            self.sample_offset.resize((new_ping_dim))
+            self.sample_count.resize((new_ping_dim))
         if (self.store_power):
             self.power.resize((new_ping_dim, new_sample_dim))
         if (self.store_angles):
@@ -1136,7 +1129,7 @@ class EK60RawData(object):
 
     def __str__(self):
         '''
-        reimplemented string method that provides some basic info about the EK60RawData object
+        reimplemented string method that provides some basic info about the RawData object
         '''
 
         #  print the class and address
@@ -1145,19 +1138,25 @@ class EK60RawData(object):
         #  print some more info about the EK60 instance
         n_pings = len(self.ping_time)
         if (n_pings > 0):
-            msg = msg + ("    frequency (first ping): " + str(self.frequency[0])+ "\n")
-            msg = msg + (" pulse length (first ping): " + str(self.pulse_length[0])+ "\n")
-            msg = msg + ("           data start time: " + str(self.ping_time[0])+ "\n")
-            msg = msg + ("             data end time: " + str(self.ping_time[n_pings-1])+ "\n")
-            msg = msg + ("           number of pings: " + str(n_pings)+ "\n")
+            msg = msg + "                channel(s): ["
+            for channel in self.channel_id:
+                msg = msg + channel + ", "
+            msg = msg[0:-2] + "]\n"
+            msg = msg + "    frequency (first ping): " + str(self.frequency[0])+ "\n"
+            msg = msg + " pulse length (first ping): " + str(self.pulse_length[0])+ "\n"
+            msg = msg + "           data start time: " + str(self.ping_time[0])+ "\n"
+            msg = msg + "             data end time: " + str(self.ping_time[n_pings-1])+ "\n"
+            msg = msg + "           number of pings: " + str(n_pings)+ "\n"
             if (self.store_power):
                 n_pings,n_samples = self.power.shape
-                msg = msg + ("    power array dimensions: (" + str(n_pings)+ "," + str(n_samples) +")\n")
+                msg = msg + ("    power array dimensions: (" + str(n_pings)+ "," +
+                        str(n_samples) +")\n")
             if (self.store_angles):
                 n_pings,n_samples = self.angles_alongship_e.shape
-                msg = msg + ("    angle array dimensions: (" + str(n_pings)+ "," + str(n_samples) +")\n")
+                msg = msg + ("    angle array dimensions: (" + str(n_pings)+ "," +
+                        str(n_samples) +")\n")
         else:
-            msg = msg + ("  EK60RawData object contains no data\n")
+            msg = msg + ("  RawData object contains no data\n")
 
         return msg
 
@@ -1207,9 +1206,9 @@ class EK60RawData(object):
 
 
 
-class EK60ChannelMetadata(object):
+class ChannelMetadata(object):
     '''
-    The EK60ChannelMetadata class stores the channel configuration data as well as
+    The ChannelMetadata class stores the channel configuration data as well as
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
