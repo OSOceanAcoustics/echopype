@@ -25,6 +25,7 @@ from pytz import timezone
 import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
+from ..processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
@@ -403,15 +404,18 @@ class RawData(object):
     SAMPLES_PER_PULSE = 4
 
     #FIXME Values?
-    RESAMPLE_LOWEST = 64
-    RESAMPLE_64 = 64
-    RESAMPLE_128 = 128
-    RESAMPLE_256 = 256
-    RESAMPLE_512 = 512
-    RESAMPLE_1024 = 1024
-    RESAMPLE_2048 = 2048
-    RESAMPLE_4096 = 4096
-    RESAMPLE_HIGHEST = 4096
+
+    RESAMPLE_LOWEST = 0
+    RESAMPLE_64   = 0.000064
+    RESAMPLE_128  = 0.000128
+    RESAMPLE_256  = 0.000256
+    RESAMPLE_512  = 0.000512
+    RESAMPLE_1024 = 0.001024
+    RESAMPLE_2048 = 0.002048
+    RESAMPLE_4096 = 0.004096
+    RESAMPLE_8192 = 0.008192
+    RESAMPLE_HIGHEST = 1
+
 
     to_shortest = 0
     to_longest = 1
@@ -930,7 +934,7 @@ class RawData(object):
         '''
 
 
-    def get_power(self, **kwargs):
+    def get_power(self, target_pulse_length=self.RESAMPLE_LOWEST, **kwargs):
         '''
         get_power returns a processed data object that contains the power data.
 
@@ -941,9 +945,66 @@ class RawData(object):
 
         '''
 
+        #  get the horizontal start and end indicies
+        row_bounds = self.get_indices(**kwargs)
+
+        #  create the
+        power_data = ProcessedData.ProcessedData()
+
+        # check if we need to vertically resample our sample data
+        pulse_lengths = np.unique(self.pulse_length[row_bounds])
+
+        if (pulse_lengths.shape[0] > 1):
+            #  there are at least 2 different pulse lengths in the data
+
+            # check if we need to substitute our target_pulse_length value
+            if (target_pulse_length == self.RESAMPLE_SHORTEST):
+                #  resample to the shortest of the pulse lengths in our data
+                target_pulse_length = min(pulse_lengths)
+            elif (target_pulse_length == self.RESAMPLE_LONGEST):
+                #  resample to the longest of the pulse lengths in our data
+                target_pulse_length = max(pulse_lengths)
+
+            #  get a bool array representing the valid samples
+            valid_samples = ~np.isnan(self.power[row_bounds])
+
+            #  determine the resulting maximum number of samples - this is tricky because
+            #  we don't want to expand the NaNs and the number of valid samples in a row can
+            #  change for reasons other than the pusle length changing so we have to check
+            #  the number of valid samples in every row and determine the max number for the
+            #  whole array.
+            new_sample_len = 0
+            row_sample_len = 0
+            for pulse_length in pulse_lengths:
+                #  determine the resampling factor
+                if (target_pulse_length > pulse_length):
+                    #  we're reducing resolution - determine the number of samples to average
+                    sample_factor = target_pulse_length / pulse_length
+                else:
+                    #  we're increasing resolution - determine the number of samples to expand
+                    sample_factor = pulse_length / target_pulse_length
+
+                #  determine the rows in this subset with this pulse length
+                rows_this_pulse_len = np.where(self.pulse_length[row_bounds] == pulse_length)[0]
+                for row in rows_this_pulse_len:
+                    #  get the index of the farthest valid sample in this row
+                    row_sample_len = max(row_samples, max(np.where(valid_samples[row,:]) == True)[0])
+                    row_sample_len = round(row_sample_len * sample_factor)
+                    #  and check if this is the largest sample idx
+                    if (row_sample_len > new_sample_len):
+                        new_sample_len = row_sample_len
+
+            #  now that we know the final dimensions of the power array create the it
+            #  in the ProcessedData object and fill with NaNs
+            power_data.power = self.power = np.empty((self.n_pings, new_sample_len), np.int16)
+            power_data.power.fill(np.nan)
 
 
+                if (pulse_length != target_pulse_length):
+                    pass
 
+
+            self.power = self._resample_data(self.power, pulse_length, target_pulse_length, is_power=False):
 
     def get_electrical_angles(self, **kwargs):
         '''
@@ -1167,7 +1228,7 @@ class RawData(object):
         and the provided target pulse length. If is_power is True, we log transform the
         data to average in linear units (if needed).
 
-        The funtion returns the resized array.
+        The method returns the resized array.
         '''
 
         #  first make sure we need to do something
