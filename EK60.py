@@ -405,7 +405,7 @@ class RawData(object):
 
     #FIXME Values?
 
-    RESAMPLE_LOWEST = 0
+    RESAMPLE_SHORTEST = 0
     RESAMPLE_64   = 0.000064
     RESAMPLE_128  = 0.000128
     RESAMPLE_256  = 0.000256
@@ -414,7 +414,7 @@ class RawData(object):
     RESAMPLE_2048 = 0.002048
     RESAMPLE_4096 = 0.004096
     RESAMPLE_8192 = 0.008192
-    RESAMPLE_HIGHEST = 1
+    RESAMPLE_LONGEST = 1
 
 
     to_shortest = 0
@@ -740,7 +740,7 @@ class RawData(object):
                     'frequency of this object. Frequencies must match to append or insert.')
 
         #  determine the index of the insertion point
-        idx = self.get_index(time=ping_time, ping=ping_number)
+        idx = self.get_ping_index(time=ping_time, ping=ping_number)
 
         #  check if we're inserting before or after the provided insert point and adjust as necessary
         if (insert_after):
@@ -822,7 +822,7 @@ class RawData(object):
         self._resize_arrays(self.n_pings, n_samples, 0, n_samples)
 
 
-    def get_index(self, time=None, ping=None):
+    def get_ping_index(self, time=None, ping=None):
         '''
         get_index returns the index into the data arrays given a ping number or ping time.
         '''
@@ -866,9 +866,9 @@ class RawData(object):
         return (index)
 
 
-    def get_indices(self, start_ping=None, end_ping=None, start_time=None, end_time=None):
+    def get_ping_indices(self, start_ping=None, end_ping=None, start_time=None, end_time=None):
         '''
-        get_indices maps ping number and/or ping time to an index into the acoustic
+        get_ping_indices maps ping number and/or ping time to an index into the acoustic
         data arrays.
         '''
 
@@ -879,8 +879,8 @@ class RawData(object):
             end_ping = self.ping_number[-1]
 
         #  get the indices
-        start_idx = self.get_index(ping = start_ping, time = start_time)
-        end_idx = self.get_index(ping = end_ping, time = end_time)
+        start_idx = self.get_ping_index(ping = start_ping, time = start_time)
+        end_idx = self.get_ping_index(ping = end_ping, time = end_time)
 
         #  make sure the indices are sane
         if (start_idx > end_idx):
@@ -932,79 +932,131 @@ class RawData(object):
         This method would call getElectricalAngles to get a vertically aligned
 
         '''
+        pass
 
 
-    def get_power(self, target_pulse_length=self.RESAMPLE_LOWEST, **kwargs):
+    def get_power(self, target_pulse_length=RESAMPLE_SHORTEST, **kwargs):
         '''
         get_power returns a processed data object that contains the power data.
 
         This method will vertically resample the raw power data according to the keyword inputs.
         By default we will resample to the highest resolution (shortest pulse length) in the object.
 
-        resample = RawData.to_shortest
 
         '''
 
-        #  get the horizontal start and end indicies
-        row_bounds = self.get_indices(**kwargs)
+        #TODO: row_bounds seems to be off at the end by 1 ping
 
-        #  create the
-        power_data = ProcessedData.ProcessedData()
+        #  get the horizontal start and end indicies
+        row_bounds = self.get_ping_indices(**kwargs)
+        row_bounds = np.arange(row_bounds[1]) + row_bounds[0]
+
+        #  create the ProcessedData
+        power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
 
         # check if we need to vertically resample our sample data
         pulse_lengths = np.unique(self.pulse_length[row_bounds])
-
         if (pulse_lengths.shape[0] > 1):
-            #  there are at least 2 different pulse lengths in the data
+            #  there are at least 2 different pulse lengths in the data - we must resample the
+            #  power data
+            self._resample_sample_data(self.power, row_bounds, pulse_lengths, target_pulse_length,
+                    power_data, is_power=True)
+        else:
+            #  the data all have the same pulse length - just copy power
+            power_data.power = self.power.copy()
 
-            # check if we need to substitute our target_pulse_length value
-            if (target_pulse_length == self.RESAMPLE_SHORTEST):
-                #  resample to the shortest of the pulse lengths in our data
-                target_pulse_length = min(pulse_lengths)
-            elif (target_pulse_length == self.RESAMPLE_LONGEST):
-                #  resample to the longest of the pulse lengths in our data
-                target_pulse_length = max(pulse_lengths)
+        #  now populate some of the other ProcessedData fields
+        power_data.ping_time = self.ping_time[:]
+        power_data.ping_number = self.ping_number.copy()
+        power_data.transducer_depth = self.transducer_depth.copy()
 
-            #  get a bool array representing the valid samples
-            valid_samples = ~np.isnan(self.power[row_bounds])
 
-            #  determine the resulting maximum number of samples - this is tricky because
-            #  we don't want to expand the NaNs and the number of valid samples in a row can
-            #  change for reasons other than the pusle length changing so we have to check
-            #  the number of valid samples in every row and determine the max number for the
-            #  whole array.
-            new_sample_len = 0
-            row_sample_len = 0
-            for pulse_length in pulse_lengths:
-                #  determine the resampling factor
+        return power_data
+
+
+    def _resample_sample_data(self, data, row_bounds, pulse_lengths, target_pulse_length,
+            processed_data, is_power=True):
+        '''
+        _resample_sample_data vertically resamples power or angle data. It
+        '''
+
+        #  determine the number of pings in the new array
+        n_pings = row_bounds.shape[0]
+
+        # check if we need to substitute our target_pulse_length value
+        if (target_pulse_length == self.RESAMPLE_SHORTEST):
+            #  resample to the shortest of the pulse lengths in our data
+            target_pulse_length = min(pulse_lengths)
+        elif (target_pulse_length == self.RESAMPLE_LONGEST):
+            #  resample to the longest of the pulse lengths in our data
+            target_pulse_length = max(pulse_lengths)
+
+        #  create a couple of dictionaries to store resampling parameters by sample interval
+        sample_factor = {}
+        rows_this_pulse_len = {}
+
+        #  determine number of samples in the output array
+        new_sample_dims = 0
+        for pulse_length in pulse_lengths:
+            #  determine the resampling factor
+            if (target_pulse_length > pulse_length):
+                #  we're reducing resolution - determine the number of samples to average
+                sample_factor[pulse_length] = target_pulse_length / pulse_length
+            else:
+                #  we're increasing resolution - determine the number of samples to expand
+                sample_factor[pulse_length] = pulse_length / target_pulse_length
+
+            #  determine the rows in this subset with this pulse length
+            rows_this_pulse_len[pulse_length] = np.where(self.pulse_length[row_bounds] == pulse_length)[0]
+
+            #  and determine the maximum number of samples for this pulse length - this has to
+            #  be done on a row-by-row basis since sample number can change on the fly
+            max_samples_this_pulse_len = max(self.sample_count[rows_this_pulse_len[pulse_length]])
+            max_dim_this_pulse_len = int(round(max_samples_this_pulse_len * sample_factor[pulse_length]))
+            if (max_dim_this_pulse_len > new_sample_dims):
+                    new_sample_dims = max_dim_this_pulse_len
+
+        #  now that we know the final dimensions of the power array create the it
+        #  in the ProcessedData object and fill with NaNs (which aren't NaNs since the type is int16)
+        processed_data.power = np.empty((n_pings, new_sample_dims), np.int16)
+        processed_data.power.fill(np.nan)
+
+        #  and fill it with data
+        for pulse_length in pulse_lengths:
+            #  determine the unique sample_counts for this pulse length
+            unique_sample_counts = np.unique(self.sample_count[rows_this_pulse_len[pulse_length]])
+            for count in unique_sample_counts:
+                #  determine if we're reducing, expanding, or keeping the same number of samples
                 if (target_pulse_length > pulse_length):
-                    #  we're reducing resolution - determine the number of samples to average
-                    sample_factor = target_pulse_length / pulse_length
+                    #  we're reducing the number of samples
+
+                    #  if we're resampling power convert power to linear units
+                    if (is_power):
+                        this_data = np.power(data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count] / 20.0, 10.0)
+
+                    # reduce
+                    this_data =  np.mean(this_data.reshape(-1, int(sample_factor[pulse_length])), axis=1)
+
+                    if (is_power):
+                        #  convert power back to log units
+                        this_data = 20.0 * np.log10(this_data)
+
+                elif (target_pulse_length < pulse_length):
+                    #  we're increasing the number of samples
+
+                    #  replicate the values to fill out the higher resolution array
+                    this_data = np.repeat(data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count][:,0:count],
+                            int(sample_factor[pulse_length]), axis=1)
+
                 else:
-                    #  we're increasing resolution - determine the number of samples to expand
-                    sample_factor = pulse_length / target_pulse_length
+                    #  no change in sample resolution for this pulse length
+                    this_data = data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count]
 
-                #  determine the rows in this subset with this pulse length
-                rows_this_pulse_len = np.where(self.pulse_length[row_bounds] == pulse_length)[0]
-                for row in rows_this_pulse_len:
-                    #  get the index of the farthest valid sample in this row
-                    row_sample_len = max(row_samples, max(np.where(valid_samples[row,:]) == True)[0])
-                    row_sample_len = round(row_sample_len * sample_factor)
-                    #  and check if this is the largest sample idx
-                    if (row_sample_len > new_sample_len):
-                        new_sample_len = row_sample_len
-
-            #  now that we know the final dimensions of the power array create the it
-            #  in the ProcessedData object and fill with NaNs
-            power_data.power = self.power = np.empty((self.n_pings, new_sample_len), np.int16)
-            power_data.power.fill(np.nan)
+                #  assign new values to output array
+                processed_data.power[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count, 0:this_data.shape[1]]  = this_data
 
 
-                if (pulse_length != target_pulse_length):
-                    pass
 
-
-            self.power = self._resample_data(self.power, pulse_length, target_pulse_length, is_power=False):
 
     def get_electrical_angles(self, **kwargs):
         '''
