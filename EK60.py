@@ -866,7 +866,8 @@ class RawData(object):
         return (index)
 
 
-    def get_ping_indices(self, start_ping=None, end_ping=None, start_time=None, end_time=None):
+    def get_ping_indices(self, start_ping=None, end_ping=None, start_time=None,
+            end_time=None, as_array=False):
         '''
         get_ping_indices maps ping number and/or ping time to an index into the acoustic
         data arrays.
@@ -887,7 +888,12 @@ class RawData(object):
             raise ValueError('The end_ping or end_time provided comes before ' +
                     'the start_ping or start_time.')
 
-        return (start_idx, end_idx)
+        if (as_array):
+            #  return indices as an array of indexs
+            return np.arange(end_idx + 1) + start_idx
+        else:
+            #  return indices as a start, stop tuple
+            return (start_idx, end_idx)
 
 
     def get_sv(self, cal_parameters=None, linear=False, **kwargs):
@@ -935,7 +941,7 @@ class RawData(object):
         pass
 
 
-    def get_power(self, target_pulse_length=RESAMPLE_SHORTEST, **kwargs):
+    def get_power(self, calibration=None, target_pulse_length=RESAMPLE_SHORTEST, **kwargs):
         '''
         get_power returns a processed data object that contains the power data.
 
@@ -945,39 +951,135 @@ class RawData(object):
 
         '''
 
-        #TODO: row_bounds seems to be off at the end by 1 ping
+        #  get an array of index values to return
+        row_bounds = self.get_ping_indices(as_array=True, **kwargs)
 
-        #  get the horizontal start and end indicies
-        row_bounds = self.get_ping_indices(**kwargs)
-        row_bounds = np.arange(row_bounds[1]) + row_bounds[0]
-
-        #  create the ProcessedData
+        #  create the ProcessedData object we will return
         power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
 
+        #  extract params from the calibration object (if provided)
+        if (calibration):
+            #  check if we were provided a transducer depth
+            if (calibration.transducer_depth):
+                #  check if it is an array or a scalar value
+                if isinstance(calibration.transducer_depth, np.ndarray):
+                    #  check if it is a single value array
+                    if (calibration.transducer_depth.shape[0] == 1):
+                        power_data.transducer_depth = np.empty((row_bounds.shape[0]), np.float32)
+                        power_data.transducer_depth.fill(calibration.transducer_depth)
+                    #  check if it is an array the same length as contained in the raw data
+                    elif (calibration.transducer_depth.shape[0] == self.transducer_depth.shape[0]):
+                            power_data.transducer_depth = calibration.transducer_depth.copy()
+                    else:
+                        #  it is an array that is the wrong shape
+                        #TODO: Better error text
+                        raise ValueError("The transducer_depth array provided is the wrong length.")
+                #  not an array - check if it is a scalar int or float
+                elif (type(calibration.transducer_depth) == int or
+                    type(calibration.transducer_depth) == float):
+                        power_data.transducer_depth = np.empty((row_bounds.shape[0]), np.float32)
+                        power_data.transducer_depth.fill(calibration.transducer_depth)
+                else:
+                    #  invalid type provided
+                    #TODO: Better error text
+                    raise ValueError("The transducer_depth value must be an ndarray or scalar float.")
+            else:
+                #  transducer depth is not provided, copy it from the raw data
+                power_data.transducer_depth = self.transducer_depth.copy()
+
+            #  check if we have been provided pulse_lengths from the calibration object
+            if (calibration.pulse_length):
+                #  check if it is an array or a scalar value
+                if isinstance(calibration.pulse_length, np.ndarray):
+                    #  check if it is a single value array
+                    if (calibration.pulse_length.shape[0] == 1):
+                        pulse_lengths = np.empty((row_bounds.shape[0]), np.float32)
+                        pulse_lengths.fill(calibration.pulse_length)
+                    #  check if it is an array the same length as contained in the raw data
+                    elif (calibration.pulse_length.shape[0] == self.pulse_length.shape[0]):
+                            pulse_lengths = calibration.pulse_length.copy()
+                    else:
+                        #  it is an array that is the wrong shape
+                        #TODO: Better error text
+                        raise ValueError("The pulse_length calibration array is the wrong length.")
+                #  not an array - check if it is a scalar int or float
+                elif (type(calibration.pulse_length) == int or
+                    type(calibration.pulse_length) == float):
+                        pulse_lengths = np.empty((row_bounds.shape[0]), np.float32)
+                        pulse_lengths.fill(calibration.pulse_length)
+                else:
+                    #  invalid type provided
+                    #TODO: Better error text
+                    raise ValueError("The pulse_length value must be an ndarray or scalar float.")
+            else:
+                #  transducer depth is not provided, get it from the raw data
+                pulse_lengths = self.pulse_length
+
+            #  check if we have been provided pulse_lengths from the calibration object
+            if (calibration.sound_speed):
+                #  check if it is an array or a scalar value
+                if isinstance(calibration.sound_speed, np.ndarray):
+                    #  check if it is a single value array
+                    if (calibration.sound_speed.shape[0] == 1):
+                        sound_speeds = np.empty((row_bounds.shape[0]), np.float32)
+                        sound_speeds.fill(calibration.sound_speed)
+                    #  check if it is an array the same length as contained in the raw data
+                    elif (calibration.sound_speed.shape[0] == self.sound_speed.shape[0]):
+                            sound_speeds = calibration.pulse_length.copy()
+                    else:
+                        #  it is an array that is the wrong shape
+                        #TODO: Better error text
+                        raise ValueError("The sound_speed calibration array is the wrong length.")
+                #  not an array - check if it is a scalar int or float
+                elif (type(calibration.sound_speed) == int or
+                    type(calibration.sound_speed) == float):
+                        sound_speeds = np.empty((row_bounds.shape[0]), np.float32)
+                        sound_speeds.fill(calibration.sound_speed)
+                else:
+                    #  invalid type provided
+                    #TODO: Better error text
+                    raise ValueError("The sound_speeds value must be an ndarray or scalar float.")
+
+        else:
+            #  No calibration object provided - use values from the raw data
+            pulse_lengths = self.pulse_length
+            sound_speeds = self.sound_speed
+            power_data.transducer_depth = self.transducer_depth.copy()
+
         # check if we need to vertically resample our sample data
-        pulse_lengths = np.unique(self.pulse_length[row_bounds])
-        if (pulse_lengths.shape[0] > 1):
-            #  there are at least 2 different pulse lengths in the data - we must resample the
-            #  power data
+        unique_pulse_lengths = np.unique(pulse_lengths[row_bounds])
+        if (unique_pulse_lengths.shape[0] > 1):
+            #  there are at least 2 different pulse lengths in the data - we must resample the power data
+            self._resample_sample_data(self.power, row_bounds, pulse_lengths, unique_pulse_lengths,
+                    target_pulse_length, power_data, is_power=True)
+        else:
+            #  the data all have the same pulse length - just copy power
+            power_data.power = self.power.copy()
+
+
+        unique_sound_speeds = np.unique(sound_speeds[row_bounds])
+        if (unique_sound_speeds.shape[0] > 1):
+            #  there are at least 2 different sound speeds in the data - generate a 2d range array
+            #  and then interpolate onto a fixed range grid
             self._resample_sample_data(self.power, row_bounds, pulse_lengths, target_pulse_length,
                     power_data, is_power=True)
         else:
             #  the data all have the same pulse length - just copy power
             power_data.power = self.power.copy()
 
+
         #  now populate some of the other ProcessedData fields
         power_data.ping_time = self.ping_time[:]
         power_data.ping_number = self.ping_number.copy()
-        power_data.transducer_depth = self.transducer_depth.copy()
 
 
         return power_data
 
 
-    def _resample_sample_data(self, data, row_bounds, pulse_lengths, target_pulse_length,
-            processed_data, is_power=True):
+    def _resample_sample_data(self, data, row_bounds, pulse_lengths, unique_pulse_lengths,
+            target_pulse_length, processed_data, is_power=True):
         '''
-        _resample_sample_data vertically resamples power or angle data. It
+        _resample_sample_data vertically resamples power or angle data.
         '''
 
         #  determine the number of pings in the new array
@@ -986,10 +1088,10 @@ class RawData(object):
         # check if we need to substitute our target_pulse_length value
         if (target_pulse_length == self.RESAMPLE_SHORTEST):
             #  resample to the shortest of the pulse lengths in our data
-            target_pulse_length = min(pulse_lengths)
+            target_pulse_length = min(unique_pulse_lengths)
         elif (target_pulse_length == self.RESAMPLE_LONGEST):
             #  resample to the longest of the pulse lengths in our data
-            target_pulse_length = max(pulse_lengths)
+            target_pulse_length = max(unique_pulse_lengths)
 
         #  create a couple of dictionaries to store resampling parameters by sample interval
         sample_factor = {}
@@ -997,7 +1099,7 @@ class RawData(object):
 
         #  determine number of samples in the output array
         new_sample_dims = 0
-        for pulse_length in pulse_lengths:
+        for pulse_length in unique_pulse_lengths:
             #  determine the resampling factor
             if (target_pulse_length > pulse_length):
                 #  we're reducing resolution - determine the number of samples to average
@@ -1007,7 +1109,7 @@ class RawData(object):
                 sample_factor[pulse_length] = pulse_length / target_pulse_length
 
             #  determine the rows in this subset with this pulse length
-            rows_this_pulse_len[pulse_length] = np.where(self.pulse_length[row_bounds] == pulse_length)[0]
+            rows_this_pulse_len[pulse_length] = np.where(pulse_lengths[row_bounds] == pulse_length)[0]
 
             #  and determine the maximum number of samples for this pulse length - this has to
             #  be done on a row-by-row basis since sample number can change on the fly
@@ -1022,7 +1124,7 @@ class RawData(object):
         processed_data.power.fill(np.nan)
 
         #  and fill it with data
-        for pulse_length in pulse_lengths:
+        for pulse_length in unique_pulse_lengths:
             #  determine the unique sample_counts for this pulse length
             unique_sample_counts = np.unique(self.sample_count[rows_this_pulse_len[pulse_length]])
             for count in unique_sample_counts:
@@ -1032,7 +1134,8 @@ class RawData(object):
 
                     #  if we're resampling power convert power to linear units
                     if (is_power):
-                        this_data = np.power(data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count] / 20.0, 10.0)
+                        this_data = np.power(data[rows_this_pulse_len[pulse_length]]
+                                [self.sample_count[rows_this_pulse_len[pulse_length]] == count] / 20.0, 10.0)
 
                     # reduce
                     this_data =  np.mean(this_data.reshape(-1, int(sample_factor[pulse_length])), axis=1)
@@ -1045,15 +1148,19 @@ class RawData(object):
                     #  we're increasing the number of samples
 
                     #  replicate the values to fill out the higher resolution array
-                    this_data = np.repeat(data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count][:,0:count],
+                    this_data = np.repeat(data[rows_this_pulse_len[pulse_length]]
+                            [self.sample_count[rows_this_pulse_len[pulse_length]] == count][:,0:count],
                             int(sample_factor[pulse_length]), axis=1)
 
                 else:
                     #  no change in sample resolution for this pulse length
-                    this_data = data[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count]
+                    this_data = data[rows_this_pulse_len[pulse_length]] \
+                            [self.sample_count[rows_this_pulse_len[pulse_length]] == count]
 
                 #  assign new values to output array
-                processed_data.power[rows_this_pulse_len[pulse_length]][self.sample_count[rows_this_pulse_len[pulse_length]] == count, 0:this_data.shape[1]]  = this_data
+                processed_data.power[rows_this_pulse_len[pulse_length]] \
+                        [self.sample_count[rows_this_pulse_len[pulse_length]] == count, \
+                        0:this_data.shape[1]]  = this_data
 
 
 
