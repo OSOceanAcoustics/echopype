@@ -312,7 +312,6 @@ def _range_vector(offset, count, sound_velocity, sample_interval, tvg_correction
 
     dR = sound_velocity * sample_interval / 2.0
     sample_range = (np.arange(0, count) + offset) * dR
-#    sample_range = count.apply(lambda x: np.arange(x)) + offset * dR
     corrected_range = sample_range - (tvg_correction * dR)
     corrected_range[corrected_range < 0] = 0
 
@@ -412,6 +411,8 @@ def power_to_Sv(data, gain, eba, sa_correction, calibration=None,
     tvg[tvg == 0] = 1
     tvg = 20 * np.log10(tvg)
     tvg[tvg < 0] = 0
+
+    #TODO: CHECK IF POWER DATA IS ALREADY CONVERTED FROM INDEXED POWER BY ZAC'S READING CODE
 
     if raw:
         raw_factor = 10.0 * np.log10(2.0) / 256.0
