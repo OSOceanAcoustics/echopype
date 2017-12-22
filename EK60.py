@@ -401,25 +401,23 @@ class RawData(object):
 
     #  define some instrument specific constants
 
-    #  there are 4 samples per transmit pulse duration with the EK60 and related hardware
-    SAMPLES_PER_PULSE = 4
-
     #  Simrad recommends a TVG correction factor of 2 samples to compensate for receiver delay and TVG
     #  start time delay in EK60 and related hardware. Note that this correction factor is only applied
     #  when computing Sv/sv and not Sp/sp.
     TVG_CORRECTION = 2
 
-    #  define constants used to specify the target pulse length for power conversion functions.
-    #  these value names are in microseconds and the values in seconds.
+    #  define constants used to specify the target resampling interval for the power and angle
+    #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
+    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
     RESAMPLE_SHORTEST = 0
-    RESAMPLE_64   = 0.000064
+    RESAMPLE_16   = 0.000016
+    RESAMPLE_32  = 0.000032
+    RESAMPLE_64  = 0.000064
     RESAMPLE_128  = 0.000128
-    RESAMPLE_256  = 0.000256
-    RESAMPLE_512  = 0.000512
+    RESAMPLE_256 = 0.000256
+    RESAMPLE_512 = 0.000512
     RESAMPLE_1024 = 0.001024
     RESAMPLE_2048 = 0.002048
-    RESAMPLE_4096 = 0.004096
-    RESAMPLE_8192 = 0.008192
     RESAMPLE_LONGEST = 1
 
 
@@ -864,7 +862,7 @@ class RawData(object):
             #  ping must have been provided
             #  make sure we've been passed an integer defining the start ping
             ping = int(ping)
-            if (not type(ping) is int) or (not type(ping) is float):
+            if (not (type(ping) is int or type(ping) is float)):
                 raise TypeError('ping must be an number.')
 
             #  and find the index of the closest ping_number
@@ -952,12 +950,22 @@ class RawData(object):
         pass
 
 
-    def get_power(self, calibration=None, sample_interval=RESAMPLE_SHORTEST, **kwargs):
+    def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
+            tvg_correction=TVG_CORRECTION, **kwargs):
         '''
-        get_power returns a processed data object that contains the power data.
+        get_power returns a processed data object that contains the power data. It performs
+        all of the required transformations to place the raw power data into a rectangular
+        array where all samples share the same thickness and are correctly arranged relative
+        to each other.
 
-        This method will vertically resample the raw power data according to the keyword inputs.
-        By default we will resample to the highest resolution (shortest sample interval) in the object.
+        This process happens in 3 steps:
+
+                Data are resampled so all samples have the same thickness
+                Data are shifted vertically to account for the sample offsets
+                Data are then regridded to a fixed time, range grid
+
+        Each step is performed only when required. Calls to this method will return much
+        faster if the raw data share the same sample thickness, offset and sound speed.
 
         If calibration is set to an instance of EK60.CalibrationParameters the values in
         that object (if set) will be used when performing the transformations required to
@@ -972,8 +980,9 @@ class RawData(object):
         #  create the ProcessedData object we will return
         power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
 
-        #  create a stub reference to the power field - we populate it later
-        power_data.power = None
+        #  populate it with time and ping number
+        power_data.ping_time = self.ping_time[:]
+        power_data.ping_number = self.ping_number.copy()
 
         #  extract params from the calibration object (if provided)
         if (calibration):
@@ -1005,33 +1014,33 @@ class RawData(object):
                 #  transducer depth is not provided, copy it from the raw data
                 power_data.transducer_depth = self.transducer_depth.copy()
 
-            #  check if we have been provided pulse_lengths from the calibration object
-            if (calibration.pulse_length):
+            #  check if we have been provided sample_intervals from the calibration object
+            if (calibration.sample_interval):
                 #  check if it is an array or a scalar value
-                if isinstance(calibration.pulse_length, np.ndarray):
+                if isinstance(calibration.sample_interval, np.ndarray):
                     #  check if it is a single value array
-                    if (calibration.pulse_length.shape[0] == 1):
-                        pulse_lengths = np.empty((row_bounds.shape[0]), np.float32)
-                        pulse_lengths.fill(calibration.pulse_length)
+                    if (calibration.sample_interval.shape[0] == 1):
+                        sample_intervals = np.empty((row_bounds.shape[0]), np.float32)
+                        sample_intervals.fill(calibration.sample_interval)
                     #  check if it is an array the same length as contained in the raw data
-                    elif (calibration.pulse_length.shape[0] == self.pulse_length.shape[0]):
-                            pulse_lengths = calibration.pulse_length.copy()
+                    elif (calibration.sample_interval.shape[0] == self.sample_interval.shape[0]):
+                            sample_intervals = calibration.sample_interval.copy()
                     else:
                         #  it is an array that is the wrong shape
                         #TODO: Better error text
-                        raise ValueError("The pulse_length calibration array is the wrong length.")
+                        raise ValueError("The sample_interval calibration array is the wrong length.")
                 #  not an array - check if it is a scalar int or float
-                elif (type(calibration.pulse_length) == int or
-                    type(calibration.pulse_length) == float):
-                        pulse_lengths = np.empty((row_bounds.shape[0]), np.float32)
-                        pulse_lengths.fill(calibration.pulse_length)
+                elif (type(calibration.sample_interval) == int or
+                    type(calibration.sample_interval) == float):
+                        sample_intervals = np.empty((row_bounds.shape[0]), np.float32)
+                        sample_intervals.fill(calibration.sample_interval)
                 else:
                     #  invalid type provided
                     #TODO: Better error text
-                    raise ValueError("The pulse_length value must be an ndarray or scalar float.")
+                    raise ValueError("The sample_interval value must be an ndarray or scalar float.")
             else:
-                #  pulse length is not provided, get it from the raw data
-                pulse_lengths = self.pulse_length
+                #  sample_interval is not provided, get it from the raw data
+                sample_intervals = self.sample_interval
 
             #  check if we have been provided pulse_lengths from the calibration object
             if (calibration.sound_speed):
@@ -1085,8 +1094,8 @@ class RawData(object):
 
         else:
             #  No calibration object provided - use values from the raw data
-            pulse_lengths = self.pulse_length
-            sound_speeds = self.sound_speed
+            sample_intervals = self.sample_interval
+            sound_speeds = self.sound_velocity
             sample_offsets = self.sample_offset
             power_data.transducer_depth = self.transducer_depth.copy()
 
@@ -1094,36 +1103,51 @@ class RawData(object):
         unique_sample_offsets = np.unique(sample_offsets)
         min_sample_offset = min(unique_sample_offsets)
 
-        # check if we need to vertically resample our sample data
-        unique_pulse_lengths = np.unique(pulse_lengths[row_bounds])
-        if (unique_pulse_lengths.shape[0] > 1):
-            #  there are at least 2 different pulse lengths in the data - we must resample the power data
-            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            pulse_length = self._resample_sample_data(self.power, power_data.power, row_bounds,
-                    pulse_lengths, unique_pulse_lengths, target_pulse_length, sample_offsets,
-                    min_sample_offset, is_power=True)
-        else:
-            #  we don't have to resample, but check if we need to shift any samples based on their
-            #  sample offsets.
-            if (unique_sample_offsets.shape[0] > 1):
-                #  we have multiple sample offsets so we need to shift some of the samples
-                self._adjust_sample_offsets(self.power, power_data.power, sample_offsets,
-                        unique_sample_offsets, min_sample_offset)
+#        # check if we need to resample our sample data
+#        unique_sample_intervals = np.unique(sample_intervals[row_bounds])
+#        if (unique_sample_intervals.shape[0] > 1):
+#            #  there are at least 2 different sample intervals in the data - we must resample the power data
+#            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
+#            (power_data.power, sample_interval) = self._resample_sample_data(self.power, row_bounds,
+#                    sample_intervals, unique_sample_intervals, resample_interval, sample_offsets,
+#                    min_sample_offset, is_power=True)
+#        else:
+#            #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
+#            if (unique_sample_offsets.shape[0] > 1):
+#                #  we have multiple sample offsets so we need to shift some of the samples
+#                power_data.power = self._shift_sample_offsets(self.power, row_bounds, sample_offsets,
+#                        unique_sample_offsets, min_sample_offset)
+#            else:
+#                #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
+#                power_data.power = self.power.copy()
+#
+#            #  and get the sample interval value to use for range conversion below
+#            sample_interval = unique_sample_intervals[0]
 
-            #  the data all have (or have been provided) the same pulse length  - just copy power
-            power_data.power = self.power.copy()
-            #  and get a pulse length value to use for range conversion below
-            pulse_length = unique_pulse_lengths[0]
-
+        power_data.power = self.power.copy()
+        sample_interval=0
 
 
         #  check if we have a fixed sound speed
         unique_sound_speeds = np.unique(sound_speeds[row_bounds])
         if (unique_sound_speeds.shape[0] > 1):
             #  there are at least 2 different sound speeds in the data - generate a 2d range array
-            #  and then interpolate onto a fixed range grid
-            self._resample_sample_data(self.power, row_bounds, pulse_lengths, target_pulse_length,
-                    power_data, is_power=True)
+            range_data = np.empty_like(power_data.power, dtype='float32')
+            #  calculate and fill array by sound speed
+            for sound_speed in unique_sound_speeds:
+                #  calculate the thickness of samples with this sound speed
+                this_thickness = sample_interval * sound_speed / 2.0
+                #  calculate the range vector
+                this_range = (np.arange(0, power_data.power.shape[1]) + min_sample_offset) * this_thickness
+                #  apply TVG range correction
+                this_range = this_range - (tvg_correction * this_thickness)
+                #  zero negative ranges
+                this_range[this_range < 0] = 0
+                #  and assign this range to the pings with this sound speed
+                range_data[self.sound_velocity == sound_speed,:] = this_range
+
+
+            pass
         else:
             sound_speed = unique_sound_speeds[0]
 
@@ -1133,57 +1157,55 @@ class RawData(object):
             pass
 
 
-        #  now populate some of the other ProcessedData fields
-        power_data.ping_time = self.ping_time[:]
-        power_data.ping_number = self.ping_number.copy()
-        #  for EK60 hardware sample thickness = C * tau / 8
-        power_data.sample_thickness = pulse_length * sound_speed / 8.0
+        #  compute sample thickness and set the sample offset
+        power_data.sample_thickness = sample_interval * sound_speed / 2.0
         power_data.sample_offset = min_sample_offset
+
 
 
         return power_data
 
 
-    def _adjust_sample_offsets(self, data, processed_data, row_bounds, sample_offsets,
+    def _shift_sample_offsets(self, data, processed_data, row_bounds, sample_offsets,
             unique_sample_offsets, min_sample_offset):
         '''
-        _adjust_sample_offsets adjusts the output array size and pads the top of the
-        samples array to vertically adjust the positions of the sample data in the output
-        array such that the minimum offset is the first sample. Pings with offsets
-        greater than the minimum will be padded on the top, shifting them into their
-        correct location relative to the other pings.
+        _shift_sample_offsets adjusts the output array size and pads the top of the
+        samples array to vertically shift the positions of the sample data in the output
+        array. Pings with offsets greater than the minimum will be padded on the top,
+        shifting them into their correct location relative to the other pings.
 
         The result is an output array with samples that are properly aligned vertically
         relative to each other with a sample offset that is constant and equal to the
         minimum of the original sample offsets.
 
-        This method is only called if our data has a constant pulse length but varying
-        sample offsets. If the data has multiple pulse lengths the offset adjustment
-        is done in _resample_sample_data.
+        This method is only called if our data has a constant sample interval but
+        varying sample offsets. If the data has multiple sample intervals the offset
+        adjustment is done in _resample_sample_data.
         '''
 
         #  determine the new array size
         new_sample_dims = data.shape[1] + max(sample_offsets) - min_sample_offset
 
         #  create the new array
-        processed_data = np.empty((data.shape[0], new_sample_dims), np.int16)
-        processed_data.fill(np.nan)
+        shifted_data = np.empty((data.shape[0], new_sample_dims), np.int16)
+        shifted_data.fill(np.nan)
 
-        #  and fill it
+        #  and fill it looping over the different sample offsets
         for offset in unique_sample_offsets:
             rows_this_offset = np.where(sample_offsets[row_bounds] == offset)[0]
-            offset_index = offset - min_sample_offset
-            processed_data[rows_this_offset, offset_index:
+            start_index = offset - min_sample_offset
+            end_index = start_index + data.shape[1]
+            shifted_data[rows_this_offset, start_index:end_index] = data[rows_this_offset, 0:data.shape[1]]
+
+        return shifted_data
 
 
-
-
-    def _resample_sample_data(self, data, processed_data, row_bounds, pulse_lengths,
-            unique_pulse_lengths, target_pulse_length, sample_offsets,
+    def _resample_sample_data(self, data, row_bounds, sample_intervals,
+            unique_sample_intervals, resample_interval, sample_offsets,
             min_sample_offset, is_power=True):
         '''
         _resample_sample_data vertically resamples power or angle data given a target
-        pulse length. This method also shifts samples vertically based on their sample
+        sample interval. This method also shifts samples vertically based on their sample
         offset so they are positioned correctly relative to each other. The first sample
         in the resulting array will have an offset that is the minimum of all offsets in
         the data.
@@ -1192,100 +1214,106 @@ class RawData(object):
         #  determine the number of pings in the new array
         n_pings = row_bounds.shape[0]
 
-        # check if we need to substitute our target_pulse_length value
-        if (target_pulse_length == self.RESAMPLE_SHORTEST):
-            #  resample to the shortest of the pulse lengths in our data
-            target_pulse_length = min(unique_pulse_lengths)
-        elif (target_pulse_length == self.RESAMPLE_LONGEST):
-            #  resample to the longest of the pulse lengths in our data
-            target_pulse_length = max(unique_pulse_lengths)
+        # check if we need to substitute our resample_interval value
+        if (resample_interval == self.RESAMPLE_SHORTEST):
+            #  resample to the shortest sample interval in our data
+            resample_interval = min(unique_sample_intervals)
+        elif (resample_interval == self.RESAMPLE_LONGEST):
+            #  resample to the longest sample interval in our data
+            resample_interval = max(unique_sample_intervals)
 
         #  create a couple of dictionaries to store resampling parameters by sample interval
         #  they will be used again when we fill the output array with the resampled data.
-        sample_factor = {}
-        rows_this_pulse_len = {}
-        sample_offsets_this_pulse_len = {}
+        resample_factor = {}
+        rows_this_interval = {}
+        sample_offsets_this_interval = {}
 
         #  determine number of samples in the output array - to do this we must loop thru
-        #  the pulse lengths, determine the resampling factor, then find the maximum sample
-        #  count at that pulse length (taking into account the sample's offset) and multiply
-        #  by the resampling factor to determine the max number of samples for that pulse length.
+        #  the sample intervals, determine the resampling factor, then find the maximum sample
+        #  count at that sample interval (taking into account the sample's offset) and multiply
+        #  by the resampling factor to determine the max number of samples for that sample interval.
         new_sample_dims = 0
-        for pulse_length in unique_pulse_lengths:
+        for sample_interval in unique_sample_intervals:
             #  determine the resampling factor
-            if (target_pulse_length > pulse_length):
+            if (resample_interval > sample_interval):
                 #  we're reducing resolution - determine the number of samples to average
-                sample_factor[pulse_length] = target_pulse_length / pulse_length
+                resample_factor[sample_interval] = resample_interval / sample_interval
             else:
                 #  we're increasing resolution - determine the number of samples to expand
-                sample_factor[pulse_length] = pulse_length / target_pulse_length
+                resample_factor[sample_interval] = sample_interval / resample_interval
 
-            #  determine the rows in this subset with this pulse length
-            rows_this_pulse_len[pulse_length] = np.where(pulse_lengths[row_bounds] == pulse_length)[0]
+            #  determine the rows in this subset with this sample interval
+            rows_this_interval[sample_interval] = np.where(sample_intervals[row_bounds] == sample_interval)[0]
 
-            #  determine the net vertical shift for the samples with this pulse length
-            sample_offsets_this_pulse_len[pulse_length] = sample_offsets[rows_this_pulse_len[pulse_length]] - \
+            #  determine the net vertical shift for the samples with this sample interval
+            sample_offsets_this_interval[sample_interval] = sample_offsets[rows_this_interval[sample_interval]] - \
                     min_sample_offset
 
-            #  and determine the maximum number of samples for this pulse length - this has to
+            #  and determine the maximum number of samples for this sample interval - this has to
             #  be done on a row-by-row basis since sample number can change on the fly. We include
             #  the sample offset to ensure we have room to shift our samples vertically by the offset
-            max_samples_this_pulse_len = max(self.sample_count[rows_this_pulse_len[pulse_length]] +
-                    sample_offsets_this_pulse_len[pulse_length])
-            max_dim_this_pulse_len = int(round(max_samples_this_pulse_len * sample_factor[pulse_length]))
-            if (max_dim_this_pulse_len > new_sample_dims):
-                    new_sample_dims = max_dim_this_pulse_len
+            max_samples_this_sample_int = max(self.sample_count[rows_this_interval[sample_interval]] +
+                    sample_offsets_this_interval[sample_interval])
+            max_dim_this_sample_int = int(round(max_samples_this_sample_int * resample_factor[sample_interval]))
+            if (max_dim_this_sample_int > new_sample_dims):
+                    new_sample_dims = max_dim_this_sample_int
 
-        #  now that we know the dimensions of the output power array create the it in the ProcessedData
-        #  object and fill with NaNs (which aren't NaNs since the type is int16)
-        processed_data = np.empty((n_pings, new_sample_dims), np.int16)
-        processed_data.fill(np.nan)
+        #  now that we know the dimensions of the output array create the it and fill with NaNs
+        #  (which aren't NaNs since the type is int16)
+        resampled_data = np.empty((n_pings, new_sample_dims), np.int16)
+        resampled_data.fill(np.nan)
 
-        #  and fill it with data - We loop thru the pulse lengths and within a pulse length extract slices
+        #  and fill it with data - We loop thru the sample intervals and within an interval extract slices
         #  of data that share the same number of samples (to reduce looping). We then determine if we're
         #  expanding or shrinking the number of samples. If expanding we simply replicate existing sample
         #  data to fill out the expaned array. If reducing, we take the mean of the samples. Power data is
         #  converted to linear units before the mean is computed and then transformed back.
-        for pulse_length in unique_pulse_lengths:
-            #  determine the unique sample_counts for this pulse length
-            unique_sample_counts = np.unique(self.sample_count[rows_this_pulse_len[pulse_length]])
+        for sample_interval in unique_sample_intervals:
+            #  determine the unique sample_counts for this sample interval
+            unique_sample_counts = np.unique(self.sample_count[rows_this_interval[sample_interval]])
             for count in unique_sample_counts:
                 #  determine if we're reducing, expanding, or keeping the same number of samples
-                if (target_pulse_length > pulse_length):
+                if (resample_interval > sample_interval):
                     #  we're reducing the number of samples
 
                     #  if we're resampling power convert power to linear units
                     if (is_power):
-                        this_data = np.power(data[rows_this_pulse_len[pulse_length]]
-                                [self.sample_count[rows_this_pulse_len[pulse_length]] == count] / 20.0, 10.0)
+                        this_data = np.power(data[rows_this_interval[sample_interval]]
+                                [self.sample_count[rows_this_interval[sample_interval]] == count] / 20.0, 10.0)
 
                     #  reduce the number of samples by taking the mean
-                    this_data =  np.mean(this_data.reshape(-1, int(sample_factor[pulse_length])), axis=1)
+                    this_data =  np.mean(this_data.reshape(-1, int(resample_factor[sample_interval])), axis=1)
 
                     if (is_power):
                         #  convert power back to log units
                         this_data = 20.0 * np.log10(this_data)
 
-                elif (target_pulse_length < pulse_length):
+                elif (resample_interval < sample_interval):
                     #  we're increasing the number of samples
 
                     #  replicate the values to fill out the higher resolution array
-                    this_data = np.repeat(data[rows_this_pulse_len[pulse_length]]
-                            [self.sample_count[rows_this_pulse_len[pulse_length]] == count][:,0:count],
-                            int(sample_factor[pulse_length]), axis=1)
+                    this_data = np.repeat(data[rows_this_interval[sample_interval]]
+                            [self.sample_count[rows_this_interval[sample_interval]] == count][:,0:count],
+                            int(resample_factor[sample_interval]), axis=1)
 
                 else:
-                    #  no change in sample resolution for this pulse length
-                    this_data = data[rows_this_pulse_len[pulse_length]] \
-                            [self.sample_count[rows_this_pulse_len[pulse_length]] == count]
+                    #  no change in resolution for this sample interval
+                    this_data = data[rows_this_interval[sample_interval]] \
+                            [self.sample_count[rows_this_interval[sample_interval]] == count]
 
-                #  assign new values to output array
-                processed_data[rows_this_pulse_len[pulse_length]] \
-                        [self.sample_count[rows_this_pulse_len[pulse_length]] == count, \
-                        sample_offsets_this_pulse_len[pulse_length]:this_data.shape[1]]  = this_data
 
-        #  return the pulse length of the resampled data
-        return target_pulse_length
+                #  generate the index array for this sample interval/sample count chunk of data
+                rows_this_interval_count = rows_this_interval[sample_interval] \
+                        [self.sample_count[rows_this_interval[sample_interval]] == count]
+
+                #  assign new values to output array - at the same time we will shift the data by sample offset
+                unique_sample_offsets = np.unique(sample_offsets_this_interval[sample_interval])
+                for offset in unique_sample_offsets:
+                    resampled_data[rows_this_interval_count,
+                            offset:offset + this_data.shape[1]]  = this_data
+
+        #  return the sample interval of the resampled data
+        return (resampled_data, resample_interval)
 
 
     def get_electrical_angles(self, **kwargs):
@@ -1504,48 +1532,7 @@ class RawData(object):
         return msg
 
 
-    def _resample_data(self, data, pulse_length, target_pulse_length, is_power=False):
-        '''
-        _resample_data returns a resamples the power or angle data based on it's pulse length
-        and the provided target pulse length. If is_power is True, we log transform the
-        data to average in linear units (if needed).
 
-        The method returns the resized array.
-        '''
-
-        #  first make sure we need to do something
-        if (pulse_length == target_pulse_length):
-            #  nothing to do, just return the data unchanged
-            return data
-
-        if (target_pulse_length > pulse_length):
-            #  we're reducing resolution - determine the number of samples to average
-            sample_reduction = int(target_pulse_length / pulse_length)
-
-            if (is_power):
-                #  convert *power* to linear units
-                data = np.power(data/20.0, 10.0)
-
-            # reduce
-            data = np.mean(data.reshape(-1, sample_reduction), axis=1)
-
-            if (is_power):
-                #  convert *power* back to log units
-                data = 20.0 * np.log10(data)
-
-        else:
-            #  we're increasing resolution - determine the number of samples to expand
-            sample_expansion = int(pulse_length / target_pulse_length)
-
-            #  replicate the values to fill out the higher resolution array
-            data = np.repeat(data, sample_expansion)
-
-
-        #  update the pulse length and sample interval values
-        data['pulse_length'] = target_pulse_length
-        data['sample_interval'] = target_pulse_length / self.SAMPLES_PER_PULSE
-
-        return data
 
 
 
