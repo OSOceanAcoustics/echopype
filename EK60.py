@@ -361,6 +361,7 @@ class EK60(object):
         if (channel_id):
             return self.raw_data.get(channel_id, None)
         else:
+            #TODO: error handling
             return self.raw_data.get(self.channel_id_map[channel_number], None)
 
 
@@ -469,6 +470,9 @@ class RawData(object):
         #  max_sample_number can be set to an integer specifying the maximum number of samples
         #  that will be stored in the sample data arrays.
         self.max_sample_number = max_sample_number
+
+        #  allow the user to specify a dtype for the raw sample data.
+        self.sample_dtype = 'float32'
 
         #  _data_attributes is an internal list that contains the names of all of the class's
         #  "data" properties. This is used internally with gettattr/setattr to remove some
@@ -782,15 +786,13 @@ class RawData(object):
                 log.error('Error reading data from raw_data_obj, ', raw_data_obj, attribute, ': ',  type(err), err)
                 return
 
-            #  create views of the data that will be split
-            data_before_insert = data[0:idx]
-            data_after_insert = data[idx:]
-
             #  handle lists and numpy arrays appropriately
             if isinstance(data, list):
-                #  this attribute is a list
-                new_data = data_before_insert + data_to_insert + data_after_insert
+                #  this attribute is a list - create the new list
+                new_data = data[0:idx] + data_to_insert + data[idx:]
+                #  and update our property
                 setattr(self, attribute, new_data)
+
             elif isinstance(data, np.ndarray):
                 #  this attribute is a numpy array
 
@@ -802,8 +804,13 @@ class RawData(object):
                 elif ((attribute == 'angles_athwartship_e') and (not self.store_angles)):
                     continue
 
-                #  concatenate the data
-                new_data = np.concatenate((data_before_insert, data_to_insert, data_after_insert))
+                #  we have to handle the 2d and 1d differently
+                if (data.ndim == 1):
+                    #  concatenate the 1d data
+                    new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
+                else:
+                    #  concatenate the 2d data
+                    new_data = np.vstack((data[0:idx,:], data_to_insert, data[idx:,:]))
 
                 #  update this attribute
                 setattr(self, attribute, new_data)
@@ -1187,7 +1194,7 @@ class RawData(object):
         new_sample_dims = data.shape[1] + max(sample_offsets) - min_sample_offset
 
         #  create the new array
-        shifted_data = np.empty((data.shape[0], new_sample_dims), np.int16)
+        shifted_data = np.empty((data.shape[0], new_sample_dims), dtype=self.sample_dtype, order='C')
         shifted_data.fill(np.nan)
 
         #  and fill it looping over the different sample offsets
@@ -1260,7 +1267,7 @@ class RawData(object):
 
         #  now that we know the dimensions of the output array create the it and fill with NaNs
         #  (which aren't NaNs since the type is int16)
-        resampled_data = np.empty((n_pings, new_sample_dims), np.int16)
+        resampled_data = np.empty((n_pings, new_sample_dims), dtype=self.sample_dtype, order='C')
         resampled_data.fill(np.nan)
 
         #  and fill it with data - We loop thru the sample intervals and within an interval extract slices
@@ -1412,20 +1419,21 @@ class RawData(object):
             self.sample_offset.resize((new_ping_dim))
             self.sample_count.resize((new_ping_dim))
         if (self.store_power):
+            #  RESIZE ISN"T WORKING ON APPEND
             self.power.resize((new_ping_dim, new_sample_dim))
         if (self.store_angles):
             self.angles_alongship_e.resize((new_ping_dim, new_sample_dim))
             self.angles_athwartship_e.resize((new_ping_dim, new_sample_dim))
 
-        #  check if we need to pad the existing data - if the new sample dimension is greater than
-        #  the old, we must pad the new array values for all of the old samples with NaNs
-        if (new_sample_dim > old_sample_dim):
-            #  pad the samples of the existing pings setting them to NaN
-            if (self.store_power):
-                self.power[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
-            if (self.store_angles):
-                self.angles_alongship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
-                self.angles_athwartship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
+#        #  check if we need to pad the existing data - if the new sample dimension is greater than
+#        #  the old, we must pad the new array values for all of the old samples with NaNs
+#        if (new_sample_dim > old_sample_dim):
+#            #  pad the samples of the existing pings setting them to NaN
+#            if (self.store_power):
+#                self.power[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
+#            if (self.store_angles):
+#                self.angles_alongship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
+#                self.angles_athwartship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
@@ -1458,17 +1466,17 @@ class RawData(object):
         self.sample_offset =  np.empty((n_pings), np.uint32)
         self.sample_count = np.empty((n_pings), np.uint32)
         if (self.store_power):
-            self.power = np.empty((n_pings, n_samples), np.int16)
+            self.power = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
         else:
             #  create an empty array as a place holder
-            self.power = np.empty((0,0), np.int16)
+            self.power = np.empty((0,0), dtype=self.sample_dtype, order='C')
         if (self.store_angles):
-            self.angles_alongship_e = np.empty((n_pings, n_samples), np.int8)
-            self.angles_athwartship_e = np.empty((n_pings, n_samples), np.int8)
+            self.angles_alongship_e = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
+            self.angles_athwartship_e = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
         else:
             #  create an empty arrays as place holders
-            self.angles_alongship_e = np.empty((0, 0), np.int8)
-            self.angles_athwartship_e = np.empty((0, 0), np.int8)
+            self.angles_alongship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
+            self.angles_athwartship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
 
         #  check if we should initialize them (fill with NaNs)
         #  note that int types will be filled with the smallest possible value for the type
@@ -1530,9 +1538,6 @@ class RawData(object):
             msg = msg + ("  RawData object contains no data\n")
 
         return msg
-
-
-
 
 
 
@@ -1660,70 +1665,6 @@ class CalibrationParameters(object):
         pass
 
 
-
-#        #  handle intialization on our first ping
-#        if (self.n_pings == 0):
-#            #  assume the initial array size doesn't involve resizing
-#            data_dims = [ len(sample_datagram['power']), self.chunk_width]
-#
-#            #  determine the target pulse length and if we need to resize our data right off the bat
-#            #  note that we use self.target_pulse_length to store the pulse length of all data in the
-#            #  array
-#            if (self.target_pulse_length == None):
-#                #  set the target_pulse_length to the pulse length of this initial ping
-#                self.target_pulse_length = sample_datagram['pulse_length']
-#            else:
-#                #  the vertical resolution has been explicitly specified - check if we need to resize right off the bat
-#                if (self.target_pulse_length != sample_datagram['pulse_length']):
-#                    #  we have to resize - determine the new initial array size
-#                    if (self.target_pulse_length > sample_datagram['pulse_length']):
-#                        #  we're reducing resolution
-#                        data_dims[0] = data_dims[0]  / int(self.target_pulse_length /
-#                                sample_datagram['pulse_length'])
-#                    else:
-#                        #  we're increasing resolution
-#                        data_dims[0] = data_dims[0]  * int(sample_datagram['pulse_length'] /
-#                                self.target_pulse_length)
-#
-#            #  allocate the initial arrays if we're *not* using a rolling buffer
-#            if (self.rolling == False):
-#                #  create acoustic data arrays - no need to fill with NaNs at this point
-#                self.power = np.empty(data_dims)
-#                self.angles_alongship_e = np.empty(data_dims)
-#                self.angles_alongship_e = np.empty(data_dims)
-#
-#        #  if we're not allowing pulse_length to change, make sure it hasn't
-#        if (not self.allow_pulse_length_change) and (sample_datagram['pulse_length'] != self.target_pulse_length):
-#            self.logger.warning('append_ping failed: pulse_length does not match existing data and ' +
-#                    'allow_pulse_length_change == False')
-#            return False
-#
-#
-#        #  check if any resizing needs to be done. The data arrays can be full (all columns filled) and would then
-#        #  need to be expanded horizontally. The new sample_data vector could be longer with the same pulse_length
-#        #  meaning the recording range has changed so we need to expand vertically and set the new data for exitsing
-#        #  pings to NaN.
-#
-#        #  it is also possible that the incoming power or angle array needs to be padded with NaNs if earlier pings
-#        #  were recorded to a longer range.
-#
-#        #  lastly, it is possible that the incoming power/angle arrays need to be trimmed if we're using a rolling
-#        #  buffer where the user has set a hard limit on the vertical extent of the array.
-#
-#
-#        #  check if our pulse length has changed
-#        if (self.n_pings > 0) and (sample_datagram['pulse_length'] != self.pulse_length[self.n_pings-1]):
-#            if (self.allow_pulse_length_change):
-#                #  here we need to change the vertical resolution of either the incoming data or the data
-#                if (sample_datagram['power']):
-#                    sample_datagram['power'] = resample_data(sample_datagram['power'],
-#                            sample_datagram['pulse_length'], self.target_pulse_length, is_power=True)
-#                if (sample_datagram['angle_alongship_e']):
-#                    sample_datagram['angle_alongship_e'] = resample_data(sample_datagram['angle_alongship_e'],
-#                            sample_datagram['pulse_length'], self.target_pulse_length)
-#                if (sample_datagram['angle_athwartship_e']):
-#                    sample_datagram['angle_athwartship_e'] = resample_data(sample_datagram['angle_athwartship_e'],
-#                            sample_datagram['pulse_length'], self.target_pulse_length)
 
 '''
 
