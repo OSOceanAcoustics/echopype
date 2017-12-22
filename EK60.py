@@ -1110,30 +1110,26 @@ class RawData(object):
         unique_sample_offsets = np.unique(sample_offsets)
         min_sample_offset = min(unique_sample_offsets)
 
-#        # check if we need to resample our sample data
-#        unique_sample_intervals = np.unique(sample_intervals[row_bounds])
-#        if (unique_sample_intervals.shape[0] > 1):
-#            #  there are at least 2 different sample intervals in the data - we must resample the power data
-#            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-#            (power_data.power, sample_interval) = self._resample_sample_data(self.power, row_bounds,
-#                    sample_intervals, unique_sample_intervals, resample_interval, sample_offsets,
-#                    min_sample_offset, is_power=True)
-#        else:
-#            #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
-#            if (unique_sample_offsets.shape[0] > 1):
-#                #  we have multiple sample offsets so we need to shift some of the samples
-#                power_data.power = self._shift_sample_offsets(self.power, row_bounds, sample_offsets,
-#                        unique_sample_offsets, min_sample_offset)
-#            else:
-#                #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
-#                power_data.power = self.power.copy()
-#
-#            #  and get the sample interval value to use for range conversion below
-#            sample_interval = unique_sample_intervals[0]
+        # check if we need to resample our sample data
+        unique_sample_intervals = np.unique(sample_intervals[row_bounds])
+        if (unique_sample_intervals.shape[0] > 1):
+            #  there are at least 2 different sample intervals in the data - we must resample the power data
+            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
+            (power_data.power, sample_interval) = self._resample_sample_data(self.power, row_bounds,
+                    sample_intervals, unique_sample_intervals, resample_interval, sample_offsets,
+                    min_sample_offset, is_power=True)
+        else:
+            #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
+            if (unique_sample_offsets.shape[0] > 1):
+                #  we have multiple sample offsets so we need to shift some of the samples
+                power_data.power = self._shift_sample_offsets(self.power, row_bounds, sample_offsets,
+                        unique_sample_offsets, min_sample_offset)
+            else:
+                #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
+                power_data.power = self.power.copy()
 
-        power_data.power = self.power.copy()
-        sample_interval=0
-
+            #  and get the sample interval value to use for range conversion below
+            sample_interval = unique_sample_intervals[0]
 
         #  check if we have a fixed sound speed
         unique_sound_speeds = np.unique(sound_speeds[row_bounds])
@@ -1266,7 +1262,6 @@ class RawData(object):
                     new_sample_dims = max_dim_this_sample_int
 
         #  now that we know the dimensions of the output array create the it and fill with NaNs
-        #  (which aren't NaNs since the type is int16)
         resampled_data = np.empty((n_pings, new_sample_dims), dtype=self.sample_dtype, order='C')
         resampled_data.fill(np.nan)
 
@@ -1399,7 +1394,28 @@ class RawData(object):
         _resize_arrays is an internal method that handles resizing the data arrays
         '''
 
-        #  resize the arrays
+        def resize2d(data, ping_dim, sample_dim):
+            '''
+            resize2d returns a new array of the specified dimensions with the data from
+            the provided array copied into it. This funciton is used when we need to resize
+            2d arrays along the minor axis as ndarray.resize and numpy.resize don't maintain
+            the order of the data in these cases.
+            '''
+
+            #  if the minor axis is changing we have to either concatenate or copy into a new resized array
+            #  I'm taking the second approach for now as I don't think there are performance differences
+            #  between the two approaches.
+
+            #  create a new array
+            new_array = np.empty((ping_dim, sample_dim))
+            #  fill it with NaNs
+            new_array.fill(np.nan)
+            #  copy the data into our new array
+            new_array[0:data.shape[0], 0:data.shape[1]] = data
+            #  and return it
+            return new_array
+
+        #  resize the 1d arrays
         if (new_ping_dim != old_ping_dim):
             self.ping_number.resize((new_ping_dim))
             self.transducer_depth.resize((new_ping_dim))
@@ -1418,22 +1434,27 @@ class RawData(object):
             self.transmit_mode.resize((new_ping_dim))
             self.sample_offset.resize((new_ping_dim))
             self.sample_count.resize((new_ping_dim))
-        if (self.store_power):
-            #  RESIZE ISN"T WORKING ON APPEND
-            self.power.resize((new_ping_dim, new_sample_dim))
-        if (self.store_angles):
-            self.angles_alongship_e.resize((new_ping_dim, new_sample_dim))
-            self.angles_athwartship_e.resize((new_ping_dim, new_sample_dim))
 
-#        #  check if we need to pad the existing data - if the new sample dimension is greater than
-#        #  the old, we must pad the new array values for all of the old samples with NaNs
-#        if (new_sample_dim > old_sample_dim):
-#            #  pad the samples of the existing pings setting them to NaN
-#            if (self.store_power):
-#                self.power[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
-#            if (self.store_angles):
-#                self.angles_alongship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
-#                self.angles_athwartship_e[0:old_ping_dim, old_sample_dim:new_sample_dim] = np.nan
+        #  resize the 2d arrays
+        #  NOTE: Initially 2d resize was implemented with ndarray.resize() which resizes in place and
+        #              thus should be more efficient but its behavior with 2d arrays when the minor axes
+        #              is changed causes the data to shift in the array "scrambling" the data.
+        if (self.store_power):
+            if (new_sample_dim == old_sample_dim):
+                #  if the minor axes isn't changing we can use ndarray.resize()
+                self.power.resize((new_ping_dim, new_sample_dim))
+                # shouldn't need to pad NaNs in these cases since we'll either finll the pings or trim them.
+            else:
+                #  if the minor axes is changing we need to use our resize2d function
+                self.power = resize2d(self.power, new_ping_dim, new_sample_dim)
+        if (self.store_angles):
+            #  same constraints apply to the angle data
+            if (new_sample_dim == old_sample_dim):
+                self.angles_alongship_e.resize((new_ping_dim, new_sample_dim))
+                self.angles_athwartship_e.resize((new_ping_dim, new_sample_dim))
+            else:
+                self.angles_alongship_e = resize2d(self.angles_alongship_e, new_ping_dim, new_sample_dim)
+                self.angles_athwartship_e = resize2d(self.angles_athwartship_e, new_ping_dim, new_sample_dim)
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
