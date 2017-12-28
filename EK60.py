@@ -877,7 +877,7 @@ class RawData(object):
         return primary_index[mask]
 
 
-    def get_sv(self, cal_parameters=None, linear=False, **kwargs):
+    def get_sv(self, calibration=None, linear=False, return_indices=None, **kwargs):
         '''
         get_sv returns a ProcessedData object containing Sv (or sv if linear is
         True).
@@ -890,8 +890,36 @@ class RawData(object):
 
         '''
 
-        #  get the horizontal start and end indicies
-        h_index = self.get_indices(**kwargs)
+        #  check if the user supplied an explicit list of indices to return
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_number.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the RawData object")
+        else:
+            #  get an array of index values to return
+            return_indices = self.get_ping_indices(**kwargs)
+
+        #  get the power data - this step also resamples and arranges the raw data
+        power_data = self.get_power(calibration=calibration,
+                return_indices=return_indices, **kwargs)
+
+        #  populate the calibration parameters required for this method. First, create a dict with key
+        #  names that match the attributes names of the calibration parameters we require for this method
+        cal_parms = {'frequency':None,
+                     'pulse_length':None,
+                     'equivalent_beam_angle':None,
+                     'transmit_power':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  get sound_velocity from the power data since get_power might have manipulated this value
+        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.dtype)
+        cal_parms['sound_velocity'].fill(power_data.sound_velocity)
+
+
+
 
 
     def get_ts(self, cal_parameters=None, linear=False, **kwargs):
@@ -922,6 +950,13 @@ class RawData(object):
         pass
 
 
+    def get_electrical_angles(self, **kwargs):
+        '''
+        get_electrical_angles returns a processed data object that contains the unconverted
+        angle data. The process is identical to the get_power method.
+        '''
+
+
     def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
             tvg_correction=TVG_CORRECTION, resample_soundspeed=None,
             return_indices=None, **kwargs):
@@ -948,221 +983,108 @@ class RawData(object):
         '''
 
         #  check if the user supplied an explicit list of indices to return
-        if (return_indices):
-            if isinstance(return_indices, np.ndarray):
-                row_bounds = return_indices[0]
-            else:
-                raise ValueError("Return indices must be provided as a 1d numpy array.")
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_number.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the RawData object")
         else:
             #  get an array of index values to return
-            row_bounds = self.get_ping_indices(**kwargs)
+            return_indices = self.get_ping_indices(**kwargs)
 
         #  create the ProcessedData object we will return
         power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
 
         #  populate it with time and ping number
-        #power_data.ping_time = [self.ping_time[i] for i in row_bounds.tolist()]
-        power_data.ping_time = self.ping_time[row_bounds].copy()
-        power_data.ping_number = self.ping_number[row_bounds].copy()
+        #power_data.ping_time = [self.ping_time[i] for i in return_indices.tolist()]
+        power_data.ping_time = self.ping_time[return_indices].copy()
+        power_data.ping_number = self.ping_number[return_indices].copy()
 
-        #TODO: create a function that handles calibration input parmameter processing
-        #      to reduce the code below.
+        #  populate the calibration parameters required for this method. First, create a dict with key
+        #  names that match the attributes names of the calibration parameters we require for this method
+        cal_parms = {'sample_interval':None,
+                     'sound_velocity':None,
+                     'sample_offset':None,
+                     'transducer_depth':None}
 
-        #  extract params from the calibration object (if provided)
-        if (calibration):
-            #  check if we were provided a transducer depth
-            if (calibration.transducer_depth):
-                #  check if it is an array or a scalar value
-                if isinstance(calibration.transducer_depth, np.ndarray):
-                    #  check if it is a single value array
-                    if (calibration.transducer_depth.shape[0] == 1):
-                        power_data.transducer_depth = np.empty((row_bounds.shape[0]), np.float32)
-                        power_data.transducer_depth.fill(calibration.transducer_depth)
-                    #  check if it is an array the same length as contained in the raw data
-                    elif (calibration.transducer_depth.shape[0] == self.transducer_depth.shape[0]):
-                        #  cal params provided as full length array, get the selection subset
-                        power_data.transducer_depth = calibration.transducer_depth.copy()[row_bounds]
-                    elif (calibration.transducer_depth.shape[0] == row_bounds.shape[0]):
-                        #  cal params provided as a subset so no need to index with row_bounds
-                        power_data.transducer_depth = calibration.transducer_depth.copy()
-                    else:
-                        #  it is an array that is the wrong shape
-                        #TODO: Better error text
-                        raise ValueError("The transducer_depth array provided is the wrong length.")
-                #  not an array - check if it is a scalar int or float
-                elif (type(calibration.transducer_depth) == int or
-                    type(calibration.transducer_depth) == float):
-                        power_data.transducer_depth = np.empty((row_bounds.shape[0]), np.float32)
-                        power_data.transducer_depth.fill(calibration.transducer_depth)
-                else:
-                    #  invalid type provided
-                    #TODO: Better error text
-                    raise ValueError("The transducer_depth value must be an ndarray or scalar float.")
-            else:
-                #  transducer depth is not provided, copy it from the raw data
-                power_data.transducer_depth = self.transducer_depth.copy()
-
-            #  check if we have been provided sample_intervals from the calibration object
-            if (calibration.sample_interval):
-                #  check if it is an array or a scalar value
-                if isinstance(calibration.sample_interval, np.ndarray):
-                    #  check if it is a single value array
-                    if (calibration.sample_interval.shape[0] == 1):
-                        sample_intervals = np.empty((row_bounds.shape[0]), np.float32)
-                        sample_intervals.fill(calibration.sample_interval)
-                    #  check if it is an array the same length as contained in the raw data
-                    elif (calibration.sample_interval.shape[0] == self.sample_interval.shape[0]):
-                        sample_intervals = calibration.sample_interval.copy()[row_bounds]
-                    elif (calibration.sample_interval.shape[0] == row_bounds.shape[0]):
-                        sample_intervals = calibration.sample_interval.copy()
-                    else:
-                        #  it is an array that is the wrong shape
-                        #TODO: Better error text
-                        raise ValueError("The sample_interval calibration array is the wrong length.")
-                #  not an array - check if it is a scalar int or float
-                elif (type(calibration.sample_interval) == int or
-                    type(calibration.sample_interval) == float):
-                        sample_intervals = np.empty((row_bounds.shape[0]), np.float32)
-                        sample_intervals.fill(calibration.sample_interval)
-                else:
-                    #  invalid type provided
-                    #TODO: Better error text
-                    raise ValueError("The sample_interval value must be an ndarray or scalar float.")
-            else:
-                #  sample_interval is not provided, get it from the raw data
-                sample_intervals = self.sample_interval
-
-            #  check if we have been provided pulse_lengths from the calibration object
-            if (calibration.sound_speed):
-                #  check if it is an array or a scalar value
-                if isinstance(calibration.sound_speed, np.ndarray):
-                    #  check if it is a single value array
-                    if (calibration.sound_speed.shape[0] == 1):
-                        sound_speeds = np.empty((row_bounds.shape[0]), np.float32)
-                        sound_speeds.fill(calibration.sound_speed)
-                    #  check if it is an array the same length as contained in the raw data
-                    elif (calibration.sound_speed.shape[0] == self.sound_speed.shape[0]):
-                        sound_speeds = calibration.sound_speed.copy()[row_bounds]
-                    elif (calibration.sound_speed.shape[0] == row_bounds.shape[0]):
-                        sound_speeds = calibration.sound_speed.copy()
-                    else:
-                        #  it is an array that is the wrong shape
-                        #TODO: Better error text
-                        raise ValueError("The sound_speed calibration array is the wrong length.")
-                #  not an array - check if it is a scalar int or float
-                elif (type(calibration.sound_speed) == int or
-                    type(calibration.sound_speed) == float):
-                        sound_speeds = np.empty((row_bounds.shape[0]), np.float32)
-                        sound_speeds.fill(calibration.sound_speed)
-                else:
-                    #  invalid type provided
-                    #TODO: Better error text
-                    raise ValueError("The sound_speed value must be an ndarray or scalar float.")
-
-            #  check if we have been provided sample offsets from the calibration object
-            if (calibration.sample_offset):
-                #  check if it is an array or a scalar value
-                if isinstance(calibration.sample_offset, np.ndarray):
-                    #  check if it is a single value array
-                    if (calibration.sample_offset.shape[0] == 1):
-                        sample_offsets = np.empty((row_bounds.shape[0]), np.float32)
-                        sample_offsets.fill(calibration.sample_offset)
-                    #  check if it is an array the same length as contained in the raw data
-                    elif (calibration.sample_offset.shape[0] == self.sample_offset.shape[0]):
-                        sample_offsets = calibration.sample_offset.copy()[row_bounds]
-                    elif (calibration.sample_offset.shape[0] == row_bounds.shape[0]):
-                        sample_offsets = calibration.sample_offset.copy()
-                    else:
-                        #  it is an array that is the wrong shape
-                        #TODO: Better error text
-                        raise ValueError("The sample_offset calibration array is the wrong length.")
-                #  not an array - check if it is a scalar int or float
-                elif (type(calibration.sample_offset) == int or
-                    type(calibration.sample_offset) == float):
-                        sample_offsets = np.empty((row_bounds.shape[0]), np.float32)
-                        sample_offsets.fill(calibration.sample_offset)
-                else:
-                    #  invalid type provided
-                    #TODO: Better error text
-                    raise ValueError("The sample_offset value must be an ndarray or scalar float.")
-
-        else:
-            #  No calibration object provided - use values from the raw data
-            sample_intervals = self.sample_interval[row_bounds]
-            sound_speeds = self.sound_velocity[row_bounds]
-            sample_offsets = self.sample_offset[row_bounds]
-            power_data.transducer_depth = self.transducer_depth[row_bounds].copy()
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  check if we have multiple sample offset values and get the minimum
-        unique_sample_offsets = np.unique(sample_offsets)
+        unique_sample_offsets = np.unique(cal_parms['sample_offset'])
         min_sample_offset = min(unique_sample_offsets)
 
         # check if we need to resample our sample data
-        unique_sample_intervals = np.unique(sample_intervals)
-        if (unique_sample_intervals.shape[0] > 1):
+        unique_sample_interval = np.unique(cal_parms['sample_interval'])
+        if (unique_sample_interval.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the power data
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            (power_data.power, sample_interval) = self._resample_sample_data(self.power[row_bounds],
-                    sample_intervals, unique_sample_intervals, resample_interval, sample_offsets,
-                    min_sample_offset, is_power=True)
+            (power_data.power, sample_interval) = self._resample_sample_data(self.power[return_indices],
+                    cal_parms['sample_interval'], unique_sample_interval, resample_interval,
+                    cal_parms['sample_offset'], min_sample_offset, is_power=True)
         else:
             #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
             if (unique_sample_offsets.shape[0] > 1):
                 #  we have multiple sample offsets so we need to shift some of the samples
-                power_data.power = self._shift_sample_offsets(self.power, row_bounds, sample_offsets,
-                        unique_sample_offsets, min_sample_offset)
+                power_data.power = self._shift_sample_offsets(self.power, return_indices,
+                        cal_parms['sample_offset'], unique_sample_offsets, min_sample_offset)
             else:
                 #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
-                power_data.power = self.power[row_bounds].copy()
+                power_data.power = self.power[return_indices].copy()
 
             #  and get the sample interval value to use for range conversion below
-            sample_interval = unique_sample_intervals[0]
+            sample_interval = unique_sample_interval[0]
 
         #  check if we have a fixed sound speed
-        unique_sound_speeds = np.unique(sound_speeds)
-        if (unique_sound_speeds.shape[0] > 1):
+        unique_sound_velocity = np.unique(cal_parms['sound_velocity'])
+        if (unique_sound_velocity.shape[0] > 1):
             #  there are at least 2 different sound speeds in the data or provided calibration data.
             #  interpolate all data to the most common range (which is the most common sound speed)
-            sound_speed = None
+            sound_velocity = None
             n = 0
-            for speed in unique_sound_speeds:
+            for speed in unique_sound_velocity:
             #  determine the sound speed with the most pings
-                if (np.count_nonzero(sound_speeds == speed) > n):
-                   sound_speed = speed
+                if (np.count_nonzero(cal_parms['sound_velocity'] == speed) > n):
+                   sound_velocity = speed
 
             #  calculate the target range
             range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, sound_speed, min_sample_offset,
+                        sample_interval, sound_velocity, min_sample_offset,
                         tvg_correction=tvg_correction)
 
             #  get an array of indexes in the output array to interpolate
-            pings_to_interp = np.where(sound_speeds != sound_speed)[0]
+            pings_to_interp = np.where(cal_parms['sound_velocity'] != sound_velocity)[0]
 
             #  iterate thru this list of pings to change - interpolating each ping
             for ping in pings_to_interp:
                 #  resample using the provided sound speed - calculate the
                 resample_range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, sound_speeds[ping], min_sample_offset,
+                        sample_interval, cal_parms['sound_velocity'][ping], min_sample_offset,
                         tvg_correction=tvg_correction)
 
                 power_data.power[ping,:] = np.interp(range, resample_range,
                     power_data.power[ping,:])
 
         else:
-            sound_speed = unique_sound_speeds[0]
+            #  we have a fixed sound speed - only need to calculate a single range vector
+            sound_velocity = unique_sound_velocity[0]
             range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, sound_speed, min_sample_offset,
+                        sample_interval, sound_velocity, min_sample_offset,
                         tvg_correction=tvg_correction)
 
-        #  assign range
+        #  assign range and sound speed to our ProcessedData object
         power_data.range = range
+        power_data.sound_velocity = sound_velocity
 
         #  compute sample thickness and set the sample offset
-        power_data.sample_thickness = sample_interval * sound_speed / 2.0
+        power_data.sample_thickness = sample_interval * sound_velocity / 2.0
         power_data.sample_offset = min_sample_offset
 
-        return power_data
+        #  copy the transducer depth data
+        power_data.transducer_depth = cal_parms['transducer_depth'].copy()
 
+        #  return the ProcessedData object containing power and associated data
+        return power_data
 
 
     def _shift_sample_offsets(self, data, processed_data, sample_offsets, unique_sample_offsets,
@@ -1313,14 +1235,80 @@ class RawData(object):
         return (resampled_data, resample_interval)
 
 
-    def get_electrical_angles(self, **kwargs):
-        '''
-        '''
-
-
     def __iter__(self):
         for attribute in vars(self).keys():
             yield (attribute, getattr(self, attribute))
+
+
+    def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
+        '''
+        _get_calibration_param interrogates the provided cal_object for the provided param_name
+        property and returns the parameter values based on what it finds. It handles 4 cases:
+
+            If the user has provided a scalar calibration value, the function will return
+            a 1D array the length of return_indices filled with that scalar.
+
+            If the user has provided a 1D array the length of return_indices it will return
+            that array without modification.
+
+            If the user has provided a 1D array the length of self.ping_number, it will
+            return a 1D array the length of return_indices that is the subset of this data
+            defined by the return_indices index array.
+
+            Lastly, if the user has not provided anything, this function will return a
+            1D array the length of return_indices filled with data extracted from the raw
+            data
+        '''
+
+        if (cal_object):
+            #  try to get the parameter from the calibration object
+            param = getattr(cal_object, param_name)
+
+            #  check if the input param is an numpy array
+            if isinstance(param, np.ndarray):
+                #  check if it is a single value array
+                if (param.shape[0] == 1):
+                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                    param_data.fill(param)
+                #  check if it is an array the same length as contained in the raw data
+                elif (param.shape[0] == self.ping_number.shape[0]):
+                    #  cal params provided as full length array, get the selection subset
+                    param_data = param[return_indices]
+                #  check if it is an array the same length as return_indices
+                elif (param.shape[0] == return_indices.shape[0]):
+                    #  cal params provided as a subset so no need to index with return_indices
+                    param_data = param
+                else:
+                    #  it is an array that is the wrong shape
+                    raise ValueError("The calibration parameter array " + param_name +
+                            " is the wrong length.")
+            #  not an array - check if it is a scalar int or float
+            elif (type(param) == int or type(param) == float):
+                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                    param_data.fill(param)
+            else:
+                #  invalid type provided
+                raise ValueError("The calibration parameter " + param_name +
+                        " must be an ndarray or scalar float.")
+        else:
+            #  Parameter is not provided in the calibration object, copy it from the raw data.
+            #  Calibration parameters are found directly in the RawData object and they are
+            #  in the channel_metadata objects. If we don't find it directly in RawData then
+            #  we need to fish it out of the channel_metadata objects.
+            try:
+                #  first check if this parameter is a direct property in RawData
+                self_param = getattr(self, param_name)
+                #  it is - return a view of the subset of data we're interested in
+                param_data = self_param[return_indices]
+            except:
+                #  It is not a direct property so it must be in the channel_metadata object.
+                #  Create the return array
+                param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                #  then populate with the data found in the channel_metadata objects
+                for idx in return_indices:
+                    param_data[idx] = getattr(self.channel_metadata[idx],param_name)
+
+        return param_data
 
 
     def _roll_arrays(self, roll_pings):
