@@ -131,7 +131,8 @@ log = logging.getLogger(__name__)
 #    return dR, wlength, CSv, CSp
 
 
-#def make_RANGE_matrix(num_samples, num_pings, sample_offset, sample_thickness, tvg_correction=2):
+def get_range_vector(num_samples, sample_interval, sound_speed, sample_offset,
+        tvg_correction=2):
 #    '''
 #    Constructs an [num_sample x num_ping] corrected range matrix for use
 #    in power conversions.
@@ -152,16 +153,21 @@ log = logging.getLogger(__name__)
 #    :param tvg_correction: int
 #    '''
 #
-#    if tvg_correction is None:
-#        tvg_correction = 2
-#
-#    sample_range = (np.arange(0, num_samples) + sample_offset) * sample_thickness
-#    corrected_range = sample_range - (tvg_correction * sample_thickness)
-#    corrected_range[corrected_range < 0] = 0
-#
-#    RANGE_MATRIX = np.repeat(np.reshape(corrected_range, (-1, 1)), num_pings, axis=1).astype('float32')
-#
-#    return RANGE_MATRIX
+    if tvg_correction is None:
+        tvg_correction = 2
+
+    #  calculate the thickness of samples with this sound speed
+    thickness = sample_interval * sound_speed / 2.0
+    #  calculate the range vector
+    range = (np.arange(0, num_samples) + sample_offset) * thickness
+    #  apply TVG range correction
+    range = range - (tvg_correction * thickness)
+    #  zero negative ranges
+    range[range < 0] = 0
+
+
+    return range
+
 
 #def make_RANGE_vector(num_samples, num_pings, sample_offset, sample_thickness, tvg_correction=2):
 #    '''

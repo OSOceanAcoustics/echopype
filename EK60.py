@@ -621,9 +621,10 @@ class RawData(object):
         self.current_metadata.end_time = sample_datagram['timestamp']
 
         #  append the datetime object representing the ping time to the ping_time property
-        self.ping_time.append(sample_datagram['timestamp'])
+        #self.ping_time.append(sample_datagram['timestamp'])
 
         #  now insert the data into our numpy arrays
+        self.ping_time[this_ping] = sample_datagram['timestamp']
         self.ping_number[this_ping] = self.n_pings
         self.transducer_depth[this_ping] = sample_datagram['transducer_depth']
         self.frequency[this_ping] = sample_datagram['frequency']
@@ -719,20 +720,20 @@ class RawData(object):
 
     def insert(self, raw_data_obj, ping_number=None, ping_time=None, insert_after=True):
         '''
-        insert inserts the data from the provided RawData object into
-        this RawData object. The insertion point is specified by ping number or
-        time.
+        insert inserts the data from the provided RawData object into this RawData
+        object. The insertion point is specified by ping number or time. After inserting
+        data, the ping_number property is updated and the ping numbers from the insertion
+        point onward will be re-numbered accordingly.
+
+        Note that internally RawData objects always store data by ping number as read,
+        appended, or inserted. Data is not sorted by time until the user calls a get_*
+        method. Consequently if ping times are not ordered and/or repeating, specifying
+        a ping time as an insetion point may not yield the desired results since the
+        insertion index will be the *first* index that satisfies the condition.
 
         By default, the insert is *after* the provided ping number or time. Set the
         insert_after keyword to False to insert *before* the provided ping number or time.
 
-        The insert and append methods only insert or append your data. They do not
-        update any of the properties such as ping_number. Those details are left
-        to you. Understand that if you insert or append a channel that has overlapping
-        ping numbers or time, subsequent inserts or appends will insert at the index
-        of the first time or ping number that matches the insertion point. This
-        may not be what you want and you will have to adjust these values appropriately
-        before the second insert/append.
         '''
 
         #  check that we have been given an insetion point
@@ -749,7 +750,8 @@ class RawData(object):
                     'frequency of this object. Frequencies must match to append or insert.')
 
         #  determine the index of the insertion point
-        idx = self.get_ping_index(time=ping_time, ping=ping_number)
+        idx = self.get_ping_indices(start_time=ping_time, end_time=ping_time,
+                start_ping=ping_number, end_ping=ping_number)[0]
 
         #  check if we're inserting before or after the provided insert point and adjust as necessary
         if (insert_after):
@@ -807,7 +809,11 @@ class RawData(object):
                 #  we have to handle the 2d and 1d differently
                 if (data.ndim == 1):
                     #  concatenate the 1d data
-                    new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
+                    if (attribute == 'ping_number'):
+                        #  update ping_number so it is sequential
+                        new_data = np.arange(data.shape[0]+data_to_insert.shape[0]) + 1
+                    else:
+                        new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
                 else:
                     #  concatenate the 2d data
                     new_data = np.vstack((data[0:idx,:], data_to_insert, data[idx:,:]))
@@ -834,59 +840,13 @@ class RawData(object):
         self._resize_arrays(self.n_pings, n_samples, 0, n_samples)
 
 
-    def get_ping_index(self, time=None, ping=None):
-        '''
-        get_index returns the index into the data arrays given a ping number or ping time.
-        '''
-
-        def nearest_idx_list(list, value):
-            '''
-            return the index of the nearest value in a list.
-            Adapted from: https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
-            '''
-            return list.index(min(list, key=lambda x: abs(x - value)))
-
-
-        def nearest_idx_array(array, value):
-            '''
-            return the index of the nearest value in a numpy array.
-            '''
-            return (np.abs(array - value)).argmin()
-
-
-        #  check if we have an start time defined and determine index
-        if (ping == None and time == None):
-            index = 0
-        elif (ping == None):
-            #  start must be defined by time
-            #  make sure we've been passed a datetime object defining the start time
-            if (not type(time) is datetime.datetime):
-                raise TypeError('time must be a datetime object.')
-
-            #  and find the index of the closest ping_time
-            index = nearest_idx_list(self.ping_time, time)
-        else:
-            #  ping must have been provided
-            #  make sure we've been passed an integer defining the start ping
-            ping = int(ping)
-            if (not (type(ping) is int or type(ping) is float)):
-                raise TypeError('ping must be an number.')
-
-            #  and find the index of the closest ping_number
-            index = nearest_idx_array(self.ping_number, ping)
-
-        return (index)
-
-
     def get_ping_indices(self, start_ping=None, end_ping=None, start_time=None,
-            end_time=None, as_array=False):
+            end_time=None, time_order=True):
         '''
-        get_ping_indices maps ping number and/or ping time to an index into the acoustic
-        data arrays.
-
-        If as_array is True, the method will return an array of indices that can be directly
-        used to index into the data arrays. If as_array is False the method will return a tuple
-        (start index, end index) defining the range specified by the provided start and end points.
+        get_ping_indices returns index arrays containing the indices contained in the range
+        defined by the times and/or ping numbers provided. By default the indexes are in time
+        order. If time_order is set to False, the data will be returned in the order they
+        occur in the data arrays.
         '''
 
         #  if starts and/or ends are omitted, assume fist and last respectively
@@ -895,21 +855,26 @@ class RawData(object):
         if (end_ping == end_time == None):
             end_ping = self.ping_number[-1]
 
-        #  get the indices
-        start_idx = self.get_ping_index(ping = start_ping, time = start_time)
-        end_idx = self.get_ping_index(ping = end_ping, time = end_time)
-
-        #  make sure the indices are sane
-        if (start_idx > end_idx):
-            raise ValueError('The end_ping or end_time provided comes before ' +
-                    'the start_ping or start_time.')
-
-        if (as_array):
-            #  return indices as an array of indexs
-            return np.arange(end_idx + 1) + start_idx
+        #  get the primary index
+        if (time_order):
+            #  return indices in time order
+            primary_index = self.ping_time.argsort()
         else:
-            #  return indices as a start, stop tuple
-            return (start_idx, end_idx)
+            #  return indices in ping order
+            primary_index = self.ping_number - 1
+
+        #  generate a boolean mask of the values to return
+        if (start_time):
+            mask = self.ping_time[primary_index] >= start_time
+        elif (start_ping):
+            mask = self.ping_number[primary_index] >= start_ping
+        if (end_time):
+            mask = np.logical_and(mask, self.ping_time[primary_index] <= end_time)
+        elif (end_ping):
+            mask = np.logical_and(mask, self.ping_number[primary_index] <= end_ping)
+
+        #  and return the indices that are included in the specified range
+        return primary_index[mask]
 
 
     def get_sv(self, cal_parameters=None, linear=False, **kwargs):
@@ -958,7 +923,8 @@ class RawData(object):
 
 
     def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
-            tvg_correction=TVG_CORRECTION, **kwargs):
+            tvg_correction=TVG_CORRECTION, resample_soundspeed=None,
+            return_indices=None, **kwargs):
         '''
         get_power returns a processed data object that contains the power data. It performs
         all of the required transformations to place the raw power data into a rectangular
@@ -981,15 +947,26 @@ class RawData(object):
         the raw file data.
         '''
 
-        #  get an array of index values to return
-        row_bounds = self.get_ping_indices(as_array=True, **kwargs)
+        #  check if the user supplied an explicit list of indices to return
+        if (return_indices):
+            if isinstance(return_indices, np.ndarray):
+                row_bounds = return_indices[0]
+            else:
+                raise ValueError("Return indices must be provided as a 1d numpy array.")
+        else:
+            #  get an array of index values to return
+            row_bounds = self.get_ping_indices(**kwargs)
 
         #  create the ProcessedData object we will return
         power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
 
         #  populate it with time and ping number
-        power_data.ping_time = self.ping_time[:]
-        power_data.ping_number = self.ping_number.copy()
+        #power_data.ping_time = [self.ping_time[i] for i in row_bounds.tolist()]
+        power_data.ping_time = self.ping_time[row_bounds].copy()
+        power_data.ping_number = self.ping_number[row_bounds].copy()
+
+        #TODO: create a function that handles calibration input parmameter processing
+        #      to reduce the code below.
 
         #  extract params from the calibration object (if provided)
         if (calibration):
@@ -1003,7 +980,11 @@ class RawData(object):
                         power_data.transducer_depth.fill(calibration.transducer_depth)
                     #  check if it is an array the same length as contained in the raw data
                     elif (calibration.transducer_depth.shape[0] == self.transducer_depth.shape[0]):
-                            power_data.transducer_depth = calibration.transducer_depth.copy()
+                        #  cal params provided as full length array, get the selection subset
+                        power_data.transducer_depth = calibration.transducer_depth.copy()[row_bounds]
+                    elif (calibration.transducer_depth.shape[0] == row_bounds.shape[0]):
+                        #  cal params provided as a subset so no need to index with row_bounds
+                        power_data.transducer_depth = calibration.transducer_depth.copy()
                     else:
                         #  it is an array that is the wrong shape
                         #TODO: Better error text
@@ -1031,7 +1012,9 @@ class RawData(object):
                         sample_intervals.fill(calibration.sample_interval)
                     #  check if it is an array the same length as contained in the raw data
                     elif (calibration.sample_interval.shape[0] == self.sample_interval.shape[0]):
-                            sample_intervals = calibration.sample_interval.copy()
+                        sample_intervals = calibration.sample_interval.copy()[row_bounds]
+                    elif (calibration.sample_interval.shape[0] == row_bounds.shape[0]):
+                        sample_intervals = calibration.sample_interval.copy()
                     else:
                         #  it is an array that is the wrong shape
                         #TODO: Better error text
@@ -1059,7 +1042,9 @@ class RawData(object):
                         sound_speeds.fill(calibration.sound_speed)
                     #  check if it is an array the same length as contained in the raw data
                     elif (calibration.sound_speed.shape[0] == self.sound_speed.shape[0]):
-                            sound_speeds = calibration.pulse_length.copy()
+                        sound_speeds = calibration.sound_speed.copy()[row_bounds]
+                    elif (calibration.sound_speed.shape[0] == row_bounds.shape[0]):
+                        sound_speeds = calibration.sound_speed.copy()
                     else:
                         #  it is an array that is the wrong shape
                         #TODO: Better error text
@@ -1084,7 +1069,9 @@ class RawData(object):
                         sample_offsets.fill(calibration.sample_offset)
                     #  check if it is an array the same length as contained in the raw data
                     elif (calibration.sample_offset.shape[0] == self.sample_offset.shape[0]):
-                            sample_offsets = calibration.sample_offset.copy()
+                        sample_offsets = calibration.sample_offset.copy()[row_bounds]
+                    elif (calibration.sample_offset.shape[0] == row_bounds.shape[0]):
+                        sample_offsets = calibration.sample_offset.copy()
                     else:
                         #  it is an array that is the wrong shape
                         #TODO: Better error text
@@ -1101,21 +1088,21 @@ class RawData(object):
 
         else:
             #  No calibration object provided - use values from the raw data
-            sample_intervals = self.sample_interval
-            sound_speeds = self.sound_velocity
-            sample_offsets = self.sample_offset
-            power_data.transducer_depth = self.transducer_depth.copy()
+            sample_intervals = self.sample_interval[row_bounds]
+            sound_speeds = self.sound_velocity[row_bounds]
+            sample_offsets = self.sample_offset[row_bounds]
+            power_data.transducer_depth = self.transducer_depth[row_bounds].copy()
 
         #  check if we have multiple sample offset values and get the minimum
         unique_sample_offsets = np.unique(sample_offsets)
         min_sample_offset = min(unique_sample_offsets)
 
         # check if we need to resample our sample data
-        unique_sample_intervals = np.unique(sample_intervals[row_bounds])
+        unique_sample_intervals = np.unique(sample_intervals)
         if (unique_sample_intervals.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the power data
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            (power_data.power, sample_interval) = self._resample_sample_data(self.power, row_bounds,
+            (power_data.power, sample_interval) = self._resample_sample_data(self.power[row_bounds],
                     sample_intervals, unique_sample_intervals, resample_interval, sample_offsets,
                     min_sample_offset, is_power=True)
         else:
@@ -1126,47 +1113,56 @@ class RawData(object):
                         unique_sample_offsets, min_sample_offset)
             else:
                 #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
-                power_data.power = self.power.copy()
+                power_data.power = self.power[row_bounds].copy()
 
             #  and get the sample interval value to use for range conversion below
             sample_interval = unique_sample_intervals[0]
 
         #  check if we have a fixed sound speed
-        unique_sound_speeds = np.unique(sound_speeds[row_bounds])
+        unique_sound_speeds = np.unique(sound_speeds)
         if (unique_sound_speeds.shape[0] > 1):
-            #  there are at least 2 different sound speeds in the data - generate a 2d range array
-            range_data = np.empty_like(power_data.power, dtype='float32')
-            #  calculate and fill array by sound speed
-            for sound_speed in unique_sound_speeds:
-                #  calculate the thickness of samples with this sound speed
-                this_thickness = sample_interval * sound_speed / 2.0
-                #  calculate the range vector
-                this_range = (np.arange(0, power_data.power.shape[1]) + min_sample_offset) * this_thickness
-                #  apply TVG range correction
-                this_range = this_range - (tvg_correction * this_thickness)
-                #  zero negative ranges
-                this_range[this_range < 0] = 0
-                #  and assign this range to the pings with this sound speed
-                range_data[self.sound_velocity == sound_speed,:] = this_range
+            #  there are at least 2 different sound speeds in the data or provided calibration data.
+            #  interpolate all data to the most common range (which is the most common sound speed)
+            sound_speed = None
+            n = 0
+            for speed in unique_sound_speeds:
+            #  determine the sound speed with the most pings
+                if (np.count_nonzero(sound_speeds == speed) > n):
+                   sound_speed = speed
 
+            #  calculate the target range
+            range = unit_conversion.get_range_vector(power_data.power.shape[1],
+                        sample_interval, sound_speed, min_sample_offset,
+                        tvg_correction=tvg_correction)
 
-            pass
+            #  get an array of indexes in the output array to interpolate
+            pings_to_interp = np.where(sound_speeds != sound_speed)[0]
+
+            #  iterate thru this list of pings to change - interpolating each ping
+            for ping in pings_to_interp:
+                #  resample using the provided sound speed - calculate the
+                resample_range = unit_conversion.get_range_vector(power_data.power.shape[1],
+                        sample_interval, sound_speeds[ping], min_sample_offset,
+                        tvg_correction=tvg_correction)
+
+                power_data.power[ping,:] = np.interp(range, resample_range,
+                    power_data.power[ping,:])
+
         else:
             sound_speed = unique_sound_speeds[0]
+            range = unit_conversion.get_range_vector(power_data.power.shape[1],
+                        sample_interval, sound_speed, min_sample_offset,
+                        tvg_correction=tvg_correction)
 
-
-            #  the data all have (or have been provided) the same sound speed - generate a range vector
-            #power_data.range = unit_conversion._range_vector(offset, count, sound_velocity, sample_interval, tvg_correction=2.0)
-            pass
-
+        #  assign range
+        power_data.range = range
 
         #  compute sample thickness and set the sample offset
         power_data.sample_thickness = sample_interval * sound_speed / 2.0
         power_data.sample_offset = min_sample_offset
 
-
-
         return power_data
+
 
 
     def _shift_sample_offsets(self, data, processed_data, row_bounds, sample_offsets,
@@ -1203,9 +1199,8 @@ class RawData(object):
         return shifted_data
 
 
-    def _resample_sample_data(self, data, row_bounds, sample_intervals,
-            unique_sample_intervals, resample_interval, sample_offsets,
-            min_sample_offset, is_power=True):
+    def _resample_sample_data(self, data, sample_intervals, unique_sample_intervals,
+            resample_interval, sample_offsets, min_sample_offset, is_power=True):
         '''
         _resample_sample_data vertically resamples power or angle data given a target
         sample interval. This method also shifts samples vertically based on their sample
@@ -1215,7 +1210,7 @@ class RawData(object):
         '''
 
         #  determine the number of pings in the new array
-        n_pings = row_bounds.shape[0]
+        n_pings = data.shape[0]
 
         # check if we need to substitute our resample_interval value
         if (resample_interval == self.RESAMPLE_SHORTEST):
@@ -1246,7 +1241,7 @@ class RawData(object):
                 resample_factor[sample_interval] = sample_interval / resample_interval
 
             #  determine the rows in this subset with this sample interval
-            rows_this_interval[sample_interval] = np.where(sample_intervals[row_bounds] == sample_interval)[0]
+            rows_this_interval[sample_interval] = np.where(sample_intervals == sample_interval)[0]
 
             #  determine the net vertical shift for the samples with this sample interval
             sample_offsets_this_interval[sample_interval] = sample_offsets[rows_this_interval[sample_interval]] - \
@@ -1361,10 +1356,11 @@ class RawData(object):
             data[0,:] = temp_copy
 
         #  roll our two lists
-        self.ping_time.append(self.ping_time.pop(0))
+        #self.ping_time.append(self.ping_time.pop(0))
         self.channel_metadata.append(self.channel_metadata.pop(0))
 
         #  roll the numpy arrays
+        self.ping_time = np.roll(self.ping_time, roll_pings)
         self.ping_number = np.roll(self.ping_number, roll_pings)
         self.transducer_depth = np.roll(self.transducer_depth, roll_pings)
         self.frequency = np.roll(self.frequency, roll_pings)
@@ -1417,6 +1413,7 @@ class RawData(object):
 
         #  resize the 1d arrays
         if (new_ping_dim != old_ping_dim):
+            self.ping_time.resize((new_ping_dim))
             self.ping_number.resize((new_ping_dim))
             self.transducer_depth.resize((new_ping_dim))
             self.frequency.resize((new_ping_dim))
@@ -1463,12 +1460,13 @@ class RawData(object):
         '''
 
         #  ping_time and channel_metadata are lists
-        self.ping_time = []
+        #self.ping_time = []
         self.channel_metadata = []
 
         #  all other data properties are numpy arrays
 
         #  first, create uninitialized arrays
+        self.ping_time = np.empty((n_pings), dtype='datetime64[s]')
         self.ping_number = np.empty((n_pings), np.int32)
         self.transducer_depth = np.empty((n_pings), np.float32)
         self.frequency = np.empty((n_pings), np.float32)
@@ -1499,11 +1497,10 @@ class RawData(object):
             self.angles_alongship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
             self.angles_athwartship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
 
-        #  check if we should initialize them (fill with NaNs)
-        #  note that int types will be filled with the smallest possible value for the type
+        #  check if we should initialize them
         if (initialize):
-
-            self.ping_number.fill(np.nan)
+            self.ping_time.fill(datetime.datetime('1970','1','1'))
+            self.ping_number.fill(0)
             self.transducer_depth.fill(np.nan)
             self.frequency.fill(np.nan)
             self.transmit_power.fill(np.nan)
@@ -1517,9 +1514,9 @@ class RawData(object):
             self.roll.fill(np.nan)
             self.temperature.fill(np.nan)
             self.heading.fill(np.nan)
-            self.transmit_mode.fill(np.nan)
-            self.sample_offset.fill(np.nan)
-            self.sample_count.fill(np.nan)
+            self.transmit_mode.fill(0)
+            self.sample_offset.fill(0)
+            self.sample_count.fill(0)
             if (self.store_power):
                 self.power.fill(np.nan)
             if (self.store_angles):
@@ -1722,3 +1719,46 @@ Just stashing some text down here for now
 
                    ####  pulse_length units are seconds in the raw data ####
 '''
+
+#    def get_ping_index(self, time=None, ping=None):
+#        '''
+#        get_index returns the index into the data arrays given a ping number or ping time.
+#        '''
+#
+#        def nearest_idx_list(list, value):
+#            '''
+#            return the index of the nearest value in a list.
+#            Adapted from: https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
+#            '''
+#            return list.index(min(list, key=lambda x: abs(x - value)))
+#
+#
+#        def nearest_idx_array(array, value):
+#            '''
+#            return the index of the nearest value in a numpy array.
+#            '''
+#            return (np.abs(array - value)).argmin()
+#
+#
+#        #  check if we have an start time defined and determine index
+#        if (ping == None and time == None):
+#            index = 0
+#        elif (ping == None):
+#            #  start must be defined by time
+#            #  make sure we've been passed a datetime object defining the start time
+#            if (not type(time) is datetime.datetime):
+#                raise TypeError('time must be a datetime object.')
+#
+#            #  and find the index of the closest ping_time
+#            index = nearest_idx_list(self.ping_time, time)
+#        else:
+#            #  ping must have been provided
+#            #  make sure we've been passed an integer defining the start ping
+#            ping = int(ping)
+#            if (not (type(ping) is int or type(ping) is float)):
+#                raise TypeError('ping must be an number.')
+#
+#            #  and find the index of the closest ping_number
+#            index = nearest_idx_array(self.ping_number, ping)
+#
+#        return (index)
