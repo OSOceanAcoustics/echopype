@@ -1165,8 +1165,8 @@ class RawData(object):
 
 
 
-    def _shift_sample_offsets(self, data, processed_data, row_bounds, sample_offsets,
-            unique_sample_offsets, min_sample_offset):
+    def _shift_sample_offsets(self, data, processed_data, sample_offsets, unique_sample_offsets,
+            min_sample_offset):
         '''
         _shift_sample_offsets adjusts the output array size and pads the top of the
         samples array to vertically shift the positions of the sample data in the output
@@ -1191,7 +1191,7 @@ class RawData(object):
 
         #  and fill it looping over the different sample offsets
         for offset in unique_sample_offsets:
-            rows_this_offset = np.where(sample_offsets[row_bounds] == offset)[0]
+            rows_this_offset = np.where(sample_offsets == offset)[0]
             start_index = offset - min_sample_offset
             end_index = start_index + data.shape[1]
             shifted_data[rows_this_offset, start_index:end_index] = data[rows_this_offset, 0:data.shape[1]]
@@ -1682,83 +1682,3 @@ class CalibrationParameters(object):
         '''
         pass
 
-
-
-'''
-
-Just stashing some text down here for now
-
-
-
-
-
-                    add rows. This will present itself as a datagram that
-            has the same pulse_length but more samples. In this case we resize the array
-            vertically. Same goes in terms of resizing in the most efficient way with one important
-            difference: empty array elements of *existing pings* must be set to NaN.
-
-
-            The last way the arrays will (possibly) change sizes is if the pulse_length changes.
-            pulse_length directly effects the vertical "resolution". Since vetical resolution must be
-            fixed within the 2d data arrays, we will deal with this in a couple of ways:
-
-                if self.allow_pulse_length_change == False we will simply issue a warning and return
-                False.
-
-                if self.allow_pulse_length_change == True and self.target_pulse_length == None we
-                will resample the data to the resolution of the first ping in our data arrays.
-
-                if self.allow_pulse_length_change == True and self.target_pulse_length != None we
-                will resample *all* of the data to the resolution specified by self.target_pulse_length.
-                The value specified by target_pulse_length must be a valid pulse length.
-
-                EK/ES60 ES70 pulse lengths in us: [256, 512, 1024, 2048, 4096]
-                there are always 4 samples per pulse in time
-                sample resolution in us by pulse length [64, 128, 256, 512, 1024]
-
-
-                   ####  pulse_length units are seconds in the raw data ####
-'''
-
-#    def get_ping_index(self, time=None, ping=None):
-#        '''
-#        get_index returns the index into the data arrays given a ping number or ping time.
-#        '''
-#
-#        def nearest_idx_list(list, value):
-#            '''
-#            return the index of the nearest value in a list.
-#            Adapted from: https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
-#            '''
-#            return list.index(min(list, key=lambda x: abs(x - value)))
-#
-#
-#        def nearest_idx_array(array, value):
-#            '''
-#            return the index of the nearest value in a numpy array.
-#            '''
-#            return (np.abs(array - value)).argmin()
-#
-#
-#        #  check if we have an start time defined and determine index
-#        if (ping == None and time == None):
-#            index = 0
-#        elif (ping == None):
-#            #  start must be defined by time
-#            #  make sure we've been passed a datetime object defining the start time
-#            if (not type(time) is datetime.datetime):
-#                raise TypeError('time must be a datetime object.')
-#
-#            #  and find the index of the closest ping_time
-#            index = nearest_idx_list(self.ping_time, time)
-#        else:
-#            #  ping must have been provided
-#            #  make sure we've been passed an integer defining the start ping
-#            ping = int(ping)
-#            if (not (type(ping) is int or type(ping) is float)):
-#                raise TypeError('ping must be an number.')
-#
-#            #  and find the index of the closest ping_number
-#            index = nearest_idx_array(self.ping_number, ping)
-#
-#        return (index)
