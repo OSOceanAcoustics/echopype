@@ -24,9 +24,12 @@ import datetime
 from pytz import timezone
 import logging
 import numpy as np
-from .util.raw_file import RawSimradFile, SimradEOF
-from .util import unit_conversion
-from ..processing import ProcessedData
+#from .util.raw_file import RawSimradFile, SimradEOF
+#from .util import unit_conversion
+#from ..processing import ProcessedData
+from util.raw_file import RawSimradFile, SimradEOF
+from util import unit_conversion
+from processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +66,12 @@ class EK60(object):
 
         #  create a dictionary to store the RawData objects
         self.raw_data = {}
+
+        #  create a dictionary to store the Calibration object
+        self.calibration_data = {}
+
+        #  create a dictionary to store the Calibration object
+        self.nmea_data = {}
 
         #  Define the class's "private" properties. These should not be generally be directly
         #  manipulated by the user.
@@ -200,12 +209,19 @@ class EK60(object):
                         self.raw_data[channel_id] = RawData(channel_id, store_power=self.read_power,
                                 store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
 
+                        # add this channel to the calibration data
+                        self.calibration_data[channel_id] = CalibrationParameters()
+
                         #  and add it to our list of channel_ids
                         self.channel_ids.append(channel_id)
 
                         #  update our public channel id map
                         self.n_channels += 1
                         self.channel_id_map[self.n_channels] = channel_id
+
+
+                    # add calibration data from config datagram
+                    self.calibration_data[channel_id].append_calibration(config_datagram['transceivers'][channel])
 
                     #  update the internal mapping of channel number to channel ID used when reading
                     #  the datagrams. This mapping is only valid for the current file that is being read.
@@ -231,9 +247,10 @@ class EK60(object):
                 #  increment the file read counter
                 n_files += 1
 
-        #  trim excess data from arrays after reading
+        #  trim excess data from arrays after reading and compress calibration arrays
         for channel_id in self.channel_ids:
             self.raw_data[channel_id].trim()
+            self.calibration_data[channel_id].compress_data_arrays()
 
 
     def _read_datagrams(self, fid, incremental):
@@ -309,6 +326,9 @@ class EK60(object):
                     #  and call the appropriate channel's append_ping method
                     self.raw_data[channel_id].append_ping(new_datagram)
 
+                    # append the calibration data
+                    self.calibration_data[channel_id].append_calibration(new_datagram)
+
                     # increment the sample datagram counter
                     num_sample_datagrams += 1
                 else:
@@ -316,8 +336,14 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
-                #TODO:  Implement NMEA reading
-                pass
+              timestamp = new_datagram['timestamp']
+              nmea_type = new_datagram['nmea_type']
+              nmea_string = new_datagram['nmea_string']
+
+              if nmea_type not in self.nmea_data:
+                self.nmea_data[nmea_type] = {}
+
+              self.nmea_data[nmea_type][timestamp] = nmea_string
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
@@ -704,9 +730,10 @@ class RawData(object):
 
 
     def get_data(self):
-        for attribute, data in self:
-            if attribute in self._data_attributes:
-                yield (attribute, data)
+      for attr in vars(self):
+        data = getattr(self, attr)
+        if attr in self._data_attributes:
+          yield (attr, data)
 
 
     def append(self, rawdata_object):
@@ -1235,6 +1262,7 @@ class RawData(object):
         return (resampled_data, resample_interval)
 
 
+    #FIXME If I remove this, will it break anything?
     def __iter__(self):
         for attribute in vars(self).keys():
             yield (attribute, getattr(self, attribute))
@@ -1629,26 +1657,64 @@ class CalibrationParameters(object):
     power and electrical angle data to Sv/sv TS/SigmaBS and physical angles.
     '''
 
-    def __init__(self, file):
+    def __init__(self):
 
-        self.channel_id = ''
-        self.frequency = 0
-        self.sound_velocity = 0.0
-        self.sample_interval = 0
-        self.absorption_coefficient = 0.0
-        self.gain = 0.0
-        self.equivalent_beam_angle = 0.0
-        self.beamwidth_alongship = 0.0
-        self.beamwidth_athwartship = 0.0
-        self.sa_correction = 0.0
-        self.transmit_power = 0.0
-        self.pulse_length = 0.0
-        self.angle_sensitivity_alongship = 0.0
-        self.angle_sensitivity_athwartship = 0.0
-        self.angle_offset_alongship = 0.0
-        self.angle_offset_athwartship = 0.0
-        self.transducer_depth = 0.0
-        self.sample_offset = 0.0
+        self.channel_id = []
+        self.frequency = []
+        self.sound_velocity = []
+        self.sample_interval = []
+        self.absorption_coefficient = []
+        self.gain = []
+        self.equivalent_beam_angle = []
+        self.beamwidth_alongship = []
+        self.beamwidth_athwartship = []
+        self.pulse_length_table = []
+        self.gain_table  = []
+        self.sa_correction_table = []
+        self.transmit_power = []
+        self.pulse_length = []
+        self.angle_sensitivity_alongship = []
+        self.angle_sensitivity_athwartship = []
+        self.angle_offset_alongship = []
+        self.angle_offset_athwartship = []
+        self.transducer_depth = []
+
+        self.sounder_name = [] #From matlab calib params but it's being stored here in the channel_metadata. Remove?
+        self.sample_offset = [] #Should this come from the "offset" field in the datagrams?
+        self.offset = [] 
+
+
+    def append_calibration(self, datagram):
+      for attribute in vars(self):
+        if attribute in datagram:
+          self._append_data(attribute, datagram[attribute])
+
+
+    def _append_data(self, attribute, data):
+          attr_data = getattr(self, attribute)
+          if isinstance(data, np.ndarray):
+            datagram_data = self.get_table_value(data, attribute)
+          else:
+            datagram_data = data
+          attr_data.append(datagram_data)
+          setattr(self, attribute, attr_data)
+
+    def get_table_value(self, data, attribute):
+      #TODO Find out which value to use from Rick.
+      return data[0]
+
+
+    def compress_data_arrays(self):
+        '''
+        If any of the data arrays in this object have values that are all the same,
+        replace the array with a scalar value.
+        '''
+        for attr in vars(self):
+          data = getattr(self, attr)
+
+          if len(set(data)) == 1:
+            data = data[0]
+            setattr(self, attr, data)
 
 
     def from_raw_data(self, raw_data, raw_file_idx=0):
@@ -1659,8 +1725,17 @@ class CalibrationParameters(object):
         This would query the RawFileData object specified by raw_file_idx in the
         provided RawData object (by default, using the first).
         '''
-
-        pass
+        #TODO Ask, do we want to add calibration data from the config datagram to the raw data object
+        #     in order to capture them here?
+        #TODO Since calibration data is indexed the same as data now, do we still want to use raw_file_idx here?
+        for attr in vars(self):
+          if attr in vars(raw_data):
+            data = getattr(raw_data, attr)
+            self_data = getattr(self, attr)
+            if not isinstance(self_data, list):
+              self_data = [self_data]
+              setattr(self, attr, self_data)
+            self._append_data(attr, data)
 
 
     def read_ecs_file(self, ecs_file, channel):
