@@ -20,13 +20,17 @@
 '''
 
 import os
+import sys
 import datetime
 from pytz import timezone
 import logging
 import numpy as np
-from .util.raw_file import RawSimradFile, SimradEOF
-from .util import unit_conversion
-from ..processing import ProcessedData
+#from .util.raw_file import RawSimradFile, SimradEOF
+#from .util import unit_conversion
+#from ..processing import ProcessedData
+from util.raw_file import RawSimradFile, SimradEOF
+from util import unit_conversion
+from processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
@@ -927,25 +931,121 @@ class RawData(object):
         power_data = self.get_power(calibration=calibration,
                 return_indices=return_indices, **kwargs)
 
-        #  populate the calibration parameters required for this method. First, create a dict with key
-        #  names that match the attributes names of the calibration parameters we require for this method
-        cal_parms = {'frequency':None,
-                     'pulse_length':None,
-                     'equivalent_beam_angle':None,
-                     'transmit_power':None}
-
-        #  next, iterate thru the dict, calling the method to extract the values for each parameter
-        for key in cal_parms:
+        #  next, iterate thru the calibration attributes, calling the method to extract the values for each parameter
+        calibration_dict = vars(calibration)
+        sv_cal_keys = ['gain', 'sound_velocity', 'frequency', 'transmit_power', 'equivalent_beam_angle', \
+                       'pulse_length', 'offset', 'count', 'sample_interval']
+        cal_parms = {}
+        for key in sv_cal_keys:
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
+
         #  get sound_velocity from the power data since get_power might have manipulated this value
-        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.dtype)
+        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
         cal_parms['sound_velocity'].fill(power_data.sound_velocity)
 
 
+        if sys.version_info >= (3, 0):
+          indices = range(len(return_indices))
+        else:
+          indices = xrange(len(return_indices))
+
+        #Calculate CSv for each item in arrays.
+        CSv = []
+        #FIXME get tvg_correction.
+#        for idx in indices:  #FIXME this loop?
+#          sv = power_to_Sv(idx, data=row, gain=gain, eba=eba, sa_correction=sa_correction, calibration=cal, \
+#                           tvg_correction=tvg_correction, linear=linear, raw=True)
+#
+#          result[idx] = {'channel':power_data['channel_id'],'reduced_timestamp':power_data[1], data_key: sv}
+#           
+#
+#
+#
+#    def power_to_Sv(self, idx, data=row, gain=gain, eba=eba, sa_correction=sa_correction, calibration=cal, \
+#        tvg_correction=tvg_correction, linear=linear, raw=True):
+#
+#        #FIXME Change i to idx and add it to the subsequenct lines in this method?  or get rid of it.  
+#        CSv.append(self._calc_CSv(cal_parms['gain'][i], cal_parms['sound_velocity'][i], cal_parms['frequency'][i], \
+#                                    cal_parms['transmit_power'][i], cal_parms['equivalent_beam_angle'][i], \
+#                                    cal_parms['pulse_length'][i]))
+#
+#       
+#
+#        range_ = _range_vector(cal_parms['offset'], cal_parms['count'], cal_parms['sound_velocity'], \
+#                               cal_parms['sample_interval'], tvg_correction)
+#        tvg = range_.copy()
+#        tvg[tvg == 0] = 1
+#        tvg = 20 * np.log10(tvg)
+#        tvg[tvg < 0] = 0
+#    
+#        if raw:
+#            raw_factor = 10.0 * np.log10(2.0) / 256.0
+#        else:
+#            raw_factor = 1
+#    
+#        convert = lambda x: x * raw_factor + tvg + 2 * absorption_coefficient * range_ - \
+#            CSv - 2 * sa_correction
+#    
+#    
+#        if data['power'].ndim == 1:
+#            if linear:
+#                Sv = 10 **(convert(data['power']) / 10.0)
+#    
+#            else:
+#                Sv = convert(data['power'])
+#    
+#        elif data['power'].ndim == 2:
+#            Sv = np.empty_like(data['power'], dtype=np.float)
+#            for ping in range(data['power'].shape[1]):
+#    
+#                if linear:
+#                    Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
+#    
+#                else:
+#                    Sv[:, ping] = convert(data['power'][:, ping])
+#    
+#        else:
+#            raise ValueError('Expected a 1- or 2-dimensional array')
+#    
+#        return Sv
+#    
+#
+#
 
 
+    def _calc_CSv(self, gain, sound_velocity, frequency, transmit_power, eba, pulse_length):
+        '''
+        Calculates the CSv constant used in power <-> Sv conversions
+        '''
+        beta = self._calc_beta(gain, sound_velocity, frequency, transmit_power)
+        CSv = 10 * np.log10(beta / 2.0 * sound_velocity * pulse_length * 10**(eba / 10.0))
+    
+        return CSv
+    
+    
+    def _calc_beta(self, gain, sound_velocity, frequency, transmit_power):
+        '''  
+        Convenicne constant for calculating CSv and CSp
+        '''
+        wlength = sound_velocity / (1.0 * frequency)
+        beta = transmit_power * (10**(gain / 10.0) * wlength)**2 / (16 * np.pi**2)
+    
+        return beta
 
+
+    def _range_vector(offset, count, sound_velocity, sample_interval, tvg_correction=2.0):
+        '''
+        Calculates the the tvg-corrected range vector used in Sp and Sv conversions
+        '''
+        dR = sound_velocity * sample_interval / 2.0
+        sample_range = (np.arange(0, count) + offset) * dR
+        corrected_range = sample_range - (tvg_correction * dR)
+        corrected_range[corrected_range < 0] = 0
+    
+        return corrected_range
+
+    
     def get_ts(self, cal_parameters=None, linear=False, **kwargs):
         '''
         get_ts returns a ProcessedData object containing TS (or sigma_bs if linear is
@@ -1261,7 +1361,7 @@ class RawData(object):
 
     #FIXME If I remove this, will it break anything?
     def __iter__(self):
-        for attribute in vars(self).keys():
+        for attribute in vars(self):
             yield (attribute, getattr(self, attribute))
 
 
@@ -1285,9 +1385,13 @@ class RawData(object):
             data
         '''
 
+
         if (cal_object):
             #  try to get the parameter from the calibration object
+            print('param_name',param_name)
             param = getattr(cal_object, param_name)
+            print('param', param)
+            print('type(param)', type(param))
 
             #  check if the input param is an numpy array
             if isinstance(param, np.ndarray):
@@ -1308,7 +1412,7 @@ class RawData(object):
                     raise ValueError("The calibration parameter array " + param_name +
                             " is the wrong length.")
             #  not an array - check if it is a scalar int or float
-            elif (type(param) == int or type(param) == float):
+            elif (type(param) == int or type(param) == float or type(param) == np.float64):
                     param_data = np.empty((return_indices.shape[0]), dtype=dtype)
                     param_data.fill(param)
             else:
@@ -1657,6 +1761,8 @@ class CalibrationParameters(object):
     def __init__(self):
 
         self.channel_id = []
+        self.count = []
+        self.sample_count = []
         self.frequency = []
         self.sound_velocity = []
         self.sample_interval = []
@@ -1680,24 +1786,27 @@ class CalibrationParameters(object):
         self.sample_offset = [] #Should this come from the "offset" field in the datagrams?
         self.offset = [] 
 
-
     def append_calibration(self, datagram):
+      #TODO Add code to ensure alignment with raw data arrays.  Use n_pings.
       for attribute in vars(self):
         if attribute in datagram:
           self._append_data(attribute, datagram[attribute])
+      self.sample_offset = self.offset #FIXME Is this right?
+      self.sample_count = self.count #FIXME Is this right?
 
 
     def _append_data(self, attribute, data):
-          attr_data = getattr(self, attribute)
-          if isinstance(data, np.ndarray):
-            datagram_data = self.get_table_value(data, attribute)
-          else:
-            datagram_data = data
-          attr_data.append(datagram_data)
-          setattr(self, attribute, attr_data)
+      attr_data = getattr(self, attribute)
+      if isinstance(data, np.ndarray):
+        datagram_data = self.get_table_value(data, attribute)
+      else:
+        datagram_data = data
+      attr_data.append(datagram_data)
+      setattr(self, attribute, attr_data)
+
 
     def get_table_value(self, data, attribute):
-      #TODO Find out which value to use from Rick.
+      #TODO Ask Rick which value to use.
       return data[0]
 
 
