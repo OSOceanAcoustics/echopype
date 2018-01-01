@@ -25,12 +25,9 @@ import datetime
 from pytz import timezone
 import logging
 import numpy as np
-#from .util.raw_file import RawSimradFile, SimradEOF
-#from .util import unit_conversion
-#from ..processing import ProcessedData
-from util.raw_file import RawSimradFile, SimradEOF
-from util import unit_conversion
-from processing import ProcessedData
+from .util.raw_file import RawSimradFile, SimradEOF
+from .util import unit_conversion
+from ..processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
