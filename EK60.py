@@ -905,7 +905,9 @@ class RawData(object):
         return primary_index[mask]
 
 
-    def get_sv(self, calibration=None, linear=False, return_indices=None, **kwargs):
+    def get_sv(self, calibration=None, linear=False, return_indices=None, tvg_correction=2, **kwargs):
+        #TODO Ask Rick, should this be an attribute of calibration data?  It was set to 2 in 
+        #Zac's Sv function.  Do we want to set it here as an optional argument like this?
         '''
         get_sv returns a ProcessedData object containing Sv (or sv if linear is
         True).
@@ -931,87 +933,72 @@ class RawData(object):
         power_data = self.get_power(calibration=calibration,
                 return_indices=return_indices, **kwargs)
 
+
         #  next, iterate thru the calibration attributes, calling the method to extract the values for each parameter
         calibration_dict = vars(calibration)
+
         sv_cal_keys = ['gain', 'sound_velocity', 'frequency', 'transmit_power', 'equivalent_beam_angle', \
-                       'pulse_length', 'offset', 'count', 'sample_interval']
-        cal_parms = {}
+                       'pulse_length', 'offset', 'count', 'sample_interval', 'absorption_coefficient', \
+                       'sa_correction_table']
+        cal = {}
         for key in sv_cal_keys:
-            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+            cal[key] = self._get_calibration_param(calibration, key, return_indices)
 
 
         #  get sound_velocity from the power data since get_power might have manipulated this value
-        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
-        cal_parms['sound_velocity'].fill(power_data.sound_velocity)
+        cal['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
+        cal['sound_velocity'].fill(power_data.sound_velocity)
 
 
-        if sys.version_info >= (3, 0):
-          indices = range(len(return_indices))
+        #Calculate sv
+        data = vars(power_data)
+        sv = self.power_to_Sv(data=data, cal=cal, tvg_correction=tvg_correction, linear=linear, raw=True)
+
+        return sv
+
+
+    def power_to_Sv(self, data=None, cal=None, tvg_correction=None, linear=None, raw=True):
+
+
+        CSv = self._calc_CSv(cal['gain'], cal['sound_velocity'], cal['frequency'], cal['transmit_power'], cal['equivalent_beam_angle'], cal['pulse_length'])
+
+        range_ = self._range_vector(cal, tvg_correction)
+        tvg = range_.copy()
+        tvg[tvg == 0] = 1
+        tvg = 20 * np.log10(tvg)
+        tvg[tvg < 0] = 0
+    
+        if raw:
+            raw_factor = 10.0 * np.log10(2.0) / 256.0
         else:
-          indices = xrange(len(return_indices))
+            raw_factor = 1
+    
+        convert = lambda x: x * raw_factor + tvg + 2 * cal['absorption_coefficient'] * range_ - \
+            CSv - 2 * cal['sa_correction_table'] #Replaced sa_correction with sa_correction_table.
 
-        #Calculate CSv for each item in arrays.
-        CSv = []
-        #FIXME get tvg_correction.
-#        for idx in indices:  #FIXME this loop?
-#          sv = power_to_Sv(idx, data=row, gain=gain, eba=eba, sa_correction=sa_correction, calibration=cal, \
-#                           tvg_correction=tvg_correction, linear=linear, raw=True)
-#
-#          result[idx] = {'channel':power_data['channel_id'],'reduced_timestamp':power_data[1], data_key: sv}
-#           
-#
-#
-#
-#    def power_to_Sv(self, idx, data=row, gain=gain, eba=eba, sa_correction=sa_correction, calibration=cal, \
-#        tvg_correction=tvg_correction, linear=linear, raw=True):
-#
-#        #FIXME Change i to idx and add it to the subsequenct lines in this method?  or get rid of it.  
-#        CSv.append(self._calc_CSv(cal_parms['gain'][i], cal_parms['sound_velocity'][i], cal_parms['frequency'][i], \
-#                                    cal_parms['transmit_power'][i], cal_parms['equivalent_beam_angle'][i], \
-#                                    cal_parms['pulse_length'][i]))
-#
-#       
-#
-#        range_ = _range_vector(cal_parms['offset'], cal_parms['count'], cal_parms['sound_velocity'], \
-#                               cal_parms['sample_interval'], tvg_correction)
-#        tvg = range_.copy()
-#        tvg[tvg == 0] = 1
-#        tvg = 20 * np.log10(tvg)
-#        tvg[tvg < 0] = 0
-#    
-#        if raw:
-#            raw_factor = 10.0 * np.log10(2.0) / 256.0
-#        else:
-#            raw_factor = 1
-#    
-#        convert = lambda x: x * raw_factor + tvg + 2 * absorption_coefficient * range_ - \
-#            CSv - 2 * sa_correction
-#    
-#    
-#        if data['power'].ndim == 1:
-#            if linear:
-#                Sv = 10 **(convert(data['power']) / 10.0)
-#    
-#            else:
-#                Sv = convert(data['power'])
-#    
-#        elif data['power'].ndim == 2:
-#            Sv = np.empty_like(data['power'], dtype=np.float)
-#            for ping in range(data['power'].shape[1]):
-#    
-#                if linear:
-#                    Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
-#    
-#                else:
-#                    Sv[:, ping] = convert(data['power'][:, ping])
-#    
-#        else:
-#            raise ValueError('Expected a 1- or 2-dimensional array')
-#    
-#        return Sv
-#    
-#
-#
+        if data['power'].ndim == 1:
+            if linear:
+                Sv = 10 **(convert(data['power']) / 10.0)
+    
+            else:
+                Sv = convert(data['power'])
+    
+        elif data['power'].ndim == 2:
+            Sv = np.empty_like(data['power'], dtype=np.float)
+            for ping in range(data['power'].shape[1]):
+    
+                if linear:
+                    Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
+    
+                else:
+                    Sv[:, ping] = convert(data['power'][:, ping])
+    
+        else:
+            raise ValueError('Expected a 1- or 2-dimensional array')
+
+    
+        return Sv
+
 
 
     def _calc_CSv(self, gain, sound_velocity, frequency, transmit_power, eba, pulse_length):
@@ -1034,12 +1021,13 @@ class RawData(object):
         return beta
 
 
-    def _range_vector(offset, count, sound_velocity, sample_interval, tvg_correction=2.0):
+    def _range_vector(self, cal, tvg_correction=2.0):
         '''
         Calculates the the tvg-corrected range vector used in Sp and Sv conversions
         '''
-        dR = sound_velocity * sample_interval / 2.0
-        sample_range = (np.arange(0, count) + offset) * dR
+        dR = cal['sound_velocity'] * cal['sample_interval'] / 2.0
+        #sample_range = (np.arange(0, cal['count'][0]) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
+        sample_range = (np.arange(0, len(cal['offset'])) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
         corrected_range = sample_range - (tvg_correction * dR)
         corrected_range[corrected_range < 0] = 0
     
@@ -1388,10 +1376,7 @@ class RawData(object):
 
         if (cal_object):
             #  try to get the parameter from the calibration object
-            print('param_name',param_name)
             param = getattr(cal_object, param_name)
-            print('param', param)
-            print('type(param)', type(param))
 
             #  check if the input param is an numpy array
             if isinstance(param, np.ndarray):
