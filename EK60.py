@@ -26,12 +26,34 @@ import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
 from .util import unit_conversion
+from .util import data_transforms
 from ..processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
 
 class EK60(object):
+
+    #  define some instrument specific constants
+
+    #  Simrad recommends a TVG correction factor of 2 samples to compensate for receiver delay and TVG
+    #  start time delay in EK60 and related hardware. Note that this correction factor is only applied
+    #  when computing Sv/sv and not Sp/sp.
+    TVG_CORRECTION = 2
+
+    #  define constants used to specify the target resampling interval for the power and angle
+    #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
+    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
+    RESAMPLE_SHORTEST = 0
+    RESAMPLE_16   = 0.000016
+    RESAMPLE_32  = 0.000032
+    RESAMPLE_64  = 0.000064
+    RESAMPLE_128  = 0.000128
+    RESAMPLE_256 = 0.000256
+    RESAMPLE_512 = 0.000512
+    RESAMPLE_1024 = 0.001024
+    RESAMPLE_2048 = 0.002048
+    RESAMPLE_LONGEST = 1
 
     def __init__(self):
 
@@ -423,26 +445,7 @@ class RawData(object):
 
     '''
 
-    #  define some instrument specific constants
 
-    #  Simrad recommends a TVG correction factor of 2 samples to compensate for receiver delay and TVG
-    #  start time delay in EK60 and related hardware. Note that this correction factor is only applied
-    #  when computing Sv/sv and not Sp/sp.
-    TVG_CORRECTION = 2
-
-    #  define constants used to specify the target resampling interval for the power and angle
-    #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
-    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
-    RESAMPLE_SHORTEST = 0
-    RESAMPLE_16   = 0.000016
-    RESAMPLE_32  = 0.000032
-    RESAMPLE_64  = 0.000064
-    RESAMPLE_128  = 0.000128
-    RESAMPLE_256 = 0.000256
-    RESAMPLE_512 = 0.000512
-    RESAMPLE_1024 = 0.001024
-    RESAMPLE_2048 = 0.002048
-    RESAMPLE_LONGEST = 1
 
 
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
@@ -498,8 +501,8 @@ class RawData(object):
         self.sample_dtype = 'float32'
 
         #  _data_attributes is an internal list that contains the names of all of the class's
-        #  "data" properties. This is used internally with gettattr/setattr to remove some
-        #  code verbosity when interacting with this properties.
+        #  "data" properties. The echolab2 package uses this attribute to generalize various
+        #  functions that manipulate these data. All
         self._data_attributes = ['ping_time',
                                  'channel_metadata',
                                  'ping_number',
@@ -981,6 +984,187 @@ class RawData(object):
         '''
 
 
+
+    def _get_sample_data(self, property_name, calibration=None, tvg_correction=TVG_CORRECTION,
+            resample_interval=RESAMPLE_SHORTEST, resample_soundspeed=None, insert_into=None,
+            return_indices=None, **kwargs):
+        '''
+        _get_sample_data returns a processed data object that contains the sample data from
+        the property name provided. It performs all of the required transformations to place
+        the raw power data into a rectangular array where all samples share the same thickness
+        and are correctly arranged relative to each other.
+
+        This process happens in 3 steps:
+
+                Data are resampled so all samples have the same thickness
+                Data are shifted vertically to account for the sample offsets
+                Data are then regridded to a fixed time, range grid
+
+        Each step is performed only when required. Calls to this method will return much
+        faster if the raw data share the same sample thickness, offset and sound speed.
+
+        If calibration is set to an instance of EK60.CalibrationParameters the values in
+        that object (if set) will be used when performing the transformations required to
+        return the results. If the required parameters are not set in the calibration
+        object or if no object is provided, this method will extract these parameters from
+        the raw file data.
+
+        if insert_into is a reference to another ProcessedData object and the channel IDs
+        of self and the ProcessedData instance match, it is assumed that the calibration
+        and data collection parameters are the same and it will insert the requested property
+        data into the ProcessedData instance. This method will check if the resulting sample
+        array is the same shape as the sample arrays in the ProcessedData class and that the
+        range vector matches and will raise an error if they do not.
+        '''
+
+        #  check if we're inserting data into an existing ProcessedData object
+        if isinstance(insert_into, ProcessedData):
+            #  check that the channel IDs match
+            for channel in self.channel_id:
+                if (not channel in insert_into.channel_id):
+                    raise ValueError("The channel ID(s) the object you are inserting into " +
+                            "do not match the channel ID(s) of this RawData object.")
+
+            #  when inserting into a ProcessedData object we ignore the start/end arguments and
+            #  extract the same indices as the data in the object we are inserting into
+            return_indices = insert_into.ping_number - 1
+
+            #  we're inserting so we just copy the reference to the object and set the inserting flag
+            processed_data = insert_into
+            inserting = True
+
+        else:
+            #  check if the user supplied an explicit list of indices to return
+            if isinstance(return_indices, np.ndarray):
+                if max(return_indices) > self.ping_number.shape[0]:
+                    raise ValueError("One or more of the return indices provided exceeds the " +
+                            "number of pings in the RawData object")
+            else:
+                #  get an array of index values to return
+                return_indices = self.get_ping_indices(**kwargs)
+
+            #  create the ProcessedData object we will return
+            processed_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
+
+            #  populate it with time and ping number
+            processed_data.ping_time = self.ping_time[return_indices].copy()
+            processed_data.ping_number = self.ping_number[return_indices].copy()
+
+            #  unset the inserting flag
+            inserting = False
+
+        #  get a reference to the data we're operating on and to the attribute we're storing the output in.
+        is_power = False
+        if (property_name.lower() == 'power'):
+            #  we're processing power data
+            data = self.power
+            processed_data.power = []
+            output = processed_data.power
+            is_power = True
+        elif (property_name.lower() == 'angles_alongship_e'):
+            #  we're processing angles_alongship_e data
+            data = self.angles_alongship_e
+            processed_data.angles_alongship_e = []
+        elif (property_name.lower() == 'angles_athwartship_e'):
+            #  we're processing angles_athwartship_e data
+            data = self.angles_athwartship_e
+            processed_data.angles_athwartship_e = []
+        else:
+            raise AttributeError("The attribute name " + property_name + " does not exist.")
+
+        #  populate the calibration parameters required for this method. First, create a dict with key
+        #  names that match the attributes names of the calibration parameters we require for this method
+        cal_parms = {'sample_interval':None,
+                     'sound_velocity':None,
+                     'sample_offset':None,
+                     'transducer_depth':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  check if we have multiple sample offset values and get the minimum
+        unique_sample_offsets = np.unique(cal_parms['sample_offset'])
+        min_sample_offset = min(unique_sample_offsets)
+
+        # check if we need to resample our sample data
+        unique_sample_interval = np.unique(cal_parms['sample_interval'])
+        if (unique_sample_interval.shape[0] > 1):
+            #  there are at least 2 different sample intervals in the data - we must resample the data.
+            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
+            (output, sample_interval) = self._resample_sample_data(data[return_indices],
+                    cal_parms['sample_interval'], unique_sample_interval, resample_interval,
+                    cal_parms['sample_offset'], min_sample_offset, is_power=is_power)
+        else:
+            #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
+            if (unique_sample_offsets.shape[0] > 1):
+                #  we have multiple sample offsets so we need to shift some of the samples
+                output = self._shift_sample_offsets(data[return_indices], cal_parms['sample_offset'],
+                    unique_sample_offsets, min_sample_offset)
+            else:
+                #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
+                output = data[return_indices].copy()
+
+            #  and get the sample interval value to use for range conversion below
+            sample_interval = unique_sample_interval[0]
+
+        #  check if we have a fixed sound speed
+        unique_sound_velocity = np.unique(cal_parms['sound_velocity'])
+        if (unique_sound_velocity.shape[0] > 1):
+            #  there are at least 2 different sound speeds in the data or provided calibration data.
+            #  interpolate all data to the most common range (which is the most common sound speed)
+            sound_velocity = None
+            n = 0
+            for speed in unique_sound_velocity:
+            #  determine the sound speed with the most pings
+                if (np.count_nonzero(cal_parms['sound_velocity'] == speed) > n):
+                   sound_velocity = speed
+
+            #  calculate the target range
+            range = unit_conversion.get_range_vector(output.shape[1],
+                        sample_interval, sound_velocity, min_sample_offset,
+                        tvg_correction=tvg_correction)
+
+            #  get an array of indexes in the output array to interpolate
+            pings_to_interp = np.where(cal_parms['sound_velocity'] != sound_velocity)[0]
+
+            #  iterate thru this list of pings to change - interpolating each ping
+            for ping in pings_to_interp:
+                #  resample using the provided sound speed - calculate the
+                resample_range = unit_conversion.get_range_vector(output.shape[1],
+                        sample_interval, cal_parms['sound_velocity'][ping], min_sample_offset,
+                        tvg_correction=tvg_correction)
+
+                output[ping,:] = np.interp(range, resample_range, output[ping,:])
+
+        else:
+            #  we have a fixed sound speed - only need to calculate a single range vector
+            sound_velocity = unique_sound_velocity[0]
+            range = unit_conversion.get_range_vector(output.shape[1],
+                        sample_interval, sound_velocity, min_sample_offset,
+                        tvg_correction=tvg_correction)
+
+
+        if (not inserting):
+
+            #  assign range and sound speed to our ProcessedData object
+            processed_data.range = range
+            processed_data.sound_velocity = sound_velocity
+
+            #  compute sample thickness and set the sample offset
+            processed_data.sample_thickness = sample_interval * sound_velocity / 2.0
+            processed_data.sample_offset = min_sample_offset
+
+            #  copy the transducer depth data
+            processed_data.transducer_depth = cal_parms['transducer_depth'].copy()
+
+        #  return the ProcessedData object containing the requested data
+        return processed_data
+
+
+
+
+
     def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
             tvg_correction=TVG_CORRECTION, resample_soundspeed=None,
             return_indices=None, **kwargs):
@@ -1111,7 +1295,7 @@ class RawData(object):
         return power_data
 
 
-    def _shift_sample_offsets(self, data, processed_data, sample_offsets, unique_sample_offsets,
+    def _shift_sample_offsets(self, data, sample_offsets, unique_sample_offsets,
             min_sample_offset):
         '''
         _shift_sample_offsets adjusts the output array size and pads the top of the
@@ -1678,7 +1862,7 @@ class CalibrationParameters(object):
 
         self.sounder_name = [] #From matlab calib params but it's being stored here in the channel_metadata. Remove?
         self.sample_offset = [] #Should this come from the "offset" field in the datagrams?
-        self.offset = [] 
+        self.offset = []
 
 
     def append_calibration(self, datagram):
