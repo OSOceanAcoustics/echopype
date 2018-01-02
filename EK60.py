@@ -25,10 +25,14 @@ import datetime
 from pytz import timezone
 import logging
 import numpy as np
-from .util.raw_file import RawSimradFile, SimradEOF
-from .util import unit_conversion
-from .util import data_transforms
-from ..processing import ProcessedData
+from util.raw_file import RawSimradFile, SimradEOF
+from util import unit_conversion
+from util import data_transforms
+from processing import ProcessedData
+#from .util.raw_file import RawSimradFile, SimradEOF
+#from .util import unit_conversion
+#from .util import data_transforms
+#from ..processing import ProcessedData
 
 log = logging.getLogger(__name__)
 
@@ -954,7 +958,13 @@ class RawData(object):
         data = vars(power_data)
         sv = self.power_to_Sv(data=data, cal=cal, tvg_correction=tvg_correction, linear=linear, raw=True)
 
-        return sv
+        #Add the sv data to the power_data object.
+        if linear:
+          power_data.sv = sv
+        else:
+          power_data.Sv = sv
+
+        return power_data
 
 
     def power_to_Sv(self, data=None, cal=None, tvg_correction=None, linear=None, raw=True):
