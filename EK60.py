@@ -20,6 +20,7 @@
 '''
 
 import os
+import sys
 import datetime
 from pytz import timezone
 import logging
@@ -904,7 +905,9 @@ class RawData(object):
         return primary_index[mask]
 
 
-    def get_sv(self, calibration=None, linear=False, return_indices=None, **kwargs):
+    def get_sv(self, calibration=None, linear=False, return_indices=None, tvg_correction=2, **kwargs):
+        #TODO Ask Rick, should this be an attribute of calibration data?  It was set to 2 in 
+        #Zac's Sv function.  Do we want to set it here as an optional argument like this?
         '''
         get_sv returns a ProcessedData object containing Sv (or sv if linear is
         True).
@@ -930,25 +933,107 @@ class RawData(object):
         power_data = self.get_power(calibration=calibration,
                 return_indices=return_indices, **kwargs)
 
-        #  populate the calibration parameters required for this method. First, create a dict with key
-        #  names that match the attributes names of the calibration parameters we require for this method
-        cal_parms = {'frequency':None,
-                     'pulse_length':None,
-                     'equivalent_beam_angle':None,
-                     'transmit_power':None}
 
-        #  next, iterate thru the dict, calling the method to extract the values for each parameter
-        for key in cal_parms:
-            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+        #  next, iterate thru the calibration attributes, calling the method to extract the values for each parameter
+        calibration_dict = vars(calibration)
+
+        sv_cal_keys = ['gain', 'sound_velocity', 'frequency', 'transmit_power', 'equivalent_beam_angle', \
+                       'pulse_length', 'offset', 'count', 'sample_interval', 'absorption_coefficient', \
+                       'sa_correction_table']
+        cal = {}
+        for key in sv_cal_keys:
+            cal[key] = self._get_calibration_param(calibration, key, return_indices)
+
 
         #  get sound_velocity from the power data since get_power might have manipulated this value
-        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.dtype)
-        cal_parms['sound_velocity'].fill(power_data.sound_velocity)
+        cal['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
+        cal['sound_velocity'].fill(power_data.sound_velocity)
+
+
+        #Calculate sv
+        data = vars(power_data)
+        sv = self.power_to_Sv(data=data, cal=cal, tvg_correction=tvg_correction, linear=linear, raw=True)
+
+        return sv
+
+
+    def power_to_Sv(self, data=None, cal=None, tvg_correction=None, linear=None, raw=True):
+
+
+        CSv = self._calc_CSv(cal['gain'], cal['sound_velocity'], cal['frequency'], cal['transmit_power'], cal['equivalent_beam_angle'], cal['pulse_length'])
+
+        range_ = self._range_vector(cal, tvg_correction)
+        tvg = range_.copy()
+        tvg[tvg == 0] = 1
+        tvg = 20 * np.log10(tvg)
+        tvg[tvg < 0] = 0
+    
+        if raw:
+            raw_factor = 10.0 * np.log10(2.0) / 256.0
+        else:
+            raw_factor = 1
+    
+        convert = lambda x: x * raw_factor + tvg + 2 * cal['absorption_coefficient'] * range_ - \
+            CSv - 2 * cal['sa_correction_table'] #Replaced sa_correction with sa_correction_table.
+
+        if data['power'].ndim == 1:
+            if linear:
+                Sv = 10 **(convert(data['power']) / 10.0)
+    
+            else:
+                Sv = convert(data['power'])
+    
+        elif data['power'].ndim == 2:
+            Sv = np.empty_like(data['power'], dtype=np.float)
+            for ping in range(data['power'].shape[1]):
+    
+                if linear:
+                    Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
+    
+                else:
+                    Sv[:, ping] = convert(data['power'][:, ping])
+    
+        else:
+            raise ValueError('Expected a 1- or 2-dimensional array')
+
+    
+        return Sv
 
 
 
+    def _calc_CSv(self, gain, sound_velocity, frequency, transmit_power, eba, pulse_length):
+        '''
+        Calculates the CSv constant used in power <-> Sv conversions
+        '''
+        beta = self._calc_beta(gain, sound_velocity, frequency, transmit_power)
+        CSv = 10 * np.log10(beta / 2.0 * sound_velocity * pulse_length * 10**(eba / 10.0))
+    
+        return CSv
+    
+    
+    def _calc_beta(self, gain, sound_velocity, frequency, transmit_power):
+        '''  
+        Convenicne constant for calculating CSv and CSp
+        '''
+        wlength = sound_velocity / (1.0 * frequency)
+        beta = transmit_power * (10**(gain / 10.0) * wlength)**2 / (16 * np.pi**2)
+    
+        return beta
 
 
+    def _range_vector(self, cal, tvg_correction=2.0):
+        '''
+        Calculates the the tvg-corrected range vector used in Sp and Sv conversions
+        '''
+        dR = cal['sound_velocity'] * cal['sample_interval'] / 2.0
+        #sample_range = (np.arange(0, cal['count'][0]) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
+        sample_range = (np.arange(0, len(cal['offset'])) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
+        corrected_range = sample_range - (tvg_correction * dR)
+        corrected_range[corrected_range < 0] = 0
+    
+        return corrected_range
+
+    
     def get_ts(self, cal_parameters=None, linear=False, **kwargs):
         '''
         get_ts returns a ProcessedData object containing TS (or sigma_bs if linear is
@@ -1445,7 +1530,7 @@ class RawData(object):
 
     #FIXME If I remove this, will it break anything?
     def __iter__(self):
-        for attribute in vars(self).keys():
+        for attribute in vars(self):
             yield (attribute, getattr(self, attribute))
 
 
@@ -1468,6 +1553,7 @@ class RawData(object):
             1D array the length of return_indices filled with data extracted from the raw
             data
         '''
+
 
         if (cal_object):
             #  try to get the parameter from the calibration object
@@ -1492,7 +1578,7 @@ class RawData(object):
                     raise ValueError("The calibration parameter array " + param_name +
                             " is the wrong length.")
             #  not an array - check if it is a scalar int or float
-            elif (type(param) == int or type(param) == float):
+            elif (type(param) == int or type(param) == float or type(param) == np.float64):
                     param_data = np.empty((return_indices.shape[0]), dtype=dtype)
                     param_data.fill(param)
             else:
@@ -1841,6 +1927,8 @@ class CalibrationParameters(object):
     def __init__(self):
 
         self.channel_id = []
+        self.count = []
+        self.sample_count = []
         self.frequency = []
         self.sound_velocity = []
         self.sample_interval = []
@@ -1864,24 +1952,27 @@ class CalibrationParameters(object):
         self.sample_offset = [] #Should this come from the "offset" field in the datagrams?
         self.offset = []
 
-
     def append_calibration(self, datagram):
+      #TODO Add code to ensure alignment with raw data arrays.  Use n_pings.
       for attribute in vars(self):
         if attribute in datagram:
           self._append_data(attribute, datagram[attribute])
+      self.sample_offset = self.offset #FIXME Is this right?
+      self.sample_count = self.count #FIXME Is this right?
 
 
     def _append_data(self, attribute, data):
-          attr_data = getattr(self, attribute)
-          if isinstance(data, np.ndarray):
-            datagram_data = self.get_table_value(data, attribute)
-          else:
-            datagram_data = data
-          attr_data.append(datagram_data)
-          setattr(self, attribute, attr_data)
+      attr_data = getattr(self, attribute)
+      if isinstance(data, np.ndarray):
+        datagram_data = self.get_table_value(data, attribute)
+      else:
+        datagram_data = data
+      attr_data.append(datagram_data)
+      setattr(self, attribute, attr_data)
+
 
     def get_table_value(self, data, attribute):
-      #TODO Find out which value to use from Rick.
+      #TODO Ask Rick which value to use.
       return data[0]
 
 
