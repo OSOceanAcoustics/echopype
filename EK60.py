@@ -20,7 +20,6 @@
 '''
 
 import os
-import sys
 import datetime
 from pytz import timezone
 import logging
@@ -35,26 +34,6 @@ log = logging.getLogger(__name__)
 
 class EK60(object):
 
-    #  define some instrument specific constants
-
-    #  Simrad recommends a TVG correction factor of 2 samples to compensate for receiver delay and TVG
-    #  start time delay in EK60 and related hardware. Note that this correction factor is only applied
-    #  when computing Sv/sv and not Sp/sp.
-    TVG_CORRECTION = 2
-
-    #  define constants used to specify the target resampling interval for the power and angle
-    #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
-    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
-    RESAMPLE_SHORTEST = 0
-    RESAMPLE_16   = 0.000016
-    RESAMPLE_32  = 0.000032
-    RESAMPLE_64  = 0.000064
-    RESAMPLE_128  = 0.000128
-    RESAMPLE_256 = 0.000256
-    RESAMPLE_512 = 0.000512
-    RESAMPLE_1024 = 0.001024
-    RESAMPLE_2048 = 0.002048
-    RESAMPLE_LONGEST = 1
 
     def __init__(self):
 
@@ -87,10 +66,7 @@ class EK60(object):
         #  create a dictionary to store the RawData objects
         self.raw_data = {}
 
-        #  create a dictionary to store the Calibration object
-        self.calibration_data = {}
-
-        #  create a dictionary to store the Calibration object
+        #  create a dictionary to store the NMEA object
         self.nmea_data = {}
 
         #  Define the class's "private" properties. These should not be generally be directly
@@ -229,19 +205,12 @@ class EK60(object):
                         self.raw_data[channel_id] = RawData(channel_id, store_power=self.read_power,
                                 store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
 
-                        # add this channel to the calibration data
-                        self.calibration_data[channel_id] = CalibrationParameters()
-
                         #  and add it to our list of channel_ids
                         self.channel_ids.append(channel_id)
 
                         #  update our public channel id map
                         self.n_channels += 1
                         self.channel_id_map[self.n_channels] = channel_id
-
-
-                    # add calibration data from config datagram
-                    self.calibration_data[channel_id].append_calibration(config_datagram['transceivers'][channel])
 
                     #  update the internal mapping of channel number to channel ID used when reading
                     #  the datagrams. This mapping is only valid for the current file that is being read.
@@ -270,7 +239,6 @@ class EK60(object):
         #  trim excess data from arrays after reading and compress calibration arrays
         for channel_id in self.channel_ids:
             self.raw_data[channel_id].trim()
-            self.calibration_data[channel_id].compress_data_arrays()
 
 
     def _read_datagrams(self, fid, incremental):
@@ -325,10 +293,10 @@ class EK60(object):
 
                 #  check if we should store this data based on ping bounds
                 if self.read_start_ping is not None:
-                    if num_pings < self.read_start_ping:
+                    if self.n_pings < self.read_start_ping:
                         continue
                 if self.read_end_ping is not None:
-                    if num_pings > self.read_end_ping:
+                    if self.n_pings > self.read_end_ping:
                         continue
 
                 #  check if we're supposed to store this channel
@@ -347,7 +315,7 @@ class EK60(object):
                     self.raw_data[channel_id].append_ping(new_datagram)
 
                     # append the calibration data
-                    self.calibration_data[channel_id].append_calibration(new_datagram)
+                    #self.calibration_data[channel_id].append_calibration(new_datagram)
 
                     # increment the sample datagram counter
                     num_sample_datagrams += 1
@@ -446,7 +414,26 @@ class RawData(object):
 
     '''
 
+    #  define some instrument specific constants
 
+    #  Simrad recommends a TVG correction factor of 2 samples to compensate for receiver delay and TVG
+    #  start time delay in EK60 and related hardware. Note that this correction factor is only applied
+    #  when computing Sv/sv and not Sp/sp.
+    TVG_CORRECTION = 2
+
+    #  define constants used to specify the target resampling interval for the power and angle
+    #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
+    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
+    RESAMPLE_SHORTEST = 0
+    RESAMPLE_16   = 0.000016
+    RESAMPLE_32  = 0.000032
+    RESAMPLE_64  = 0.000064
+    RESAMPLE_128  = 0.000128
+    RESAMPLE_256 = 0.000256
+    RESAMPLE_512 = 0.000512
+    RESAMPLE_1024 = 0.001024
+    RESAMPLE_2048 = 0.002048
+    RESAMPLE_LONGEST = 1
 
 
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
@@ -623,8 +610,10 @@ class RawData(object):
             #  determine if we resize
             if (ping_resize or sample_resize):
                 #  resize the data arrays
+                #data_transforms.resize_arrays(self, ping_dims, sample_dims)
                 self._resize_arrays(ping_dims, sample_dims, self.ping_number.size,
                         max_data_samples)
+
 
             #  get an index into the data arrays for this ping and increment our ping counter
             this_ping = self.n_pings
@@ -646,9 +635,6 @@ class RawData(object):
         #  update the ChannelMetadata object with this ping number and time
         self.current_metadata.end_ping = self.n_pings
         self.current_metadata.end_time = sample_datagram['timestamp']
-
-        #  append the datetime object representing the ping time to the ping_time property
-        #self.ping_time.append(sample_datagram['timestamp'])
 
         #  now insert the data into our numpy arrays
         self.ping_time[this_ping] = sample_datagram['timestamp']
@@ -718,23 +704,16 @@ class RawData(object):
                 self.angles_athwartship_e[this_ping,:] = athwartship_e
 
 
-    def delete_pings(self, remove=True, **kwargs):
+    def delete(self, remove=True, **kwargs):
         '''
-        delete_pings deletes ping data defined by the start and end bounds.
+        delete deletes ping data defined by the start and end bounds.
 
         If remove == True, the arrays are shrunk. If remove == False, the data
         defined by the start and end are set to NaN
         '''
 
-        #  get the horizontal start and end indicies
-        h_index = self.get_indices(**kwargs)
-
-
-    def get_data(self):
-      for attr in vars(self):
-        data = getattr(self, attr)
-        if attr in self._data_attributes:
-          yield (attr, data)
+        #  call the generalized delete function in util.data_transforms
+        data_transforms.delete(self, **kwargs)
 
 
     def append(self, rawdata_object):
@@ -742,11 +721,10 @@ class RawData(object):
         append appends another RawData object to this one.
         '''
 
-        #  append simply inserts at the end of our internal array.
-        self.insert(rawdata_object, ping_number=self.ping_number[-1])
+        data_transforms.append(self, rawdata_object)
 
 
-    def insert(self, raw_data_obj, ping_number=None, ping_time=None, insert_after=True):
+    def insert(self, raw_data_obj, **kwargs):
         '''
         insert inserts the data from the provided RawData object into this RawData
         object. The insertion point is specified by ping number or time. After inserting
@@ -763,96 +741,8 @@ class RawData(object):
         insert_after keyword to False to insert *before* the provided ping number or time.
 
         '''
-
-        #  check that we have been given an insetion point
-        if ping_number is None and ping_time is None:
-            raise ValueError('Either ping_number or ping_time needs to be defined to specify an insertion point.')
-
-        #  make sure that raw_data_obj is an EK60.RawData raw data object
-        if (not isinstance(raw_data_obj, RawData)):
-            raise TypeError('The object you are inserting/appending must be an instance of the EK60.RawData class')
-
-        #  make sure that the frequencies match - we don't allow insrting/appending of different frequencies
-        if (self.frequency[0] != raw_data_obj.frequency[0]):
-            raise TypeError('The frequency of the RawData object you are inserting/appending does not match the ' +
-                    'frequency of this object. Frequencies must match to append or insert.')
-
-        #  determine the index of the insertion point
-        idx = self.get_ping_indices(start_time=ping_time, end_time=ping_time,
-                start_ping=ping_number, end_ping=ping_number)[0]
-
-        #  check if we're inserting before or after the provided insert point and adjust as necessary
-        if (insert_after):
-            #  we're inserting *after* - increment the index by 1
-            idx += 1
-
-        #  get some info about the shape of the data we're inserting
-        my_pings = self.ping_number.shape[0]
-        new_pings = raw_data_obj.ping_number.shape[0]
-        my_samples = self.power.shape[1]
-        new_samples = raw_data_obj.power.shape[1]
-
-        #  check if we need to vertically resize one of the arrays - we resize the smaller to
-        #  the size of the larger array. It will automatically be padded with NaNs
-        if (my_samples < new_samples):
-            #  resize our data arrays
-            #  check if the new array exceeds our max_sample_count
-            if ((self.max_sample_number) and (new_samples > self.max_sample_number)):
-                #  it does - we have to change our new_samples
-                new_samples = self.max_sample_number
-                #  and trim the array we're appending
-                raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
-            #  and resize our arrays
-            self._resize_arrays(my_pings, new_samples, my_pings, my_samples)
-        elif (my_samples > new_samples):
-            #  resize arrays of raw_data_obj
-            raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
-
-        #  work thru our data properties inserting the new data
-        for attribute, data in self.get_data():
-            try:
-                data_to_insert = getattr(raw_data_obj, attribute)
-            except Exception as err:
-                log.error('Error reading data from raw_data_obj, ', raw_data_obj, attribute, ': ',  type(err), err)
-                return
-
-            #  handle lists and numpy arrays appropriately
-            if isinstance(data, list):
-                #  this attribute is a list - create the new list
-                new_data = data[0:idx] + data_to_insert + data[idx:]
-                #  and update our property
-                setattr(self, attribute, new_data)
-
-            elif isinstance(data, np.ndarray):
-                #  this attribute is a numpy array
-
-                #  if we're not storing a data type, skip it
-                if ((attribute == 'power') and (not self.store_power)):
-                    continue
-                elif ((attribute == 'angles_alongship_e') and (not self.store_angles)):
-                    continue
-                elif ((attribute == 'angles_athwartship_e') and (not self.store_angles)):
-                    continue
-
-                #  we have to handle the 2d and 1d differently
-                if (data.ndim == 1):
-                    #  concatenate the 1d data
-                    if (attribute == 'ping_number'):
-                        #  update ping_number so it is sequential
-                        new_data = np.arange(data.shape[0]+data_to_insert.shape[0]) + 1
-                    else:
-                        new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
-                else:
-                    #  concatenate the 2d data
-                    new_data = np.vstack((data[0:idx,:], data_to_insert, data[idx:,:]))
-
-                #  update this attribute
-                setattr(self, attribute, new_data)
-
-        #  now update our global properties
-        if (raw_data_obj.channel_id not in self.channel_id):
-            self.channel_id += raw_data_obj.channel_id
-        self.n_pings = self.ping_number.shape[0]
+        #  call the generalized insert function in util.data_transforms
+        data_transforms.insert(self, raw_data_obj, **kwargs)
 
 
     def trim(self):
@@ -861,15 +751,11 @@ class RawData(object):
         when you are done adding pings to a non-rolling raw_data instance.
         '''
 
-        #  determine the number of samples we're storing
-        n_samples = self.power.shape[1]
-
-        #  calling _resize_arrays with
-        self._resize_arrays(self.n_pings, n_samples, 0, n_samples)
+        #  call the generalized trim function in util.data_transforms
+        data_transforms.trim(self, self.n_pings)
 
 
-    def get_ping_indices(self, start_ping=None, end_ping=None, start_time=None,
-            end_time=None, time_order=True):
+    def get_ping_indices(self, **kwargs):
         '''
         get_ping_indices returns index arrays containing the indices contained in the range
         defined by the times and/or ping numbers provided. By default the indexes are in time
@@ -877,36 +763,12 @@ class RawData(object):
         occur in the data arrays.
         '''
 
-        #  if starts and/or ends are omitted, assume fist and last respectively
-        if (start_ping == start_time == None):
-            start_ping = self.ping_number[0]
-        if (end_ping == end_time == None):
-            end_ping = self.ping_number[-1]
-
-        #  get the primary index
-        if (time_order):
-            #  return indices in time order
-            primary_index = self.ping_time.argsort()
-        else:
-            #  return indices in ping order
-            primary_index = self.ping_number - 1
-
-        #  generate a boolean mask of the values to return
-        if (start_time):
-            mask = self.ping_time[primary_index] >= start_time
-        elif (start_ping):
-            mask = self.ping_number[primary_index] >= start_ping
-        if (end_time):
-            mask = np.logical_and(mask, self.ping_time[primary_index] <= end_time)
-        elif (end_ping):
-            mask = np.logical_and(mask, self.ping_number[primary_index] <= end_ping)
-
-        #  and return the indices that are included in the specified range
-        return primary_index[mask]
+        #  call the generalized get_indices function in util.data_transforms
+        return data_transforms.get_indices(self, **kwargs)
 
 
     def get_sv(self, calibration=None, linear=False, return_indices=None, tvg_correction=2, **kwargs):
-        #TODO Ask Rick, should this be an attribute of calibration data?  It was set to 2 in 
+        #TODO Ask Rick, should this be an attribute of calibration data?  It was set to 2 in
         #Zac's Sv function.  Do we want to set it here as an optional argument like this?
         '''
         get_sv returns a ProcessedData object containing Sv (or sv if linear is
@@ -973,36 +835,36 @@ class RawData(object):
         tvg[tvg == 0] = 1
         tvg = 20 * np.log10(tvg)
         tvg[tvg < 0] = 0
-    
+
         if raw:
             raw_factor = 10.0 * np.log10(2.0) / 256.0
         else:
             raw_factor = 1
-    
+
         convert = lambda x: x * raw_factor + tvg + 2 * cal['absorption_coefficient'] * range_ - \
             CSv - 2 * cal['sa_correction_table'] #Replaced sa_correction with sa_correction_table.
 
         if data['power'].ndim == 1:
             if linear:
                 Sv = 10 **(convert(data['power']) / 10.0)
-    
+
             else:
                 Sv = convert(data['power'])
-    
+
         elif data['power'].ndim == 2:
             Sv = np.empty_like(data['power'], dtype=np.float)
             for ping in range(data['power'].shape[1]):
-    
+
                 if linear:
                     Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
-    
+
                 else:
                     Sv[:, ping] = convert(data['power'][:, ping])
-    
+
         else:
             raise ValueError('Expected a 1- or 2-dimensional array')
 
-    
+
         return Sv
 
 
@@ -1013,17 +875,17 @@ class RawData(object):
         '''
         beta = self._calc_beta(gain, sound_velocity, frequency, transmit_power)
         CSv = 10 * np.log10(beta / 2.0 * sound_velocity * pulse_length * 10**(eba / 10.0))
-    
+
         return CSv
-    
-    
+
+
     def _calc_beta(self, gain, sound_velocity, frequency, transmit_power):
-        '''  
+        '''
         Convenicne constant for calculating CSv and CSp
         '''
         wlength = sound_velocity / (1.0 * frequency)
         beta = transmit_power * (10**(gain / 10.0) * wlength)**2 / (16 * np.pi**2)
-    
+
         return beta
 
 
@@ -1032,14 +894,14 @@ class RawData(object):
         Calculates the the tvg-corrected range vector used in Sp and Sv conversions
         '''
         dR = cal['sound_velocity'] * cal['sample_interval'] / 2.0
-        #sample_range = (np.arange(0, cal['count'][0]) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
-        sample_range = (np.arange(0, len(cal['offset'])) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same? 
+        #sample_range = (np.arange(0, cal['count'][0]) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same?
+        sample_range = (np.arange(0, len(cal['offset'])) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same?
         corrected_range = sample_range - (tvg_correction * dR)
         corrected_range[corrected_range < 0] = 0
-    
+
         return corrected_range
 
-    
+
     def get_ts(self, cal_parameters=None, linear=False, **kwargs):
         '''
         get_ts returns a ProcessedData object containing TS (or sigma_bs if linear is
@@ -1075,7 +937,6 @@ class RawData(object):
         '''
 
 
-
     def _get_sample_data(self, property_name, calibration=None, tvg_correction=TVG_CORRECTION,
             resample_interval=RESAMPLE_SHORTEST, resample_soundspeed=None, insert_into=None,
             return_indices=None, **kwargs):
@@ -1109,7 +970,7 @@ class RawData(object):
         '''
 
         #  check if we're inserting data into an existing ProcessedData object
-        if isinstance(insert_into, ProcessedData):
+        if isinstance(insert_into, ProcessedData.ProcessedData):
             #  check that the channel IDs match
             for channel in self.channel_id:
                 if (not channel in insert_into.channel_id):
@@ -1144,22 +1005,9 @@ class RawData(object):
             #  unset the inserting flag
             inserting = False
 
-        #  get a reference to the data we're operating on and to the attribute we're storing the output in.
-        is_power = False
-        if (property_name.lower() == 'power'):
-            #  we're processing power data
-            data = self.power
-            processed_data.power = []
-            output = processed_data.power
-            is_power = True
-        elif (property_name.lower() == 'angles_alongship_e'):
-            #  we're processing angles_alongship_e data
-            data = self.angles_alongship_e
-            processed_data.angles_alongship_e = []
-        elif (property_name.lower() == 'angles_athwartship_e'):
-            #  we're processing angles_athwartship_e data
-            data = self.angles_athwartship_e
-            processed_data.angles_athwartship_e = []
+        #  get a reference to the data we're operating on
+        if (hasattr(self, property_name)):
+            data = getattr(self, property_name)
         else:
             raise AttributeError("The attribute name " + property_name + " does not exist.")
 
@@ -1183,15 +1031,17 @@ class RawData(object):
         if (unique_sample_interval.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the data.
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            (output, sample_interval) = self._resample_sample_data(data[return_indices],
+            (output, sample_interval) = data_transforms.vertical_resample(data[return_indices],
                     cal_parms['sample_interval'], unique_sample_interval, resample_interval,
-                    cal_parms['sample_offset'], min_sample_offset, is_power=is_power)
+                    cal_parms['sample_offset'], min_sample_offset, is_power=property_name == 'power',
+                    dtype=self.sample_dtype)
         else:
             #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
             if (unique_sample_offsets.shape[0] > 1):
                 #  we have multiple sample offsets so we need to shift some of the samples
-                output = self._shift_sample_offsets(data[return_indices], cal_parms['sample_offset'],
-                    unique_sample_offsets, min_sample_offset)
+                output = data_transforms.vertical_shift(data[return_indices],
+                        cal_parms['sample_offset'], unique_sample_offsets, min_sample_offset,
+                        dtype=self.sample_dtype)
             else:
                 #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
                 output = data[return_indices].copy()
@@ -1236,7 +1086,22 @@ class RawData(object):
                         tvg_correction=tvg_correction)
 
 
-        if (not inserting):
+        setattr(processed_data, property_name, output)
+
+
+        #  now assign range, sound_velocity, sample thickness and offset, and transducer_depth
+        #  to the processed_data object. If we're inserting we assume all of these values
+        #  exist and are the same so we don't create them but we do a few checks to make sure
+        #  the user didn't do something really stupid.
+        if (inserting):
+            #  ensure the range vector for this sample data array is the same as the existing data
+            if (not np.all(processed_data.range == range)):
+                raise ValueError("The sample ranges calculated for " + property_name +
+                        " do not match the existing sample ranges in the ProcessedData " +
+                        "object you are inserting into.")
+            #  ANY OTHER CHECKS WE NEED TO DO?
+
+        else:
 
             #  assign range and sound speed to our ProcessedData object
             processed_data.range = range
@@ -1251,9 +1116,6 @@ class RawData(object):
 
         #  return the ProcessedData object containing the requested data
         return processed_data
-
-
-
 
 
     def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
@@ -1281,263 +1143,7 @@ class RawData(object):
         the raw file data.
         '''
 
-        #  check if the user supplied an explicit list of indices to return
-        if isinstance(return_indices, np.ndarray):
-            if max(return_indices) > self.ping_number.shape[0]:
-                raise ValueError("One or more of the return indices provided exceeds the " +
-                        "number of pings in the RawData object")
-        else:
-            #  get an array of index values to return
-            return_indices = self.get_ping_indices(**kwargs)
-
-        #  create the ProcessedData object we will return
-        power_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
-
-        #  populate it with time and ping number
-        #power_data.ping_time = [self.ping_time[i] for i in return_indices.tolist()]
-        power_data.ping_time = self.ping_time[return_indices].copy()
-        power_data.ping_number = self.ping_number[return_indices].copy()
-
-        #  populate the calibration parameters required for this method. First, create a dict with key
-        #  names that match the attributes names of the calibration parameters we require for this method
-        cal_parms = {'sample_interval':None,
-                     'sound_velocity':None,
-                     'sample_offset':None,
-                     'transducer_depth':None}
-
-        #  next, iterate thru the dict, calling the method to extract the values for each parameter
-        for key in cal_parms:
-            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
-
-        #  check if we have multiple sample offset values and get the minimum
-        unique_sample_offsets = np.unique(cal_parms['sample_offset'])
-        min_sample_offset = min(unique_sample_offsets)
-
-        # check if we need to resample our sample data
-        unique_sample_interval = np.unique(cal_parms['sample_interval'])
-        if (unique_sample_interval.shape[0] > 1):
-            #  there are at least 2 different sample intervals in the data - we must resample the power data
-            #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            (power_data.power, sample_interval) = self._resample_sample_data(self.power[return_indices],
-                    cal_parms['sample_interval'], unique_sample_interval, resample_interval,
-                    cal_parms['sample_offset'], min_sample_offset, is_power=True)
-        else:
-            #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
-            if (unique_sample_offsets.shape[0] > 1):
-                #  we have multiple sample offsets so we need to shift some of the samples
-                power_data.power = self._shift_sample_offsets(self.power, return_indices,
-                        cal_parms['sample_offset'], unique_sample_offsets, min_sample_offset)
-            else:
-                #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
-                power_data.power = self.power[return_indices].copy()
-
-            #  and get the sample interval value to use for range conversion below
-            sample_interval = unique_sample_interval[0]
-
-        #  check if we have a fixed sound speed
-        unique_sound_velocity = np.unique(cal_parms['sound_velocity'])
-        if (unique_sound_velocity.shape[0] > 1):
-            #  there are at least 2 different sound speeds in the data or provided calibration data.
-            #  interpolate all data to the most common range (which is the most common sound speed)
-            sound_velocity = None
-            n = 0
-            for speed in unique_sound_velocity:
-            #  determine the sound speed with the most pings
-                if (np.count_nonzero(cal_parms['sound_velocity'] == speed) > n):
-                   sound_velocity = speed
-
-            #  calculate the target range
-            range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, sound_velocity, min_sample_offset,
-                        tvg_correction=tvg_correction)
-
-            #  get an array of indexes in the output array to interpolate
-            pings_to_interp = np.where(cal_parms['sound_velocity'] != sound_velocity)[0]
-
-            #  iterate thru this list of pings to change - interpolating each ping
-            for ping in pings_to_interp:
-                #  resample using the provided sound speed - calculate the
-                resample_range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, cal_parms['sound_velocity'][ping], min_sample_offset,
-                        tvg_correction=tvg_correction)
-
-                power_data.power[ping,:] = np.interp(range, resample_range,
-                    power_data.power[ping,:])
-
-        else:
-            #  we have a fixed sound speed - only need to calculate a single range vector
-            sound_velocity = unique_sound_velocity[0]
-            range = unit_conversion.get_range_vector(power_data.power.shape[1],
-                        sample_interval, sound_velocity, min_sample_offset,
-                        tvg_correction=tvg_correction)
-
-        #  assign range and sound speed to our ProcessedData object
-        power_data.range = range
-        power_data.sound_velocity = sound_velocity
-
-        #  compute sample thickness and set the sample offset
-        power_data.sample_thickness = sample_interval * sound_velocity / 2.0
-        power_data.sample_offset = min_sample_offset
-
-        #  copy the transducer depth data
-        power_data.transducer_depth = cal_parms['transducer_depth'].copy()
-
-        #  return the ProcessedData object containing power and associated data
-        return power_data
-
-
-    def _shift_sample_offsets(self, data, sample_offsets, unique_sample_offsets,
-            min_sample_offset):
-        '''
-        _shift_sample_offsets adjusts the output array size and pads the top of the
-        samples array to vertically shift the positions of the sample data in the output
-        array. Pings with offsets greater than the minimum will be padded on the top,
-        shifting them into their correct location relative to the other pings.
-
-        The result is an output array with samples that are properly aligned vertically
-        relative to each other with a sample offset that is constant and equal to the
-        minimum of the original sample offsets.
-
-        This method is only called if our data has a constant sample interval but
-        varying sample offsets. If the data has multiple sample intervals the offset
-        adjustment is done in _resample_sample_data.
-        '''
-
-        #  determine the new array size
-        new_sample_dims = data.shape[1] + max(sample_offsets) - min_sample_offset
-
-        #  create the new array
-        shifted_data = np.empty((data.shape[0], new_sample_dims), dtype=self.sample_dtype, order='C')
-        shifted_data.fill(np.nan)
-
-        #  and fill it looping over the different sample offsets
-        for offset in unique_sample_offsets:
-            rows_this_offset = np.where(sample_offsets == offset)[0]
-            start_index = offset - min_sample_offset
-            end_index = start_index + data.shape[1]
-            shifted_data[rows_this_offset, start_index:end_index] = data[rows_this_offset, 0:data.shape[1]]
-
-        return shifted_data
-
-
-    def _resample_sample_data(self, data, sample_intervals, unique_sample_intervals,
-            resample_interval, sample_offsets, min_sample_offset, is_power=True):
-        '''
-        _resample_sample_data vertically resamples power or angle data given a target
-        sample interval. This method also shifts samples vertically based on their sample
-        offset so they are positioned correctly relative to each other. The first sample
-        in the resulting array will have an offset that is the minimum of all offsets in
-        the data.
-        '''
-
-        #  determine the number of pings in the new array
-        n_pings = data.shape[0]
-
-        # check if we need to substitute our resample_interval value
-        if (resample_interval == self.RESAMPLE_SHORTEST):
-            #  resample to the shortest sample interval in our data
-            resample_interval = min(unique_sample_intervals)
-        elif (resample_interval == self.RESAMPLE_LONGEST):
-            #  resample to the longest sample interval in our data
-            resample_interval = max(unique_sample_intervals)
-
-        #  create a couple of dictionaries to store resampling parameters by sample interval
-        #  they will be used again when we fill the output array with the resampled data.
-        resample_factor = {}
-        rows_this_interval = {}
-        sample_offsets_this_interval = {}
-
-        #  determine number of samples in the output array - to do this we must loop thru
-        #  the sample intervals, determine the resampling factor, then find the maximum sample
-        #  count at that sample interval (taking into account the sample's offset) and multiply
-        #  by the resampling factor to determine the max number of samples for that sample interval.
-        new_sample_dims = 0
-        for sample_interval in unique_sample_intervals:
-            #  determine the resampling factor
-            if (resample_interval > sample_interval):
-                #  we're reducing resolution - determine the number of samples to average
-                resample_factor[sample_interval] = resample_interval / sample_interval
-            else:
-                #  we're increasing resolution - determine the number of samples to expand
-                resample_factor[sample_interval] = sample_interval / resample_interval
-
-            #  determine the rows in this subset with this sample interval
-            rows_this_interval[sample_interval] = np.where(sample_intervals == sample_interval)[0]
-
-            #  determine the net vertical shift for the samples with this sample interval
-            sample_offsets_this_interval[sample_interval] = sample_offsets[rows_this_interval[sample_interval]] - \
-                    min_sample_offset
-
-            #  and determine the maximum number of samples for this sample interval - this has to
-            #  be done on a row-by-row basis since sample number can change on the fly. We include
-            #  the sample offset to ensure we have room to shift our samples vertically by the offset
-            max_samples_this_sample_int = max(self.sample_count[rows_this_interval[sample_interval]] +
-                    sample_offsets_this_interval[sample_interval])
-            max_dim_this_sample_int = int(round(max_samples_this_sample_int * resample_factor[sample_interval]))
-            if (max_dim_this_sample_int > new_sample_dims):
-                    new_sample_dims = max_dim_this_sample_int
-
-        #  now that we know the dimensions of the output array create the it and fill with NaNs
-        resampled_data = np.empty((n_pings, new_sample_dims), dtype=self.sample_dtype, order='C')
-        resampled_data.fill(np.nan)
-
-        #  and fill it with data - We loop thru the sample intervals and within an interval extract slices
-        #  of data that share the same number of samples (to reduce looping). We then determine if we're
-        #  expanding or shrinking the number of samples. If expanding we simply replicate existing sample
-        #  data to fill out the expaned array. If reducing, we take the mean of the samples. Power data is
-        #  converted to linear units before the mean is computed and then transformed back.
-        for sample_interval in unique_sample_intervals:
-            #  determine the unique sample_counts for this sample interval
-            unique_sample_counts = np.unique(self.sample_count[rows_this_interval[sample_interval]])
-            for count in unique_sample_counts:
-                #  determine if we're reducing, expanding, or keeping the same number of samples
-                if (resample_interval > sample_interval):
-                    #  we're reducing the number of samples
-
-                    #  if we're resampling power convert power to linear units
-                    if (is_power):
-                        this_data = np.power(data[rows_this_interval[sample_interval]]
-                                [self.sample_count[rows_this_interval[sample_interval]] == count] / 20.0, 10.0)
-
-                    #  reduce the number of samples by taking the mean
-                    this_data =  np.mean(this_data.reshape(-1, int(resample_factor[sample_interval])), axis=1)
-
-                    if (is_power):
-                        #  convert power back to log units
-                        this_data = 20.0 * np.log10(this_data)
-
-                elif (resample_interval < sample_interval):
-                    #  we're increasing the number of samples
-
-                    #  replicate the values to fill out the higher resolution array
-                    this_data = np.repeat(data[rows_this_interval[sample_interval]]
-                            [self.sample_count[rows_this_interval[sample_interval]] == count][:,0:count],
-                            int(resample_factor[sample_interval]), axis=1)
-
-                else:
-                    #  no change in resolution for this sample interval
-                    this_data = data[rows_this_interval[sample_interval]] \
-                            [self.sample_count[rows_this_interval[sample_interval]] == count]
-
-
-                #  generate the index array for this sample interval/sample count chunk of data
-                rows_this_interval_count = rows_this_interval[sample_interval] \
-                        [self.sample_count[rows_this_interval[sample_interval]] == count]
-
-                #  assign new values to output array - at the same time we will shift the data by sample offset
-                unique_sample_offsets = np.unique(sample_offsets_this_interval[sample_interval])
-                for offset in unique_sample_offsets:
-                    resampled_data[rows_this_interval_count,
-                            offset:offset + this_data.shape[1]]  = this_data
-
-        #  return the sample interval of the resampled data
-        return (resampled_data, resample_interval)
-
-
-    #FIXME If I remove this, will it break anything?
-    def __iter__(self):
-        for attribute in vars(self):
-            yield (attribute, getattr(self, attribute))
+        return self._get_sample_data('power', **kwargs)
 
 
     def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
@@ -1559,7 +1165,6 @@ class RawData(object):
             1D array the length of return_indices filled with data extracted from the raw
             data
         '''
-
 
         if (cal_object):
             #  try to get the parameter from the calibration object
