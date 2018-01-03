@@ -16,6 +16,12 @@
 u'''
 .. module:: pyecholab2.instruments.util.data_transforms.py
 
+data_transforms implements common functions used by echolab2 "data objects".
+Data objects are classes that store acoustic data collected at discrete
+intervals (i.e. "pings"). This can be "raw" data as stored by the
+instruments.EK60.RawData class or "processed" data as stored by the
+processing.ProcessedData class.
+
 
 useful functions:
 
@@ -41,9 +47,23 @@ log = logging.getLogger(__name__)
 
 
 
+def delete(data_obj, start_ping=None, end_ping=None, start_time=None,
+        end_time=None, remove=True):
+    '''
+    delete deletes data from an echolab2 data object by ping over the range
+    defined by the start and end pings/times. If remove is True, the data
+    arrays are shrunk, if False the arrays stay the same size and the data
+    values are set to NaNs (or appropriate value based on type)
+    '''
+    #  determine the indices of the pings we're deleting
+    idx = get_indices(data_obj, start_time=start_time, end_time=end_time,
+            start_ping=start_ping, end_ping=end_ping)
+
+
 def append(data_obj, obj_to_append):
     '''
-    append appends another RawData object to this one.
+    append appends another echolab2 data object to this one. The objects must
+    be instances of the same class and share the same frequency.
     '''
 
     #  append simply inserts at the end of our internal array.
@@ -53,12 +73,12 @@ def append(data_obj, obj_to_append):
 def insert(data_obj, obj_to_insert, ping_number=None, ping_time=None,
         insert_after=True):
     '''
-    insert inserts the data from the provided RawData object into this RawData
-    object. The insertion point is specified by ping number or time. After inserting
+    insert inserts the data from the provided echolab2 data object into this object.
+    The insertion point is specified by ping number or time. After inserting
     data, the ping_number property is updated and the ping numbers from the insertion
     point onward will be re-numbered accordingly.
 
-    Note that internally RawData objects always store data by ping number as read,
+    Note that internally echolab2 RawData objects store data by ping number as read,
     appended, or inserted. Data is not sorted by time until the user calls a get_*
     method. Consequently if ping times are not ordered and/or repeating, specifying
     a ping time as an insetion point may not yield the desired results since the
@@ -75,13 +95,13 @@ def insert(data_obj, obj_to_insert, ping_number=None, ping_time=None,
                 'specify an insertion point.')
 
     #  make sure that data_object is an EK60.RawData raw data object
-    if (not isinstance(data_obj, obj_to_insert)):
+    if (not isinstance(data_obj, obj_to_insert.__class__)):
         raise TypeError('The object you are inserting/appending must be an instance of ' +
             str(data_obj.__class__))
 
     #  make sure that the frequencies match - we don't allow insrting/appending of different frequencies
     if (data_obj.frequency[0] != obj_to_insert.frequency[0]):
-        raise TypeError('The frequency of the RawData object you are inserting/appending ' +
+        raise TypeError('The frequency of the object you are inserting/appending ' +
                 'does not match the  frequency of this object. Frequencies must match to ' +
                 'append or insert.')
 
@@ -103,84 +123,87 @@ def insert(data_obj, obj_to_insert, ping_number=None, ping_time=None,
     #  check if we need to vertically resize one of the arrays - we resize the smaller to
     #  the size of the larger array. It will automatically be padded with NaNs
     if (my_samples < new_samples):
-        #  resize our data arrays
-        #  check if the new array exceeds our max_sample_count
-        if ((self.max_sample_number) and (new_samples > self.max_sample_number)):
-            #  it does - we have to change our new_samples
-            new_samples = self.max_sample_number
-            #  and trim the array we're appending
-            raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
-        #  and resize our arrays
-        self._resize_arrays(my_pings, new_samples, my_pings, my_samples)
+        #  resize our data arrays - check if we have a limit on the max number of samples
+        if (hasattr(data_obj, 'max_sample_number') and (data_obj.max_sample_number)):
+            #  we have the attribue and a value is set - chech if the new array exceeds our max_sample_count
+            if (new_samples > data_obj.max_sample_number):
+                #  it does - we have to change our new_samples
+                new_samples = data_obj.max_sample_number
+                #  and vertically trim the array we're inserting
+                resize_arrays(obj_to_insert, new_pings, new_samples)
+        #  vertically resize the object we're inserting into
+        resize_arrays(data_obj, my_pings, new_samples)
     elif (my_samples > new_samples):
-        #  resize arrays of raw_data_obj
-        raw_data_obj._resize_arrays(new_pings, my_samples, new_pings, new_samples)
+        #  resize the object we're inserting
+        resize_arrays(obj_to_insert, new_pings, new_samples)
 
-    #  work thru our data properties inserting the new data
-    for attribute, data in self.get_data():
-        try:
-            data_to_insert = getattr(raw_data_obj, attribute)
-        except Exception as err:
-            log.error('Error reading data from raw_data_obj, ', raw_data_obj, attribute, ': ',  type(err), err)
-            return
+    #  work thru our data properties inserting the data from obj_to_insert
+    for attribute in data_obj._data_attributes:
 
-        #  handle lists and numpy arrays appropriately
-        if isinstance(data, list):
-            #  this attribute is a list - create the new list
-            new_data = data[0:idx] + data_to_insert + data[idx:]
-            #  and update our property
-            setattr(self, attribute, new_data)
+        #  check if we have data for this attribute
+        if (not hasattr(data_obj, attribute)):
+            #  data_obj does not have this attribute, move along
+            continue
 
-        elif isinstance(data, np.ndarray):
-            #  this attribute is a numpy array
+        #  get a reference to our data_obj's attribute
+        data = getattr(data_obj, attribute)
 
-            #  if we're not storing a data type, skip it
-            if ((attribute == 'power') and (not self.store_power)):
-                continue
-            elif ((attribute == 'angles_alongship_e') and (not self.store_angles)):
-                continue
-            elif ((attribute == 'angles_athwartship_e') and (not self.store_angles)):
-                continue
+        #  check if the obj_to_insert shares this attribute
+        if (hasattr(obj_to_insert, attribute)):
+            #  get a reference to our obj_to_insert's attribute
+            data_to_insert = getattr(obj_to_insert, attribute)
 
-            #  we have to handle the 2d and 1d differently
-            if (data.ndim == 1):
-                #  concatenate the 1d data
-                if (attribute == 'ping_number'):
-                    #  update ping_number so it is sequential
-                    new_data = np.arange(data.shape[0]+data_to_insert.shape[0]) + 1
+            #  handle lists and numpy arrays appropriately
+            if isinstance(data, list):
+                #  this attribute is a list - create the new list
+                new_data = data[0:idx] + data_to_insert + data[idx:]
+                #  and update our property
+                setattr(data_obj, attribute, new_data)
+
+            elif isinstance(data, np.ndarray):
+                #  this attribute is a numpy array - we have to handle the 2d and 1d differently
+                if (data.ndim == 1):
+                    #  concatenate the 1d data
+                    if (attribute == 'ping_number'):
+                        #  update ping_number so it is sequential
+                        new_data = np.arange(data.shape[0]+data_to_insert.shape[0]) + 1
+                    else:
+                        new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
+                elif (data.ndim == 2):
+                    #  concatenate the 2d data
+                    new_data = np.vstack((data[0:idx,:], data_to_insert, data[idx:,:]))
                 else:
-                    new_data = np.concatenate((data[0:idx], data_to_insert, data[idx:]))
-            else:
-                #  concatenate the 2d data
-                new_data = np.vstack((data[0:idx,:], data_to_insert, data[idx:,:]))
+                    #  at some point do we handle 3d arrays?
+                    pass
 
-            #  update this attribute
-            setattr(self, attribute, new_data)
+                #  update this attribute
+                setattr(data_obj, attribute, new_data)
 
     #  now update our global properties
-    if (raw_data_obj.channel_id not in self.channel_id):
-        self.channel_id += raw_data_obj.channel_id
-    self.n_pings = self.ping_number.shape[0]
+    if (obj_to_insert.channel_id not in data_obj.channel_id):
+        data_obj.channel_id += obj_to_insert.channel_id
+    data_obj.n_pings = data_obj.ping_number.shape[0]
 
 
-def trim(data_obj, length):
+def trim(data_obj, length, n_samples=None):
     '''
-    trim deletes the empty portions of pre-allocated arrays. This should be called
-    when you are done adding pings to a non-rolling data instance.
+    trim deletes pings from an echolab2 data object to a given length
     '''
 
     #  work thru our list of attributes to find a 2d array and get the sample number
-    n_samples = -1
-    for attr_name in data_obj._data_attributes:
-        #  get a reference to this attribute
-        if (hasattr(data_obj, attr_name)):
-            attr = getattr(data_obj, attr_name)
-        else:
-            continue
-        #  get the nunber of samples if this is a 2d array
-        if ((n_samples < 0) and (attr.ndim == 2)):
-            n_samples = attr.shape[1]
-            break
+
+    if (n_samples == None):
+        n_samples = -1
+        for attr_name in data_obj._data_attributes:
+            #  get a reference to this attribute
+            if (hasattr(data_obj, attr_name)):
+                attr = getattr(data_obj, attr_name)
+            else:
+                continue
+            #  get the nunber of samples if this is a 2d array
+            if (isinstance(attr, np.ndarray) and (n_samples < 0) and (attr.ndim == 2)):
+                n_samples = attr.shape[1]
+                break
 
     #  resize keeping the sample number the same
     resize_arrays(data_obj, length, n_samples)
@@ -212,11 +235,11 @@ def get_indices(data_obj, start_ping=None, end_ping=None, start_time=None,
     #  generate a boolean mask of the values to return
     if (start_time):
         mask = data_obj.ping_time[primary_index] >= start_time
-    elif (start_ping):
+    elif (start_ping >= 0):
         mask = data_obj.ping_number[primary_index] >= start_ping
     if (end_time):
         mask = np.logical_and(mask, data_obj.ping_time[primary_index] <= end_time)
-    elif (end_ping):
+    elif (end_ping >= 0):
         mask = np.logical_and(mask, data_obj.ping_number[primary_index] <= end_ping)
 
     #  and return the indices that are included in the specified range
@@ -244,8 +267,9 @@ def vertical_resample(data, sample_intervals, unique_sample_intervals, resample_
         resample_interval = max(unique_sample_intervals)
 
     #  generate a vector of sample counts - generalized method that works with both
-    #  RawData and ProcessedData classes
-    sample_counts = np.argmax(~np.isnan(np.fliplr(data)), axis=1)
+    #  RawData and ProcessedData classes that finds the first non-NaN value searching
+    #  from the "bottom up"
+    sample_counts = data.shape[1] - np.argmax(~np.isnan(np.fliplr(data)), axis=1)
 
     #  create a couple of dictionaries to store resampling parameters by sample interval
     #  they will be used again when we fill the output array with the resampled data.
@@ -284,9 +308,9 @@ def vertical_resample(data, sample_intervals, unique_sample_intervals, resample_
                 new_sample_dims = max_dim_this_sample_int
 
     #  emit some info to the logger
-    log.information("Vertically resampling " + str(data.shape) + " array to " +
-            (n_pings, new_sample_dims))
-    log.information("New sample interval is " + str(resample_interval * 1000 * 1000) + " us.")
+    log.info("Vertically resampling " + str(data.shape) + " array to " +
+            str((n_pings, new_sample_dims)))
+    log.info("New sample interval is " + str(resample_interval * 1000 * 1000) + " us.")
 
     #  now that we know the dimensions of the output array create the it and fill with NaNs
     resampled_data = np.empty((n_pings, new_sample_dims), dtype=dtype, order='C')
@@ -419,6 +443,10 @@ def resize_arrays(data_object, new_ping_dim, new_sample_dim):
         else:
             continue
 
+        #  check if this data attribute is a list ans skip over if so
+        if (isinstance(attr, list)):
+            continue
+
         #  determine the "old" dimensions
         if ((old_ping_dim < 0) and (attr.ndim == 1)):
             old_ping_dim = attr.shape[0]
@@ -428,12 +456,16 @@ def resize_arrays(data_object, new_ping_dim, new_sample_dim):
         #  resize the 1d arrays
         if ((attr.ndim == 1) and (new_ping_dim != old_ping_dim)):
             #  resize this 1d attribute
-            attr.resize((new_ping_dim))
+            #attr.resize((new_ping_dim))
+            attr = np.resize(attr,(new_ping_dim))
         elif (attr.ndim == 2):
             #  resize this 2d array
             if (new_sample_dim == old_sample_dim):
                 #  if the minor axes isn't changing we can use ndarray.resize()
-                attr.resize((new_ping_dim, new_sample_dim))
+                #attr.resize((new_ping_dim, new_sample_dim))
+                attr = np.resize(attr,(new_ping_dim, new_sample_dim))
             else:
                 #  if the minor axes is changing we need to use our resize2d function
                 attr = resize2d(attr, new_ping_dim, new_sample_dim)
+
+        setattr(data_object, attr_name, attr)
