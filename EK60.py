@@ -34,6 +34,8 @@ log = logging.getLogger(__name__)
 
 class EK60(object):
 
+    #  create a constant to convert indexed power to power
+    INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 
     def __init__(self):
 
@@ -311,11 +313,12 @@ class EK60(object):
                     #  get the channel id
                     channel_id = self._channel_map[new_datagram['channel']]
 
+                    #  convert the indexed power data to power dB
+                    if ('power' in new_datagram):
+                        new_datagram['power'] = new_datagram['power'] * self.INDEX2POWER
+
                     #  and call the appropriate channel's append_ping method
                     self.raw_data[channel_id].append_ping(new_datagram)
-
-                    # append the calibration data
-                    #self.calibration_data[channel_id].append_calibration(new_datagram)
 
                     # increment the sample datagram counter
                     num_sample_datagrams += 1
@@ -703,11 +706,11 @@ class raw_data(data_container):
         #  populate the calibration parameters required for this method. First, create a dict with key
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'gain':None,
-                     'transmit_power':None,
-                     'equivalent_beam_angle':None,
-                     'pulse_length':None,
-                     'absorption_coefficient':None,
-                     'sa_correction':None}
+                           'transmit_power':None,
+                           'equivalent_beam_angle':None,
+                           'pulse_length':None,
+                           'absorption_coefficient':None,
+                           'sa_correction':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -743,15 +746,21 @@ class raw_data(data_container):
             tvg = 40 * np.log10(tvg)
         tvg[tvg < 0] = 0
 
-        #  now add 2 way absorption
         #TODO - This has range too, but I think this range is NOT TVG corrected and thus
         #       power_data.range SHOULD NOT be TVG range corrected and that needs to be
         #       fixed in get_power and then the correction applied above
-        tvg = tvg + 2 * cal_parms['absorption_coefficient'] * power_data.range
 
-        #  create the output array by first calculating the outer sum our sample data
-        #  axes values TVG and CSv
-        data = np.add.outer(CSv, tvg)
+        #  create the output array by first calculating the 2 way absorption for every sample
+        #  by taking the outer product of 2* absorption_coefficient and range
+        data = np.outer(2 * cal_parms['absorption_coefficient'], power_data.range)
+
+        #  add our gains (transpose CSv so we can add it to our array)
+        data += CSv[:,np.newaxis]
+
+        #  now add the TVG to this (don't need to transpose TVG since it matches dimensions on the sample axis)
+        data += tvg
+
+        #p = (10.0 * np.log10(2.0) / 256.0) * power_data.power
 
         #  and lastly add power
         data += power_data.power
@@ -1167,7 +1176,7 @@ class raw_data(data_container):
                     if (param_name == 'sa_correction'):
                         sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
                         pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
-                        param_data[idx] = sa_table[np.where(pl_table == self.pulse_length[idx])[0]]
+                        param_data[idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
                     else:
                         param_data[idx] = getattr(self.channel_metadata[idx],param_name)
 
