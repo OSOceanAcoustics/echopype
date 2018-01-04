@@ -25,9 +25,9 @@ from pytz import timezone
 import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
+from ..data_container import data_container
 from .util import unit_conversion
-from .util import data_transforms
-from ..processing import ProcessedData
+from ..processing import processed_data
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +202,7 @@ class EK60(object):
                     #  check if an RawData object exists for this channel
                     if channel_id not in self.raw_data:
                         #  no - create it
-                        self.raw_data[channel_id] = RawData(channel_id, store_power=self.read_power,
+                        self.raw_data[channel_id] = raw_data(channel_id, store_power=self.read_power,
                                 store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
 
                         #  and add it to our list of channel_ids
@@ -406,10 +406,10 @@ class EK60(object):
         return msg
 
 
-class RawData(object):
+class raw_data(data_container):
     '''
-    the RawData class contains a single channel's data extracted from a Simrad raw
-    file. collected from an EK/ES60 or ES70. A RawData object is created for each
+    the raw_data class contains a single channel's data extracted from a Simrad raw
+    file. collected from an EK/ES60 or ES70. A raw_data object is created for each
     unique channel in an EK/ES60 ES70 raw file.
 
     '''
@@ -439,7 +439,7 @@ class RawData(object):
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
         '''
-        Creates a new, empty RawData object. The RawData class stores raw
+        Creates a new, empty raw_data object. The raw_data class stores raw
         echosounder data from a single channel of an EK60 or ES60/70 system.
 
         NOTE: power is *always* stored in log form. If you manipulate power values
@@ -457,6 +457,8 @@ class RawData(object):
 
         '''
 
+        super(raw_data, self).__init__()
+
         #  we can come up with a better name, but this specifies if we have a fixed data
         #  array size and roll it when it fills or if we expand the array when it fills
         self.rolling_array = bool(rolling)
@@ -470,10 +472,6 @@ class RawData(object):
         #  the channel ID is the unique identifier of the channel(s) stored in the object
         self.channel_id = [channel_id]
 
-        #  a counter incremented when a ping is added - a value of -1 indicates that the
-        #  data arrays have not been allocated yet.
-        self.n_pings = -1
-
         #  specify the horizontal size (columns) of the array allocation size.
         self.chunk_width = chunk_width
 
@@ -485,34 +483,29 @@ class RawData(object):
         #  that will be stored in the sample data arrays.
         self.max_sample_number = max_sample_number
 
-        #  allow the user to specify a dtype for the raw sample data.
-        self.sample_dtype = 'float32'
-
         #  _data_attributes is an internal list that contains the names of all of the class's
         #  "data" properties. The echolab2 package uses this attribute to generalize various
         #  functions that manipulate these data. All
-        self._data_attributes = ['ping_time',
-                                 'channel_metadata',
-                                 'ping_number',
-                                 'transducer_depth',
-                                 'frequency',
-                                 'transmit_power',
-                                 'pulse_length',
-                                 'bandwidth',
-                                 'sample_interval',
-                                 'sound_velocity',
-                                 'absorption_coefficient',
-                                 'heave',
-                                 'pitch',
-                                 'roll',
-                                 'temperature',
-                                 'heading',
-                                 'transmit_mode',
-                                 'sample_offset',
-                                 'sample_count',
-                                 'power',
-                                 'angles_alongship_e',
-                                 'angles_athwartship_e']
+        self._data_attributes += ['channel_metadata',
+                                  'transducer_depth',
+                                    'frequency',
+                                    'transmit_power',
+                                    'pulse_length',
+                                    'bandwidth',
+                                    'sample_interval',
+                                    'sound_velocity',
+                                    'absorption_coefficient',
+                                    'heave',
+                                    'pitch',
+                                    'roll',
+                                    'temperature',
+                                    'heading',
+                                    'transmit_mode',
+                                    'sample_offset',
+                                    'sample_count',
+                                    'power',
+                                    'angles_alongship_e',
+                                    'angles_athwartship_e']
 
         #  pulse length values are in seconds
 
@@ -526,11 +519,11 @@ class RawData(object):
             self.n_pings = 0
 
         #  if we're not using fixed arrays, we will initialze them when append_ping is
-        #  called for the first time. Until then, the RawData object will not contain
+        #  called for the first time. Until then, the raw_data object will not contain
         #  the data properties.
 
         #  create a logger instance
-        self.logger = logging.getLogger('RawData')
+        self.logger = logging.getLogger('raw_data')
 
 
     def append_ping(self, sample_datagram):
@@ -611,9 +604,7 @@ class RawData(object):
             if (ping_resize or sample_resize):
                 #  resize the data arrays
                 #data_transforms.resize_arrays(self, ping_dims, sample_dims)
-                self._resize_arrays(ping_dims, sample_dims, self.ping_number.size,
-                        max_data_samples)
-
+                self._resize_arrays(ping_dims, sample_dims)
 
             #  get an index into the data arrays for this ping and increment our ping counter
             this_ping = self.n_pings
@@ -704,77 +695,81 @@ class RawData(object):
                 self.angles_athwartship_e[this_ping,:] = athwartship_e
 
 
-    def delete(self, remove=True, **kwargs):
+    def _convert_power(self, power_data, calibration, convert_to, linear, return_indices):
         '''
-        delete deletes ping data defined by the start and end bounds.
-
-        If remove == True, the arrays are shrunk. If remove == False, the data
-        defined by the start and end are set to NaN
+        _convert_power is a generalized method for converting power to Sv/sv/Sp/sp
         '''
 
-        #  call the generalized delete function in util.data_transforms
-        data_transforms.delete(self, **kwargs)
+        #  populate the calibration parameters required for this method. First, create a dict with key
+        #  names that match the attributes names of the calibration parameters we require for this method
+        cal_parms = {'gain':None,
+                     'transmit_power':None,
+                     'equivalent_beam_angle':None,
+                     'pulse_length':None,
+                     'absorption_coefficient':None,
+                     'sa_correction':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  get sound_velocity from the power data since get_power might have manipulated this value
+        cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
+        cal_parms['sound_velocity'].fill(power_data.sound_velocity)
+
+        #  to convert from power, we will calculate the gains, which are along the ping axis and TVG
+        #  and absorption which are on the sample axis. We will then caculate the outer sum of these
+        #  two vectors to give us an array that is n pings x n samples in size which is added to the
+        #  power array to compute the final result
+
+        #  calculate the gains - these are on the ping axis
+        wlength = cal_parms['sound_velocity'] / power_data.frequency
+        beta = cal_parms['transmit_power'] * (10**(cal_parms['gain'] / 10.0) * wlength)**2 / (16 * np.pi**2)
+        CSv = 10 * np.log10(beta / 2.0 * cal_parms['sound_velocity'] * cal_parms['pulse_length'] * \
+                10**(cal_parms['equivalent_beam_angle'] / 10.0))
+
+        #  apply sa correction - Simrad recommends not to apply TVG range correction when
+        #  converting to Sp/sp so we will only apply for Sv/sv
+        if (convert_to in ['sv','Sv']):
+            CSv = CSv - 2 * cal_parms['sa_correction']
+
+        #  calculate time varied gain and absorption which are on the sample axis
+        #TODO - check if power_data.range should be TVG range corrected or not
+        tvg = power_data.range.copy()
+        tvg[tvg == 0] = 1
+        if (convert_to in ['sv','Sv']):
+            tvg = 20 * np.log10(tvg)
+        else:
+            tvg = 40 * np.log10(tvg)
+        tvg[tvg < 0] = 0
+
+        #  now add 2 way absorption
+        #TODO - This has range too, but I think this range is NOT TVG corrected and thus
+        #       power_data.range SHOULD NOT be TVG range corrected and that needs to be
+        #       fixed in get_power and then the correction applied above
+        tvg = tvg + 2 * cal_parms['absorption_coefficient'] * power_data.range
+
+        #  create the output array by first calculating the outer sum our sample data
+        #  axes values TVG and CSv
+        data = np.add.outer(CSv, tvg)
+
+        #  and lastly add power
+        data += power_data.power
+
+        #  now check if we're returning linear or log values
+        if (linear):
+            #  convert to linear
+            data[:] = 10 **(data / 10.0)
+
+        #  and return the result
+        return data
 
 
-    def append(self, rawdata_object):
+    def get_sv(self, calibration=None, linear=False, keep_power=False, insert_into=None,
+            **kwargs):
         '''
-        append appends another RawData object to this one.
-        '''
-
-        data_transforms.append(self, rawdata_object)
-
-
-    def insert(self, raw_data_obj, **kwargs):
-        '''
-        insert inserts the data from the provided RawData object into this RawData
-        object. The insertion point is specified by ping number or time. After inserting
-        data, the ping_number property is updated and the ping numbers from the insertion
-        point onward will be re-numbered accordingly.
-
-        Note that internally RawData objects always store data by ping number as read,
-        appended, or inserted. Data is not sorted by time until the user calls a get_*
-        method. Consequently if ping times are not ordered and/or repeating, specifying
-        a ping time as an insetion point may not yield the desired results since the
-        insertion index will be the *first* index that satisfies the condition.
-
-        By default, the insert is *after* the provided ping number or time. Set the
-        insert_after keyword to False to insert *before* the provided ping number or time.
-
-        '''
-        #  call the generalized insert function in util.data_transforms
-        data_transforms.insert(self, raw_data_obj, **kwargs)
-
-
-    def trim(self):
-        '''
-        trim deletes the empty portions of pre-allocated arrays. This should be called
-        when you are done adding pings to a non-rolling raw_data instance.
-        '''
-
-        #  call the generalized trim function in util.data_transforms
-        data_transforms.trim(self, self.n_pings)
-
-
-    def get_ping_indices(self, **kwargs):
-        '''
-        get_ping_indices returns index arrays containing the indices contained in the range
-        defined by the times and/or ping numbers provided. By default the indexes are in time
-        order. If time_order is set to False, the data will be returned in the order they
-        occur in the data arrays.
-        '''
-
-        #  call the generalized get_indices function in util.data_transforms
-        return data_transforms.get_indices(self, **kwargs)
-
-
-    def get_sv(self, calibration=None, linear=False, return_indices=None, tvg_correction=2, **kwargs):
-        #TODO Ask Rick, should this be an attribute of calibration data?  It was set to 2 in
-        #Zac's Sv function.  Do we want to set it here as an optional argument like this?
-        '''
-        get_sv returns a ProcessedData object containing Sv (or sv if linear is
+        get_sv returns a processed_data object containing Sv (or sv if linear is
         True).
-
-        MATLAB readEKRaw eq: readEKRaw_Power2Sv.m
 
         The value passed to cal_parameters is a calibration parameters object.
         If cal_parameters == None, the calibration parameters will be extracted
@@ -782,129 +777,47 @@ class RawData(object):
 
         '''
 
-        #  check if the user supplied an explicit list of indices to return
-        if isinstance(return_indices, np.ndarray):
-            if max(return_indices) > self.ping_number.shape[0]:
-                raise ValueError("One or more of the return indices provided exceeds the " +
-                        "number of pings in the RawData object")
+        #  check if we have been given a processed_data object that already has power
+        if (hasattr(insert_into, 'power')):
+            for channel in self.channel_id:
+                if (not channel in insert_into.channel_id):
+                    raise ValueError("The channel ID(s) the object you are inserting into " +
+                            "do not match the channel ID(s) of this raw_data object.")
+
+            #TODO - add checks on the array dimensions
+
+            p_data = insert_into
         else:
-            #  get an array of index values to return
-            return_indices = self.get_ping_indices(**kwargs)
+            #  get the power data - this step also resamples and arranges the raw data
+            p_data = self.get_power(calibration=calibration, insert_into=insert_into,
+                    **kwargs)
 
-        #  get the power data - this step also resamples and arranges the raw data
-        power_data = self.get_power(calibration=calibration,
-                return_indices=return_indices, **kwargs)
+        #  get the index array of returned pings we'll use to extract the cal params we need
+        return_indices = p_data.ping_number - 1
 
-
-        #  next, iterate thru the calibration attributes, calling the method to extract the values for each parameter
-        calibration_dict = vars(calibration)
-
-        sv_cal_keys = ['gain', 'sound_velocity', 'frequency', 'transmit_power', 'equivalent_beam_angle', \
-                       'pulse_length', 'offset', 'count', 'sample_interval', 'absorption_coefficient', \
-                       'sa_correction_table']
-        cal = {}
-        for key in sv_cal_keys:
-            cal[key] = self._get_calibration_param(calibration, key, return_indices)
-
-
-        #  get sound_velocity from the power data since get_power might have manipulated this value
-        cal['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
-        cal['sound_velocity'].fill(power_data.sound_velocity)
-
-
-        #Calculate sv
-        data = vars(power_data)
-        sv = self.power_to_Sv(data=data, cal=cal, tvg_correction=tvg_correction, linear=linear, raw=True)
-
-        #Add the sv data to the power_data object.
-        if linear:
-          power_data.sv = sv
+        if (linear):
+            attribute_name = 'sv'
         else:
-          power_data.Sv = sv
+            attribute_name = 'Sv'
 
-        return power_data
+        #  convert
+        sv_data = self._convert_power(p_data, calibration, attribute_name, linear,
+                return_indices)
 
+        #  set the attribute in the processed_data object
+        setattr(p_data, attribute_name, sv_data)
 
-    def power_to_Sv(self, data=None, cal=None, tvg_correction=None, linear=None, raw=True):
+        #  and check if we should delete the power attribute
+        if (not keep_power):
+            delattr(p_data, 'power')
 
-
-        CSv = self._calc_CSv(cal['gain'], cal['sound_velocity'], cal['frequency'], cal['transmit_power'], cal['equivalent_beam_angle'], cal['pulse_length'])
-
-        range_ = self._range_vector(cal, tvg_correction)
-        tvg = range_.copy()
-        tvg[tvg == 0] = 1
-        tvg = 20 * np.log10(tvg)
-        tvg[tvg < 0] = 0
-
-        if raw:
-            raw_factor = 10.0 * np.log10(2.0) / 256.0
-        else:
-            raw_factor = 1
-
-        convert = lambda x: x * raw_factor + tvg + 2 * cal['absorption_coefficient'] * range_ - \
-            CSv - 2 * cal['sa_correction_table'] #Replaced sa_correction with sa_correction_table.
-
-        if data['power'].ndim == 1:
-            if linear:
-                Sv = 10 **(convert(data['power']) / 10.0)
-
-            else:
-                Sv = convert(data['power'])
-
-        elif data['power'].ndim == 2:
-            Sv = np.empty_like(data['power'], dtype=np.float)
-            for ping in range(data['power'].shape[1]):
-
-                if linear:
-                    Sv[:, ping] = 10 **(convert(data['power'][:, ping]) / 10.0)
-
-                else:
-                    Sv[:, ping] = convert(data['power'][:, ping])
-
-        else:
-            raise ValueError('Expected a 1- or 2-dimensional array')
+        return p_data
 
 
-        return Sv
-
-
-
-    def _calc_CSv(self, gain, sound_velocity, frequency, transmit_power, eba, pulse_length):
+    def get_sp(self,  calibration=None, linear=False, keep_power=False, insert_into=None,
+            **kwargs):
         '''
-        Calculates the CSv constant used in power <-> Sv conversions
-        '''
-        beta = self._calc_beta(gain, sound_velocity, frequency, transmit_power)
-        CSv = 10 * np.log10(beta / 2.0 * sound_velocity * pulse_length * 10**(eba / 10.0))
-
-        return CSv
-
-
-    def _calc_beta(self, gain, sound_velocity, frequency, transmit_power):
-        '''
-        Convenicne constant for calculating CSv and CSp
-        '''
-        wlength = sound_velocity / (1.0 * frequency)
-        beta = transmit_power * (10**(gain / 10.0) * wlength)**2 / (16 * np.pi**2)
-
-        return beta
-
-
-    def _range_vector(self, cal, tvg_correction=2.0):
-        '''
-        Calculates the the tvg-corrected range vector used in Sp and Sv conversions
-        '''
-        dR = cal['sound_velocity'] * cal['sample_interval'] / 2.0
-        #sample_range = (np.arange(0, cal['count'][0]) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same?
-        sample_range = (np.arange(0, len(cal['offset'])) + cal['offset']) * dR #FIXME you added index for count.  Are they all the same?
-        corrected_range = sample_range - (tvg_correction * dR)
-        corrected_range[corrected_range < 0] = 0
-
-        return corrected_range
-
-
-    def get_ts(self, cal_parameters=None, linear=False, **kwargs):
-        '''
-        get_ts returns a ProcessedData object containing TS (or sigma_bs if linear is
+        get_ts returns a processed_data object containing TS (or sigma_bs if linear is
         True). (in MATLAB code TS == Sp and sigma_bs == sp)
 
         MATLAB readEKRaw eq: readEKRaw_Power2Sp.m
@@ -915,8 +828,41 @@ class RawData(object):
 
         '''
 
-        #  get the horizontal start and end indicies
-        h_index = self.get_indices(**kwargs)
+        #  check if we have been given a processed_data object that already has power
+        if (hasattr(insert_into, 'power')):
+            for channel in self.channel_id:
+                if (not channel in insert_into.channel_id):
+                    raise ValueError("The channel ID(s) the object you are inserting into " +
+                            "do not match the channel ID(s) of this raw_data object.")
+
+            #TODO - add checks on the array dimensions
+
+            p_data = insert_into
+        else:
+            #  get the power data - this step also resamples and arranges the raw data
+            p_data = self.get_power(calibration=calibration, insert_into=insert_into,
+                    **kwargs)
+
+        #  get the index array of returned pings we'll use to extract the cal params we need
+        return_indices = p_data.ping_number - 1
+
+        if (linear):
+            attribute_name = 'sp'
+        else:
+            attribute_name = 'Sp'
+
+        #  convert
+        sv_data = self._convert_power(p_data, attribute_name, return_indices)
+
+        #  set the attribute in the processed_data object
+        setattr(p_data, attribute_name, sv_data)
+
+        #  and check if we should delete the power attribute
+        if (not keep_power):
+            delattr(p_data, 'power')
+
+        return p_data
+
 
 
     def get_physical_angles(self, **kwargs):
@@ -961,28 +907,28 @@ class RawData(object):
         object or if no object is provided, this method will extract these parameters from
         the raw file data.
 
-        if insert_into is a reference to another ProcessedData object and the channel IDs
-        of self and the ProcessedData instance match, it is assumed that the calibration
+        if insert_into is a reference to another processed_data object and the channel IDs
+        of self and the processed_data instance match, it is assumed that the calibration
         and data collection parameters are the same and it will insert the requested property
-        data into the ProcessedData instance. This method will check if the resulting sample
-        array is the same shape as the sample arrays in the ProcessedData class and that the
+        data into the processed_data instance. This method will check if the resulting sample
+        array is the same shape as the sample arrays in the processed_data class and that the
         range vector matches and will raise an error if they do not.
         '''
 
-        #  check if we're inserting data into an existing ProcessedData object
-        if isinstance(insert_into, ProcessedData.ProcessedData):
+        #  check if we're inserting data into an existing processed_data object
+        if isinstance(insert_into, processed_data.processed_data):
             #  check that the channel IDs match
             for channel in self.channel_id:
                 if (not channel in insert_into.channel_id):
                     raise ValueError("The channel ID(s) the object you are inserting into " +
-                            "do not match the channel ID(s) of this RawData object.")
+                            "do not match the channel ID(s) of this raw_data object.")
 
-            #  when inserting into a ProcessedData object we ignore the start/end arguments and
+            #  when inserting into a processed_data object we ignore the start/end arguments and
             #  extract the same indices as the data in the object we are inserting into
             return_indices = insert_into.ping_number - 1
 
             #  we're inserting so we just copy the reference to the object and set the inserting flag
-            processed_data = insert_into
+            p_data = insert_into
             inserting = True
 
         else:
@@ -990,17 +936,17 @@ class RawData(object):
             if isinstance(return_indices, np.ndarray):
                 if max(return_indices) > self.ping_number.shape[0]:
                     raise ValueError("One or more of the return indices provided exceeds the " +
-                            "number of pings in the RawData object")
+                            "number of pings in the raw_data object")
             else:
                 #  get an array of index values to return
-                return_indices = self.get_ping_indices(**kwargs)
+                return_indices = self.get_indices(**kwargs)
 
-            #  create the ProcessedData object we will return
-            processed_data = ProcessedData.ProcessedData(self.channel_id, self.frequency[0])
+            #  create the processed_data object we will return
+            p_data = processed_data.processed_data(self.channel_id, self.frequency[0])
 
             #  populate it with time and ping number
-            processed_data.ping_time = self.ping_time[return_indices].copy()
-            processed_data.ping_number = self.ping_number[return_indices].copy()
+            p_data.ping_time = self.ping_time[return_indices].copy()
+            p_data.ping_number = self.ping_number[return_indices].copy()
 
             #  unset the inserting flag
             inserting = False
@@ -1031,17 +977,15 @@ class RawData(object):
         if (unique_sample_interval.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the data.
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
-            (output, sample_interval) = data_transforms.vertical_resample(data[return_indices],
+            (output, sample_interval) = self._vertical_resample(data[return_indices],
                     cal_parms['sample_interval'], unique_sample_interval, resample_interval,
-                    cal_parms['sample_offset'], min_sample_offset, is_power=property_name == 'power',
-                    dtype=self.sample_dtype)
+                    cal_parms['sample_offset'], min_sample_offset, is_power=property_name == 'power')
         else:
             #  we don't have to resample, but check if we need to shift any samples based on their sample offsets.
             if (unique_sample_offsets.shape[0] > 1):
                 #  we have multiple sample offsets so we need to shift some of the samples
-                output = data_transforms.vertical_shift(data[return_indices],
-                        cal_parms['sample_offset'], unique_sample_offsets, min_sample_offset,
-                        dtype=self.sample_dtype)
+                output = self._vertical_shift(data[return_indices],
+                        cal_parms['sample_offset'], unique_sample_offsets, min_sample_offset)
             else:
                 #  the data all have the same sample intervals and sample offsets - simply copy the data as is.
                 output = data[return_indices].copy()
@@ -1086,7 +1030,7 @@ class RawData(object):
                         tvg_correction=tvg_correction)
 
 
-        setattr(processed_data, property_name, output)
+        setattr(p_data, property_name, output)
 
 
         #  now assign range, sound_velocity, sample thickness and offset, and transducer_depth
@@ -1095,27 +1039,27 @@ class RawData(object):
         #  the user didn't do something really stupid.
         if (inserting):
             #  ensure the range vector for this sample data array is the same as the existing data
-            if (not np.all(processed_data.range == range)):
+            if (not np.all(p_data.range == range)):
                 raise ValueError("The sample ranges calculated for " + property_name +
-                        " do not match the existing sample ranges in the ProcessedData " +
+                        " do not match the existing sample ranges in the processed_data " +
                         "object you are inserting into.")
             #  ANY OTHER CHECKS WE NEED TO DO?
 
         else:
 
-            #  assign range and sound speed to our ProcessedData object
-            processed_data.range = range
-            processed_data.sound_velocity = sound_velocity
+            #  assign range and sound speed to our processed_data object
+            p_data.range = range
+            p_data.sound_velocity = sound_velocity
 
             #  compute sample thickness and set the sample offset
-            processed_data.sample_thickness = sample_interval * sound_velocity / 2.0
-            processed_data.sample_offset = min_sample_offset
+            p_data.sample_thickness = sample_interval * sound_velocity / 2.0
+            p_data.sample_offset = min_sample_offset
 
             #  copy the transducer depth data
-            processed_data.transducer_depth = cal_parms['transducer_depth'].copy()
+            p_data.transducer_depth = cal_parms['transducer_depth'].copy()
 
-        #  return the ProcessedData object containing the requested data
-        return processed_data
+        #  return the processed_data object containing the requested data
+        return p_data
 
 
     def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
@@ -1166,7 +1110,8 @@ class RawData(object):
             data
         '''
 
-        if (cal_object):
+        if (cal_object and hasattr(cal_object, param_name)):
+
             #  try to get the parameter from the calibration object
             param = getattr(cal_object, param_name)
 
@@ -1201,6 +1146,12 @@ class RawData(object):
             #  Calibration parameters are found directly in the RawData object and they are
             #  in the channel_metadata objects. If we don't find it directly in RawData then
             #  we need to fish it out of the channel_metadata objects.
+
+            #  but first, we have to handle sa_correction explicitly because it doesn't follow
+            #  the rules
+
+
+
             try:
                 #  first check if this parameter is a direct property in RawData
                 self_param = getattr(self, param_name)
@@ -1212,7 +1163,13 @@ class RawData(object):
                 param_data = np.empty((return_indices.shape[0]), dtype=dtype)
                 #  then populate with the data found in the channel_metadata objects
                 for idx in return_indices:
-                    param_data[idx] = getattr(self.channel_metadata[idx],param_name)
+                    #  sa_correction is annoying - have to dig out of the table
+                    if (param_name == 'sa_correction'):
+                        sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
+                        pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
+                        param_data[idx] = sa_table[np.where(pl_table == self.pulse_length[idx])[0]]
+                    else:
+                        param_data[idx] = getattr(self.channel_metadata[idx],param_name)
 
         return param_data
 
@@ -1278,74 +1235,6 @@ class RawData(object):
             self.angles_alongship_e = np.roll(self.angles_alongship_e, roll_pings, axis=0)
             self.angles_athwartship_e = np.roll(self.angles_athwartship_e, roll_pings, axis=0)
 
-
-    def _resize_arrays(self, new_ping_dim, new_sample_dim, old_ping_dim, old_sample_dim):
-        '''
-        _resize_arrays is an internal method that handles resizing the data arrays
-        '''
-
-        def resize2d(data, ping_dim, sample_dim):
-            '''
-            resize2d returns a new array of the specified dimensions with the data from
-            the provided array copied into it. This funciton is used when we need to resize
-            2d arrays along the minor axis as ndarray.resize and numpy.resize don't maintain
-            the order of the data in these cases.
-            '''
-
-            #  if the minor axis is changing we have to either concatenate or copy into a new resized array
-            #  I'm taking the second approach for now as I don't think there are performance differences
-            #  between the two approaches.
-
-            #  create a new array
-            new_array = np.empty((ping_dim, sample_dim))
-            #  fill it with NaNs
-            new_array.fill(np.nan)
-            #  copy the data into our new array
-            new_array[0:data.shape[0], 0:data.shape[1]] = data
-            #  and return it
-            return new_array
-
-        #  resize the 1d arrays
-        if (new_ping_dim != old_ping_dim):
-            self.ping_time.resize((new_ping_dim))
-            self.ping_number.resize((new_ping_dim))
-            self.transducer_depth.resize((new_ping_dim))
-            self.frequency.resize((new_ping_dim))
-            self.transmit_power.resize((new_ping_dim))
-            self.pulse_length.resize((new_ping_dim))
-            self.bandwidth.resize((new_ping_dim))
-            self.sample_interval.resize((new_ping_dim))
-            self.sound_velocity.resize((new_ping_dim))
-            self.absorption_coefficient.resize((new_ping_dim))
-            self.heave.resize((new_ping_dim))
-            self.pitch.resize((new_ping_dim))
-            self.roll.resize((new_ping_dim))
-            self.temperature.resize((new_ping_dim))
-            self.heading.resize((new_ping_dim))
-            self.transmit_mode.resize((new_ping_dim))
-            self.sample_offset.resize((new_ping_dim))
-            self.sample_count.resize((new_ping_dim))
-
-        #  resize the 2d arrays
-        #  NOTE: Initially 2d resize was implemented with ndarray.resize() which resizes in place and
-        #              thus should be more efficient but its behavior with 2d arrays when the minor axes
-        #              is changed causes the data to shift in the array "scrambling" the data.
-        if (self.store_power):
-            if (new_sample_dim == old_sample_dim):
-                #  if the minor axes isn't changing we can use ndarray.resize()
-                self.power.resize((new_ping_dim, new_sample_dim))
-                # shouldn't need to pad NaNs in these cases since we'll either finll the pings or trim them.
-            else:
-                #  if the minor axes is changing we need to use our resize2d function
-                self.power = resize2d(self.power, new_ping_dim, new_sample_dim)
-        if (self.store_angles):
-            #  same constraints apply to the angle data
-            if (new_sample_dim == old_sample_dim):
-                self.angles_alongship_e.resize((new_ping_dim, new_sample_dim))
-                self.angles_athwartship_e.resize((new_ping_dim, new_sample_dim))
-            else:
-                self.angles_alongship_e = resize2d(self.angles_alongship_e, new_ping_dim, new_sample_dim)
-                self.angles_athwartship_e = resize2d(self.angles_athwartship_e, new_ping_dim, new_sample_dim)
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
