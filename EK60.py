@@ -26,7 +26,6 @@ import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
 from ..data_container import data_container
-from .util import unit_conversion
 from ..processing import processed_data
 
 log = logging.getLogger(__name__)
@@ -426,7 +425,7 @@ class raw_data(data_container):
 
     #  define constants used to specify the target resampling interval for the power and angle
     #  conversion functions. These values represent the standard sampling intervals for EK60 hardware
-    #  when operated with the ER60 software as well as ES60/70 systems and the ME70.
+    #  when operated with the ER60 software as well as ES60/70 systems and the ME70(?)
     RESAMPLE_SHORTEST = 0
     RESAMPLE_16   = 0.000016
     RESAMPLE_32  = 0.000032
@@ -446,7 +445,7 @@ class raw_data(data_container):
         echosounder data from a single channel of an EK60 or ES60/70 system.
 
         NOTE: power is *always* stored in log form. If you manipulate power values
-              directly, make sure they are stored in log form.
+                 directly, make sure they are stored in log form.
 
         if rolling is True, arrays of size (n_pings, n_samples) are created for power
         and angle data upon instantiation and are filled with NaNs. These arrays are
@@ -488,29 +487,28 @@ class raw_data(data_container):
 
         #  _data_attributes is an internal list that contains the names of all of the class's
         #  "data" properties. The echolab2 package uses this attribute to generalize various
-        #  functions that manipulate these data. All
+        #  functions that manipulate these data.  Here we *extend* the list that is defined
+        #  in the parent class.
         self._data_attributes += ['channel_metadata',
-                                  'transducer_depth',
-                                    'frequency',
-                                    'transmit_power',
-                                    'pulse_length',
-                                    'bandwidth',
-                                    'sample_interval',
-                                    'sound_velocity',
-                                    'absorption_coefficient',
-                                    'heave',
-                                    'pitch',
-                                    'roll',
-                                    'temperature',
-                                    'heading',
-                                    'transmit_mode',
-                                    'sample_offset',
-                                    'sample_count',
-                                    'power',
-                                    'angles_alongship_e',
-                                    'angles_athwartship_e']
-
-        #  pulse length values are in seconds
+                                           'transducer_depth',
+                                          'frequency',
+                                          'transmit_power',
+                                          'pulse_length',
+                                          'bandwidth',
+                                          'sample_interval',
+                                          'sound_velocity',
+                                          'absorption_coefficient',
+                                          'heave',
+                                          'pitch',
+                                          'roll',
+                                          'temperature',
+                                          'heading',
+                                          'transmit_mode',
+                                          'sample_offset',
+                                          'sample_count',
+                                          'power',
+                                          'angles_alongship_e',
+                                          'angles_athwartship_e']
 
         #  if we're using a fixed data array size, we can allocate the arrays now
         if (self.rolling_array):
@@ -698,7 +696,8 @@ class raw_data(data_container):
                 self.angles_athwartship_e[this_ping,:] = athwartship_e
 
 
-    def _convert_power(self, power_data, calibration, convert_to, linear, return_indices):
+    def _convert_power(self, power_data, calibration, convert_to, linear, return_indices,
+            tvg_correction):
         '''
         _convert_power is a generalized method for converting power to Sv/sv/Sp/sp
         '''
@@ -731,14 +730,16 @@ class raw_data(data_container):
         CSv = 10 * np.log10(beta / 2.0 * cal_parms['sound_velocity'] * cal_parms['pulse_length'] * \
                 10**(cal_parms['equivalent_beam_angle'] / 10.0))
 
-        #  apply sa correction - Simrad recommends not to apply TVG range correction when
+        #  apply sa correction
+        CSv = CSv - 2 * cal_parms['sa_correction']
+
+        #  calculate time varied gain and absorption which are on the sample axis - first get the range vector
+        tvg = power_data.range.copy()
+        #  apply TVG range correction - Simrad recommends not to apply TVG range correction when
         #  converting to Sp/sp so we will only apply for Sv/sv
         if (convert_to in ['sv','Sv']):
-            CSv = CSv - 2 * cal_parms['sa_correction']
-
-        #  calculate time varied gain and absorption which are on the sample axis
-        #TODO - check if power_data.range should be TVG range corrected or not
-        tvg = power_data.range.copy()
+            tvg = tvg - (tvg_correction * power_data.sample_thickness)
+        #  and logify it
         tvg[tvg == 0] = 1
         if (convert_to in ['sv','Sv']):
             tvg = 20 * np.log10(tvg)
@@ -746,21 +747,15 @@ class raw_data(data_container):
             tvg = 40 * np.log10(tvg)
         tvg[tvg < 0] = 0
 
-        #TODO - This has range too, but I think this range is NOT TVG corrected and thus
-        #       power_data.range SHOULD NOT be TVG range corrected and that needs to be
-        #       fixed in get_power and then the correction applied above
-
         #  create the output array by first calculating the 2 way absorption for every sample
         #  by taking the outer product of 2* absorption_coefficient and range
         data = np.outer(2 * cal_parms['absorption_coefficient'], power_data.range)
 
         #  add our gains (transpose CSv so we can add it to our array)
-        data += CSv[:,np.newaxis]
+        data += CSv[:, np.newaxis]
 
         #  now add the TVG to this (don't need to transpose TVG since it matches dimensions on the sample axis)
         data += tvg
-
-        #p = (10.0 * np.log10(2.0) / 256.0) * power_data.power
 
         #  and lastly add power
         data += power_data.power
@@ -775,7 +770,7 @@ class raw_data(data_container):
 
 
     def get_sv(self, calibration=None, linear=False, keep_power=False, insert_into=None,
-            **kwargs):
+                tvg_correction=2, **kwargs):
         '''
         get_sv returns a processed_data object containing Sv (or sv if linear is
         True).
@@ -811,7 +806,7 @@ class raw_data(data_container):
 
         #  convert
         sv_data = self._convert_power(p_data, calibration, attribute_name, linear,
-                return_indices)
+                return_indices, tvg_correction)
 
         #  set the attribute in the processed_data object
         setattr(p_data, attribute_name, sv_data)
@@ -892,9 +887,8 @@ class raw_data(data_container):
         '''
 
 
-    def _get_sample_data(self, property_name, calibration=None, tvg_correction=TVG_CORRECTION,
-            resample_interval=RESAMPLE_SHORTEST, resample_soundspeed=None, insert_into=None,
-            return_indices=None, **kwargs):
+    def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
+            resample_soundspeed=None, insert_into=None, return_indices=None, **kwargs):
         '''
         _get_sample_data returns a processed data object that contains the sample data from
         the property name provided. It performs all of the required transformations to place
@@ -923,6 +917,17 @@ class raw_data(data_container):
         array is the same shape as the sample arrays in the processed_data class and that the
         range vector matches and will raise an error if they do not.
         '''
+
+        def get_range_vector(num_samples, sample_interval, sound_speed, sample_offset):
+            '''
+            get_range_vector returns a NON-CORRECTED range vector.
+            '''
+            #  calculate the thickness of samples with this sound speed
+            thickness = sample_interval * sound_speed / 2.0
+            #  calculate the range vector
+            range = (np.arange(0, num_samples) + sample_offset) * thickness
+
+            return range
 
         #  check if we're inserting data into an existing processed_data object
         if isinstance(insert_into, processed_data.processed_data):
@@ -969,9 +974,9 @@ class raw_data(data_container):
         #  populate the calibration parameters required for this method. First, create a dict with key
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'sample_interval':None,
-                     'sound_velocity':None,
-                     'sample_offset':None,
-                     'transducer_depth':None}
+                           'sound_velocity':None,
+                           'sample_offset':None,
+                           'transducer_depth':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -1015,9 +1020,8 @@ class raw_data(data_container):
                    sound_velocity = speed
 
             #  calculate the target range
-            range = unit_conversion.get_range_vector(output.shape[1],
-                        sample_interval, sound_velocity, min_sample_offset,
-                        tvg_correction=tvg_correction)
+            range = get_range_vector(output.shape[1], sample_interval, sound_velocity,
+                    min_sample_offset)
 
             #  get an array of indexes in the output array to interpolate
             pings_to_interp = np.where(cal_parms['sound_velocity'] != sound_velocity)[0]
@@ -1025,22 +1029,19 @@ class raw_data(data_container):
             #  iterate thru this list of pings to change - interpolating each ping
             for ping in pings_to_interp:
                 #  resample using the provided sound speed - calculate the
-                resample_range = unit_conversion.get_range_vector(output.shape[1],
-                        sample_interval, cal_parms['sound_velocity'][ping], min_sample_offset,
-                        tvg_correction=tvg_correction)
+                resample_range = get_range_vector(output.shape[1], sample_interval,
+                        cal_parms['sound_velocity'][ping], min_sample_offset)
 
                 output[ping,:] = np.interp(range, resample_range, output[ping,:])
 
         else:
             #  we have a fixed sound speed - only need to calculate a single range vector
             sound_velocity = unique_sound_velocity[0]
-            range = unit_conversion.get_range_vector(output.shape[1],
-                        sample_interval, sound_velocity, min_sample_offset,
-                        tvg_correction=tvg_correction)
+            range = get_range_vector(output.shape[1], sample_interval,
+                    sound_velocity, min_sample_offset)
 
-
+        #  assign the results to the output processed_data object
         setattr(p_data, property_name, output)
-
 
         #  now assign range, sound_velocity, sample thickness and offset, and transducer_depth
         #  to the processed_data object. If we're inserting we assume all of these values
@@ -1055,7 +1056,6 @@ class raw_data(data_container):
             #  ANY OTHER CHECKS WE NEED TO DO?
 
         else:
-
             #  assign range and sound speed to our processed_data object
             p_data.range = range
             p_data.sound_velocity = sound_velocity
@@ -1096,6 +1096,7 @@ class raw_data(data_container):
         the raw file data.
         '''
 
+        #  call the generalized _get_sample_data method requesting the 'power' sample attribute
         return self._get_sample_data('power', **kwargs)
 
 
@@ -1116,7 +1117,7 @@ class raw_data(data_container):
 
             Lastly, if the user has not provided anything, this function will return a
             1D array the length of return_indices filled with data extracted from the raw
-            data
+            data.
         '''
 
         if (cal_object and hasattr(cal_object, param_name)):
@@ -1155,12 +1156,6 @@ class raw_data(data_container):
             #  Calibration parameters are found directly in the RawData object and they are
             #  in the channel_metadata objects. If we don't find it directly in RawData then
             #  we need to fish it out of the channel_metadata objects.
-
-            #  but first, we have to handle sa_correction explicitly because it doesn't follow
-            #  the rules
-
-
-
             try:
                 #  first check if this parameter is a direct property in RawData
                 self_param = getattr(self, param_name)
@@ -1243,7 +1238,6 @@ class raw_data(data_container):
         if (self.store_angles):
             self.angles_alongship_e = np.roll(self.angles_alongship_e, roll_pings, axis=0)
             self.angles_athwartship_e = np.roll(self.angles_athwartship_e, roll_pings, axis=0)
-
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
