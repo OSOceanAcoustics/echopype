@@ -18,9 +18,11 @@
     #import pynmea2 FIXME Uncomment once this is available.
 
 
-class NMEAData(object):
+from .pynmea2 import pynmea2
+
+class nmea_data(object):
     '''
-    The NMEAData class provides storage for and parsing of NMEA data commonly
+    The nmea_data class provides storage for and parsing of NMEA data commonly
     collected along with sonar data.
 
     Potential library to use for NMEA parsing.
@@ -49,9 +51,6 @@ class NMEAData(object):
         #  self types is a list of the unique talker+message NMEA types received.
         self.types = []
 
-        #  create a logger instance
-        self.logger = logging.getLogger('NMEAData')
-
 
     def add_datagram(self, time, text):
         '''
@@ -61,6 +60,13 @@ class NMEAData(object):
 
         time is a datetime object
         text is a string containing the NMEA text
+
+        Like I said in my email, I would modify this to use numpy arrays. It will be
+        faster and easier to code. You will have to add code to manage the numpy array
+        sizes, resizing when needed and a "trim" method that is called when reading is
+        complete. You can follow the pattern in EK60.raw_data for this.
+
+
         '''
 
         #  add the raw NMEA datagram
