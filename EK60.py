@@ -17,6 +17,13 @@
 
                       CLASS DESCRIPTION GOES HERE
 
+    TODO: Check if we're converting indexed angles to electrical angles when
+          reading or if we're really storing indexed angles in which case
+          we need to convert from indexed to electric in get_electrical_angles.
+
+          elec_angle = 180.0 / 128.0 * _indexed_angle
+
+
 '''
 
 import os
@@ -705,11 +712,11 @@ class raw_data(data_container):
         #  populate the calibration parameters required for this method. First, create a dict with key
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'gain':None,
-                           'transmit_power':None,
-                           'equivalent_beam_angle':None,
-                           'pulse_length':None,
-                           'absorption_coefficient':None,
-                           'sa_correction':None}
+                     'transmit_power':None,
+                     'equivalent_beam_angle':None,
+                     'pulse_length':None,
+                     'absorption_coefficient':None,
+                     'sa_correction':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -730,21 +737,22 @@ class raw_data(data_container):
         CSv = 10 * np.log10(beta / 2.0 * cal_parms['sound_velocity'] * cal_parms['pulse_length'] * \
                 10**(cal_parms['equivalent_beam_angle'] / 10.0))
 
-        #  apply sa correction
-        CSv = CSv - 2 * cal_parms['sa_correction']
+        #  apply sa correction to Sv/sv
+        if (convert_to in ['sv','Sv']):
+            CSv[:] = CSv - 2 * cal_parms['sa_correction']
 
         #  calculate time varied gain and absorption which are on the sample axis - first get the range vector
         tvg = power_data.range.copy()
-        #  apply TVG range correction - Simrad recommends not to apply TVG range correction when
-        #  converting to Sp/sp so we will only apply for Sv/sv
-        if (convert_to in ['sv','Sv']):
-            tvg = tvg - (tvg_correction * power_data.sample_thickness)
-        #  and logify it
+        #  apply TVG range correction - by default this is True for Sv/sv and False for Sp/sp
+        if (tvg_correction):
+            tvg[:] = tvg - (self.TVG_CORRECTION * power_data.sample_thickness)
+
+        #  and logify
         tvg[tvg == 0] = 1
         if (convert_to in ['sv','Sv']):
-            tvg = 20 * np.log10(tvg)
+            tvg[:] = 20 * np.log10(tvg)
         else:
-            tvg = 40 * np.log10(tvg)
+            tvg[:] = 40 * np.log10(tvg)
         tvg[tvg < 0] = 0
 
         #  create the output array by first calculating the 2 way absorption for every sample
@@ -754,7 +762,7 @@ class raw_data(data_container):
         #  add our gains (transpose CSv so we can add it to our array)
         data += CSv[:, np.newaxis]
 
-        #  now add the TVG to this (don't need to transpose TVG since it matches dimensions on the sample axis)
+        #  now add the TVG to this (no need to transpose since tvg matches dims on the sample axis)
         data += tvg
 
         #  and lastly add power
@@ -762,7 +770,7 @@ class raw_data(data_container):
 
         #  now check if we're returning linear or log values
         if (linear):
-            #  convert to linear
+            #  convert to linear units (use [:] to operate in-place)
             data[:] = 10 **(data / 10.0)
 
         #  and return the result
@@ -770,7 +778,7 @@ class raw_data(data_container):
 
 
     def get_sv(self, calibration=None, linear=False, keep_power=False, insert_into=None,
-                tvg_correction=2, **kwargs):
+                tvg_correction=True, **kwargs):
         '''
         get_sv returns a processed_data object containing Sv (or sv if linear is
         True).
@@ -778,6 +786,12 @@ class raw_data(data_container):
         The value passed to cal_parameters is a calibration parameters object.
         If cal_parameters == None, the calibration parameters will be extracted
         from the corresponding fields in the raw_data object.
+
+        Sv is calculated as follows:
+
+            Sv = recvPower + 20 log10(Range) + (2 *  alpha * Range) - (10 * ...
+                log10((xmitPower * (10^(gain/10))^2 * lambda^2 * ...
+                c * tau * 10^(psi/10)) / (32 * pi^2)) - (2 * SaCorrection)
 
         '''
 
@@ -819,16 +833,25 @@ class raw_data(data_container):
 
 
     def get_sp(self,  calibration=None, linear=False, keep_power=False, insert_into=None,
-            **kwargs):
+            tvg_correction=False, **kwargs):
         '''
-        get_ts returns a processed_data object containing TS (or sigma_bs if linear is
-        True). (in MATLAB code TS == Sp and sigma_bs == sp)
+        get_sp returns a processed_data object containing TS (or sigma_bs if linear is
+        True).
 
-        MATLAB readEKRaw eq: readEKRaw_Power2Sp.m
+        Sp is calculated as follows:
 
-        The value passed to cal_parameters is a calibration parameters object.
-        If cal_parameters == None, the calibration parameters will be extracted
-        from the corresponding fields in the raw_data object.
+             Sp = recvPower + 40 * log10(Range) + (2 *  alpha * Range) - (10 * ...
+                 log10((xmitPower * (10^(gain/10))^2 * lambda^2) / (16 * pi^2)))
+
+        By default, TVG range correction is not applied to the data. This
+        results in output that is consistent with the Simrad "P" telegram and TS
+        data exported from Echoview version 4.3 and later (prior versions applied
+        the correction by default).
+
+        If you intend to perform single target detections you must apply the
+        TVG range correction at some point in your process. This can be done by
+        either setting the tvgCorrection keyword of this function or it can be
+        done as part of your single target detection routine.
 
         '''
 
@@ -856,10 +879,11 @@ class raw_data(data_container):
             attribute_name = 'Sp'
 
         #  convert
-        sv_data = self._convert_power(p_data, attribute_name, return_indices)
+        sp_data = self._convert_power(p_data, calibration, attribute_name, linear,
+                return_indices, tvg_correction)
 
         #  set the attribute in the processed_data object
-        setattr(p_data, attribute_name, sv_data)
+        setattr(p_data, attribute_name, sp_data)
 
         #  and check if we should delete the power attribute
         if (not keep_power):
@@ -868,8 +892,8 @@ class raw_data(data_container):
         return p_data
 
 
-
-    def get_physical_angles(self, **kwargs):
+    def get_physical_angles(self, calibration=None,  keep_elec_angles=False,
+            return_indices=None, **kwargs):
         '''
         get_physical_angles returns a processed data object that contains the alongship and
         athwartship angle data.
@@ -877,14 +901,60 @@ class raw_data(data_container):
         This method would call getElectricalAngles to get a vertically aligned
 
         '''
-        pass
+
+        #  get the electrical angles
+        p_data = self.get_electrical_angles(calibration=calibration, **kwargs)
+
+        #  get the index array of returned pings we'll use to extract the cal params we need
+        return_indices = p_data.ping_number - 1
+
+        #  get the calibration params required for angle conversion
+        cal_parms = {'angle_sensitivity_alongship':None,
+                     'angle_sensitivity_athwartship':None,
+                     'angle_offset_alongship':None,
+                     'angle_offset_athwartship':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  compute the physical angles
+        p_angle_along = np.divide.outer(p_data.angles_alongship_e,
+                cal_parms['angle_sensitivity_alongship'])
+        p_angle_along -= cal_parms['angle_offset_alongship']
+        p_angle_athwart = np.divide.outer(p_data.angles_alongship_e,
+                cal_parms['angle_sensitivity_athwartship'])
+        p_angle_athwart -= cal_parms['angle_offset_athwartship']
+
+        #  set the attributes in our processed_data object
+        setattr(p_data, 'angles_alongship', p_angle_along)
+        setattr(p_data, 'angles_athwartship', p_angle_athwart)
+
+        #  check if we should get rid of the electrical angles
+        if (not keep_elec_angles):
+            delattr(p_data, 'angles_alongship_e')
+            delattr(p_data, 'angles_athwartship_e')
+
+        return p_data
 
 
     def get_electrical_angles(self, **kwargs):
         '''
         get_electrical_angles returns a processed data object that contains the unconverted
-        angle data. The process is identical to the get_power method.
+        angle data.
         '''
+
+        #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
+        #  attribute. The method will return a reference to either the passed in processed_data object
+        #  (via insert_into) or the newly created instance if insert_into us unset.
+        p_data = self._get_sample_data('angles_alongship_e', **kwargs)
+
+        #  and call it again requesting 'angles_athwartship_e', this time inserting into our
+        #  existing processed data instance.
+        p_data = self._get_sample_data('angles_athwartship_e', insert_into=p_data, **kwargs)
+
+        return p_data
+
 
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
@@ -1071,9 +1141,7 @@ class raw_data(data_container):
         return p_data
 
 
-    def get_power(self, calibration=None, resample_interval=RESAMPLE_SHORTEST,
-            tvg_correction=TVG_CORRECTION, resample_soundspeed=None,
-            return_indices=None, **kwargs):
+    def get_power(self, **kwargs):
         '''
         get_power returns a processed data object that contains the power data. It performs
         all of the required transformations to place the raw power data into a rectangular
