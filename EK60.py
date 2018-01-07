@@ -17,13 +17,6 @@
 
                       CLASS DESCRIPTION GOES HERE
 
-    TODO: Check if we're converting indexed angles to electrical angles when
-          reading or if we're really storing indexed angles in which case
-          we need to convert from indexed to electric in get_electrical_angles.
-
-          elec_angle = 180.0 / 128.0 * _indexed_angle
-
-
 '''
 
 import os
@@ -40,8 +33,7 @@ log = logging.getLogger(__name__)
 
 class EK60(object):
 
-    #  create a constant to convert indexed power to power
-    INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+
 
     def __init__(self):
 
@@ -319,10 +311,6 @@ class EK60(object):
                     #  get the channel id
                     channel_id = self._channel_map[new_datagram['channel']]
 
-                    #  convert the indexed power data to power dB
-                    if ('power' in new_datagram):
-                        new_datagram['power'] = new_datagram['power'] * self.INDEX2POWER
-
                     #  and call the appropriate channel's append_ping method
                     self.raw_data[channel_id].append_ping(new_datagram)
 
@@ -444,6 +432,12 @@ class raw_data(data_container):
     RESAMPLE_2048 = 0.002048
     RESAMPLE_LONGEST = 1
 
+    #  create a constant to convert indexed power to power
+    INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+
+    #  and one to convert from indexed angles to electrical angles
+    INDEX2ELEC = 180.0 / 128.0
+
 
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
@@ -497,25 +491,25 @@ class raw_data(data_container):
         #  functions that manipulate these data.  Here we *extend* the list that is defined
         #  in the parent class.
         self._data_attributes += ['channel_metadata',
-                                           'transducer_depth',
-                                          'frequency',
-                                          'transmit_power',
-                                          'pulse_length',
-                                          'bandwidth',
-                                          'sample_interval',
-                                          'sound_velocity',
-                                          'absorption_coefficient',
-                                          'heave',
-                                          'pitch',
-                                          'roll',
-                                          'temperature',
-                                          'heading',
-                                          'transmit_mode',
-                                          'sample_offset',
-                                          'sample_count',
-                                          'power',
-                                          'angles_alongship_e',
-                                          'angles_athwartship_e']
+                                  'transducer_depth',
+                                  'frequency',
+                                  'transmit_power',
+                                  'pulse_length',
+                                  'bandwidth',
+                                  'sample_interval',
+                                  'sound_velocity',
+                                  'absorption_coefficient',
+                                  'heave',
+                                  'pitch',
+                                  'roll',
+                                  'temperature',
+                                  'heading',
+                                  'transmit_mode',
+                                  'sample_offset',
+                                  'sample_count',
+                                  'power',
+                                  'angles_alongship_e',
+                                  'angles_athwartship_e']
 
         #  if we're using a fixed data array size, we can allocate the arrays now
         if (self.rolling_array):
@@ -666,6 +660,11 @@ class raw_data(data_container):
 
         #  check if we need to store power data
         if (sample_datagram['mode'] != 2) and (self.store_power):
+
+            #  convert the indexed power data to power dB
+            sample_datagram['power'] = sample_datagram['power'].astype(self.sample_dtype) * \
+                    self.INDEX2POWER
+
             #  check if we need to pad or trim our sample data
             sample_pad = max_data_samples - sample_datagram['power'].shape[0]
             if (sample_pad > 0):
@@ -684,6 +683,10 @@ class raw_data(data_container):
             #  the low 8 bits are the athwartship values and the upper 8 bits are alongship.
             alongship_e = (sample_datagram['angle'] >> 8).astype('int8')
             athwartship_e = (sample_datagram['angle'] & 0xFF).astype('int8')
+
+            #  and convert from indexed to electrical angles
+            alongship_e = alongship_e.astype(self.sample_dtype) * self.INDEX2ELEC
+            athwartship_e = athwartship_e.astype(self.sample_dtype) * self.INDEX2ELEC
 
             #  check if we need to pad or trim our sample data
             sample_pad = max_data_samples - athwartship_e.shape[0]
@@ -726,52 +729,55 @@ class raw_data(data_container):
         cal_parms['sound_velocity'] = np.empty((return_indices.shape[0]), dtype=self.sample_dtype)
         cal_parms['sound_velocity'].fill(power_data.sound_velocity)
 
-        #  to convert from power, we will calculate the gains, which are along the ping axis and TVG
-        #  and absorption which are on the sample axis. We will then caculate the outer sum of these
-        #  two vectors to give us an array that is n pings x n samples in size which is added to the
-        #  power array to compute the final result
-
-        #  calculate the gains - these are on the ping axis
-        wlength = cal_parms['sound_velocity'] / power_data.frequency
-        beta = cal_parms['transmit_power'] * (10**(cal_parms['gain'] / 10.0) * wlength)**2 / (16 * np.pi**2)
-        CSv = 10 * np.log10(beta / 2.0 * cal_parms['sound_velocity'] * cal_parms['pulse_length'] * \
-                10**(cal_parms['equivalent_beam_angle'] / 10.0))
-
-        #  apply sa correction to Sv/sv
+        #  calculate the system gains
+        wavelength = cal_parms['sound_velocity'] / power_data.frequency
         if (convert_to in ['sv','Sv']):
-            CSv[:] = CSv - 2 * cal_parms['sa_correction']
-
-        #  calculate time varied gain and absorption which are on the sample axis - first get the range vector
-        tvg = power_data.range.copy()
-        #  apply TVG range correction - by default this is True for Sv/sv and False for Sp/sp
-        if (tvg_correction):
-            tvg[:] = tvg - (self.TVG_CORRECTION * power_data.sample_thickness)
-
-        #  and logify
-        tvg[tvg == 0] = 1
-        if (convert_to in ['sv','Sv']):
-            tvg[:] = 20 * np.log10(tvg)
+            gains = 10 * np.log10((cal_parms['transmit_power'] * (10**(cal_parms['gain']/10.0))**2 * \
+                    wavelength**2 * cal_parms['sound_velocity'] * cal_parms['pulse_length'] * \
+                    10**(cal_parms['equivalent_beam_angle']/10.0)) /  (32 * np.pi**2))
         else:
-            tvg[:] = 40 * np.log10(tvg)
+            gains = 10 * np.log10((cal_parms['transmit_power'] * (10**(cal_parms['gain']/10.0))**2 * \
+                    wavelength**2) / (16 * np.pi**2))
+
+
+        #  get the range for TVG calculation - if tvg_correction = True we will apply a correction
+        #  to the range of 2 * sample thickness. The corrected range is also used for absorption
+        #  calculations as well. A corrected range should be used to calculate when converting Power
+        #  to Sv/sv and
+        if (tvg_correction):
+            c_range = power_data.range.copy() - (self.TVG_CORRECTION * power_data.sample_thickness)
+            c_range[c_range < 0] = 0
+        else:
+            c_range = power_data.range
+
+        #  #  calculate time varied gain
+        tvg = c_range.copy()
+        tvg[tvg <= 0] = 1
+        if (convert_to in ['sv','Sv']):
+            tvg[:] = 20.0 * np.log10(tvg)
+        else:
+            tvg[:] = 40.0 * np.log10(tvg)
         tvg[tvg < 0] = 0
 
-        #  create the output array by first calculating the 2 way absorption for every sample
-        #  by taking the outer product of 2* absorption_coefficient and range
-        data = np.outer(2 * cal_parms['absorption_coefficient'], power_data.range)
+        #  calculate absorption - this is the outer product of our corrected range
+        #  and 2 * absorption_coefficient. We'll use this for our output array to
+        #  minimize the arrays we're creating.
+        data = np.outer(2.0 * cal_parms['absorption_coefficient'], c_range)
 
-        #  add our gains (transpose CSv so we can add it to our array)
-        data += CSv[:, np.newaxis]
+        #  now add in power and TVG
+        data += power_data.power + tvg
 
-        #  now add the TVG to this (no need to transpose since tvg matches dims on the sample axis)
-        data += tvg
+        #  subtract the applied gains
+        data -= gains[:, np.newaxis]
 
-        #  and lastly add power
-        data += power_data.power
+        #  and apply sa correction for Sv/sv
+        if (convert_to in ['sv','Sv']):
+            data -= (2.0 * cal_parms['sa_correction'])[:, np.newaxis]
 
         #  now check if we're returning linear or log values
         if (linear):
             #  convert to linear units (use [:] to operate in-place)
-            data[:] = 10 **(data / 10.0)
+            data[:] = 10**(data / 10.0)
 
         #  and return the result
         return data
@@ -919,12 +925,12 @@ class raw_data(data_container):
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  compute the physical angles
-        p_angle_along = np.divide.outer(p_data.angles_alongship_e,
-                cal_parms['angle_sensitivity_alongship'])
-        p_angle_along -= cal_parms['angle_offset_alongship']
-        p_angle_athwart = np.divide.outer(p_data.angles_alongship_e,
-                cal_parms['angle_sensitivity_athwartship'])
-        p_angle_athwart -= cal_parms['angle_offset_athwartship']
+        p_angle_along = (p_data.angles_alongship_e /
+                cal_parms['angle_sensitivity_alongship'][:, np.newaxis])
+        p_angle_along -= cal_parms['angle_offset_alongship'][:, np.newaxis]
+        p_angle_athwart = (p_data.angles_athwartship_e /
+                cal_parms['angle_sensitivity_athwartship'][:, np.newaxis])
+        p_angle_athwart -= cal_parms['angle_offset_athwartship'][:, np.newaxis]
 
         #  set the attributes in our processed_data object
         setattr(p_data, 'angles_alongship', p_angle_along)
@@ -949,12 +955,24 @@ class raw_data(data_container):
         #  (via insert_into) or the newly created instance if insert_into us unset.
         p_data = self._get_sample_data('angles_alongship_e', **kwargs)
 
-        #  and call it again requesting 'angles_athwartship_e', this time inserting into our
-        #  existing processed data instance.
-        p_data = self._get_sample_data('angles_athwartship_e', insert_into=p_data, **kwargs)
+        #  check if we've been provided with a data object to insert results into
+        inserting = False
+        for name, value in kwargs.items():
+            if (name == 'insert_into'):
+                inserting = True
+                break
+
+        #  and call it again requesting 'angles_athwartship_e'
+        if (inserting):
+            #  insert_into is already set by the user (provided in kwargs)
+            p_data = self._get_sample_data('angles_athwartship_e', **kwargs)
+        else:
+            #  insert_into is not set by the user so we set it here to insert
+            #  angles_athwartship_e into our newly created processed_data object
+            p_data = self._get_sample_data('angles_athwartship_e',
+                    insert_into=p_data, **kwargs)
 
         return p_data
-
 
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
@@ -1044,9 +1062,9 @@ class raw_data(data_container):
         #  populate the calibration parameters required for this method. First, create a dict with key
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'sample_interval':None,
-                           'sound_velocity':None,
-                           'sample_offset':None,
-                           'transducer_depth':None}
+                     'sound_velocity':None,
+                     'sample_offset':None,
+                     'transducer_depth':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
