@@ -22,7 +22,7 @@ from collections import defaultdict
 import numpy as np
 
 #from .pynmea2 import pynmea2
-from instruments.util import pynmea2
+from instruments.util.pynmea2 import NMEASentence
 
 class NMEAData(object):
     '''
@@ -43,7 +43,7 @@ class NMEAData(object):
         #  store the raw NMEA datagrams by time to facilitate easier writing
         #  raw_datagrams is a list of dicts in the form {'time':0, 'text':''}
         #  where time is the datagram time and text is the unparsed NMEA text.
-        self.raw_datagrams = []
+        self.raw_datagrams = np.empty(0, dtype=object)
         self.n_raw = 0
 
         #  type_data is a dict keyed by datagram talker+message. Each element of
@@ -80,9 +80,11 @@ class NMEAData(object):
 
         #  add the raw NMEA datagram
         # TODO ask, what should the code do if raw_datagrams is appended but the types index is not?
-        self.raw_datagrams.append({'time':np.datetime64(time), 'text':np.dtype([(str(text), np.string_)])})
+        # TODO should move if header.isalpha up so that raw_datagrams doesn't get updated if the header is bad?
+        #self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':np.dtype([(str(text), np.string_)])})
+        self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':str(text)}) #pynmea2 needed string to parse.
         cur_index = len(self.raw_datagrams) - 1
-        cur_index = np.dtype([(str(cur_index), np.string_)]) #convert to numpy string
+        cur_index = np.dtype([(str(cur_index), np.string_)]) #convert to numpy string  TODO define datatype in init stmt
 
         #TODO ask, should we verify that the nmea_talker and nmea_type are alphabetic (isalpha)  
         #          maybe check header and put all, including raw_datagrams.append after if isalpha(header)?
@@ -137,6 +139,7 @@ class NMEAData(object):
         else:
             datagrams = {'type':type, 'times':[], 'datagram':[]}
 
+
         if (type in self.types):
             #  append the time
             datagrams['times'].append(self.raw_datagrams[type]['time'])
@@ -154,24 +157,47 @@ class NMEAData(object):
         return datagrams
 
 
-    def get_interpolate(self, processed_data):
-        pass
+    def get_interpolate(self, processed_data, nmea_talker=None, nmea_type=None):
+        if nmea_talker is not None and nmea_type is not None:
+            index = np.intersect1d(self.nmea_talker_index[nmea_talker], \
+                                   self.nmea_type_index[nmea_type])
+
+        elif nmea_talker is not None:
+            index = self.nmea_talker_index[nmea_talker]
+        elif nmea_type is not None:
+            index = self.nmea_type_index[nmea_type]
+        else:
+            index = range(len(self.raw_datagrams))
 
 
+        #Create time, lat and lon arrays.
+        lat_time = np.empty(0,  dtype='datetime64[s]')
+        lon_time = np.empty(0,  dtype='datetime64[s]')
+        #TODO Set data types to work with pynmea2 and interp.
+        lat = []
+        lon = np.empty(0, dtype='float32')
+        for record in self.raw_datagrams[index]:
+            if 'text' in record and isinstance(record['text'], str):
+                sentence_data = NMEASentence.parse(record['text'])
+                if 'time' in record: 
+                    if hasattr(sentence_data, 'lat'):
+                        #lat = np.append(lat, sentence_data.lat)
+                        lat.append(sentence_data.lat)
+                        lat_time = np.append(lat_time, record['time'])
+                    if hasattr(sentence_data, 'lon'):
+                        lon = np.append(lon, sentence_data.lon)
+                        lon_time = np.append(lon_time, record['time'])
 
 
+        ##Get interpolated data.
+        #ping_times = processed_data.ping_time
 
+        #print("type(lat)", type(lat))
+        #interplated_lat = np.interp(ping_times, lat_time, lat)
+        #interplated_lon = np.interp(ping_times, lon_time, lon)
 
-
-
-
-
-
-
-
-
-
-
-
+        #print("interplated_lat", interplated_lat)
+        #print("interplated_lon", interplated_lon)
+            
 
 
