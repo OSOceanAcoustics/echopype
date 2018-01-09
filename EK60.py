@@ -13,11 +13,6 @@
 #  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
 #  SUPPORT TO USERS.
 
-'''
-
-                      CLASS DESCRIPTION GOES HERE
-
-'''
 
 import os
 import datetime
@@ -32,10 +27,47 @@ log = logging.getLogger(__name__)
 
 
 class EK60(object):
+    """Summary of class here.
 
+    Longer class information....
+    Longer class information....
+
+    Attributes:
+        likes_spam: A boolean indicating if we like SPAM or not.
+        eggs: An integer count of the eggs we have laid.
+    """
 
 
     def __init__(self):
+
+        """Fetches rows from a Bigtable.
+
+            Retrieves rows pertaining to the given keys from the Table instance
+            represented by big_table.  Silly things may happen if
+            other_silly_variable is not None.
+
+            Args:
+                big_table: An open Bigtable Table instance.
+                keys: A sequence of strings representing the key of each table row
+                    to fetch.
+                other_silly_variable: Another optional variable, that has a much
+                    longer name than the other args, and which does nothing.
+
+            Returns:
+                A dict mapping keys to the corresponding table row data
+                fetched. Each row is represented as a tuple of strings. For
+                example:
+
+                {'Serak': ('Rigel VII', 'Preparer'),
+                 'Zim': ('Irk', 'Invader'),
+                 'Lrrr': ('Omicron Persei 8', 'Emperor')}
+
+                If a key from the keys argument is missing from the dictionary,
+                then that row was not found in the table.
+
+            Raises:
+                IOError: An error occurred accessing the bigtable.Table object.
+        """
 
         #  define the EK60's properties - these are "read-only" properties and should not
         #  be changed directly by the user
@@ -119,9 +151,9 @@ class EK60(object):
     def read_raw(self, raw_files, power=None, angles=None, max_sample_count=None, start_time=None,
             end_time=None, start_ping=None, end_ping=None, frequencies=None, channel_ids=None,
             time_format_string='%Y-%m-%d %H:%M:%S', incremental=None):
-        '''
+        """
         read_raw reads one or many Simrad EK60 ES60/70 .raw files
-        '''
+        """
 
         #  update the reading state variables
         if (start_time):
@@ -242,9 +274,9 @@ class EK60(object):
 
 
     def _read_datagrams(self, fid, incremental):
-        '''
+        """
         _read_datagrams is an internal method to read all of the datagrams contained in
-        '''
+        """
 
         #TODO: implement incremental reading
         #      The user should be able to specify incremental reading in their call to read_raw.
@@ -350,10 +382,10 @@ class EK60(object):
 
 
     def _convert_time_bound(self, time, format_string):
-        '''
+        """
         internally all times are datetime objects converted to UTC timezone. This method
         converts arguments to comply.
-        '''
+        """
         utc = timezone('utc')
         if (isinstance(time, str)):
             #  we have been passed a string, convert to datetime object
@@ -364,10 +396,10 @@ class EK60(object):
 
 
     def get_rawdata(self, channel_number=1, channel_id=None):
-        '''
+        """
         get_rawdata returns a reference to the specified RawData object for the
         specified channel id or channel number.
-        '''
+        """
 
         if (channel_id):
             return self.raw_data.get(channel_id, None)
@@ -377,9 +409,9 @@ class EK60(object):
 
 
     def __str__(self):
-        '''
+        """
         reimplemented string method that provides some basic info about the EK60
-        '''
+        """
 
         #  print the class and address
         msg = str(self.__class__) + " at " + str(hex(id(self))) + "\n"
@@ -404,12 +436,12 @@ class EK60(object):
 
 
 class raw_data(data_container):
-    '''
+    """
     the raw_data class contains a single channel's data extracted from a Simrad raw
     file. collected from an EK/ES60 or ES70. A raw_data object is created for each
     unique channel in an EK/ES60 ES70 raw file.
 
-    '''
+    """
 
     #  define some instrument specific constants
 
@@ -441,7 +473,7 @@ class raw_data(data_container):
 
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
-        '''
+        """
         Creates a new, empty raw_data object. The raw_data class stores raw
         echosounder data from a single channel of an EK60 or ES60/70 system.
 
@@ -458,7 +490,7 @@ class raw_data(data_container):
         chunk_width specifies the number of columns to add to data arrays when they
         fill up when rolling == False.
 
-        '''
+        """
 
         super(raw_data, self).__init__()
 
@@ -529,7 +561,7 @@ class raw_data(data_container):
 
 
     def append_ping(self, sample_datagram):
-        '''
+        """
         append_ping is called when adding a ping's worth of data to the object. It should accept
         the parsed values from the sample datagram. It will handle the details of managing
         the array sizes, resizing as needed (or rolling in the case of a fixed size). Append ping also
@@ -555,7 +587,7 @@ class raw_data(data_container):
         array has allocated the extra samples will be dropped. In all cases if a ping has fewer
         samples than the array has allocated it should be padded with NaNs.
 
-        '''
+        """
 
         #  if using dynamic arrays, handle intialization of data arrays when the first ping is added
         if (self.n_pings == -1 and self.rolling_array == False):
@@ -708,9 +740,9 @@ class raw_data(data_container):
 
     def _convert_power(self, power_data, calibration, convert_to, linear, return_indices,
             tvg_correction):
-        '''
+        """
         _convert_power is a generalized method for converting power to Sv/sv/Sp/sp
-        '''
+        """
 
         #  populate the calibration parameters required for this method. First, create a dict with key
         #  names that match the attributes names of the calibration parameters we require for this method
@@ -785,7 +817,7 @@ class raw_data(data_container):
 
     def get_sv(self, calibration=None, linear=False, keep_power=False, insert_into=None,
                 tvg_correction=True, **kwargs):
-        '''
+        """
         get_sv returns a processed_data object containing Sv (or sv if linear is
         True).
 
@@ -799,7 +831,7 @@ class raw_data(data_container):
                 log10((xmitPower * (10^(gain/10))^2 * lambda^2 * ...
                 c * tau * 10^(psi/10)) / (32 * pi^2)) - (2 * SaCorrection)
 
-        '''
+        """
 
         #  check if we have been given a processed_data object that already has power
         if (hasattr(insert_into, 'power')):
@@ -840,7 +872,7 @@ class raw_data(data_container):
 
     def get_sp(self,  calibration=None, linear=False, keep_power=False, insert_into=None,
             tvg_correction=False, **kwargs):
-        '''
+        """
         get_sp returns a processed_data object containing TS (or sigma_bs if linear is
         True).
 
@@ -859,7 +891,7 @@ class raw_data(data_container):
         either setting the tvgCorrection keyword of this function or it can be
         done as part of your single target detection routine.
 
-        '''
+        """
 
         #  check if we have been given a processed_data object that already has power
         if (hasattr(insert_into, 'power')):
@@ -900,13 +932,13 @@ class raw_data(data_container):
 
     def get_physical_angles(self, calibration=None,  keep_elec_angles=False,
             return_indices=None, **kwargs):
-        '''
+        """
         get_physical_angles returns a processed data object that contains the alongship and
         athwartship angle data.
 
         This method would call getElectricalAngles to get a vertically aligned
 
-        '''
+        """
 
         #  get the electrical angles
         p_data = self.get_electrical_angles(calibration=calibration, **kwargs)
@@ -945,10 +977,10 @@ class raw_data(data_container):
 
 
     def get_electrical_angles(self, **kwargs):
-        '''
+        """
         get_electrical_angles returns a processed data object that contains the unconverted
         angle data.
-        '''
+        """
 
         #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
         #  attribute. The method will return a reference to either the passed in processed_data object
@@ -977,7 +1009,7 @@ class raw_data(data_container):
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
             resample_soundspeed=None, insert_into=None, return_indices=None, **kwargs):
-        '''
+        """
         _get_sample_data returns a processed data object that contains the sample data from
         the property name provided. It performs all of the required transformations to place
         the raw power data into a rectangular array where all samples share the same thickness
@@ -1004,12 +1036,12 @@ class raw_data(data_container):
         data into the processed_data instance. This method will check if the resulting sample
         array is the same shape as the sample arrays in the processed_data class and that the
         range vector matches and will raise an error if they do not.
-        '''
+        """
 
         def get_range_vector(num_samples, sample_interval, sound_speed, sample_offset):
-            '''
+            """
             get_range_vector returns a NON-CORRECTED range vector.
-            '''
+            """
             #  calculate the thickness of samples with this sound speed
             thickness = sample_interval * sound_speed / 2.0
             #  calculate the range vector
@@ -1160,7 +1192,7 @@ class raw_data(data_container):
 
 
     def get_power(self, **kwargs):
-        '''
+        """
         get_power returns a processed data object that contains the power data. It performs
         all of the required transformations to place the raw power data into a rectangular
         array where all samples share the same thickness and are correctly arranged relative
@@ -1180,14 +1212,14 @@ class raw_data(data_container):
         return the results. If the required parameters are not set in the calibration
         object or if no object is provided, this method will extract these parameters from
         the raw file data.
-        '''
+        """
 
         #  call the generalized _get_sample_data method requesting the 'power' sample attribute
         return self._get_sample_data('power', **kwargs)
 
 
     def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
-        '''
+        """
         _get_calibration_param interrogates the provided cal_object for the provided param_name
         property and returns the parameter values based on what it finds. It handles 4 cases:
 
@@ -1204,7 +1236,7 @@ class raw_data(data_container):
             Lastly, if the user has not provided anything, this function will return a
             1D array the length of return_indices filled with data extracted from the raw
             data.
-        '''
+        """
 
         if (cal_object and hasattr(cal_object, param_name)):
 
@@ -1265,11 +1297,11 @@ class raw_data(data_container):
 
 
     def _roll_arrays(self, roll_pings):
-        '''
+        """
         _roll_arrays is an internal method that rolls our data arrays when those arrays
         are fixed in size and we add a ping. This typically would be used for buffering
         data from streaming sources.
-        '''
+        """
 
         #TODO: implement and test these inline rolling functions
         #      Need to profile this code to see which methods are faster. Currently all rolling is
@@ -1327,9 +1359,9 @@ class raw_data(data_container):
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
-        '''
+        """
         _create_arrays is an internal method that initializes the RawData data arrays.
-        '''
+        """
 
         #  ping_time and channel_metadata are lists
         #self.ping_time = []
@@ -1397,9 +1429,9 @@ class raw_data(data_container):
 
 
     def __str__(self):
-        '''
+        """
         reimplemented string method that provides some basic info about the RawData object
-        '''
+        """
 
         #  print the class and address
         msg = str(self.__class__) + " at " + str(hex(id(self))) + "\n"
@@ -1432,14 +1464,14 @@ class raw_data(data_container):
 
 
 class ChannelMetadata(object):
-    '''
+    """
     The ChannelMetadata class stores the channel configuration data as well as
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
     References to instances of these objects are stored in RawfileData
 
-    '''
+    """
 
     def __init__(self, file, config_datagram, survey_name, transect_name, sounder_name, version,
                 start_ping, start_time, extended_configuration=None):
@@ -1508,10 +1540,10 @@ class ChannelMetadata(object):
 
 
 class CalibrationParameters(object):
-    '''
+    """
     The CalibrationParameters class contains parameters required for transforming
     power and electrical angle data to Sv/sv TS/SigmaBS and physical angles.
-    '''
+    """
 
     def __init__(self):
 
@@ -1566,10 +1598,10 @@ class CalibrationParameters(object):
 
 
     def compress_data_arrays(self):
-        '''
+        """
         If any of the data arrays in this object have values that are all the same,
         replace the array with a scalar value.
-        '''
+        """
         for attr in vars(self):
           data = getattr(self, attr)
 
@@ -1579,13 +1611,13 @@ class CalibrationParameters(object):
 
 
     def from_raw_data(self, raw_data, raw_file_idx=0):
-        '''
+        """
         from_raw_data populated the CalibrationParameters object's properties given
         a reference to a RawData object.
 
         This would query the RawFileData object specified by raw_file_idx in the
         provided RawData object (by default, using the first).
-        '''
+        """
         #TODO Ask, do we want to add calibration data from the config datagram to the raw data object
         #     in order to capture them here?
         #TODO Since calibration data is indexed the same as data now, do we still want to use raw_file_idx here?
@@ -1600,9 +1632,9 @@ class CalibrationParameters(object):
 
 
     def read_ecs_file(self, ecs_file, channel):
-        '''
+        """
         read_ecs_file reads an echoview ecs file and parses out the
         parameters for a given channel.
-        '''
+        """
         pass
 
