@@ -19,9 +19,9 @@
 
 
 from collections import defaultdict
+from datetime import datetime
 import numpy as np
 
-#from .pynmea2 import pynmea2
 from instruments.util.pynmea2 import NMEASentence
 
 class NMEAData(object):
@@ -162,14 +162,14 @@ class NMEAData(object):
         lon_time = np.empty(0,  dtype='datetime64[s]')
         #TODO Set data types to work with pynmea2 and interp.
         lat = np.empty(1, dtype='float32')
-        lon = np.empty(0, dtype='float32')
+        lon = np.empty(1, dtype='float32')
         for record in self.raw_datagrams[index]:
             if 'text' in record and isinstance(record['text'], str):
                 sentence_data = NMEASentence.parse(record['text'])
                 if 'time' in record: 
                     if hasattr(sentence_data, 'lat'):
                         #lat = np.append(lat, sentence_data.lat)
-                        lat = np.append(lat, sentence_data.lat)
+                        lat = np.append(lat,  np.fromstring(sentence_data.lat, dtype=float, sep=' '))
                         lat_time = np.append(lat_time, record['time'])
                     if hasattr(sentence_data, 'lon'):
                         lon = np.append(lon, sentence_data.lon)
@@ -181,11 +181,15 @@ class NMEAData(object):
 
         print("type(lat)", type(lat[0]))
         print("type(ping_times[0]", type(ping_times[0]))
-        #interplated_lat = np.interp(ping_times, lat_time, lat)
-        #interplated_lon = np.interp(ping_times, lon_time, lon)
-
-        #print("interplated_lat", interplated_lat)
-        #print("interplated_lon", interplated_lon)
             
+        
+        interpolated_lat = np.empty(1, dtype='float32')
+        #for timestamp in ping_times:
+        #    np.datetime64(timestamp).astype(datetime)
+        #    f = np.interp(self.to_float(timestamp), map(to_float, lat_time), lat)
+        #    interpolated_lat.append(f)
+        #print("interpolated_lat", interpolated_lat)
 
 
+    def to_float(self, d, epoch=None):
+        return (d - epoch).total_seconds()
