@@ -37,6 +37,11 @@ class NMEAData(object):
         out there.
     '''
 
+    #FIXME Add functions that allow user to get all raw nmea data based on 
+    #FIXME time and based on types return nmea data object. all by default.
+    #FIXME Add interpolate_pings
+    #FIXME 
+
 
     def __init__(self):
 
@@ -145,6 +150,11 @@ class NMEAData(object):
 
 
     def get_interpolate(self, processed_data, nmea_talker=None, nmea_type=None):
+        #FIXME Add prioritization of location data based on type.
+        #FIXME Get this from Chuck
+        #FIXME Add ability to get the data by time.
+        #FIXME Add a param to specify, lat, lon or something else.
+        #FIXME Add code to handle outliers in lat/lon values.
         if nmea_talker is not None and nmea_type is not None:
             index = np.intersect1d(self.nmea_talker_index[nmea_talker], \
                                    self.nmea_type_index[nmea_type])
@@ -166,6 +176,8 @@ class NMEAData(object):
         for record in self.raw_datagrams[index]:
             if 'text' in record and isinstance(record['text'], str):
                 sentence_data = NMEASentence.parse(record['text'])
+                #FIXME if this data was munged, what gets returned?  
+                #FIXME Do we want to generated a warning? something else?
                 if 'time' in record: 
                     if hasattr(sentence_data, 'lat'):
                         #lat = np.append(lat, sentence_data.lat)
