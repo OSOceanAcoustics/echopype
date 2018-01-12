@@ -205,12 +205,20 @@ class NMEAData(object):
             
         
         interpolated_lat = np.empty(1, dtype='float32')
+
+        ping_time_floats = []
         for timestamp in ping_times:
-            np.datetime64(timestamp).astype(datetime)
-            f = np.interp(self.to_float(timestamp), map(to_float, lat_time), lat[0])
-            interpolated_lat.append(f)
-        print("interpolated_lat", interpolated_lat)
+            timestamp_sec = self.timestamp_to_float(timestamp)
+            ping_time_floats.append(timestamp_sec)
 
 
-    def to_float(self, d, epoch=None):
-        return (d - epoch).total_seconds()
+
+        print("len(lat_time)", len(lat_time))
+        print("len(lat)", len(lat))
+        interpolated_lats = np.interp(ping_time_floats, map(self.timestamp_to_float, lat_time), lat)
+        print("interpolated_lats", interpolated_lats)
+
+
+    def timestamp_to_float(self, timestamp):
+        timestamp_datetime = timestamp.astype(datetime)
+        return (timestamp_datetime - datetime.fromtimestamp(0)).total_seconds()
