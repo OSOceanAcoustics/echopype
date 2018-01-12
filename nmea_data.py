@@ -170,12 +170,13 @@ class NMEAData(object):
 
 
         #Create time, lat and lon arrays.
+        #FIXME  This probably doesn't need to be a numpy array.
         lat_time = np.empty(0,  dtype='datetime64[s]')
         lon_time = np.empty(0,  dtype='datetime64[s]')
 
         #TODO Set data types to work with pynmea2 and interp.
-        lat = np.empty(1, dtype='float32')
-        lon = np.empty(1, dtype='float32')
+        lat = np.empty(0, dtype='float32')
+        lon = np.empty(0, dtype='float32')
 
         for record in self.raw_datagrams[index]:
             if 'text' in record and isinstance(record['text'], str):
@@ -198,25 +199,20 @@ class NMEAData(object):
 
 
         ##Get interpolated data.
-        ping_times = processed_data.ping_time
+        ping_time = processed_data.ping_time
 
-        print("type(lat)", type(lat[0]))
-        print("type(ping_times[0]", type(ping_times[0]))
-            
-        
         interpolated_lat = np.empty(1, dtype='float32')
 
-        ping_time_floats = []
-        for timestamp in ping_times:
-            timestamp_sec = self.timestamp_to_float(timestamp)
-            ping_time_floats.append(timestamp_sec)
 
+        ping_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in ping_time]
+        lat_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in lat_time]
 
+        interpolated_lats = np.interp(ping_time_seconds, lat_time_seconds, lat)
+        #print("interpolated_lats", interpolated_lats)
 
-        print("len(lat_time)", len(lat_time))
-        print("len(lat)", len(lat))
-        interpolated_lats = np.interp(ping_time_floats, map(self.timestamp_to_float, lat_time), lat)
-        print("interpolated_lats", interpolated_lats)
+        processed_data.latitude = interpolated_lats
+
+        return processed_data
 
 
     def timestamp_to_float(self, timestamp):
