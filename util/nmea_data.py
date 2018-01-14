@@ -22,7 +22,13 @@ from collections import defaultdict
 from datetime import datetime
 import numpy as np
 
+import os
+import sys
+import logging
+import ConfigParser
 from instruments.util.pynmea2 import NMEASentence
+
+log = logging.getLogger(__name__)
 
 class NMEAData(object):
     '''
@@ -45,6 +51,8 @@ class NMEAData(object):
 
     def __init__(self):
 
+        self.config_file = 'echolab.conf'
+
         #  store the raw NMEA datagrams by time to facilitate easier writing
         #  raw_datagrams is a list of dicts in the form {'time':0, 'text':''}
         #  where time is the datagram time and text is the unparsed NMEA text.
@@ -64,7 +72,6 @@ class NMEAData(object):
         self.types = []
         self.nmea_talkers = []
         self.nmea_types = []
-
 
     def add_datagram(self, time, text):
         '''
@@ -110,7 +117,7 @@ class NMEAData(object):
 
         else:
             #  inform the user of a bad NMEA datagram
-            self.logger.info('Malformed or missing NMEA header: ' + text)
+            log.info('Malformed or missing NMEA header: ' + text)
 
         #  increment the index counter
         self.n_raw = self.n_raw + 1
@@ -149,70 +156,126 @@ class NMEAData(object):
         return datagrams
 
 
-    def get_interpolate(self, processed_data, nmea_talker=None, nmea_type=None):
+    def get_interpolate(self, data_object, nmea_data_type, nmea_talker_idx_name=None, nmea_type_idx_name=None):
+        ''' 
+        params:
+        data_object: data object that inherits data container, i.e., raw_data, processed_data 
+        nmea_data_type: nmea data type to be interpolated. i.e., lat, lon
+        nmea_talker_idx_name_idx_name: nmea talker index name 
+        nmea_type_idx_name_idx_name: nmea type index name 
+
+             
+        ''' 
+
         #TODO Add prioritization of location data based on type.
         #TODO Get this from Chuck
         #TODO Add ability to get the data by time.
-        #TODO Add a param to specify, lat, lon or something else.
+        #DONE Add a param to specify, lat, lon or something else.
         #TODO Add code to handle outliers in lat/lon values.
         #TODO make this work with both raw and processedata objects.
+        #TODO Create an array with success or fail for each.
+        #TODO Add a flag to the output.  
+        #TODO Add an alert based on threshold based on data type, lat, lon.
+        #TODO Generate a warning.  If over 60%.
+        #TODO if this data was munged, what gets returned?  
+        #TODO Do we want to generated a warning? something else?
+        #TODO Add call to get_interpolate in run_checks.py
 
-        if nmea_talker is not None and nmea_type is not None:
-            index = np.intersect1d(self.nmea_talker_index[nmea_talker], \
-                                   self.nmea_type_index[nmea_type])
 
-        elif nmea_talker is not None:
-            index = self.nmea_talker_index[nmea_talker]
-        elif nmea_type is not None:
-            index = self.nmea_type_index[nmea_type]
+        #Get index.
+        if nmea_talker_idx_name is not None and nmea_type_idx_name is not None:
+            index = np.intersect1d(self.nmea_talker_index[nmea_talker_idx_name], \
+                                   self.nmea_type_index[nmea_type_idx_name])
+
+        elif nmea_talker_idx_name is not None:
+            index = self.nmea_talker_index[nmea_talker_idx_name]
+        elif nmea_type_idx_name is not None:
+            index = self.nmea_type_index[nmea_type_idx_name]
         else:
             index = range(len(self.raw_datagrams))
 
 
-        #Create time, lat and lon arrays.
-        #FIXME  This probably doesn't need to be a numpy array.
-        lat_time = np.empty(0,  dtype='datetime64[s]')
-        lon_time = np.empty(0,  dtype='datetime64[s]')
+        nmea_time = []
+        nmea_data = np.empty(0, dtype='float32')
 
-        #TODO Set data types to work with pynmea2 and interp.
-        lat = np.empty(0, dtype='float32')
-        lon = np.empty(0, dtype='float32')
+        min_threshold, max_threshold = self.get_threshold_values(nmea_data_type)
 
+        #Create array of interpolated data.
         for record in self.raw_datagrams[index]:
             if 'text' in record and isinstance(record['text'], str):
                 sentence_data = NMEASentence.parse(record['text'])
-                #Create an array with success or fail for each.
-                #Add a flag to the output.  
-                #Add an alert based on threshold based on data type, lat, lon.
-                #Generate a warning.  If over 60%.
-                #TODO if this data was munged, what gets returned?  
-                #TODO Do we want to generated a warning? something else?
-                #TODO Add call to get_interpolate in run_checks.py
                 if 'time' in record: 
-                    if hasattr(sentence_data, 'lat'):
-                        #lat = np.append(lat, sentence_data.lat)
-                        lat = np.append(lat,  np.fromstring(sentence_data.lat, dtype=float, sep=' '))
-                        lat_time = np.append(lat_time, record['time'])
-                    if hasattr(sentence_data, 'lon'):
-                        lon = np.append(lon, sentence_data.lon)
-                        lon_time = np.append(lon_time, record['time'])
+                    if hasattr(sentence_data, nmea_data_type):
+
+                        nmea_data_val = np.fromstring(getattr(sentence_data, nmea_data_type), dtype=float, sep=' ')
+
+                        update = 1
+                        if len(nmea_data_val) < 1:
+                            update = 0
+                        elif min_threshold is not None and nmea_data_val < min_threshold:
+                            update = 0
+                        elif max_threshold is not None and nmea_data_val > max_threshold:
+                            update = 0
+    
+                        if update:
+                            nmea_data = np.append(nmea_data, nmea_data_val)
+                            nmea_time.append(record['time'])
 
 
-        ##Get interpolated data.
-        ping_time = processed_data.ping_time
 
-        interpolated_lat = np.empty(1, dtype='float32')
+        ##Get ping timestamps.
+        ping_time = data_object.ping_time
 
 
+        #Convert timestamps to seconds since 1970 epoch.
         ping_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in ping_time]
-        lat_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in lat_time]
+        nmea_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in nmea_time]
 
-        interpolated_lats = np.interp(ping_time_seconds, lat_time_seconds, lat)
-        #print("interpolated_lats", interpolated_lats)
+        #Interpolate the data.
+        interpolated_nmea_data = np.interp(ping_time_seconds, nmea_time_seconds, nmea_data)
 
-        processed_data.latitude = interpolated_lats
+        #Add data to input data object. 
+        setattr(data_object, nmea_data_type, interpolated_nmea_data)
 
-        return processed_data
+        return data_object
+
+
+    def read_configs(self):
+        #TODO Move this method.
+        config = ConfigParser.ConfigParser()
+        for dirpath, dirs, files in os.walk(os.curdir, os.path.expanduser("~")):
+            if self.config_file in files:
+                try: 
+                    with open(os.path.join(dirpath,self.config_file)) as source:
+                        if (sys.version_info.major > 2):
+                            config.read_file( source )
+                        else:
+                            config.readfp( source )
+                except IOError:
+                    config = None
+                    log.warning("Could not read config file.  No nmea data thresholds have been set.")
+        return config
+            
+
+    def get_threshold_values(self, nmea_data_type):
+        min_threshold = None
+        max_threshold = None
+
+        config = self.read_configs()
+        if config is not None:
+            try:
+                min_threshold = config.get('nmea', 'min_' + nmea_data_type)
+                min_threshold = np.fromstring(min_threshold, dtype=float, sep=' ')
+            except:  
+                min_threshold = None
+                            
+            try:
+                max_threshold = config.get('nmea', 'max_' + nmea_data_type)
+                max_threshold = np.fromstring(max_threshold, dtype=float, sep=' ')
+            except: 
+                max_threshold = None
+
+        return min_threshold, max_threshold
 
 
     def timestamp_to_float(self, timestamp):
