@@ -15,18 +15,17 @@
 
 
 
-    #import pynmea2 TODO Uncomment once this is available.
-
-
-from collections import defaultdict
-from datetime import datetime
-import numpy as np
 
 import os
 import sys
 import logging
+import numpy as np
 import ConfigParser
+from functools import reduce
+from datetime import datetime
+from collections import defaultdict
 from instruments.util.pynmea2 import NMEASentence
+
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +45,6 @@ class NMEAData(object):
     #TODO Add functions that allow user to get all raw nmea data based on 
     #TODO time and based on types return nmea data object. all by default.
     #TODO Add interpolate_pings
-    #TODO 
 
 
     def __init__(self):
@@ -89,25 +87,22 @@ class NMEAData(object):
 
 
         '''
-        header = text[1:6].upper()
+        header = str(text[1:6].upper())
 
         #  make sure we have a plausible header
-        if header.isalpha():
+        if header.isalpha() and len(header) == 5:
 
             #  add the raw NMEA datagram
-            self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':str(text)}) #pynmea2 needed string to parse.
+            self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':str(text)}) 
             cur_index = len(self.raw_datagrams) - 1
-            cur_index = np.dtype([(str(cur_index), np.string_)]) 
     
-            self.time_index[time].append(cur_index)
+            self.time_index[np.datetime64(time)].append(cur_index)
     
             nmea_talker = str(text[1:3].upper())
-            nmea_talker = np.dtype([(str(nmea_talker), np.string_, 'S2')]) 
             self.nmea_talker_index[nmea_talker].append(cur_index)
             self.nmea_talkers = self.nmea_talker_index.keys()
     
             nmea_type = str(text[3:6].upper())
-            nmea_type = np.dtype([(str(nmea_type), np.string_, 'S3')])
             self.nmea_type_index[nmea_type].append(cur_index)
             self.nmea_types = self.nmea_type_index.keys()
     
@@ -149,7 +144,7 @@ class NMEAData(object):
             else:
                 for dg in self.type_index[type]:
                     #  parse the NMEA string using pynmea2
-                    nmea_obj = pynmea2.parse(self.raw_datagrams[type]['text'])
+                    nmea_obj = pynmea2.parse(str(self.raw_datagrams[type]['text']))
                     datagrams['datagram'].append(nmea_obj)
 
         #  return the dictionary
@@ -184,6 +179,13 @@ class NMEAData(object):
 
 
         #Get index.
+#        if start_time is not None and end_time is not None:
+#            time_index_keys = np.sort(self.time_index.keys())[start_time:end_time]
+#            time_index_values = self.time_index[time_index_keys].values()
+#            index = reduce(np.intersect1d(time_index_values))
+#
+            
+
         if nmea_talker_idx_name is not None and nmea_type_idx_name is not None:
             index = np.intersect1d(self.nmea_talker_index[nmea_talker_idx_name], \
                                    self.nmea_type_index[nmea_type_idx_name])
@@ -213,13 +215,18 @@ class NMEAData(object):
                         continue
 
                     if hasattr(sentence_data, nmea_data_type):
-
-                        nmea_data_val = np.fromstring(getattr(sentence_data, nmea_data_type), dtype=float, sep=' ')
-
                         update = 1
-                        if len(nmea_data_val) < 1:
+
+                        try:
+                            nmea_data_val = np.float32(getattr(sentence_data, nmea_data_type))
+                        except ValueError as e:
+                            log.warning("Skipping non-numeric value in " + \
+                                    str(getattr(sentence_data, nmea_data_type)) + "." + str(e))
                             update = 0
-                        elif min_threshold is not None and nmea_data_val < min_threshold:
+                            continue
+
+
+                        if min_threshold is not None and nmea_data_val < min_threshold:
                             update = 0
                         elif max_threshold is not None and nmea_data_val > max_threshold:
                             update = 0
@@ -276,13 +283,13 @@ class NMEAData(object):
         if config is not None:
             try:
                 min_threshold = config.get('nmea', 'min_' + nmea_data_type)
-                min_threshold = np.fromstring(min_threshold, dtype=float, sep=' ')
+                min_threshold = np.float32(min_threshold)
             except:  
                 min_threshold = None
                             
             try:
                 max_threshold = config.get('nmea', 'max_' + nmea_data_type)
-                max_threshold = np.fromstring(max_threshold, dtype=float, sep=' ')
+                max_threshold = np.float32(max_threshold)
             except: 
                 max_threshold = None
 
