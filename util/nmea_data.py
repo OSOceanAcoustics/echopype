@@ -156,30 +156,31 @@ class NMEAData(object):
         return datagrams
 
 
-    def get_interpolate(self, data_object, nmea_data_type, nmea_talker_idx_name=None, nmea_type_idx_name=None):
+    def get_interpolate(self, data_object, nmea_data_type, nmea_talker_idx_name=None, nmea_type_idx_name=None, start_time=None, end_time=None):
         ''' 
         params:
-        data_object: data object that inherits data container, i.e., raw_data, processed_data 
-        nmea_data_type: nmea data type to be interpolated. i.e., lat, lon
-        nmea_talker_idx_name_idx_name: nmea talker index name 
-        nmea_type_idx_name_idx_name: nmea type index name 
+            data_object: data object that inherits data container, i.e., raw_data, processed_data 
+            nmea_data_type: nmea data type to be interpolated. i.e., lat, lon
+            nmea_talker_idx_name_idx_name: nmea talker index name 
+            nmea_type_idx_name_idx_name: nmea type index name 
+            start_time: start of data to interpolate, i.e., start_time=numpy.datetime64('2010-01-10T09:00:00.000000-0700')
+            end_time: end of data to interpolate, i.e., end_time=numpy.datetime64('2020-01-10T09:00:00.000000-0700')
 
              
         ''' 
 
         #TODO Add prioritization of location data based on type.
         #TODO Get this from Chuck
-        #TODO Add ability to get the data by time.
+        #DONE Add ability to get the data by time.
         #DONE Add a param to specify, lat, lon or something else.
-        #TODO Add code to handle outliers in lat/lon values.
-        #TODO make this work with both raw and processedata objects.
+        #DONE? Add code to handle outliers in lat/lon values.  Use max/min values from conf file? Add percent threshold?
+        #DONE make this work with both raw and processedata objects.
         #TODO Create an array with success or fail for each.
         #TODO Add a flag to the output.  
-        #TODO Add an alert based on threshold based on data type, lat, lon.
-        #TODO Generate a warning.  If over 60%.
-        #TODO if this data was munged, what gets returned?  
-        #TODO Do we want to generated a warning? something else?
-        #TODO Add call to get_interpolate in run_checks.py
+        #TODO Add an alert based on threshold based on data type, lat, lon. Add values to config file.
+        #TODO if this data was munged, what gets returned?  Do we want to generated a warning? something else?
+        #     Generate a warning.  If over 60%.
+        #DONE Add call to get_interpolate in run_checks.py
 
 
         #Get index.
@@ -205,6 +206,12 @@ class NMEAData(object):
             if 'text' in record and isinstance(record['text'], str):
                 sentence_data = NMEASentence.parse(record['text'])
                 if 'time' in record: 
+
+                    if start_time is not None and record['time'] < start_time:
+                        continue
+                    if end_time is not None and record['time'] > end_time:
+                        continue
+
                     if hasattr(sentence_data, nmea_data_type):
 
                         nmea_data_val = np.fromstring(getattr(sentence_data, nmea_data_type), dtype=float, sep=' ')
@@ -232,10 +239,14 @@ class NMEAData(object):
         nmea_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in nmea_time]
 
         #Interpolate the data.
-        interpolated_nmea_data = np.interp(ping_time_seconds, nmea_time_seconds, nmea_data)
+        #FIXME  What size should then nmea data array be to run the interpolation?
+        if len(nmea_data) > 0:
+            interpolated_nmea_data = np.interp(ping_time_seconds, nmea_time_seconds, nmea_data)
 
-        #Add data to input data object. 
-        setattr(data_object, nmea_data_type, interpolated_nmea_data)
+            #Add data to input data object. 
+            setattr(data_object, nmea_data_type, interpolated_nmea_data)
+        else:
+            log.warning("No nmea data was found in the specified parameters.")
 
         return data_object
 
