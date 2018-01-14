@@ -550,9 +550,6 @@ class raw_data(data_container):
         #  called for the first time. Until then, the raw_data object will not contain
         #  the data properties.
 
-        #  create a logger instance
-        self.logger = logging.getLogger('raw_data')
-
 
     def append_ping(self, sample_datagram):
         """
