@@ -96,7 +96,9 @@ class NMEAData(object):
             self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':str(text)}) 
             cur_index = len(self.raw_datagrams) - 1
     
-            self.time_index[np.datetime64(time)].append(cur_index)
+            #self.time_index[np.datetime64(time)].append(cur_index)
+            time_in_seconds = (time - datetime.fromtimestamp(0)).total_seconds()
+            self.time_index[time_in_seconds].append(cur_index)
     
             nmea_talker = str(text[1:3].upper())
             self.nmea_talker_index[nmea_talker].append(cur_index)
@@ -180,7 +182,9 @@ class NMEAData(object):
 
         #Get index.
 #        if start_time is not None and end_time is not None:
-#            time_index_keys = np.sort(self.time_index.keys())[start_time:end_time]
+#            start_time_in_seconds = (start_time - datetime.fromtimestamp(0)).total_seconds()
+#            end_time_in_seconds = (end_time - datetime.fromtimestamp(0)).total_seconds()
+#            time_index_keys = np.sort(self.time_index.keys())[start_time_in_seconds:end_time_in_seconds]
 #            time_index_values = self.time_index[time_index_keys].values()
 #            index = reduce(np.intersect1d(time_index_values))
 #
@@ -255,7 +259,8 @@ class NMEAData(object):
         else:
             log.warning("No nmea data was found in the specified parameters.")
 
-        return data_object
+        return self.time_index
+    #FIXME uncomment    return data_object
 
 
     def read_configs(self):
