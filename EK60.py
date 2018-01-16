@@ -1008,7 +1008,8 @@ class raw_data(data_container):
 
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
-            resample_soundspeed=None, insert_into=None, return_indices=None, **kwargs):
+            resample_soundspeed=None, insert_into=None, return_indices=None,
+            apply_heave_correction=False, **kwargs):
         """
         _get_sample_data returns a processed data object that contains the sample data from
         the property name provided. It performs all of the required transformations to place
@@ -1218,84 +1219,6 @@ class raw_data(data_container):
         return self._get_sample_data('power', **kwargs)
 
 
-    def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
-        """
-        _get_calibration_param interrogates the provided cal_object for the provided param_name
-        property and returns the parameter values based on what it finds. It handles 4 cases:
-
-            If the user has provided a scalar calibration value, the function will return
-            a 1D array the length of return_indices filled with that scalar.
-
-            If the user has provided a 1D array the length of return_indices it will return
-            that array without modification.
-
-            If the user has provided a 1D array the length of self.ping_number, it will
-            return a 1D array the length of return_indices that is the subset of this data
-            defined by the return_indices index array.
-
-            Lastly, if the user has not provided anything, this function will return a
-            1D array the length of return_indices filled with data extracted from the raw
-            data.
-        """
-
-        if (cal_object and hasattr(cal_object, param_name)):
-
-            #  try to get the parameter from the calibration object
-            param = getattr(cal_object, param_name)
-
-            #  check if the input param is an numpy array
-            if isinstance(param, np.ndarray):
-                #  check if it is a single value array
-                if (param.shape[0] == 1):
-                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
-                    param_data.fill(param)
-                #  check if it is an array the same length as contained in the raw data
-                elif (param.shape[0] == self.ping_number.shape[0]):
-                    #  cal params provided as full length array, get the selection subset
-                    param_data = param[return_indices]
-                #  check if it is an array the same length as return_indices
-                elif (param.shape[0] == return_indices.shape[0]):
-                    #  cal params provided as a subset so no need to index with return_indices
-                    param_data = param
-                else:
-                    #  it is an array that is the wrong shape
-                    raise ValueError("The calibration parameter array " + param_name +
-                            " is the wrong length.")
-            #  not an array - check if it is a scalar int or float
-            elif (type(param) == int or type(param) == float or type(param) == np.float64):
-                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
-                    param_data.fill(param)
-            else:
-                #  invalid type provided
-                raise ValueError("The calibration parameter " + param_name +
-                        " must be an ndarray or scalar float.")
-        else:
-            #  Parameter is not provided in the calibration object, copy it from the raw data.
-            #  Calibration parameters are found directly in the RawData object and they are
-            #  in the channel_metadata objects. If we don't find it directly in RawData then
-            #  we need to fish it out of the channel_metadata objects.
-            try:
-                #  first check if this parameter is a direct property in RawData
-                self_param = getattr(self, param_name)
-                #  it is - return a view of the subset of data we're interested in
-                param_data = self_param[return_indices]
-            except:
-                #  It is not a direct property so it must be in the channel_metadata object.
-                #  Create the return array
-                param_data = np.empty((return_indices.shape[0]), dtype=dtype)
-                #  then populate with the data found in the channel_metadata objects
-                for idx in return_indices:
-                    #  sa_correction is annoying - have to dig out of the table
-                    if (param_name == 'sa_correction'):
-                        sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
-                        pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
-                        param_data[idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
-                    else:
-                        param_data[idx] = getattr(self.channel_metadata[idx],param_name)
-
-        return param_data
-
-
     def _roll_arrays(self, roll_pings):
         """
         _roll_arrays is an internal method that rolls our data arrays when those arrays
@@ -1390,16 +1313,12 @@ class raw_data(data_container):
         self.sample_count = np.empty((n_pings), np.uint32)
         if (self.store_power):
             self.power = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
-        else:
-            #  create an empty array as a place holder
-            self.power = np.empty((0,0), dtype=self.sample_dtype, order='C')
+            self.n_samples = n_samples
+
         if (self.store_angles):
             self.angles_alongship_e = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
             self.angles_athwartship_e = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
-        else:
-            #  create an empty arrays as place holders
-            self.angles_alongship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
-            self.angles_athwartship_e = np.empty((0, 0), dtype=self.sample_dtype, order='C')
+            self.n_samples = n_samples
 
         #  check if we should initialize them
         if (initialize):
