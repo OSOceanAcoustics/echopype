@@ -22,7 +22,7 @@ import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
 from ..data_container import data_container
 from ..processing import processed_data
-from .util.nmea_data import NMEAData
+#from .util.nmea_data import NMEAData
 
 log = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class EK60(object):
         self.raw_data = {}
 
         #  create a dictionary to store the NMEA object
-        self.nmea_data = NMEAData()
+        #self.nmea_data = NMEAData()
 
         #  Define the class's "private" properties. These should not be generally be directly
         #  manipulated by the user.
@@ -353,8 +353,8 @@ class EK60(object):
                     num_sample_datagrams_skipped += 1
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
-            elif new_datagram['type'].startswith('NME'):
-              self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+            #elif new_datagram['type'].startswith('NME'):
+            #  self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
