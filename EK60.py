@@ -353,9 +353,8 @@ class EK60(object):
                     num_sample_datagrams_skipped += 1
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
-            elif new_datagram['type'].startswith('NME'):
-                pass
-                #self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+            #elif new_datagram['type'].startswith('NME'):
+            #  self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
