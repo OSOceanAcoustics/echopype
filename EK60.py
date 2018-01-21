@@ -20,9 +20,9 @@ from pytz import timezone
 import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
-from ..data_container import data_container
+from ..sample_data import sample_data
 from ..processing import processed_data
-from .util.nmea_data import NMEAData
+#from .util.nmea_data import NMEAData
 
 log = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class EK60(object):
         self.raw_data = {}
 
         #  create a dictionary to store the NMEA object
-        self.nmea_data = NMEAData()
+        #self.nmea_data = NMEAData()
 
         #  Define the class's "private" properties. These should not be generally be directly
         #  manipulated by the user.
@@ -354,7 +354,8 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
-              self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+                pass
+                #self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
@@ -429,7 +430,7 @@ class EK60(object):
         return msg
 
 
-class raw_data(data_container):
+class raw_data(sample_data):
     """
     the raw_data class contains a single channel's data extracted from a Simrad raw
     file. collected from an EK/ES60 or ES70. A raw_data object is created for each
@@ -806,8 +807,9 @@ class raw_data(data_container):
         return data
 
 
-    def get_sv(self, calibration=None, linear=False, keep_power=False, insert_into=None,
-                tvg_correction=True, **kwargs):
+    def get_sv(self, calibration=None, linear=False, keep_power=False,
+                tvg_correction=True, heave_correct=False, return_depth=False,
+                **kwargs):
         """
         get_sv returns a processed_data object containing Sv (or sv if linear is
         True).
@@ -824,20 +826,8 @@ class raw_data(data_container):
 
         """
 
-        #  check if we have been given a processed_data object that already has power
-        if (hasattr(insert_into, 'power')):
-            for channel in self.channel_id:
-                if (not channel in insert_into.channel_id):
-                    raise ValueError("The channel ID(s) the object you are inserting into " +
-                            "do not match the channel ID(s) of this raw_data object.")
-
-            #TODO - add checks on the array dimensions
-
-            p_data = insert_into
-        else:
-            #  get the power data - this step also resamples and arranges the raw data
-            p_data = self.get_power(calibration=calibration, insert_into=insert_into,
-                    **kwargs)
+        #  get the power data - this step also resamples and arranges the raw data
+        p_data = self.get_power(calibration=calibration, **kwargs)
 
         #  get the index array of returned pings we'll use to extract the cal params we need
         return_indices = p_data.ping_number - 1
@@ -852,17 +842,54 @@ class raw_data(data_container):
                 return_indices, tvg_correction)
 
         #  set the attribute in the processed_data object
-        setattr(p_data, attribute_name, sv_data)
+        p_data.add_attribute(attribute_name, sv_data)
 
         #  and check if we should delete the power attribute
         if (not keep_power):
-            delattr(p_data, 'power')
+            p_data.remove_attribute('power')
+
+        if (heave_correct or return_depth):
+            self._to_depth(p_data, calibration, heave_correct)
 
         return p_data
 
 
-    def get_sp(self,  calibration=None, linear=False, keep_power=False, insert_into=None,
-            tvg_correction=False, **kwargs):
+    def _to_depth(self, p_data, calibration, heave_correct):
+        """
+        _to_depth is an internal method that converts data from range to depth and
+        optionally applies heave correction.
+        """
+
+        #  populate the calibration parameters required for this method. First, create a dict with key
+        #  names that match the attributes names of the calibration parameters we require for this method
+        cal_parms = {'transducer_depth':None,
+                     'heave':None}
+
+        #  generate a vector of return indices used to extract heave and draft data if not
+        #  explicitly provided in the calibration data
+        return_indices = p_data.ping_number - 1
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  check if we're applying heave correction and/or returning depth by applying a
+        #  transducer offset.
+        if (heave_correct):
+            #  heave correction implies returning depth - determine the vertical shift per-ping
+            vert_shift = cal_parms['heave'] + cal_parms['transducer_depth']
+        else:
+            #  we're only converting to depth, determine the vertical shift per-ping only applying
+            #  the transducer draft
+            vert_shift = cal_parms['transducer_depth']
+
+        #  now shift the pings
+        p_data.shift_pings(vert_shift)
+
+
+    def get_sp(self,  calibration=None, linear=False, keep_power=False,
+            tvg_correction=False, heave_correct=False, return_depth=False,
+            **kwargs):
         """
         get_sp returns a processed_data object containing TS (or sigma_bs if linear is
         True).
@@ -884,20 +911,8 @@ class raw_data(data_container):
 
         """
 
-        #  check if we have been given a processed_data object that already has power
-        if (hasattr(insert_into, 'power')):
-            for channel in self.channel_id:
-                if (not channel in insert_into.channel_id):
-                    raise ValueError("The channel ID(s) the object you are inserting into " +
-                            "do not match the channel ID(s) of this raw_data object.")
-
-            #TODO - add checks on the array dimensions
-
-            p_data = insert_into
-        else:
-            #  get the power data - this step also resamples and arranges the raw data
-            p_data = self.get_power(calibration=calibration, insert_into=insert_into,
-                    **kwargs)
+        #  get the power data - this step also resamples and arranges the raw data
+        p_data = self.get_power(calibration=calibration, **kwargs)
 
         #  get the index array of returned pings we'll use to extract the cal params we need
         return_indices = p_data.ping_number - 1
@@ -912,17 +927,19 @@ class raw_data(data_container):
                 return_indices, tvg_correction)
 
         #  set the attribute in the processed_data object
-        setattr(p_data, attribute_name, sp_data)
+        p_data.add_attribute(attribute_name, sp_data)
 
         #  and check if we should delete the power attribute
         if (not keep_power):
-            delattr(p_data, 'power')
+            p_data.remove_attribute('power')
+
+        if (heave_correct or return_depth):
+            self._to_depth(p_data, calibration, heave_correct)
 
         return p_data
 
 
-    def get_physical_angles(self, calibration=None,  keep_elec_angles=False,
-            return_indices=None, **kwargs):
+    def get_physical_angles(self, calibration=None, keep_elec_angles=False, **kwargs):
         """
         get_physical_angles returns a processed data object that contains the alongship and
         athwartship angle data.
@@ -956,55 +973,46 @@ class raw_data(data_container):
         p_angle_athwart -= cal_parms['angle_offset_athwartship'][:, np.newaxis]
 
         #  set the attributes in our processed_data object
-        setattr(p_data, 'angles_alongship', p_angle_along)
-        setattr(p_data, 'angles_athwartship', p_angle_athwart)
+        p_data.add_attribute('angles_alongship', p_angle_along)
+        p_data.add_attribute('angles_athwartship', p_angle_athwart)
 
         #  check if we should get rid of the electrical angles
         if (not keep_elec_angles):
-            delattr(p_data, 'angles_alongship_e')
-            delattr(p_data, 'angles_athwartship_e')
+            p_data.remove_attribute('angles_alongship_e')
+            p_data.remove_attribute('angles_athwartship_e')
+
+        #  we do not need to convert to depth here since the electrical_angle data will
+        #  already have been converted to depth
 
         return p_data
 
 
-    def get_electrical_angles(self, **kwargs):
+    def get_electrical_angles(self, heave_correct=False, return_depth=False,
+            calibration=None, **kwargs):
         """
         get_electrical_angles returns a processed data object that contains the unconverted
         angle data.
         """
 
         #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
-        #  attribute. The method will return a reference to either the passed in processed_data object
-        #  (via insert_into) or the newly created instance if insert_into us unset.
+        #  attribute. The method will return a reference to anewly created iprocessed_data nstance.
         p_data = self._get_sample_data('angles_alongship_e', **kwargs)
 
-        #  check if we've been provided with a data object to insert results into
-        inserting = False
-        for name, value in kwargs.items():
-            if (name == 'insert_into'):
-                inserting = True
-                break
+        #  We use the "private" insert_into keyword to insert the athwartship_e data into p_data
+        p_data = self._get_sample_data('angles_athwartship_e', _insert_into=p_data, **kwargs)
 
-        #  and call it again requesting 'angles_athwartship_e'
-        if (inserting):
-            #  insert_into is already set by the user (provided in kwargs)
-            p_data = self._get_sample_data('angles_athwartship_e', **kwargs)
-        else:
-            #  insert_into is not set by the user so we set it here to insert
-            #  angles_athwartship_e into our newly created processed_data object
-            p_data = self._get_sample_data('angles_athwartship_e',
-                    insert_into=p_data, **kwargs)
+        if (heave_correct or return_depth):
+            self._to_depth(p_data, calibration, heave_correct)
 
         return p_data
 
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
-            resample_soundspeed=None, insert_into=None, return_indices=None,
-            apply_heave_correction=False, **kwargs):
+            resample_soundspeed=None, _insert_into=None, return_indices=None, **kwargs):
         """
         _get_sample_data returns a processed data object that contains the sample data from
         the property name provided. It performs all of the required transformations to place
-        the raw power data into a rectangular array where all samples share the same thickness
+        the raw data into a rectangular array where all samples share the same thickness
         and are correctly arranged relative to each other.
 
         This process happens in 3 steps:
@@ -1022,7 +1030,8 @@ class raw_data(data_container):
         object or if no object is provided, this method will extract these parameters from
         the raw file data.
 
-        if insert_into is a reference to another processed_data object and the channel IDs
+        insert_into is a "private" argument and is not intended to be used by the user. If
+        insert_into is a reference to another processed_data object and the channel IDs
         of self and the processed_data instance match, it is assumed that the calibration
         and data collection parameters are the same and it will insert the requested property
         data into the processed_data instance. This method will check if the resulting sample
@@ -1042,19 +1051,19 @@ class raw_data(data_container):
             return range
 
         #  check if we're inserting data into an existing processed_data object
-        if isinstance(insert_into, processed_data.processed_data):
+        if isinstance(_insert_into, processed_data.processed_data):
             #  check that the channel IDs match
             for channel in self.channel_id:
-                if (not channel in insert_into.channel_id):
+                if (not channel in _insert_into.channel_id):
                     raise ValueError("The channel ID(s) the object you are inserting into " +
                             "do not match the channel ID(s) of this raw_data object.")
 
             #  when inserting into a processed_data object we ignore the start/end arguments and
             #  extract the same indices as the data in the object we are inserting into
-            return_indices = insert_into.ping_number - 1
+            return_indices = _insert_into.ping_number - 1
 
             #  we're inserting so we just copy the reference to the object and set the inserting flag
-            p_data = insert_into
+            p_data = _insert_into
             inserting = True
 
         else:
@@ -1087,8 +1096,7 @@ class raw_data(data_container):
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'sample_interval':None,
                      'sound_velocity':None,
-                     'sample_offset':None,
-                     'transducer_depth':None}
+                     'sample_offset':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -1153,7 +1161,10 @@ class raw_data(data_container):
                     sound_velocity, min_sample_offset)
 
         #  assign the results to the output processed_data object
-        setattr(p_data, property_name, output)
+        p_data.add_attribute(property_name, output)
+
+        #  calculate the sample thickness in m
+        sample_thickness = sample_interval * sound_velocity / 2.0
 
         #  now assign range, sound_velocity, sample thickness and offset, and transducer_depth
         #  to the processed_data object. If we're inserting we assume all of these values
@@ -1165,22 +1176,100 @@ class raw_data(data_container):
                 raise ValueError("The sample ranges calculated for " + property_name +
                         " do not match the existing sample ranges in the processed_data " +
                         "object you are inserting into.")
-            #  ANY OTHER CHECKS WE NEED TO DO?
+
+            #  TODO: ANY OTHER CHECKS WE NEED TO DO?
 
         else:
+            #  assign range
+            p_data.add_attribute('range', range)
+
             #  assign range and sound speed to our processed_data object
-            p_data.range = range
             p_data.sound_velocity = sound_velocity
 
             #  compute sample thickness and set the sample offset
-            p_data.sample_thickness = sample_interval * sound_velocity / 2.0
+            p_data.sample_thickness = sample_thickness
             p_data.sample_offset = min_sample_offset
-
-            #  copy the transducer depth data
-            p_data.transducer_depth = cal_parms['transducer_depth'].copy()
 
         #  return the processed_data object containing the requested data
         return p_data
+
+
+    def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
+        """
+        _get_calibration_param interrogates the provided cal_object for the provided param_name
+        property and returns the parameter values based on what it finds. It handles 4 cases:
+
+            If the user has provided a scalar calibration value, the function will return
+            a 1D array the length of return_indices filled with that scalar.
+
+            If the user has provided a 1D array the length of return_indices it will return
+            that array without modification.
+
+            If the user has provided a 1D array the length of self.ping_number, it will
+            return a 1D array the length of return_indices that is the subset of this data
+            defined by the return_indices index array.
+
+            Lastly, if the user has not provided anything, this function will return a
+            1D array the length of return_indices filled with data extracted from the raw
+            data.
+        """
+
+        if (cal_object and hasattr(cal_object, param_name)):
+
+            #  try to get the parameter from the calibration object
+            param = getattr(cal_object, param_name)
+
+            #  check if the input param is an numpy array
+            if isinstance(param, np.ndarray):
+                #  check if it is a single value array
+                if (param.shape[0] == 1):
+                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                    param_data.fill(param)
+                #  check if it is an array the same length as contained in the raw data
+                elif (param.shape[0] == self.ping_number.shape[0]):
+                    #  cal params provided as full length array, get the selection subset
+                    param_data = param[return_indices]
+                #  check if it is an array the same length as return_indices
+                elif (param.shape[0] == return_indices.shape[0]):
+                    #  cal params provided as a subset so no need to index with return_indices
+                    param_data = param
+                else:
+                    #  it is an array that is the wrong shape
+                    raise ValueError("The calibration parameter array " + param_name +
+                            " is the wrong length.")
+            #  not an array - check if it is a scalar int or float
+            elif (type(param) == int or type(param) == float or type(param) == np.float64):
+                    param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                    param_data.fill(param)
+            else:
+                #  invalid type provided
+                raise ValueError("The calibration parameter " + param_name +
+                        " must be an ndarray or scalar float.")
+        else:
+            #  Parameter is not provided in the calibration object, copy it from the raw data.
+            #  Calibration parameters are found directly in the RawData object and they are
+            #  in the channel_metadata objects. If we don't find it directly in RawData then
+            #  we need to fish it out of the channel_metadata objects.
+            try:
+                #  first check if this parameter is a direct property in RawData
+                self_param = getattr(self, param_name)
+                #  it is - return a view of the subset of data we're interested in
+                param_data = self_param[return_indices]
+            except:
+                #  It is not a direct property so it must be in the channel_metadata object.
+                #  Create the return array
+                param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                #  then populate with the data found in the channel_metadata objects
+                for idx in return_indices:
+                    #  sa_correction is annoying - have to dig out of the table
+                    if (param_name == 'sa_correction'):
+                        sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
+                        pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
+                        param_data[idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
+                    else:
+                        param_data[idx] = getattr(self.channel_metadata[idx],param_name)
+
+        return param_data
 
 
     def get_power(self, **kwargs):
