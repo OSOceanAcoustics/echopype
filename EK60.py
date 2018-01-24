@@ -135,8 +135,8 @@ class EK60(object):
         self.read_end_time = None
         self.read_start_ping = None
         self.read_end_ping = None
-        self.read_sample_start = None
-        self.read_sample_end = None
+        self.read_start_sample = None
+        self.read_end_sample = None
 
         #  read_frequencies can be set to a list of floats specifying the frequencies to
         #  read. An empty list will result in all frequencies being read.
@@ -689,10 +689,12 @@ class raw_data(sample_data):
                 self.sample_count[this_ping] = sample_datagram['count'] - start_sample
         else:
             self.sample_offset[this_ping] = 0
+            start_sample = 0
             if (end_sample):
                 self.sample_count[this_ping] = end_sample + 1
             else:
                 self.sample_count[this_ping] = sample_datagram['count']
+                end_sample = sample_datagram['count']
 
         #  now store the 2d "sample" data
         #      determine what we need to store based on operational mode
