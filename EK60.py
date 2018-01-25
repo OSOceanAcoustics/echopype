@@ -135,8 +135,8 @@ class EK60(object):
         self.read_end_time = None
         self.read_start_ping = None
         self.read_end_ping = None
-        self.read_sample_start = None
-        self.read_sample_end = None
+        self.read_start_sample = None
+        self.read_end_sample = None
 
         #  read_frequencies can be set to a list of floats specifying the frequencies to
         #  read. An empty list will result in all frequencies being read.
@@ -702,7 +702,8 @@ class raw_data(sample_data):
         if (sample_datagram['mode'] != 2) and (self.store_power):
 
             #  get the subset of samples we're storing
-            power = sample_datagram['power'][start_sample:end_sample + 1]
+
+            power = sample_datagram['power'][start_sample:self.sample_count[this_ping]]
 
             #  convert the indexed power data to power dB
             power = power.astype(self.sample_dtype) * self.INDEX2POWER
@@ -724,8 +725,8 @@ class raw_data(sample_data):
         if (sample_datagram['mode'] != 1) and (self.store_angles):
             #  first extract the alongship and athwartship angle data
             #  the low 8 bits are the athwartship values and the upper 8 bits are alongship.
-            alongship_e = (sample_datagram['angle'][start_sample:end_sample + 1] >> 8).astype('int8')
-            athwartship_e = (sample_datagram['angle'][start_sample:end_sample + 1] & 0xFF).astype('int8')
+            alongship_e = (sample_datagram['angle'][start_sample:self.sample_count[this_ping]] >> 8).astype('int8')
+            athwartship_e = (sample_datagram['angle'][start_sample:self.sample_count[this_ping]] & 0xFF).astype('int8')
 
             #  and convert from indexed to electrical angles
             alongship_e = alongship_e.astype(self.sample_dtype) * self.INDEX2ELEC
