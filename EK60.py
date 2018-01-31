@@ -592,8 +592,12 @@ class raw_data(sample_data):
 
         #  if using dynamic arrays, handle intialization of data arrays when the first ping is added
         if (self.n_pings == -1 and self.rolling_array == False):
+            if self.max_sample_number:
+                number_samples = self.max_sample_number
+            else:
+                number_samples = len(sample_datagram['power'])
             #  create the initial data arrays
-            self._create_arrays(self.chunk_width, len(sample_datagram['power']))
+            self._create_arrays(self.chunk_width, number_samples)
 
             #  initialize the ping counter to indicate that our data arrays have been allocated
             self.n_pings  = 0
@@ -689,10 +693,12 @@ class raw_data(sample_data):
                 self.sample_count[this_ping] = sample_datagram['count'] - start_sample
         else:
             self.sample_offset[this_ping] = 0
+            start_sample = 0
             if (end_sample):
                 self.sample_count[this_ping] = end_sample + 1
             else:
                 self.sample_count[this_ping] = sample_datagram['count']
+                end_sample = sample_datagram['count']
 
         #  now store the 2d "sample" data
         #      determine what we need to store based on operational mode
