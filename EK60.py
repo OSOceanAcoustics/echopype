@@ -1233,7 +1233,7 @@ class raw_data(sample_data):
             vert_shift = cal_parms['transducer_depth']
 
         #  now shift the pings
-        p_data.shift_pings(vert_shift)
+        p_data.shift_pings(vert_shift, to_depth=True)
 
 
     def _get_calibration_param(self, cal_object, param_name, return_indices, dtype='float32'):
