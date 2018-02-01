@@ -258,14 +258,14 @@ class EK60(object):
 
                     #  create a ChannelMetadata object to store this channel's configuration and rawfile metadata.
                     channel_metadata = ChannelMetadata(filename,
-                                               config_datagram['transceivers'][channel],
-                                               config_datagram['survey_name'],
-                                               config_datagram['transect_name'],
-                                               config_datagram['sounder_name'],
-                                               config_datagram['version'],
-                                               self.raw_data[channel_id].n_pings,
-                                               config_datagram['timestamp'],
-                                               extended_configuration=CON1_datagram)
+                                                       config_datagram['transceivers'][channel],
+                                                       config_datagram['survey_name'],
+                                                       config_datagram['transect_name'],
+                                                       config_datagram['sounder_name'],
+                                                       config_datagram['version'],
+                                                       self.raw_data[channel_id].n_pings,
+                                                       config_datagram['timestamp'],
+                                                       extended_configuration=CON1_datagram)
 
                     #  update the channel_metadata property of the RawData object
                     self.raw_data[channel_id].current_metadata = channel_metadata
@@ -1188,7 +1188,7 @@ class raw_data(sample_data):
         #  calculate absorption - this is the outer product of our corrected range
         #  and 2 * absorption_coefficient. We'll use this for our output array to
         #  minimize the arrays we're creating.
-        data = np.outer(2.0 * cal_parms['absorption_coefficient'], c_range)
+        data = np.outer(2.0 * cal_parms['absorption_coefficient'], power_data.range) #c_range)
 
         #  now add in power and TVG
         data += power_data.power + tvg
