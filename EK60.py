@@ -708,7 +708,6 @@ class raw_data(sample_data):
         if (sample_datagram['mode'] != 2) and (self.store_power):
 
             #  get the subset of samples we're storing
-
             power = sample_datagram['power'][start_sample:self.sample_count[this_ping]]
 
             #  convert the indexed power data to power dB
