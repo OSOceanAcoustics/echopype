@@ -14,63 +14,57 @@
 #  SUPPORT TO USERS.
 
 
-
-
-import os
-import sys
-import logging
 import numpy as np
-import ConfigParser
-from functools import reduce
-from datetime import datetime
-from collections import defaultdict
-#from instruments.util.pynmea2 import NMEASentence
-from .pynmea2 import NMEASentence
+import pynmea2
 
-
-log = logging.getLogger(__name__)
-
-class NMEAData(object):
+class nmea_data(object):
     '''
     The nmea_data class provides storage for and parsing of NMEA data commonly
     collected along with sonar data.
 
-    Potential library to use for NMEA parsing.
-        https://github.com/Knio/pynmea2
-
-        We can just pull something like that into this project. It doesn't have
-        to be this one, and we could roll our own if needed. Just throwing it
-        out there.
     '''
 
-    #TODO Add functions that allow user to get all raw nmea data based on
-    #TODO time and based on types return nmea data object. all by default.
-    #TODO Add interpolate_pings
+    CHUNK_SIZE = 500
 
 
     def __init__(self):
 
-        self.config_file = 'echolab.conf'
-
         #  store the raw NMEA datagrams by time to facilitate easier writing
-        #  raw_datagrams is a list of dicts in the form {'time':0, 'text':''}
-        #  where time is the datagram time and text is the unparsed NMEA text.
-        self.raw_datagrams = np.empty(0, dtype=object)
+        self.raw_datagrams = np.empty(nmea_data.CHUNK_SIZE, dtype=object)
+
+
+        #  we'll store the message time, talker ID, and message ID
+        self.nmea_times = np.empty(nmea_data.CHUNK_SIZE, dtype='datetime64[s]')
+        self.talkers = np.empty(nmea_data.CHUNK_SIZE, dtype='S2')
+        self.messages = np.empty(nmea_data.CHUNK_SIZE, dtype='S3')
+
         self.n_raw = 0
 
-        #  type_data is a dict keyed by datagram talker+message. Each element of
-        #  the dict is a list of integers that are an index into the raw_datagrams
-        #  list for that talker+message. This allows easy access to the datagrams
-        #  by type.  time_index is designed in the same way.
-        self.type_index = defaultdict(list)
-        self.time_index = defaultdict(list)
-        self.nmea_talker_index = defaultdict(list)
-        self.nmea_type_index = defaultdict(list)
+        #  nmea_definitions define the NMEA message(s) and pynmea2.NMEASentence
+        #  attributes of those messages that the NMEA interpolation routine will
+        #  process. These definitions can also be used to define meta-types which
+        #  are data types that can be contained within multiple message types and
+        #  allow the user to request the meta-type without knowing ahead of time
+        #  if specific messages are contained within the data.
+        self.nmea_definitions = {}
 
-        #  self types is a list of the unique talker+message NMEA types received.
-        self.types = []
-        self.nmea_talkers = []
-        self.nmea_types = []
+        self.nmea_definitions['GGA'] = {'message':['GGA'],
+                                        'fields': {'latitude':'latitude',
+                                                   'longitude':'longitude'}}
+        self.nmea_definitions['GLL'] = {'message':['GLL'],
+                                        'fields': {'latitude':'latitude',
+                                                   'longitude':'longitude'}}
+        self.nmea_definitions['RMC'] = {'message':['RMC'],
+                                        'fields': {'latitude':'latitude',
+                                                   'longitude':'longitude'}}
+        #  define the "position" meta-type. This meta-type covers all messages that
+        #  contain latitude and longitude data.
+        self.nmea_definitions['position'] = {'message':['GGA','GLL','RMC'],
+                                             'fields': {'latitude':'latitude',
+                                                        'longitude':'longitude'}}
+        self.nmea_definitions['HDT'] = {'message':['HDT'],
+                                        'fields': {'heading_true':'heading_true'}}
+
 
     def add_datagram(self, time, text):
         '''
@@ -93,215 +87,183 @@ class NMEAData(object):
         #  make sure we have a plausible header
         if header.isalpha() and len(header) == 5:
 
-            #  add the raw NMEA datagram
-            self.raw_datagrams = np.append(self.raw_datagrams, {'time':np.datetime64(time), 'text':str(text)})
-            cur_index = len(self.raw_datagrams) - 1
+            self.n_raw += 1
 
-            #self.time_index[np.datetime64(time)].append(cur_index)
-            time_in_seconds = (time - datetime.fromtimestamp(0)).total_seconds()
-            self.time_index[time_in_seconds].append(cur_index)
+            #  check if we need to resize our arrays
+            if (self.n_raw > self.nmea_times.shape[0]):
+                self._resize_arrays(self.nmea_times.shape[0] + nmea_data.CHUNK_SIZE)
 
-            nmea_talker = str(text[1:3].upper())
-            self.nmea_talker_index[nmea_talker].append(cur_index)
-            self.nmea_talkers = self.nmea_talker_index.keys()
-
-            nmea_type = str(text[3:6].upper())
-            self.nmea_type_index[nmea_type].append(cur_index)
-            self.nmea_types = self.nmea_type_index.keys()
-
-            header = np.dtype([(str(header), np.string_, 'S3')])
-            self.type_index[header].append(cur_index)
-            self.types = self.type_index.keys()
-
-        else:
-            #  inform the user of a bad NMEA datagram
-            log.info('Malformed or missing NMEA header: ' + text)
-
-        #  increment the index counter
-        self.n_raw = self.n_raw + 1
+            self.raw_datagrams[self.n_raw-1] = text
+            self.nmea_times[self.n_raw-1] = time
+            self.talkers[self.n_raw-1] = header[0:2]
+            self.messages[self.n_raw-1] = header[2:6]
 
 
-    def get_datagrams(self, type, raw=False):
+    def get_datagrams(self, message_types, start_time=None, end_time=None, talker_id=None,
+            return_raw=False, return_fields=None):
         '''
-        get_datagrams returns a list of the requested datagram type. By default the
-        datagram will be parsed. If raw == True the raw datagram text will be returned.
+        get_datagrams returns a dictionary keyed by the requested datagram type(s) containing the
+        raw or parsed NMEA datagrams and their receive times. By default the datagrams will be
+        parsed using the pynema2 library. If raw == True the raw datagram text will be returned.
+
+
         '''
 
-        #  make sure the type is upper case
-        type = type.upper()
+        #  create the return dict
+        datagrams = {}
 
-        #  create the return dict depending on if were returning raw or parsed
-        if (raw):
-            datagrams = {'type':type, 'times':[], 'text':[]}
-        else:
-            datagrams = {'type':type, 'times':[], 'datagram':[]}
+        #  if we're provided a talker ID - ensure it is uppercase
+        if (talker_id):
+            talker_id = talker_id.upper()
 
+        #  make sure the message_type is a list
+        if (isinstance(message_types, basestring)):
+            message_types = [message_types]
 
-        if (type in self.types):
-            #  append the time
-            datagrams['times'].append(self.raw_datagrams[type]['time'])
-            if (raw):
-                for dg in self.type_index[type]:
-                    #  just append the raw text
-                    datagrams['text'].append(self.raw_datagrams[type]['text'])
+        for type in message_types:
+
+            #  make sure the type is upper case
+            type = type.upper()
+
+            #  get an index for all datagrams within the time span
+            return_idxs = self._get_indices(start_time, end_time, time_order=True)
+
+            #  build a mask based on the message type and talker ID
+            keep_mask = self.messages[return_idxs] == type
+            if (talker_id):
+                keep_mask &= self.talkers[return_idxs] == talker_id
+
+            #  apply the mask
+            return_idxs = return_idxs[keep_mask]
+
+            #  determine the number of items we're returning
+            n_messages = return_idxs.shape[0]
+
+            #  create the return dict
+            if (return_raw):
+                #  we're returing raw data - do not parse
+                if (n_messages > 0):
+                    datagrams[type] = {'times':self.nmea_times[return_idxs],
+                                       'raw_strings':self.raw_datagrams[return_idxs].copy()}
+                else:
+                    #  nothing to return
+                    datagrams[type] = {'times':None, 'raw_string':None}
             else:
-                for dg in self.type_index[type]:
-                    #  parse the NMEA string using pynmea2
-                    nmea_obj = pynmea2.parse(str(self.raw_datagrams[type]['text']))
-                    datagrams['datagram'].append(nmea_obj)
+                #  we're returning parsed data
+                if (n_messages > 0):
+                    if (return_fields):
+                        #  we're asked to return specific fields from the parsed nmea data
 
-        #  return the dictionary
+                        #  first build the return dict
+                        datagrams[type] = {'times':self.nmea_times[return_idxs]}
+                        for field in return_fields:
+                            datagrams[type][field] = np.empty(n_messages)
+
+                        #  then parse the datagrams
+                        for idx in range(n_messages):
+                            try:
+                                #  parse this datagram
+                                msg_data = pynmea2.parse(self.raw_datagrams[return_idxs[idx]],
+                                        check=False)
+                                #  and extract the requested fields
+                                for field in return_fields:
+                                    try:
+                                        datagrams[type][field][idx] = getattr(msg_data, field)
+                                    except:
+                                        #  unknown field - return NaN for this field
+                                        datagrams[type][field][idx] = np.nan
+                            except:
+                                #  unable to parse datagram - return NaNs for all fields
+                                for field in return_fields:
+                                    datagrams[type][field][idx] = np.nan
+
+                    else:
+                        #  create an array to return the NMEA text data
+                        msg_data = np.empty(n_messages, dtype=object)
+
+                        #  parse the NMEA datagrams we're returning
+                        for idx in range(n_messages):
+                            try:
+                                msg_data[idx] = pynmea2.parse(self.raw_datagrams[return_idxs[idx]],
+                                        check=False)
+                            except:
+                                #  return None for bad datagrams
+                                msg_data[idx] = None
+
+                        datagrams[type] = {'times':self.nmea_times[return_idxs],
+                                          'nmea_objects':msg_data}
+                else:
+                    #  nothing to return
+                    datagrams[type] = {'times':None, 'nmea_objects':None}
+
+        #  return the dictionary containing the requested message types
         return datagrams
 
 
-    def get_interpolate(self, data_object, nmea_data_type, nmea_talker_idx_name=None, nmea_type_idx_name=None, start_time=None, end_time=None):
-        '''
-        params:
-            data_object: data object that inherits data container, i.e., raw_data, processed_data
-            nmea_data_type: nmea data type to be interpolated. i.e., lat, lon
-            nmea_talker_idx_name_idx_name: nmea talker index name
-            nmea_type_idx_name_idx_name: nmea type index name
-            start_time: start of data to interpolate, i.e., start_time=numpy.datetime64('2010-01-10T09:00:00.000000-0700')
-            end_time: end of data to interpolate, i.e., end_time=numpy.datetime64('2020-01-10T09:00:00.000000-0700')
+    def interpolate(self, p_data, message_type):
+        """
+        interpolate returns the requested nmea data interpolated to the ping times
+        that are present in the provided processed_data object.
+        """
+
+        #  make sure the message_type is NOT a list
+        if (isinstance(message_type, list)):
+            raise TypeError("The NMEA message type must be a string, not a list")
+
+        if (message_type in self.nmea_definitions.keys()):
+            #  we know how to handle this NMEA message type
+            pass
 
 
-        '''
-
-        #TODO Add prioritization of location data based on type.
-        #TODO Get this from Chuck
-        #DONE Add ability to get the data by time.
-        #DONE Add a param to specify, lat, lon or something else.
-        #DONE? Add code to handle outliers in lat/lon values.  Use max/min values from conf file? Add percent threshold?
-        #DONE make this work with both raw and processedata objects.
-        #TODO Create an array with success or fail for each.
-        #TODO Add a flag to the output.
-        #TODO Add an alert based on threshold based on data type, lat, lon. Add values to config file.
-        #TODO if this data was munged, what gets returned?  Do we want to generated a warning? something else?
-        #     Generate a warning.  If over 60%.
-        #DONE Add call to get_interpolate in run_checks.py
-
-
-        #Get index.
-#        if start_time is not None and end_time is not None:
-#            start_time_in_seconds = (start_time - datetime.fromtimestamp(0)).total_seconds()
-#            end_time_in_seconds = (end_time - datetime.fromtimestamp(0)).total_seconds()
-#            time_index_keys = np.sort(self.time_index.keys())[start_time_in_seconds:end_time_in_seconds]
-#            time_index_values = self.time_index[time_index_keys].values()
-#            index = reduce(np.intersect1d(time_index_values))
-#
-
-
-        if nmea_talker_idx_name is not None and nmea_type_idx_name is not None:
-            index = np.intersect1d(self.nmea_talker_index[nmea_talker_idx_name], \
-                                   self.nmea_type_index[nmea_type_idx_name])
-
-        elif nmea_talker_idx_name is not None:
-            index = self.nmea_talker_index[nmea_talker_idx_name]
-        elif nmea_type_idx_name is not None:
-            index = self.nmea_type_index[nmea_type_idx_name]
         else:
-            index = range(len(self.raw_datagrams))
+            raise ValueError("The provided NMEA message type " + str(message_type) +
+                    " is unknown to the interpolation method.")
 
-
-        nmea_time = []
-        nmea_data = np.empty(0, dtype='float32')
-
-        min_threshold, max_threshold = self.get_threshold_values(nmea_data_type)
-
-        #Create array of interpolated data.
-        for record in self.raw_datagrams[index]:
-            if 'text' in record and isinstance(record['text'], str):
-                sentence_data = NMEASentence.parse(record['text'])
-                if 'time' in record:
-
-                    if start_time is not None and record['time'] < start_time:
-                        continue
-                    if end_time is not None and record['time'] > end_time:
-                        continue
-
-                    if hasattr(sentence_data, nmea_data_type):
-                        update = 1
-
-                        try:
-                            nmea_data_val = np.float32(getattr(sentence_data, nmea_data_type))
-                        except ValueError as e:
-                            log.warning("Skipping non-numeric value in " + \
-                                    str(getattr(sentence_data, nmea_data_type)) + "." + str(e))
-                            update = 0
-                            continue
-
-
-                        if min_threshold is not None and nmea_data_val < min_threshold:
-                            update = 0
-                        elif max_threshold is not None and nmea_data_val > max_threshold:
-                            update = 0
-
-                        if update:
-                            nmea_data = np.append(nmea_data, nmea_data_val)
-                            nmea_time.append(record['time'])
+        pass
 
 
 
-        ##Get ping timestamps.
-        ping_time = data_object.ping_time
+
+    def _get_indices(self, start_time, end_time, time_order=True):
+        """
+        _get_indices returns an index array containing the indices contained in the range
+        defined by the times provided. By default the indexes are in time order.
+        """
+
+        #  ensure that we have times to work with
+        if (start_time is None):
+            start_time = np.min(self.nmea_times)
+        if (end_time is None):
+            end_time = np.max(self.nmea_times)
+
+        #  determine the indices of the data that fall within the time span provided
+        primary_index = self.nmea_times.argsort()
+        mask = self.nmea_times[primary_index] >= start_time
+        mask = np.logical_and(mask, self.nmea_times[primary_index] <= end_time)
+
+        #  and return the indices that are included in the specified range
+        return primary_index[mask]
 
 
-        #Convert timestamps to seconds since 1970 epoch.
-        ping_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in ping_time]
-        nmea_time_seconds = [self.timestamp_to_float(timestamp) for timestamp in nmea_time]
+    def _resize_arrays(self, new_size):
+        """
+        _resize_arrays expands our data arrays and is called when said arrays
+        are filled with data.
+        """
 
-        #Interpolate the data.
-        #FIXME  What size should then nmea data array be to run the interpolation?
-        if len(nmea_data) > 0:
-            interpolated_nmea_data = np.interp(ping_time_seconds, nmea_time_seconds, nmea_data)
-
-            #Add data to input data object.
-            setattr(data_object, nmea_data_type, interpolated_nmea_data)
-        else:
-            log.warning("No nmea data was found in the specified parameters.")
-
-        return self.time_index
-    #FIXME uncomment    return data_object
+        self.nmea_times = np.resize(self.nmea_times,(new_size))
+        self.raw_datagrams = np.resize(self.raw_datagrams,(new_size))
+        self.talkers = np.resize(self.talkers,(new_size))
+        self.messages = np.resize(self.messages,(new_size))
 
 
-    def read_configs(self):
-        #TODO Move this method.
-        config = ConfigParser.ConfigParser()
-        for dirpath, dirs, files in os.walk(os.curdir, os.path.expanduser("~")):
-            if self.config_file in files:
-                try:
-                    with open(os.path.join(dirpath,self.config_file)) as source:
-                        if (sys.version_info.major > 2):
-                            config.read_file( source )
-                        else:
-                            config.readfp( source )
-                except IOError:
-                    config = None
-                    log.warning("Could not read config file.  No nmea data thresholds have been set.")
-        return config
+    def _trim(self):
+        """
+        _trim_arrays is called when one is done adding data to the object. It
+        removes empty elements of the data arrays.
+        """
 
-
-    def get_threshold_values(self, nmea_data_type):
-        min_threshold = None
-        max_threshold = None
-
-        config = self.read_configs()
-        if config is not None:
-            try:
-                min_threshold = config.get('nmea', 'min_' + nmea_data_type)
-                min_threshold = np.float32(min_threshold)
-            except:
-                min_threshold = None
-
-            try:
-                max_threshold = config.get('nmea', 'max_' + nmea_data_type)
-                max_threshold = np.float32(max_threshold)
-            except:
-                max_threshold = None
-
-        return min_threshold, max_threshold
-
-
-    def timestamp_to_float(self, timestamp):
-        timestamp_datetime = timestamp.astype(datetime)
-        return (timestamp_datetime - datetime.fromtimestamp(0)).total_seconds()
+        self.nmea_times = np.resize(self.nmea_times,(self.n_raw))
+        self.raw_datagrams = np.resize(self.raw_datagrams,(self.n_raw))
+        self.talkers = np.resize(self.talkers,(self.n_raw))
+        self.messages = np.resize(self.messages,(self.n_raw))
