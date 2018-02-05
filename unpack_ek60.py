@@ -23,7 +23,7 @@ import os
 import re
 from datetime import datetime as dt
 from matplotlib.dates import date2num
-from echosounder_model import BaseEnum
+from base_def import BaseEnum
 
 
 # Set contants for unpacking .raw files
