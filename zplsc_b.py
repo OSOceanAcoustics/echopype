@@ -27,28 +27,148 @@ Release notes:
 Initial Release
 """
 from collections import defaultdict
-from datetime import datetime
 from struct import unpack_from
 
 import numpy as np
-import numpy.matlib
 import os
 import re
 
-from mi.core.common import BaseEnum
-from mi.core.exceptions import InstrumentDataException
-from mi.core.instrument.data_particle import DataParticle
-from mi.core.log import get_logger
-from mi.instrument.kut.ek60.ooicore.zplsc_echogram import SAMPLE_MATCHER, LENGTH_SIZE, DATAGRAM_HEADER_SIZE, \
-    CONFIG_HEADER_SIZE, CONFIG_TRANSDUCER_SIZE, read_config_header, read_config_transducer, REF_TIME
-
-log = get_logger()
-__author__ = 'Ronald Ronquillo'
-__license__ = 'Apache 2.0'
+from datetime import datetime
+import numpy.matlib
 
 
-class InvalidTransducer(Exception):
-    pass
+# from mi.core.common import BaseEnum
+# from mi.core.exceptions import InstrumentDataException
+from mi.core.instrument.data_particle import DataParticle  # probably not necessary; functions can be changed to eliminate its use
+# from mi.core.log import get_logger
+# from mi.instrument.kut.ek60.ooicore.zplsc_echogram import SAMPLE_MATCHER, LENGTH_SIZE, DATAGRAM_HEADER_SIZE, \
+    # CONFIG_HEADER_SIZE, CONFIG_TRANSDUCER_SIZE, read_config_header, read_config_transducer, REF_TIME
+
+from echosounder_model import BaseEnum
+
+
+# ------------------------------------------------------------------------
+# Stuff copied from zplsc_echogram.py
+LENGTH_SIZE = 4
+DATAGRAM_HEADER_SIZE = 12
+CONFIG_HEADER_SIZE = 516
+CONFIG_TRANSDUCER_SIZE = 320
+
+# set global regex expressions to find all sample, annotation and NMEA sentences
+SAMPLE_REGEX = r'RAW\d{1}'
+SAMPLE_MATCHER = re.compile(SAMPLE_REGEX, re.DOTALL)
+
+# Reference time "seconds since 1900-01-01 00:00:00"
+REF_TIME = date2num(datetime(1900, 1, 1, 0, 0, 0))
+
+
+def read_config_header(chunk):
+    """
+    Reads the EK60 raw data file configuration header information
+    from the byte string passed in as a chunk
+    @param chunk data chunk to read the config header from
+    @return: configuration header
+    """
+    # setup unpack structure and field names
+    field_names = ('survey_name', 'transect_name', 'sounder_name',
+                   'version', 'transducer_count')
+    fmt = '<128s128s128s30s98sl'
+
+    # read in the values from the byte string chunk
+    values = list(unpack(fmt, chunk))
+    values.pop(4)  # drop the spare field
+
+    # strip the trailing zero byte padding from the strings
+    # for i in [0, 1, 2, 3]:
+    for i in xrange(4):
+        values[i] = values[i].strip('\x00')
+
+    # create the configuration header dictionary
+    config_header = dict(zip(field_names, values))
+    return config_header
+
+
+def read_config_transducer(chunk):
+    """
+    Reads the EK60 raw data file configuration transducer information
+    from the byte string passed in as a chunk
+    @param chunk data chunk to read the configuration transducer information from
+    @return: configuration transducer information
+    """
+
+    # setup unpack structure and field names
+    field_names = ('channel_id', 'beam_type', 'frequency', 'gain',
+                   'equiv_beam_angle', 'beam_width_alongship', 'beam_width_athwartship',
+                   'angle_sensitivity_alongship', 'angle_sensitivity_athwartship',
+                   'angle_offset_alongship', 'angle_offset_athwart', 'pos_x', 'pos_y',
+                   'pos_z', 'dir_x', 'dir_y', 'dir_z', 'pulse_length_table', 'gain_table',
+                   'sa_correction_table', 'gpt_software_version')
+    fmt = '<128sl15f5f8s5f8s5f8s16s28s'
+
+    # read in the values from the byte string chunk
+    values = list(unpack(fmt, chunk))
+
+    # convert some of the values to arrays
+    pulse_length_table = np.array(values[17:22])
+    gain_table = np.array(values[23:28])
+    sa_correction_table = np.array(values[29:34])
+
+    # strip the trailing zero byte padding from the strings
+    for i in [0, 35]:
+        values[i] = values[i].strip('\x00')
+
+    # put it back together, dropping the spare strings
+    config_transducer = dict(zip(field_names[0:17], values[0:17]))
+    config_transducer[field_names[17]] = pulse_length_table
+    config_transducer[field_names[18]] = gain_table
+    config_transducer[field_names[19]] = sa_correction_table
+    config_transducer[field_names[20]] = values[35]
+    return config_transducer
+
+# ------------------------------------------------------------------------
+
+def read_header(filehandle):
+    # Read binary file a block at a time
+    raw = filehandle.read(BLOCK_SIZE)
+
+    # Read the configuration datagram, output at the beginning of the file
+    length1, = unpack_from('<l', raw)
+    byte_cnt = LENGTH_SIZE
+
+    # Configuration datagram header
+    byte_cnt += DATAGRAM_HEADER_SIZE
+
+    # Configuration: header
+    config_header = read_config_header(raw[byte_cnt:byte_cnt+CONFIG_HEADER_SIZE])
+    byte_cnt += CONFIG_HEADER_SIZE
+    config_transducer = []
+    for num_transducer in range(config_header['transducer_count']):
+        config_transducer.append(read_config_transducer(raw[byte_cnt:byte_cnt+CONFIG_TRANSDUCER_SIZE]))
+        byte_cnt += CONFIG_TRANSDUCER_SIZE
+    #byte_cnt += CONFIG_TRANSDUCER_SIZE * config_header['transducer_count']
+
+    # Compare length1 (from beginning of datagram) to length2 (from the end of datagram) to
+    # the actual number of bytes read. A mismatch can indicate an invalid, corrupt, misaligned,
+    # or missing configuration datagram or a reverse byte order binary data file.
+    # A bad/missing configuration datagram header is a significant error.
+    length2, = unpack_from('<l', raw, byte_cnt)
+    if not (length1 == length2 == byte_cnt-LENGTH_SIZE):
+        raise InstrumentDataException(
+            "Length of configuration datagram and number of bytes read do not match: length1: %s"
+            ", length2: %s, byte_cnt: %s. Possible file corruption or format incompatibility." %
+            (length1, length2, byte_cnt+LENGTH_SIZE))
+    byte_cnt += LENGTH_SIZE
+    filehandle.seek(byte_cnt)
+    return config_header, config_transducer
+
+
+# log = get_logger()
+# __author__ = 'Ronald Ronquillo'
+# __license__ = 'Apache 2.0'
+
+
+#class InvalidTransducer(Exception):
+#    pass
 
 
 class ZplscBParticleKey(BaseEnum):
@@ -119,12 +239,17 @@ power_dtype = numpy.dtype([('power_data', '<i2')])     # 2 byte int (short)
 
 angle_dtype = numpy.dtype([('athwart', '<i1'), ('along', '<i1')])     # 1 byte ints
 
-GET_CONFIG_TRANSDUCER = False   # Optional data flag: not currently used
+# GET_CONFIG_TRANSDUCER = False   # Optional data flag: not currently used
 BLOCK_SIZE = 1024*4             # Block size read in from binary file to search for token
 
 # ZPLSC EK 60 *.raw filename timestamp format
 # ei. OOI-D20141211-T214622.raw
-TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
+#TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
+
+# ---------- NEED A GENERIC FILENAME PARSER -------------
+# Common EK60 *.raw filename format
+# EK60_RAW_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
+# EK60_RAW_NAME_MATCHER = re.compile(EK60_RAW_NAME_REGEX)
 
 # Regex to extract the timestamp from the *.raw filename (path/to/OOI-DYYYYmmdd-THHMMSS.raw)
 FILE_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
@@ -183,9 +308,9 @@ class ZplscBInstrumentDataParticle(DataParticle):
                 for name, function in METADATA_ENCODING_RULES]
 
 
-def append_metadata(metadata, file_time, file_path, channel, sample_data):
+def append_metadata(metadata, file_time, channel, sample_data):
     metadata[ZplscBParticleKey.FILE_TIME] = file_time
-    metadata[ZplscBParticleKey.ECHOGRAM_PATH]= file_path
+    #metadata[ZplscBParticleKey.ECHOGRAM_PATH]= file_path
     metadata[ZplscBParticleKey.CHANNEL].append(channel)
     metadata[ZplscBParticleKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
     metadata[ZplscBParticleKey.FREQUENCY].append(sample_data['frequency'][0])
@@ -200,9 +325,11 @@ def append_metadata(metadata, file_time, file_path, channel, sample_data):
 
 
 def process_sample(input_file, transducer_count):
-    log.trace('Processing one sample from input_file: %r', input_file)
+    # log.trace('Processing one sample from input_file: %r', input_file)
+    print('Processing one sample from input_file: %s' % input_file_path)
+
     # Read and unpack the Sample Datagram into numpy array
-    sample_data = numpy.fromfile(input_file, dtype=sample_dtype, count=1)
+    sample_data = np.fromfile(input_file, dtype=sample_dtype, count=1)
     channel = sample_data['channel_number'][0]
 
     # Check for a valid channel number that is within the number of transducers config
@@ -211,9 +338,11 @@ def process_sample(input_file, transducer_count):
     # or misaligned datagram or a reverse byte order binary data file.
     # Log warning and continue to try and process the rest of the file.
     if channel < 0 or channel > transducer_count:
-        log.warn("Invalid channel: %s for transducer count: %s."
-                 "Possible file corruption or format incompatibility.", channel, transducer_count)
-        raise InvalidTransducer
+        print('Invalid channel: %s for transducer count: %s. \n\
+        Possible file corruption or format incompatibility.' % (channel, transducer_count))
+        # log.warn("Invalid channel: %s for transducer count: %s."
+        #          "Possible file corruption or format incompatibility.", channel, transducer_count)
+        # raise InvalidTransducer
 
     # Convert high and low bytes to internal time
     windows_time = build_windows_time(sample_data['high_date_time'][0], sample_data['low_date_time'][0])
@@ -222,24 +351,27 @@ def process_sample(input_file, transducer_count):
     count = sample_data['count'][0]
 
     # Extract array of power data
-    power_data = numpy.fromfile(input_file, dtype=power_dtype, count=count).astype('f8')
+    power_data = np.fromfile(input_file, dtype=power_dtype, count=count).astype('f8')
 
     # Read the athwartship and alongship angle measurements
     if sample_data['mode'][0] > 1:
-        numpy.fromfile(input_file, dtype=angle_dtype, count=count)
+        angle_data = np.fromfile(input_file, dtype=angle_dtype, count=count)
 
     # Read and compare length1 (from beginning of datagram) to length2
     # (from the end of datagram). A mismatch can indicate an invalid, corrupt,
     # or misaligned datagram or a reverse byte order binary data file.
     # Log warning and continue to try and process the rest of the file.
-    len_dtype = numpy.dtype([('length2', '<i4')])  # 4 byte int (long)
-    length2_data = numpy.fromfile(input_file, dtype=len_dtype, count=1)
+    len_dtype = np.dtype([('length2', '<i4')])  # 4 byte int (long)
+    length2_data = np.fromfile(input_file, dtype=len_dtype, count=1)
     if not (sample_data['length1'][0] == length2_data['length2'][0]):
-        log.warn("Mismatching beginning and end length values in sample datagram: length1"
-                 ": %s, length2: %s. Possible file corruption or format incompatibility.",
-                 sample_data['length1'][0], length2_data['length2'][0])
+        print('Mismatching beginning and end length values in sample datagram: \n\
+        length1: %d, length2: %d.\n\
+        Possible file corruption or format incompatibility.' % (sample_data['length1'][0], length2_data['length2'][0]))
+        # log.warn("Mismatching beginning and end length values in sample datagram: length1"
+        #          ": %s, length2: %s. Possible file corruption or format incompatibility.",
+        #          sample_data['length1'][0], length2_data['length2'][0])
 
-    return channel, ntp_time, sample_data, power_data
+    return channel, ntp_time, sample_data, power_data, angle_data
 
 
 def generate_relative_file_path(filepath):
@@ -288,69 +420,37 @@ def extract_file_time(filepath):
         raise InstrumentDataException(error_message)
 
 
-def read_header(filehandle):
-    # Read binary file a block at a time
-    raw = filehandle.read(BLOCK_SIZE)
-
-    # Read the configuration datagram, output at the beginning of the file
-    length1, = unpack_from('<l', raw)
-    byte_cnt = LENGTH_SIZE
-
-    # Configuration datagram header
-    byte_cnt += DATAGRAM_HEADER_SIZE
-
-    # Configuration: header
-    config_header = read_config_header(raw[byte_cnt:byte_cnt+CONFIG_HEADER_SIZE])
-    byte_cnt += CONFIG_HEADER_SIZE
-    config_transducer = []
-    for num_transducer in range(config_header['transducer_count']):
-        config_transducer.append(read_config_transducer(raw[byte_cnt:byte_cnt+CONFIG_TRANSDUCER_SIZE]))
-        byte_cnt += CONFIG_TRANSDUCER_SIZE
-    #byte_cnt += CONFIG_TRANSDUCER_SIZE * config_header['transducer_count']
-
-    # Compare length1 (from beginning of datagram) to length2 (from the end of datagram) to
-    # the actual number of bytes read. A mismatch can indicate an invalid, corrupt, misaligned,
-    # or missing configuration datagram or a reverse byte order binary data file.
-    # A bad/missing configuration datagram header is a significant error.
-    length2, = unpack_from('<l', raw, byte_cnt)
-    if not (length1 == length2 == byte_cnt-LENGTH_SIZE):
-        raise InstrumentDataException(
-            "Length of configuration datagram and number of bytes read do not match: length1: %s"
-            ", length2: %s, byte_cnt: %s. Possible file corruption or format incompatibility." %
-            (length1, length2, byte_cnt+LENGTH_SIZE))
-    byte_cnt += LENGTH_SIZE
-    filehandle.seek(byte_cnt)
-    return config_header, config_transducer
 
 
 
-def parse_echogram_file_wrapper(input_file_path, output_file_path=None):
+def parse_echogram_file_wrapper(input_file_path):   #), output_file_path=None):
     try:
-        return parse_echogram_file(input_file_path, output_file_path)
+        return parse_echogram_file(input_file_path)   #, output_file_path)
     except Exception as e:
         log.exception('Exception generating echogram')
         return e
 
 
-def parse_echogram_file(input_file_path, output_file_path=None):
+def parse_echogram_file(input_file_path):   #, output_file_path=None):
     """
     Parse the *.raw file.
     @param input_file_path absolute path/name to file to be parsed
-    @param output_file_path optional path to directory to write output
+    # @param output_file_path optional path to directory to write output
     If omitted outputs are written to path of input file
     """
-    print '%s  unpacking file: %s' % (datetime.now().strftime('%H:%M:%S'), input_file_path)
-    image_path = generate_image_file_path(input_file_path, output_file_path)
-    file_time = extract_file_time(input_file_path)
+    print '%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path)
+    # image_path = generate_image_file_path(input_file_path, output_file_path)
 
-    with open(input_file_path, 'rb') as input_file:
+    file_time = extract_file_time(input_file_path)  # time at file generation
+
+    with open(input_file_path, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
         config_header, config_transducer = read_header(input_file)
         transducer_count = config_header['transducer_count']
 
-        trans_keys = range(1, transducer_count+1)
-        frequencies = dict.fromkeys(trans_keys)       # transducer frequency
-        bin_size = None                               # transducer depth measurement
+        transducer_keys = range(1, transducer_count+1)
+        frequencies = dict.fromkeys(transducer_keys)       # transducer frequency
+        bin_size = None                                    # transducer depth measurement
 
         position = input_file.tell()
         particle_data = None
@@ -361,7 +461,7 @@ def parse_echogram_file(input_file_path, output_file_path=None):
 
         power_data_dict = {}
         data_times = []
-        #temperature = []   # Used to check temperature reading in .RAW file --> all identical for OOI data
+        temperature = []   # WJ: Used to check temperature reading in .RAW file --> all identical for OOI data
 
         # Read binary file a block at a time
         raw = input_file.read(BLOCK_SIZE)
@@ -378,26 +478,31 @@ def parse_echogram_file(input_file_path, output_file_path=None):
                 input_file.seek(position + match_start)
 
                 try:
-                    next_channel, next_time, next_sample, next_power = process_sample(input_file, transducer_count)
+                    next_channel, next_time, next_sample, next_power, next_angle = process_sample(input_file, transducer_count)
 
-                    if next_time != last_time:
+                    if next_time != last_time:  # WJ: next_time=last_time when it's the same ping but different channel
                         # Clear out our temporary dictionaries and set the last time to this time
                         sample_data_temp_dict = {}
                         power_data_temp_dict = {}
+                        angle_data_temp_dict = {}
                         last_time = next_time
 
                     # Store this data
                     sample_data_temp_dict[next_channel] = next_sample
                     power_data_temp_dict[next_channel] = next_power
+                    angle_data_temp_dict[next_channel] = next_angle
 
                     # Check if we have enough records to produce a new row of data
-                    if len(sample_data_temp_dict) == len(power_data_temp_dict) == transducer_count:
+                    # WJ: if yes this means that data from all transducer channels have been read for a particular ping
+                    # WJ: a new row of data means all data from one ping
+                    # WJ: if only 2 channels of data were received, they are not stored in the final power_data_dict
+                    if len(sample_data_temp_dict) == len(power_data_temp_dict) == len(angle_data_temp_dict) == transducer_count:
                         # if this is our first set of data, create our metadata particle and store
                         # the frequency / bin_size data
                         if not power_data_dict:
-                            relpath = generate_relative_file_path(image_path)
+                            # relpath = generate_relative_file_path(image_path)
                             first_ping_metadata = defaultdict(list)
-                            for channel, sample_data in sample_data_temp_dict.iteritems():
+                            for channel, sample_data in sample_data_temp_dict.items():
                                 append_metadata(first_ping_metadata, file_time, relpath,
                                                 channel, sample_data)
 
@@ -407,7 +512,7 @@ def parse_echogram_file(input_file_path, output_file_path=None):
                                 if bin_size is None:
                                     bin_size = sample_data['sound_velocity'] * sample_data['sample_interval'] / 2
 
-                            particle_data = first_ping_metadata, next_time
+                            #particle_data = first_ping_metadata, next_time  # WJ: probably don't need to append next_time here
                             power_data_dict = {channel: [] for channel in power_data_temp_dict}
 
                         # Save the time and power data for plotting
@@ -415,7 +520,7 @@ def parse_echogram_file(input_file_path, output_file_path=None):
                         for channel in power_data_temp_dict:
                             power_data_dict[channel].append(power_data_temp_dict[channel])
 
-                        # temperature.append(next_sample['temperature'])  # check temperature values from .RAW file: all identical for OOI data
+                        temperature.append(next_sample['temperature'])  # WJ: check temperature values from .RAW file: all identical for OOI data
 
                 except InvalidTransducer:
                     pass
@@ -435,13 +540,17 @@ def parse_echogram_file(input_file_path, output_file_path=None):
         # Convert to numpy array and decompress power data to dB
         # And then transpose power data
         for channel in power_data_dict:
-            power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * numpy.log10(2) / 256.
+            power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             power_data_dict[channel] = power_data_dict[channel].transpose()
 
-        return particle_data, data_times, power_data_dict, frequencies, bin_size, config_header, config_transducer
+        # WJ: Rename keys in power data to according to transducer frequency
+        for channel in power_data_dict:
+            power_data_dict[frequencies[channel]] = power_data_dict.pop(channel)
+
+        return first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, config_header, config_transducer
 
 
-    
+
 def power2Sv(power_data_dict,cal_params):
     """
     Get Sv values from the power data
@@ -512,5 +621,3 @@ def power2Sv(power_data_dict,cal_params):
         #     repmat(rangeCorrected, 1, pSize(2))) - CSv - Sac;
 
     return Sv
-
-
