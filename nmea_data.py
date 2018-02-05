@@ -15,7 +15,7 @@
 
 
 import numpy as np
-import pynmea2
+from . import pynmea2
 
 class nmea_data(object):
     '''
@@ -29,16 +29,18 @@ class nmea_data(object):
 
     def __init__(self):
 
-        #  store the raw NMEA datagrams by time to facilitate easier writing
+        #  create a counter to keep track of array sizes
+        self.n_raw = 0
+
+        #  create arrays to store raw NMEA data as well as times, talkers, and mesage IDs
         self.raw_datagrams = np.empty(nmea_data.CHUNK_SIZE, dtype=object)
-
-
-        #  we'll store the message time, talker ID, and message ID
-        self.nmea_times = np.empty(nmea_data.CHUNK_SIZE, dtype='datetime64[s]')
+        self.nmea_times = np.empty(nmea_data.CHUNK_SIZE, dtype='datetime64[ms]')
         self.talkers = np.empty(nmea_data.CHUNK_SIZE, dtype='S2')
         self.messages = np.empty(nmea_data.CHUNK_SIZE, dtype='S3')
 
-        self.n_raw = 0
+        #  create a couple of lists to store the unique talkers and message IDs
+        self.talker_ids = []
+        self.message_ids = []
 
         #  nmea_definitions define the NMEA message(s) and pynmea2.NMEASentence
         #  attributes of those messages that the NMEA interpolation routine will
@@ -49,21 +51,17 @@ class nmea_data(object):
         self.nmea_definitions = {}
 
         self.nmea_definitions['GGA'] = {'message':['GGA'],
-                                        'fields': {'latitude':'latitude',
-                                                   'longitude':'longitude'}}
+                                        'fields': ['latitude','longitude']}
         self.nmea_definitions['GLL'] = {'message':['GLL'],
-                                        'fields': {'latitude':'latitude',
-                                                   'longitude':'longitude'}}
+                                        'fields': ['latitude','longitude']}
         self.nmea_definitions['RMC'] = {'message':['RMC'],
-                                        'fields': {'latitude':'latitude',
-                                                   'longitude':'longitude'}}
+                                        'fields': ['latitude','longitude']}
         #  define the "position" meta-type. This meta-type covers all messages that
         #  contain latitude and longitude data.
         self.nmea_definitions['position'] = {'message':['GGA','GLL','RMC'],
-                                             'fields': {'latitude':'latitude',
-                                                        'longitude':'longitude'}}
+                                             'fields': ['latitude','longitude']}
         self.nmea_definitions['HDT'] = {'message':['HDT'],
-                                        'fields': {'heading_true':'heading_true'}}
+                                        'fields': ['heading_true']}
 
 
     def add_datagram(self, time, text):
@@ -71,32 +69,32 @@ class nmea_data(object):
         add_datagram adds a NMEA datagram to the class. It adds it to the raw_datagram
         list as well as parsing the header and adding the talker+mesage ID to the
         type_index dict.
-
-        time is a datetime object
-        text is a string containing the NMEA text
-
-        Like I said in my email, I would modify this to use numpy arrays. It will be
-        faster and easier to code. You will have to add code to manage the numpy array
-        sizes, resizing when needed and a "trim" method that is called when reading is
-        complete. You can follow the pattern in EK60.raw_data for this.
-
-
         '''
+
+        #  parse the message header
         header = str(text[1:6].upper())
 
         #  make sure we have a plausible header
         if header.isalpha() and len(header) == 5:
 
+            #  increment our counter
             self.n_raw += 1
 
             #  check if we need to resize our arrays
             if (self.n_raw > self.nmea_times.shape[0]):
                 self._resize_arrays(self.nmea_times.shape[0] + nmea_data.CHUNK_SIZE)
 
+            #  add this datagram and associated data to our data arrays
             self.raw_datagrams[self.n_raw-1] = text
             self.nmea_times[self.n_raw-1] = time
             self.talkers[self.n_raw-1] = header[0:2]
             self.messages[self.n_raw-1] = header[2:6]
+
+            #  add the talker and message ID to our list of unique talkers and messages
+            if (not header[0:2] in self.talker_ids):
+                self.talker_ids.append(header[0:2])
+            if (not header[2:5] in self.message_ids):
+                self.message_ids.append(header[2:5])
 
 
     def get_datagrams(self, message_types, start_time=None, end_time=None, talker_id=None,
@@ -106,6 +104,30 @@ class nmea_data(object):
         raw or parsed NMEA datagrams and their receive times. By default the datagrams will be
         parsed using the pynema2 library. If raw == True the raw datagram text will be returned.
 
+            message_types is a list of NMEA-0183 message types (e.g. 'GGA', 'GLL', 'RMC', 'HDT')
+            start_time is a datetime or datetime64 object defining the starting time of the data
+                    to return. If None, the start time is the earliest time.
+            end_time is a datetime or datetime64 object defining the ending time of the data
+                    to return. If None, the end time is the latest time.
+            talker_id can be set to a specfic prefix to limit data to a specific talker. For
+                    example, you could set it to "IN" to only get data from a POS-MV system.
+                    When set to None, the talker ID is ignored.
+            return_raw can be set to True to return raw strings, unparsed by the pynema2 package.
+                    If false, data is returned parsed.
+            return_fields can be set to a list of attribute names to extract from the parsed NMEA
+                    data. It is primarily intended to be used internaly, but could be useful in
+                    certain circumstances. If this keyword is set, the return dictionary will
+                    contain data from those attributes as a numpy array keyed by the field name.
+                    For example, if return_fields = ['latitude', 'longitude'] then the dict returned
+                    by this method would be in the form:
+
+                                {times:[numpy datetime64 array of NMEA datagram times],
+                                 latitude:[numpy float array of latitude values],
+                                 longitude:[numpy float array of longitude values]}
+
+                    The one major limitation with this is that currently it only returns numerical
+                    types. This can be extended to handle all types by parsing one of the datagrams
+                    and checking the types of the requested fields.
 
         '''
 
@@ -117,7 +139,7 @@ class nmea_data(object):
             talker_id = talker_id.upper()
 
         #  make sure the message_type is a list
-        if (isinstance(message_types, basestring)):
+        if (isinstance(message_types, str)):
             message_types = [message_types]
 
         for type in message_types:
@@ -143,11 +165,11 @@ class nmea_data(object):
             if (return_raw):
                 #  we're returing raw data - do not parse
                 if (n_messages > 0):
-                    datagrams[type] = {'times':self.nmea_times[return_idxs],
-                                       'raw_strings':self.raw_datagrams[return_idxs].copy()}
+                    datagrams[type] = {'time':self.nmea_times[return_idxs],
+                                       'raw_string':self.raw_datagrams[return_idxs].copy()}
                 else:
                     #  nothing to return
-                    datagrams[type] = {'times':None, 'raw_string':None}
+                    datagrams[type] = {'time':None, 'raw_string':None}
             else:
                 #  we're returning parsed data
                 if (n_messages > 0):
@@ -155,9 +177,14 @@ class nmea_data(object):
                         #  we're asked to return specific fields from the parsed nmea data
 
                         #  first build the return dict
-                        datagrams[type] = {'times':self.nmea_times[return_idxs]}
+                        datagrams[type] = {'time':self.nmea_times[return_idxs]}
+
+                        #  TODO: Work out setting the numpy type based on the data type of the parsed field
+                        #  parse one message so we can get the data types of the fields
+                        #msg_data = pynmea2.parse(self.raw_datagrams[return_idxs[0]], check=False)
+                        #  Need an if block here to set the numpy type based on the python type
                         for field in return_fields:
-                            datagrams[type][field] = np.empty(n_messages)
+                            datagrams[type][field] = np.empty(n_messages)#, dtype=??)
 
                         #  then parse the datagrams
                         for idx in range(n_messages):
@@ -190,38 +217,103 @@ class nmea_data(object):
                                 #  return None for bad datagrams
                                 msg_data[idx] = None
 
-                        datagrams[type] = {'times':self.nmea_times[return_idxs],
-                                          'nmea_objects':msg_data}
+                        datagrams[type] = {'time':self.nmea_times[return_idxs],
+                                           'nmea_object':msg_data}
                 else:
-                    #  nothing to return
-                    datagrams[type] = {'times':None, 'nmea_objects':None}
+                    #  nothing to return for this message type
+                    if (return_fields):
+                        #  return_fields are specified so create keys for the return fields
+                        datagrams[type] = {'time':None}
+                        for field in return_fields:
+                            datagrams[type][field] = None
+                    else:
+                        datagrams[type] = {'time':None, 'nmea_object':None}
 
         #  return the dictionary containing the requested message types
         return datagrams
 
 
-    def interpolate(self, p_data, message_type):
+    def interpolate(self, p_data, message_type, start_time=None, end_time=None, talker_id=None,
+            interp_fields=None):
         """
         interpolate returns the requested nmea data interpolated to the ping times
         that are present in the provided processed_data object.
+
+            p_data is a processed data object that contains the ping_time vector
+                to interpolate to.
+            message_type is a string containing the NMEA-0183 message type
+                e.g. 'GGA', 'GLL', 'RMC', 'HDT')
+            start_time is a datetime or datetime64 object defining the starting time of the data
+                to return. If None, the start time is the earliest time.
+            end_time is a datetime or datetime64 object defining the ending time of the data
+                    to return. If None, the end time is the latest time.
+            talker_id can be set to a specfic prefix to limit data to a specific talker. For
+                    example, you could set it to "IN" to only get data from a POS-MV system.
+                    When set to None, the talker ID is ignored.
+            interp_fields can be set to a list which defines the pynema2 attributes that will
+                    be interpolated. This is only required if a message_type is requested that
+                    isn't pre-defined in our internal nmea_definitions dictionary.
+
         """
 
         #  make sure the message_type is NOT a list
         if (isinstance(message_type, list)):
             raise TypeError("The NMEA message type must be a string, not a list")
 
+        #  check if we know how to interpolate this type
         if (message_type in self.nmea_definitions.keys()):
-            #  we know how to handle this NMEA message type
-            pass
-
-
+            #  we know how to handle this NMEA message type - get the messages and fields we're operating on
+            interp_messages = self.nmea_definitions[message_type]['message']
+            interp_fields = self.nmea_definitions[message_type]['fields']
         else:
-            raise ValueError("The provided NMEA message type " + str(message_type) +
+            #  this message type is not pre-defined, check if we've been told what fields to interp
+            if (interp_fields):
+                interp_messages = [message_type]
+            else:
+                #  we don't know what to do this this datagram type
+                raise ValueError("The provided NMEA message type " + str(message_type) +
                     " is unknown to the interpolation method.")
 
-        pass
+        #  now extract the NMEA data we need to interpolate
+        message_data = self.get_datagrams(interp_messages, start_time=start_time,
+                end_time=end_time, talker_id=talker_id, return_fields=interp_fields)
 
+        #  create the dictionary to return
+        out_data = {}
+        for field in interp_fields:
+            #  set the interpolated fields to NaNs
+            out_data[field] = np.empty(p_data.ping_time.shape)
+            out_data[field][:] = np.nan
 
+        #  work through the returned message types. If a meta-type is specified we will have
+        #  multiple types that may or may not contain data. If a specific message type was
+        #  specified we should only have one.
+        for type in message_data:
+            #  check if we have any data for this message type
+            if (message_data[type]['time'] is not None):
+                #  work through the fields we're interpolating
+                for field in interp_fields:
+                    #  interpolate
+                    i_field = np.interp(p_data.ping_time.astype('d'), message_data[type]['time'].astype('d'),
+                                message_data[type][field], left=np.nan, right=np.nan)
+
+                    #  since it is possible that one type does not cover the entire output range,
+                    #  we determine where data is missing and attempt to fill it. First we find
+                    #  what we're missing
+                    out_nans = np.isnan(out_data[field])
+
+                    #  and then we determine what data we have from this type
+                    this_nans = np.isfinite(i_field)
+
+                    #  logical_and these to determine what to fill in the output type
+                    insert_idx = np.logical_and(out_nans,this_nans)
+
+                    #  and fill the missing fields
+                    out_data[field][insert_idx] = i_field[insert_idx]
+
+        #  insert or update the interpolated fields as attributes in the processed data object
+        for field in interp_fields:
+            p_data.add_attribute(field, out_data[field])
 
 
     def _get_indices(self, start_time, end_time, time_order=True):
@@ -257,13 +349,32 @@ class nmea_data(object):
         self.messages = np.resize(self.messages,(new_size))
 
 
-    def _trim(self):
+    def trim(self):
         """
-        _trim_arrays is called when one is done adding data to the object. It
+        trim is called when one is done adding data to the object. It
         removes empty elements of the data arrays.
         """
 
-        self.nmea_times = np.resize(self.nmea_times,(self.n_raw))
-        self.raw_datagrams = np.resize(self.raw_datagrams,(self.n_raw))
-        self.talkers = np.resize(self.talkers,(self.n_raw))
-        self.messages = np.resize(self.messages,(self.n_raw))
+        self._resize_arrays(self.n_raw)
+
+
+    def __str__(self):
+        '''
+        reimplemented string method that provides some basic info about the nmea_data object
+        '''
+
+        #  print the class and address
+        msg = str(self.__class__) + " at " + str(hex(id(self))) + "\n"
+
+        #  print some more info about the nmea_data instance
+        if (self.n_raw > 0):
+            msg = msg + "      NMEA data start time: " + str(self.nmea_times[0])+ "\n"
+            msg = msg + "        NMEA data end time: " + str(self.nmea_times[self.n_raw-1])+ "\n"
+            msg = msg + "  number of NMEA datagrams: " + str(self.n_raw)+ "\n"
+            msg = msg + "         unique talker IDs: " + ','.join(self.talker_ids)+ "\n"
+            msg = msg + "        unique message IDs: " + ','.join(self.message_ids)+ "\n"
+            #  TODO: add reporting of numbers of individual messag IDs
+        else:
+            msg = msg + ("  nmea_data object contains no data\n")
+
+        return msg
