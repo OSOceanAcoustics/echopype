@@ -279,7 +279,7 @@ class EK60(object):
         #  trim excess data from arrays after reading
         for channel_id in self.channel_ids:
             self.raw_data[channel_id].trim()
-        self.nmea_data._trim()
+        self.nmea_data.trim()
 
 
     def _read_datagrams(self, fid, incremental):
@@ -1393,7 +1393,7 @@ class raw_data(sample_data):
         #  all other data properties are numpy arrays
 
         #  first, create uninitialized arrays
-        self.ping_time = np.empty((n_pings), dtype='datetime64[s]')
+        self.ping_time = np.empty((n_pings), dtype='datetime64[ms]')
         self.ping_number = np.empty((n_pings), np.int32)
         self.transducer_depth = np.empty((n_pings), np.float32)
         self.frequency = np.empty((n_pings), np.float32)
