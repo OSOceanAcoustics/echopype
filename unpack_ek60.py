@@ -1,3 +1,19 @@
+"""
+Functions to unpack Simrad EK60 .raw files
+Modification from original source cited below included:
+- python 3.6 compatibility
+- stripped off mi-instrument dependency to make the code standalone
+
+To be added:
+- need a generic .raw filename parser
+- restore logging function
+- restore exception handler
+
+Original parser code sources was from:
+oceanobservatories/mi-instrument @https://github.com/oceanobservatories/mi-instrument
+Original author Ronald Ronquillo & Richard Han
+
+"""
 
 
 from collections import defaultdict
