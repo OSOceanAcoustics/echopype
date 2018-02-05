@@ -22,7 +22,7 @@ import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
 from ..sample_data import sample_data
 from ..processing import processed_data
-#from .util.nmea_data import NMEAData
+from .util.nmea_data import nmea_data
 
 log = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class EK60(object):
         self.raw_data = {}
 
         #  create a dictionary to store the NMEA object
-        #self.nmea_data = NMEAData()
+        self.nmea_data = nmea_data()
 
         #  Define the class's "private" properties. These should not be generally be directly
         #  manipulated by the user.
@@ -276,9 +276,10 @@ class EK60(object):
                 #  increment the file read counter
                 n_files += 1
 
-        #  trim excess data from arrays after reading and compress calibration arrays
+        #  trim excess data from arrays after reading
         for channel_id in self.channel_ids:
             self.raw_data[channel_id].trim()
+        self.nmea_data._trim()
 
 
     def _read_datagrams(self, fid, incremental):
@@ -363,8 +364,7 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
-                pass
-            #  self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+                self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
@@ -708,7 +708,6 @@ class raw_data(sample_data):
         if (sample_datagram['mode'] != 2) and (self.store_power):
 
             #  get the subset of samples we're storing
-
             power = sample_datagram['power'][start_sample:self.sample_count[this_ping]]
 
             #  convert the indexed power data to power dB
