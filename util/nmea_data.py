@@ -58,7 +58,7 @@ class nmea_data(object):
                                         'fields': ['latitude','longitude']}
         #  define the "position" meta-type. This meta-type covers all messages that
         #  contain latitude and longitude data.
-        self.nmea_definitions['position'] = {'message':['GGA','GLL','RMC'],
+        self.nmea_definitions['position'] = {'message':['GGA','RMC','GLL'],
                                              'fields': ['latitude','longitude']}
         self.nmea_definitions['HDT'] = {'message':['HDT'],
                                         'fields': ['heading_true']}
@@ -285,10 +285,24 @@ class nmea_data(object):
             out_data[field] = np.empty(p_data.ping_time.shape)
             out_data[field][:] = np.nan
 
-        #  work through the returned message types. If a meta-type is specified we will have
+
+        #  determine the message types
+        message_types = message_data.keys()
+
+        #  if we find the GLL message type we are going to move it to the end of the list
+        #  since it stores position data with less precision compared to GGA and RMC. Putting
+        #  it at the end of the list will ensure that data from GLL datagrams will only be
+        #  used as a last resort when no other data is available.
+        try:
+            message_types.append(message_types.pop(message_types.index('GLL')))
+        except:
+            #  GLL datagram not in message types
+            pass
+
+        #  Now work through the message types. If a meta-type is specified we will have
         #  multiple types that may or may not contain data. If a specific message type was
         #  specified we should only have one.
-        for type in message_data:
+        for type in message_types:
             #  check if we have any data for this message type
             if (message_data[type]['time'] is not None):
                 #  work through the fields we're interpolating
