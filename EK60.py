@@ -595,7 +595,8 @@ class raw_data(sample_data):
             if self.max_sample_number:
                 number_samples = self.max_sample_number
             else:
-                number_samples = len(sample_datagram['power'])
+                number_samples = max(sample_datagram['angle'].shape[0],
+                        sample_datagram['power'].shape[0])
             #  create the initial data arrays
             self._create_arrays(self.chunk_width, number_samples)
 
@@ -642,7 +643,6 @@ class raw_data(sample_data):
             #  determine if we resize
             if (ping_resize or sample_resize):
                 #  resize the data arrays
-                #data_transforms.resize_arrays(self, ping_dims, sample_dims)
                 self._resize_arrays(ping_dims, sample_dims)
 
             #  get an index into the data arrays for this ping and increment our ping counter
@@ -659,8 +659,8 @@ class raw_data(sample_data):
                 #  roll our array 1 ping
                 self._roll_arrays(1)
 
-        #  append the ChannelMetadata object reference for this ping
-        self.channel_metadata.append(self.current_metadata)
+        #  insert the ChannelMetadata object reference for this ping
+        self.channel_metadata[this_ping] = self.current_metadata
 
         #  update the ChannelMetadata object with this ping number and time
         self.current_metadata.end_ping = self.n_pings
@@ -714,7 +714,7 @@ class raw_data(sample_data):
             power = power.astype(self.sample_dtype) * self.INDEX2POWER
 
             #  check if we need to pad or trim our sample data
-            sample_pad = max_data_samples - power.shape[0]
+            sample_pad = sample_dims - power.shape[0]
             if (sample_pad > 0):
                 #  the data array has more samples than this datagram - we need to pad the datagram
                 self.power[this_ping,:] = np.pad(power,(0,sample_pad),
@@ -738,7 +738,7 @@ class raw_data(sample_data):
             athwartship_e = athwartship_e.astype(self.sample_dtype) * self.INDEX2ELEC
 
             #  check if we need to pad or trim our sample data
-            sample_pad = max_data_samples - athwartship_e.shape[0]
+            sample_pad = sample_dims - athwartship_e.shape[0]
             if (sample_pad > 0):
                 #  the data array has more samples than this datagram - we need to pad the datagram
                 self.angles_alongship_e[this_ping,:] = np.pad(alongship_e,(0,sample_pad),
@@ -1294,11 +1294,11 @@ class raw_data(sample_data):
                         " must be an ndarray or scalar float.")
         else:
             #  Parameter is not provided in the calibration object, copy it from the raw data.
-            #  Calibration parameters are found directly in the RawData object and they are
-            #  in the channel_metadata objects. If we don't find it directly in RawData then
+            #  Calibration parameters are found directly in the raw_data object and they are
+            #  in the channel_metadata objects. If we don't find it directly in raw_data then
             #  we need to fish it out of the channel_metadata objects.
             try:
-                #  first check if this parameter is a direct property in RawData
+                #  first check if this parameter is a direct property in raw_data
                 self_param = getattr(self, param_name)
                 #  it is - return a view of the subset of data we're interested in
                 param_data = self_param[return_indices]
@@ -1351,12 +1351,9 @@ class raw_data(sample_data):
             data[1:,:] = temp_view
             data[0,:] = temp_copy
 
-        #  roll our two lists
-        #self.ping_time.append(self.ping_time.pop(0))
-        self.channel_metadata.append(self.channel_metadata.pop(0))
-
         #  roll the numpy arrays
         self.ping_time = np.roll(self.ping_time, roll_pings)
+        self.channel_metadata = np.roll(self.channel_metadata, roll_pings)
         self.ping_number = np.roll(self.ping_number, roll_pings)
         self.transducer_depth = np.roll(self.transducer_depth, roll_pings)
         self.frequency = np.roll(self.frequency, roll_pings)
@@ -1383,17 +1380,13 @@ class raw_data(sample_data):
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
         """
-        _create_arrays is an internal method that initializes the RawData data arrays.
+        _create_arrays is an internal method that initializes the raw_data data arrays.
+        Note that all "data" arrays must be numpy arrays.
         """
-
-        #  ping_time and channel_metadata are lists
-        #self.ping_time = []
-        self.channel_metadata = []
-
-        #  all other data properties are numpy arrays
 
         #  first, create uninitialized arrays
         self.ping_time = np.empty((n_pings), dtype='datetime64[ms]')
+        self.channel_metadata = np.empty((n_pings), dtype='object')
         self.ping_number = np.empty((n_pings), np.int32)
         self.transducer_depth = np.empty((n_pings), np.float32)
         self.frequency = np.empty((n_pings), np.float32)
@@ -1422,7 +1415,9 @@ class raw_data(sample_data):
 
         #  check if we should initialize them
         if (initialize):
-            self.ping_time.fill(datetime.datetime('1970','1','1'))
+            #  filling datetime64 arrays with NaN results in NaT (not a time)
+            self.ping_time.fill(np.nan)
+            #  channel_metadata is initialized when using np.empty
             self.ping_number.fill(0)
             self.transducer_depth.fill(np.nan)
             self.frequency.fill(np.nan)
@@ -1449,7 +1444,7 @@ class raw_data(sample_data):
 
     def __str__(self):
         """
-        reimplemented string method that provides some basic info about the RawData object
+        reimplemented string method that provides some basic info about the raw_data object
         """
 
         #  print the class and address
@@ -1488,7 +1483,7 @@ class ChannelMetadata(object):
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
-    References to instances of these objects are stored in RawfileData
+    References to instances of these objects are stored in the raw_data class.
 
     """
 
