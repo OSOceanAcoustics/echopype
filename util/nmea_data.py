@@ -56,12 +56,19 @@ class nmea_data(object):
                                         'fields': ['latitude','longitude']}
         self.nmea_definitions['RMC'] = {'message':['RMC'],
                                         'fields': ['latitude','longitude']}
-        #  define the "position" meta-type. This meta-type covers all messages that
-        #  contain latitude and longitude data.
-        self.nmea_definitions['position'] = {'message':['GGA','RMC','GLL'],
-                                             'fields': ['latitude','longitude']}
         self.nmea_definitions['HDT'] = {'message':['HDT'],
                                         'fields': ['heading_true']}
+        self.nmea_definitions['VTG'] = {'message':['VTG'],
+                                        'fields': ['true_track', 'spd_over_grnd_kts']}
+        #  define some meta-types
+        self.nmea_definitions['position'] = {'message':['GGA','RMC','GLL'],
+                                             'fields': ['latitude','longitude']}
+        self.nmea_definitions['speed']    = {'message':['VTG'],
+                                             'fields': ['spd_over_grnd_kts']}
+        self.nmea_definitions['attitude'] = {'message':['SHR'],
+                                             'fields': ['heave','pitch','roll']}
+        self.nmea_definitions['distance'] = {'message':['VLW'],
+                                             'fields': ['trip_distance_nmi']}
 
 
     def add_datagram(self, time, text):
@@ -218,7 +225,7 @@ class nmea_data(object):
                                 msg_data[idx] = None
 
                         datagrams[type] = {'time':self.nmea_times[return_idxs],
-                                           'nmea_object':msg_data}
+                                           'data':msg_data}
                 else:
                     #  nothing to return for this message type
                     if (return_fields):
@@ -227,7 +234,7 @@ class nmea_data(object):
                         for field in return_fields:
                             datagrams[type][field] = None
                     else:
-                        datagrams[type] = {'time':None, 'nmea_object':None}
+                        datagrams[type] = {'time':None, 'data':None}
 
         #  return the dictionary containing the requested message types
         return datagrams
@@ -319,7 +326,7 @@ class nmea_data(object):
                     #  and then we determine what data we have from this type
                     this_nans = np.isfinite(i_field)
 
-                    #  logical_and these to determine what to fill in the output type
+                    #  logical_and these to determine what to fill in the output
                     insert_idx = np.logical_and(out_nans,this_nans)
 
                     #  and fill the missing fields
