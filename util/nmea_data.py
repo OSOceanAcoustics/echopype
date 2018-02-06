@@ -35,8 +35,8 @@ class nmea_data(object):
         #  create arrays to store raw NMEA data as well as times, talkers, and mesage IDs
         self.raw_datagrams = np.empty(nmea_data.CHUNK_SIZE, dtype=object)
         self.nmea_times = np.empty(nmea_data.CHUNK_SIZE, dtype='datetime64[ms]')
-        self.talkers = np.empty(nmea_data.CHUNK_SIZE, dtype='S2')
-        self.messages = np.empty(nmea_data.CHUNK_SIZE, dtype='S3')
+        self.talkers = np.empty(nmea_data.CHUNK_SIZE, dtype='U2')
+        self.messages = np.empty(nmea_data.CHUNK_SIZE, dtype='U3')
 
         #  create a couple of lists to store the unique talkers and message IDs
         self.talker_ids = []

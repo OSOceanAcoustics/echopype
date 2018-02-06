@@ -330,10 +330,16 @@ class SimradAnnotationParser(_SimradDatagramParser):
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
 
+#        if version == 0:
+#            data['text'] = raw_string[self.header_size(version):].strip('\x00')
+#            if isinstance(data['text'], bytes):
+#                data['text'] = data['text'].decode()
+
         if version == 0:
-            data['text'] = raw_string[self.header_size(version):].strip('\x00')
-            if isinstance(data['text'], bytes):
-                data['text'] = data['text'].decode()
+            if (sys.version_info.major > 2):
+                data['text'] = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
+            else:
+                data['text'] = unicode(raw_string[self.header_size(version):].strip('\x00'), 'ascii', errors='replace')
 
         return data
 
@@ -390,10 +396,10 @@ class SimradNMEAParser(_SimradDatagramParser):
 
     def __init__(self):
         headers = {0: [('type', '4s'),
-                     ('low_date', 'L'),
-                     ('high_date', 'L')
-                     ]
-                }
+                             ('low_date', 'L'),
+                             ('high_date', 'L')
+                            ]
+                        }
 
         _SimradDatagramParser.__init__(self, "NME", headers)
 
@@ -423,7 +429,6 @@ class SimradNMEAParser(_SimradDatagramParser):
                 data['nmea_string'] = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
             else:
                 data['nmea_string'] = unicode(raw_string[self.header_size(version):].strip('\x00'), 'ascii', errors='replace')
-
 
             if self.nmea_head_re.match(data['nmea_string'][:7]) is not None:
                 data['nmea_talker'] = data['nmea_string'][1:3]
