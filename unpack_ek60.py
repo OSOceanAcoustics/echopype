@@ -21,6 +21,7 @@ from struct import unpack_from, unpack
 import numpy as np
 import os
 import re
+import h5py
 from datetime import datetime as dt
 from matplotlib.dates import date2num
 from base_def import BaseEnum
@@ -455,7 +456,7 @@ def raw2hdf5_initiate(raw_file_path,h5_file_path):
     '''
     # Unpack raw into memory
     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
-        config_header, config_transducer = unpack_ek60_raw(input_file_path)
+        config_header, config_transducer = load_ek60_raw(raw_file_path)
 
     # Check if input dimension makes sense, if not abort
     sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
