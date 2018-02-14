@@ -327,7 +327,7 @@ def append_metadata(metadata, file_time, channel, sample_data):
     return metadata
 
 
-def parse_echogram_file(input_file_path):   #, output_file_path=None):
+def load_ek60_raw(input_file_path):   #, output_file_path=None):
     """
     Parse the *.raw file.
     @param input_file_path absolute path/name to file to be parsed
@@ -440,6 +440,99 @@ def parse_echogram_file(input_file_path):   #, output_file_path=None):
 
         # WJ: Rename keys in power data to according to transducer frequency
         for channel in power_data_dict:
-            power_data_dict[frequencies[channel]] = power_data_dict.pop(channel)
+            power_data_dict[str(frequencies[channel])] = power_data_dict.pop(channel)
 
         return first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, config_header, config_transducer
+
+
+
+def raw2hdf5_initiate(raw_file_path,h5_file_path):
+    '''
+    Unpack EK60 .raw files and save to an hdf5 files
+    INPUT:
+        fname      file to be unpacked
+        h5_fname   hdf5 file to be written in to
+    '''
+    # Unpack raw into memory
+    first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
+        config_header, config_transducer = unpack_ek60_raw(input_file_path)
+
+    # Check if input dimension makes sense, if not abort
+    sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
+    for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
+        f_str = str(frequencies[f])
+        sz_power_data[cnt,:] = power_data_dict[f_str].shape
+    if np.unique(sz_power_data).shape[0]!=2:
+        print('Raw file has mismatched number of pings across channels')
+        # break
+
+    # Open new hdf5 file
+    h5_file = h5py.File(h5_file_path,'x')  # create file, fail if exists
+
+    # Store data
+    # -- ping time: resizable
+    h5_file.create_dataset('ping_time', (sz_power_data[0,1],), \
+                    maxshape=(None,), data=data_times, chunks=True)
+
+    # -- power data: resizable
+    for f in frequencies.values():
+        h5_file.create_dataset('power_data/%s' % str(f), sz_power_data[0,:], \
+                    maxshape=(sz_power_data[0,0],None), data=power_data_dict[str(f)], chunks=True)
+
+    # -- metadata: fixed sized
+    dt = h5py.special_dtype(vlen=str)
+    h5_file.create_dataset('metadata/bin_size', data=bin_size)
+    for m,mval in first_ping_metadata.items():
+        save_metadata(mval,'metadata',m,h5_file)
+
+    # -- header: fixed sized
+    for m,mval in config_header.items():
+        save_metadata(mval,'header',m,h5_file)
+
+    # -- transducer: fixed sized
+    for tx in range(len(config_transducer)):
+        for m,mval in config_transducer[tx].items():
+            # when a string
+            if type(config_transducer[tx][m])==str:
+                h5_file.create_dataset('transducer%02d/%s' % (tx,m), (1,), data=mval, dtype=h5py.special_dtype(vlen=str))
+            # when only 1 int or float object
+            elif type(config_transducer[tx][m])==int or type(config_transducer[tx][m])==float:
+                h5_file.create_dataset('transducer%02d/%s' % (tx,m), (1,), data=mval)
+            else:
+                h5_file.create_dataset('transducer%02d/%s' % (tx,m), data=mval)
+
+    # Close hdf5 file
+    h5_file.close()
+
+
+
+def save_metadata(val,group_info,data_name,fh):
+    '''
+    Check data type and save to hdf5.
+
+    val          data to be saved
+    group_info   a string (group name, e.g., header) or
+                 a list (group name and sequence number, e.g., [tranducer, 1]).
+    data_name    name of data set under group
+    fh           handle of the file to be saved to
+    '''
+    if type(group_info)==str:  # no sequence in group_info
+        # when data is a string
+        if type(val)==str or type(val)==bytes:
+            fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+        # when data is only 1 int or float object
+        elif type(val)==int or type(val)==float:
+            fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val)
+        else:  # when data is numerical
+            fh.create_dataset('%s/%s' % (group_info,data_name), data=val)
+
+    elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
+        # when a string
+        if type(config_transducer[tx][m])==str:
+            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name),\
+                              (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+        # when only 1 int or float object
+        elif type(config_transducer[tx][m])==int or type(config_transducer[tx][m])==float:
+            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), (1,), data=val)
+        else:  # when data is numerical
+            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), data=val)
