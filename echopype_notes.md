@@ -1,4 +1,4 @@
-## 2018/02/03
+## 2018/02/03-04
 - Things to be changed in zplsc_b.py
     - make a new generic filename matcher to get file date and time
     - use default logging module to replace call to `log`
