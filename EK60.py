@@ -617,7 +617,7 @@ class raw_data(sample_data):
             sample_datagram['power'] = sample_datagram['power'][0:self.max_sample_number]
 
         #  create 2 variables to store our current array size
-        ping_dims = self.ping_number.size
+        ping_dims = self.ping_time.size
         sample_dims = max_data_samples
 
         #  check if we need to re-size or roll our data arrays
@@ -668,7 +668,6 @@ class raw_data(sample_data):
 
         #  now insert the data into our numpy arrays
         self.ping_time[this_ping] = sample_datagram['timestamp']
-        self.ping_number[this_ping] = self.n_pings
         self.transducer_depth[this_ping] = sample_datagram['transducer_depth']
         self.frequency[this_ping] = sample_datagram['frequency']
         self.transmit_power[this_ping] = sample_datagram['transmit_power']
@@ -805,7 +804,7 @@ class raw_data(sample_data):
         p_data = self.get_power(calibration=calibration, **kwargs)
 
         #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
+        return_indices = p_data.ping_time.shape[0] - 1
 
         if (linear):
             attribute_name = 'sv'
@@ -857,7 +856,7 @@ class raw_data(sample_data):
         p_data = self.get_power(calibration=calibration, **kwargs)
 
         #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
+        return_indices = p_data.ping_time.shape[0] - 1
 
         if (linear):
             attribute_name = 'sp'
@@ -892,7 +891,7 @@ class raw_data(sample_data):
         p_data = self.get_electrical_angles(calibration=calibration, **kwargs)
 
         #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
+        return_indices = p_data.ping_time.shape[0] - 1
 
         #  get the calibration params required for angle conversion
         cal_parms = {'angle_sensitivity_alongship':None,
@@ -998,7 +997,7 @@ class raw_data(sample_data):
 
             #  when inserting into a processed_data object we ignore the start/end arguments and
             #  extract the same indices as the data in the object we are inserting into
-            return_indices = _insert_into.ping_number - 1
+            return_indices = _insert_into.ping_time.shape[0] - 1
 
             #  we're inserting so we just copy the reference to the object and set the inserting flag
             p_data = _insert_into
@@ -1007,7 +1006,7 @@ class raw_data(sample_data):
         else:
             #  check if the user supplied an explicit list of indices to return
             if isinstance(return_indices, np.ndarray):
-                if max(return_indices) > self.ping_number.shape[0]:
+                if max(return_indices) > self.ping_time.shape[0]:
                     raise ValueError("One or more of the return indices provided exceeds the " +
                             "number of pings in the raw_data object")
             else:
@@ -1019,7 +1018,6 @@ class raw_data(sample_data):
 
             #  populate it with time and ping number
             p_data.ping_time = self.ping_time[return_indices].copy()
-            p_data.ping_number = self.ping_number[return_indices].copy()
 
             #  unset the inserting flag
             inserting = False
@@ -1221,7 +1219,7 @@ class raw_data(sample_data):
 
         #  generate a vector of return indices used to extract heave and draft data if not
         #  explicitly provided in the calibration data
-        return_indices = p_data.ping_number - 1
+        return_indices = p_data.ping_time.shape[0] - 1
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -1252,7 +1250,7 @@ class raw_data(sample_data):
             If the user has provided a 1D array the length of return_indices it will return
             that array without modification.
 
-            If the user has provided a 1D array the length of self.ping_number, it will
+            If the user has provided a 1D array the length of self.ping_time, it will
             return a 1D array the length of return_indices that is the subset of this data
             defined by the return_indices index array.
 
@@ -1273,7 +1271,7 @@ class raw_data(sample_data):
                     param_data = np.empty((return_indices.shape[0]), dtype=dtype)
                     param_data.fill(param)
                 #  check if it is an array the same length as contained in the raw data
-                elif (param.shape[0] == self.ping_number.shape[0]):
+                elif (param.shape[0] == self.ping_time.shape[0]):
                     #  cal params provided as full length array, get the selection subset
                     param_data = param[return_indices]
                 #  check if it is an array the same length as return_indices
@@ -1354,7 +1352,6 @@ class raw_data(sample_data):
         #  roll the numpy arrays
         self.ping_time = np.roll(self.ping_time, roll_pings)
         self.channel_metadata = np.roll(self.channel_metadata, roll_pings)
-        self.ping_number = np.roll(self.ping_number, roll_pings)
         self.transducer_depth = np.roll(self.transducer_depth, roll_pings)
         self.frequency = np.roll(self.frequency, roll_pings)
         self.transmit_power = np.roll(self.transmit_power, roll_pings)
@@ -1387,7 +1384,6 @@ class raw_data(sample_data):
         #  first, create uninitialized arrays
         self.ping_time = np.empty((n_pings), dtype='datetime64[ms]')
         self.channel_metadata = np.empty((n_pings), dtype='object')
-        self.ping_number = np.empty((n_pings), np.int32)
         self.transducer_depth = np.empty((n_pings), np.float32)
         self.frequency = np.empty((n_pings), np.float32)
         self.transmit_power = np.empty((n_pings), np.float32)
@@ -1418,7 +1414,6 @@ class raw_data(sample_data):
             #  filling datetime64 arrays with NaN results in NaT (not a time)
             self.ping_time.fill(np.nan)
             #  channel_metadata is initialized when using np.empty
-            self.ping_number.fill(0)
             self.transducer_depth.fill(np.nan)
             self.frequency.fill(np.nan)
             self.transmit_power.fill(np.nan)
