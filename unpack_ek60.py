@@ -520,8 +520,26 @@ def raw2hdf5_concat(raw_file_path,h5_file_path):
         print('Raw file has mismatched number of pings across channels')
         # break
 
-    # Check if all metadata field matches, if not, print info and abort
+    # Open existing files
+    fh = h5py.File(h5_file_path, 'r+')
 
+    # Check if all metadata field matches, if not, print info and abort
+    flag = check_metadata('header',config_header,fh) and \
+           check_metadata('metadata',first_ping_metadata,fh) and \
+           check_metadata('transducer00',config_transducer[0],fh) and \
+           check_metadata('transducer01',config_transducer[1],fh) and \
+           check_metadata('transducer02',config_transducer[2],fh)
+
+    # Concatenating newly unpacked data into HDF5 file
+    for f in fh['power_data'].keys():
+        sz_exist = fh['power_data/'+f].shape  # shape of existing power_data mtx
+        fh['power_data/'+f].resize((sz_exist[0],sz_exist[1]+sz_power_data[0,1]))
+        fh['power_data/'+f][:,sz_exist[1]:] = power_data_dict[str(f)]
+    fh['ping_time'].resize((sz_exist[1]+sz_power_data[0,1],))
+    fh['ping_time'][sz_exist[1]:] = data_times
+
+    # Close file
+    fh.close()
 
 
 
