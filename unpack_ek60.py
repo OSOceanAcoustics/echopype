@@ -493,18 +493,55 @@ def raw2hdf5_initiate(raw_file_path,h5_file_path):
     # -- transducer: fixed sized
     for tx in range(len(config_transducer)):
         for m,mval in config_transducer[tx].items():
-            # when a string
-            if type(config_transducer[tx][m])==str:
-                h5_file.create_dataset('transducer%02d/%s' % (tx,m), (1,), data=mval, dtype=h5py.special_dtype(vlen=str))
-            # when only 1 int or float object
-            elif type(config_transducer[tx][m])==int or type(config_transducer[tx][m])==float:
-                h5_file.create_dataset('transducer%02d/%s' % (tx,m), (1,), data=mval)
-            else:
-                h5_file.create_dataset('transducer%02d/%s' % (tx,m), data=mval)
+            save_metadata(mval,['transducer',tx],m,h5_file)
 
     # Close hdf5 file
     h5_file.close()
 
+
+
+def raw2hdf5_concat(raw_file_path,h5_file_path):
+    '''
+    Unpack EK60 .raw files and concatenate to an existing hdf5 files
+    INPUT:
+        fname      file to be unpacked
+        h5_fname   hdf5 file to be concatenated to
+    '''
+    # Unpack raw into memory
+    first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
+        config_header, config_transducer = load_ek60_raw(raw_file_path)
+
+    # Check if input dimension makes sense, if not abort
+    sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
+    for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
+        f_str = str(frequencies[f])
+        sz_power_data[cnt,:] = power_data_dict[f_str].shape
+    if np.unique(sz_power_data).shape[0]!=2:
+        print('Raw file has mismatched number of pings across channels')
+        # break
+
+    # Check if all metadata field matches, if not, print info and abort
+
+
+
+
+def check_metadata(group_name,dict_name,fh):
+    '''
+    Check if all metadata matches
+
+    group_name   name of group in hdf5 file
+    dict_name    name of dictionary from unpacked .raw file
+    '''
+    flag = []
+    for p in fh[group_name].keys():
+        if isinstance(fh[group_name][p][0],(str,bytes)):
+            if type(dict_name[p])==bytes:
+                flag.append(str(dict_name[p], 'utf-8') == fh[group_name][p][0])
+            else:
+                flag.append(dict_name[p] == fh[group_name][p][0])
+        elif isinstance(fh[group_name][p][0],(np.generic,np.ndarray,int,float)):
+            flag.append(any(dict_name[p]==fh[group_name][p][:]))
+    return any(flag)
 
 
 def save_metadata(val,group_info,data_name,fh):
@@ -529,11 +566,11 @@ def save_metadata(val,group_info,data_name,fh):
 
     elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
         # when a string
-        if type(config_transducer[tx][m])==str:
+        if type(val)==str or type(val)==bytes:
             fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name),\
                               (1,), data=val, dtype=h5py.special_dtype(vlen=str))
         # when only 1 int or float object
-        elif type(config_transducer[tx][m])==int or type(config_transducer[tx][m])==float:
+        elif type(val)==int or type(val)==float:
             fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), (1,), data=val)
         else:  # when data is numerical
             fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), data=val)
