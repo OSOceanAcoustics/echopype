@@ -18,10 +18,10 @@ def main():
     args = parser.parse_args()
 
     for cnt,f in zip(range(len(args.input_file)),args.input_file):
-        if not(os.path.isfile(f)) or cnt==0:
+        if not(os.path.isfile(f)) and cnt==0:
             raw2hdf5_initiate(f,args.output_file[0])
         else:
             raw2hdf5_concat(f,args.output_file[0])
-    
+
 if __name__ == '__main__':
     main()
