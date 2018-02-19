@@ -481,7 +481,6 @@ def raw2hdf5_initiate(raw_file_path,h5_file_path):
                     maxshape=(sz_power_data[0,0],None), data=power_data_dict[str(f)], chunks=True)
 
     # -- metadata: fixed sized
-    dt = h5py.special_dtype(vlen=str)
     h5_file.create_dataset('metadata/bin_size', data=bin_size)
     for m,mval in first_ping_metadata.items():
         save_metadata(mval,'metadata',m,h5_file)
