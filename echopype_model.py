@@ -13,6 +13,7 @@ import os
 import datetime as dt
 from collections import defaultdict
 from matplotlib.dates import date2num
+from unpack_ek60 import save_metadata
 
 
 class EchoDataRaw(object):
@@ -331,8 +332,8 @@ class EchoDataRaw(object):
         #              tvg_correction_factor, raw HDF5 filepath
         for freq_str,vals in self.cal_params.items():  # loop through all freq
             for m,mval in vals.items():  # loop through all cal_params in each freq
-                self.save_metadata(val=mval,group_info=['cal_params',freq_str],\
-                                   data_name=m,fh=MVBS_hdf5_handle)
+                save_metadata(val=mval,group_info=['cal_params',freq_str],\
+                              data_name=m,fh=MVBS_hdf5_handle)
         MVBS_hdf5_handle.create_dataset('metadata/ping_bin', data=self.ping_bin)
         MVBS_hdf5_handle.create_dataset('metadata/depth_bin', data=self.depth_bin)
         MVBS_hdf5_handle.create_dataset('metadata/tvg_correction_factor', data=self.tvg_correction_factor)
@@ -343,36 +344,6 @@ class EchoDataRaw(object):
 
 
     # def mvbs2hdf5_concat(self,MVBS_filepath):
-
-
-    def save_metadata(self,val,group_info,data_name,fh):
-        '''
-        Check data type and save to hdf5.
-
-        val          data to be saved
-        group_info   a string (group name, e.g., header) or
-                     a list (group name and sequence number, e.g., [tranducer, 1]).
-        data_name    name of data set under group
-        fh           handle of the file to be saved to
-        '''
-        # Assemble group and data set name to save to
-        if type(group_info)==str:  # no sequence in group_info
-            create_name = '%s/%s' % (group_info,data_name)
-        elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
-            if type(group_info[1])==str:
-                create_name = '%s/%s/%s' % (group_info[0],group_info[1],data_name)
-            else:
-                create_name = '%s%02d/%s' % (group_info[0],group_info[1],data_name)
-        # Save val
-        if type(val)==str or type(val)==bytes:    # when a string
-            fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-        elif type(val)==int or type(val)==float:  # when only 1 int or float object
-            fh.create_dataset(create_name, (1,), data=val)
-        elif isinstance(val,(np.generic,np.ndarray)):
-            if val.shape==():                     # when single element numpy array
-                fh.create_dataset(create_name, (1,), data=val)
-        else:  # when data is multi-element numpy array
-            fh.create_dataset(create_name, data=val)
 
 
 # class EchoDataMVBS(EchoDataRaw):

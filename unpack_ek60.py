@@ -571,23 +571,44 @@ def save_metadata(val,group_info,data_name,fh):
     data_name    name of data set under group
     fh           handle of the file to be saved to
     '''
+    # Assemble group and data set name to save to
     if type(group_info)==str:  # no sequence in group_info
-        # when data is a string
-        if type(val)==str or type(val)==bytes:
-            fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-        # when data is only 1 int or float object
-        elif type(val)==int or type(val)==float:
-            fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val)
-        else:  # when data is numerical
-            fh.create_dataset('%s/%s' % (group_info,data_name), data=val)
-
+        create_name = '%s/%s' % (group_info,data_name)
     elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
-        # when a string
-        if type(val)==str or type(val)==bytes:
-            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name),\
-                              (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-        # when only 1 int or float object
-        elif type(val)==int or type(val)==float:
-            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), (1,), data=val)
-        else:  # when data is numerical
-            fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), data=val)
+        if type(group_info[1])==str:
+            create_name = '%s/%s/%s' % (group_info[0],group_info[1],data_name)
+        else:
+            create_name = '%s%02d/%s' % (group_info[0],group_info[1],data_name)
+    # Save val
+    if type(val)==str or type(val)==bytes:    # when a string
+        fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+    elif type(val)==int or type(val)==float:  # when only 1 int or float object
+        fh.create_dataset(create_name, (1,), data=val)
+    elif isinstance(val,(np.generic,np.ndarray)):
+        if val.shape==():   # when single element numpy array
+            fh.create_dataset(create_name, (1,), data=val)
+        else:               # when multi-element numpy array
+            fh.create_dataset(create_name, data=val)
+    else:  # everything else
+        fh.create_dataset(create_name, data=val)
+
+    # if type(group_info)==str:  # no sequence in group_info
+    #     # when data is a string
+    #     if type(val)==str or type(val)==bytes:
+    #         fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+    #     # when data is only 1 int or float object
+    #     elif type(val)==int or type(val)==float:
+    #         fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val)
+    #     else:  # when data is numerical
+    #         fh.create_dataset('%s/%s' % (group_info,data_name), data=val)
+    #
+    # elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
+    #     # when a string
+    #     if type(val)==str or type(val)==bytes:
+    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name),\
+    #                           (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+    #     # when only 1 int or float object
+    #     elif type(val)==int or type(val)==float:
+    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), (1,), data=val)
+    #     else:  # when data is numerical
+    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), data=val)
