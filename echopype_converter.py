@@ -8,6 +8,9 @@ import argparse
 import h5py
 import os.path
 from unpack_ek60 import raw2hdf5_initiate, raw2hdf5_concat
+from datetime import datetime as dt
+import warnings
+
 
 def main():
     parser = argparse.ArgumentParser(description='Convert EK60 *.raw to HDF5')
@@ -18,10 +21,12 @@ def main():
     args = parser.parse_args()
 
     for cnt,f in zip(range(len(args.input_file)),args.input_file):
-        if not(os.path.isfile(f)) and cnt==0:
+        if not(os.path.isfile(args.output_file[0])) and cnt==0:
             raw2hdf5_initiate(f,args.output_file[0])
+            print('%s  creating and saving data to : %s' % (dt.now().strftime('%H:%M:%S'), args.output_file[0]))
         else:
             raw2hdf5_concat(f,args.output_file[0])
+            print('%s  appending data to: %s' % (dt.now().strftime('%H:%M:%S'), args.output_file[0]))
 
 if __name__ == '__main__':
     main()
