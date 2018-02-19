@@ -9,6 +9,7 @@ Model for loading echosounder files from:
 
 import numpy as np
 import h5py
+import os
 import datetime as dt
 from collections import defaultdict
 from matplotlib.dates import date2num
@@ -28,6 +29,7 @@ class EchoDataRaw(object):
         if self.filepath=='':  # only initialize the object
             self.hdf5_handle = []
             self.cal_params = defaultdict(list)
+            self.ping_time = []
         else:  # load echo data from HDF5 file
             self.load_hdf5()
 
@@ -36,8 +38,13 @@ class EchoDataRaw(object):
         self.Sv_raw = defaultdict(list)        # Sv without noise removal but with TVG & absorption compensation
         self.Sv_corrected = defaultdict(list)  # Sv with noise removed and with TVG & absorption compensation
         self.Sv_noise = defaultdict(list)      # the noise component with TVG & absorption compensation
+        self.MVBS = defaultdict(list)
+        self.MVBS_ping_time = []
 
     # Methods to set critical params
+    def set_filepath(self,filepath):
+        self.filepath = filepath
+
     def set_ping_bin(self,ping_bin):
         self.ping_bin = ping_bin
 
@@ -48,9 +55,12 @@ class EchoDataRaw(object):
         self.tvg_correction_factor = tvg_correction_factor
 
     # Methods to load and manipulate data
-    def load_hdf5(self):
+    def load_hdf5(self,filepath=''):
+        if filepath!='':  # if input a filepath
+            self.set_filepath()
         self.hdf5_handle = h5py.File(self.filepath,'r')  # read-only
         self.bin_size = self.hdf5_handle['metadata/bin_size'][0]  # minimun bin size in depth
+        self.ping_time = self.hdf5_handle['ping_time'][:]
         self.get_cal_params()
 
     def find_freq_seq(self,freq):
@@ -190,7 +200,10 @@ class EchoDataRaw(object):
 
     def subset_data(self,date_wanted,subset_params):
         '''
-        Subset echo data with datetime object `date_wanted`
+        Subset echo data
+        INPUT:
+            date_wanted     datetime object
+            subset_params   subsetting parameters
         '''
         # total number of subsetted pings per day
         ping_per_day = len(subset_params['hour_all'])*\
@@ -238,6 +251,7 @@ class EchoDataRaw(object):
         self.Sv_raw = subset_Sv_raw
         self.Sv_corrected = subset_Sv_corrected
         self.Sv_noise = subset_Sv_noise
+        self.ping_time = subset_ping_time
 
     def find_nearest_time_idx(self,time_wanted,tolerance):
         '''
@@ -268,21 +282,99 @@ class EchoDataRaw(object):
         '''
         N = int(np.floor(self.depth_bin/self.bin_size))  # rough number of depth bins
 
-        # Average Sv over M pings and N depth bins
-        depth_bin_num = int(np.floor(Sv.shape[1]/N))
-        ping_bin_num = int(np.floor(Sv.shape[2]/ping_bin_range))
-        MVBS = np.ma.empty([Sv.shape[0],depth_bin_num,ping_bin_num])
-        for iF in range(Sv.shape[0]):
-            for iD in range(depth_bin_num):
-                for iP in range(ping_bin_num):
+        # Get average Sv over M pings and N depth bins
+        MVBS = defaultdict(list)
+        for (freq_str,vals) in self.hdf5_handle['power_data'].items():
+            Sv = self.Sv_corrected[freq_str]
+            sz = Sv.shape
+            depth_bin_num = int(np.floor(sz[0]/N))
+            ping_bin_num = int(np.floor(sz[1]/self.ping_bin))
+            MVBS_tmp = np.ma.empty([depth_bin_num,ping_bin_num])
+            for iP in range(ping_bin_num):
+                for iD in range(depth_bin_num):
                     depth_idx = np.arange(N) + N*iD
-                    ping_idx = np.arange(ping_bin_range) + ping_bin_range*iP
-                    MVBS[iF,iD,iP] = 10*np.log10( np.nanmean(10**(Sv[np.ix_((iF,),depth_idx,ping_idx)]/10)) )
-        return MVBS
+                    ping_idx = np.arange(self.ping_bin) + self.ping_bin*iP
+                    MVBS_tmp[iD,iP] = 10*np.log10( np.mean(10**(Sv[np.ix_(depth_idx,ping_idx)]/10)) )
+            MVBS[freq_str] = MVBS_tmp
+        self.MVBS = MVBS
+        self.MVBS_ping_time = self.ping_time[np.arange(ping_bin_num)*self.ping_bin]
 
-#     def save_mvbs2hdf5(self):
-#
-#
+
+    def save_mvbs2hdf5(self,MVBS_filepath):
+        '''
+        Save or append `MVBS` to HDF5
+        MVSB_filepath   path to the HDF5 file to be saved
+        '''
+        if os.path.isfile(MVBS_filepath):  # if HDF5 already exist: append
+            self.mvbs2hdf5_concat(MVBS_filepath)
+        else:  # if no file exist: create
+            self.mvbs2hdf5_inititate(MVBS_filepath)
+
+    def mvbs2hdf5_inititate(self,MVBS_filepath):
+        '''
+        Create a new HDF5 file to save `MVBS`
+        '''
+        # Open new hdf5 file
+        MVBS_hdf5_handle = h5py.File(MVBS_filepath,'x')  # create file, fail if exists
+
+        # Store data
+        # -- MVBS: resizable
+        for names,vals in self.MVBS.items():
+            sz = vals.shape
+            MVBS_hdf5_handle.create_dataset('MVBS/%s' % names, sz,\
+                    maxshape=(sz[0],None), data=vals, chunks=True)
+        # -- ping time: resizable
+        MVBS_hdf5_handle.create_dataset('MVBS_ping_time', (sz[1],), \
+                    maxshape=(None,), data=self.MVBS_ping_time, chunks=True)
+        # -- metadata: fixed sized
+        # -- including cal_params, ping_bin, depth_bin,
+        #              tvg_correction_factor, raw HDF5 filepath
+        for freq_str,vals in self.cal_params.items():  # loop through all freq
+            for m,mval in vals.items():  # loop through all cal_params in each freq
+                self.save_metadata(val=mval,group_info=['cal_params',freq_str],\
+                                   data_name=m,fh=MVBS_hdf5_handle)
+        MVBS_hdf5_handle.create_dataset('metadata/ping_bin', data=self.ping_bin)
+        MVBS_hdf5_handle.create_dataset('metadata/depth_bin', data=self.depth_bin)
+        MVBS_hdf5_handle.create_dataset('metadata/tvg_correction_factor', data=self.tvg_correction_factor)
+        MVBS_hdf5_handle.create_dataset('metadata/raw_hdf5_filepath', (1,), data=self.filepath,dtype=h5py.special_dtype(vlen=str))
+
+        # Close hdf5 file
+        MVBS_hdf5_handle.close()
+
+
+    # def mvbs2hdf5_concat(self,MVBS_filepath):
+
+
+    def save_metadata(self,val,group_info,data_name,fh):
+        '''
+        Check data type and save to hdf5.
+
+        val          data to be saved
+        group_info   a string (group name, e.g., header) or
+                     a list (group name and sequence number, e.g., [tranducer, 1]).
+        data_name    name of data set under group
+        fh           handle of the file to be saved to
+        '''
+        # Assemble group and data set name to save to
+        if type(group_info)==str:  # no sequence in group_info
+            create_name = '%s/%s' % (group_info,data_name)
+        elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
+            if type(group_info[1])==str:
+                create_name = '%s/%s/%s' % (group_info[0],group_info[1],data_name)
+            else:
+                create_name = '%s%02d/%s' % (group_info[0],group_info[1],data_name)
+        # Save val
+        if type(val)==str or type(val)==bytes:    # when a string
+            fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+        elif type(val)==int or type(val)==float:  # when only 1 int or float object
+            fh.create_dataset(create_name, (1,), data=val)
+        elif isinstance(val,(np.generic,np.ndarray)):
+            if val.shape==():                     # when single element numpy array
+                fh.create_dataset(create_name, (1,), data=val)
+        else:  # when data is multi-element numpy array
+            fh.create_dataset(create_name, data=val)
+
+
 # class EchoDataMVBS(EchoDataRaw):
 #
 #     def load_hdf5(self):  # overload this function from EchoDataRaw
