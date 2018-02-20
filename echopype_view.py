@@ -143,12 +143,14 @@ class EchoDataViewer(object):
 
         # Plot
         # -- plot echo_vals upside-down
-        ax.imshow(self.echo_vals[str(self.frequency[freq_idx])][::-1,:],aspect='auto',\
+        axim = ax.imshow(self.echo_vals[str(self.frequency[freq_idx])][::-1,:],aspect='auto',\
                   vmax=echogram_params['cmap_max'],vmin=echogram_params['cmap_min'],cmap=self.cmap)
         ax.set_yticks(y_ticks)
         ax.set_yticklabels(depth_label)
         ax.set_xticks(x_ticks)
         ax.set_xticklabels(x_ticks_label)
+
+        return axim
 
 
      def find_freq_seq(self,freq_select):
