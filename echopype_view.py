@@ -99,7 +99,7 @@ class EchoDataViewer(object):
         self.cmap = cmap
 
     # Methods for visualization
-    def echogram(self,ax,echogram_params=ECHOGRAM_PARAMS,freq_select):
+    def echogram(self,ax,echogram_params,freq_select):
         '''
         Plot echogram for selected frequencies
         INPUT:
@@ -107,7 +107,7 @@ class EchoDataViewer(object):
             echogram_params   plotting parameters
             freq_select       selected frequency (dtype=float)
         '''
-        freq_idx = find_freq_seq(freq_select)
+        freq_idx = self.find_freq_seq(freq_select)
         sz = self.echo_vals[str(self.frequency[freq_idx])].shape
         # Getting start and end ping indices
         if self.date_range=='':
@@ -153,6 +153,6 @@ class EchoDataViewer(object):
         return axim
 
 
-     def find_freq_seq(self,freq_select):
+    def find_freq_seq(self,freq_select):
         '''Find the sequence of transducer of a particular freq'''
         return int(np.where(np.array(self.frequency)==freq_select)[0])
