@@ -9,7 +9,6 @@ import h5py
 import os.path
 from unpack_ek60 import raw2hdf5_initiate, raw2hdf5_concat
 from datetime import datetime as dt
-import warnings
 
 
 def main():
