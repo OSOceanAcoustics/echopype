@@ -120,14 +120,20 @@ class EchoDataRaw(object):
             noise_est[freq_str] = np.min(power_bin,0)  # noise = minimum value for each averaged ping
         self.noise_est = noise_est
 
-    def remove_noise(self):
+    def remove_noise(self,const_noise=[]):
         '''
         Noise removal and TVG + absorption compensation
         This method will call `get_noise` to make sure to have attribute `noise_est`
         [Reference] De Robertis & Higginbottom, 2017, ICES JMR
+        INPUT:
+            const_noise   use a single value of const noise for all frequencies
         '''
         # Get noise estimation
-        self.get_noise()
+        if const_noise!=[]:
+            for freq_str in self.cal_params.keys():
+                self.noise_est[freq_str] = const_noise
+        else:
+            self.get_noise()
 
         # Initialize arrays
         Sv_raw = defaultdict(list)
@@ -172,8 +178,8 @@ class EchoDataRaw(object):
 
             # Remove noise and compensate measurement for transmission loss
             # also estimate Sv_noise for subsequent SNR check
-            if self.noise_est[freq_str].shape==():  # if noise_est is a single element
-                subtract = 10**(self.hdf5_handle['power_data'][freq_str]/10)-self.noise_est[freq_str]
+            if isinstance(self.noise_est[freq_str],(int,float)):  # if noise_est is a single element
+                subtract = 10**(self.hdf5_handle['power_data'][freq_str][:]/10)-self.noise_est[freq_str]
                 tmp = 10*np.log10(np.ma.masked_less_equal(subtract,0))
                 tmp.set_fill_value(-999)
                 Sv_corrected[freq_str] = (tmp.T+TVG+ABS-CSv-Sac).T
@@ -199,12 +205,13 @@ class EchoDataRaw(object):
         self.Sv_corrected = Sv_corrected
         self.Sv_noise = Sv_noise
 
-    def subset_data(self,date_wanted,subset_params):
+    def subset_data(self,date_wanted,subset_params,hr_offset=7):
         '''
         Subset echo data
         INPUT:
             date_wanted     datetime object
             subset_params   subsetting parameters
+            hr_offset     number of hr offset from UTC time
         '''
         # total number of subsetted pings per day
         ping_per_day = len(subset_params['hour_all'])*\
@@ -223,7 +230,9 @@ class EchoDataRaw(object):
             for iD,dd_curr in zip(range(len(date_wanted)),date_wanted):  # loop through all dates wanted
                 # set up indexing to get wanted pings
                 dd = dt.datetime.strptime(dd_curr,'%Y%m%d')
-                time_wanted = [dt.datetime(dd.year,dd.month,dd.day,hh,mm,ss) \
+                # time_wanted is adjusted for time zone change from UTC time
+                time_wanted = [dt.datetime(dd.year,dd.month,dd.day,hh,mm,ss)+\
+                               dt.timedelta(seconds=hr_offset*60*60) \
                                for hh in subset_params['hour_all']\
                                for mm in subset_params['min_all'] \
                                for ss in subset_params['sec_all']]
@@ -241,12 +250,16 @@ class EchoDataRaw(object):
                 notnanidx = notnanidx + iD*ping_per_day   # adjust to global index in subsetted data
                 subset_Sv_raw[freq_str][:,notnanidx]       = self.Sv_raw[freq_str][:,notnanidx_in_all]
                 subset_Sv_corrected[freq_str][:,notnanidx] = self.Sv_corrected[freq_str][:,notnanidx_in_all]
-                subset_Sv_noise[freq_str][:,notnanidx]     = self.Sv_noise[freq_str][:,notnanidx_in_all]
+                if len(self.Sv_noise[freq_str].shape)==2:
+                    subset_Sv_noise[freq_str][:,notnanidx] = self.Sv_noise[freq_str][:,notnanidx_in_all]
+                else:
+                    subset_Sv_noise[freq_str] = self.Sv_noise[freq_str]
 
                 idx_save_mask = np.argwhere(np.isnan(idx_wanted)) + iD*ping_per_day   # adjust to global index in subsetted data
                 subset_Sv_raw[freq_str][:,idx_save_mask]       = np.ma.masked
                 subset_Sv_corrected[freq_str][:,idx_save_mask] = np.ma.masked
-                subset_Sv_noise[freq_str][:,idx_save_mask]     = np.ma.masked
+                if len(self.Sv_noise[freq_str].shape)==2:
+                    subset_Sv_noise[freq_str][:,idx_save_mask] = np.ma.masked
 
         # Update Sv using subsetted values
         self.Sv_raw = subset_Sv_raw
