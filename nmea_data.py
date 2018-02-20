@@ -289,7 +289,7 @@ class nmea_data(object):
         out_data = {}
         for field in interp_fields:
             #  set the interpolated fields to NaNs
-            out_data[field] = np.empty(p_data.ping_time.shape)
+            out_data[field] = np.empty(p_data.ping_time.shape[0])
             out_data[field][:] = np.nan
 
 
