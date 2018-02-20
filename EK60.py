@@ -643,7 +643,7 @@ class raw_data(sample_data):
             #  determine if we resize
             if (ping_resize or sample_resize):
                 #  resize the data arrays
-                self._resize_arrays(ping_dims, sample_dims)
+                self.resize(ping_dims, sample_dims)
 
             #  get an index into the data arrays for this ping and increment our ping counter
             this_ping = self.n_pings
@@ -778,7 +778,30 @@ class raw_data(sample_data):
         """
 
         #  call the generalized _get_sample_data method requesting the 'power' sample attribute
-        return self._get_sample_data('power', **kwargs)
+        p_data, return_indices = self._get_sample_data('power', **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'power'
+
+        #  and return it
+        return p_data
+
+
+    def _get_power(self, **kwargs):
+        """
+        _get_power is identical to get_power except that it also returns an index
+        array that maps the pings in the processed_data object to the same pings
+        in the "this" object. This is used internally.
+        """
+
+        #  call the generalized _get_sample_data method requesting the 'power' sample attribute
+        p_data, return_indices = self._get_sample_data('power', **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'power'
+
+        #  and return it
+        return p_data, return_indices
 
 
     def get_sv(self, calibration=None, linear=False, keep_power=False,
@@ -801,15 +824,15 @@ class raw_data(sample_data):
         """
 
         #  get the power data - this step also resamples and arranges the raw data
-        p_data = self.get_power(calibration=calibration, **kwargs)
+        p_data, return_indices = self._get_power(calibration=calibration, **kwargs)
 
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_time.shape[0] - 1
-
+        #  set the data type
         if (linear):
             attribute_name = 'sv'
+
         else:
             attribute_name = 'Sv'
+        p_data.data_type = attribute_name
 
         #  convert
         sv_data = self._convert_power(p_data, calibration, attribute_name, linear,
@@ -823,7 +846,7 @@ class raw_data(sample_data):
             p_data.remove_attribute('power')
 
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
 
@@ -853,15 +876,14 @@ class raw_data(sample_data):
         """
 
         #  get the power data - this step also resamples and arranges the raw data
-        p_data = self.get_power(calibration=calibration, **kwargs)
+        p_data, return_indices = self._get_power(calibration=calibration, **kwargs)
 
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_time.shape[0] - 1
-
+        #  set the data type
         if (linear):
             attribute_name = 'sp'
         else:
             attribute_name = 'Sp'
+        p_data.data_type = attribute_name
 
         #  convert
         sp_data = self._convert_power(p_data, calibration, attribute_name, linear,
@@ -875,7 +897,7 @@ class raw_data(sample_data):
             p_data.remove_attribute('power')
 
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
 
@@ -888,10 +910,7 @@ class raw_data(sample_data):
         """
 
         #  get the electrical angles
-        p_data = self.get_electrical_angles(calibration=calibration, **kwargs)
-
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_time.shape[0] - 1
+        p_data, return_indices = self._get_electrical_angles(calibration=calibration, **kwargs)
 
         #  get the calibration params required for angle conversion
         cal_parms = {'angle_sensitivity_alongship':None,
@@ -915,6 +934,9 @@ class raw_data(sample_data):
         p_data.add_attribute('angles_alongship', p_angle_along)
         p_data.add_attribute('angles_athwartship', p_angle_athwart)
 
+        #  set the data type
+        p_data.data_type = 'angles'
+
         #  check if we should get rid of the electrical angles
         if (not keep_elec_angles):
             p_data.remove_attribute('angles_alongship_e')
@@ -935,15 +957,45 @@ class raw_data(sample_data):
 
         #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
         #  attribute. The method will return a reference to anewly created iprocessed_data nstance.
-        p_data = self._get_sample_data('angles_alongship_e', **kwargs)
+        p_data, return_indices = self._get_sample_data('angles_alongship_e', **kwargs)
 
         #  We use the "private" insert_into keyword to insert the athwartship_e data into p_data
-        p_data = self._get_sample_data('angles_athwartship_e', _insert_into=p_data, **kwargs)
+
+        p_data, return_indices = self._get_sample_data('angles_athwartship_e', _insert_into=p_data, **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'electrical_angles'
 
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
+
+
+    def _get_electrical_angles(self, heave_correct=False, return_depth=False,
+            calibration=None, **kwargs):
+        """
+        _get_electrical_angles is identical to get_electrical_angles except that it
+        also returns an index array that maps the pings in the processed_data object
+        to the same pings in the "this" object. This is used internally.
+        """
+
+        #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
+        #  attribute. The method will return a reference to anewly created iprocessed_data nstance.
+        p_data, return_indices = self._get_sample_data('angles_alongship_e', **kwargs)
+
+        #  We use the "private" insert_into keyword to insert the athwartship_e data into p_data
+        kwargs.pop('return_indices', None)
+        p_data, return_indices2 = self._get_sample_data('angles_athwartship_e', _insert_into=p_data,
+                return_indices=return_indices, **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'electrical_angles'
+
+        if (heave_correct or return_depth):
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
+
+        return p_data, return_indices
 
 
     def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
@@ -987,6 +1039,16 @@ class raw_data(sample_data):
 
             return range
 
+
+        #  check if the user supplied an explicit list of indices to return
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_time.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the raw_data object")
+        else:
+            #  get an array of index values to return
+            return_indices = self.get_indices(**kwargs)
+
         #  check if we're inserting data into an existing processed_data object
         if isinstance(_insert_into, processed_data.processed_data):
             #  check that the channel IDs match
@@ -995,26 +1057,13 @@ class raw_data(sample_data):
                     raise ValueError("The channel ID(s) the object you are inserting into " +
                             "do not match the channel ID(s) of this raw_data object.")
 
-            #  when inserting into a processed_data object we ignore the start/end arguments and
-            #  extract the same indices as the data in the object we are inserting into
-            return_indices = _insert_into.ping_time.shape[0] - 1
-
             #  we're inserting so we just copy the reference to the object and set the inserting flag
             p_data = _insert_into
             inserting = True
 
         else:
-            #  check if the user supplied an explicit list of indices to return
-            if isinstance(return_indices, np.ndarray):
-                if max(return_indices) > self.ping_time.shape[0]:
-                    raise ValueError("One or more of the return indices provided exceeds the " +
-                            "number of pings in the raw_data object")
-            else:
-                #  get an array of index values to return
-                return_indices = self.get_indices(**kwargs)
-
             #  create the processed_data object we will return
-            p_data = processed_data.processed_data(self.channel_id, self.frequency[0])
+            p_data = processed_data.processed_data(self.channel_id, self.frequency[0], None)
 
             #  populate it with time and ping number
             p_data.ping_time = self.ping_time[return_indices].copy()
@@ -1127,7 +1176,7 @@ class raw_data(sample_data):
             p_data.sample_offset = min_sample_offset
 
         #  return the processed_data object containing the requested data
-        return p_data
+        return p_data, return_indices
 
 
     def _convert_power(self, power_data, calibration, convert_to, linear, return_indices,
@@ -1206,7 +1255,7 @@ class raw_data(sample_data):
         return data
 
 
-    def _to_depth(self, p_data, calibration, heave_correct):
+    def _to_depth(self, p_data, calibration, heave_correct, return_indices):
         """
         _to_depth is an internal method that converts data from range to depth and
         optionally applies heave correction.
@@ -1216,10 +1265,6 @@ class raw_data(sample_data):
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'transducer_depth':None,
                      'heave':None}
-
-        #  generate a vector of return indices used to extract heave and draft data if not
-        #  explicitly provided in the calibration data
-        return_indices = p_data.ping_time.shape[0] - 1
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -1256,7 +1301,7 @@ class raw_data(sample_data):
 
             Lastly, if the user has not provided anything, this function will return a
             1D array the length of return_indices filled with data extracted from the raw
-            data.
+            data object.
         """
 
         if (cal_object and hasattr(cal_object, param_name)):
