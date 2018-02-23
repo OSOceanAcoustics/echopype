@@ -509,7 +509,10 @@ class raw_data(sample_data):
         self.current_metadata = None
 
         #  the channel ID is the unique identifier of the channel(s) stored in the object
-        self.channel_id = [channel_id]
+        if (isinstance(channel_id, list)):
+            self.channel_id = channel_id
+        else:
+            self.channel_id = [channel_id]
 
         #  specify the horizontal size (columns) of the array allocation size.
         self.chunk_width = chunk_width
@@ -559,6 +562,55 @@ class raw_data(sample_data):
         #  if we're not using fixed arrays, we will initialze them when append_ping is
         #  called for the first time. Until then, the raw_data object will not contain
         #  the data properties.
+
+
+    def empty_like(self, n_pings):
+        """
+        empty_like returns a paw_data object with the same general
+        characteristics of "this" object  but all of the data arrays are
+        filled with NaNs
+
+        Args:
+            n_pings: Set n_pings to an integer specifying the number of pings
+                in the new object. The vertical axis (both number of samples
+                and depth/range values) will be the same as this object.
+
+        """
+
+        #  create an instance of echolab2.EK60.paw_data and set the same
+        #  basic properties as this object.
+        empty_obj = raw_data(self.channel_id, n_pings=n_pings, n_samples=self.n_samples,
+            rolling=self.rolling_array, chunk_width=n_pings, store_power=self.store_power,
+            store_angles=self.store_angles, max_sample_number=self.max_sample_number)
+
+        #  and return the empty processed_data object
+        return self._empty_like(empty_obj, n_pings)
+
+
+    def insert(self, obj_to_insert, ping_number=None, ping_time=None,
+            insert_after=True, index_array=None):
+
+        #  determine how many pings we're inserting
+        if (index_array is None):
+            in_idx  = self.get_indices(start_time=ping_time, end_time=ping_time,
+                    start_ping=ping_number, end_ping=ping_number)[0]
+            n_inserting = self.n_pings - in_idx
+        else:
+            n_inserting = index_array.shape[0]
+
+        if (obj_to_insert is None):
+            #  when obj_to_insert is None, we create automatically create a
+            # matching object that contains no data (all NaNs)
+            obj_to_insert = self.empty_like(n_inserting)
+
+        #  check that the data types are the same
+        if (not isinstance(obj_to_insert, raw_data)):
+            raise TypeError('The object you are inserting must be an instance of EK60.raw_data')
+
+        #  we are now coexisting in harmony - call parent's insert
+        super(raw_data, self).insert(obj_to_insert, ping_number=ping_number,
+                                     ping_time=ping_time, insert_after=insert_after,
+                                     index_array=index_array)
 
 
     def append_ping(self, sample_datagram, start_sample=None, end_sample=None):
