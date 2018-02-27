@@ -314,8 +314,8 @@ def process_sample(input_file, transducer_count):
     return channel, ntp_time, sample_data, power_data, angle_data, motion_data
 
 
-def append_metadata(metadata, file_time, channel, sample_data):
-    metadata[ZplscBParticleKey.FILE_TIME] = file_time
+def append_metadata(metadata, channel, sample_data):
+    # metadata[ZplscBParticleKey.FILE_TIME] = file_time
     metadata[ZplscBParticleKey.CHANNEL].append(channel)
     metadata[ZplscBParticleKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
     metadata[ZplscBParticleKey.FREQUENCY].append(sample_data['frequency'][0])
@@ -338,6 +338,7 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
     """
     print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path))
 
+    # disable below to accommodate different file naming convention
     # file_time = extract_file_time(input_file_path)  # time at file generation
 
     with open(input_file_path, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
@@ -400,7 +401,7 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                         # relpath = generate_relative_file_path(image_path)
                         first_ping_metadata = defaultdict(list)
                         for channel, sample_data in sample_data_temp_dict.items():
-                            append_metadata(first_ping_metadata, file_time, channel, sample_data)
+                            append_metadata(first_ping_metadata, channel, sample_data)
 
                             frequency = sample_data['frequency'][0]
                             frequencies[channel] = frequency
