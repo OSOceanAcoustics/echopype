@@ -19,7 +19,6 @@ Original author Ronald Ronquillo & Richard Han
 from collections import defaultdict
 from struct import unpack_from, unpack
 import numpy as np
-import os
 import re
 import h5py
 from datetime import datetime as dt
@@ -267,6 +266,9 @@ def process_sample(input_file, transducer_count):
     # Read and unpack the Sample Datagram into numpy array
     sample_data = np.fromfile(input_file, dtype=sample_dtype, count=1)
     channel = sample_data['channel_number'][0]
+    motion_data = {'heave':sample_data['heave'][0],\
+                   'pitch': sample_data['pitch'][0],\
+                   'roll': sample_data['roll'][0]}
 
     # Check for a valid channel number that is within the number of transducers config
     # to prevent incorrectly indexing into the dictionaries.
@@ -309,12 +311,11 @@ def process_sample(input_file, transducer_count):
         #          ": %s, length2: %s. Possible file corruption or format incompatibility.",
         #          sample_data['length1'][0], length2_data['length2'][0])
 
-    return channel, ntp_time, sample_data, power_data, angle_data
+    return channel, ntp_time, sample_data, power_data, angle_data, motion_data
 
 
 def append_metadata(metadata, file_time, channel, sample_data):
     metadata[ZplscBParticleKey.FILE_TIME] = file_time
-    #metadata[ZplscBParticleKey.ECHOGRAM_PATH]= file_path
     metadata[ZplscBParticleKey.CHANNEL].append(channel)
     metadata[ZplscBParticleKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
     metadata[ZplscBParticleKey.FREQUENCY].append(sample_data['frequency'][0])
@@ -336,9 +337,8 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
     If omitted outputs are written to path of input file
     """
     print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path))
-    # image_path = generate_image_file_path(input_file_path, output_file_path)
 
-    file_time = extract_file_time(input_file_path)  # time at file generation
+    # file_time = extract_file_time(input_file_path)  # time at file generation
 
     with open(input_file_path, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
@@ -350,7 +350,7 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         bin_size = None                                    # transducer depth measurement
 
         position = input_file.tell()
-        particle_data = None
+        #particle_data = None
 
         last_time = None
         sample_data_temp_dict = {}
@@ -591,24 +591,3 @@ def save_metadata(val,group_info,data_name,fh):
             fh.create_dataset(create_name, data=val)
     else:  # everything else
         fh.create_dataset(create_name, data=val)
-
-    # if type(group_info)==str:  # no sequence in group_info
-    #     # when data is a string
-    #     if type(val)==str or type(val)==bytes:
-    #         fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-    #     # when data is only 1 int or float object
-    #     elif type(val)==int or type(val)==float:
-    #         fh.create_dataset('%s/%s' % (group_info,data_name), (1,), data=val)
-    #     else:  # when data is numerical
-    #         fh.create_dataset('%s/%s' % (group_info,data_name), data=val)
-    #
-    # elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
-    #     # when a string
-    #     if type(val)==str or type(val)==bytes:
-    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name),\
-    #                           (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-    #     # when only 1 int or float object
-    #     elif type(val)==int or type(val)==float:
-    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), (1,), data=val)
-    #     else:  # when data is numerical
-    #         fh.create_dataset('%s%02d/%s' % (group_info[0],group_info[1],data_name), data=val)
