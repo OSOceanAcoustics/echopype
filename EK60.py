@@ -256,19 +256,19 @@ class EK60(object):
                     #  the datagrams. This mapping is only valid for the current file that is being read.
                     self._channel_map[channel] = channel_id
 
-                    #  create a ChannelMetadata object to store this channel's configuration and rawfile metadata.
-                    channel_metadata = ChannelMetadata(filename,
-                                               config_datagram['transceivers'][channel],
-                                               config_datagram['survey_name'],
-                                               config_datagram['transect_name'],
-                                               config_datagram['sounder_name'],
-                                               config_datagram['version'],
-                                               self.raw_data[channel_id].n_pings,
-                                               config_datagram['timestamp'],
-                                               extended_configuration=CON1_datagram)
+                    #  create a channel_metadata object to store this channel's configuration and rawfile metadata.
+                    metadata = channel_metadata(filename,
+                                                config_datagram['transceivers'][channel],
+                                                config_datagram['survey_name'],
+                                                config_datagram['transect_name'],
+                                                config_datagram['sounder_name'],
+                                                config_datagram['version'],
+                                                self.raw_data[channel_id].n_pings,
+                                                config_datagram['timestamp'],
+                                                extended_configuration=CON1_datagram)
 
                     #  update the channel_metadata property of the RawData object
-                    self.raw_data[channel_id].current_metadata = channel_metadata
+                    self.raw_data[channel_id].current_metadata = metadata
 
                 #  read the rest of the datagrams.
                 self._read_datagrams(fid, self.read_incremental)
@@ -502,8 +502,8 @@ class raw_data(sample_data):
         #  array size and roll it when it fills or if we expand the array when it fills
         self.rolling_array = bool(rolling)
 
-        #  current_metadata stores a reference to the current ChannelMetadata object. The
-        #  ChannelMetadata class stores rawfile and channel configuration properties
+        #  current_metadata stores a reference to the current channel_metadata object. The
+        #  channel_metadata class stores rawfile and channel configuration properties
         #  contained in the .raw file header. When opening a new .raw file, this property
         #  must be updated before appending pings from the new file.
         self.current_metadata = None
@@ -600,7 +600,7 @@ class raw_data(sample_data):
 
         if (obj_to_insert is None):
             #  when obj_to_insert is None, we create automatically create a
-            # matching object that contains no data (all NaNs)
+            #  matching object that contains no data (all NaNs)
             obj_to_insert = self.empty_like(n_inserting)
 
         #  check that the data types are the same
@@ -711,10 +711,10 @@ class raw_data(sample_data):
                 #  roll our array 1 ping
                 self._roll_arrays(1)
 
-        #  insert the ChannelMetadata object reference for this ping
+        #  insert the channel_metadata object reference for this ping
         self.channel_metadata[this_ping] = self.current_metadata
 
-        #  update the ChannelMetadata object with this ping number and time
+        #  update the channel_metadata object with this ping number and time
         self.current_metadata.end_ping = self.n_pings
         self.current_metadata.end_time = sample_datagram['timestamp']
 
@@ -1140,11 +1140,11 @@ class raw_data(sample_data):
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  check if we have multiple sample offset values and get the minimum
-        unique_sample_offsets = np.unique(cal_parms['sample_offset'])
+        unique_sample_offsets = np.unique(cal_parms['sample_offset'][~np.isnan(cal_parms['sample_offset'])])
         min_sample_offset = min(unique_sample_offsets)
 
         # check if we need to resample our sample data
-        unique_sample_interval = np.unique(cal_parms['sample_interval'])
+        unique_sample_interval = np.unique(cal_parms['sample_interval'][~np.isnan(cal_parms['sample_interval'])])
         if (unique_sample_interval.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the data.
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
@@ -1229,6 +1229,7 @@ class raw_data(sample_data):
 
         #  return the processed_data object containing the requested data
         return p_data, return_indices
+
 
 
     def _convert_power(self, power_data, calibration, convert_to, linear, return_indices,
@@ -1401,15 +1402,24 @@ class raw_data(sample_data):
                 #  It is not a direct property so it must be in the channel_metadata object.
                 #  Create the return array
                 param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                #  create a counter to use to index the return array. We can't use the
+                #  index value from return_indices since these values may be re-ordered
+                ret_idx = 0
                 #  then populate with the data found in the channel_metadata objects
+
                 for idx in return_indices:
                     #  sa_correction is annoying - have to dig out of the table
-                    if (param_name == 'sa_correction'):
-                        sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
-                        pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
-                        param_data[idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
+                    if (isinstance(self.channel_metadata[idx], channel_metadata)):
+                        if (param_name == 'sa_correction'):
+                            sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
+                            pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
+                            param_data[ret_idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
+                        else:
+                            param_data[ret_idx] = getattr(self.channel_metadata[idx],param_name)
                     else:
-                        param_data[idx] = getattr(self.channel_metadata[idx],param_name)
+                        param_data[ret_idx] = np.nan
+                    #  increment the index counter
+                    ret_idx += 1
 
         return param_data
 
@@ -1569,9 +1579,9 @@ class raw_data(sample_data):
 
 
 
-class ChannelMetadata(object):
+class channel_metadata(object):
     """
-    The ChannelMetadata class stores the channel configuration data as well as
+    The channel_metadata class stores the channel configuration data as well as
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
