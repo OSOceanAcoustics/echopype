@@ -154,7 +154,7 @@ def read_header(filehandle):
     return config_header, config_transducer
 
 
-class ZplscBParticleKey(BaseEnum):
+class MetadataKey(BaseEnum):
     """
     Class that defines fields that need to be extracted from the data
     """
@@ -175,18 +175,18 @@ class ZplscBParticleKey(BaseEnum):
 # The following is used for _build_parsed_values() and defined as below:
 # (parameter name, encoding function)
 METADATA_ENCODING_RULES = [
-    (ZplscBParticleKey.FILE_TIME, str),
-    (ZplscBParticleKey.ECHOGRAM_PATH, str),
-    (ZplscBParticleKey.CHANNEL, lambda x: [int(y) for y in x]),
-    (ZplscBParticleKey.TRANSDUCER_DEPTH, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.FREQUENCY, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.TRANSMIT_POWER, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.PULSE_LENGTH, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.BANDWIDTH, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.SAMPLE_INTERVAL, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.SOUND_VELOCITY, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.ABSORPTION_COEF, lambda x: [float(y) for y in x]),
-    (ZplscBParticleKey.TEMPERATURE, lambda x: [float(y) for y in x])
+    (MetadataKey.FILE_TIME, str),
+    (MetadataKey.ECHOGRAM_PATH, str),
+    (MetadataKey.CHANNEL, lambda x: [int(y) for y in x]),
+    (MetadataKey.TRANSDUCER_DEPTH, lambda x: [float(y) for y in x]),
+    (MetadataKey.FREQUENCY, lambda x: [float(y) for y in x]),
+    (MetadataKey.TRANSMIT_POWER, lambda x: [float(y) for y in x]),
+    (MetadataKey.PULSE_LENGTH, lambda x: [float(y) for y in x]),
+    (MetadataKey.BANDWIDTH, lambda x: [float(y) for y in x]),
+    (MetadataKey.SAMPLE_INTERVAL, lambda x: [float(y) for y in x]),
+    (MetadataKey.SOUND_VELOCITY, lambda x: [float(y) for y in x]),
+    (MetadataKey.ABSORPTION_COEF, lambda x: [float(y) for y in x]),
+    (MetadataKey.TEMPERATURE, lambda x: [float(y) for y in x])
 ]
 
 
@@ -314,17 +314,17 @@ def process_sample(input_file, transducer_count):
 
 
 def append_metadata(metadata, channel, sample_data):
-    # metadata[ZplscBParticleKey.FILE_TIME] = file_time
-    metadata[ZplscBParticleKey.CHANNEL].append(channel)
-    metadata[ZplscBParticleKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
-    metadata[ZplscBParticleKey.FREQUENCY].append(sample_data['frequency'][0])
-    metadata[ZplscBParticleKey.TRANSMIT_POWER].append(sample_data['transmit_power'][0])
-    metadata[ZplscBParticleKey.PULSE_LENGTH].append(sample_data['pulse_length'][0])
-    metadata[ZplscBParticleKey.BANDWIDTH].append(sample_data['bandwidth'][0])
-    metadata[ZplscBParticleKey.SAMPLE_INTERVAL].append(sample_data['sample_interval'][0])
-    metadata[ZplscBParticleKey.SOUND_VELOCITY].append(sample_data['sound_velocity'][0])
-    metadata[ZplscBParticleKey.ABSORPTION_COEF].append(sample_data['absorption_coefficient'][0])
-    metadata[ZplscBParticleKey.TEMPERATURE].append(sample_data['temperature'][0])
+    # metadata[MetadataKey.FILE_TIME] = file_time
+    metadata[MetadataKey.CHANNEL].append(channel)
+    metadata[MetadataKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
+    metadata[MetadataKey.FREQUENCY].append(sample_data['frequency'][0])
+    metadata[MetadataKey.TRANSMIT_POWER].append(sample_data['transmit_power'][0])
+    metadata[MetadataKey.PULSE_LENGTH].append(sample_data['pulse_length'][0])
+    metadata[MetadataKey.BANDWIDTH].append(sample_data['bandwidth'][0])
+    metadata[MetadataKey.SAMPLE_INTERVAL].append(sample_data['sample_interval'][0])
+    metadata[MetadataKey.SOUND_VELOCITY].append(sample_data['sound_velocity'][0])
+    metadata[MetadataKey.ABSORPTION_COEF].append(sample_data['absorption_coefficient'][0])
+    metadata[MetadataKey.TEMPERATURE].append(sample_data['temperature'][0])
     return metadata
 
 
@@ -410,7 +410,6 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                     # if this is our first set of data from all channels,
                     # create our metadata particle and store the frequency / bin_size
                     if not power_data_dict:
-                        # relpath = generate_relative_file_path(image_path)
                         first_ping_metadata = defaultdict(list)
                         for channel, sample_data in sample_data_temp_dict.items():
                             append_metadata(first_ping_metadata, channel, sample_data)
