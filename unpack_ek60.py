@@ -246,17 +246,17 @@ def build_windows_time(high_word, low_word):
 
 
 
-def extract_file_time(filepath):
-    match = FILE_NAME_MATCHER.match(filepath)
-    if match:
-        return match.group('Date') + match.group('Time')
-    else:
-        # Files retrieved from the instrument should always match the timestamp naming convention
-        error_message = \
-            "Unable to extract file time from input file name: %s. Expected format *-DYYYYmmdd-THHMMSS.raw" \
-            % filepath
-        log.error(error_message)
-        raise InstrumentDataException(error_message)
+# def extract_file_time(filepath):
+#     match = FILE_NAME_MATCHER.match(filepath)
+#     if match:
+#         return match.group('Date') + match.group('Time')
+#     else:
+#         # Files retrieved from the instrument should always match the timestamp naming convention
+#         error_message = \
+#             "Unable to extract file time from input file name: %s. Expected format *-DYYYYmmdd-THHMMSS.raw" \
+#             % filepath
+#         log.error(error_message)
+#         raise InstrumentDataException(error_message)
 
 
 def process_sample(input_file, transducer_count):
@@ -266,9 +266,8 @@ def process_sample(input_file, transducer_count):
     # Read and unpack the Sample Datagram into numpy array
     sample_data = np.fromfile(input_file, dtype=sample_dtype, count=1)
     channel = sample_data['channel_number'][0]
-    motion_data = {'heave':sample_data['heave'][0],\
-                   'pitch': sample_data['pitch'][0],\
-                   'roll': sample_data['roll'][0]}
+    motion_data = np.array([(sample_data['heave'][0], sample_data['roll'][0], sample_data['pitch'][0])],
+                           dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
 
     # Check for a valid channel number that is within the number of transducers config
     # to prevent incorrectly indexing into the dictionaries.
@@ -356,8 +355,17 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         last_time = None
         sample_data_temp_dict = {}
         power_data_temp_dict = {}
+        angle_temp_dict = {}    # include alongship and athwardship angles
+        motion_temp_dict = {}   # include heave, pitch, and roll
 
+        # Final dict that are sent out
         power_data_dict = {}
+        alongship_dict = {}
+        athwartship_dict = {}
+        heave_dict = {}
+        pitch_dict = {}
+        roll_dict = {}
+
         data_times = []
         temperature = []   # WJ: Used to check temperature reading in .RAW file --> all identical for OOI data
 
@@ -376,27 +384,31 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                 input_file.seek(position + match_start)
 
                 # try:
-                next_channel, next_time, next_sample, next_power, next_angle = process_sample(input_file, transducer_count)
+                next_channel, next_time, next_sample, next_power, next_angle, next_motion = process_sample(input_file, transducer_count)
 
                 if next_time != last_time:  # WJ: next_time=last_time when it's the same ping but different channel
                     # Clear out our temporary dictionaries and set the last time to this time
                     sample_data_temp_dict = {}
                     power_data_temp_dict = {}
-                    angle_data_temp_dict = {}
+                    angle_temp_dict = {}    # include both alongship and athwardship angle
+                    motion_temp_dict = {}   # include heave, pitch, and roll
                     last_time = next_time
 
                 # Store this data
                 sample_data_temp_dict[next_channel] = next_sample
                 power_data_temp_dict[next_channel] = next_power
-                angle_data_temp_dict[next_channel] = next_angle
+                angle_temp_dict[next_channel] = next_angle
+                motion_temp_dict[next_channel] = next_motion
 
                 # Check if we have enough records to produce a new row of data
                 # WJ: if yes this means that data from all transducer channels have been read for a particular ping
-                # WJ: a new row of data means all data from one ping
-                # WJ: if only 2 channels of data were received, they are not stored in the final power_data_dict
-                if len(sample_data_temp_dict) == len(power_data_temp_dict) == len(angle_data_temp_dict) == transducer_count:
-                    # if this is our first set of data, create our metadata particle and store
-                    # the frequency / bin_size data
+                # WJ: a new row of data means all channels of data from one ping
+                # WJ: if only 2 channels of data were received but there are a total of 3 transducers,
+                # WJ: the data are not stored in the final power_data_dict
+                if len(sample_data_temp_dict) == len(power_data_temp_dict) == \
+                        len(angle_temp_dict) == len(motion_temp_dict) == transducer_count:
+                    # if this is our first set of data from all channels,
+                    # create our metadata particle and store the frequency / bin_size
                     if not power_data_dict:
                         # relpath = generate_relative_file_path(image_path)
                         first_ping_metadata = defaultdict(list)
@@ -411,11 +423,21 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
 
                         #particle_data = first_ping_metadata, next_time  # WJ: probably don't need to append next_time here
                         power_data_dict = {channel: [] for channel in power_data_temp_dict}
+                        alongship_dict = {channel: [] for channel in angle_temp_dict}
+                        athwartship_dict = {channel: [] for channel in angle_temp_dict}
+                        heave_dict = {channel: [] for channel in motion_temp_dict}
+                        pitch_dict = {channel: [] for channel in motion_temp_dict}
+                        roll_dict = {channel: [] for channel in motion_temp_dict}
 
                     # Save the time and power data for plotting
                     data_times.append(next_time)
                     for channel in power_data_temp_dict:
                         power_data_dict[channel].append(power_data_temp_dict[channel])
+                        alongship_dict[channel].append(angle_temp_dict[channel]['along'])
+                        athwartship_dict[channel].append(angle_temp_dict[channel]['athwart'])
+                        heave_dict[channel].append(motion_temp_dict[channel]['heave'][0])
+                        pitch_dict[channel].append(motion_temp_dict[channel]['pitch'][0])
+                        roll_dict[channel].append(motion_temp_dict[channel]['roll'][0])
 
                     temperature.append(next_sample['temperature'])  # WJ: check temperature values from .RAW file: all identical for OOI data
 
@@ -444,17 +466,17 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         for channel in power_data_dict:
             power_data_dict[str(frequencies[channel])] = power_data_dict.pop(channel)
 
-        return first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, config_header, config_transducer
+        return first_ping_metadata, data_times, power_data_dict, alongship_dict, athwartship_dict, heave_dict, pitch_dict, roll_dict, frequencies, bin_size, config_header, config_transducer
 
 
 
 def raw2hdf5_initiate(raw_file_path,h5_file_path):
-    '''
+    """
     Unpack EK60 .raw files and save to an hdf5 files
     INPUT:
         fname      file to be unpacked
         h5_fname   hdf5 file to be written in to
-    '''
+    """
     # Unpack raw into memory
     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
         config_header, config_transducer = load_ek60_raw(raw_file_path)
@@ -501,12 +523,12 @@ def raw2hdf5_initiate(raw_file_path,h5_file_path):
 
 
 def raw2hdf5_concat(raw_file_path,h5_file_path):
-    '''
+    """
     Unpack EK60 .raw files and concatenate to an existing hdf5 files
     INPUT:
         fname      file to be unpacked
         h5_fname   hdf5 file to be concatenated to
-    '''
+    """
     # Unpack raw into memory
     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
         config_header, config_transducer = load_ek60_raw(raw_file_path)
@@ -544,26 +566,26 @@ def raw2hdf5_concat(raw_file_path,h5_file_path):
 
 
 def check_metadata(group_name,dict_name,fh):
-    '''
+    """
     Check if all metadata matches
 
     group_name   name of group in hdf5 file
     dict_name    name of dictionary from unpacked .raw file
-    '''
+    """
     flag = []
     for p in fh[group_name].keys():
-        if isinstance(fh[group_name][p][0],(str,bytes)):
-            if type(dict_name[p])==bytes:
+        if isinstance(fh[group_name][p][0], (str, bytes)):
+            if type(dict_name[p]) == bytes:
                 flag.append(str(dict_name[p], 'utf-8') == fh[group_name][p][0])
             else:
                 flag.append(dict_name[p] == fh[group_name][p][0])
-        elif isinstance(fh[group_name][p][0],(np.generic,np.ndarray,int,float)):
-            flag.append(any(dict_name[p]==fh[group_name][p][:]))
+        elif isinstance(fh[group_name][p][0], (np.generic, np.ndarray, int, float)):
+            flag.append(any(dict_name[p] == fh[group_name][p][:]))
     return any(flag)
 
 
 def save_metadata(val,group_info,data_name,fh):
-    '''
+    """
     Check data type and save to hdf5.
 
     val          data to be saved
@@ -571,22 +593,22 @@ def save_metadata(val,group_info,data_name,fh):
                  a list (group name and sequence number, e.g., [tranducer, 1]).
     data_name    name of data set under group
     fh           handle of the file to be saved to
-    '''
+    """
     # Assemble group and data set name to save to
-    if type(group_info)==str:  # no sequence in group_info
+    if type(group_info) == str:  # no sequence in group_info
         create_name = '%s/%s' % (group_info,data_name)
-    elif type(group_info)==list and len(group_info)==2:  # have sequence in group_info
-        if type(group_info[1])==str:
-            create_name = '%s/%s/%s' % (group_info[0],group_info[1],data_name)
+    elif type(group_info) == list and len(group_info) == 2:  # have sequence in group_info
+        if type(group_info[1]) == str:
+            create_name = '%s/%s/%s' % (group_info[0], group_info[1], data_name)
         else:
-            create_name = '%s%02d/%s' % (group_info[0],group_info[1],data_name)
+            create_name = '%s%02d/%s' % (group_info[0], group_info[1], data_name)
     # Save val
-    if type(val)==str or type(val)==bytes:    # when a string
+    if type(val) == str or type(val) == bytes:    # when a string
         fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-    elif type(val)==int or type(val)==float:  # when only 1 int or float object
+    elif type(val) == int or type(val) == float:  # when only 1 int or float object
         fh.create_dataset(create_name, (1,), data=val)
-    elif isinstance(val,(np.generic,np.ndarray)):
-        if val.shape==():   # when single element numpy array
+    elif isinstance(val, (np.generic, np.ndarray)):
+        if val.shape == ():   # when single element numpy array
             fh.create_dataset(create_name, (1,), data=val)
         else:               # when multi-element numpy array
             fh.create_dataset(create_name, data=val)
