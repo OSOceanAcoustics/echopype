@@ -92,7 +92,7 @@ def read_config_transducer(chunk):
     field_names = ('channel_id', 'beam_type', 'frequency', 'gain',
                    'equiv_beam_angle', 'beam_width_alongship', 'beam_width_athwartship',
                    'angle_sensitivity_alongship', 'angle_sensitivity_athwartship',
-                   'angle_offset_alongship', 'angle_offset_athwart', 'pos_x', 'pos_y',
+                   'angle_offset_alongship', 'angle_offset_athwartship', 'pos_x', 'pos_y',
                    'pos_z', 'dir_x', 'dir_y', 'dir_z', 'pulse_length_table', 'gain_table',
                    'sa_correction_table', 'gpt_software_version')
     fmt = '<128sl15f5f8s5f8s5f8s16s28s'
@@ -158,18 +158,18 @@ class MetadataKey(BaseEnum):
     """
     Class that defines fields that need to be extracted from the data
     """
-    FILE_TIME = "zplsc_timestamp"               # raw file timestamp
+    FILE_TIME = "timestamp"               # raw file timestamp
     ECHOGRAM_PATH = "filepath"                  # output echogram plot .png/s path and filename
-    CHANNEL = "zplsc_channel"
-    TRANSDUCER_DEPTH = "zplsc_transducer_depth" # five digit floating point number (%.5f, in meters)
-    FREQUENCY = "zplsc_frequency"               # six digit fixed point integer (in Hz)
-    TRANSMIT_POWER = "zplsc_transmit_power"     # three digit fixed point integer (in Watts)
-    PULSE_LENGTH = "zplsc_pulse_length"         # six digit floating point number (%.6f, in seconds)
-    BANDWIDTH = "zplsc_bandwidth"               # five digit floating point number (%.5f in Hz)
-    SAMPLE_INTERVAL = "zplsc_sample_interval"   # six digit floating point number (%.6f, in seconds)
-    SOUND_VELOCITY = "zplsc_sound_velocity"     # five digit floating point number (%.5f, in m/s)
-    ABSORPTION_COEF = "zplsc_absorption_coeff"  # four digit floating point number (%.4f, dB/m)
-    TEMPERATURE = "zplsc_temperature"           # three digit floating point number (%.3f, in degC)
+    CHANNEL = "channel"
+    TRANSDUCER_DEPTH = "transducer_depth" # five digit floating point number (%.5f, in meters)
+    FREQUENCY = "frequency"               # six digit fixed point integer (in Hz)
+    TRANSMIT_POWER = "transmit_power"     # three digit fixed point integer (in Watts)
+    PULSE_LENGTH = "pulse_length"         # six digit floating point number (%.6f, in seconds)
+    BANDWIDTH = "bandwidth"               # five digit floating point number (%.5f in Hz)
+    SAMPLE_INTERVAL = "sample_interval"   # six digit floating point number (%.6f, in seconds)
+    SOUND_VELOCITY = "sound_velocity"     # five digit floating point number (%.5f, in m/s)
+    ABSORPTION_COEF = "absorption_coeff"  # four digit floating point number (%.4f, dB/m)
+    TEMPERATURE = "temperature"           # three digit floating point number (%.3f, in degC)
 
 
 # The following is used for _build_parsed_values() and defined as below:
@@ -460,10 +460,6 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             power_data_dict[channel] = power_data_dict[channel].transpose()
-
-        # WJ: Rename keys in power data to according to transducer frequency
-        for channel in power_data_dict:
-            power_data_dict[str(frequencies[channel])] = power_data_dict.pop(channel)
 
         return first_ping_metadata, data_times, power_data_dict, alongship_dict, athwartship_dict, heave_dict, pitch_dict, roll_dict, frequencies, bin_size, config_header, config_transducer
 
