@@ -158,8 +158,6 @@ class MetadataKey(BaseEnum):
     """
     Class that defines fields that need to be extracted from the data
     """
-    FILE_TIME = "timestamp"               # raw file timestamp
-    ECHOGRAM_PATH = "filepath"                  # output echogram plot .png/s path and filename
     CHANNEL = "channel"
     TRANSDUCER_DEPTH = "transducer_depth" # five digit floating point number (%.5f, in meters)
     FREQUENCY = "frequency"               # six digit fixed point integer (in Hz)
@@ -175,8 +173,6 @@ class MetadataKey(BaseEnum):
 # The following is used for _build_parsed_values() and defined as below:
 # (parameter name, encoding function)
 METADATA_ENCODING_RULES = [
-    (MetadataKey.FILE_TIME, str),
-    (MetadataKey.ECHOGRAM_PATH, str),
     (MetadataKey.CHANNEL, lambda x: [int(y) for y in x]),
     (MetadataKey.TRANSDUCER_DEPTH, lambda x: [float(y) for y in x]),
     (MetadataKey.FREQUENCY, lambda x: [float(y) for y in x]),
@@ -314,7 +310,6 @@ def process_sample(input_file, transducer_count):
 
 
 def append_metadata(metadata, channel, sample_data):
-    # metadata[MetadataKey.FILE_TIME] = file_time
     metadata[MetadataKey.CHANNEL].append(channel)
     metadata[MetadataKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
     metadata[MetadataKey.FREQUENCY].append(sample_data['frequency'][0])
@@ -358,14 +353,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         angle_temp_dict = {}    # include alongship and athwardship angles
         motion_temp_dict = {}   # include heave, pitch, and roll
 
-        # Final dict that are sent out
-        power_data_dict = {}
-        alongship_dict = {}
-        athwartship_dict = {}
-        heave_dict = {}
-        pitch_dict = {}
-        roll_dict = {}
-
+        # Initialize output structure
+        power_data_dict = defaultdict(list)   # echo power
+        angle_data_dict = defaultdict(list)   # contain alongship and athwartship electronic angle
+        motion_data_dict = defaultdict(list)  # contain heave, pitch, and roll motion
         data_times = []
         temperature = []   # WJ: Used to check temperature reading in .RAW file --> all identical for OOI data
 
@@ -414,29 +405,29 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                         for channel, sample_data in sample_data_temp_dict.items():
                             append_metadata(first_ping_metadata, channel, sample_data)
 
-                            frequency = sample_data['frequency'][0]
-                            frequencies[channel] = frequency
+                            frequencies[channel] = sample_data['frequency'][0]
 
                             if bin_size is None:
                                 bin_size = sample_data['sound_velocity'] * sample_data['sample_interval'] / 2
 
                         #particle_data = first_ping_metadata, next_time  # WJ: probably don't need to append next_time here
-                        power_data_dict = {channel: [] for channel in power_data_temp_dict}
-                        alongship_dict = {channel: [] for channel in angle_temp_dict}
-                        athwartship_dict = {channel: [] for channel in angle_temp_dict}
-                        heave_dict = {channel: [] for channel in motion_temp_dict}
-                        pitch_dict = {channel: [] for channel in motion_temp_dict}
-                        roll_dict = {channel: [] for channel in motion_temp_dict}
+                        # power_data_dict = defaultdict(list)
+                        # angle_data_dict = defaultdict(list)    # contain alongship and athwartship electronic angle
+                        # motion_data_dict = defaultdict(list)   # contain heave, pitch, and roll motion
+
+                        for channel in power_data_temp_dict:
+                            angle_data_dict[channel] = defaultdict(list)
+                            motion_data_dict[channel] = defaultdict(list)
 
                     # Save the time and power data for plotting
                     data_times.append(next_time)
                     for channel in power_data_temp_dict:
                         power_data_dict[channel].append(power_data_temp_dict[channel])
-                        alongship_dict[channel].append(angle_temp_dict[channel]['along'])
-                        athwartship_dict[channel].append(angle_temp_dict[channel]['athwart'])
-                        heave_dict[channel].append(motion_temp_dict[channel]['heave'][0])
-                        pitch_dict[channel].append(motion_temp_dict[channel]['pitch'][0])
-                        roll_dict[channel].append(motion_temp_dict[channel]['roll'][0])
+                        angle_data_dict[channel]['along'].append(angle_temp_dict[channel]['along'])
+                        angle_data_dict[channel]['athwart'].append(angle_temp_dict[channel]['athwart'])
+                        motion_data_dict[channel]['heave'].append(motion_temp_dict[channel]['heave'][0])
+                        motion_data_dict[channel]['pitch'].append(motion_temp_dict[channel]['pitch'][0])
+                        motion_data_dict[channel]['roll'].append(motion_temp_dict[channel]['roll'][0])
 
                     temperature.append(next_sample['temperature'])  # WJ: check temperature values from .RAW file: all identical for OOI data
 
@@ -460,8 +451,13 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             power_data_dict[channel] = power_data_dict[channel].transpose()
+            angle_data_dict[channel]['along'] = np.array(angle_data_dict[channel]['along'])
+            angle_data_dict[channel]['athwart'] = np.array(angle_data_dict[channel]['athwart'])
+            motion_data_dict[channel]['heave'] = np.array(motion_data_dict[channel]['heave'])
+            motion_data_dict[channel]['pitch'] = np.array(motion_data_dict[channel]['pitch'])
+            motion_data_dict[channel]['roll'] = np.array(motion_data_dict[channel]['roll'])
 
-        return first_ping_metadata, data_times, power_data_dict, alongship_dict, athwartship_dict, heave_dict, pitch_dict, roll_dict, frequencies, bin_size, config_header, config_transducer
+        return first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, frequencies, bin_size, config_header, config_transducer
 
 
 
