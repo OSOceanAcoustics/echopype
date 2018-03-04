@@ -136,7 +136,6 @@ def read_header(filehandle):
     for num_transducer in range(config_header['transducer_count']):
         config_transducer.append(read_config_transducer(raw[byte_cnt:byte_cnt+CONFIG_TRANSDUCER_SIZE]))
         byte_cnt += CONFIG_TRANSDUCER_SIZE
-    #byte_cnt += CONFIG_TRANSDUCER_SIZE * config_header['transducer_count']
 
     # Compare length1 (from beginning of datagram) to length2 (from the end of datagram) to
     # the actual number of bytes read. A mismatch can indicate an invalid, corrupt, misaligned,
@@ -153,37 +152,6 @@ def read_header(filehandle):
     filehandle.seek(byte_cnt)
     return config_header, config_transducer
 
-
-class MetadataKey(BaseEnum):
-    """
-    Class that defines fields that need to be extracted from the data
-    """
-    CHANNEL = "channel"
-    TRANSDUCER_DEPTH = "transducer_depth" # five digit floating point number (%.5f, in meters)
-    FREQUENCY = "frequency"               # six digit fixed point integer (in Hz)
-    TRANSMIT_POWER = "transmit_power"     # three digit fixed point integer (in Watts)
-    PULSE_LENGTH = "pulse_length"         # six digit floating point number (%.6f, in seconds)
-    BANDWIDTH = "bandwidth"               # five digit floating point number (%.5f in Hz)
-    SAMPLE_INTERVAL = "sample_interval"   # six digit floating point number (%.6f, in seconds)
-    SOUND_VELOCITY = "sound_velocity"     # five digit floating point number (%.5f, in m/s)
-    ABSORPTION_COEF = "absorption_coeff"  # four digit floating point number (%.4f, dB/m)
-    TEMPERATURE = "temperature"           # three digit floating point number (%.3f, in degC)
-
-
-# The following is used for _build_parsed_values() and defined as below:
-# (parameter name, encoding function)
-METADATA_ENCODING_RULES = [
-    (MetadataKey.CHANNEL, lambda x: [int(y) for y in x]),
-    (MetadataKey.TRANSDUCER_DEPTH, lambda x: [float(y) for y in x]),
-    (MetadataKey.FREQUENCY, lambda x: [float(y) for y in x]),
-    (MetadataKey.TRANSMIT_POWER, lambda x: [float(y) for y in x]),
-    (MetadataKey.PULSE_LENGTH, lambda x: [float(y) for y in x]),
-    (MetadataKey.BANDWIDTH, lambda x: [float(y) for y in x]),
-    (MetadataKey.SAMPLE_INTERVAL, lambda x: [float(y) for y in x]),
-    (MetadataKey.SOUND_VELOCITY, lambda x: [float(y) for y in x]),
-    (MetadataKey.ABSORPTION_COEF, lambda x: [float(y) for y in x]),
-    (MetadataKey.TEMPERATURE, lambda x: [float(y) for y in x])
-]
 
 
 # Numpy data type object for unpacking the Sample datagram including the header from binary *.raw
@@ -230,6 +198,7 @@ def windows_to_ntp(windows_time):
     return windows_time / 1e7 - NTP_WINDOWS_DELTA
 
 
+
 def build_windows_time(high_word, low_word):
     """
     Generate Windows time value from high and low date times.
@@ -240,19 +209,6 @@ def build_windows_time(high_word, low_word):
     """
     return (high_word << 32) + low_word
 
-
-
-# def extract_file_time(filepath):
-#     match = FILE_NAME_MATCHER.match(filepath)
-#     if match:
-#         return match.group('Date') + match.group('Time')
-#     else:
-#         # Files retrieved from the instrument should always match the timestamp naming convention
-#         error_message = \
-#             "Unable to extract file time from input file name: %s. Expected format *-DYYYYmmdd-THHMMSS.raw" \
-#             % filepath
-#         log.error(error_message)
-#         raise InstrumentDataException(error_message)
 
 
 def process_sample(input_file, transducer_count):
@@ -309,18 +265,21 @@ def process_sample(input_file, transducer_count):
     return channel, ntp_time, sample_data, power_data, angle_data, motion_data
 
 
+
 def append_metadata(metadata, channel, sample_data):
-    metadata[MetadataKey.CHANNEL].append(channel)
-    metadata[MetadataKey.TRANSDUCER_DEPTH].append(sample_data['transducer_depth'][0])
-    metadata[MetadataKey.FREQUENCY].append(sample_data['frequency'][0])
-    metadata[MetadataKey.TRANSMIT_POWER].append(sample_data['transmit_power'][0])
-    metadata[MetadataKey.PULSE_LENGTH].append(sample_data['pulse_length'][0])
-    metadata[MetadataKey.BANDWIDTH].append(sample_data['bandwidth'][0])
-    metadata[MetadataKey.SAMPLE_INTERVAL].append(sample_data['sample_interval'][0])
-    metadata[MetadataKey.SOUND_VELOCITY].append(sample_data['sound_velocity'][0])
-    metadata[MetadataKey.ABSORPTION_COEF].append(sample_data['absorption_coefficient'][0])
-    metadata[MetadataKey.TEMPERATURE].append(sample_data['temperature'][0])
+    metadata['channel'].append(channel)
+    metadata['transducer_depth'].append(sample_data['transducer_depth'][0])          # [meters]
+    metadata['frequency'].append(sample_data['frequency'][0])                        # [Hz]
+    metadata['transmit_power'].append(sample_data['transmit_power'][0])              # [Watts]
+    metadata['pulse_length'].append(sample_data['pulse_length'][0])                  # [seconds]
+    metadata['bandwidth'].append(sample_data['bandwidth'][0])                        # [Hz]
+    metadata['sample_interval'].append(sample_data['sample_interval'][0])            # [seconds]
+    metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
+    metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
+    metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
+    metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] * sample_data['sample_interval'][0] / 2)   # [meters]
     return metadata
+
 
 
 def load_ek60_raw(input_file_path):   #, output_file_path=None):
@@ -332,20 +291,12 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
     """
     print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path))
 
-    # disable below to accommodate different file naming convention
-    # file_time = extract_file_time(input_file_path)  # time at file generation
-
     with open(input_file_path, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
         config_header, config_transducer = read_header(input_file)
         transducer_count = config_header['transducer_count']
 
-        transducer_keys = range(1, transducer_count+1)
-        frequencies = dict.fromkeys(transducer_keys)       # transducer frequency
-        bin_size = None                                    # transducer depth measurement
-
         position = input_file.tell()
-        #particle_data = None
 
         last_time = None
         sample_data_temp_dict = {}
@@ -354,9 +305,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         motion_temp_dict = {}   # include heave, pitch, and roll
 
         # Initialize output structure
-        power_data_dict = defaultdict(list)   # echo power
-        angle_data_dict = defaultdict(list)   # contain alongship and athwartship electronic angle
-        motion_data_dict = defaultdict(list)  # contain heave, pitch, and roll motion
+        first_ping_metadata = defaultdict(list)  # metadata for each channel
+        power_data_dict = defaultdict(list)      # echo power
+        angle_data_dict = defaultdict(list)      # contain alongship and athwartship electronic angle
+        motion_data_dict = defaultdict(list)     # contain heave, pitch, and roll motion
         data_times = []
         temperature = []   # WJ: Used to check temperature reading in .RAW file --> all identical for OOI data
 
@@ -401,23 +353,16 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                     # if this is our first set of data from all channels,
                     # create our metadata particle and store the frequency / bin_size
                     if not power_data_dict:
-                        first_ping_metadata = defaultdict(list)
-                        for channel, sample_data in sample_data_temp_dict.items():
-                            append_metadata(first_ping_metadata, channel, sample_data)
 
-                            frequencies[channel] = sample_data['frequency'][0]
-
-                            if bin_size is None:
-                                bin_size = sample_data['sound_velocity'] * sample_data['sample_interval'] / 2
-
-                        #particle_data = first_ping_metadata, next_time  # WJ: probably don't need to append next_time here
-                        # power_data_dict = defaultdict(list)
-                        # angle_data_dict = defaultdict(list)    # contain alongship and athwartship electronic angle
-                        # motion_data_dict = defaultdict(list)   # contain heave, pitch, and roll motion
-
+                        # Initialize each channel to defaultdict
                         for channel in power_data_temp_dict:
+                            first_ping_metadata[channel] = defaultdict(list)
                             angle_data_dict[channel] = defaultdict(list)
                             motion_data_dict[channel] = defaultdict(list)
+
+                        # Fill in metadata for each channel
+                        for channel, sample_data in sample_data_temp_dict.items():
+                            append_metadata(first_ping_metadata[channel], channel, sample_data)
 
                     # Save the time and power data for plotting
                     data_times.append(next_time)
@@ -457,7 +402,7 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
             motion_data_dict[channel]['pitch'] = np.array(motion_data_dict[channel]['pitch'])
             motion_data_dict[channel]['roll'] = np.array(motion_data_dict[channel]['roll'])
 
-        return first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, frequencies, bin_size, config_header, config_transducer
+        return first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, config_header, config_transducer
 
 
 
