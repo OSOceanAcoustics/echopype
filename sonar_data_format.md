@@ -11,15 +11,17 @@ Providing a common file format for storing active sonar data. **Active sonar** h
 - depth [m]
 
 ### variables
-- echo: lat, lon, time, depth  --> variable attribute: **Unit**
-- angle_alongship: lat, lon, time, depth
-- angle_athwardship: lat, lon, time, depth
-- heave: 1 x time
-- roll: 1 x time
-- pitch: 1 x time
+- echo: (time, depth)  --> variable attribute: **Unit**
+- angle_alongship: (time, depth)
+- angle_athwardship: (time, depth)
+- deployment_lat: (time)
+- deployment_lon: (time)
+- heave: (time)
+- roll: (time)
+- pitch: (time)
 
 ### global attributes --> each file has one set of these
-- sensor_manusfacturer
+- sensor_manufacturer
 - sensor_model
 - deployment_info
 - firmware_info
@@ -49,7 +51,7 @@ Providing a common file format for storing active sonar data. **Active sonar** h
 - angle_sensitivity_athwartship
 - angle_offset_alongship
 - angle_offset_athwart
-- beam_type               --> categorical: split0beam, single-beam
+- beam_type               --> categorical: split-beam, single-beam
 - beam_width_alongship
 - beam_width_athwartship
 - equiv_beam_angle
