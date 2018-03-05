@@ -299,10 +299,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         position = input_file.tell()
 
         last_time = None
-        sample_data_temp_dict = {}
-        power_data_temp_dict = {}
-        angle_temp_dict = {}    # include alongship and athwardship angles
-        motion_temp_dict = {}   # include heave, pitch, and roll
+        sample_data_temp_dict = defaultdict(list)
+        power_data_temp_dict = defaultdict(list)
+        angle_temp_dict = defaultdict(list)    # include alongship and athwardship angles
+        motion_temp_dict = defaultdict(list)   # include heave, pitch, and roll
 
         # Initialize output structure
         first_ping_metadata = defaultdict(list)  # metadata for each channel
@@ -331,10 +331,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
 
                 if next_time != last_time:  # WJ: next_time=last_time when it's the same ping but different channel
                     # Clear out our temporary dictionaries and set the last time to this time
-                    sample_data_temp_dict = {}
-                    power_data_temp_dict = {}
-                    angle_temp_dict = {}    # include both alongship and athwardship angle
-                    motion_temp_dict = {}   # include heave, pitch, and roll
+                    sample_data_temp_dict = defaultdict(list)
+                    power_data_temp_dict = defaultdict(list)
+                    angle_temp_dict = defaultdict(list)    # include both alongship and athwardship angle
+                    motion_temp_dict = defaultdict(list)   # include heave, pitch, and roll
                     last_time = next_time
 
                 # Store this data
@@ -367,9 +367,14 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                     # Save the time and power data for plotting
                     data_times.append(next_time)
                     for channel in power_data_temp_dict:
+                        print('channel number is ' + str(channel))
                         power_data_dict[channel].append(power_data_temp_dict[channel])
-                        angle_data_dict[channel]['along'].append(angle_temp_dict[channel]['along'])
-                        angle_data_dict[channel]['athwart'].append(angle_temp_dict[channel]['athwart'])
+                        if any(angle_temp_dict[channel]):
+                            angle_data_dict[channel]['along'].append(angle_temp_dict[channel]['along'])
+                            angle_data_dict[channel]['athwart'].append(angle_temp_dict[channel]['athwart'])
+                        # else:
+                        #     angle_data_dict[channel]['along'].append([])
+                        #     angle_data_dict[channel]['along'].append([])
                         motion_data_dict[channel]['heave'].append(motion_temp_dict[channel]['heave'][0])
                         motion_data_dict[channel]['pitch'].append(motion_temp_dict[channel]['pitch'][0])
                         motion_data_dict[channel]['roll'].append(motion_temp_dict[channel]['roll'][0])
@@ -396,8 +401,12 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             power_data_dict[channel] = power_data_dict[channel].transpose()
-            angle_data_dict[channel]['along'] = np.array(angle_data_dict[channel]['along'])
-            angle_data_dict[channel]['athwart'] = np.array(angle_data_dict[channel]['athwart'])
+            if angle_data_dict[channel]:
+                angle_data_dict[channel]['along'] = np.array(angle_data_dict[channel]['along'])
+                angle_data_dict[channel]['athwart'] = np.array(angle_data_dict[channel]['athwart'])
+            else:
+                angle_data_dict[channel]['along'] = []
+                angle_data_dict[channel]['athwart'] = []
             motion_data_dict[channel]['heave'] = np.array(motion_data_dict[channel]['heave'])
             motion_data_dict[channel]['pitch'] = np.array(motion_data_dict[channel]['pitch'])
             motion_data_dict[channel]['roll'] = np.array(motion_data_dict[channel]['roll'])
