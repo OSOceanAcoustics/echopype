@@ -367,14 +367,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                     # Save the time and power data for plotting
                     data_times.append(next_time)
                     for channel in power_data_temp_dict:
-                        print('channel number is ' + str(channel))
                         power_data_dict[channel].append(power_data_temp_dict[channel])
-                        if any(angle_temp_dict[channel]):
+                        if any(angle_temp_dict[channel]):   # if split-beam data
                             angle_data_dict[channel]['along'].append(angle_temp_dict[channel]['along'])
                             angle_data_dict[channel]['athwart'].append(angle_temp_dict[channel]['athwart'])
-                        # else:
-                        #     angle_data_dict[channel]['along'].append([])
-                        #     angle_data_dict[channel]['along'].append([])
                         motion_data_dict[channel]['heave'].append(motion_temp_dict[channel]['heave'][0])
                         motion_data_dict[channel]['pitch'].append(motion_temp_dict[channel]['pitch'][0])
                         motion_data_dict[channel]['roll'].append(motion_temp_dict[channel]['roll'][0])
@@ -401,10 +397,10 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             power_data_dict[channel] = power_data_dict[channel].transpose()
-            if angle_data_dict[channel]:
+            if angle_data_dict[channel]:    # if split-beam data
                 angle_data_dict[channel]['along'] = np.array(angle_data_dict[channel]['along'])
                 angle_data_dict[channel]['athwart'] = np.array(angle_data_dict[channel]['athwart'])
-            else:
+            else:                           # if single-beam data
                 angle_data_dict[channel]['along'] = []
                 angle_data_dict[channel]['athwart'] = []
             motion_data_dict[channel]['heave'] = np.array(motion_data_dict[channel]['heave'])
