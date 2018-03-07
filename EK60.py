@@ -576,7 +576,7 @@ class raw_data(sample_data):
             store_angles=self.store_angles, max_sample_number=self.max_sample_number)
 
         #  and return the empty processed_data object
-        return self._empty_like(empty_obj, n_pings)
+        return self._like(empty_obj, n_pings, np.nan, empty_times=True)
 
 
     def insert(self, obj_to_insert, ping_number=None, ping_time=None,
