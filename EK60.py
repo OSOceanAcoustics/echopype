@@ -294,7 +294,6 @@ class EK60(object):
         #      As stated above, the exact mechanics need to be worked out since it will not work
         #      as currently implemented.
 
-
         num_sample_datagrams = 0
         num_sample_datagrams_skipped = 0
         num_unknown_datagrams_skipped = 0
@@ -364,7 +363,8 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
-                self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+                self.nmea_data.add_datagram(new_datagram['timestamp'],
+                        new_datagram['nmea_string'])
 
             #  TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram['type'].startswith('TAG'):
@@ -375,14 +375,6 @@ class EK60(object):
                 log.warning('Skipping unkown datagram type: %s @ %s', new_datagram['type'],
                         new_datagram['timestamp'])
                 num_unknown_datagrams_skipped += 1
-
-            if not (num_datagrams_parsed % 10000):
-                log.debug('    Parsed %d datagrams (%d sample).', num_datagrams_parsed,
-                        num_sample_datagrams)
-
-
-        num_datagrams_skipped = num_unknown_datagrams_skipped + num_sample_datagrams_skipped
-        log.info('  Read %d datagrams (%d skipped).', num_sample_datagrams, num_datagrams_skipped)
 
 
     def _convert_time_bound(self, time, format_string):
@@ -1050,7 +1042,7 @@ class raw_data(sample_data):
         return p_data, return_indices
 
 
-    def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
+    def _get_sample_data(self, property_name, calibration=None, resample_interval=RESAMPLE_SHORTEST,
             resample_soundspeed=None, _insert_into=None, return_indices=None, **kwargs):
         """
         _get_sample_data returns a processed data object that contains the sample data from
