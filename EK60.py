@@ -391,17 +391,43 @@ class EK60(object):
         return utc.localize(time)
 
 
-    def get_rawdata(self, channel_number=1, channel_id=None):
+    def get_raw_data(self, channel_number=None, channel_id=None):
         """
-        get_rawdata returns a reference to the specified raw_data object for the
-        specified channel id or channel number.
+        Get the raw data for a specific channel
+
+        get_rawdata returns a reference to the specified raw_data object for
+        the specified channel id or channel number. If no channel
+        number or id are specified it returns a dictionary keyed by channel
+        id containing all of the channels.
+
+        Args:
+            channel_number (int): Channel from which to return the raw data
+            channel_id (str): The channel ID from which to return the raw data
+
+        Returns: Raw data object from the specified channel
         """
 
-        if (channel_id):
-            return self.raw_data.get(channel_id, None)
+        if (channel_id is not None):
+            #  channel id specified
+            channel_data = self.raw_data.get(channel_id, None)
+        elif (channel_number is not None):
+            #  channel number specified
+            try:
+                channel_data = self.raw_data.get(self.channel_id_map
+                                             [channel_number], None)
+            except KeyError:
+                #  no channel id for this channel number
+                channel_data = None
         else:
-            #TODO: error handling
-            return self.raw_data.get(self.channel_id_map[channel_number], None)
+            #  no channel id or number specified - return all in a
+            #  dict keyed by channel ID
+            channel_data = self.raw_data
+
+        if channel_data:
+            return channel_data
+        else:
+            raise ValueError('The specified chanel number or channel ID does '
+                             'not exists')
 
 
     def __str__(self):
@@ -634,13 +660,22 @@ class raw_data(sample_data):
 
         """
 
+        #  determine the number of samples in this ping
+        if (sample_datagram['angle'] is not None):
+            angle_samps = sample_datagram['angle'].shape[0]
+        else:
+            angle_samps = -1
+        if (sample_datagram['power'] is not None):
+            power_samps = sample_datagram['power'].shape[0]
+        else:
+            power_samps = -1
+
         #  if using dynamic arrays, handle intialization of data arrays when the first ping is added
         if (self.n_pings == -1 and self.rolling_array == False):
             if self.max_sample_number:
                 number_samples = self.max_sample_number
             else:
-                number_samples = max(sample_datagram['angle'].shape[0],
-                        sample_datagram['power'].shape[0])
+                number_samples = max([angle_samps, power_samps])
             #  create the initial data arrays
             self._create_arrays(self.chunk_width, number_samples)
 
@@ -652,13 +687,15 @@ class raw_data(sample_data):
         #  the same size but we'll check all to make sure.
         max_data_samples = max(self.power.shape[1],self.angles_alongship_e.shape[1],
                 self.angles_athwartship_e.shape[1])
-        max_new_samples = max(sample_datagram['angle'].shape[0], sample_datagram['power'].shape[0])
+        max_new_samples = max([power_samps, angle_samps])
 
         #  check if we need to truncate the sample data
         if (self.max_sample_number) and (max_new_samples > self.max_sample_number):
             max_new_samples = self.max_sample_number
-            sample_datagram['angle'] = sample_datagram['angle'][0:self.max_sample_number]
-            sample_datagram['power'] = sample_datagram['power'][0:self.max_sample_number]
+            if (angle_samps > 0):
+                sample_datagram['angle'] = sample_datagram['angle'][0:self.max_sample_number]
+            if (power_samps > 0):
+                sample_datagram['power'] = sample_datagram['power'][0:self.max_sample_number]
 
         #  create 2 variables to store our current array size
         ping_dims = self.ping_time.size
