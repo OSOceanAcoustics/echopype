@@ -146,9 +146,38 @@ class EK60(object):
         #  the channels to read. An empty list will result in all channels being read.
         self.read_channel_ids = []
 
-        #  this is the internal per file channel map. This map is only valid for the file
+        #  this is the internal per file channel map which maps the channels in the file
+        #  to the channels we are reading. This map is only valid for the file
         #  currently being read. Do not alter or use this property.
         self._channel_map = {}
+
+        #  this is yet another channel mapping - this maps channel id's to channel number
+        #  and is used to map bottom detections to specific channels. This list differs
+        #  from the other lists of ids as it contains all ids in the file, not just the
+        #  ones we're storing.
+        self._file_channel_map = []
+
+
+    def read_bot(self, bot_files):
+        """
+        read_bot passes a list of .bot filenames to read_raw. Because of the
+        requriement to read a .bot/.out file after the .raw data it may be
+        more convienient to simply call this after reading your .raw files.
+
+        This does potentially provide a small optimization when reading .out
+        files in that this method will set the start and end time arguments
+        to read_raw based on the start and end times of the raw data so bottom
+        detections outside of this range will be skipped immediately after
+        reading instead of being checked against the data ping times.
+
+        Note that you don't *have* to call this method to read .bot/.out
+        files. You can call read_raw directly but you must read your .raw
+        data before reading the .bot file which means the .raw file associated
+        with a .bot/.out file must come before said .out/.bot file in the
+        list of raw files.
+        """
+        self.read_raw(bot_files, start_time=self.start_time,
+                end_time=self.end_time)
 
 
     def read_raw(self, raw_files, power=None, angles=None, max_sample_count=None, start_time=None,
@@ -156,14 +185,21 @@ class EK60(object):
             time_format_string='%Y-%m-%d %H:%M:%S', incremental=None, start_sample=None,
             end_sample=None):
         """
-        read_raw reads one or many Simrad EK60 ES60/70 .raw files
+        read_raw reads one or many Simrad EK60 ES60/70 .raw files. This method
+        also reads .out and .bot files but you must read the .raws files
+        associated with a .bot or .out file *before* reading the bottom file.
+        (.bot files are associted with a single .raw file while .out files
+        can be associated with one or more .raw files.)
+
         """
 
         #  update the reading state variables
         if (start_time):
-            self.read_start_time = self._convert_time_bound(start_time, format_string=time_format_string)
+            self.read_start_time = self._convert_time_bound(start_time,
+                    format_string=time_format_string)
         if (end_time):
-            self.read_end_time = self._convert_time_bound(end_time, format_string=time_format_string)
+            self.read_end_time = self._convert_time_bound(end_time,
+                    format_string=time_format_string)
         if (start_ping):
             self.read_start_ping = start_ping
         if (end_ping):
@@ -208,8 +244,20 @@ class EK60(object):
 
                 #  read the CON0 configuration datagram
                 config_datagram = fid.read(1)
+
+                config_datagram['timestamp'] = np.array(config_datagram['timestamp'],
+                    dtype='datetime64[ms]')
+
                 if (n_files == 0):
                     self.start_time = config_datagram['timestamp']
+
+                #  create a mapping of channel numbers to channel IDs for all
+                #  transceivers in the file.
+                self._file_channel_map = [None] * \
+                    config_datagram['transceiver_count']
+                for idx in config_datagram['transceivers'].keys():
+                    self._file_channel_map[idx-1] = \
+                        config_datagram['transceivers'][idx]['channel_id']
 
                 #  check if we're reading an ME70 file with a CON1 datagram
                 next_datagram = fid.peek()
@@ -252,20 +300,22 @@ class EK60(object):
                         self.n_channels += 1
                         self.channel_id_map[self.n_channels] = channel_id
 
-                    #  update the internal mapping of channel number to channel ID used when reading
-                    #  the datagrams. This mapping is only valid for the current file that is being read.
+                    #  update the internal mapping of channel number to channel ID used
+                    #  when reading the datagrams. This mapping is only valid for the
+                    #  current file that is being read.
                     self._channel_map[channel] = channel_id
 
-                    #  create a channel_metadata object to store this channel's configuration and rawfile metadata.
+                    #  create a channel_metadata object to store this channel's
+                    #  configuration and rawfile metadata.
                     metadata = channel_metadata(filename,
-                                                config_datagram['transceivers'][channel],
-                                                config_datagram['survey_name'],
-                                                config_datagram['transect_name'],
-                                                config_datagram['sounder_name'],
-                                                config_datagram['version'],
-                                                self.raw_data[channel_id].n_pings,
-                                                config_datagram['timestamp'],
-                                                extended_configuration=CON1_datagram)
+                                config_datagram['transceivers'][channel],
+                                config_datagram['survey_name'],
+                                config_datagram['transect_name'],
+                                config_datagram['sounder_name'],
+                                config_datagram['version'],
+                                self.raw_data[channel_id].n_pings,
+                                config_datagram['timestamp'],
+                                extended_configuration=CON1_datagram)
 
                     #  update the channel_metadata property of the RawData object
                     self.raw_data[channel_id].current_metadata = metadata
@@ -294,10 +344,14 @@ class EK60(object):
         #      As stated above, the exact mechanics need to be worked out since it will not work
         #      as currently implemented.
 
+
+        #TODO:  figure out what if anything we want to do with these.
+        #       Either expose in some useful way or remove.
         num_sample_datagrams = 0
         num_sample_datagrams_skipped = 0
         num_unknown_datagrams_skipped = 0
         num_datagrams_parsed = 0
+        num_bot_datagrams = 0
 
         #  while datagrams are available
         while True:
@@ -307,6 +361,10 @@ class EK60(object):
             except SimradEOF:
                 #  nothing more to read
                 break
+
+            #  convert the timestamp to a datetime64 object
+            new_datagram['timestamp'] = np.array(new_datagram['timestamp'],
+                    dtype='datetime64[ms]')
 
             #  check if we should store this data based on time bounds
             if self.read_start_time is not None:
@@ -320,7 +378,12 @@ class EK60(object):
             num_datagrams_parsed += 1
 
             #  update our end_time property
-            self.end_time = new_datagram['timestamp']
+            if (self.end_time is not None):
+                #  we can't assume data will be read in time order
+                if (self.end_time < new_datagram['timestamp']):
+                    self.end_time = new_datagram['timestamp']
+            else:
+                self.end_time = new_datagram['timestamp']
 
             #  process the datagrams by type
 
@@ -366,9 +429,27 @@ class EK60(object):
                 self.nmea_data.add_datagram(new_datagram['timestamp'],
                         new_datagram['nmea_string'])
 
-            #  TAG datagrams contain time-stamped annotations inserted via the recording software
+            #  TAG datagrams contain time-stamped annotations inserted via the
+            #  recording software
             elif new_datagram['type'].startswith('TAG'):
                 #TODO: Implement annotation reading
+                pass
+
+            elif new_datagram['type'].startswith('BOT'):
+                #  iterate thru our channels, extract the depth,
+                #  and update the channel.
+                for channel_id in self.channel_ids:
+                    idx = self._file_channel_map.index(channel_id)
+                    bottom_depth = new_datagram['depth'][idx]
+                    #  and call the appropriate channel's append_bot method
+                    self.raw_data[channel_id].append_bot(new_datagram['timestamp'],
+                            bottom_depth)
+
+                # increment the sample datagram counter
+                num_bot_datagrams += 1
+
+            elif new_datagram['type'].startswith('DEP'):
+                print(new_datagram['type'])
                 pass
             else:
                 #  unknown datagram type - issue a warning
@@ -379,16 +460,24 @@ class EK60(object):
 
     def _convert_time_bound(self, time, format_string):
         """
-        internally all times are datetime objects converted to UTC timezone. This method
+        internally all times are converted to UTC timezone. This method
         converts arguments to comply.
         """
+        #  if we've been given a datetime64[ms] object nothing to convert
+        if (time.dtype == '<M8[ms]'):
+            return
+
         utc = timezone('utc')
         if (isinstance(time, str)):
             #  we have been passed a string, convert to datetime object
             time = datetime.datetime.strptime(time, format_string)
 
-        #  convert to UTC and return
-        return utc.localize(time)
+        #  make sure our datetime object is converted to UTC
+        if (isinstance(time, datetime.datetime)):
+            time = utc.localize(time)
+
+        #  and return
+        return time
 
 
     def get_raw_data(self, channel_number=None, channel_id=None):
@@ -566,7 +655,8 @@ class raw_data(sample_data):
                                   'sample_count',
                                   'power',
                                   'angles_alongship_e',
-                                  'angles_athwartship_e']
+                                  'angles_athwartship_e',
+                                  'detected_bottom']
 
         #  if we're using a fixed data array size, we can allocate the arrays now
         if (self.rolling_array):
@@ -629,6 +719,21 @@ class raw_data(sample_data):
         super(raw_data, self).insert(obj_to_insert, ping_number=ping_number,
                                      ping_time=ping_time, insert_after=insert_after,
                                      index_array=index_array)
+
+
+    def append_bot(self, detection_time, detection_depth):
+        """
+        while the name implies otherwise, append_bot actully inserts a bottom detection
+        depth into the detected_bottom array for a specified ping time. If the
+        time is not matched, the data is ignored.
+
+        """
+        #  determine the array element associated with this ping and
+        #  update it with the detection depth
+        idx_array = self.ping_time == np.array(detection_time,
+                dtype='datetime64[ms]')
+        if (np.any(idx_array)):
+            self.detected_bottom[idx_array] = detection_depth
 
 
     def append_ping(self, sample_datagram, start_sample=None, end_sample=None):
@@ -1470,6 +1575,7 @@ class raw_data(sample_data):
         self.transmit_mode = np.roll(self.transmit_mode, roll_pings)
         self.sample_offset = np.roll(self.sample_offset, roll_pings)
         self.sample_count = np.roll(self.sample_count, roll_pings)
+        self.detected_bottom = np.roll(self.detected_bottom, roll_pings)
         if (self.store_power):
             self.power = np.roll(self.power, roll_pings, axis=0)
         if (self.store_angles):
@@ -1502,6 +1608,7 @@ class raw_data(sample_data):
         self.transmit_mode = np.empty((n_pings), np.uint8)
         self.sample_offset =  np.empty((n_pings), np.uint32)
         self.sample_count = np.empty((n_pings), np.uint32)
+        self.detected_bottom = np.empty((n_pings), np.float32)
         if (self.store_power):
             self.power = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
             self.n_samples = n_samples
@@ -1513,8 +1620,7 @@ class raw_data(sample_data):
 
         #  check if we should initialize them
         if (initialize):
-            #  filling datetime64 arrays with NaN results in NaT (not a time)
-            self.ping_time.fill(np.nan)
+            self.ping_time.fill(np.datetime64('NaT'))
             #  channel_metadata is initialized when using np.empty
             self.transducer_depth.fill(np.nan)
             self.frequency.fill(np.nan)
@@ -1532,6 +1638,7 @@ class raw_data(sample_data):
             self.transmit_mode.fill(0)
             self.sample_offset.fill(0)
             self.sample_count.fill(0)
+            self.detected_bottom(np.nan)
             if (self.store_power):
                 self.power.fill(np.nan)
             if (self.store_angles):
