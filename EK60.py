@@ -727,11 +727,14 @@ class raw_data(sample_data):
         depth into the detected_bottom array for a specified ping time. If the
         time is not matched, the data is ignored.
 
+        To keep things simple, you must add the corresponding "ping" data before
+        adding the detected bottom depth. If you try to add a bottom value for
+        a ping that has yet to be added the matching ping_time will not exist and
+        the bottom value will be ignored.
         """
         #  determine the array element associated with this ping and
         #  update it with the detection depth
-        idx_array = self.ping_time == np.array(detection_time,
-                dtype='datetime64[ms]')
+        idx_array = self.ping_time == detection_time
         if (np.any(idx_array)):
             self.detected_bottom[idx_array] = detection_depth
 
@@ -996,7 +999,22 @@ class raw_data(sample_data):
         return p_data, return_indices
 
 
-    def get_sv(self, calibration=None, linear=False, keep_power=False,
+    def get_sv(self, **kwargs):
+        """
+        get_sv returns a processed_data object containing sv
+
+        This is a convienience method which simply calls get_Sv and forces
+        the linear keyword to True.
+        """
+
+        #  remove the linear keyword
+        kwargs.pop('linear', None)
+
+        #  and call get_Sp forcing linear to True
+        return self.get_Sv(linear=True, **kwargs)
+
+
+    def get_Sv(self, calibration=None, linear=False, keep_power=False,
                 tvg_correction=True, heave_correct=False, return_depth=False,
                 **kwargs):
         """
@@ -1042,7 +1060,22 @@ class raw_data(sample_data):
         return p_data
 
 
-    def get_sp(self,  calibration=None, linear=False, keep_power=False,
+    def get_sp(self, **kwargs):
+        """
+        get_sp returns a processed_data object containing sp
+
+        This is a convienience method which simply calls get_Sp and forces
+        the linear keyword to True.
+        """
+
+        #  remove the linear keyword
+        kwargs.pop('linear', None)
+
+        #  and call get_Sp forcing linear to True
+        return self.get_Sp(linear=True, **kwargs)
+
+
+    def get_Sp(self,  calibration=None, linear=False, keep_power=False,
             tvg_correction=False, heave_correct=False, return_depth=False,
             **kwargs):
         """
@@ -1090,6 +1123,37 @@ class raw_data(sample_data):
             self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
+
+
+    def get_bottom_depths(self, calibration=None, return_indices=None, **kwargs):
+        """
+        get_bottom_depths returns a echolab2 line object containing the sounder
+        detected bottom depths.
+
+        The sounder detected bottom depths are computed using the sound speed
+        setting at the time of recording. If you are applying a different sound
+        speed setting via the calibration argument when
+
+        """
+
+        #  check if the user supplied an explicit list of indices to return
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_time.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the raw_data object")
+        else:
+            #  get an array of index values to return
+            return_indices = self.get_indices(**kwargs)
+
+        #  get the calibration params required for detected depth conversion
+        cal_parms = {'sound_velocity':None,
+                     'transducer_depth':None,
+                     'heave':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
 
 
     def get_physical_angles(self, calibration=None, **kwargs):
