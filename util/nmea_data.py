@@ -15,17 +15,18 @@
 
 
 import numpy as np
+#  NOTE: echolab2 uses a modified version of pynmea2 that includes some
+#  minor bug fixes and differences of opinion in terms of the data types
+#  returned when parsing certain datagrams.
 from . import pynmea2
 
 class nmea_data(object):
     '''
     The nmea_data class provides storage for and parsing of NMEA data commonly
     collected along with sonar data.
-
     '''
 
     CHUNK_SIZE = 500
-
 
     def __init__(self):
 
@@ -64,9 +65,15 @@ class nmea_data(object):
                                         'fields': ['true_track',
                                                    'spd_over_grnd_kts']}
         # Meta-types
+        #
+        #  Define a "position" meta-type that extracts lat/lon data from GGA, RMC
+        #  and/or GLL datagrams if they are present.
         self.nmea_definitions['position'] = {'message': ['GGA','RMC', 'GLL'],
                                              'fields': ['latitude',
                                                         'longitude']}
+        #  for these meta-types we don't have multiple messages and are simply
+        #  using the meta-type to define an easy to remember label like "speed"
+        #  or "distance" that you can use instead of 'VTG' or 'VLW'.
         self.nmea_definitions['speed']    = {'message': ['VTG'],
                                              'fields': ['spd_over_grnd_kts']}
         self.nmea_definitions['attitude'] = {'message': ['SHR'],
@@ -76,17 +83,20 @@ class nmea_data(object):
                                              'fields': ['trip_distance_nmi']}
 
 
-    def add_datagram(self, time, text):
+    def add_datagram(self, time, text, allow_duplicates=False):
         """
-        Add NMEA datagrams to this instance of class.
+        Add NMEA datagrams to this object.
 
         add_datagram adds a NMEA datagram to the class. It adds it to the
         raw_datagram list as well as parsing the header and adding the
         talker + mesage ID to the type_index dictionary.
         Args:
             time (datetime64): Timestamp of NMEA datagram (this is likely
-                different than the timestamp within THE NMEA string itself).
-                text (str): Raw NMEA string.
+                different than the timestamp within the NMEA string itself).
+            text (str): The raw NMEA string.
+            allow_duplicates (bool): When False, NMEA datagrams that share
+                the same timestamp, talker ID, and message ID with an
+                existing datagram will be discarded.
 
         """
         # Parse the NMEA message header
@@ -94,6 +104,19 @@ class nmea_data(object):
 
         # Verify we have a plausible header and then process.
         if header.isalpha() and len(header) == 5:
+
+            #  check if we're allowing duplicates and if this is one. We need
+            #  to do this since .out files can contain duplicate NMEA data.
+            if (not allow_duplicates):
+                dup_idx = (self.nmea_times == time)
+                if (np.any(dup_idx)):
+                    #  We have a time match - check the talker and message id
+                    my_talker = self.talkers[dup_idx]
+                    my_message = self.messages[dup_idx]
+
+                    if (my_talker == header[0:2] and my_message == header[2:6]):
+                        #  this is the same - discard it
+                        return
 
             # Increment datagram counter.
             self.n_raw += 1
@@ -179,7 +202,7 @@ class nmea_data(object):
 
             # Get the index for all datagrams within the time span.
             return_idxs = self._get_indices(start_time, end_time,
-                                            time_order=True)
+                    time_order=True)
 
             # Build a mask based on the message type and talker ID.
             keep_mask = self.messages[return_idxs] == msg_type
@@ -264,12 +287,12 @@ class nmea_data(object):
                                 msg_data[idx] = None
 
                         datagrams[msg_type] = {
-                                            'time':self.nmea_times[return_idxs],
-                                            'data':msg_data}
+                                'time':self.nmea_times[return_idxs],
+                                'data':msg_data}
                 else:
-                    #  Mothing to return for this message msg_type. If
+                    #  Nothing to return for this message msg_type but
                     # return_fields are specified so create keys for the
-                    # return fields.
+                    # return fields and set to None
                     if return_fields:
                         #
                         datagrams[msg_type] = {'time':None}
@@ -323,8 +346,7 @@ class nmea_data(object):
             else:
                 # We don't know what to do this this datagram type.
                 raise ValueError("The provided NMEA message type {0} is unknown"
-                                 " to the interpolation method.".
-                                 format(message_type))
+                        " to the interpolation method.".format(message_type))
 
         # Extract the NMEA data we need to interpolate.
         message_data = self.get_datagrams(interp_messages,
@@ -363,11 +385,10 @@ class nmea_data(object):
             # work through the fields we're interpolating and interpolate.
             if message_data[msg_type]['time'] is not None:
                 for field in interp_fields:
-                    i_field = np.interp(
-                                    p_data.ping_time.astype('d'),
-                                    message_data[msg_type]['time'].astype('d'),
-                                    message_data[msg_type][field],
-                                    left=np.nan, right=np.nan)
+                    i_field = np.interp(p_data.ping_time.astype('d'),
+                            message_data[msg_type]['time'].astype('d'),
+                            message_data[msg_type][field],
+                            left=np.nan, right=np.nan)
 
                     # Since it is possible that one type does not cover the
                     # entire output range, we determine where data is missing

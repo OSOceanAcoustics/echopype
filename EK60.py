@@ -266,7 +266,7 @@ class EK60(object):
                     #  next datagram was something else, move along
                     CON1_datagram = None
 
-                #  check if we need to create an RawData object for this channel
+                #  check if we need to create an raw_data object for this channel
                 self._channel_map = {}
                 for channel in config_datagram['transceivers']:
                     #  get the channel ID
@@ -285,11 +285,12 @@ class EK60(object):
                         #  so we just move along...
                         continue
 
-                    #  check if an RawData object exists for this channel
+                    #  check if an raw_data object exists for this channel
                     if channel_id not in self.raw_data:
                         #  no - create it
-                        self.raw_data[channel_id] = raw_data(channel_id, store_power=self.read_power,
-                                store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
+                        self.raw_data[channel_id] = raw_data(channel_id,
+                                store_power=self.read_power, store_angles=self.read_angles,
+                                max_sample_number=self.read_max_sample_count)
 
                         #  and add it to our list of channel_ids
                         self.channel_ids.append(channel_id)
@@ -333,6 +334,7 @@ class EK60(object):
     def _read_datagrams(self, fid, incremental):
         """
         _read_datagrams is an internal method to read all of the datagrams contained in
+        a raw file.
         """
 
         #TODO: implement incremental reading
@@ -423,6 +425,7 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
+                #  add the datagram to our nmea_data object
                 self.nmea_data.add_datagram(new_datagram['timestamp'],
                         new_datagram['nmea_string'])
 
@@ -430,8 +433,10 @@ class EK60(object):
             #  recording software
             elif new_datagram['type'].startswith('TAG'):
                 #TODO: Implement annotation reading
+                print(new_datagram)
                 pass
 
+            #  BOT datagrams contain sounder detected bottom depths from ".bot" files
             elif new_datagram['type'].startswith('BOT'):
                 #  iterate thru our channels, extract the depth,
                 #  and update the channel.
@@ -445,6 +450,7 @@ class EK60(object):
                 # increment the sample datagram counter
                 num_bot_datagrams += 1
 
+            #  DEP datagrams contain sounder detected bottom depths from ".out" files
             elif new_datagram['type'].startswith('DEP'):
                 print(new_datagram['type'])
                 pass
