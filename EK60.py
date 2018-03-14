@@ -17,14 +17,12 @@
 import os
 import datetime
 from pytz import timezone
-import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
 from ..sample_data import sample_data
 from ..processing import processed_data
+from ..processing import line
 from .util.nmea_data import nmea_data
-
-log = logging.getLogger(__name__)
 
 
 class EK60(object):
@@ -349,7 +347,6 @@ class EK60(object):
         #       Either expose in some useful way or remove.
         num_sample_datagrams = 0
         num_sample_datagrams_skipped = 0
-        num_unknown_datagrams_skipped = 0
         num_datagrams_parsed = 0
         num_bot_datagrams = 0
 
@@ -452,10 +449,7 @@ class EK60(object):
                 print(new_datagram['type'])
                 pass
             else:
-                #  unknown datagram type - issue a warning
-                log.warning('Skipping unkown datagram type: %s @ %s', new_datagram['type'],
-                        new_datagram['timestamp'])
-                num_unknown_datagrams_skipped += 1
+                print("Unknown datagram type: " + str(new_datagram['type']))
 
 
     def _convert_time_bound(self, time, format_string):
@@ -1125,7 +1119,8 @@ class raw_data(sample_data):
         return p_data
 
 
-    def get_bottom_depths(self, calibration=None, return_indices=None, **kwargs):
+    def get_bottom_depths(self, calibration=None, return_indices=None,
+            heave_correct=False, return_range=False, **kwargs):
         """
         get_bottom_depths returns a echolab2 line object containing the sounder
         detected bottom depths.
@@ -1145,6 +1140,9 @@ class raw_data(sample_data):
             #  get an array of index values to return
             return_indices = self.get_indices(**kwargs)
 
+        #  extract the recorded sound velocity
+        sv_recorded = self.sound_velocity[return_indices]
+
         #  get the calibration params required for detected depth conversion
         cal_parms = {'sound_velocity':None,
                      'transducer_depth':None,
@@ -1154,6 +1152,26 @@ class raw_data(sample_data):
         for key in cal_parms:
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
+        #  check if we have to adjust the depth due to a change in sound speed
+        if (not np.all(np.isclose(sv_recorded, cal_parms['sound_velocity']))):
+            converted_depths = self.detected_bottom[return_indices]
+        else:
+            cf = sv_recorded / cal_parms['sound_velocity']
+            converted_depths = cf * self.detected_bottom[return_indices]
+
+        #  check if we're applying heave correction and/or returning depth by applying a
+        #  transducer offset.
+        if (heave_correct):
+            #  heave correction implies returning depth - determine the vertical shift per-ping
+            converted_depths += cal_parms['heave'][return_indices]
+        elif (return_range):
+            converted_depths -= cal_parms['transducer_depth'][return_indices]
+
+        #  create a line object to return with our adjusted data
+        bottom_line = line.line(ping_time=self.ping_time[return_indices],
+                data=converted_depths)
+
+        return bottom_line
 
 
     def get_physical_angles(self, calibration=None, **kwargs):
