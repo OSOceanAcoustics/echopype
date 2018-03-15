@@ -243,9 +243,8 @@ class EK60(object):
                 #  read the CON0 configuration datagram
                 config_datagram = fid.read(1)
 
-                config_datagram['timestamp'] = np.array(config_datagram['timestamp'],
-                    dtype='datetime64[ms]')
-
+                config_datagram['timestamp'] = \
+                        np.datetime64(config_datagram['timestamp'], '[ms]')
                 if (n_files == 0):
                     self.start_time = config_datagram['timestamp']
 
@@ -362,8 +361,8 @@ class EK60(object):
                 break
 
             #  convert the timestamp to a datetime64 object
-            new_datagram['timestamp'] = np.array(new_datagram['timestamp'],
-                    dtype='datetime64[ms]')
+            new_datagram['timestamp'] = \
+                    np.datetime64(new_datagram['timestamp'], '[ms]')
 
             #  check if we should store this data based on time bounds
             if self.read_start_time is not None:
@@ -451,9 +450,21 @@ class EK60(object):
                 num_bot_datagrams += 1
 
             #  DEP datagrams contain sounder detected bottom depths from ".out" files
+            #  as well as "reflectivity" data
             elif new_datagram['type'].startswith('DEP'):
-                print(new_datagram['type'])
-                pass
+                #  iterate thru our channels, extract the depth,
+                #  and update the channel.
+                for channel_id in self.channel_ids:
+                    idx = self._file_channel_map.index(channel_id)
+                    bottom_depth = new_datagram['depth'][idx]
+                    reflectivity = new_datagram['reflectivity'][idx]
+                    #  and call the appropriate channel's append_bot method, including
+                    #  reflectivity
+                    self.raw_data[channel_id].append_bot(new_datagram['timestamp'],
+                            bottom_depth, reflectivity=reflectivity)
+
+                # increment the sample datagram counter
+                num_bot_datagrams += 1
             else:
                 print("Unknown datagram type: " + str(new_datagram['type']))
 
@@ -602,7 +613,6 @@ class raw_data(sample_data):
         fill up when rolling == False.
 
         """
-
         super(raw_data, self).__init__()
 
         #  we can come up with a better name, but this specifies if we have a fixed data
@@ -635,7 +645,8 @@ class raw_data(sample_data):
         #  _data_attributes is an internal list that contains the names of all of the class's
         #  "data" properties. The echolab2 package uses this attribute to generalize various
         #  functions that manipulate these data.  Here we *extend* the list that is defined
-        #  in the parent class.
+        #  in the parent class. We don't add the bottom data attributes here. Those are only
+        #  added if .bot or .out files are read.
         self._data_attributes += ['channel_metadata',
                                   'transducer_depth',
                                   'frequency',
@@ -655,8 +666,7 @@ class raw_data(sample_data):
                                   'sample_count',
                                   'power',
                                   'angles_alongship_e',
-                                  'angles_athwartship_e',
-                                  'detected_bottom']
+                                  'angles_athwartship_e']
 
         #  if we're using a fixed data array size, we can allocate the arrays now
         if (self.rolling_array):
@@ -721,22 +731,39 @@ class raw_data(sample_data):
                                      index_array=index_array)
 
 
-    def append_bot(self, detection_time, detection_depth):
+    def append_bot(self, detection_time, detection_depth, reflectivity=None):
         """
         while the name implies otherwise, append_bot actully inserts a bottom detection
         depth into the detected_bottom array for a specified ping time. If the
         time is not matched, the data is ignored.
+
+        When reading .out files you can pass the reflectivity value.
 
         To keep things simple, you must add the corresponding "ping" data before
         adding the detected bottom depth. If you try to add a bottom value for
         a ping that has yet to be added the matching ping_time will not exist and
         the bottom value will be ignored.
         """
+        #  first check if the detected_bottom attribute exists and create if not
+        if (not hasattr(self, 'detected_bottom')):
+            #  nope - create it
+            data = np.full(self.ping_time.shape[0], np.nan)
+            self.add_attribute('detected_bottom', data)
+
+        #  if we're storing reflectivity, check if it exists
+        if (reflectivity is not None):
+            if (not hasattr(self, 'bottom_reflectivity')):
+                #  nope - create it
+                data = np.full(self.ping_time.shape[0], np.nan)
+                self.add_attribute('bottom_reflectivity', data)
+
         #  determine the array element associated with this ping and
-        #  update it with the detection depth
+        #  update it with the detection depth and optional reflectivity
         idx_array = self.ping_time == detection_time
         if (np.any(idx_array)):
             self.detected_bottom[idx_array] = detection_depth
+            if (reflectivity is not None):
+                self.bottom_reflectivity[idx_array] = reflectivity
 
 
     def append_ping(self, sample_datagram, start_sample=None, end_sample=None):
@@ -1612,65 +1639,6 @@ class raw_data(sample_data):
         return param_data
 
 
-    def _roll_arrays(self, roll_pings):
-        """
-        _roll_arrays is an internal method that rolls our data arrays when those arrays
-        are fixed in size and we add a ping. This typically would be used for buffering
-        data from streaming sources.
-        """
-
-        #TODO: implement and test these inline rolling functions
-        #      Need to profile this code to see which methods are faster. Currently all rolling is
-        #      implemented using np.roll which makes a copy of the data.
-        #TODO: verify rolling direction
-        #      Verify the correct rolling direction for both the np.roll calls and the 2 inline
-        #      functions. I *think* the calls to np.roll are correct and the inline functions roll
-        #      the wrong way.
-
-        def roll_1d(data):
-            #  rolls a 1d *mostly* in place
-            #  based on code found here:
-            #    https://stackoverflow.com/questions/35916201/alternative-to-numpy-roll-without-copying-array
-            #  THESE HAVE NOT BEEN TESTED
-            temp_view = data[:-1]
-            temp_copy = data[-1]
-            data[1:] = temp_view
-            data[0] = temp_copy
-
-        def roll_2d(data):
-            #  rolls a 2d *mostly* in place
-            temp_view = data[:-1,:]
-            temp_copy = data[-1,:]
-            data[1:,:] = temp_view
-            data[0,:] = temp_copy
-
-        #  roll the numpy arrays
-        self.ping_time = np.roll(self.ping_time, roll_pings)
-        self.channel_metadata = np.roll(self.channel_metadata, roll_pings)
-        self.transducer_depth = np.roll(self.transducer_depth, roll_pings)
-        self.frequency = np.roll(self.frequency, roll_pings)
-        self.transmit_power = np.roll(self.transmit_power, roll_pings)
-        self.pulse_length = np.roll(self.pulse_length, roll_pings)
-        self.bandwidth = np.roll(self.bandwidth, roll_pings)
-        self.sample_interval = np.roll(self.sample_interval, roll_pings)
-        self.sound_velocity = np.roll(self.sound_velocity, roll_pings)
-        self.absorption_coefficient = np.roll(self.absorption_coefficient, roll_pings)
-        self.heave = np.roll(self.heave, roll_pings)
-        self.pitch = np.roll(self.pitch, roll_pings)
-        self.roll = np.roll(self.roll, roll_pings)
-        self.temperature = np.roll(self.temperature, roll_pings)
-        self.heading = np.roll(self.heading, roll_pings)
-        self.transmit_mode = np.roll(self.transmit_mode, roll_pings)
-        self.sample_offset = np.roll(self.sample_offset, roll_pings)
-        self.sample_count = np.roll(self.sample_count, roll_pings)
-        self.detected_bottom = np.roll(self.detected_bottom, roll_pings)
-        if (self.store_power):
-            self.power = np.roll(self.power, roll_pings, axis=0)
-        if (self.store_angles):
-            self.angles_alongship_e = np.roll(self.angles_alongship_e, roll_pings, axis=0)
-            self.angles_athwartship_e = np.roll(self.angles_athwartship_e, roll_pings, axis=0)
-
-
     def _create_arrays(self, n_pings, n_samples, initialize=False):
         """
         _create_arrays is an internal method that initializes the raw_data data arrays.
@@ -1696,7 +1664,6 @@ class raw_data(sample_data):
         self.transmit_mode = np.empty((n_pings), np.uint8)
         self.sample_offset =  np.empty((n_pings), np.uint32)
         self.sample_count = np.empty((n_pings), np.uint32)
-        self.detected_bottom = np.empty((n_pings), np.float32)
         if (self.store_power):
             self.power = np.empty((n_pings, n_samples), dtype=self.sample_dtype, order='C')
             self.n_samples = n_samples
@@ -1726,7 +1693,6 @@ class raw_data(sample_data):
             self.transmit_mode.fill(0)
             self.sample_offset.fill(0)
             self.sample_count.fill(0)
-            self.detected_bottom(np.nan)
             if (self.store_power):
                 self.power.fill(np.nan)
             if (self.store_angles):
