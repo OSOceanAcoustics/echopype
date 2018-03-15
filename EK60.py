@@ -1041,8 +1041,8 @@ class raw_data(sample_data):
         return self.get_Sv(linear=True, **kwargs)
 
 
-    def get_Sv(self, calibration=None, linear=False, keep_power=False,
-                tvg_correction=True, heave_correct=False, return_depth=False,
+    def get_Sv(self, calibration=None, linear=False, tvg_correction=True,
+            heave_correct=False, return_depth=False,
                 **kwargs):
         """
         get_sv returns a processed_data object containing Sv (or sv if linear is
@@ -1102,8 +1102,8 @@ class raw_data(sample_data):
         return self.get_Sp(linear=True, **kwargs)
 
 
-    def get_Sp(self,  calibration=None, linear=False, keep_power=False,
-            tvg_correction=False, heave_correct=False, return_depth=False,
+    def get_Sp(self,  calibration=None, linear=False, tvg_correction=False,
+            heave_correct=False, return_depth=False,
             **kwargs):
         """
         get_sp returns a processed_data object containing Sp (or sp if linear is
