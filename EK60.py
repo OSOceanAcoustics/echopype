@@ -19,7 +19,7 @@ import datetime
 from pytz import timezone
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
-from ..sample_data import sample_data
+from ..ping_data import ping_data
 from ..processing import processed_data
 from ..processing import line
 from .util.nmea_data import nmea_data
@@ -557,7 +557,7 @@ class EK60(object):
         return msg
 
 
-class raw_data(sample_data):
+class raw_data(ping_data):
     """
     the raw_data class contains a single channel's data extracted from a Simrad raw
     file. collected from an EK/ES60 or ES70. A raw_data object is created for each
