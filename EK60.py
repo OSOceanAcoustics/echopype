@@ -1152,8 +1152,8 @@ class raw_data(ping_data):
         return p_data
 
 
-    def get_bottom_depths(self, calibration=None, return_indices=None,
-            heave_correct=False, return_range=False, **kwargs):
+    def get_bottom(self, calibration=None, return_indices=None,
+            heave_correct=False, return_depth=False, **kwargs):
         """
         get_bottom_depths returns a echolab2 line object containing the sounder
         detected bottom depths.
@@ -1161,6 +1161,8 @@ class raw_data(ping_data):
         The sounder detected bottom depths are computed using the sound speed
         setting at the time of recording. If you are applying a different sound
         speed setting via the calibration argument when
+
+        heave_correct is only used to determine if we need to return depths.
 
         """
 
@@ -1173,31 +1175,33 @@ class raw_data(ping_data):
             #  get an array of index values to return
             return_indices = self.get_indices(**kwargs)
 
+        #  We don't heave correct the bottom data but if it is set we know we have
+        #  to return depth. We keep the heave_correct keyword for consistency with
+        #  the other get_* methods.
+        if (heave_correct):
+            return_depth = True
+
         #  extract the recorded sound velocity
         sv_recorded = self.sound_velocity[return_indices]
 
         #  get the calibration params required for detected depth conversion
         cal_parms = {'sound_velocity':None,
-                     'transducer_depth':None,
-                     'heave':None}
+                     'transducer_depth':None}
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  check if we have to adjust the depth due to a change in sound speed
-        if (not np.all(np.isclose(sv_recorded, cal_parms['sound_velocity']))):
+        if (np.all(np.isclose(sv_recorded, cal_parms['sound_velocity']))):
             converted_depths = self.detected_bottom[return_indices]
         else:
             cf = sv_recorded / cal_parms['sound_velocity']
             converted_depths = cf * self.detected_bottom[return_indices]
 
-        #  check if we're applying heave correction and/or returning depth by applying a
-        #  transducer offset.
-        if (heave_correct):
-            #  heave correction implies returning depth - determine the vertical shift per-ping
-            converted_depths += cal_parms['heave'][return_indices]
-        elif (return_range):
+        #  check if we're returning range by subtracting a transducer offset.
+        if (return_depth == False):
+            #  data is recorded as depth - convert to range
             converted_depths -= cal_parms['transducer_depth'][return_indices]
 
         #  create a line object to return with our adjusted data
