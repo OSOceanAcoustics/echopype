@@ -1,18 +1,17 @@
 # coding=utf-8
 
-#     National Oceanic and Atmospheric Administration
-#     Alaskan Fisheries Science Center
-#     Resource Assessment and Conservation Engineering
-#     Midwater Assessment and Conservation Engineering
+#    National Oceanic and Atmospheric Administration
+#    Alaskan Fisheries Science Center
+#    Resource Assessment and Conservation Engineering
+#    Midwater Assessment and Conservation Engineering
 
-#  THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
-#  AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED "AS IS."
-#  THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS,
-#  EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
-#  OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE. THEY ASSUME NO RESPONSIBILITY
-#  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
-#  SUPPORT TO USERS.
-
+# THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
+# AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED
+# "AS IS." THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES,
+# OFFICERS, EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED,
+# AS TO THE USEFULNESS OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE.
+# THEY ASSUME NO RESPONSIBILITY (1) FOR THE USE OF THE SOFTWARE AND
+# DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL SUPPORT TO USERS.
 
 import os
 import datetime
@@ -26,46 +25,78 @@ from .util.nmea_data import nmea_data
 
 
 class EK60(object):
-    """Summary of class here.
+    """
+    The EK60 class is the 'file reader' class for Simrad EK60 instrument files.
 
-    Longer class information....
-    Longer class information....
+    The Ek60 class can read in one or more EK60 files and generates a RawData
+    class instance for each unique channel ID in the files. The class also
+    contains numerous methods used to extract the raw sample data from one
+    channel, or create ProcessedData objects containing
+
+
 
     Attributes:
-        likes_spam: A boolean indicating if we like SPAM or not.
-        eggs: An integer count of the eggs we have laid.
+        start_time: Start_time is a datetime object that defines the start
+            time of the data within the EK60 class
+        end_time: End_time is a datetime object that defines the end time of
+            the data within the EK60 class
+        start_ping: Start_ping is an integer that defines the first ping of the
+            data within the EK60 class.
+        end_ping: End_ping is an integer that defines the first ping of
+            the data within the EK60 class.
+        n_pings: Integer value representing the total number of pings.
+        frequencies: List of frequencies read from instrument files.
+        channel_ids: List of stings identifying the unique channel IDs read
+            from the instrument files.
+        channel_id_map: Dictionary relating the channel number to channel ID
+            read from the instrument files.
+        n_channels Integer value representing the total number of
+            channels in the class instance.
+        raw_data: A dictionary that stores the RawData objects, one for each
+            unique channel in the files. The dictionary keys are the channel
+            numbers.
+        nmea_data: reference to a NmeaData class instance that will contain
+            the NMEA data from the data files.
+        read_incremental; Boolean value controlling whether files are read
+            incrementally or all at once. The default value is False.
+        read_angles: Boolean control variable to set whether or not to store
+            angle data.
+        read_power: Boolean control variable to set whether or not to store
+            the power data.
+        read_max_sample_count: Integer value to specify the max sample count
+            to read. This property can be used to limit the number of samples
+            read (and memory used) when your data of interest is less than
+            the total number of samples contained in the EK60 files.
+        read_start_time: Datetime object containing timestamp of the first
+            ping to read if not reading all pings based on time.
+        read_end_time: Datetime object containing timestamp of last ping to
+            read if not reading all ping based on time.
+        read_start_ping: Integer ping number of first ping to read if not
+            reading all pings based on ping number.
+        read_end_ping: Integer ping number of last ping to read if not
+            reading all pings based on ping number.
+        read_start_sample: Integer sample number of first sample to read if not
+            reading all samples based on sample number.
+        read_end_sample: Integer sample number of last sample to read if not
+            reading all samples based on sample number.
+        read_frequencies: List of floats (i.e. 18000.0) specifying the
+            frequencies to read. An empty list will result in all frequencies
+            being read.
+        read_channel_ids = List of strings specifying the channel_ids
+            (i,e, 'GPT  38 kHz 009072033fa2 1-1 ES38B') of the channels to
+            read. An empty list will result in all channels being read.
+
+
     """
 
 
     def __init__(self):
+        """
+        Initializes EK60 class object.
 
-        """Fetches rows from a Bigtable.
-
-            Retrieves rows pertaining to the given keys from the Table instance
-            represented by big_table.  Silly things may happen if
-            other_silly_variable is not None.
-
-            Args:
-                big_table: An open Bigtable Table instance.
-                keys: A sequence of strings representing the key of each table row
-                    to fetch.
-                other_silly_variable: Another optional variable, that has a much
-                    longer name than the other args, and which does nothing.
-
-            Returns:
-                A dict mapping keys to the corresponding table row data
-                fetched. Each row is represented as a tuple of strings. For
-                example:
-
-                {'Serak': ('Rigel VII', 'Preparer'),
-                 'Zim': ('Irk', 'Invader'),
-                 'Lrrr': ('Omicron Persei 8', 'Emperor')}
-
-                If a key from the keys argument is missing from the dictionary,
-                then that row was not found in the table.
-
-            Raises:
-                IOError: An error occurred accessing the bigtable.Table object.
+        Create and set  several internal properties used to store information
+        about data and control operation of file reading with EK60 object
+        instance. Code is heavily commented to facilitate use,
         """
 
         #  define the EK60's properties - these are "read-only" properties and should not
@@ -159,8 +190,8 @@ class EK60(object):
     def read_bot(self, bot_files):
         """
         read_bot passes a list of .bot filenames to read_raw. Because of the
-        requriement to read a .bot/.out file after the .raw data it may be
-        more convienient to simply call this after reading your .raw files.
+        requirement to read a .bot/.out file after the .raw data it may be
+        more convenient to simply call this after reading your .raw files.
 
         This does potentially provide a small optimization when reading .out
         files in that this method will set the start and end time arguments
@@ -186,9 +217,41 @@ class EK60(object):
         read_raw reads one or many Simrad EK60 ES60/70 .raw files. This method
         also reads .out and .bot files but you must read the .raws files
         associated with a .bot or .out file *before* reading the bottom file.
-        (.bot files are associted with a single .raw file while .out files
+        (.bot files are associated with a single .raw file while .out files
         can be associated with one or more .raw files.)
 
+        Args:
+            raw_files (list): List containing full paths to data files to be
+                read.
+            power (bool): Controls whether power data is stored
+            angles (bool): Controls whether angle data is stored
+            max_sample_count (int): Specify the max sample count to read
+                if your data of interest is less than the total number of
+                samples contained in the instrument files.
+            start_time (str): Specify a start time if you do not want to read
+                from the first ping. The format of the time string must
+                match the format specified in time_format_string.
+            end_time (str): Specify an end time if you do not want to read
+                to the last ping. The format of the time string must
+                match the format specified in time_format_string.
+            start_ping (int): Specify starting ping number if you do not want
+                to start reading at first ping.
+            end_ping (int): Specify end ping number if you do not want
+                to read all ping.
+            frequencies (list): List of floats (i.e. 18000.0) if you
+                only want to read specific frequencies.
+            channel_ids (list): A list of strings that contains the unique
+                channel IDs to read. If no list is suplied, all channels are
+                read.
+            time_format_string (str): String containing the format of the
+                start and end time arguments. Format is used to create datatime
+                objects start and end time strings
+            incremental (bool): A value of True indicates object will read
+                files incrementally, otherwise files are read in their entirety.
+            start_sample (int): Specify starting sample number if not
+                reading from first sample.
+            end_sample (int): Specify ending sample number if not
+                reading to last sample.
         """
 
         #  update the reading state variables
@@ -332,8 +395,15 @@ class EK60(object):
 
     def _read_datagrams(self, fid, incremental):
         """
-        _read_datagrams is an internal method to read all of the datagrams contained in
-        a raw file.
+        _read_datagrams is an internal method to read all of the datagrams
+        contained in a file.
+
+        Args:
+            fid (file object): Pointer to currently open file object. This is a
+                RawSimradFile  file object and not the standard Python file
+                object.
+            incremental (bool): Boolean to control incremental reading. True
+                = incremental reading, False reads entire file.
         """
 
         #TODO: implement incremental reading
@@ -471,8 +541,19 @@ class EK60(object):
 
     def _convert_time_bound(self, time, format_string):
         """
-        internally all times are converted to UTC timezone. This method
-        converts arguments to comply.
+        Convert strings to datetime objects and normalize to UTC.
+
+        Internally all times are datetime objects converted to UTC timezone.
+        This method converts arguments to comply.
+
+        Args:
+            time (str or datetime): Either a string representing a date and
+                time in format specified in format_string, or a datetime object.
+            format_string (str): Format of time string specified in datetime
+            object notations such as '%Y-%m-%d %H:%M:%S' to parse a time
+            string of '2017-02-28 23:34:01'
+
+        Returns (datetime): Datetime object normalized to UTC time.
         """
         #  if we've been given a datetime64[ms] object nothing to convert
         if (time.dtype == '<M8[ms]'):
@@ -532,7 +613,11 @@ class EK60(object):
 
     def __str__(self):
         """
-        reimplemented string method that provides some basic info about the EK60
+        Reimplemented string method that provides some basic info about the
+        EK60 class instance's contents.
+
+        Returns: Message to print when calling print method on EK60 class
+        instance object,
         """
 
         #  print the class and address
@@ -596,27 +681,51 @@ class raw_data(ping_data):
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
         """
-        Creates a new, empty raw_data object. The raw_data class stores raw
-        echosounder data from a single channel of an EK60 or ES60/70 system.
+        Creates a new, empty RawData object.
 
-        NOTE: power is stored in log form. If you manipulate power values
-              directly, make sure they are stored in log form.
+        The RawData class stores raw echosounder data from a single channel
+        of an EK60 or ES60/70 system.
 
-        if rolling is True, arrays of size (n_pings, n_samples) are created for power
-        and angle data upon instantiation and are filled with NaNs. These arrays are
-        fixed in size and if a ping is added beyond the "width" of the array the
-        array is "rolled left", and the new ping is added at the end of the array. This
-        feature is intended to support streaming data sources such as telegram
-        broadcasts and the client/server interface.
+        NOTE: power is *always* stored in log form. If you manipulate power
+            values directly, make sure they are stored in log form.
 
-        chunk_width specifies the number of columns to add to data arrays when they
-        fill up when rolling == False.
+        If rolling is True, arrays of size (n_pings, n_samples) are created
+        for power and angle data upon instantiation and are filled with NaNs.
+        These arrays are fixed in size and if a ping is added beyond the
+        "width" of the array the array is "rolled left", and the new ping is
+        added at the end of the array. This feature is to support future
+        development of streaming data sources such as telegram broadcasts and
+        the client/server interface.
 
+        chunk_width specifies the number of columns to add to data arrays when
+        they fill up when rolling == False.
+
+        Args:
+            channel_id (str): The channel ID of channel whose data are stored
+                in this RawData instance.
+            n_pings (int): Sets the "width" of the arrays. Default value
+                is 100 pings. Arrays can be re-sized later.
+            n_samples (int): Sets the number of smaples (rows) of the
+                arrays. Default value is 1000 samples. Arrays can be
+                re-sized later.
+            rolling (bool): True = arrays have fixed sizes set when class is
+                instantiated If additional pings are read array is rolled
+                left, dropping oldes ping and adding newest.
+            chunk_width (int): Sets the number of pings (columns) to expand
+                arrays when needed to hold additional pings. This is used when
+                rolling=False.
+            store_power (bool): Boolean to control whether power data are
+                stored in this RawData object.
+            store_angles (bool): Boolean to control whether angle data are
+                stored in this RawData object.
+            max_sample_number (int): Integer specifying the maximum number of
+                samples that will be stored in this instancce's data arrays.
         """
         super(raw_data, self).__init__()
 
-        #  we can come up with a better name, but this specifies if we have a fixed data
-        #  array size and roll it when it fills or if we expand the array when it fills
+        # Specify if data array size is fixed and the array data is rolled left
+        # if the array fills up (True) or if the arrays are expanded when
+        # necessary to hold additional data (False).
         self.rolling_array = bool(rolling)
 
         #  current_metadata stores a reference to the current channel_metadata object. The
