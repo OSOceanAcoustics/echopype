@@ -1,73 +1,102 @@
 # coding=utf-8
 
-#     National Oceanic and Atmospheric Administration
-#     Alaskan Fisheries Science Center
-#     Resource Assessment and Conservation Engineering
-#     Midwater Assessment and Conservation Engineering
+#    National Oceanic and Atmospheric Administration
+#    Alaskan Fisheries Science Center
+#    Resource Assessment and Conservation Engineering
+#    Midwater Assessment and Conservation Engineering
 
-#  THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
-#  AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED "AS IS."
-#  THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS,
-#  EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
-#  OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE. THEY ASSUME NO RESPONSIBILITY
-#  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
-#  SUPPORT TO USERS.
-
+# THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
+# AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED
+# "AS IS." THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES,
+# OFFICERS, EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED,
+# AS TO THE USEFULNESS OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE.
+# THEY ASSUME NO RESPONSIBILITY (1) FOR THE USE OF THE SOFTWARE AND
+# DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL SUPPORT TO USERS.
 
 import os
 import datetime
 from pytz import timezone
-import logging
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
-from ..sample_data import sample_data
+from ..ping_data import ping_data
 from ..processing import processed_data
+from ..processing import line
 from .util.nmea_data import nmea_data
-
-log = logging.getLogger(__name__)
 
 
 class EK60(object):
-    """Summary of class here.
+    """
+    The EK60 class is the 'file reader' class for Simrad EK60 instrument files.
 
-    Longer class information....
-    Longer class information....
+    The Ek60 class can read in one or more EK60 files and generates a RawData
+    class instance for each unique channel ID in the files. The class also
+    contains numerous methods used to extract the raw sample data from one
+    channel, or create ProcessedData objects containing
+
+
 
     Attributes:
-        likes_spam: A boolean indicating if we like SPAM or not.
-        eggs: An integer count of the eggs we have laid.
+        start_time: Start_time is a datetime object that defines the start
+            time of the data within the EK60 class
+        end_time: End_time is a datetime object that defines the end time of
+            the data within the EK60 class
+        start_ping: Start_ping is an integer that defines the first ping of the
+            data within the EK60 class.
+        end_ping: End_ping is an integer that defines the first ping of
+            the data within the EK60 class.
+        n_pings: Integer value representing the total number of pings.
+        frequencies: List of frequencies read from instrument files.
+        channel_ids: List of stings identifying the unique channel IDs read
+            from the instrument files.
+        channel_id_map: Dictionary relating the channel number to channel ID
+            read from the instrument files.
+        n_channels Integer value representing the total number of
+            channels in the class instance.
+        raw_data: A dictionary that stores the RawData objects, one for each
+            unique channel in the files. The dictionary keys are the channel
+            numbers.
+        nmea_data: reference to a NmeaData class instance that will contain
+            the NMEA data from the data files.
+        read_incremental; Boolean value controlling whether files are read
+            incrementally or all at once. The default value is False.
+        read_angles: Boolean control variable to set whether or not to store
+            angle data.
+        read_power: Boolean control variable to set whether or not to store
+            the power data.
+        read_max_sample_count: Integer value to specify the max sample count
+            to read. This property can be used to limit the number of samples
+            read (and memory used) when your data of interest is less than
+            the total number of samples contained in the EK60 files.
+        read_start_time: Datetime object containing timestamp of the first
+            ping to read if not reading all pings based on time.
+        read_end_time: Datetime object containing timestamp of last ping to
+            read if not reading all ping based on time.
+        read_start_ping: Integer ping number of first ping to read if not
+            reading all pings based on ping number.
+        read_end_ping: Integer ping number of last ping to read if not
+            reading all pings based on ping number.
+        read_start_sample: Integer sample number of first sample to read if not
+            reading all samples based on sample number.
+        read_end_sample: Integer sample number of last sample to read if not
+            reading all samples based on sample number.
+        read_frequencies: List of floats (i.e. 18000.0) specifying the
+            frequencies to read. An empty list will result in all frequencies
+            being read.
+        read_channel_ids = List of strings specifying the channel_ids
+            (i,e, 'GPT  38 kHz 009072033fa2 1-1 ES38B') of the channels to
+            read. An empty list will result in all channels being read.
+
+
     """
 
 
     def __init__(self):
+        """
+        Initializes EK60 class object.
 
-        """Fetches rows from a Bigtable.
-
-            Retrieves rows pertaining to the given keys from the Table instance
-            represented by big_table.  Silly things may happen if
-            other_silly_variable is not None.
-
-            Args:
-                big_table: An open Bigtable Table instance.
-                keys: A sequence of strings representing the key of each table row
-                    to fetch.
-                other_silly_variable: Another optional variable, that has a much
-                    longer name than the other args, and which does nothing.
-
-            Returns:
-                A dict mapping keys to the corresponding table row data
-                fetched. Each row is represented as a tuple of strings. For
-                example:
-
-                {'Serak': ('Rigel VII', 'Preparer'),
-                 'Zim': ('Irk', 'Invader'),
-                 'Lrrr': ('Omicron Persei 8', 'Emperor')}
-
-                If a key from the keys argument is missing from the dictionary,
-                then that row was not found in the table.
-
-            Raises:
-                IOError: An error occurred accessing the bigtable.Table object.
+        Create and set  several internal properties used to store information
+        about data and control operation of file reading with EK60 object
+        instance. Code is heavily commented to facilitate use,
         """
 
         #  define the EK60's properties - these are "read-only" properties and should not
@@ -146,9 +175,38 @@ class EK60(object):
         #  the channels to read. An empty list will result in all channels being read.
         self.read_channel_ids = []
 
-        #  this is the internal per file channel map. This map is only valid for the file
+        #  this is the internal per file channel map which maps the channels in the file
+        #  to the channels we are reading. This map is only valid for the file
         #  currently being read. Do not alter or use this property.
         self._channel_map = {}
+
+        #  this is yet another channel mapping - this maps channel id's to channel number
+        #  and is used to map bottom detections to specific channels. This list differs
+        #  from the other lists of ids as it contains all ids in the file, not just the
+        #  ones we're storing.
+        self._file_channel_map = []
+
+
+    def read_bot(self, bot_files):
+        """
+        read_bot passes a list of .bot filenames to read_raw. Because of the
+        requirement to read a .bot/.out file after the .raw data it may be
+        more convenient to simply call this after reading your .raw files.
+
+        This does potentially provide a small optimization when reading .out
+        files in that this method will set the start and end time arguments
+        to read_raw based on the start and end times of the raw data so bottom
+        detections outside of this range will be skipped immediately after
+        reading instead of being checked against the data ping times.
+
+        Note that you don't *have* to call this method to read .bot/.out
+        files. You can call read_raw directly but you must read your .raw
+        data before reading the .bot file which means the .raw file associated
+        with a .bot/.out file must come before said .out/.bot file in the
+        list of raw files.
+        """
+        self.read_raw(bot_files, start_time=self.start_time,
+                end_time=self.end_time)
 
 
     def read_raw(self, raw_files, power=None, angles=None, max_sample_count=None, start_time=None,
@@ -156,14 +214,53 @@ class EK60(object):
             time_format_string='%Y-%m-%d %H:%M:%S', incremental=None, start_sample=None,
             end_sample=None):
         """
-        read_raw reads one or many Simrad EK60 ES60/70 .raw files
+        read_raw reads one or many Simrad EK60 ES60/70 .raw files. This method
+        also reads .out and .bot files but you must read the .raws files
+        associated with a .bot or .out file *before* reading the bottom file.
+        (.bot files are associated with a single .raw file while .out files
+        can be associated with one or more .raw files.)
+
+        Args:
+            raw_files (list): List containing full paths to data files to be
+                read.
+            power (bool): Controls whether power data is stored
+            angles (bool): Controls whether angle data is stored
+            max_sample_count (int): Specify the max sample count to read
+                if your data of interest is less than the total number of
+                samples contained in the instrument files.
+            start_time (str): Specify a start time if you do not want to read
+                from the first ping. The format of the time string must
+                match the format specified in time_format_string.
+            end_time (str): Specify an end time if you do not want to read
+                to the last ping. The format of the time string must
+                match the format specified in time_format_string.
+            start_ping (int): Specify starting ping number if you do not want
+                to start reading at first ping.
+            end_ping (int): Specify end ping number if you do not want
+                to read all ping.
+            frequencies (list): List of floats (i.e. 18000.0) if you
+                only want to read specific frequencies.
+            channel_ids (list): A list of strings that contains the unique
+                channel IDs to read. If no list is suplied, all channels are
+                read.
+            time_format_string (str): String containing the format of the
+                start and end time arguments. Format is used to create datatime
+                objects start and end time strings
+            incremental (bool): A value of True indicates object will read
+                files incrementally, otherwise files are read in their entirety.
+            start_sample (int): Specify starting sample number if not
+                reading from first sample.
+            end_sample (int): Specify ending sample number if not
+                reading to last sample.
         """
 
         #  update the reading state variables
         if (start_time):
-            self.read_start_time = self._convert_time_bound(start_time, format_string=time_format_string)
+            self.read_start_time = self._convert_time_bound(start_time,
+                    format_string=time_format_string)
         if (end_time):
-            self.read_end_time = self._convert_time_bound(end_time, format_string=time_format_string)
+            self.read_end_time = self._convert_time_bound(end_time,
+                    format_string=time_format_string)
         if (start_ping):
             self.read_start_ping = start_ping
         if (end_ping):
@@ -208,8 +305,19 @@ class EK60(object):
 
                 #  read the CON0 configuration datagram
                 config_datagram = fid.read(1)
+
+                config_datagram['timestamp'] = \
+                        np.datetime64(config_datagram['timestamp'], '[ms]')
                 if (n_files == 0):
                     self.start_time = config_datagram['timestamp']
+
+                #  create a mapping of channel numbers to channel IDs for all
+                #  transceivers in the file.
+                self._file_channel_map = [None] * \
+                    config_datagram['transceiver_count']
+                for idx in config_datagram['transceivers'].keys():
+                    self._file_channel_map[idx-1] = \
+                        config_datagram['transceivers'][idx]['channel_id']
 
                 #  check if we're reading an ME70 file with a CON1 datagram
                 next_datagram = fid.peek()
@@ -220,7 +328,7 @@ class EK60(object):
                     #  next datagram was something else, move along
                     CON1_datagram = None
 
-                #  check if we need to create an RawData object for this channel
+                #  check if we need to create an raw_data object for this channel
                 self._channel_map = {}
                 for channel in config_datagram['transceivers']:
                     #  get the channel ID
@@ -239,11 +347,12 @@ class EK60(object):
                         #  so we just move along...
                         continue
 
-                    #  check if an RawData object exists for this channel
+                    #  check if an raw_data object exists for this channel
                     if channel_id not in self.raw_data:
                         #  no - create it
-                        self.raw_data[channel_id] = raw_data(channel_id, store_power=self.read_power,
-                                store_angles=self.read_angles, max_sample_number=self.read_max_sample_count)
+                        self.raw_data[channel_id] = raw_data(channel_id,
+                                store_power=self.read_power, store_angles=self.read_angles,
+                                max_sample_number=self.read_max_sample_count)
 
                         #  and add it to our list of channel_ids
                         self.channel_ids.append(channel_id)
@@ -252,23 +361,25 @@ class EK60(object):
                         self.n_channels += 1
                         self.channel_id_map[self.n_channels] = channel_id
 
-                    #  update the internal mapping of channel number to channel ID used when reading
-                    #  the datagrams. This mapping is only valid for the current file that is being read.
+                    #  update the internal mapping of channel number to channel ID used
+                    #  when reading the datagrams. This mapping is only valid for the
+                    #  current file that is being read.
                     self._channel_map[channel] = channel_id
 
-                    #  create a ChannelMetadata object to store this channel's configuration and rawfile metadata.
-                    channel_metadata = ChannelMetadata(filename,
-                                               config_datagram['transceivers'][channel],
-                                               config_datagram['survey_name'],
-                                               config_datagram['transect_name'],
-                                               config_datagram['sounder_name'],
-                                               config_datagram['version'],
-                                               self.raw_data[channel_id].n_pings,
-                                               config_datagram['timestamp'],
-                                               extended_configuration=CON1_datagram)
+                    #  create a channel_metadata object to store this channel's
+                    #  configuration and rawfile metadata.
+                    metadata = channel_metadata(filename,
+                                config_datagram['transceivers'][channel],
+                                config_datagram['survey_name'],
+                                config_datagram['transect_name'],
+                                config_datagram['sounder_name'],
+                                config_datagram['version'],
+                                self.raw_data[channel_id].n_pings,
+                                config_datagram['timestamp'],
+                                extended_configuration=CON1_datagram)
 
                     #  update the channel_metadata property of the RawData object
-                    self.raw_data[channel_id].current_metadata = channel_metadata
+                    self.raw_data[channel_id].current_metadata = metadata
 
                 #  read the rest of the datagrams.
                 self._read_datagrams(fid, self.read_incremental)
@@ -284,7 +395,15 @@ class EK60(object):
 
     def _read_datagrams(self, fid, incremental):
         """
-        _read_datagrams is an internal method to read all of the datagrams contained in
+        _read_datagrams is an internal method to read all of the datagrams
+        contained in a file.
+
+        Args:
+            fid (file object): Pointer to currently open file object. This is a
+                RawSimradFile  file object and not the standard Python file
+                object.
+            incremental (bool): Boolean to control incremental reading. True
+                = incremental reading, False reads entire file.
         """
 
         #TODO: implement incremental reading
@@ -295,10 +414,12 @@ class EK60(object):
         #      as currently implemented.
 
 
+        #TODO:  figure out what if anything we want to do with these.
+        #       Either expose in some useful way or remove.
         num_sample_datagrams = 0
         num_sample_datagrams_skipped = 0
-        num_unknown_datagrams_skipped = 0
         num_datagrams_parsed = 0
+        num_bot_datagrams = 0
 
         #  while datagrams are available
         while True:
@@ -308,6 +429,10 @@ class EK60(object):
             except SimradEOF:
                 #  nothing more to read
                 break
+
+            #  convert the timestamp to a datetime64 object
+            new_datagram['timestamp'] = \
+                    np.datetime64(new_datagram['timestamp'], '[ms]')
 
             #  check if we should store this data based on time bounds
             if self.read_start_time is not None:
@@ -321,7 +446,12 @@ class EK60(object):
             num_datagrams_parsed += 1
 
             #  update our end_time property
-            self.end_time = new_datagram['timestamp']
+            if (self.end_time is not None):
+                #  we can't assume data will be read in time order
+                if (self.end_time < new_datagram['timestamp']):
+                    self.end_time = new_datagram['timestamp']
+            else:
+                self.end_time = new_datagram['timestamp']
 
             #  process the datagrams by type
 
@@ -364,57 +494,130 @@ class EK60(object):
 
             #  NME datagrams store ancillary data as NMEA-0817 style ASCII data
             elif new_datagram['type'].startswith('NME'):
-                self.nmea_data.add_datagram(new_datagram['timestamp'], new_datagram['nmea_string'])
+                #  add the datagram to our nmea_data object
+                self.nmea_data.add_datagram(new_datagram['timestamp'],
+                        new_datagram['nmea_string'])
 
-            #  TAG datagrams contain time-stamped annotations inserted via the recording software
+            #  TAG datagrams contain time-stamped annotations inserted via the
+            #  recording software
             elif new_datagram['type'].startswith('TAG'):
                 #TODO: Implement annotation reading
+                print(new_datagram)
                 pass
+
+            #  BOT datagrams contain sounder detected bottom depths from ".bot" files
+            elif new_datagram['type'].startswith('BOT'):
+                #  iterate thru our channels, extract the depth,
+                #  and update the channel.
+                for channel_id in self.channel_ids:
+                    idx = self._file_channel_map.index(channel_id)
+                    bottom_depth = new_datagram['depth'][idx]
+                    #  and call the appropriate channel's append_bot method
+                    self.raw_data[channel_id].append_bot(new_datagram['timestamp'],
+                            bottom_depth)
+
+                # increment the sample datagram counter
+                num_bot_datagrams += 1
+
+            #  DEP datagrams contain sounder detected bottom depths from ".out" files
+            #  as well as "reflectivity" data
+            elif new_datagram['type'].startswith('DEP'):
+                #  iterate thru our channels, extract the depth,
+                #  and update the channel.
+                for channel_id in self.channel_ids:
+                    idx = self._file_channel_map.index(channel_id)
+                    bottom_depth = new_datagram['depth'][idx]
+                    reflectivity = new_datagram['reflectivity'][idx]
+                    #  and call the appropriate channel's append_bot method, including
+                    #  reflectivity
+                    self.raw_data[channel_id].append_bot(new_datagram['timestamp'],
+                            bottom_depth, reflectivity=reflectivity)
+
+                # increment the sample datagram counter
+                num_bot_datagrams += 1
             else:
-                #  unknown datagram type - issue a warning
-                log.warning('Skipping unkown datagram type: %s @ %s', new_datagram['type'],
-                        new_datagram['timestamp'])
-                num_unknown_datagrams_skipped += 1
-
-            if not (num_datagrams_parsed % 10000):
-                log.debug('    Parsed %d datagrams (%d sample).', num_datagrams_parsed,
-                        num_sample_datagrams)
-
-
-        num_datagrams_skipped = num_unknown_datagrams_skipped + num_sample_datagrams_skipped
-        log.info('  Read %d datagrams (%d skipped).', num_sample_datagrams, num_datagrams_skipped)
+                print("Unknown datagram type: " + str(new_datagram['type']))
 
 
     def _convert_time_bound(self, time, format_string):
         """
-        internally all times are datetime objects converted to UTC timezone. This method
-        converts arguments to comply.
+        Convert strings to datetime objects and normalize to UTC.
+
+        Internally all times are datetime objects converted to UTC timezone.
+        This method converts arguments to comply.
+
+        Args:
+            time (str or datetime): Either a string representing a date and
+                time in format specified in format_string, or a datetime object.
+            format_string (str): Format of time string specified in datetime
+            object notations such as '%Y-%m-%d %H:%M:%S' to parse a time
+            string of '2017-02-28 23:34:01'
+
+        Returns (datetime): Datetime object normalized to UTC time.
         """
+        #  if we've been given a datetime64[ms] object nothing to convert
+        if (time.dtype == '<M8[ms]'):
+            return
+
         utc = timezone('utc')
         if (isinstance(time, str)):
             #  we have been passed a string, convert to datetime object
             time = datetime.datetime.strptime(time, format_string)
 
-        #  convert to UTC and return
-        return utc.localize(time)
+        #  make sure our datetime object is converted to UTC
+        if (isinstance(time, datetime.datetime)):
+            time = utc.localize(time)
+
+        #  and return
+        return time
 
 
-    def get_rawdata(self, channel_number=1, channel_id=None):
+    def get_raw_data(self, channel_number=None, channel_id=None):
         """
-        get_rawdata returns a reference to the specified raw_data object for the
-        specified channel id or channel number.
+        Get the raw data for a specific channel
+
+        get_rawdata returns a reference to the specified raw_data object for
+        the specified channel id or channel number. If no channel
+        number or id are specified it returns a dictionary keyed by channel
+        id containing all of the channels.
+
+        Args:
+            channel_number (int): Channel from which to return the raw data
+            channel_id (str): The channel ID from which to return the raw data
+
+        Returns: Raw data object from the specified channel
         """
 
-        if (channel_id):
-            return self.raw_data.get(channel_id, None)
+        if (channel_id is not None):
+            #  channel id specified
+            channel_data = self.raw_data.get(channel_id, None)
+        elif (channel_number is not None):
+            #  channel number specified
+            try:
+                channel_data = self.raw_data.get(self.channel_id_map
+                                             [channel_number], None)
+            except KeyError:
+                #  no channel id for this channel number
+                channel_data = None
         else:
-            #TODO: error handling
-            return self.raw_data.get(self.channel_id_map[channel_number], None)
+            #  no channel id or number specified - return all in a
+            #  dict keyed by channel ID
+            channel_data = self.raw_data
+
+        if channel_data:
+            return channel_data
+        else:
+            raise ValueError('The specified chanel number or channel ID does '
+                             'not exists')
 
 
     def __str__(self):
         """
-        reimplemented string method that provides some basic info about the EK60
+        Reimplemented string method that provides some basic info about the
+        EK60 class instance's contents.
+
+        Returns: Message to print when calling print method on EK60 class
+        instance object,
         """
 
         #  print the class and address
@@ -439,7 +642,7 @@ class EK60(object):
         return msg
 
 
-class raw_data(sample_data):
+class raw_data(ping_data):
     """
     the raw_data class contains a single channel's data extracted from a Simrad raw
     file. collected from an EK/ES60 or ES70. A raw_data object is created for each
@@ -478,38 +681,64 @@ class raw_data(sample_data):
     def __init__(self, channel_id, n_pings=100, n_samples=1000, rolling=False,
             chunk_width=500, store_power=True, store_angles=True, max_sample_number=None):
         """
-        Creates a new, empty raw_data object. The raw_data class stores raw
-        echosounder data from a single channel of an EK60 or ES60/70 system.
+        Creates a new, empty RawData object.
 
-        NOTE: power is *always* stored in log form. If you manipulate power values
-                 directly, make sure they are stored in log form.
+        The RawData class stores raw echosounder data from a single channel
+        of an EK60 or ES60/70 system.
 
-        if rolling is True, arrays of size (n_pings, n_samples) are created for power
-        and angle data upon instantiation and are filled with NaNs. These arrays are
-        fixed in size and if a ping is added beyond the "width" of the array the
-        array is "rolled left", and the new ping is added at the end of the array. This
-        feature is intended to support streaming data sources such as telegram
-        broadcasts and the client/server interface.
+        NOTE: power is *always* stored in log form. If you manipulate power
+            values directly, make sure they are stored in log form.
 
-        chunk_width specifies the number of columns to add to data arrays when they
-        fill up when rolling == False.
+        If rolling is True, arrays of size (n_pings, n_samples) are created
+        for power and angle data upon instantiation and are filled with NaNs.
+        These arrays are fixed in size and if a ping is added beyond the
+        "width" of the array the array is "rolled left", and the new ping is
+        added at the end of the array. This feature is to support future
+        development of streaming data sources such as telegram broadcasts and
+        the client/server interface.
 
+        chunk_width specifies the number of columns to add to data arrays when
+        they fill up when rolling == False.
+
+        Args:
+            channel_id (str): The channel ID of channel whose data are stored
+                in this RawData instance.
+            n_pings (int): Sets the "width" of the arrays. Default value
+                is 100 pings. Arrays can be re-sized later.
+            n_samples (int): Sets the number of smaples (rows) of the
+                arrays. Default value is 1000 samples. Arrays can be
+                re-sized later.
+            rolling (bool): True = arrays have fixed sizes set when class is
+                instantiated If additional pings are read array is rolled
+                left, dropping oldes ping and adding newest.
+            chunk_width (int): Sets the number of pings (columns) to expand
+                arrays when needed to hold additional pings. This is used when
+                rolling=False.
+            store_power (bool): Boolean to control whether power data are
+                stored in this RawData object.
+            store_angles (bool): Boolean to control whether angle data are
+                stored in this RawData object.
+            max_sample_number (int): Integer specifying the maximum number of
+                samples that will be stored in this instancce's data arrays.
         """
-
         super(raw_data, self).__init__()
 
-        #  we can come up with a better name, but this specifies if we have a fixed data
-        #  array size and roll it when it fills or if we expand the array when it fills
+        # Specify if data array size is fixed and the array data is rolled left
+        # if the array fills up (True) or if the arrays are expanded when
+        # necessary to hold additional data (False).
         self.rolling_array = bool(rolling)
 
-        #  current_metadata stores a reference to the current ChannelMetadata object. The
-        #  ChannelMetadata class stores rawfile and channel configuration properties
+        #  current_metadata stores a reference to the current channel_metadata object. The
+        #  channel_metadata class stores rawfile and channel configuration properties
         #  contained in the .raw file header. When opening a new .raw file, this property
         #  must be updated before appending pings from the new file.
         self.current_metadata = None
 
         #  the channel ID is the unique identifier of the channel(s) stored in the object
-        self.channel_id = [channel_id]
+        if (isinstance(channel_id, list)):
+            self.channel_id = channel_id
+        else:
+            self.channel_id = [channel_id]
 
         #  specify the horizontal size (columns) of the array allocation size.
         self.chunk_width = chunk_width
@@ -525,7 +754,8 @@ class raw_data(sample_data):
         #  _data_attributes is an internal list that contains the names of all of the class's
         #  "data" properties. The echolab2 package uses this attribute to generalize various
         #  functions that manipulate these data.  Here we *extend* the list that is defined
-        #  in the parent class.
+        #  in the parent class. We don't add the bottom data attributes here. Those are only
+        #  added if .bot or .out files are read.
         self._data_attributes += ['channel_metadata',
                                   'transducer_depth',
                                   'frequency',
@@ -561,6 +791,90 @@ class raw_data(sample_data):
         #  the data properties.
 
 
+    def empty_like(self, n_pings):
+        """
+        empty_like returns a paw_data object with the same general
+        characteristics of "this" object  but all of the data arrays are
+        filled with NaNs
+
+        Args:
+            n_pings: Set n_pings to an integer specifying the number of pings
+                in the new object. The vertical axis (both number of samples
+                and depth/range values) will be the same as this object.
+
+        """
+
+        #  create an instance of echolab2.EK60.paw_data and set the same
+        #  basic properties as this object.
+        empty_obj = raw_data(self.channel_id, n_pings=n_pings, n_samples=self.n_samples,
+            rolling=self.rolling_array, chunk_width=n_pings, store_power=self.store_power,
+            store_angles=self.store_angles, max_sample_number=self.max_sample_number)
+
+        #  and return the empty processed_data object
+        return self._like(empty_obj, n_pings, np.nan, empty_times=True)
+
+
+    def insert(self, obj_to_insert, ping_number=None, ping_time=None,
+            insert_after=True, index_array=None):
+
+        #  determine how many pings we're inserting
+        if (index_array is None):
+            in_idx  = self.get_indices(start_time=ping_time, end_time=ping_time,
+                    start_ping=ping_number, end_ping=ping_number)[0]
+            n_inserting = self.n_pings - in_idx
+        else:
+            n_inserting = index_array.shape[0]
+
+        if (obj_to_insert is None):
+            #  when obj_to_insert is None, we create automatically create a
+            #  matching object that contains no data (all NaNs)
+            obj_to_insert = self.empty_like(n_inserting)
+
+        #  check that the data types are the same
+        if (not isinstance(obj_to_insert, raw_data)):
+            raise TypeError('The object you are inserting must be an instance of EK60.raw_data')
+
+        #  we are now coexisting in harmony - call parent's insert
+        super(raw_data, self).insert(obj_to_insert, ping_number=ping_number,
+                                     ping_time=ping_time, insert_after=insert_after,
+                                     index_array=index_array)
+
+
+    def append_bot(self, detection_time, detection_depth, reflectivity=None):
+        """
+        while the name implies otherwise, append_bot actully inserts a bottom detection
+        depth into the detected_bottom array for a specified ping time. If the
+        time is not matched, the data is ignored.
+
+        When reading .out files you can pass the reflectivity value.
+
+        To keep things simple, you must add the corresponding "ping" data before
+        adding the detected bottom depth. If you try to add a bottom value for
+        a ping that has yet to be added the matching ping_time will not exist and
+        the bottom value will be ignored.
+        """
+        #  first check if the detected_bottom attribute exists and create if not
+        if (not hasattr(self, 'detected_bottom')):
+            #  nope - create it
+            data = np.full(self.ping_time.shape[0], np.nan)
+            self.add_attribute('detected_bottom', data)
+
+        #  if we're storing reflectivity, check if it exists
+        if (reflectivity is not None):
+            if (not hasattr(self, 'bottom_reflectivity')):
+                #  nope - create it
+                data = np.full(self.ping_time.shape[0], np.nan)
+                self.add_attribute('bottom_reflectivity', data)
+
+        #  determine the array element associated with this ping and
+        #  update it with the detection depth and optional reflectivity
+        idx_array = self.ping_time == detection_time
+        if (np.any(idx_array)):
+            self.detected_bottom[idx_array] = detection_depth
+            if (reflectivity is not None):
+                self.bottom_reflectivity[idx_array] = reflectivity
+
+
     def append_ping(self, sample_datagram, start_sample=None, end_sample=None):
         """
         append_ping is called when adding a ping's worth of data to the object. It should accept
@@ -590,13 +904,22 @@ class raw_data(sample_data):
 
         """
 
+        #  determine the number of samples in this ping
+        if (sample_datagram['angle'] is not None):
+            angle_samps = sample_datagram['angle'].shape[0]
+        else:
+            angle_samps = -1
+        if (sample_datagram['power'] is not None):
+            power_samps = sample_datagram['power'].shape[0]
+        else:
+            power_samps = -1
+
         #  if using dynamic arrays, handle intialization of data arrays when the first ping is added
         if (self.n_pings == -1 and self.rolling_array == False):
             if self.max_sample_number:
                 number_samples = self.max_sample_number
             else:
-                number_samples = max(sample_datagram['angle'].shape[0],
-                        sample_datagram['power'].shape[0])
+                number_samples = max([angle_samps, power_samps])
             #  create the initial data arrays
             self._create_arrays(self.chunk_width, number_samples)
 
@@ -608,16 +931,18 @@ class raw_data(sample_data):
         #  the same size but we'll check all to make sure.
         max_data_samples = max(self.power.shape[1],self.angles_alongship_e.shape[1],
                 self.angles_athwartship_e.shape[1])
-        max_new_samples = max(sample_datagram['angle'].shape[0], sample_datagram['power'].shape[0])
+        max_new_samples = max([power_samps, angle_samps])
 
         #  check if we need to truncate the sample data
         if (self.max_sample_number) and (max_new_samples > self.max_sample_number):
             max_new_samples = self.max_sample_number
-            sample_datagram['angle'] = sample_datagram['angle'][0:self.max_sample_number]
-            sample_datagram['power'] = sample_datagram['power'][0:self.max_sample_number]
+            if (angle_samps > 0):
+                sample_datagram['angle'] = sample_datagram['angle'][0:self.max_sample_number]
+            if (power_samps > 0):
+                sample_datagram['power'] = sample_datagram['power'][0:self.max_sample_number]
 
         #  create 2 variables to store our current array size
-        ping_dims = self.ping_number.size
+        ping_dims = self.ping_time.size
         sample_dims = max_data_samples
 
         #  check if we need to re-size or roll our data arrays
@@ -643,7 +968,7 @@ class raw_data(sample_data):
             #  determine if we resize
             if (ping_resize or sample_resize):
                 #  resize the data arrays
-                self._resize_arrays(ping_dims, sample_dims)
+                self.resize(ping_dims, sample_dims)
 
             #  get an index into the data arrays for this ping and increment our ping counter
             this_ping = self.n_pings
@@ -659,16 +984,15 @@ class raw_data(sample_data):
                 #  roll our array 1 ping
                 self._roll_arrays(1)
 
-        #  insert the ChannelMetadata object reference for this ping
+        #  insert the channel_metadata object reference for this ping
         self.channel_metadata[this_ping] = self.current_metadata
 
-        #  update the ChannelMetadata object with this ping number and time
+        #  update the channel_metadata object with this ping number and time
         self.current_metadata.end_ping = self.n_pings
         self.current_metadata.end_time = sample_datagram['timestamp']
 
         #  now insert the data into our numpy arrays
         self.ping_time[this_ping] = sample_datagram['timestamp']
-        self.ping_number[this_ping] = self.n_pings
         self.transducer_depth[this_ping] = sample_datagram['transducer_depth']
         self.frequency[this_ping] = sample_datagram['frequency']
         self.transmit_power[this_ping] = sample_datagram['transmit_power']
@@ -771,7 +1095,7 @@ class raw_data(sample_data):
         Each step is performed only when required. Calls to this method will return much
         faster if the raw data share the same sample thickness, offset and sound speed.
 
-        If calibration is set to an instance of EK60.CalibrationParameters the values in
+        If calibration is set to an instance of EK60.calibration_parameters the values in
         that object (if set) will be used when performing the transformations required to
         return the results. If the required parameters are not set in the calibration
         object or if no object is provided, this method will extract these parameters from
@@ -779,11 +1103,55 @@ class raw_data(sample_data):
         """
 
         #  call the generalized _get_sample_data method requesting the 'power' sample attribute
-        return self._get_sample_data('power', **kwargs)
+        p_data, return_indices = self._get_sample_data('power', **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'power'
+
+        #  set the is_log attribute
+        p_data.is_log = True
+
+        #  and return it
+        return p_data
 
 
-    def get_sv(self, calibration=None, linear=False, keep_power=False,
-                tvg_correction=True, heave_correct=False, return_depth=False,
+    def _get_power(self, **kwargs):
+        """
+        _get_power is identical to get_power except that it also returns an index
+        array that maps the pings in the processed_data object to the same pings
+        in the "this" object. This is used internally.
+        """
+
+        #  call the generalized _get_sample_data method requesting the 'power' sample attribute
+        p_data, return_indices = self._get_sample_data('power', **kwargs)
+
+        #  set the data type
+        p_data.data_type = 'power'
+
+        #  set the is_log attribute
+        p_data.is_log = True
+
+        #  and return it
+        return p_data, return_indices
+
+
+    def get_sv(self, **kwargs):
+        """
+        get_sv returns a processed_data object containing sv
+
+        This is a convienience method which simply calls get_Sv and forces
+        the linear keyword to True.
+        """
+
+        #  remove the linear keyword
+        kwargs.pop('linear', None)
+
+        #  and call get_Sp forcing linear to True
+        return self.get_Sv(linear=True, **kwargs)
+
+
+    def get_Sv(self, calibration=None, linear=False, tvg_correction=True,
+            heave_correct=False, return_depth=False,
                 **kwargs):
         """
         get_sv returns a processed_data object containing Sv (or sv if linear is
@@ -802,38 +1170,52 @@ class raw_data(sample_data):
         """
 
         #  get the power data - this step also resamples and arranges the raw data
-        p_data = self.get_power(calibration=calibration, **kwargs)
+        p_data, return_indices = self._get_power(calibration=calibration, **kwargs)
 
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
-
+        #  set the data type and is_log attribute
         if (linear):
             attribute_name = 'sv'
+            p_data.is_log = False
+
         else:
             attribute_name = 'Sv'
+            p_data.is_log = True
+        p_data.data_type = attribute_name
 
-        #  convert
+        #  convert power to Sv/sv
         sv_data = self._convert_power(p_data, calibration, attribute_name, linear,
                 return_indices, tvg_correction)
 
-        #  set the attribute in the processed_data object
-        p_data.add_attribute(attribute_name, sv_data)
+        #  set the data attribute in the processed_data object
+        p_data.data = sv_data
 
-        #  and check if we should delete the power attribute
-        if (not keep_power):
-            p_data.remove_attribute('power')
-
+        #  check if we need to convert to depth
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
 
 
-    def get_sp(self,  calibration=None, linear=False, keep_power=False,
-            tvg_correction=False, heave_correct=False, return_depth=False,
+    def get_sp(self, **kwargs):
+        """
+        get_sp returns a processed_data object containing sp
+
+        This is a convienience method which simply calls get_Sp and forces
+        the linear keyword to True.
+        """
+
+        #  remove the linear keyword
+        kwargs.pop('linear', None)
+
+        #  and call get_Sp forcing linear to True
+        return self.get_Sp(linear=True, **kwargs)
+
+
+    def get_Sp(self,  calibration=None, linear=False, tvg_correction=False,
+            heave_correct=False, return_depth=False,
             **kwargs):
         """
-        get_sp returns a processed_data object containing TS (or sigma_bs if linear is
+        get_sp returns a processed_data object containing Sp (or sp if linear is
         True).
 
         Sp is calculated as follows:
@@ -854,34 +1236,91 @@ class raw_data(sample_data):
         """
 
         #  get the power data - this step also resamples and arranges the raw data
-        p_data = self.get_power(calibration=calibration, **kwargs)
+        p_data, return_indices = self._get_power(calibration=calibration, **kwargs)
 
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
-
+        #  set the data type
         if (linear):
             attribute_name = 'sp'
+            p_data.is_log = False
         else:
             attribute_name = 'Sp'
+            p_data.is_log = True
+        p_data.data_type = attribute_name
 
         #  convert
         sp_data = self._convert_power(p_data, calibration, attribute_name, linear,
                 return_indices, tvg_correction)
 
-        #  set the attribute in the processed_data object
-        p_data.add_attribute(attribute_name, sp_data)
+        #  set the data attribute in the processed_data object
+        p_data.data = sp_data
 
-        #  and check if we should delete the power attribute
-        if (not keep_power):
-            p_data.remove_attribute('power')
-
+        #  check if we need to convert to depth
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(p_data, calibration, heave_correct, return_indices)
 
         return p_data
 
 
-    def get_physical_angles(self, calibration=None, keep_elec_angles=False, **kwargs):
+    def get_bottom(self, calibration=None, return_indices=None,
+            heave_correct=False, return_depth=False, **kwargs):
+        """
+        get_bottom_depths returns a echolab2 line object containing the sounder
+        detected bottom depths.
+
+        The sounder detected bottom depths are computed using the sound speed
+        setting at the time of recording. If you are applying a different sound
+        speed setting via the calibration argument when
+
+        heave_correct is only used to determine if we need to return depths.
+
+        """
+
+        #  check if the user supplied an explicit list of indices to return
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_time.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the raw_data object")
+        else:
+            #  get an array of index values to return
+            return_indices = self.get_indices(**kwargs)
+
+        #  We don't heave correct the bottom data but if it is set we know we have
+        #  to return depth. We keep the heave_correct keyword for consistency with
+        #  the other get_* methods.
+        if (heave_correct):
+            return_depth = True
+
+        #  extract the recorded sound velocity
+        sv_recorded = self.sound_velocity[return_indices]
+
+        #  get the calibration params required for detected depth conversion
+        cal_parms = {'sound_velocity':None,
+                     'transducer_depth':None}
+
+        #  next, iterate thru the dict, calling the method to extract the values for each parameter
+        for key in cal_parms:
+            cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
+
+        #  check if we have to adjust the depth due to a change in sound speed
+        if (np.all(np.isclose(sv_recorded, cal_parms['sound_velocity']))):
+            converted_depths = self.detected_bottom[return_indices]
+        else:
+            cf = sv_recorded / cal_parms['sound_velocity']
+            converted_depths = cf * self.detected_bottom[return_indices]
+
+        #  check if we're returning range by subtracting a transducer offset.
+        if (return_depth == False):
+            #  data is recorded as depth - convert to range
+            converted_depths -= cal_parms['transducer_depth'][return_indices]
+
+        #  create a line object to return with our adjusted data
+        bottom_line = line.line(ping_time=self.ping_time[return_indices],
+                data=converted_depths)
+
+        return bottom_line
+
+
+    def get_physical_angles(self, calibration=None, **kwargs):
         """
         get_physical_angles returns a processed data object that contains the alongship and
         athwartship angle data.
@@ -889,10 +1328,8 @@ class raw_data(sample_data):
         """
 
         #  get the electrical angles
-        p_data = self.get_electrical_angles(calibration=calibration, **kwargs)
-
-        #  get the index array of returned pings we'll use to extract the cal params we need
-        return_indices = p_data.ping_number - 1
+        pd_alongship, pd_athwartship, return_indices = \
+                self._get_electrical_angles(calibration=calibration, **kwargs)
 
         #  get the calibration params required for angle conversion
         cal_parms = {'angle_sensitivity_alongship':None,
@@ -905,50 +1342,78 @@ class raw_data(sample_data):
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  compute the physical angles
-        p_angle_along = (p_data.angles_alongship_e /
+        pd_alongship.data[:] = (pd_alongship.data /
                 cal_parms['angle_sensitivity_alongship'][:, np.newaxis])
-        p_angle_along -= cal_parms['angle_offset_alongship'][:, np.newaxis]
-        p_angle_athwart = (p_data.angles_athwartship_e /
+        pd_alongship.data -= cal_parms['angle_offset_alongship'][:, np.newaxis]
+        pd_athwartship.data[:] = (pd_athwartship.data /
                 cal_parms['angle_sensitivity_athwartship'][:, np.newaxis])
-        p_angle_athwart -= cal_parms['angle_offset_athwartship'][:, np.newaxis]
+        pd_athwartship.data -= cal_parms['angle_offset_athwartship'][:, np.newaxis]
 
-        #  set the attributes in our processed_data object
-        p_data.add_attribute('angles_alongship', p_angle_along)
-        p_data.add_attribute('angles_athwartship', p_angle_athwart)
-
-        #  check if we should get rid of the electrical angles
-        if (not keep_elec_angles):
-            p_data.remove_attribute('angles_alongship_e')
-            p_data.remove_attribute('angles_athwartship_e')
+        #  set the data types
+        pd_alongship.data_type = 'angles_alongship'
+        pd_athwartship.data_type = 'angles_athwartship'
 
         #  we do not need to convert to depth here since the electrical_angle data will
         #  already have been converted to depth if requested
 
-        return p_data
+        return (pd_alongship, pd_athwartship)
 
 
     def get_electrical_angles(self, heave_correct=False, return_depth=False,
             calibration=None, **kwargs):
         """
-        get_electrical_angles returns a processed data object that contains the unconverted
-        angle data.
+        get_electrical_angles returns two processed data objects containing the unconverted
+        angles_alongship_e, and angles_athwartship_e data.
         """
 
         #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
         #  attribute. The method will return a reference to anewly created iprocessed_data nstance.
-        p_data = self._get_sample_data('angles_alongship_e', **kwargs)
+        pd_alongship, return_indices = self._get_sample_data('angles_alongship_e', **kwargs)
 
-        #  We use the "private" insert_into keyword to insert the athwartship_e data into p_data
-        p_data = self._get_sample_data('angles_athwartship_e', _insert_into=p_data, **kwargs)
+        #  do the same for the athwartship data
+        pd_athwartship, return_indices = self._get_sample_data('angles_athwartship_e', **kwargs)
+
+        #  set the data type
+        pd_alongship.data_type = 'angles_alongship_e'
+        pd_athwartship.data_type = 'angles_athwartship_e'
 
         if (heave_correct or return_depth):
-            self._to_depth(p_data, calibration, heave_correct)
+            self._to_depth(pd_alongship, calibration, heave_correct, return_indices)
+            self._to_depth(pd_athwartship, calibration, heave_correct, return_indices)
 
-        return p_data
+        return (pd_alongship, pd_athwartship)
 
 
-    def _get_sample_data(self, property_name, calibration=None,  resample_interval=RESAMPLE_SHORTEST,
-            resample_soundspeed=None, _insert_into=None, return_indices=None, **kwargs):
+    def _get_electrical_angles(self, heave_correct=False, return_depth=False,
+            calibration=None, **kwargs):
+        """
+        _get_electrical_angles is identical to get_electrical_angles except that it
+        also returns an index array that maps the pings in the processed_data object
+        to the same pings in the "this" object. This is used internally.
+        """
+
+        #  call the generalized _get_sample_data method requesting the 'angles_alongship_e' sample
+        #  attribute. The method will return a reference to anewly created iprocessed_data nstance.
+        alongship, return_indices = self._get_sample_data('angles_alongship_e', **kwargs)
+
+        #  We use the "private" insert_into keyword to insert the athwartship_e data into p_data
+        kwargs.pop('return_indices', None)
+        athwartship, return_indices2 = self._get_sample_data('angles_athwartship_e',
+                return_indices=return_indices, **kwargs)
+
+        #  set the data type
+        alongship.data_type = 'angles_alongship_e'
+        athwartship.data_type = 'angles_athwartship_e'
+
+        if (heave_correct or return_depth):
+            self._to_depth(alongship, calibration, heave_correct, return_indices)
+            self._to_depth(athwartship, calibration, heave_correct, return_indices)
+
+        return (alongship, athwartship, return_indices)
+
+
+    def _get_sample_data(self, property_name, calibration=None, resample_interval=RESAMPLE_SHORTEST,
+            resample_soundspeed=None, return_indices=None, **kwargs):
         """
         _get_sample_data returns a processed data object that contains the sample data from
         the property name provided. It performs all of the required transformations to place
@@ -964,17 +1429,12 @@ class raw_data(sample_data):
         Each step is performed only when required. Calls to this method will return much
         faster if the raw data share the same sample thickness, offset and sound speed.
 
-        If calibration is set to an instance of EK60.CalibrationParameters the values in
+        If calibration is set to an instance of EK60.calibration_parameters the values in
         that object (if set) will be used when performing the transformations required to
         return the results. If the required parameters are not set in the calibration
         object or if no object is provided, this method will extract these parameters from
-        the raw file data.
+        the raw data.
 
-        _insert_into is a "private" argument and is not intended to be used by the user. If
-        insert_into is a reference to another processed_data object and the channel IDs
-        of self and the processed_data instance match, it is assumed that the calibration
-        and data collection parameters are the same and it will insert the requested property
-        data into the processed_data instance.
         """
 
         def get_range_vector(num_samples, sample_interval, sound_speed, sample_offset):
@@ -988,41 +1448,20 @@ class raw_data(sample_data):
 
             return range
 
-        #  check if we're inserting data into an existing processed_data object
-        if isinstance(_insert_into, processed_data.processed_data):
-            #  check that the channel IDs match
-            for channel in self.channel_id:
-                if (not channel in _insert_into.channel_id):
-                    raise ValueError("The channel ID(s) the object you are inserting into " +
-                            "do not match the channel ID(s) of this raw_data object.")
-
-            #  when inserting into a processed_data object we ignore the start/end arguments and
-            #  extract the same indices as the data in the object we are inserting into
-            return_indices = _insert_into.ping_number - 1
-
-            #  we're inserting so we just copy the reference to the object and set the inserting flag
-            p_data = _insert_into
-            inserting = True
-
+        #  check if the user supplied an explicit list of indices to return
+        if isinstance(return_indices, np.ndarray):
+            if max(return_indices) > self.ping_time.shape[0]:
+                raise ValueError("One or more of the return indices provided exceeds the " +
+                        "number of pings in the raw_data object")
         else:
-            #  check if the user supplied an explicit list of indices to return
-            if isinstance(return_indices, np.ndarray):
-                if max(return_indices) > self.ping_number.shape[0]:
-                    raise ValueError("One or more of the return indices provided exceeds the " +
-                            "number of pings in the raw_data object")
-            else:
-                #  get an array of index values to return
-                return_indices = self.get_indices(**kwargs)
+            #  get an array of index values to return
+            return_indices = self.get_indices(**kwargs)
 
-            #  create the processed_data object we will return
-            p_data = processed_data.processed_data(self.channel_id, self.frequency[0])
+        #  create the processed_data object we will return
+        p_data = processed_data.processed_data(self.channel_id, self.frequency[0], None)
 
-            #  populate it with time and ping number
-            p_data.ping_time = self.ping_time[return_indices].copy()
-            p_data.ping_number = self.ping_number[return_indices].copy()
-
-            #  unset the inserting flag
-            inserting = False
+        #  populate it with time and ping number
+        p_data.ping_time = self.ping_time[return_indices].copy()
 
         #  get a reference to the data we're operating on
         if (hasattr(self, property_name)):
@@ -1041,11 +1480,11 @@ class raw_data(sample_data):
             cal_parms[key] = self._get_calibration_param(calibration, key, return_indices)
 
         #  check if we have multiple sample offset values and get the minimum
-        unique_sample_offsets = np.unique(cal_parms['sample_offset'])
+        unique_sample_offsets = np.unique(cal_parms['sample_offset'][~np.isnan(cal_parms['sample_offset'])])
         min_sample_offset = min(unique_sample_offsets)
 
         # check if we need to resample our sample data
-        unique_sample_interval = np.unique(cal_parms['sample_interval'])
+        unique_sample_interval = np.unique(cal_parms['sample_interval'][~np.isnan(cal_parms['sample_interval'])])
         if (unique_sample_interval.shape[0] > 1):
             #  there are at least 2 different sample intervals in the data - we must resample the data.
             #  Since we're already in the neighborhood, we deal with adjusting sample offsets here too.
@@ -1098,38 +1537,21 @@ class raw_data(sample_data):
             range = get_range_vector(output.shape[1], sample_interval,
                     sound_velocity, min_sample_offset)
 
-        #  assign the results to the output processed_data object
-        p_data.add_attribute(property_name, output)
+        #  assign the results to the "data" processed_data object
+        p_data.add_attribute('data', output)
 
         #  calculate the sample thickness in m
         sample_thickness = sample_interval * sound_velocity / 2.0
 
-        #  now assign range, sound_velocity, sample thickness and offset, and transducer_depth
-        #  to the processed_data object. If we're inserting we assume all of these values
-        #  exist and are the same so we don't create them but we do a few checks to make sure
-        #  the user didn't do something really stupid.
-        if (inserting):
-            #  ensure the range vector for this sample data array is the same as the existing data
-            if (not np.all(p_data.range == range)):
-                raise ValueError("The sample ranges calculated for " + property_name +
-                        " do not match the existing sample ranges in the processed_data " +
-                        "object you are inserting into.")
-
-            #  TODO: ANY OTHER CHECKS WE NEED TO DO?
-
-        else:
-            #  assign range
-            p_data.add_attribute('range', range)
-
-            #  assign range and sound speed to our processed_data object
-            p_data.sound_velocity = sound_velocity
-
-            #  compute sample thickness and set the sample offset
-            p_data.sample_thickness = sample_thickness
-            p_data.sample_offset = min_sample_offset
+        #  now assign range, sound_velocity, sample thickness and offset to
+        #  the processed_data object.
+        p_data.add_attribute('range', range)
+        p_data.sound_velocity = sound_velocity
+        p_data.sample_thickness = sample_thickness
+        p_data.sample_offset = min_sample_offset
 
         #  return the processed_data object containing the requested data
-        return p_data
+        return p_data, return_indices
 
 
     def _convert_power(self, power_data, calibration, convert_to, linear, return_indices,
@@ -1190,7 +1612,7 @@ class raw_data(sample_data):
         data = np.outer(2.0 * cal_parms['absorption_coefficient'], c_range)
 
         #  now add in power and TVG
-        data += power_data.power + tvg
+        data += power_data.data + tvg
 
         #  subtract the applied gains
         data -= gains[:, np.newaxis]
@@ -1208,7 +1630,7 @@ class raw_data(sample_data):
         return data
 
 
-    def _to_depth(self, p_data, calibration, heave_correct):
+    def _to_depth(self, p_data, calibration, heave_correct, return_indices):
         """
         _to_depth is an internal method that converts data from range to depth and
         optionally applies heave correction.
@@ -1218,10 +1640,6 @@ class raw_data(sample_data):
         #  names that match the attributes names of the calibration parameters we require for this method
         cal_parms = {'transducer_depth':None,
                      'heave':None}
-
-        #  generate a vector of return indices used to extract heave and draft data if not
-        #  explicitly provided in the calibration data
-        return_indices = p_data.ping_number - 1
 
         #  next, iterate thru the dict, calling the method to extract the values for each parameter
         for key in cal_parms:
@@ -1252,19 +1670,25 @@ class raw_data(sample_data):
             If the user has provided a 1D array the length of return_indices it will return
             that array without modification.
 
-            If the user has provided a 1D array the length of self.ping_number, it will
+            If the user has provided a 1D array the length of self.ping_time, it will
             return a 1D array the length of return_indices that is the subset of this data
             defined by the return_indices index array.
 
             Lastly, if the user has not provided anything, this function will return a
             1D array the length of return_indices filled with data extracted from the raw
-            data.
+            data object.
         """
 
+        #  check if the calibration object has the attribute we're looking for
+        use_cal_object = False
         if (cal_object and hasattr(cal_object, param_name)):
-
             #  try to get the parameter from the calibration object
             param = getattr(cal_object, param_name)
+            if (param is not None):
+                use_cal_object = True
+
+        if (use_cal_object):
+            #  the cal object seems to have our data - give it a go
 
             #  check if the input param is an numpy array
             if isinstance(param, np.ndarray):
@@ -1273,7 +1697,7 @@ class raw_data(sample_data):
                     param_data = np.empty((return_indices.shape[0]), dtype=dtype)
                     param_data.fill(param)
                 #  check if it is an array the same length as contained in the raw data
-                elif (param.shape[0] == self.ping_number.shape[0]):
+                elif (param.shape[0] == self.ping_time.shape[0]):
                     #  cal params provided as full length array, get the selection subset
                     param_data = param[return_indices]
                 #  check if it is an array the same length as return_indices
@@ -1306,76 +1730,26 @@ class raw_data(sample_data):
                 #  It is not a direct property so it must be in the channel_metadata object.
                 #  Create the return array
                 param_data = np.empty((return_indices.shape[0]), dtype=dtype)
+                #  create a counter to use to index the return array. We can't use the
+                #  index value from return_indices since these values may be re-ordered
+                ret_idx = 0
                 #  then populate with the data found in the channel_metadata objects
+
                 for idx in return_indices:
                     #  sa_correction is annoying - have to dig out of the table
-                    if (param_name == 'sa_correction'):
-                        sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
-                        pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
-                        param_data[idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
+                    if (isinstance(self.channel_metadata[idx], channel_metadata)):
+                        if (param_name == 'sa_correction'):
+                            sa_table = getattr(self.channel_metadata[idx],'sa_correction_table')
+                            pl_table = getattr(self.channel_metadata[idx],'pulse_length_table')
+                            param_data[ret_idx] = sa_table[np.where(np.isclose(pl_table,self.pulse_length[idx]))[0]][0]
+                        else:
+                            param_data[ret_idx] = getattr(self.channel_metadata[idx],param_name)
                     else:
-                        param_data[idx] = getattr(self.channel_metadata[idx],param_name)
+                        param_data[ret_idx] = np.nan
+                    #  increment the index counter
+                    ret_idx += 1
 
         return param_data
-
-
-    def _roll_arrays(self, roll_pings):
-        """
-        _roll_arrays is an internal method that rolls our data arrays when those arrays
-        are fixed in size and we add a ping. This typically would be used for buffering
-        data from streaming sources.
-        """
-
-        #TODO: implement and test these inline rolling functions
-        #      Need to profile this code to see which methods are faster. Currently all rolling is
-        #      implemented using np.roll which makes a copy of the data.
-        #TODO: verify rolling direction
-        #      Verify the correct rolling direction for both the np.roll calls and the 2 inline
-        #      functions. I *think* the calls to np.roll are correct and the inline functions roll
-        #      the wrong way.
-
-        def roll_1d(data):
-            #  rolls a 1d *mostly* in place
-            #  based on code found here:
-            #    https://stackoverflow.com/questions/35916201/alternative-to-numpy-roll-without-copying-array
-            #  THESE HAVE NOT BEEN TESTED
-            temp_view = data[:-1]
-            temp_copy = data[-1]
-            data[1:] = temp_view
-            data[0] = temp_copy
-
-        def roll_2d(data):
-            #  rolls a 2d *mostly* in place
-            temp_view = data[:-1,:]
-            temp_copy = data[-1,:]
-            data[1:,:] = temp_view
-            data[0,:] = temp_copy
-
-        #  roll the numpy arrays
-        self.ping_time = np.roll(self.ping_time, roll_pings)
-        self.channel_metadata = np.roll(self.channel_metadata, roll_pings)
-        self.ping_number = np.roll(self.ping_number, roll_pings)
-        self.transducer_depth = np.roll(self.transducer_depth, roll_pings)
-        self.frequency = np.roll(self.frequency, roll_pings)
-        self.transmit_power = np.roll(self.transmit_power, roll_pings)
-        self.pulse_length = np.roll(self.pulse_length, roll_pings)
-        self.bandwidth = np.roll(self.bandwidth, roll_pings)
-        self.sample_interval = np.roll(self.sample_interval, roll_pings)
-        self.sound_velocity = np.roll(self.sound_velocity, roll_pings)
-        self.absorption_coefficient = np.roll(self.absorption_coefficient, roll_pings)
-        self.heave = np.roll(self.heave, roll_pings)
-        self.pitch = np.roll(self.pitch, roll_pings)
-        self.roll = np.roll(self.roll, roll_pings)
-        self.temperature = np.roll(self.temperature, roll_pings)
-        self.heading = np.roll(self.heading, roll_pings)
-        self.transmit_mode = np.roll(self.transmit_mode, roll_pings)
-        self.sample_offset = np.roll(self.sample_offset, roll_pings)
-        self.sample_count = np.roll(self.sample_count, roll_pings)
-        if (self.store_power):
-            self.power = np.roll(self.power, roll_pings, axis=0)
-        if (self.store_angles):
-            self.angles_alongship_e = np.roll(self.angles_alongship_e, roll_pings, axis=0)
-            self.angles_athwartship_e = np.roll(self.angles_athwartship_e, roll_pings, axis=0)
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
@@ -1387,7 +1761,6 @@ class raw_data(sample_data):
         #  first, create uninitialized arrays
         self.ping_time = np.empty((n_pings), dtype='datetime64[ms]')
         self.channel_metadata = np.empty((n_pings), dtype='object')
-        self.ping_number = np.empty((n_pings), np.int32)
         self.transducer_depth = np.empty((n_pings), np.float32)
         self.frequency = np.empty((n_pings), np.float32)
         self.transmit_power = np.empty((n_pings), np.float32)
@@ -1415,10 +1788,8 @@ class raw_data(sample_data):
 
         #  check if we should initialize them
         if (initialize):
-            #  filling datetime64 arrays with NaN results in NaT (not a time)
-            self.ping_time.fill(np.nan)
+            self.ping_time.fill(np.datetime64('NaT'))
             #  channel_metadata is initialized when using np.empty
-            self.ping_number.fill(0)
             self.transducer_depth.fill(np.nan)
             self.frequency.fill(np.nan)
             self.transmit_power.fill(np.nan)
@@ -1476,10 +1847,9 @@ class raw_data(sample_data):
         return msg
 
 
-
-class ChannelMetadata(object):
+class channel_metadata(object):
     """
-    The ChannelMetadata class stores the channel configuration data as well as
+    The channel_metadata class stores the channel configuration data as well as
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
@@ -1553,96 +1923,122 @@ class ChannelMetadata(object):
         self.spare4 = config_datagram['spare4']
 
 
-class CalibrationParameters(object):
+class calibration_parameters(object):
     """
-    The CalibrationParameters class contains parameters required for transforming
+    The calibration_parameters class contains parameters required for transforming
     power and electrical angle data to Sv/sv TS/SigmaBS and physical angles.
+
+    When converting raw data to power, Sv/sv, Sp/sp, or to physical angles you have
+    the option of passing a calibration object containing the data you want
+    used during these conversions. To use this object you create an instance and
+    populate the attributes with your calibration data.
+
+    You can provide the data in 2 forms:
+        As a scalar - the single value will be used for all pings
+        As a vector - a vector of values as long as the number of pings
+            in the raw_data object where the first value will be used
+            with the first ping, the second with the second, and so on.
+
+    If you set any attribute to None, that attribute's valyes will be obtained
+    from the raw_data object which contains the value at the time of recording.
+    If you do not pass a calibration_parameters object to the conversion methods
+    *all* of the cal parameter values will be extracted from the raw_data object.
+
     """
 
     def __init__(self):
 
-        self.channel_id = []
-        self.count = []
-        self.sample_count = []
-        self.frequency = []
-        self.sound_velocity = []
-        self.sample_interval = []
-        self.absorption_coefficient = []
-        self.gain = []
-        self.equivalent_beam_angle = []
-        self.beamwidth_alongship = []
-        self.beamwidth_athwartship = []
-        self.pulse_length_table = []
-        self.gain_table  = []
-        self.sa_correction_table = []
-        self.transmit_power = []
-        self.pulse_length = []
-        self.angle_sensitivity_alongship = []
-        self.angle_sensitivity_athwartship = []
-        self.angle_offset_alongship = []
-        self.angle_offset_athwartship = []
-        self.transducer_depth = []
+        #  set the initial calibration property values
+        self.channel_id = None
 
-        self.sounder_name = [] #From matlab calib params but it's being stored here in the channel_metadata. Remove?
-        self.sample_offset = [] #Should this come from the "offset" field in the datagrams?
-        self.offset = []
+        self.sample_offset = None
+        self.sound_velocity = None
+        self.sample_interval = None
+        self.absorption_coefficient = None
+        self.heave = None
+        self.equivalent_beam_angle = None
+        self.gain  = None
+        self.sa_correction = None
+        self.transmit_power = None
+        self.pulse_length = None
+        self.angle_sensitivity_alongship = None
+        self.angle_sensitivity_athwartship = None
+        self.angle_offset_alongship = None
+        self.angle_offset_athwartship = None
+        self.transducer_depth = None
 
-    def append_calibration(self, datagram):
-      #TODO Add code to ensure alignment with raw data arrays.  Use n_pings.
-      for attribute in vars(self):
-        if attribute in datagram:
-          self._append_data(attribute, datagram[attribute])
-      self.sample_offset = self.offset #FIXME Is this right?
-      self.sample_count = self.count #FIXME Is this right?
-
-
-    def _append_data(self, attribute, data):
-      attr_data = getattr(self, attribute)
-      if isinstance(data, np.ndarray):
-        datagram_data = self.get_table_value(data, attribute)
-      else:
-        datagram_data = data
-      attr_data.append(datagram_data)
-      setattr(self, attribute, attr_data)
+        #  create a list that contains the attribute names of the parameters
+        self._parms = ['sample_interval',
+                       'sound_velocity',
+                       'sample_offset',
+                       'transducer_depth',
+                       'heave',
+                       'gain',
+                       'transmit_power',
+                       'equivalent_beam_angle',
+                       'pulse_length',
+                       'absorption_coefficient',
+                       'sa_correction',
+                       'angle_sensitivity_alongship',
+                       'angle_sensitivity_athwartship',
+                       'angle_offset_alongship',
+                       'angle_offset_athwartship']
 
 
-    def get_table_value(self, data, attribute):
-      #TODO Ask Rick which value to use.
-      return data[0]
-
-
-    def compress_data_arrays(self):
+    def from_raw_data(self, raw_data, return_indices=None):
         """
-        If any of the data arrays in this object have values that are all the same,
-        replace the array with a scalar value.
+        from_raw_data populates the calibration object with values
+        extracted from a raw_data object.
         """
-        for attr in vars(self):
-          data = getattr(self, attr)
 
-          if len(set(data)) == 1:
-            data = data[0]
-            setattr(self, attr, data)
+        #  set the channel_id
+        self.channel_id = raw_data.channel_id
 
+        #  if we're not given specific indices, grab everything
+        if (return_indices is None):
+            return_indices = np.arange(raw_data.ping_time.shape[0])
 
-    def from_raw_data(self, raw_data, raw_file_idx=0):
-        """
-        from_raw_data populated the CalibrationParameters object's properties given
-        a reference to a RawData object.
+        #  work through the calibration parameters and extract them
+        #  from the raw_data object
+        for param_name in self._parms:
+            #  Calibration parameters are found directly in the raw_data object and they are
+            #  in the channel_metadata objects. If we don't find it directly in raw_data then
+            #  we need to fish it out of the channel_metadata objects.
+            try:
+                #  first check if this parameter is a direct property in raw_data
+                raw_param = getattr(raw_data, param_name)
+                param_data = raw_param[return_indices].copy()
+            except:
+                #  It is not a direct property so it must be in the channel_metadata object.
+                #  Create the return array
+                param_data = np.empty((return_indices.shape[0]))
+                #  create a counter to use to index the return array. We can't use the
+                #  index value from return_indices since these values may be re-ordered
+                ret_idx = 0
+                #  then populate with the data found in the channel_metadata objects
 
-        This would query the RawFileData object specified by raw_file_idx in the
-        provided RawData object (by default, using the first).
-        """
-        #TODO Ask, do we want to add calibration data from the config datagram to the raw data object
-        #     in order to capture them here?
-        #TODO Since calibration data is indexed the same as data now, do we still want to use raw_file_idx here?
-        for attr in vars(self):
-          if attr in vars(raw_data):
-            data = getattr(raw_data, attr)
-            self_data = getattr(self, attr)
-            if not isinstance(self_data, list):
-              self_data = [self_data]
-              setattr(self, attr, self_data)
-            self._append_data(attr, data)
+                for idx in return_indices:
+                    #  sa_correction is annoying - have to dig out of the table
+                    if (isinstance(raw_data.channel_metadata[idx], channel_metadata)):
+                        if (param_name == 'sa_correction'):
+                            sa_table = getattr(raw_data.channel_metadata[idx],'sa_correction_table')
+                            pl_table = getattr(raw_data.channel_metadata[idx],'pulse_length_table')
+                            param_data[ret_idx] = sa_table[np.where(np.isclose(pl_table,raw_data.pulse_length[idx]))[0]][0]
+                        else:
+                            param_data[ret_idx] = getattr(self.channel_metadata[idx],param_name)
+                    else:
+                        param_data[ret_idx] = np.nan
+                    #  increment the index counter
+                    ret_idx += 1
+
+            #  check if we can collapse the vector - if all the values are the same
+            #  we set the parameter to a scalar that value
+            if (np.all(np.isclose(param_data, param_data[0]))):
+                #  this parameters values are all the same
+                param_data = param_data[0]
+
+            #  update the attribute
+            setattr(self, param_name, param_data)
 
 
     def read_ecs_file(self, ecs_file, channel):
