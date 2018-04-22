@@ -39,6 +39,7 @@
 - Need to check if temperature is a parameter set by user when initiating echosounder recording, or a feed-in parameters measured in real-time when recording data. If the latter, will have to return a separate variable for all temperature samples from `next_sample` in `parse_echogram_file`
 
 
+****************************************************
 ## 2018/03/03-04
 - In the middle of changing everything to conform with the netCDF file format discussed with Robert L
 - Now unpacking heave/pitch/roll for each ping and save them in different channels separately, in case the heave/pitch/roll data are only fed in to one channel??? --> check sample data from Robert L --> all heave/pitch/roll data are 0.0
@@ -47,11 +48,21 @@
   - Alongship and athwarthship are stored in `angle_data_dict[channel#]['along']` and `angle_data_dict[channel#]['athwart']`
   - Heave, pitch, and roll are stored in `motion_data_dict[channel#]['heave']`, `motion_data_dict[channel#]['pitch']`, and `motion_data_dict[channel#]['roll']`
 
+
+****************************************************
+## 2018/04/21-22
+- First try implement SONAR-netCDF4 format --> goal is to make `raw2nc` functions.
+- Have a first set of questions sent to Gavin.
+
+
+
+
+****************************************************
 ## Next steps
 - change `raw2hdf5` functions to `raw2netcdf` functions
 - Save temperature??
 - Need to revive error catch code
-- Consider converting electronic angle to actual angle directly in the unpacked format?? --> maybe make it a method in data manipulation class?
+- write a method in the model class to convert electronic angle to mechanical angle
 
 
 ## Echolab metadata format --> common sonar netCDF format
