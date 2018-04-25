@@ -55,6 +55,17 @@
 - Have a first set of questions sent to Gavin.
 
 
+****************************************************
+## 2018/04/24
+- Add additional variables to the SONAR-netCDF4 convention:
+  - `/Sonar/Beam_group1`
+    - `beamwidth_alongship`, `beamwidth_athwartship`
+    - `gain_correction` is used to store `gain` unpaked from EK60 files
+    - `angle_sensitivity_alongship`, `angle_sensitivity_athwartship`
+    - `angle_offset_alongship`, `angle_offset_athwartship`
+- Move `ping_time` to top-level group and direclty use it for those variables that need this dimension under `Sonar/Beam_group1`.
+
+
 
 
 ****************************************************
