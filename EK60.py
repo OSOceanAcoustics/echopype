@@ -18,9 +18,9 @@ import datetime
 from pytz import timezone
 import numpy as np
 from .util.raw_file import RawSimradFile, SimradEOF
-#from ..ping_data import ping_data
-from ..ping_data import ping_data
-from ..processing import processed_data
+#from ..ping_data import PingData
+from ..ping_data import PingData
+from ..processing.processed_data import ProcessedData
 from ..processing import line
 from .util.nmea_data import nmea_data
 
@@ -337,7 +337,7 @@ class EK60(object):
                 else:
                     CON1_datagram = None
 
-                # Check if a raw_data object for this channel needs to be
+                # Check if a RawData object for this channel needs to be
                 # created.
                 self._channel_map = {}
                 for channel in config_datagram['transceivers']:
@@ -361,11 +361,11 @@ class EK60(object):
                         # is *NOT* one of them, so continue.
                         continue
 
-                    # Check if a raw_data object exists for this channel.  If
+                    # Check if a RawData object exists for this channel.  If
                     # not, create it, add it to the list of channel_ids,
                     # and update the public channel id map.
                     if channel_id not in self.raw_data:
-                        self.raw_data[channel_id] = raw_data(channel_id,
+                        self.raw_data[channel_id] = RawData(channel_id,
                                 store_power=self.read_power,
                                 store_angles=self.read_angles,
                                 max_sample_number=self.read_max_sample_count)
@@ -383,7 +383,7 @@ class EK60(object):
 
                     # Create a channel_metadata object to store this channel's
                     # configuration and rawfile metadata.
-                    metadata = channel_metadata(filename,
+                    metadata = ChannelMetadata(filename,
                                 config_datagram['transceivers'][channel],
                                 config_datagram['survey_name'],
                                 config_datagram['transect_name'],
@@ -586,7 +586,7 @@ class EK60(object):
     def get_raw_data(self, channel_number=None, channel_id=None):
         """Gets the raw data for a specific channel.
 
-        This method returns a reference to the specified raw_data object for
+        This method returns a reference to the specified RawData object for
         the specified channel id or channel number. If no channel number or
         id are specified, it returns a dictionary keyed by channel id
         containing all of the channels.
@@ -657,10 +657,10 @@ class EK60(object):
         return msg
 
 
-class raw_data(ping_data):
+class RawData(PingData):
     """
-    the raw_data class contains a single channel's data extracted from a
-    Simrad raw file collected from an EK/ES60 or ES70.  A raw_data object is
+    the RawData class contains a single channel's data extracted from a
+    Simrad raw file collected from an EK/ES60 or ES70.  A RawData object is
     created for each unique channel in an EK/ES60 or ES70 raw file.
     """
 
@@ -737,7 +737,7 @@ class raw_data(ping_data):
             max_sample_number (int): Integer specifying the maximum number of
                 samples that will be stored in this instance's data arrays.
         """
-        super(raw_data, self).__init__()
+        super(RawData, self).__init__()
 
         # Specify if data array size is fixed and the array data is rolled left
         # if the array fills up (True) or if the arrays are expanded when
@@ -808,7 +808,7 @@ class raw_data(ping_data):
             self.n_pings = 0
 
         # If we're not using fixed arrays, we will initialize them when
-        # append_ping is called for the first time. Until then, the raw_data
+        # append_ping is called for the first time. Until then, the RawData
         # object will not contain the data properties.
 
 
@@ -825,8 +825,8 @@ class raw_data(ping_data):
         """
 
         # Create an instance of echolab2.EK60.paw_data and set the same basic
-        # properties as this object.  Return the empty processed_data object.
-        empty_obj = raw_data(self.channel_id, n_pings=n_pings,
+        # properties as this object.  Return the empty ProcessedData object.
+        empty_obj = RawData(self.channel_id, n_pings=n_pings,
                              n_samples=self.n_samples,
                              rolling=self.rolling_array, chunk_width=n_pings,
                              store_power=self.store_power,
@@ -862,12 +862,12 @@ class raw_data(ping_data):
             obj_to_insert = self.empty_like(n_inserting)
 
         # Check that the data types are the same.
-        if not isinstance(obj_to_insert, raw_data):
+        if not isinstance(obj_to_insert, RawData):
             raise TypeError('The object you are inserting must be an instance '
-                            + 'of EK60.raw_data')
+                            + 'of EK60.RawData')
 
         # We are now coexisting in harmony - call parent's insert.
-        super(raw_data, self).insert(obj_to_insert, ping_number=ping_number,
+        super(RawData, self).insert(obj_to_insert, ping_number=ping_number,
                                      ping_time=ping_time,
                                      insert_after=insert_after,
                                      index_array=index_array)
@@ -1202,7 +1202,7 @@ class raw_data(ping_data):
         an index array.
 
         This method is identical to get_power except that it also returns an
-        index array that maps the pings in the processed_data object to the
+        index array that maps the pings in the ProcessedData object to the
         same pings in the "this" object. This is used internally.
 
         Args:
@@ -1252,7 +1252,7 @@ class raw_data(ping_data):
 
         The value passed to cal_parameters is a calibration parameters object.
         If cal_parameters == None, the calibration parameters will be extracted
-        from the corresponding fields in the raw_data object.
+        from the corresponding fields in the RawData object.
 
         Sv is calculated as follows:
 
@@ -1268,7 +1268,7 @@ class raw_data(ping_data):
             **kwargs (dict): A keyworded argument list.
 
         Returns:
-            A processed_data object, p_data, containing Sv (or sv if linear is
+            A ProcessedData object, p_data, containing Sv (or sv if linear is
             True).
         """
 
@@ -1291,7 +1291,7 @@ class raw_data(ping_data):
         sv_data = self._convert_power(p_data, calibration, attribute_name,
                                       linear, return_indices, tvg_correction)
 
-        # Set the data attribute in the processed_data object.
+        # Set the data attribute in the ProcessedData object.
         p_data.data = sv_data
 
         # Check if we need to convert to depth.
@@ -1311,7 +1311,7 @@ class raw_data(ping_data):
             **kwargs (dict): A keyworded argument list.
 
         Returns:
-            returns a processed_data object containing sp
+            returns a ProcessedData object containing sp
         """
 
         # Remove the linear keyword.
@@ -1354,7 +1354,7 @@ class raw_data(ping_data):
             **kwargs
 
         Returns:
-            A processed_data object, p_data, containing Sp (or sp if linear is
+            A ProcessedData object, p_data, containing Sp (or sp if linear is
             True).
         """
 
@@ -1376,7 +1376,7 @@ class raw_data(ping_data):
         sp_data = self._convert_power(p_data, calibration, attribute_name,
                                       linear, return_indices, tvg_correction)
 
-        # Set the data attribute in the processed_data object.
+        # Set the data attribute in the ProcessedData object.
         p_data.data = sp_data
 
         # Check if we need to convert to depth.
@@ -1419,7 +1419,7 @@ class raw_data(ping_data):
         if isinstance(return_indices, np.ndarray):
             if max(return_indices) > self.ping_time.shape[0]:
                 raise ValueError("One or more of the return indices provided " +
-                        "exceeds the number of pings in the raw_data object")
+                        "exceeds the number of pings in the RawData object")
         else:
             # Get an array of index values to return.
             return_indices = self.get_indices(**kwargs)
@@ -1456,7 +1456,7 @@ class raw_data(ping_data):
             converted_depths -= cal_parms['transducer_depth'][return_indices]
 
         # Create a line object to return with our adjusted data.
-        bottom_line = line.line(ping_time=self.ping_time[return_indices],
+        bottom_line = line.Line(ping_time=self.ping_time[return_indices],
                 data=converted_depths)
 
         return bottom_line
@@ -1528,7 +1528,7 @@ class raw_data(ping_data):
 
         # Call the generalized _get_sample_data method requesting the
         # 'angles_alongship_e' sample attribute. The method will return a
-        # reference to a newly created iprocessed_data instance.
+        # reference to a newly created iProcessedData instance.
         pd_alongship, return_indices = self._get_sample_data(
             'angles_alongship_e', **kwargs)
 
@@ -1556,7 +1556,7 @@ class raw_data(ping_data):
 
         _get_electrical_angles is identical to get_electrical_angles except
         that it also returns an index array that maps the pings in the
-        processed_data object to the same pings in the "this" object. This is
+        ProcessedData object to the same pings in the "this" object. This is
         used internally.
 
         Args:
@@ -1575,7 +1575,7 @@ class raw_data(ping_data):
 
         # Call the generalized _get_sample_data method requesting the
         # 'angles_alongship_e' sample attribute. The method will return a
-        # reference to a newly created iprocessed_data instance.
+        # reference to a newly created iProcessedData instance.
         alongship, return_indices = self._get_sample_data(
             'angles_alongship_e', **kwargs)
 
@@ -1661,13 +1661,13 @@ class raw_data(ping_data):
             if max(return_indices) > self.ping_time.shape[0]:
                 raise ValueError("One or more of the return indices provided "
                                  "exceeds the " + "number of pings in the " +
-                                 "raw_data object")
+                                 "RawData object")
         else:
             # Get an array of index values to return.
             return_indices = self.get_indices(**kwargs)
 
-        # Create the processed_data object we will return.
-        p_data = processed_data.processed_data(self.channel_id,
+        # Create the ProcessedData object we will return.
+        p_data = ProcessedData(self.channel_id,
                                                self.frequency[0], None)
 
         # Populate it with time and ping number.
@@ -1769,20 +1769,20 @@ class raw_data(ping_data):
             range = get_range_vector(output.shape[1], sample_interval,
                     sound_velocity, min_sample_offset)
 
-        # Assign the results to the "data" processed_data object.
+        # Assign the results to the "data" ProcessedData object.
         p_data.add_attribute('data', output)
 
         # Calculate the sample thickness.
         sample_thickness = sample_interval * sound_velocity / 2.0
 
         # Now assign range, sound_velocity, sample thickness and offset to
-        # the processed_data object.
+        # the ProcessedData object.
         p_data.add_attribute('range', range)
         p_data.sound_velocity = sound_velocity
         p_data.sample_thickness = sample_thickness
         p_data.sample_offset = min_sample_offset
 
-        # Return the processed_data object containing the requested data.
+        # Return the ProcessedData object containing the requested data.
         return p_data, return_indices
 
 
@@ -2013,12 +2013,12 @@ class raw_data(ping_data):
         else:
             # Parameter is not provided in the calibration object, copy it
             # from the raw data.  Calibration parameters are found directly
-            # in the raw_data object and they are in the channel_metadata
-            # objects.  If we don't find it directly in raw_data, then we need
+            # in the RawData object and they are in the channel_metadata
+            # objects.  If we don't find it directly in RawData, then we need
             # to fish it out of the channel_metadata objects.
             try:
                 # First check if this parameter is a direct property in
-                # raw_data.
+                # RawData.
                 self_param = getattr(self, param_name)
                 # It is, so return a view of the subset of data we're
                 # interested in.
@@ -2036,7 +2036,7 @@ class raw_data(ping_data):
                 for idx in return_indices:
                     # Dig out sa_correction from the table.
                     if isinstance(self.channel_metadata[idx],
-                                   channel_metadata):
+                                  ChannelMetadata):
                         if param_name == 'sa_correction':
                             sa_table = getattr(self.channel_metadata[idx],
                                                'sa_correction_table')
@@ -2057,7 +2057,7 @@ class raw_data(ping_data):
 
 
     def _create_arrays(self, n_pings, n_samples, initialize=False):
-        """Initializes raw_data data arrays.
+        """Initializes RawData data arrays.
 
         This is an internal method. Note that all "data" arrays must be numpy
         arrays.
@@ -2130,7 +2130,7 @@ class raw_data(ping_data):
     def __str__(self):
         """
         Reimplemented string method that provides some basic info about the
-        raw_data object.
+        RawData object.
         """
 
         # Print the class and address.
@@ -2166,13 +2166,13 @@ class raw_data(ping_data):
         return msg
 
 
-class channel_metadata(object):
+class ChannelMetadata(object):
     """
-    The channel_metadata class stores the channel configuration data as well as
+    The ChannelMetadata class stores the channel configuration data as well as
     some metadata about the file. One of these is created for each channel for
     every .raw file read.
 
-    References to instances of these objects are stored in the raw_data class.
+    References to instances of these objects are stored in the RawData class.
     """
 
     def __init__(self, file, config_datagram, survey_name, transect_name,
@@ -2259,13 +2259,13 @@ class CalibrationParameters(object):
     You can provide the data in 2 forms:
         As a scalar - the single value will be used for all pings.
         As a vector - a vector of values as long as the number of pings
-            in the raw_data object where the first value will be used
+            in the RawData object where the first value will be used
             with the first ping, the second with the second, and so on.
 
     If you set any attribute to None, that attribute's values will be obtained
-    from the raw_data object which contains the value at the time of recording.
+    from the RawData object which contains the value at the time of recording.
     If you do not pass a CalibrationParameters object to the conversion methods
-    *all* of the cal parameter values will be extracted from the raw_data
+    *all* of the cal parameter values will be extracted from the RawData
     object.
     """
 
@@ -2311,11 +2311,11 @@ class CalibrationParameters(object):
     def from_raw_data(self, raw_data, return_indices=None):
         """Populates the calibration object.
 
-        This method uses the values extracted from a raw_data object to
+        This method uses the values extracted from a RawData object to
         populate the calibration object.
 
         Args:
-            raw_data (object): The object where parameters will be extracted
+            raw_data (RawData): The object where parameters will be extracted
                 from and used to populate the calibration object.
             return_indices (array): A numpy array of indices to return.
         """
@@ -2328,12 +2328,12 @@ class CalibrationParameters(object):
             return_indices = np.arange(raw_data.ping_time.shape[0])
 
         # Work through the calibration parameters and extract them from the
-        # raw_data object.
+        # RawData object.
         for param_name in self._parms:
-            # Calibration parameters are found directly in the raw_data
-            # object and they are in the channel_metadata objects.  If we
+            # Calibration parameters are found directly in the RawData
+            # object and they are in the ChannelMetadata objects.  If we
             # don't find it directly in raw_data then we need to fish it out
-            # of the channel_metadata objects.
+            # of the ChannelMetadata objects.
             try:
                 # First check if this parameter is a direct property in
                 # raw_data.
@@ -2341,19 +2341,19 @@ class CalibrationParameters(object):
                 param_data = raw_param[return_indices].copy()
             except:
                 # It is not a direct property so it must be in the
-                # channel_metadata object.  Create the return array.
+                # ChannelMetadata object.  Create the return array.
                 param_data = np.empty((return_indices.shape[0]))
                 # Create a counter to use to index the return array. We can't
                 # use the index value from return_indices since these values
                 # may be re-ordered.
                 ret_idx = 0
-                # Then populate with the data found in the channel_metadata
+                # Then populate with the data found in the ChannelMetadata
                 # objects.
 
                 for idx in return_indices:
                     # Dig out sa_correction from the table.
                     if isinstance(raw_data.channel_metadata[idx],
-                                   channel_metadata):
+                                   ChannelMetadata):
                         if param_name == 'sa_correction':
                             sa_table = getattr(raw_data.channel_metadata[
                                                    idx], 'sa_correction_table')
