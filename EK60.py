@@ -88,8 +88,7 @@ class EK60(object):
 
 
     def __init__(self):
-        """
-        Initializes EK60 class object.
+        """Initializes EK60 class object.
 
         Creates and sets several internal properties used to store information
         about data and control operation of file reading with EK60 object
