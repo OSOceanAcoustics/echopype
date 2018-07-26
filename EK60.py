@@ -26,8 +26,7 @@ from .util.nmea_data import nmea_data
 
 
 class EK60(object):
-    """The EK60 class is the 'file reader' class for Simrad EK60 instrument
-    files.
+    """This class is the 'file reader' class for Simrad EK60 instrument files.
 
     The Ek60 class can read in one or more EK60 files and generates a RawData
     class instance for each unique channel ID in the files. The class also
