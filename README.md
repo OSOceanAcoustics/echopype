@@ -42,6 +42,8 @@ Misc:
   - scanning data and decide what files you want to analyze
   - get rid of bottom, get rid of noise, and then db-diff
 - Specific tasks
+  - set up continuous integration (VS)
+    - write tests
   - figure out how to save things into ICES recommended format --> let's look at what MATECHO did (JC)
   - clean up current echopype for unpacking EK60, make attribute names match ICES naming convention (WJ, EL)
   - unpack EK80 --> EK80 uses XML for metadata, create class attributes that match ICES naming convention (EO, EF)
