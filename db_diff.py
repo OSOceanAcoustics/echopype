@@ -100,7 +100,7 @@ def get_noise(power_data,depth_bin_size,ping_bin_range,depth_bin_range,tvgCorrec
         minimum value for bins of averaged ping
     '''
     N = int(np.floor(depth_bin_range/depth_bin_size))
-    
+
     # Average uncompensated power over M pings and N depth bins
     depth_bin_num = int(np.floor((power_data.shape[0]-tvgCorrectionFactor)/N))
     ping_bin_num = int(np.floor(power_data.shape[1]/ping_bin_range))
@@ -120,7 +120,7 @@ def remove_noise(power_data,cal,noise_est,ping_bin_range=40,tvg_correction_facto
     '''
     Function for noise removal and TVG + absorption compensation
     Ref: De Robertis et al. 2010
-    
+
     INPUT:
         power_data      2D mtx of power data [depth x ping num]
         noise_est       results from `get_noise`
@@ -131,7 +131,7 @@ def remove_noise(power_data,cal,noise_est,ping_bin_range=40,tvg_correction_facto
         tvg_correction_factor   default(=2) for converting power_data to Sv
     OUTPUT:
         Sv_raw       TVG and absorption compensated Sv data, no noise removal
-        Sv_corr      TVG and absorption compensated Sv data, no noise removal        
+        Sv_corr      TVG and absorption compensated Sv data, no noise removal
         Sv_noise     TVG and absorption compensated noise estimation
     '''
 
@@ -191,10 +191,10 @@ def remove_noise(power_data,cal,noise_est,ping_bin_range=40,tvg_correction_facto
             tmp.set_fill_value(-999)
             Sv_corr[:,ping_idx] = (tmp.T +TVG+ABS-CSv-Sac).T
             Sv_noise[:,ping_idx] = np.array([10*np.log10(noise_est[iP])+TVG+ABS-CSv-Sac]*ping_bin_range).T
-    
+
     # Raw Sv withour noise removal but with TVG/absorption compensation
     Sv_raw = (power_data.T+TVG+ABS-CSv-Sac).T
-    
+
     return Sv_raw,Sv_corr,Sv_noise
 
 
@@ -202,7 +202,7 @@ def remove_noise(power_data,cal,noise_est,ping_bin_range=40,tvg_correction_facto
 def get_MVBS(Sv,depth_bin_size,ping_bin_range,depth_bin_range):
     '''
     Obtain mean MVBS
-    
+
     INPUT:
         th                Sv threshold: discard Sv values below th during averaging
         depth_bin_size    depth bin size from unpacked data
@@ -213,7 +213,7 @@ def get_MVBS(Sv,depth_bin_size,ping_bin_range,depth_bin_range):
     '''
 
     N = int(np.floor(depth_bin_range/depth_bin_size))  # total number of depth bins
-    
+
     # Average Sv over M pings and N depth bins
     depth_bin_num = int(np.floor(Sv.shape[1]/N))
     ping_bin_num = int(np.floor(Sv.shape[2]/ping_bin_range))
@@ -223,7 +223,7 @@ def get_MVBS(Sv,depth_bin_size,ping_bin_range,depth_bin_range):
             for iP in range(ping_bin_num):
                 depth_idx = np.arange(N) + N*iD
                 ping_idx = np.arange(ping_bin_range) + ping_bin_range*iP
-                MVBS[iF,iD,iP] = 10*np.log10( np.nanmean(10**(Sv[np.ix_((iF,),depth_idx,ping_idx)]/10)) )            
+                MVBS[iF,iD,iP] = 10*np.log10( np.nanmean(10**(Sv[np.ix_((iF,),depth_idx,ping_idx)]/10)) )
     return MVBS
 
 
@@ -332,17 +332,17 @@ def raw2MVBS_daterange(date_wanted,data_path,save_path,save_fname,\
             f.create_dataset("ping_time", (sz[2],), maxshape=(None,), data=ping_time_MVBS, chunks=True)
             f.create_dataset("depth_bin_size",data=depth_bin_range)
         f.close()
-        
+
 
 
 def multifreq_color_code(Sv38,Sv120,Sv200):
     '''
     Multi-frequency color-coding regiem
     Ref: Jech and Michaels 2006
-    
+
     INPUT:
         Sv at 38, 120, and 200 kHz
-        
+
     OUTPUT:
         Sv_mf   numerical indicator mtx of combination of
                 presence/absence of multiple freq

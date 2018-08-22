@@ -63,7 +63,12 @@
     - `gain_correction` is used to store `gain` unpaked from EK60 files
     - `angle_sensitivity_alongship`, `angle_sensitivity_athwartship`
     - `angle_offset_alongship`, `angle_offset_athwartship`
-- Move `ping_time` to top-level group and direclty use it for those variables that need this dimension under `Sonar/Beam_group1`.
+- Move `ping_time` to top-level group and directly use it for those variables that need this dimension under `Sonar/Beam_group1`.
+
+
+****************************************************
+## 2018/08/21
+- Transfer ownership to oceanhackweek organization for group project.
 
 
 
