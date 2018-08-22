@@ -34,15 +34,18 @@ Misc:
   - can read data from EK60 and save into HDF5 file
   - can clean up noise, do frequency differencing and plot echogram
 - OOI CI resources that can parse AZFP data in Python
-- Goals:
+- Goals
   - model: unpacking data should be a stand-alone function
-    - read from AZFP and maybe EK80 if we have time (converting from Matlab to Python, but there are Python pieces for AZFP)
+    - read from AZFP and EK80
   - view: operations on data (adapt from current echopype)
-- Specific tasks:
-  - figure out how to save things into ICES recommended format --> let's look at what MATECHO did
-  - clean up current echopype for unpacking EK60, make attribute names match ICES naming convention
-  - unpack EK80 --> EK80 uses XML for metadata, create class attributes that match ICES naming convention
-  - unpack AFZP --> AFZP uses XML for metadata, create class attributes that match ICES naming convention
+- Use cases (concrete steps that a user wants to do, help guide the tasks)
+  - scanning data and decide what files you want to analyze
+  - get rid of bottom, get rid of noise, and then db-diff
+- Specific tasks
+  - figure out how to save things into ICES recommended format --> let's look at what MATECHO did (JC)
+  - clean up current echopype for unpacking EK60, make attribute names match ICES naming convention (WJ, EL)
+  - unpack EK80 --> EK80 uses XML for metadata, create class attributes that match ICES naming convention (EO, EF)
+  - unpack AFZP --> AFZP uses XML for metadata, create class attributes that match ICES naming convention (MP, EO, ML)
   - manipulate data by combining current echopype and pyecholab
     - provide bottom as a mask
     - remove noise: may be different for ship-based and moored data
@@ -50,3 +53,7 @@ Misc:
     - broadband single target detection
     - narrowband single target detection
     - multi-freq indicator functions
+    - narrowband calibration re. Demer et al. (JC)
+    - broadband calibration re. Stanton/Chu+Jech/Lavery (WJ)
+  - echo summary view for where was the data from, are there are things in the water column, time, etc.
+  - how to speed up scrolling?
