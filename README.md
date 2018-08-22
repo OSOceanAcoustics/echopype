@@ -39,7 +39,14 @@ Misc:
     - read from AZFP and maybe EK80 if we have time (converting from Matlab to Python, but there are Python pieces for AZFP)
   - view: operations on data (adapt from current echopype)
 - Specific tasks:
-  - unpack EK60
-  - unpack EK80
-  - unpack AFZP
+  - figure out how to save things into ICES recommended format --> let's look at what MATECHO did
+  - clean up current echopype for unpacking EK60, make attribute names match ICES naming convention
+  - unpack EK80 --> EK80 uses XML for metadata, create class attributes that match ICES naming convention
+  - unpack AFZP --> AFZP uses XML for metadata, create class attributes that match ICES naming convention
   - manipulate data by combining current echopype and pyecholab
+    - provide bottom as a mask
+    - remove noise: may be different for ship-based and moored data
+    - freq-differencing
+    - broadband single target detection
+    - narrowband single target detection
+    - multi-freq indicator functions
