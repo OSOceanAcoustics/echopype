@@ -12,6 +12,7 @@ What do people use right now to read/process echosounder data?
 - MSS? from DFO, cannot find links
 - [PyEchoLab]()
 - [sonar5](http://folk.uio.no/hbalk/sonar4_5/index.htm)
+- [MATECHO](https://usermanual.wiki/Pdf/MatechoUserManual18052017.963673607.pdf): UMR LEMAR
 
 # So What?
 Ultimate goal: combine acoustic data with environmental data to work on science questions.
@@ -25,7 +26,6 @@ Misc:
 - testing it 
 
 # Now What?
-Pieces:
 - [Existing code](https://drive.google.com/drive/folders/1q2ddkBx1cathE-6V_bIjqLBQj4yX7csm?usp=sharing)
   - Matlab package to read EK80 data
   - Matlab package to read AZFP data
