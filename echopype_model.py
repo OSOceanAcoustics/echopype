@@ -17,9 +17,9 @@ from unpack_ek60 import save_metadata
 
 
 class EchoDataRaw(object):
-    '''
+    """
     Class for loading manipulating raw echosounder data (raw = not subsetted and not MVBS)
-    '''
+    """
     def __init__(self,filepath='',ping_bin=40,depth_bin=5,tvg_correction_factor=2):
         self.filepath = filepath
         self.bin_size = float('nan')
@@ -65,13 +65,13 @@ class EchoDataRaw(object):
         self.get_cal_params()
 
     def find_freq_seq(self,freq):
-        '''Find the sequence of transducer of a particular freq'''
+        """Find the sequence of transducer of a particular freq"""
         return int(np.where(np.array(self.hdf5_handle['metadata/zplsc_frequency'][:])==freq)[0])
 
     def get_cal_params(self):
-        '''
+        """
         Pull calibration paramteres from metadata
-        '''
+        """
         cal_params = defaultdict(list)
         # get group names from HDF5
         fh_keys = []
@@ -96,11 +96,11 @@ class EchoDataRaw(object):
         self.cal_params = cal_params
 
     def get_noise(self):
-        '''
+        """
         Get minimum value for bins of averaged ping (= noise)
         This method is called internally by `remove_noise`
         [Reference] De Robertis & Higginbottom, 2017, ICES JMR
-        '''
+        """
         N = int(np.floor(self.depth_bin/self.bin_size))  # rough number of depth bins
 
         # Average uncompensated power over M pings and N depth bins
@@ -121,13 +121,13 @@ class EchoDataRaw(object):
         self.noise_est = noise_est
 
     def remove_noise(self,const_noise=[]):
-        '''
+        """
         Noise removal and TVG + absorption compensation
         This method will call `get_noise` to make sure to have attribute `noise_est`
         [Reference] De Robertis & Higginbottom, 2017, ICES JMR
         INPUT:
             const_noise   use a single value of const noise for all frequencies
-        '''
+        """
         # Get noise estimation
         if const_noise!=[]:
             for freq_str in self.cal_params.keys():
@@ -291,9 +291,9 @@ class EchoDataRaw(object):
 
 
     def get_mvbs(self):
-        '''
+        """
         Obtain Mean Volume Backscattering Strength (MVBS) from `Sv_corrected`
-        '''
+        """
         N = int(np.floor(self.depth_bin/self.bin_size))  # rough number of depth bins
 
         # Get average Sv over M pings and N depth bins
@@ -315,19 +315,19 @@ class EchoDataRaw(object):
 
 
     def save_mvbs2hdf5(self,MVBS_filepath):
-        '''
+        """
         Save or append `MVBS` to HDF5
         MVSB_filepath   path to the HDF5 file to be saved
-        '''
+        """
         if os.path.isfile(MVBS_filepath):  # if HDF5 already exist: append
             self.mvbs2hdf5_concat(MVBS_filepath)
         else:  # if no file exist: create
             self.mvbs2hdf5_inititate(MVBS_filepath)
 
     def mvbs2hdf5_inititate(self,MVBS_filepath):
-        '''
+        """
         Create a new HDF5 file to save `MVBS`
-        '''
+        """
         # Open new hdf5 file
         MVBS_hdf5_handle = h5py.File(MVBS_filepath,'x')  # create file, fail if exists
 
