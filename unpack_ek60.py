@@ -1,17 +1,17 @@
 """
 Functions to unpack Simrad EK60 .raw files
-Modification from original source cited below included:
+Modification from original source (cited below) included:
 - python 3.6 compatibility
-- stripped off mi-instrument dependency to make the code standalone
+- stripped off mi-instrument dependency to make this standalone
 
 To be added:
 - need a generic .raw filename parser
 - restore logging function
 - restore exception handler
 
-Original parser code sources was from:
+Original source of parser code was from:
 oceanobservatories/mi-instrument @https://github.com/oceanobservatories/mi-instrument
-Original author Ronald Ronquillo & Richard Han
+Author Ronald Ronquillo & Richard Han
 
 """
 
@@ -23,7 +23,7 @@ import re
 import h5py
 from datetime import datetime as dt
 from matplotlib.dates import date2num
-from base_def import BaseEnum
+# from base_def import BaseEnum
 
 
 # Set contants for unpacking .raw files
@@ -45,13 +45,49 @@ REF_TIME = date2num(dt(1900, 1, 1, 0, 0, 0))
 # EK60_RAW_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
 # EK60_RAW_NAME_MATCHER = re.compile(EK60_RAW_NAME_REGEX)
 
-# Regex to extract the timestamp from the *.raw filename (path/to/OOI-DYYYYmmdd-THHMMSS.raw)
-FILE_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
-FILE_NAME_MATCHER = re.compile(FILE_NAME_REGEX)
+# # Regex to extract the timestamp from the *.raw filename (path/to/OOI-DYYYYmmdd-THHMMSS.raw)
+# FILE_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
+# FILE_NAME_MATCHER = re.compile(FILE_NAME_REGEX)
 
 WINDOWS_EPOCH = dt(1601, 1, 1)
 NTP_EPOCH = dt(1900, 1, 1)
 NTP_WINDOWS_DELTA = (NTP_EPOCH - WINDOWS_EPOCH).total_seconds()
+
+
+
+# Numpy data type object for unpacking the Sample datagram including the header from binary *.raw
+sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
+                            # DatagramHeader
+                            ('datagram_type', 'a4'),  # 4 byte string
+                            ('low_date_time', 'u4'),  # 4 byte int (long)
+                            ('high_date_time', 'u4'),  # 4 byte int (long)
+                            # SampleDatagram
+                            ('channel_number', 'i2'),  # 2 byte int (short)
+                            ('mode', 'i2'),  # 2 byte int (short)
+                            ('transducer_depth', 'f4'),  # 4 byte float
+                            ('frequency', 'f4'),  # 4 byte float
+                            ('transmit_power', 'f4'),  # 4 byte float
+                            ('pulse_length', 'f4'),  # 4 byte float
+                            ('bandwidth', 'f4'),  # 4 byte float
+                            ('sample_interval', 'f4'),  # 4 byte float
+                            ('sound_velocity', 'f4'),  # 4 byte float
+                            ('absorption_coefficient', 'f4'),  # 4 byte float
+                            ('heave', 'f4'),  # 4 byte float
+                            ('roll', 'f4'),  # 4 byte float
+                            ('pitch', 'f4'),  # 4 byte float
+                            ('temperature', 'f4'),  # 4 byte float
+                            ('trawl_upper_depth_valid', 'i2'),  # 2 byte int (short)
+                            ('trawl_opening_valid', 'i2'),  # 2 byte int (short)
+                            ('trawl_upper_depth', 'f4'),  # 4 byte float
+                            ('trawl_opening', 'f4'),  # 4 byte float
+                            ('offset', 'i4'),  # 4 byte int (long)
+                            ('count', 'i4')])                     # 4 byte int (long)
+sample_dtype = sample_dtype.newbyteorder('<')
+
+power_dtype = np.dtype([('power_data', '<i2')])     # 2 byte int (short)
+
+angle_dtype = np.dtype([('athwart', '<i1'), ('along', '<i1')])     # 1 byte ints
+
 
 
 def read_config_header(chunk):
@@ -78,6 +114,7 @@ def read_config_header(chunk):
     # create the configuration header dictionary
     config_header = dict(zip(field_names, values))
     return config_header
+
 
 
 def read_config_transducer(chunk):
@@ -118,6 +155,7 @@ def read_config_transducer(chunk):
     return config_transducer
 
 
+
 def read_header(filehandle):
     # Read binary file a block at a time
     raw = filehandle.read(BLOCK_SIZE)
@@ -151,41 +189,6 @@ def read_header(filehandle):
     byte_cnt += LENGTH_SIZE
     filehandle.seek(byte_cnt)
     return config_header, config_transducer
-
-
-
-# Numpy data type object for unpacking the Sample datagram including the header from binary *.raw
-sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
-                            # DatagramHeader
-                            ('datagram_type', 'a4'),  # 4 byte string
-                            ('low_date_time', 'u4'),  # 4 byte int (long)
-                            ('high_date_time', 'u4'),  # 4 byte int (long)
-                            # SampleDatagram
-                            ('channel_number', 'i2'),  # 2 byte int (short)
-                            ('mode', 'i2'),  # 2 byte int (short)
-                            ('transducer_depth', 'f4'),  # 4 byte float
-                            ('frequency', 'f4'),  # 4 byte float
-                            ('transmit_power', 'f4'),  # 4 byte float
-                            ('pulse_length', 'f4'),  # 4 byte float
-                            ('bandwidth', 'f4'),  # 4 byte float
-                            ('sample_interval', 'f4'),  # 4 byte float
-                            ('sound_velocity', 'f4'),  # 4 byte float
-                            ('absorption_coefficient', 'f4'),  # 4 byte float
-                            ('heave', 'f4'),  # 4 byte float
-                            ('roll', 'f4'),  # 4 byte float
-                            ('pitch', 'f4'),  # 4 byte float
-                            ('temperature', 'f4'),  # 4 byte float
-                            ('trawl_upper_depth_valid', 'i2'),  # 2 byte int (short)
-                            ('trawl_opening_valid', 'i2'),  # 2 byte int (short)
-                            ('trawl_upper_depth', 'f4'),  # 4 byte float
-                            ('trawl_opening', 'f4'),  # 4 byte float
-                            ('offset', 'i4'),  # 4 byte int (long)
-                            ('count', 'i4')])                     # 4 byte int (long)
-sample_dtype = sample_dtype.newbyteorder('<')
-
-power_dtype = np.dtype([('power_data', '<i2')])     # 2 byte int (short)
-
-angle_dtype = np.dtype([('athwart', '<i1'), ('along', '<i1')])     # 1 byte ints
 
 
 
@@ -282,7 +285,7 @@ def append_metadata(metadata, channel, sample_data):
 
 
 
-def load_ek60_raw(input_file_path):   #, output_file_path=None):
+def load_ek60_raw(input_file_path):
     """
     Parse the *.raw file.
     @param input_file_path absolute path/name to file to be parsed
@@ -333,7 +336,7 @@ def load_ek60_raw(input_file_path):   #, output_file_path=None):
                     # Clear out our temporary dictionaries and set the last time to this time
                     sample_data_temp_dict = defaultdict(list)
                     power_data_temp_dict = defaultdict(list)
-                    angle_temp_dict = defaultdict(list)    # include both alongship and athwardship angle
+                    angle_temp_dict = defaultdict(list)    # include both alongship and athwartship angle
                     motion_temp_dict = defaultdict(list)   # include heave, pitch, and roll
                     last_time = next_time
 
