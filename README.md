@@ -10,7 +10,7 @@ What do people use right now to read/process echosounder data?
 - [Movies](http://flotte.ifremer.fr/fleet/Presentation-of-the-fleet/Logiciels-embarques/MOVIES): ifremer, read HAC format
 - [Movies3D](http://flotte.ifremer.fr/content/download/6032/129677/file/MOVIES3D_general.pdf): join EK60 and ME70 data, create HAC
 - MSS? from DFO, cannot find links
-- [PyEchoLab]()
+- [PyEchoLab](https://drive.google.com/drive/folders/1q2ddkBx1cathE-6V_bIjqLBQj4yX7csm?usp=sharing)
 - [sonar5](http://folk.uio.no/hbalk/sonar4_5/index.htm)
 - [MATECHO](https://usermanual.wiki/Pdf/MatechoUserManual18052017.963673607.pdf): UMR LEMAR
 
@@ -34,7 +34,12 @@ Misc:
   - can read data from EK60 and save into HDF5 file
   - can clean up noise, do frequency differencing and plot echogram
 - OOI CI resources that can parse AZFP data in Python
-- Tasks:
+- Goals:
   - model: unpacking data should be a stand-alone function
     - read from AZFP and maybe EK80 if we have time (converting from Matlab to Python, but there are Python pieces for AZFP)
   - view: operations on data (adapt from current echopype)
+- Specific tasks:
+  - unpack EK60
+  - unpack EK80
+  - unpack AFZP
+  - manipulate data by combining current echopype and pyecholab
