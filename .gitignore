@@ -1,0 +1,12 @@
+.idea/
+.DS_Store
+.ipynb_checkpoints/
+__pycache__/
+.gitignore~
+*.raw
+*.h5
+*.bot
+*.idx
+*.png
+*.tex
+*~
