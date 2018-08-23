@@ -28,14 +28,14 @@ Misc:
 - testing it 
 
 ## Now What?
-- [Existing code](https://drive.google.com/drive/folders/1q2ddkBx1cathE-6V_bIjqLBQj4yX7csm?usp=sharing)
+- [Existing code in Google folder](https://drive.google.com/drive/folders/1q2ddkBx1cathE-6V_bIjqLBQj4yX7csm?usp=sharing)
   - Matlab package to read EK80 data
   - Matlab package to read AZFP data
   - PyEchoLab2
 - Current echopype (which uses HDF5 and only unpacks EK60)
   - can read data from EK60 and save into HDF5 file
   - can clean up noise, do frequency differencing and plot echogram
-- OOI CI resources that can parse AZFP data in Python
+- [OOI CI parser](https://github.com/oceanobservatories/mi-instrument/blob/efc9bd67406f996c2448f893541e165ed7bbfb6d/mi/dataset/parser/zplsc_c.py) that parses AZFP data in Python
 - Goals
   - model: unpacking data should be a stand-alone function
     - read from AZFP and EK80
