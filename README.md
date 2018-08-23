@@ -3,7 +3,7 @@
 # echopype
 Open source tools for unpacking and analyzing active sonar data.
 
-# What?
+## What?
 What do people use right now to read/process echosounder data?
 - EchoView (commercial) [EchoView R](https://github.com/AustralianAntarcticDivision/EchoviewR)
 - LSSS (Norway)
@@ -16,7 +16,7 @@ What do people use right now to read/process echosounder data?
 - [sonar5](http://folk.uio.no/hbalk/sonar4_5/index.htm)
 - [MATECHO](https://usermanual.wiki/Pdf/MatechoUserManual18052017.963673607.pdf): UMR LEMAR
 
-# So What?
+## So What?
 Ultimate goal: combine acoustic data with environmental data to work on science questions.
 1. Be able to read data from the OOI arrays (AZFP and EK60)
 2. Plot an echogram from real data (OOI and ONC, and glider or AUV data if we can get our hands on some of them)
@@ -27,7 +27,7 @@ Misc:
 - Convert manufacturer proprietary formats to netCDF files following [ICES sonar-netCDF4 convention](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf)
 - testing it 
 
-# Now What?
+## Now What?
 - [Existing code](https://drive.google.com/drive/folders/1q2ddkBx1cathE-6V_bIjqLBQj4yX7csm?usp=sharing)
   - Matlab package to read EK80 data
   - Matlab package to read AZFP data
@@ -61,3 +61,4 @@ Misc:
     - broadband calibration re. Stanton/Chu+Jech/Lavery (WJ)
   - echo summary view for where was the data from, are there are things in the water column, time, etc.
   - how to speed up scrolling?
+
