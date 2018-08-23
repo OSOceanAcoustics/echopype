@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/oceanhackweek/ohw18_echopype.svg?branch=master)](https://travis-ci.org/oceanhackweek/ohw18_echopype)
+
 # echopype
 Open source tools for unpacking and analyzing active sonar data.
 
