@@ -1,0 +1,13 @@
+name: sonar
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - h5py
+  - matplotlib
+  - datetime
+  - xarray
+  - pandas
+  - scipy
+  - ipykernel
+
