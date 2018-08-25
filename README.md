@@ -5,7 +5,7 @@ Open source tools for unpacking and analyzing active sonar data.
 
 ## What?
 What do people use right now to read/process echosounder data?
-- EchoView (commercial) [EchoView R](https://github.com/AustralianAntarcticDivision/EchoviewR)
+- EchoView (commercial); [EchoView R](https://github.com/AustralianAntarcticDivision/EchoviewR)
 - LSSS (Norway)
 - [ESP3](https://bitbucket.org/echoanalysis/esp3/overview) (NZ, open source in Matlab, yoann.ladroit@niwa.co.nz)
 - [Echogram](https://cran.r-project.org/web/packages/echogram/index.html)(read HAC format)
@@ -25,6 +25,7 @@ Misc:
 - Explore ways to view and process data using Python
   - example: [echo metrics](https://github.com/ElOceanografo/EchoMetrics) this needs an echogram as input, we can create a pipeline for that
 - Convert manufacturer proprietary formats to netCDF files following [ICES sonar-netCDF4 convention](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf)
+- [Here](https://github.com/ices-eg/wg_WGFAST/tree/master/SONAR-netCDF4) is a GitHub folder with the details in nice tables
 - testing it 
 
 ## Now What?
