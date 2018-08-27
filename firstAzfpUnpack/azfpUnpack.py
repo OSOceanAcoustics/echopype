@@ -1399,7 +1399,8 @@ class ZPLSPlot(object):
 
         ax.set_title(title, fontsize=ZPLSPlot.font_size_large)
         # return plt.imshow(ax, power_data, interpolation='none', aspect='auto', cmap='jet', vmin=min_db, vmax=max_db)
-        return plt.imshow(power_data, interpolation='none', aspect='auto', cmap='jet', vmin=min_db, vmax=max_db) # Complained about ax as arg
+        # return plt.imshow(power_data, interpolation='none', aspect='auto', cmap='jet', vmin=min_db, vmax=max_db)  # Complained about ax as arg
+        return ax.imshow(power_data, interpolation='none', aspect='auto', cmap='jet', vmin=min_db, vmax=max_db)
 
     @staticmethod
     def _display_x_labels(ax, data_times):
