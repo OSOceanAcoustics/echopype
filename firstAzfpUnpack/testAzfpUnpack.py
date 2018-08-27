@@ -1,7 +1,7 @@
-from azfpMarian import *
+from azfpUnpack import *
 
-input_file_path = r"C:\Users\mal83\Development\OceanHackWeek\echopype\18030100.01A"
-zplsc_echogram_file_path = r"C:\Users\mal83\Development\OceanHackWeek\echopype"
+input_file_path = r"C:\Users\mal83\Documents\GitHub\echopype\firstAzfpUnpack\18030100.01A"
+zplsc_echogram_file_path = r"C:\Users\mal83\Documents\GitHub\echopype\firstAzfpUnpack"
 
 class DataSetDriverConfigKeys():
     PARTICLE_MODULE = "particle_module"
