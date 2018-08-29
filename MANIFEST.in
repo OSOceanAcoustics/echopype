@@ -1,2 +1,4 @@
+include README.md
+include *.txt
 include versioneer.py
 include src/echopype/_version.py
