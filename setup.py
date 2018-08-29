@@ -21,17 +21,17 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='yodapy',
+    name='echopype',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description='Your Ocean Data Access in Python',
+    description='',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='',
-    author='Landung Setiawan',
-    author_email='landungs@uw.edu',
-    maintainer='Landung Setiawan',
-    maintainer_email='landungs@uw.edu',
+    url='https://github.com/OSOceanAcoustics/echopype',
+    author='Wu-Jung Lee',
+    author_email='noanswer@github.com',
+    maintainer='Wu-Jung Lee',
+    maintainer_email='noanswer@github.com',
     python_requires='>=3',
     license='BSD',
     classifiers=[
@@ -46,6 +46,7 @@ setup(
     ],
     keywords=['Ocean', 'Data', 'Access', 'OOI'],
     include_package_data=True,
-    packages=find_packages(),
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
     install_requires=install_requires,
 )
