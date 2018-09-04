@@ -1,6 +1,4 @@
-
-
-import unpack_ek60
+from echopype import unpack_ek60
 
 # OOI CE04OSPS EK60
 first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, config_header, config_transducer = \
