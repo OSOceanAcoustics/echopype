@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/oceanhackweek/ohw18_echopype.svg?branch=master)](https://travis-ci.org/oceanhackweek/ohw18_echopype)
+[![Build Status](https://travis-ci.org/leewujung/echopype.svg?branch=master)](https://travis-ci.org/leewujung/echopype)
 
 # echopype
 Open source tool for unpacking echosounder data.
