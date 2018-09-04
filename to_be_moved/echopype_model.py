@@ -13,7 +13,7 @@ import os
 import datetime as dt
 from collections import defaultdict
 from matplotlib.dates import date2num
-from unpack_ek60 import save_metadata
+from echopype.unpack_ek60 import save_metadata
 
 
 class EchoDataRaw(object):
