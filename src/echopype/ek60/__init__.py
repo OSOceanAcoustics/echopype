@@ -4,8 +4,6 @@ from __future__ import (absolute_import,
                         print_function,
                         unicode_literals)
 
-__all__ = ["ek60"]
+from echopype.ek60.unpack_ek60 import *
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+__all__ = []

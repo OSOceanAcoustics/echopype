@@ -16,6 +16,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open('requirements.txt') as f:
     requirements = f.readlines()
 install_requires = [t.strip() for t in requirements]
+print(install_requires)
 
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
