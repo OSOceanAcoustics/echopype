@@ -1,4 +1,4 @@
-name: sonar
+name: echopype
 channels:
   - conda-forge
 dependencies:
