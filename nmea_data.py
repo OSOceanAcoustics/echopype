@@ -113,8 +113,7 @@ class nmea_data(object):
                     #  We have a time match - check the talker and message id
                     my_talker = self.talkers[dup_idx]
                     my_message = self.messages[dup_idx]
-
-                    if (my_talker == header[0:2] and my_message == header[2:6]):
+                    if ((header[0:2] in my_talker) and (header[2:6] in my_message)):
                         #  this is the same - discard it
                         return
 
