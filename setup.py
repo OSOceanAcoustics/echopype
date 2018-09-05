@@ -7,7 +7,7 @@ ver_file = os.path.join('echopype', 'version.py')
 with open(ver_file) as f:
     exec(f.read())
 
-opts = dict(name=echopype,
+opts = dict(name="echopype",
             maintainer=MAINTAINER,
             maintainer_email=MAINTAINER_EMAIL,
             description=DESCRIPTION,
