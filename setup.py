@@ -23,7 +23,8 @@ opts = dict(name="echopype",
             packages=PACKAGES,
             package_data=PACKAGE_DATA,
             install_requires=REQUIRES,
-            requires=REQUIRES)
+            requires=REQUIRES,
+            test_requires=['tox'])
 
 
 if __name__ == '__main__':
