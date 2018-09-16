@@ -5,6 +5,8 @@ import pandas as pd
 import netCDF4
 import xarray as xr
 
+# TODO: need to figure out how to code the time properly in nc files,
+# the SONAR-netCDF4 convention uses "nanoseconds since .. doesn't seem to be allowed under CF convention"
 
 # Functions for setting up nc file structure and variables
 
