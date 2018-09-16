@@ -102,3 +102,26 @@ def set_group_provenance(nc_path, src_fnames, conversion_dict):
     ncfile.close()
 
 
+def set_group_sonar(nc_path, sonar_dict):
+    """
+    Set the Sonar group in the nc file
+    :param nc_path: netcdf file to set the Provenance group to
+    :param sonar_dict: dictionary containing sonar parameters
+        sonar_dict['sonar_manufacturer']
+        sonar_dict['sonar_model']
+        sonar_dict['sonar_serial_number']
+        sonar_dict['sonar_software_name']
+        sonar_dict['sonar_software_version']
+        sonar_dict['sonar_type']
+    :return:
+    """
+    # create group
+    ncfile = netCDF4.Dataset(nc_path, "w", format="NETCDF4")
+    snr = ncfile.createGroup("Sonar")
+
+    # set group attributes
+    for k, v in sonar_dict.items():
+        snr.setncattr(k, v)
+
+    # close nc file
+    ncfile.close()
