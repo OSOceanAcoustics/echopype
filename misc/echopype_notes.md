@@ -130,7 +130,19 @@ Code revision:
   - revised ping-by-ping saving to `angle_data_dict` and `motion_data_dict` as well as their conversion to np.array
 TODO:
 - add more parameters to `append_metadata` `sample_data` so that all metadata can be saved to nc file
-
+Cautions and questions:
+- many variables in `sample_data` are fixed for OOI data but may vary for shipboard data? in SONAR-netCDF4 convention they all have dimension `ping_time`
+  - `sample_interval`
+  - `bandwidth` (`transmit_bandwidth` in convention)
+  - `pulse_length` (`transmit_duration_nominal` in convention)
+  - `transmit_power`
+  - `frequency`: this is fixed for EK60 but may change for EK80? (**check with Chu/Robert**)
+- current not dealing with:
+  - `trawl_upper_depth_valid`
+  - `trawl_opening_valid`
+  - `trawl_upper_depth`
+  - `trawl_opening`
+- **not sure what `sample_data['offset']` is**
 
 ****************************************************
 ## Next steps
