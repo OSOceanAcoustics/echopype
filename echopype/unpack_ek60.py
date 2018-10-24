@@ -19,9 +19,10 @@ Author Ronald Ronquillo & Richard Han
 from collections import defaultdict
 from struct import unpack_from, unpack
 import numpy as np
-import re
+import re, os
 from datetime import datetime as dt
 from matplotlib.dates import date2num
+import echopype as ep
 
 
 # Set constants for unpacking .raw files
@@ -86,7 +87,7 @@ sample_dtype = sample_dtype.newbyteorder('<')
 
 power_dtype = np.dtype([('power_data', '<i2')])     # 2 byte int (short)
 
-angle_dtype = np.dtype([('athwart', '<i1'), ('along', '<i1')])     # 1 byte ints
+angle_dtype = np.dtype([('athwartship', '<i1'), ('alongship', '<i1')])     # 1 byte ints
 
 
 def read_config_header(chunk):
@@ -262,16 +263,10 @@ def append_metadata(metadata, channel, sample_data):
     metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
     metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
-
-    # TODO: Need to change to ping-by-ping
-    metadata['pulse_length'].append(sample_data['pulse_length'][0])                  # [seconds]
-    metadata['bandwidth'].append(sample_data['bandwidth'][0])                        # [Hz]
-    metadata['sample_interval'].append(sample_data['sample_interval'][0])            # [seconds]
-    metadata['transmit_power'].append(sample_data['transmit_power'][0])              # [Watts]
+    metadata['mode'].append(sample_data['mode'][0])             # 1: split-beam, 0: single-beam
 
     # metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
     #                                   sample_data['sample_interval'][0] / 2)         # [meters]
-    metadata['mode'].append(sample_data['mode'][0])             # 1: split-beam, 0: single-beam
 
     return metadata
 
@@ -293,21 +288,21 @@ def load_ek60_raw(input_file_path):
         # *_data_temp_dict are for storing different channels within each ping
         # content of *_temp_dict are saved to *_data_dict whenever all channels of the same ping are unpacked
         # see below comment "Check if we have enough records to produce a new row of data"
-        last_time = None
-        sample_temp_dict = defaultdict(list)
-        power_temp_dict = defaultdict(list)
-        angle_temp_dict = defaultdict(list)    # include alongship and athwardship angles
 
         # Initialize output structure
         first_ping_metadata = defaultdict(list)  # metadata for each channel
         power_data_dict = defaultdict(list)      # echo power
-        angle_data_dict = defaultdict(list)      # contain alongship and athwartship electronic angle
-        motion_data_dict = defaultdict(list)     # contain heave, pitch, and roll motion
-        data_times = []
-        temperature = []   # WJ: Used to check temperature reading in .RAW file --> all identical for OOI data
+        angle_data_dict = defaultdict(list)      # alongship and athwartship electronic angle
+        motion_data_dict = defaultdict(list)     # heave, pitch, and roll motion
+        transmit_data_dict = defaultdict(list)   # transmit signal metadata
+        sample_interval = []                     # sampling interval [sec]
+        data_times = []                          # ping time
 
         # Read binary file a block at a time
         raw = input_file.read(BLOCK_SIZE)
+
+        # Flag used to check if data are from the same ping
+        last_time = None
 
         while len(raw) > 4:
             # We only care for the Sample datagrams, skip over all the other datagrams
@@ -360,7 +355,8 @@ def load_ek60_raw(input_file_path):
                         for channel, sample_data in sample_temp_dict.items():
                             append_metadata(first_ping_metadata[channel], channel, sample_data)
 
-                    # Save the time and power data for plotting
+                    # Save data and metadata from each ping to *_data_dict
+                    sample_interval.append(next_sample['sample_interval'])
                     data_times.append(next_time)
                     for channel in power_temp_dict:
                         power_data_dict[channel].append(power_temp_dict[channel])
@@ -371,8 +367,13 @@ def load_ek60_raw(input_file_path):
                                             sample_temp_dict[channel]['roll'])],
                                           dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
                         motion_data_dict[channel].append(motion)
-
-                    temperature.append(next_sample['temperature'])  # WJ: check temperature values from .RAW file: all identical for OOI data
+                        transmit = np.array([(sample_temp_dict[channel]['frequency'],
+                                              sample_temp_dict[channel]['transmit_power'],
+                                              sample_temp_dict[channel]['pulse_length'],
+                                              sample_temp_dict[channel]['bandwidth'])],
+                                            dtype=[('frequency', 'f4'), ('transmit_power', 'f4'),
+                                                   ('pulse_length', 'f4'), ('bandwidth', 'f4')])
+                        transmit_data_dict[channel].append(transmit)
 
                 # except InvalidTransducer:
                 #   pass
@@ -385,12 +386,13 @@ def load_ek60_raw(input_file_path):
             # Read the next block for regex search
             raw = input_file.read(BLOCK_SIZE)
 
+
         # convert ntp time, i.e. seconds since 1900-01-01 00:00:00 to matplotlib time
         data_times = np.array(data_times)
         data_times = (data_times / (60 * 60 * 24)) + REF_TIME
 
         # Convert to numpy array and decompress power data to dB
-        # And then transpose power data
+        sample_interval = np.array(sample_interval).squeeze()
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             if angle_data_dict[channel]:  # if split-beam data
@@ -398,8 +400,11 @@ def load_ek60_raw(input_file_path):
             else:  # if single-beam data
                 angle_data_dict[channel] = []
             motion_data_dict[channel] = np.array(motion_data_dict[channel])
+            transmit_data_dict[channel] = np.array(transmit_data_dict[channel])
 
-        return first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, config_header, config_transducer
+        return first_ping_metadata, data_times, sample_interval, \
+               power_data_dict, angle_data_dict, motion_data_dict, transmit_data_dict, \
+               config_header, config_transducer
 
 
 # def raw2hdf5_initiate(raw_file_path,h5_file_path):
