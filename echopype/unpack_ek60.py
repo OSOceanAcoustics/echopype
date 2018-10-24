@@ -20,25 +20,26 @@ from collections import defaultdict
 from struct import unpack_from, unpack
 import numpy as np
 import re
-import h5py
 from datetime import datetime as dt
 from matplotlib.dates import date2num
-# from base_def import BaseEnum
 
 
-# Set contants for unpacking .raw files
+# Set constants for unpacking .raw files
 BLOCK_SIZE = 1024*4             # Block size read in from binary file to search for token
 LENGTH_SIZE = 4
 DATAGRAM_HEADER_SIZE = 12
 CONFIG_HEADER_SIZE = 516
 CONFIG_TRANSDUCER_SIZE = 320
 
+
 # set global regex expressions to find all sample, annotation and NMEA sentences
 SAMPLE_REGEX = b'RAW\d{1}'
 SAMPLE_MATCHER = re.compile(SAMPLE_REGEX, re.DOTALL)
 
+
 # Reference time "seconds since 1900-01-01 00:00:00"
 REF_TIME = date2num(dt(1900, 1, 1, 0, 0, 0))
+
 
 # ---------- NEED A GENERIC FILENAME PARSER -------------
 # Common EK60 *.raw filename format
@@ -54,40 +55,38 @@ NTP_EPOCH = dt(1900, 1, 1)
 NTP_WINDOWS_DELTA = (NTP_EPOCH - WINDOWS_EPOCH).total_seconds()
 
 
-
 # Numpy data type object for unpacking the Sample datagram including the header from binary *.raw
 sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
-                            # DatagramHeader
-                            ('datagram_type', 'a4'),  # 4 byte string
-                            ('low_date_time', 'u4'),  # 4 byte int (long)
-                            ('high_date_time', 'u4'),  # 4 byte int (long)
-                            # SampleDatagram
-                            ('channel_number', 'i2'),  # 2 byte int (short)
-                            ('mode', 'i2'),  # 2 byte int (short)
-                            ('transducer_depth', 'f4'),  # 4 byte float
-                            ('frequency', 'f4'),  # 4 byte float
-                            ('transmit_power', 'f4'),  # 4 byte float
-                            ('pulse_length', 'f4'),  # 4 byte float
-                            ('bandwidth', 'f4'),  # 4 byte float
-                            ('sample_interval', 'f4'),  # 4 byte float
-                            ('sound_velocity', 'f4'),  # 4 byte float
-                            ('absorption_coefficient', 'f4'),  # 4 byte float
-                            ('heave', 'f4'),  # 4 byte float
-                            ('roll', 'f4'),  # 4 byte float
-                            ('pitch', 'f4'),  # 4 byte float
-                            ('temperature', 'f4'),  # 4 byte float
-                            ('trawl_upper_depth_valid', 'i2'),  # 2 byte int (short)
-                            ('trawl_opening_valid', 'i2'),  # 2 byte int (short)
-                            ('trawl_upper_depth', 'f4'),  # 4 byte float
-                            ('trawl_opening', 'f4'),  # 4 byte float
-                            ('offset', 'i4'),  # 4 byte int (long)
-                            ('count', 'i4')])                     # 4 byte int (long)
+                         # Datagram header
+                         ('datagram_type', 'a4'),  # 4 byte string
+                         ('low_date_time', 'u4'),  # 4 byte int (long)
+                         ('high_date_time', 'u4'),  # 4 byte int (long)
+                         # Sample datagram
+                         ('channel_number', 'i2'),  # 2 byte int (short)
+                         ('mode', 'i2'),  # 2 byte int (short)
+                         ('transducer_depth', 'f4'),  # 4 byte float
+                         ('frequency', 'f4'),  # 4 byte float
+                         ('transmit_power', 'f4'),  # 4 byte float
+                         ('pulse_length', 'f4'),  # 4 byte float
+                         ('bandwidth', 'f4'),  # 4 byte float
+                         ('sample_interval', 'f4'),  # 4 byte float
+                         ('sound_velocity', 'f4'),  # 4 byte float
+                         ('absorption_coefficient', 'f4'),  # 4 byte float
+                         ('heave', 'f4'),  # 4 byte float
+                         ('roll', 'f4'),  # 4 byte float
+                         ('pitch', 'f4'),  # 4 byte float
+                         ('temperature', 'f4'),  # 4 byte float
+                         ('trawl_upper_depth_valid', 'i2'),  # 2 byte int (short)
+                         ('trawl_opening_valid', 'i2'),  # 2 byte int (short)
+                         ('trawl_upper_depth', 'f4'),  # 4 byte float
+                         ('trawl_opening', 'f4'),  # 4 byte float
+                         ('offset', 'i4'),  # 4 byte int (long)
+                         ('count', 'i4')])  # 4 byte int (long)
 sample_dtype = sample_dtype.newbyteorder('<')
 
 power_dtype = np.dtype([('power_data', '<i2')])     # 2 byte int (short)
 
 angle_dtype = np.dtype([('athwart', '<i1'), ('along', '<i1')])     # 1 byte ints
-
 
 
 def read_config_header(chunk):
@@ -114,7 +113,6 @@ def read_config_header(chunk):
     # create the configuration header dictionary
     config_header = dict(zip(field_names, values))
     return config_header
-
 
 
 def read_config_transducer(chunk):
@@ -155,7 +153,6 @@ def read_config_transducer(chunk):
     return config_transducer
 
 
-
 def read_header(filehandle):
     # Read binary file a block at a time
     raw = filehandle.read(BLOCK_SIZE)
@@ -191,7 +188,6 @@ def read_header(filehandle):
     return config_header, config_transducer
 
 
-
 def windows_to_ntp(windows_time):
     """
     Convert a windows file timestamp into Network Time Protocol
@@ -199,7 +195,6 @@ def windows_to_ntp(windows_time):
     :return:
     """
     return windows_time / 1e7 - NTP_WINDOWS_DELTA
-
 
 
 def build_windows_time(high_word, low_word):
@@ -213,7 +208,6 @@ def build_windows_time(high_word, low_word):
     return (high_word << 32) + low_word
 
 
-
 def process_sample(input_file, transducer_count):
     # log.trace('Processing one sample from input_file: %r', input_file)
     # print('Processing one sample from input_file')
@@ -221,8 +215,6 @@ def process_sample(input_file, transducer_count):
     # Read and unpack the Sample Datagram into numpy array
     sample_data = np.fromfile(input_file, dtype=sample_dtype, count=1)
     channel = sample_data['channel_number'][0]
-    motion_data = np.array([(sample_data['heave'][0], sample_data['roll'][0], sample_data['pitch'][0])],
-                           dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
 
     # Check for a valid channel number that is within the number of transducers config
     # to prevent incorrectly indexing into the dictionaries.
@@ -232,9 +224,6 @@ def process_sample(input_file, transducer_count):
     if channel < 0 or channel > transducer_count:
         print('Invalid channel: %s for transducer count: %s. \n\
         Possible file corruption or format incompatibility.' % (channel, transducer_count))
-        # log.warn("Invalid channel: %s for transducer count: %s."
-        #          "Possible file corruption or format incompatibility.", channel, transducer_count)
-        # raise InvalidTransducer
 
     # Convert high and low bytes to internal time
     windows_time = build_windows_time(sample_data['high_date_time'][0], sample_data['low_date_time'][0])
@@ -261,12 +250,8 @@ def process_sample(input_file, transducer_count):
         print('Mismatching beginning and end length values in sample datagram: \n\
         length1: %d, length2: %d.\n\
         Possible file corruption or format incompatibility.' % (sample_data['length1'][0], length2_data['length2'][0]))
-        # log.warn("Mismatching beginning and end length values in sample datagram: length1"
-        #          ": %s, length2: %s. Possible file corruption or format incompatibility.",
-        #          sample_data['length1'][0], length2_data['length2'][0])
 
-    return channel, ntp_time, sample_data, power_data, angle_data, motion_data
-
+    return channel, ntp_time, sample_data, power_data, angle_data
 
 
 def append_metadata(metadata, channel, sample_data):
@@ -280,17 +265,15 @@ def append_metadata(metadata, channel, sample_data):
     metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
     metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
-    metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] * sample_data['sample_interval'][0] / 2)   # [meters]
+    metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
+                                      sample_data['sample_interval'][0] / 2)         # [meters]
     return metadata
-
 
 
 def load_ek60_raw(input_file_path):
     """
     Parse the *.raw file.
     @param input_file_path absolute path/name to file to be parsed
-    # @param output_file_path optional path to directory to write output
-    If omitted outputs are written to path of input file
     """
     print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path))
 
@@ -301,11 +284,13 @@ def load_ek60_raw(input_file_path):
 
         position = input_file.tell()
 
+        # *_data_temp_dict are for storing different channels within each ping
+        # content of *_temp_dict are saved to *_data_dict whenever all channels of the same ping are unpacked
+        # see below comment "Check if we have enough records to produce a new row of data"
         last_time = None
-        sample_data_temp_dict = defaultdict(list)
-        power_data_temp_dict = defaultdict(list)
+        sample_temp_dict = defaultdict(list)
+        power_temp_dict = defaultdict(list)
         angle_temp_dict = defaultdict(list)    # include alongship and athwardship angles
-        motion_temp_dict = defaultdict(list)   # include heave, pitch, and roll
 
         # Initialize output structure
         first_ping_metadata = defaultdict(list)  # metadata for each channel
@@ -330,53 +315,56 @@ def load_ek60_raw(input_file_path):
                 input_file.seek(position + match_start)
 
                 # try:
-                next_channel, next_time, next_sample, next_power, next_angle, next_motion = process_sample(input_file, transducer_count)
+                next_channel, next_time, next_sample, next_power, next_angle = \
+                    process_sample(input_file, transducer_count)  # read each sample
 
-                if next_time != last_time:  # WJ: next_time=last_time when it's the same ping but different channel
+                # Check if it's from different channels within the same ping
+                # next_time=last_time when it's the same ping but different channel
+                if next_time != last_time:   # if data is from a new ping
                     # Clear out our temporary dictionaries and set the last time to this time
-                    sample_data_temp_dict = defaultdict(list)
-                    power_data_temp_dict = defaultdict(list)
+                    sample_temp_dict = defaultdict(list)
+                    power_temp_dict = defaultdict(list)
                     angle_temp_dict = defaultdict(list)    # include both alongship and athwartship angle
-                    motion_temp_dict = defaultdict(list)   # include heave, pitch, and roll
-                    last_time = next_time
+                    last_time = next_time    # update ping time
 
                 # Store this data
-                sample_data_temp_dict[next_channel] = next_sample
-                power_data_temp_dict[next_channel] = next_power
+                sample_temp_dict[next_channel] = next_sample
+                power_temp_dict[next_channel] = next_power
                 angle_temp_dict[next_channel] = next_angle
-                motion_temp_dict[next_channel] = next_motion
 
                 # Check if we have enough records to produce a new row of data
-                # WJ: if yes this means that data from all transducer channels have been read for a particular ping
-                # WJ: a new row of data means all channels of data from one ping
-                # WJ: if only 2 channels of data were received but there are a total of 3 transducers,
-                # WJ: the data are not stored in the final power_data_dict
-                if len(sample_data_temp_dict) == len(power_data_temp_dict) == \
-                        len(angle_temp_dict) == len(motion_temp_dict) == transducer_count:
-                    # if this is our first set of data from all channels,
-                    # create our metadata particle and store the frequency / bin_size
+                # if yes this means that data from all transducer channels have been read for a particular ping
+                # a new row of data means all channels of data from one ping
+                # if only 2 channels of data were received but there are a total of 3 transducers,
+                # the data are not stored in the final power_data_dict
+                if len(sample_temp_dict) == len(power_temp_dict) == \
+                        len(angle_temp_dict) == transducer_count:
+
+                    # if this is the first ping from all channels,
+                    # create metadata particle and store the frequency / bin_size
                     if not power_data_dict:
 
                         # Initialize each channel to defaultdict
-                        for channel in power_data_temp_dict:
+                        for channel in power_temp_dict:
                             first_ping_metadata[channel] = defaultdict(list)
-                            angle_data_dict[channel] = defaultdict(list)
-                            motion_data_dict[channel] = defaultdict(list)
+                            angle_data_dict[channel] = []
+                            motion_data_dict[channel] = []
 
                         # Fill in metadata for each channel
-                        for channel, sample_data in sample_data_temp_dict.items():
+                        for channel, sample_data in sample_temp_dict.items():
                             append_metadata(first_ping_metadata[channel], channel, sample_data)
 
                     # Save the time and power data for plotting
                     data_times.append(next_time)
-                    for channel in power_data_temp_dict:
-                        power_data_dict[channel].append(power_data_temp_dict[channel])
+                    for channel in power_temp_dict:
+                        power_data_dict[channel].append(power_temp_dict[channel])
                         if any(angle_temp_dict[channel]):   # if split-beam data
-                            angle_data_dict[channel]['along'].append(angle_temp_dict[channel]['along'])
-                            angle_data_dict[channel]['athwart'].append(angle_temp_dict[channel]['athwart'])
-                        motion_data_dict[channel]['heave'].append(motion_temp_dict[channel]['heave'][0])
-                        motion_data_dict[channel]['pitch'].append(motion_temp_dict[channel]['pitch'][0])
-                        motion_data_dict[channel]['roll'].append(motion_temp_dict[channel]['roll'][0])
+                            angle_data_dict[channel].append(angle_temp_dict[channel])
+                        motion = np.array([(sample_temp_dict[channel]['heave'],
+                                            sample_temp_dict[channel]['pitch'],
+                                            sample_temp_dict[channel]['roll'])],
+                                          dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
+                        motion_data_dict[channel].append(motion)
 
                     temperature.append(next_sample['temperature'])  # WJ: check temperature values from .RAW file: all identical for OOI data
 
@@ -399,162 +387,154 @@ def load_ek60_raw(input_file_path):
         # And then transpose power data
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
-            power_data_dict[channel] = power_data_dict[channel].transpose()
-            if angle_data_dict[channel]:    # if split-beam data
-                angle_data_dict[channel]['along'] = np.array(angle_data_dict[channel]['along'])
-                angle_data_dict[channel]['athwart'] = np.array(angle_data_dict[channel]['athwart'])
-            else:                           # if single-beam data
-                angle_data_dict[channel]['along'] = []
-                angle_data_dict[channel]['athwart'] = []
-            motion_data_dict[channel]['heave'] = np.array(motion_data_dict[channel]['heave'])
-            motion_data_dict[channel]['pitch'] = np.array(motion_data_dict[channel]['pitch'])
-            motion_data_dict[channel]['roll'] = np.array(motion_data_dict[channel]['roll'])
+            if angle_data_dict[channel]:  # if split-beam data
+                angle_data_dict[channel] = np.array(angle_data_dict[channel])
+            else:  # if single-beam data
+                angle_data_dict[channel] = []
+            motion_data_dict[channel] = np.array(motion_data_dict[channel])
 
         return first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, config_header, config_transducer
 
 
-
-def raw2hdf5_initiate(raw_file_path,h5_file_path):
-    """
-    Unpack EK60 .raw files and save to an hdf5 files
-    INPUT:
-        fname      file to be unpacked
-        h5_fname   hdf5 file to be written in to
-    """
-    # Unpack raw into memory
-    first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
-        config_header, config_transducer = load_ek60_raw(raw_file_path)
-
-    # Check if input dimension makes sense, if not abort
-    sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
-    for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
-        f_str = str(frequencies[f])
-        sz_power_data[cnt,:] = power_data_dict[f_str].shape
-    if np.unique(sz_power_data).shape[0]!=2:
-        print('Raw file has mismatched number of pings across channels')
-        # break
-
-    # Open new hdf5 file
-    h5_file = h5py.File(h5_file_path,'x')  # create file, fail if exists
-
-    # Store data
-    # -- ping time: resizable
-    h5_file.create_dataset('ping_time', (sz_power_data[0,1],), \
-                    maxshape=(None,), data=data_times, chunks=True)
-
-    # -- power data: resizable
-    for f in frequencies.values():
-        h5_file.create_dataset('power_data/%s' % str(f), sz_power_data[0,:], \
-                    maxshape=(sz_power_data[0,0],None), data=power_data_dict[str(f)], chunks=True)
-
-    # -- metadata: fixed sized
-    h5_file.create_dataset('metadata/bin_size', data=bin_size)
-    for m,mval in first_ping_metadata.items():
-        save_metadata(mval,'metadata',m,h5_file)
-
-    # -- header: fixed sized
-    for m,mval in config_header.items():
-        save_metadata(mval,'header',m,h5_file)
-
-    # -- transducer: fixed sized
-    for tx in range(len(config_transducer)):
-        for m,mval in config_transducer[tx].items():
-            save_metadata(mval,['transducer',tx],m,h5_file)
-
-    # Close hdf5 file
-    h5_file.close()
-
-
-
-def raw2hdf5_concat(raw_file_path,h5_file_path):
-    """
-    Unpack EK60 .raw files and concatenate to an existing hdf5 files
-    INPUT:
-        fname      file to be unpacked
-        h5_fname   hdf5 file to be concatenated to
-    """
-    # Unpack raw into memory
-    first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
-        config_header, config_transducer = load_ek60_raw(raw_file_path)
-
-    # Check if input dimension makes sense, if not abort
-    sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
-    for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
-        f_str = str(frequencies[f])
-        sz_power_data[cnt,:] = power_data_dict[f_str].shape
-    if np.unique(sz_power_data).shape[0]!=2:
-        print('Raw file has mismatched number of pings across channels')
-        # break
-
-    # Open existing files
-    fh = h5py.File(h5_file_path, 'r+')
-
-    # Check if all metadata field matches, if not, print info and abort
-    flag = check_metadata('header',config_header,fh) and \
-           check_metadata('metadata',first_ping_metadata,fh) and \
-           check_metadata('transducer00',config_transducer[0],fh) and \
-           check_metadata('transducer01',config_transducer[1],fh) and \
-           check_metadata('transducer02',config_transducer[2],fh)
-
-    # Concatenating newly unpacked data into HDF5 file
-    for f in fh['power_data'].keys():
-        sz_exist = fh['power_data/'+f].shape  # shape of existing power_data mtx
-        fh['power_data/'+f].resize((sz_exist[0],sz_exist[1]+sz_power_data[0,1]))
-        fh['power_data/'+f][:,sz_exist[1]:] = power_data_dict[str(f)]
-    fh['ping_time'].resize((sz_exist[1]+sz_power_data[0,1],))
-    fh['ping_time'][sz_exist[1]:] = data_times
-
-    # Close file
-    fh.close()
-
-
-
-def check_metadata(group_name,dict_name,fh):
-    """
-    Check if all metadata matches
-
-    group_name   name of group in hdf5 file
-    dict_name    name of dictionary from unpacked .raw file
-    """
-    flag = []
-    for p in fh[group_name].keys():
-        if isinstance(fh[group_name][p][0], (str, bytes)):
-            if type(dict_name[p]) == bytes:
-                flag.append(str(dict_name[p], 'utf-8') == fh[group_name][p][0])
-            else:
-                flag.append(dict_name[p] == fh[group_name][p][0])
-        elif isinstance(fh[group_name][p][0], (np.generic, np.ndarray, int, float)):
-            flag.append(any(dict_name[p] == fh[group_name][p][:]))
-    return any(flag)
-
-
-def save_metadata(val,group_info,data_name,fh):
-    """
-    Check data type and save to hdf5.
-
-    val          data to be saved
-    group_info   a string (group name, e.g., header) or
-                 a list (group name and sequence number, e.g., [tranducer, 1]).
-    data_name    name of data set under group
-    fh           handle of the file to be saved to
-    """
-    # Assemble group and data set name to save to
-    if type(group_info) == str:  # no sequence in group_info
-        create_name = '%s/%s' % (group_info,data_name)
-    elif type(group_info) == list and len(group_info) == 2:  # have sequence in group_info
-        if type(group_info[1]) == str:
-            create_name = '%s/%s/%s' % (group_info[0], group_info[1], data_name)
-        else:
-            create_name = '%s%02d/%s' % (group_info[0], group_info[1], data_name)
-    # Save val
-    if type(val) == str or type(val) == bytes:    # when a string
-        fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-    elif type(val) == int or type(val) == float:  # when only 1 int or float object
-        fh.create_dataset(create_name, (1,), data=val)
-    elif isinstance(val, (np.generic, np.ndarray)):
-        if val.shape == ():   # when single element numpy array
-            fh.create_dataset(create_name, (1,), data=val)
-        else:               # when multi-element numpy array
-            fh.create_dataset(create_name, data=val)
-    else:  # everything else
-        fh.create_dataset(create_name, data=val)
+# def raw2hdf5_initiate(raw_file_path,h5_file_path):
+#     """
+#     Unpack EK60 .raw files and save to an hdf5 files
+#     INPUT:
+#         fname      file to be unpacked
+#         h5_fname   hdf5 file to be written in to
+#     """
+#     # Unpack raw into memory
+#     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
+#         config_header, config_transducer = load_ek60_raw(raw_file_path)
+#
+#     # Check if input dimension makes sense, if not abort
+#     sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
+#     for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
+#         f_str = str(frequencies[f])
+#         sz_power_data[cnt,:] = power_data_dict[f_str].shape
+#     if np.unique(sz_power_data).shape[0]!=2:
+#         print('Raw file has mismatched number of pings across channels')
+#         # break
+#
+#     # Open new hdf5 file
+#     h5_file = h5py.File(h5_file_path,'x')  # create file, fail if exists
+#
+#     # Store data
+#     # -- ping time: resizable
+#     h5_file.create_dataset('ping_time', (sz_power_data[0,1],), \
+#                     maxshape=(None,), data=data_times, chunks=True)
+#
+#     # -- power data: resizable
+#     for f in frequencies.values():
+#         h5_file.create_dataset('power_data/%s' % str(f), sz_power_data[0,:], \
+#                     maxshape=(sz_power_data[0,0],None), data=power_data_dict[str(f)], chunks=True)
+#
+#     # -- metadata: fixed sized
+#     h5_file.create_dataset('metadata/bin_size', data=bin_size)
+#     for m,mval in first_ping_metadata.items():
+#         save_metadata(mval,'metadata',m,h5_file)
+#
+#     # -- header: fixed sized
+#     for m,mval in config_header.items():
+#         save_metadata(mval,'header',m,h5_file)
+#
+#     # -- transducer: fixed sized
+#     for tx in range(len(config_transducer)):
+#         for m,mval in config_transducer[tx].items():
+#             save_metadata(mval,['transducer',tx],m,h5_file)
+#
+#     # Close hdf5 file
+#     h5_file.close()
+#
+#
+# def raw2hdf5_concat(raw_file_path,h5_file_path):
+#     """
+#     Unpack EK60 .raw files and concatenate to an existing hdf5 files
+#     INPUT:
+#         fname      file to be unpacked
+#         h5_fname   hdf5 file to be concatenated to
+#     """
+#     # Unpack raw into memory
+#     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
+#         config_header, config_transducer = load_ek60_raw(raw_file_path)
+#
+#     # Check if input dimension makes sense, if not abort
+#     sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
+#     for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
+#         f_str = str(frequencies[f])
+#         sz_power_data[cnt,:] = power_data_dict[f_str].shape
+#     if np.unique(sz_power_data).shape[0]!=2:
+#         print('Raw file has mismatched number of pings across channels')
+#         # break
+#
+#     # Open existing files
+#     fh = h5py.File(h5_file_path, 'r+')
+#
+#     # Check if all metadata field matches, if not, print info and abort
+#     flag = check_metadata('header',config_header,fh) and \
+#            check_metadata('metadata',first_ping_metadata,fh) and \
+#            check_metadata('transducer00',config_transducer[0],fh) and \
+#            check_metadata('transducer01',config_transducer[1],fh) and \
+#            check_metadata('transducer02',config_transducer[2],fh)
+#
+#     # Concatenating newly unpacked data into HDF5 file
+#     for f in fh['power_data'].keys():
+#         sz_exist = fh['power_data/'+f].shape  # shape of existing power_data mtx
+#         fh['power_data/'+f].resize((sz_exist[0],sz_exist[1]+sz_power_data[0,1]))
+#         fh['power_data/'+f][:,sz_exist[1]:] = power_data_dict[str(f)]
+#     fh['ping_time'].resize((sz_exist[1]+sz_power_data[0,1],))
+#     fh['ping_time'][sz_exist[1]:] = data_times
+#
+#     # Close file
+#     fh.close()
+#
+#
+# def check_metadata(group_name,dict_name,fh):
+#     """
+#     Check if all metadata matches
+#
+#     group_name   name of group in hdf5 file
+#     dict_name    name of dictionary from unpacked .raw file
+#     """
+#     flag = []
+#     for p in fh[group_name].keys():
+#         if isinstance(fh[group_name][p][0], (str, bytes)):
+#             if type(dict_name[p]) == bytes:
+#                 flag.append(str(dict_name[p], 'utf-8') == fh[group_name][p][0])
+#             else:
+#                 flag.append(dict_name[p] == fh[group_name][p][0])
+#         elif isinstance(fh[group_name][p][0], (np.generic, np.ndarray, int, float)):
+#             flag.append(any(dict_name[p] == fh[group_name][p][:]))
+#     return any(flag)
+#
+#
+# def save_metadata(val,group_info,data_name,fh):
+#     """
+#     Check data type and save to hdf5.
+#
+#     val          data to be saved
+#     group_info   a string (group name, e.g., header) or
+#                  a list (group name and sequence number, e.g., [tranducer, 1]).
+#     data_name    name of data set under group
+#     fh           handle of the file to be saved to
+#     """
+#     # Assemble group and data set name to save to
+#     if type(group_info) == str:  # no sequence in group_info
+#         create_name = '%s/%s' % (group_info,data_name)
+#     elif type(group_info) == list and len(group_info) == 2:  # have sequence in group_info
+#         if type(group_info[1]) == str:
+#             create_name = '%s/%s/%s' % (group_info[0], group_info[1], data_name)
+#         else:
+#             create_name = '%s%02d/%s' % (group_info[0], group_info[1], data_name)
+#     # Save val
+#     if type(val) == str or type(val) == bytes:    # when a string
+#         fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
+#     elif type(val) == int or type(val) == float:  # when only 1 int or float object
+#         fh.create_dataset(create_name, (1,), data=val)
+#     elif isinstance(val, (np.generic, np.ndarray)):
+#         if val.shape == ():   # when single element numpy array
+#             fh.create_dataset(create_name, (1,), data=val)
+#         else:               # when multi-element numpy array
+#             fh.create_dataset(create_name, data=val)
+#     else:  # everything else
+#         fh.create_dataset(create_name, data=val)
