@@ -63,7 +63,7 @@ sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
                          ('high_date_time', 'u4'),  # 4 byte int (long)
                          # Sample datagram
                          ('channel_number', 'i2'),  # 2 byte int (short)
-                         ('mode', 'i2'),  # 2 byte int (short)
+                         ('mode', 'i2'),  # 2 byte int (short): whether split-beam or single-beam
                          ('transducer_depth', 'f4'),  # 4 byte float
                          ('frequency', 'f4'),  # 4 byte float
                          ('transmit_power', 'f4'),  # 4 byte float
@@ -81,7 +81,7 @@ sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
                          ('trawl_upper_depth', 'f4'),  # 4 byte float
                          ('trawl_opening', 'f4'),  # 4 byte float
                          ('offset', 'i4'),  # 4 byte int (long)
-                         ('count', 'i4')])  # 4 byte int (long)
+                         ('count', 'i4')])  # 4 byte int (long): number of items to unpack for power_data
 sample_dtype = sample_dtype.newbyteorder('<')
 
 power_dtype = np.dtype([('power_data', '<i2')])     # 2 byte int (short)
@@ -255,18 +255,24 @@ def process_sample(input_file, transducer_count):
 
 
 def append_metadata(metadata, channel, sample_data):
+    # Fixed across ping
     metadata['channel'].append(channel)
     metadata['transducer_depth'].append(sample_data['transducer_depth'][0])          # [meters]
     metadata['frequency'].append(sample_data['frequency'][0])                        # [Hz]
-    metadata['transmit_power'].append(sample_data['transmit_power'][0])              # [Watts]
-    metadata['pulse_length'].append(sample_data['pulse_length'][0])                  # [seconds]
-    metadata['bandwidth'].append(sample_data['bandwidth'][0])                        # [Hz]
-    metadata['sample_interval'].append(sample_data['sample_interval'][0])            # [seconds]
     metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
     metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
-    metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
-                                      sample_data['sample_interval'][0] / 2)         # [meters]
+
+    # TODO: Need to change to ping-by-ping
+    metadata['pulse_length'].append(sample_data['pulse_length'][0])                  # [seconds]
+    metadata['bandwidth'].append(sample_data['bandwidth'][0])                        # [Hz]
+    metadata['sample_interval'].append(sample_data['sample_interval'][0])            # [seconds]
+    metadata['transmit_power'].append(sample_data['transmit_power'][0])              # [Watts]
+
+    # metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
+    #                                   sample_data['sample_interval'][0] / 2)         # [meters]
+    metadata['mode'].append(sample_data['mode'][0])             # 1: split-beam, 0: single-beam
+
     return metadata
 
 
