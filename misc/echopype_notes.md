@@ -71,6 +71,65 @@
 - Transfer ownership to oceanhackweek organization for group project.
 
 
+****************************************************
+## 2018/10/23
+Reading the code `unpack_ek60.py` again:
+- `config_header` is a `dict` with the following field:
+  ```python
+  In[27]: config_header
+  Out[27]:
+  {'sounder_name': b'ER60',
+   'survey_name': b'DY1801_EK60',
+   'transducer_count': 5,
+   'transect_name': b'',
+   'version': b'2.4.3'}
+  ```
+- `config_transducer` is a list of `dict`. Each `dict` looks like:
+  ```python
+  In[29]: config_transducer[0]
+  Out[29]:
+  {'angle_offset_alongship': 0.10000000149011612,
+   'angle_offset_athwartship': 0.10000000149011612,
+   'angle_sensitivity_alongship': 15.289999961853027,
+   'angle_sensitivity_athwartship': 16.06999969482422,
+   'beam_type': 1,
+   'beam_width_alongship': 9.8100004196167,
+   'beam_width_athwartship': 9.449999809265137,
+   'channel_id': b'GPT  18 kHz 009072034d45 1-1 ES18-11',
+   'dir_x': 0.0,
+   'dir_y': 0.0,
+   'dir_z': 0.0,
+   'equiv_beam_angle': -17.469999313354492,
+   'frequency': 18000.0,
+   'gain': 22.889999389648438,
+   'gain_table': array([ 21.82999992,  22.88999939,  22.89999962,  23.        ,  23.        ]),
+   'gpt_software_version': b'070413',
+   'pos_x': 0.0,
+   'pos_y': 0.0,
+   'pos_z': 0.0,
+   'pulse_length_table': array([ 0.000512,  0.001024,  0.002048,  0.004096,  0.008192]),
+   'sa_correction_table': array([-0.44999999, -0.50999999,  0.        ,  0.        ,  0.        ])}
+  ```
+- `append_metadata` only append the following parameters in `sample_data`:
+  ```python
+  metadata['channel'].append(channel)
+  metadata['transducer_depth'].append(sample_data['transducer_depth'][0])          # [meters]
+  metadata['frequency'].append(sample_data['frequency'][0])                        # [Hz]
+  metadata['transmit_power'].append(sample_data['transmit_power'][0])              # [Watts]
+  metadata['pulse_length'].append(sample_data['pulse_length'][0])                  # [seconds]
+  metadata['bandwidth'].append(sample_data['bandwidth'][0])                        # [Hz]
+  metadata['sample_interval'].append(sample_data['sample_interval'][0])            # [seconds]
+  metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
+  metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
+  metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
+  metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
+                                    sample_data['sample_interval'][0] / 2)         # [meters]
+  ```
+Code revision:
+  - `motion_data` is actually contained in `sample_data` so don't need an extra variable --> done
+  - revised ping-by-ping saving to `angle_data_dict` and `motion_data_dict` as well as their conversion to np.array
+TODO:
+- add more parameters to `append_metadata` `sample_data` so that all metadata can be saved to nc file
 
 
 ****************************************************
@@ -79,6 +138,7 @@
 - Save temperature??
 - Need to revive error catch code
 - write a method in the model class to convert electronic angle to mechanical angle
+
 
 
 ## Echolab metadata format --> common sonar netCDF format
