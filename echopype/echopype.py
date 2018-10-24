@@ -29,10 +29,7 @@ def set_group_environment(nc_path, first_ping_metadata):
     """
     Set the Environment group in the nc file
     :param nc_path: netcdf file to set the Environment group to
-    :param param_dict: dictionary containing environmental parameters
-         param_dict['freq']
-         param_dict['absorption']
-         param_dict['sound_speed']
+    :param first_ping_metadata: list unpacked from unpack_ek60.load_ek60_raw()
     :return:
     """
     # Only save environment group if nc_path exists
