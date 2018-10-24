@@ -6,9 +6,13 @@ import netCDF4
 import xarray as xr
 
 # TODO: need to figure out how to code the time properly in nc files,
-# the SONAR-netCDF4 convention uses "nanoseconds since .. doesn't seem to be allowed under CF convention"
+# TODO: the SONAR-netCDF4 convention uses "nanoseconds since .. doesn't seem to be allowed under CF convention"
 
+
+# =============================================================
 # Functions for setting up nc file structure and variables
+# =============================================================
+
 
 def set_attrs_toplevel(nc_path, attrs_dict):
     """
@@ -21,7 +25,7 @@ def set_attrs_toplevel(nc_path, attrs_dict):
         [ncfile.setncattr(k, v) for k, v in attrs_dict.items()]
 
 
-def set_group_environment(nc_path, param_dict):
+def set_group_environment(nc_path, first_ping_metadata):
     """
     Set the Environment group in the nc file
     :param nc_path: netcdf file to set the Environment group to
@@ -31,47 +35,35 @@ def set_group_environment(nc_path, param_dict):
          param_dict['sound_speed']
     :return:
     """
-    if 'freq' in param_dict:
-        freq_coord = np.array(param_dict['freq'], dtype='float32')
-    else:
-        print('Sonar frequency not provided, set to default 0.')
-        freq_coord = np.array(0.0, dtype='float32')
-
-    if 'absorption' in param_dict:
-        abs_val = np.array(param_dict['absorption'], dtype='float32')
-    else:
-        print('Sound absorption not provided, set to default 0.')
-        abs_val = np.array(0.0, dtype='float32')
-
-    if 'sound_speed' in param_dict:
-        ss_val = np.array(param_dict['sound_speed'], dtype='float32')
-    else:
-        ss_val = np.array(1500., dtype='float32')
-
-    da_absorption = xr.DataArray(abs_val,
-                                 coords=[freq_coord], dims=['frequency'],
-                                 attrs={'long_name': "Indicative acoustic absorption",
-                                        'units': "dB/m",
-                                        'valid_min': 0.0})
-    da_sound_speed = xr.DataArray(ss_val,
-                                  coords=[freq_coord], dims=['frequency'],
-                                  attrs={'long_name': "Indicative sound speed",
-                                         'standard_name': "speed_of_sound_in_sea_water",
-                                         'units': "m/s",
-                                         'valid_min': 0.0})
-    ds = xr.Dataset({'absorption_indicative': da_absorption,
-                     'sound_speed_indicative': da_sound_speed},
-                    coords={'frequency': (['frequency'], freq_coord)})
-    ds.frequency.attrs['long_name'] = "Acoustic frequency"
-    ds.frequency.attrs['standard_name'] = "sound_frequency"
-    ds.frequency.attrs['units'] = "Hz"
-    ds.frequency.attrs['valid_min'] = 0.0
-
-    # save to file
-    if os.path.exists(nc_path):
-        ds.to_netcdf(path=nc_path, mode="a")
-    else:
+    # Only save environment group if nc_path exists
+    if not os.path.exists(nc_path):
         print('netCDF file does not exist, exiting without saving Environment group...')
+    else:
+        freq_coord = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
+        abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
+        ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
+
+        da_absorption = xr.DataArray(abs_val,
+                                     coords=[freq_coord], dims=['frequency'],
+                                     attrs={'long_name': "Indicative acoustic absorption",
+                                            'units': "dB/m",
+                                            'valid_min': 0.0})
+        da_sound_speed = xr.DataArray(ss_val,
+                                      coords=[freq_coord], dims=['frequency'],
+                                      attrs={'long_name': "Indicative sound speed",
+                                             'standard_name': "speed_of_sound_in_sea_water",
+                                             'units': "m/s",
+                                             'valid_min': 0.0})
+        ds = xr.Dataset({'absorption_indicative': da_absorption,
+                         'sound_speed_indicative': da_sound_speed},
+                        coords={'frequency': (['frequency'], freq_coord)})
+        ds.frequency.attrs['long_name'] = "Acoustic frequency"
+        ds.frequency.attrs['standard_name'] = "sound_frequency"
+        ds.frequency.attrs['units'] = "Hz"
+        ds.frequency.attrs['valid_min'] = 0.0
+
+        # save to file
+        ds.to_netcdf(path=nc_path, mode="a", group="environment")
 
 
 def set_group_provenance(nc_path, src_fnames, conversion_dict):
@@ -107,7 +99,7 @@ def set_group_provenance(nc_path, src_fnames, conversion_dict):
 def set_group_sonar(nc_path, sonar_dict):
     """
     Set the Sonar group in the nc file
-    :param nc_path: netcdf file to set the Provenance group to
+    :param nc_path: netcdf file to set the Sonar group to
     :param sonar_dict: dictionary containing sonar parameters
         sonar_dict['sonar_manufacturer']
         sonar_dict['sonar_model']

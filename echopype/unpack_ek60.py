@@ -19,7 +19,8 @@ Author Ronald Ronquillo & Richard Han
 from collections import defaultdict
 from struct import unpack_from, unpack
 import numpy as np
-import re, os
+import re
+import os
 from datetime import datetime as dt
 from matplotlib.dates import date2num
 import echopype as ep
@@ -36,6 +37,10 @@ CONFIG_TRANSDUCER_SIZE = 320
 # set global regex expressions to find all sample, annotation and NMEA sentences
 SAMPLE_REGEX = b'RAW\d{1}'
 SAMPLE_MATCHER = re.compile(SAMPLE_REGEX, re.DOTALL)
+FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
+FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
+
+m = re.match(r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})', "OOI-D20180211-T164025")
 
 
 # Reference time "seconds since 1900-01-01 00:00:00"
@@ -386,7 +391,6 @@ def load_ek60_raw(input_file_path):
             # Read the next block for regex search
             raw = input_file.read(BLOCK_SIZE)
 
-
         # convert ntp time, i.e. seconds since 1900-01-01 00:00:00 to matplotlib time
         data_times = np.array(data_times)
         data_times = (data_times / (60 * 60 * 24)) + REF_TIME
@@ -405,6 +409,40 @@ def load_ek60_raw(input_file_path):
         return first_ping_metadata, data_times, sample_interval, \
                power_data_dict, angle_data_dict, motion_data_dict, transmit_data_dict, \
                config_header, config_transducer
+
+
+def save_raw_to_nc(input_file_path):
+    """
+    Save data from RAW to netCDF format
+    :param input_file_path:
+    :return:
+    """
+    # Load data from RAW file
+    first_ping_metadata, data_times, sample_interval, \
+    power_data_dict, angle_data_dict, motion_data_dict, transmit_data_dict, \
+    config_header, config_transducer = load_ek60_raw(input_file_path)
+
+    # Get nc filename
+    filename = os.path.splitext(os.path.basename(input_file_path))[0]
+    nc_path = os.path.join(os.path.split(input_file_path)[0], filename+'.nc')
+    fm = FILENAME_MATCHER.match(filename)
+
+    # Create nc file by creating top-level group
+    toplevel_attrs = ('Conventions', 'keywords',
+                      'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
+                      'summary', 'title')
+    toplevel_vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
+                     'ICES', 'SONAR-netCDF4', '1.7',
+                     '', '')
+    attrs_dict = dict(zip(toplevel_attrs, toplevel_vals))
+    attrs_dict['date_created'] = dt.strptime(fm.group('date')+'-'+fm.group('time'),
+                                             '%Y%m%d-%H%M%S').isoformat()+'Z'
+    ep.set_attrs_toplevel(nc_path, attrs_dict)
+
+    # Create environment group
+    ep.set_group_environment(nc_path, first_ping_metadata)
+
+
 
 
 # def raw2hdf5_initiate(raw_file_path,h5_file_path):
