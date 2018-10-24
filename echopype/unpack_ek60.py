@@ -428,21 +428,25 @@ def save_raw_to_nc(input_file_path):
     fm = FILENAME_MATCHER.match(filename)
 
     # Create nc file by creating top-level group
-    toplevel_attrs = ('Conventions', 'keywords',
+    tl_attrs = ('Conventions', 'keywords',
                       'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
                       'summary', 'title')
-    toplevel_vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
+    tl_vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
                      'ICES', 'SONAR-netCDF4', '1.7',
                      '', '')
-    attrs_dict = dict(zip(toplevel_attrs, toplevel_vals))
-    attrs_dict['date_created'] = dt.strptime(fm.group('date')+'-'+fm.group('time'),
-                                             '%Y%m%d-%H%M%S').isoformat()+'Z'
-    ep.set_attrs_toplevel(nc_path, attrs_dict)
+    tl_dict = dict(zip(tl_attrs, tl_vals))
+    tl_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
+                                          '%Y%m%d-%H%M%S').isoformat() +'Z'
+    ep.set_attrs_toplevel(nc_path, tl_dict)
 
     # Create environment group
     ep.set_group_environment(nc_path, first_ping_metadata)
 
-
+    # Create provenance group
+    prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
+    prov_vals = ('echopype', 'v0.1', dt.now().isoformat(timespec='seconds')+'Z')
+    prov_dict = dict(zip(prov_attrs, prov_vals))
+    ep.set_group_provenance(nc_path, os.path.basename(input_file_path), prov_dict)
 
 
 # def raw2hdf5_initiate(raw_file_path,h5_file_path):
