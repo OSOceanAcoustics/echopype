@@ -439,14 +439,31 @@ def save_raw_to_nc(input_file_path):
                                           '%Y%m%d-%H%M%S').isoformat() +'Z'
     ep.set_attrs_toplevel(nc_path, tl_dict)
 
-    # Create environment group
-    ep.set_group_environment(nc_path, first_ping_metadata)
+    # Environment group
+    freq_coord = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
+    abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
+    ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
+    env_attrs = ('frequency', 'absorption_coeff', 'sound_speed')
+    env_vals = (freq_coord, abs_val, ss_val)
+    env_dict = dict(zip(env_attrs, env_vals))
+    ep.set_group_environment(nc_path, env_dict)
 
-    # Create provenance group
+    # Provenance group
     prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
     prov_vals = ('echopype', 'v0.1', dt.now().isoformat(timespec='seconds')+'Z')
     prov_dict = dict(zip(prov_attrs, prov_vals))
     ep.set_group_provenance(nc_path, os.path.basename(input_file_path), prov_dict)
+
+    # Sonar group
+    sonar_attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
+                   'sonar_software_name', 'sonar_software_version', 'sonar_type')
+    sonar_vals = ('Simrad', 'EK60', '',
+                  '', config_header['version'].decode('utf-8'), 'echosounder')
+    sonar_dict = dict(zip(sonar_attrs, sonar_vals))
+    ep.set_group_sonar(nc_path, sonar_dict)
+
+    # Platform group
+
 
 
 # def raw2hdf5_initiate(raw_file_path,h5_file_path):
