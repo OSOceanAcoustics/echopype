@@ -25,42 +25,41 @@ def set_attrs_toplevel(nc_path, attrs_dict):
         [ncfile.setncattr(k, v) for k, v in attrs_dict.items()]
 
 
-def set_group_environment(nc_path, first_ping_metadata):
+def set_group_environment(nc_path, env_dict):
     """
     Set the Environment group in the nc file
     :param nc_path: netcdf file to set the Environment group to
-    :param first_ping_metadata: list unpacked from unpack_ek60.load_ek60_raw()
+    :param env_dict: dictionary containing environment group params
+        env_dict['frequency']
+        env_dict['absorption_coeff']
+        env_dict['sound_speed']
     :return:
     """
     # Only save environment group if nc_path exists
     if not os.path.exists(nc_path):
         print('netCDF file does not exist, exiting without saving Environment group...')
     else:
-        freq_coord = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
-        abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
-        ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
-
-        da_absorption = xr.DataArray(abs_val,
-                                     coords=[freq_coord], dims=['frequency'],
+        da_absorption = xr.DataArray(env_dict['absorption_coeff'],
+                                     coords=[env_dict['frequency']], dims=['frequency'],
                                      attrs={'long_name': "Indicative acoustic absorption",
                                             'units': "dB/m",
                                             'valid_min': 0.0})
-        da_sound_speed = xr.DataArray(ss_val,
-                                      coords=[freq_coord], dims=['frequency'],
+        da_sound_speed = xr.DataArray(env_dict['sound_speed'],
+                                      coords=[env_dict['frequency']], dims=['frequency'],
                                       attrs={'long_name': "Indicative sound speed",
                                              'standard_name': "speed_of_sound_in_sea_water",
                                              'units': "m/s",
                                              'valid_min': 0.0})
         ds = xr.Dataset({'absorption_indicative': da_absorption,
                          'sound_speed_indicative': da_sound_speed},
-                        coords={'frequency': (['frequency'], freq_coord)})
+                        coords={'frequency': (['frequency'], env_dict['frequency'])})
         ds.frequency.attrs['long_name'] = "Acoustic frequency"
         ds.frequency.attrs['standard_name'] = "sound_frequency"
         ds.frequency.attrs['units'] = "Hz"
         ds.frequency.attrs['valid_min'] = 0.0
 
         # save to file
-        ds.to_netcdf(path=nc_path, mode="a", group="environment")
+        ds.to_netcdf(path=nc_path, mode="a", group="Environment")
 
 
 def set_group_provenance(nc_path, src_fnames, conversion_dict):
@@ -75,7 +74,7 @@ def set_group_provenance(nc_path, src_fnames, conversion_dict):
     :return:
     """
     # create group
-    ncfile = netCDF4.Dataset(nc_path, "w", format="NETCDF4")
+    ncfile = netCDF4.Dataset(nc_path, "a", format="NETCDF4")
     pr = ncfile.createGroup("Provenance")
 
     # dimensions
@@ -98,16 +97,10 @@ def set_group_sonar(nc_path, sonar_dict):
     Set the Sonar group in the nc file
     :param nc_path: netcdf file to set the Sonar group to
     :param sonar_dict: dictionary containing sonar parameters
-        sonar_dict['sonar_manufacturer']
-        sonar_dict['sonar_model']
-        sonar_dict['sonar_serial_number']
-        sonar_dict['sonar_software_name']
-        sonar_dict['sonar_software_version']
-        sonar_dict['sonar_type']
     :return:
     """
     # create group
-    ncfile = netCDF4.Dataset(nc_path, "w", format="NETCDF4")
+    ncfile = netCDF4.Dataset(nc_path, "a", format="NETCDF4")
     snr = ncfile.createGroup("Sonar")
 
     # set group attributes
