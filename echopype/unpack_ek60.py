@@ -268,7 +268,7 @@ def append_metadata(metadata, channel, sample_data):
     metadata['sound_velocity'].append(sample_data['sound_velocity'][0])              # [m/s]
     metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
-    metadata['mode'].append(sample_data['mode'][0])             # 1: split-beam, 0: single-beam
+    metadata['mode'].append(sample_data['mode'][0])             # >1: split-beam, 0: single-beam
 
     # metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
     #                                   sample_data['sample_interval'][0] / 2)         # [meters]
@@ -462,9 +462,30 @@ def save_raw_to_nc(input_file_path):
     sonar_dict = dict(zip(sonar_attrs, sonar_vals))
     ep.set_group_sonar(nc_path, sonar_dict)
 
-    # Platform group
-
-
+    # Beam group
+    beam_dict = dict()
+    beam_dict['beam_mode'] = 'vertical'
+    beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
+    beam_dict['ping_time'] = data_times            # here in matplotlib time
+    beam_dict['backscatter_r'] = power_data_dict
+    beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship'] for x in config_transducer.__iter__()])
+    beam_dict['beamwidth_receive_minor'] = np.array([x['beam_width_athwartship'] for x in config_transducer.__iter__()])
+    beam_dict['beamwidth_transmit_major'] = np.array([x['beam_width_alongship'] for x in config_transducer.__iter__()])
+    beam_dict['beamwidth_transmit_minor'] = np.array([x['beam_width_athwartship'] for x in config_transducer.__iter__()])
+    beam_dict['beam_direction_x'] = np.array([x['dir_x'] for x in config_transducer.__iter__()])
+    beam_dict['beam_direction_y'] = np.array([x['dir_y'] for x in config_transducer.__iter__()])
+    beam_dict['beam_direction_z'] = np.array([x['dir_z'] for x in config_transducer.__iter__()])
+    beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle'] for x in config_transducer.__iter__()])
+    beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()])
+    beam_dict['non_quantitative_processing'] = 0
+    beam_dict['sample_interval'] = sample_interval   # dimension ping_time
+    beam_dict['sample_time_offset'] = 2              # set to 2 for EK60 data, NOT from sample_data['offset']
+    beam_dict['transmit_duration_nominal'] = np.array([x['pulse_length']
+                                                       for x in transmit_data_dict.values()]).squeeze()
+    beam_dict['transmit_power'] = np.array([x['transmit_power']
+                                            for x in transmit_data_dict.values()]).squeeze()
+    beam_dict['transmit_bandwidth'] = np.array([x['bandwidth']
+                                                for x in transmit_data_dict.values()]).squeeze()
 
 # def raw2hdf5_initiate(raw_file_path,h5_file_path):
 #     """
