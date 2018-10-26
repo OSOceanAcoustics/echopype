@@ -2,7 +2,7 @@ from echopype import unpack_ek60
 
 # OOI CE04OSPS EK60
 first_ping_metadata, data_times, power_data_dict, angle_data_dict, motion_data_dict, config_header, config_transducer = \
-    unpack_ek60.load_ek60_raw('data_zplsc/OOI-D20170821-T000000.raw')
+    unpack_ek60.load_ek60_raw('../data/DY1801_EK60-D20180211-T164025.raw')
 
 # OceanStarr 2 channel EK60
 # first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, config_header, config_transducer = \
