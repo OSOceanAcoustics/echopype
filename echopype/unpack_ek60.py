@@ -299,7 +299,7 @@ def load_ek60_raw(input_file_path):
         power_data_dict = defaultdict(list)      # echo power
         angle_data_dict = defaultdict(list)      # alongship and athwartship electronic angle
         motion_data_dict = defaultdict(list)     # heave, pitch, and roll motion
-        transmit_data_dict = defaultdict(list)   # transmit signal metadata
+        tr_data_dict = defaultdict(list)   # transmit signal metadata
         sample_interval = []                     # sampling interval [sec]
         data_times = []                          # ping time
 
@@ -361,7 +361,6 @@ def load_ek60_raw(input_file_path):
                             append_metadata(first_ping_metadata[channel], channel, sample_data)
 
                     # Save data and metadata from each ping to *_data_dict
-                    sample_interval.append(next_sample['sample_interval'])
                     data_times.append(next_time)
                     for channel in power_temp_dict:
                         power_data_dict[channel].append(power_temp_dict[channel])
@@ -372,13 +371,15 @@ def load_ek60_raw(input_file_path):
                                             sample_temp_dict[channel]['roll'])],
                                           dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
                         motion_data_dict[channel].append(motion)
-                        transmit = np.array([(sample_temp_dict[channel]['frequency'],
-                                              sample_temp_dict[channel]['transmit_power'],
-                                              sample_temp_dict[channel]['pulse_length'],
-                                              sample_temp_dict[channel]['bandwidth'])],
-                                            dtype=[('frequency', 'f4'), ('transmit_power', 'f4'),
-                                                   ('pulse_length', 'f4'), ('bandwidth', 'f4')])
-                        transmit_data_dict[channel].append(transmit)
+                        tr = np.array([(sample_temp_dict[channel]['frequency'],
+                                        sample_temp_dict[channel]['transmit_power'],
+                                        sample_temp_dict[channel]['pulse_length'],
+                                        sample_temp_dict[channel]['bandwidth'],
+                                        sample_temp_dict[channel]['sample_interval'])],
+                                      dtype=[('frequency', 'f4'), ('transmit_power', 'f4'),
+                                             ('pulse_length', 'f4'), ('bandwidth', 'f4'),
+                                             ('sample_interval', 'f4')])
+                        tr_data_dict[channel].append(tr)
 
                 # except InvalidTransducer:
                 #   pass
@@ -404,10 +405,10 @@ def load_ek60_raw(input_file_path):
             else:  # if single-beam data
                 angle_data_dict[channel] = []
             motion_data_dict[channel] = np.array(motion_data_dict[channel])
-            transmit_data_dict[channel] = np.array(transmit_data_dict[channel])
+            tr_data_dict[channel] = np.array(tr_data_dict[channel])
 
         return first_ping_metadata, data_times, sample_interval, \
-               power_data_dict, angle_data_dict, motion_data_dict, transmit_data_dict, \
+               power_data_dict, angle_data_dict, motion_data_dict, tr_data_dict, \
                config_header, config_transducer
 
 
@@ -419,7 +420,7 @@ def save_raw_to_nc(input_file_path):
     """
     # Load data from RAW file
     first_ping_metadata, data_times, sample_interval, \
-    power_data_dict, angle_data_dict, motion_data_dict, transmit_data_dict, \
+    power_data_dict, angle_data_dict, motion_data_dict, tr_data_dict, \
     config_header, config_transducer = load_ek60_raw(input_file_path)
 
     # Get nc filename
@@ -467,165 +468,31 @@ def save_raw_to_nc(input_file_path):
     beam_dict['beam_mode'] = 'vertical'
     beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
     beam_dict['ping_time'] = data_times            # here in matplotlib time
-    beam_dict['backscatter_r'] = power_data_dict
-    beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship'] for x in config_transducer.__iter__()])
-    beam_dict['beamwidth_receive_minor'] = np.array([x['beam_width_athwartship'] for x in config_transducer.__iter__()])
-    beam_dict['beamwidth_transmit_major'] = np.array([x['beam_width_alongship'] for x in config_transducer.__iter__()])
-    beam_dict['beamwidth_transmit_minor'] = np.array([x['beam_width_athwartship'] for x in config_transducer.__iter__()])
-    beam_dict['beam_direction_x'] = np.array([x['dir_x'] for x in config_transducer.__iter__()])
-    beam_dict['beam_direction_y'] = np.array([x['dir_y'] for x in config_transducer.__iter__()])
-    beam_dict['beam_direction_z'] = np.array([x['dir_z'] for x in config_transducer.__iter__()])
-    beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle'] for x in config_transducer.__iter__()])
-    beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()])
-    beam_dict['non_quantitative_processing'] = 0
-    beam_dict['sample_interval'] = sample_interval   # dimension ping_time
-    beam_dict['sample_time_offset'] = 2              # set to 2 for EK60 data, NOT from sample_data['offset']
+    beam_dict['frequency'] = freq_coord            # this is not in convention
+    beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])   # this is not in convention
+    beam_dict['backscatter_r'] = np.array([power_data_dict[x] for x in power_data_dict])
+    beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship']
+                                                     for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beamwidth_receive_minor'] = np.array([x['beam_width_athwartship']
+                                                     for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beamwidth_transmit_major'] = np.array([x['beam_width_alongship']
+                                                      for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beamwidth_transmit_minor'] = np.array([x['beam_width_athwartship']
+                                                      for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beam_direction_x'] = np.array([x['dir_x'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beam_direction_y'] = np.array([x['dir_y'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['beam_direction_z'] = np.array([x['dir_z'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle']
+                                                   for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['non_quantitative_processing'] = np.array([0, ]*5)
+    beam_dict['sample_interval'] = np.array([x['sample_interval'] for x in tr_data_dict.values()],
+                                            dtype='float32').squeeze()  # dimension frequency
+    beam_dict['sample_time_offset'] = np.array([2, ]*5)  # set to 2 for EK60 data, NOT from sample_data['offset']
     beam_dict['transmit_duration_nominal'] = np.array([x['pulse_length']
-                                                       for x in transmit_data_dict.values()]).squeeze()
+                                                       for x in tr_data_dict.values()], dtype='float32').squeeze()
     beam_dict['transmit_power'] = np.array([x['transmit_power']
-                                            for x in transmit_data_dict.values()]).squeeze()
+                                            for x in tr_data_dict.values()], dtype='float32').squeeze()
     beam_dict['transmit_bandwidth'] = np.array([x['bandwidth']
-                                                for x in transmit_data_dict.values()]).squeeze()
+                                                for x in tr_data_dict.values()], dtype='float32').squeeze()
 
-# def raw2hdf5_initiate(raw_file_path,h5_file_path):
-#     """
-#     Unpack EK60 .raw files and save to an hdf5 files
-#     INPUT:
-#         fname      file to be unpacked
-#         h5_fname   hdf5 file to be written in to
-#     """
-#     # Unpack raw into memory
-#     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
-#         config_header, config_transducer = load_ek60_raw(raw_file_path)
-#
-#     # Check if input dimension makes sense, if not abort
-#     sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
-#     for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
-#         f_str = str(frequencies[f])
-#         sz_power_data[cnt,:] = power_data_dict[f_str].shape
-#     if np.unique(sz_power_data).shape[0]!=2:
-#         print('Raw file has mismatched number of pings across channels')
-#         # break
-#
-#     # Open new hdf5 file
-#     h5_file = h5py.File(h5_file_path,'x')  # create file, fail if exists
-#
-#     # Store data
-#     # -- ping time: resizable
-#     h5_file.create_dataset('ping_time', (sz_power_data[0,1],), \
-#                     maxshape=(None,), data=data_times, chunks=True)
-#
-#     # -- power data: resizable
-#     for f in frequencies.values():
-#         h5_file.create_dataset('power_data/%s' % str(f), sz_power_data[0,:], \
-#                     maxshape=(sz_power_data[0,0],None), data=power_data_dict[str(f)], chunks=True)
-#
-#     # -- metadata: fixed sized
-#     h5_file.create_dataset('metadata/bin_size', data=bin_size)
-#     for m,mval in first_ping_metadata.items():
-#         save_metadata(mval,'metadata',m,h5_file)
-#
-#     # -- header: fixed sized
-#     for m,mval in config_header.items():
-#         save_metadata(mval,'header',m,h5_file)
-#
-#     # -- transducer: fixed sized
-#     for tx in range(len(config_transducer)):
-#         for m,mval in config_transducer[tx].items():
-#             save_metadata(mval,['transducer',tx],m,h5_file)
-#
-#     # Close hdf5 file
-#     h5_file.close()
-#
-#
-# def raw2hdf5_concat(raw_file_path,h5_file_path):
-#     """
-#     Unpack EK60 .raw files and concatenate to an existing hdf5 files
-#     INPUT:
-#         fname      file to be unpacked
-#         h5_fname   hdf5 file to be concatenated to
-#     """
-#     # Unpack raw into memory
-#     first_ping_metadata, data_times, power_data_dict, frequencies, bin_size, \
-#         config_header, config_transducer = load_ek60_raw(raw_file_path)
-#
-#     # Check if input dimension makes sense, if not abort
-#     sz_power_data = np.empty(shape=(len(frequencies),2),dtype=int)
-#     for cnt,f in zip(range(len(frequencies)),frequencies.keys()):
-#         f_str = str(frequencies[f])
-#         sz_power_data[cnt,:] = power_data_dict[f_str].shape
-#     if np.unique(sz_power_data).shape[0]!=2:
-#         print('Raw file has mismatched number of pings across channels')
-#         # break
-#
-#     # Open existing files
-#     fh = h5py.File(h5_file_path, 'r+')
-#
-#     # Check if all metadata field matches, if not, print info and abort
-#     flag = check_metadata('header',config_header,fh) and \
-#            check_metadata('metadata',first_ping_metadata,fh) and \
-#            check_metadata('transducer00',config_transducer[0],fh) and \
-#            check_metadata('transducer01',config_transducer[1],fh) and \
-#            check_metadata('transducer02',config_transducer[2],fh)
-#
-#     # Concatenating newly unpacked data into HDF5 file
-#     for f in fh['power_data'].keys():
-#         sz_exist = fh['power_data/'+f].shape  # shape of existing power_data mtx
-#         fh['power_data/'+f].resize((sz_exist[0],sz_exist[1]+sz_power_data[0,1]))
-#         fh['power_data/'+f][:,sz_exist[1]:] = power_data_dict[str(f)]
-#     fh['ping_time'].resize((sz_exist[1]+sz_power_data[0,1],))
-#     fh['ping_time'][sz_exist[1]:] = data_times
-#
-#     # Close file
-#     fh.close()
-#
-#
-# def check_metadata(group_name,dict_name,fh):
-#     """
-#     Check if all metadata matches
-#
-#     group_name   name of group in hdf5 file
-#     dict_name    name of dictionary from unpacked .raw file
-#     """
-#     flag = []
-#     for p in fh[group_name].keys():
-#         if isinstance(fh[group_name][p][0], (str, bytes)):
-#             if type(dict_name[p]) == bytes:
-#                 flag.append(str(dict_name[p], 'utf-8') == fh[group_name][p][0])
-#             else:
-#                 flag.append(dict_name[p] == fh[group_name][p][0])
-#         elif isinstance(fh[group_name][p][0], (np.generic, np.ndarray, int, float)):
-#             flag.append(any(dict_name[p] == fh[group_name][p][:]))
-#     return any(flag)
-#
-#
-# def save_metadata(val,group_info,data_name,fh):
-#     """
-#     Check data type and save to hdf5.
-#
-#     val          data to be saved
-#     group_info   a string (group name, e.g., header) or
-#                  a list (group name and sequence number, e.g., [tranducer, 1]).
-#     data_name    name of data set under group
-#     fh           handle of the file to be saved to
-#     """
-#     # Assemble group and data set name to save to
-#     if type(group_info) == str:  # no sequence in group_info
-#         create_name = '%s/%s' % (group_info,data_name)
-#     elif type(group_info) == list and len(group_info) == 2:  # have sequence in group_info
-#         if type(group_info[1]) == str:
-#             create_name = '%s/%s/%s' % (group_info[0], group_info[1], data_name)
-#         else:
-#             create_name = '%s%02d/%s' % (group_info[0], group_info[1], data_name)
-#     # Save val
-#     if type(val) == str or type(val) == bytes:    # when a string
-#         fh.create_dataset(create_name, (1,), data=val, dtype=h5py.special_dtype(vlen=str))
-#     elif type(val) == int or type(val) == float:  # when only 1 int or float object
-#         fh.create_dataset(create_name, (1,), data=val)
-#     elif isinstance(val, (np.generic, np.ndarray)):
-#         if val.shape == ():   # when single element numpy array
-#             fh.create_dataset(create_name, (1,), data=val)
-#         else:               # when multi-element numpy array
-#             fh.create_dataset(create_name, data=val)
-#     else:  # everything else
-#         fh.create_dataset(create_name, data=val)
