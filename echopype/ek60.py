@@ -256,14 +256,14 @@ def append_metadata(metadata, channel, sample_data):
     return metadata
 
 
-def load_ek60_raw(input_file_path):
+def load_ek60_raw(raw_filename):
     """
     Parse the *.raw file.
-    @param input_file_path absolute path/name to file to be parsed
+    @param raw_filename absolute path/name to file to be parsed
     """
-    print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), input_file_path))
+    print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), raw_filename))
 
-    with open(input_file_path, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
+    with open(raw_filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
         config_header, config_transducer = read_header(input_file)
         transducer_count = config_header['transducer_count']
@@ -389,20 +389,20 @@ def load_ek60_raw(input_file_path):
                config_header, config_transducer
 
 
-def save_raw_to_nc(input_file_path):
+def save_raw_to_nc(raw_filename):
     """
     Save data from RAW to netCDF format
-    :param input_file_path:
+    :param raw_filename:
     :return:
     """
     # Load data from RAW file
     first_ping_metadata, data_times, motion, \
     power_data_dict, angle_data_dict, tr_data_dict, \
-    config_header, config_transducer = load_ek60_raw(input_file_path)
+    config_header, config_transducer = load_ek60_raw(raw_filename)
 
     # Get nc filename
-    filename = os.path.splitext(os.path.basename(input_file_path))[0]
-    nc_path = os.path.join(os.path.split(input_file_path)[0], filename+'.nc')
+    filename = os.path.splitext(os.path.basename(raw_filename))[0]
+    nc_path = os.path.join(os.path.split(raw_filename)[0], filename + '.nc')
     fm = FILENAME_MATCHER.match(filename)
 
     # Create nc file by creating top-level group
@@ -430,7 +430,7 @@ def save_raw_to_nc(input_file_path):
     prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
     prov_vals = ('echopype', 'v0.1', dt.now().isoformat(timespec='seconds')+'Z')
     prov_dict = dict(zip(prov_attrs, prov_vals))
-    ep.set_group_provenance(nc_path, os.path.basename(input_file_path), prov_dict)
+    ep.set_group_provenance(nc_path, os.path.basename(raw_filename), prov_dict)
 
     # Sonar group
     sonar_attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
