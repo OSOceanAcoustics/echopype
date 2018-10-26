@@ -299,9 +299,9 @@ def load_ek60_raw(input_file_path):
         power_data_dict = defaultdict(list)      # echo power
         angle_data_dict = defaultdict(list)      # alongship and athwartship electronic angle
         motion_data_dict = defaultdict(list)     # heave, pitch, and roll motion
-        tr_data_dict = defaultdict(list)   # transmit signal metadata
-        sample_interval = []                     # sampling interval [sec]
+        tr_data_dict = defaultdict(list)         # transmit signal metadata
         data_times = []                          # ping time
+        motion = []                              # pitch, roll, heave
 
         # Read binary file a block at a time
         raw = input_file.read(BLOCK_SIZE)
@@ -354,7 +354,6 @@ def load_ek60_raw(input_file_path):
                         for channel in power_temp_dict:
                             first_ping_metadata[channel] = defaultdict(list)
                             angle_data_dict[channel] = []
-                            motion_data_dict[channel] = []
 
                         # Fill in metadata for each channel
                         for channel, sample_data in sample_temp_dict.items():
@@ -362,15 +361,14 @@ def load_ek60_raw(input_file_path):
 
                     # Save data and metadata from each ping to *_data_dict
                     data_times.append(next_time)
+                    motion.append(np.array([(sample_temp_dict[1]['heave'],  # all channels have the same motion
+                                             sample_temp_dict[1]['pitch'],
+                                             sample_temp_dict[1]['roll'])],
+                                           dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')]))
                     for channel in power_temp_dict:
                         power_data_dict[channel].append(power_temp_dict[channel])
                         if any(angle_temp_dict[channel]):   # if split-beam data
                             angle_data_dict[channel].append(angle_temp_dict[channel])
-                        motion = np.array([(sample_temp_dict[channel]['heave'],
-                                            sample_temp_dict[channel]['pitch'],
-                                            sample_temp_dict[channel]['roll'])],
-                                          dtype=[('heave', 'f4'), ('pitch', 'f4'), ('roll', 'f4')])
-                        motion_data_dict[channel].append(motion)
                         tr = np.array([(sample_temp_dict[channel]['frequency'],
                                         sample_temp_dict[channel]['transmit_power'],
                                         sample_temp_dict[channel]['pulse_length'],
@@ -397,7 +395,6 @@ def load_ek60_raw(input_file_path):
         data_times = (data_times / (60 * 60 * 24)) + REF_TIME
 
         # Convert to numpy array and decompress power data to dB
-        sample_interval = np.array(sample_interval).squeeze()
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
             if angle_data_dict[channel]:  # if split-beam data
@@ -407,8 +404,8 @@ def load_ek60_raw(input_file_path):
             motion_data_dict[channel] = np.array(motion_data_dict[channel])
             tr_data_dict[channel] = np.array(tr_data_dict[channel])
 
-        return first_ping_metadata, data_times, sample_interval, \
-               power_data_dict, angle_data_dict, motion_data_dict, tr_data_dict, \
+        return first_ping_metadata, data_times, motion, \
+               power_data_dict, angle_data_dict, tr_data_dict, \
                config_header, config_transducer
 
 
@@ -419,8 +416,8 @@ def save_raw_to_nc(input_file_path):
     :return:
     """
     # Load data from RAW file
-    first_ping_metadata, data_times, sample_interval, \
-    power_data_dict, angle_data_dict, motion_data_dict, tr_data_dict, \
+    first_ping_metadata, data_times, motion, \
+    power_data_dict, angle_data_dict, tr_data_dict, \
     config_header, config_transducer = load_ek60_raw(input_file_path)
 
     # Get nc filename
@@ -468,8 +465,6 @@ def save_raw_to_nc(input_file_path):
     beam_dict['beam_mode'] = 'vertical'
     beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
     beam_dict['ping_time'] = data_times            # here in matplotlib time
-    beam_dict['frequency'] = freq_coord            # this is not in convention
-    beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])   # this is not in convention
     beam_dict['backscatter_r'] = np.array([power_data_dict[x] for x in power_data_dict])
     beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship']
                                                      for x in config_transducer.__iter__()], dtype='float32')
@@ -495,4 +490,30 @@ def save_raw_to_nc(input_file_path):
                                             for x in tr_data_dict.values()], dtype='float32').squeeze()
     beam_dict['transmit_bandwidth'] = np.array([x['bandwidth']
                                                 for x in tr_data_dict.values()], dtype='float32').squeeze()
+    # Below not in convention
+    beam_dict['frequency'] = freq_coord
+    beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])
+    beam_dict['channel_id'] = [x['channel_id'].decode('utf-8') for x in config_transducer.__iter__()]
+    beam_dict['gpt_software_version'] = [x['gpt_software_version'].decode('utf-8')
+                                         for x in config_transducer.__iter__()]
+    idx = [np.argwhere(tr_data_dict[x + 1]['pulse_length'][0] == config_transducer[x]['pulse_length_table']).squeeze()
+           for x in range(len(config_transducer))]
+    beam_dict['sa_correction'] = np.array([x['sa_correction_table'][y]
+                                           for x, y in zip(config_transducer.__iter__(), np.array(idx))])
 
+    # Platform group
+    platform_dict = dict()
+    platform_dict['platform_name'] = config_header['survey_name'].decode('utf-8')
+    platform_dict['time'] = data_times          # here in matplotlib time
+    platform_dict['frequency'] = freq_coord     # this is not in convention
+    platform_dict['pitch'] = np.array([x['pitch'] for x in motion.__iter__()], dtype='float32').squeeze()
+    platform_dict['roll'] = np.array([x['roll'] for x in motion.__iter__()], dtype='float32').squeeze()
+    platform_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()
+    platform_dict['transducer_offset_x'] = np.array([x['pos_x'] for x in config_transducer.__iter__()], dtype='float32')
+    platform_dict['transducer_offset_y'] = np.array([x['pos_y'] for x in config_transducer.__iter__()], dtype='float32')
+    platform_dict['transducer_offset_z'] = np.array([x['pos_z'] for x in config_transducer.__iter__()],
+                                                    dtype='float32') + \
+                                           np.array([x['transducer_depth'][0] for x in first_ping_metadata.values()],
+                                                    dtype='float32')
+    platform_dict['water_level'] = np.int32(0)  # set to 0 for EK60 since this is not separately recorded
+                                                # and is part of transducer_depth

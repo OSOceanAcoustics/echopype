@@ -122,33 +122,28 @@ def set_group_beam(nc_path, beam_dict):
     if not os.path.exists(nc_path):
         print('netCDF file does not exist, exiting without saving Beam group...')
     else:
-        # Create dimensions
-        ping_time_dim = ('ping_time', beam_dict['ping_time'])
-        freq_dim = ('frequency', beam_dict['frequency'])
-        range_bin_dim = ('range_bin', beam_dict['range_bin'])
-
         # Create an xarray dataset and save to netCDF
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                            {'long_name': 'Backscatter power',
                                             'units': 'dB'}),
                          'beamwidth_receive_major': (['frequency'], beam_dict['beamwidth_receive_major'],
-                                                     {'long_name': 'Half power one-way receive beam width along major '
-                                                                   '(horizontal) axis of beam',
+                                                     {'long_name': 'Half power one-way receive beam width along '
+                                                                   'major (horizontal) axis of beam',
                                                       'units': 'arc_degree',
                                                       'valid_range': (0.0, 360.0)}),
                          'beamwidth_receive_minor': (['frequency'], beam_dict['beamwidth_receive_minor'],
-                                                     {'long_name': 'Half power one-way receive beam width along minor '
-                                                                   '(vertical) axis of beam',
+                                                     {'long_name': 'Half power one-way receive beam width along '
+                                                                   'minor (vertical) axis of beam',
                                                       'units': 'arc_degree',
                                                       'valid_range': (0.0, 360.0)}),
                          'beamwidth_transmit_major': (['frequency'], beam_dict['beamwidth_transmit_major'],
-                                                      {'long_name': 'Half power one-way transmit beam width along major '
-                                                                    '(horizontal) axis of beam',
+                                                      {'long_name': 'Half power one-way transmit beam width along '
+                                                                    'major (horizontal) axis of beam',
                                                        'units': 'arc_degree',
                                                        'valid_range': (0.0, 360.0)}),
                          'beamwidth_transmit_minor': (['frequency'], beam_dict['beamwidth_transmit_minor'],
-                                                      {'long_name': 'Half power one-way transmit beam width along minor '
-                                                                   '(vertical) axis of beam',
+                                                      {'long_name': 'Half power one-way transmit beam width along '
+                                                                    'minor (vertical) axis of beam',
                                                        'units': 'arc_degree',
                                                        'valid_range': (0.0, 360.0)}),
                          'beam_direction_x': (['frequency'], beam_dict['beamwidth_transmit_minor'],
@@ -202,13 +197,83 @@ def set_group_beam(nc_path, beam_dict):
                          'transmit_power': (['frequency', 'ping_time'], beam_dict['transmit_power'],
                                             {'long_name': 'Nominal transmit power',
                                              'units': 'W',
-                                             'valid_min': 0.0})
+                                             'valid_min': 0.0}),
+                         'channel_id': (['frequency'], beam_dict['channel_id']),
+                         'gpt_software_version': (['frequency'], beam_dict['gpt_software_version']),
+                         'sa_correction': (['frequency'], beam_dict['sa_correction'])
                          },
-                        coords={'frequency': freq_dim,
-                                'ping_time': ping_time_dim,
-                                'range_bin': range_bin_dim},
+                        coords={'frequency': (['frequency'], beam_dict['frequency'],
+                                              {'units': 'Hz',
+                                               'valid_min': 0.0}),
+                                'ping_time': (['ping_time'], beam_dict['ping_time'],
+                                              {'axis': 'T',
+                                               'calendar': 'gregorian',
+                                               'long_name': 'Timestamp of each ping',
+                                               'standard_name': 'time',
+                                               'units': 'nanoseconds since 1601-01-01 00:00:00Z'}),
+                                'range_bin': (['range_bin'], beam_dict['range_bin'])},
                         attrs={'beam_mode': 'vertical',
                                'conversion_equation_t': 'type_3'})
-
         # save to file
-        ds.to_netcdf(path=nc_path, mode="a", group="Environment")
+        ds.to_netcdf(path=nc_path, mode="a", group="Beam")
+
+
+def set_group_platform(nc_path, platform_dict):
+    """
+    Set the Beam group in the nc file
+    :param nc_path: netcdf file to set the Beam group to
+    :param platform_dict: dictionary containing beam parameters
+    :return:
+    """
+    # Only save environment group if nc_path exists
+    if not os.path.exists(nc_path):
+        print('netCDF file does not exist, exiting without saving Platform group...')
+    else:
+        # Create an xarray dataset and save to netCDF
+        ds = xr.Dataset({'pitch': (['time'], platform_dict['pitch'],
+                                   {'long_name': 'Platform pitch',
+                                    'standard_name': 'platform_pitch_angle',
+                                    'units': 'arc_degree',
+                                    'valid_range': (-90.0, 90.0)}),
+                         'roll': (['time'], platform_dict['roll'],
+                                  {'long_name': 'Platform roll',
+                                   'standard_name': 'platform_roll_angle',
+                                   'units': 'arc_degree',
+                                   'valid_range': (-90.0, 90.0)}),
+                         'heave': (['time'], platform_dict['heave'],
+                                   {'long_name': 'Platform heave',
+                                    'standard_name': 'platform_heave_angle',
+                                    'units': 'arc_degree',
+                                    'valid_range': (-90.0, 90.0)}),
+                         'transducer_offset_x': (['frequency'], platform_dict['transducer_offset_x'],
+                                                 {'long_name': 'x-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
+                         'transducer_offset_y': (['frequency'], platform_dict['transducer_offset_y'],
+                                                 {'long_name': 'y-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
+                         'transducer_offset_z': (['frequency'], platform_dict['transducer_offset_z'],
+                                                 {'long_name': 'z-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
+                         'water_level': ([], platform_dict['water_level'],
+                                         {'long_name': 'z-axis distance from the platform coordinate system '
+                                                       'origin to the sonar transducer',
+                                          'units': 'm'})
+                         },
+                        coords={'frequency': (['frequency'], platform_dict['frequency'],
+                                              {'units': 'Hz',
+                                               'valid_min': 0.0}),
+                                'time': (['time'], platform_dict['time'],
+                                         {'axis': 'T',
+                                          'calendar': 'gregorian',
+                                          'long_name': 'Timestamps for position data',
+                                          'standard_name': 'time',
+                                          'units': 'nanoseconds since 1601-01-01 00:00:00Z'})},
+                        attrs={'platform_code_ICES': '',
+                               'platform_name': platform_dict['platform_name'],
+                               'platform_type': 'Ship'})
+                               # platform_type from: http://vocab.ices.dk/services/pox/GetCodeList/Platform%20Class
+        # save to file
+        ds.to_netcdf(path=nc_path, mode="a", group="Platform")
