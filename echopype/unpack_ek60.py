@@ -427,11 +427,11 @@ def save_raw_to_nc(input_file_path):
 
     # Create nc file by creating top-level group
     tl_attrs = ('Conventions', 'keywords',
-                      'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
-                      'summary', 'title')
+                'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
+                'summary', 'title')
     tl_vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
-                     'ICES', 'SONAR-netCDF4', '1.7',
-                     '', '')
+               'ICES', 'SONAR-netCDF4', '1.7',
+               '', '')
     tl_dict = dict(zip(tl_attrs, tl_vals))
     tl_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
                                           '%Y%m%d-%H%M%S').isoformat() +'Z'
@@ -455,7 +455,7 @@ def save_raw_to_nc(input_file_path):
     # Sonar group
     sonar_attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
                    'sonar_software_name', 'sonar_software_version', 'sonar_type')
-    sonar_vals = ('Simrad', 'EK60', '',
+    sonar_vals = ('Simrad', config_header['sounder_name'].decode('utf-8'), '',
                   '', config_header['version'].decode('utf-8'), 'echosounder')
     sonar_dict = dict(zip(sonar_attrs, sonar_vals))
     ep.set_group_sonar(nc_path, sonar_dict)
