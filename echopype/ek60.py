@@ -31,33 +31,18 @@ DATAGRAM_HEADER_SIZE = 12
 CONFIG_HEADER_SIZE = 516
 CONFIG_TRANSDUCER_SIZE = 320
 
-
 # set global regex expressions to find all sample, annotation and NMEA sentences
 SAMPLE_REGEX = b'RAW\d{1}'
 SAMPLE_MATCHER = re.compile(SAMPLE_REGEX, re.DOTALL)
 FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
 FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
 
-m = re.match(r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})', "OOI-D20180211-T164025")
-
-
 # Reference time "seconds since 1900-01-01 00:00:00"
 REF_TIME = date2num(dt(1900, 1, 1, 0, 0, 0))
-
-
-# ---------- NEED A GENERIC FILENAME PARSER -------------
-# Common EK60 *.raw filename format
-# EK60_RAW_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
-# EK60_RAW_NAME_MATCHER = re.compile(EK60_RAW_NAME_REGEX)
-
-# # Regex to extract the timestamp from the *.raw filename (path/to/OOI-DYYYYmmdd-THHMMSS.raw)
-# FILE_NAME_REGEX = r'(?P<Refdes>\S*)_*OOI-D(?P<Date>\d{8})-T(?P<Time>\d{6})\.raw'
-# FILE_NAME_MATCHER = re.compile(FILE_NAME_REGEX)
 
 WINDOWS_EPOCH = dt(1601, 1, 1)
 NTP_EPOCH = dt(1900, 1, 1)
 NTP_WINDOWS_DELTA = (NTP_EPOCH - WINDOWS_EPOCH).total_seconds()
-
 
 # Numpy data type object for unpacking the Sample datagram including the header from binary *.raw
 sample_dtype = np.dtype([('length1', 'i4'),  # 4 byte int (long)
@@ -267,9 +252,6 @@ def append_metadata(metadata, channel, sample_data):
     metadata['absorption_coeff'].append(sample_data['absorption_coefficient'][0])    # [dB/m]
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
     metadata['mode'].append(sample_data['mode'][0])             # >1: split-beam, 0: single-beam
-
-    # metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
-    #                                   sample_data['sample_interval'][0] / 2)         # [meters]
 
     return metadata
 
