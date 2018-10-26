@@ -2,16 +2,14 @@
 Functions to unpack Simrad EK60 .raw files
 Modification from original source (cited below) included:
 - python 3.6 compatibility
-- stripped off mi-instrument dependency to make this standalone
+- strip off dependency on other mi-instrument functions
+- unpack split-beam angle data
+- unpack various additional variables
+- support saving to netCDF file
 
-To be added:
-- need a generic .raw filename parser
-- restore logging function
-- restore exception handler
-
-Original source of parser code was from:
+Original source for unpacking power data part:
 oceanobservatories/mi-instrument @https://github.com/oceanobservatories/mi-instrument
-Author Ronald Ronquillo & Richard Han
+Authors: Ronald Ronquillo & Richard Han
 
 """
 
