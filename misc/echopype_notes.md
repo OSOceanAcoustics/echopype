@@ -72,8 +72,8 @@
 
 
 ****************************************************
-## 2018/10/23
-Reading the code `unpack_ek60.py` again:
+## 2018/10/23 to 2018/10/26
+Reading the code `unpack_ek60.py` again, below are from the original version:
 - `config_header` is a `dict` with the following field:
   ```python
   In[27]: config_header
@@ -125,24 +125,93 @@ Reading the code `unpack_ek60.py` again:
   metadata['depth_bin_size'].append(sample_data['sound_velocity'][0] *
                                     sample_data['sample_interval'][0] / 2)         # [meters]
   ```
+
 Code revision:
-  - `motion_data` is actually contained in `sample_data` so don't need an extra variable --> done
-  - revised ping-by-ping saving to `angle_data_dict` and `motion_data_dict` as well as their conversion to np.array
-TODO:
-- add more parameters to `append_metadata` `sample_data` so that all metadata can be saved to nc file
+  - `first_ping_metadata` now contains additional variables that were not unpacked from before
+  - `motion` contains pitch, roll, heave and unpacks what was stored in `sample_data`
+  - many variables in `sample_data` are fixed for OOI data but may vary for shipboard data? in SONAR-netCDF4 convention they all have dimension `ping_time`. Now storing the following to `tr_data_dict`:
+    - `bandwidth` (`transmit_bandwidth` in convention)
+    - `pulse_length` (`transmit_duration_nominal` in convention)
+    - `transmit_power`
+    - `frequency`: this is fixed for EK60 but may change for EK80? (**check with Chu/Robert**)
+    - `sample_interval`
+    When saved to nc file these variables have dimension `(frequency, ping_time)`
+
+Under Sonar group:
+  - haven't implemented `beam_stabilisation_t`, `samplet_t` etc. under Sonar group
+
+Under Beam group:
+  - adding:
+    - dimension `range_bin` which is a bin count from 0
+    - dimension `frequency` for multi-freq echosounder files with attributes `units` and `valid_min`
+    - `channel_id`
+    - `sa_correction`
+    - `gpt_software_version`
+  - beamwidth-related variables:
+    - `beamwidth_receive_major`, `beamwidth_receive_minor`, `beamwidth_transmit_major`, `beamwidth_transmit_minor` are stored as scalar
+    - `*_major`-->`alongship` and `*_minor`-->`athwartship`
+    - `beamwidth_receive_major` = `beamwidth_transmit_major`
+    - `beamwidth_receive_minor` = `beamwidth_transmit_minor`
+  - haven't implemented the following:
+    - dimension/coordinate `beam`
+    - `beam_stabilisation`
+    - `beam_type`
+    - `receiver_sensitivity` (**not sure what this is**)
+    - `time_varied_gain`
+    - `transmit_duration_equivalent`
+    - `transmit_frequency_start`
+    - `transmit_frequency_stop`
+    - `transmit_source_level`
+    - `transmit_type`
+    - `transducer_gain` --> use only `gain_correction` to store values from `config_transducer['gain']`
+    - `time_varied_gain` --> do not save this since this is part of the unpacked data, will calculate when data is used, **need to review this!**
+  - backscatter measurements:
+    - `backscatter_i` doesn't exist for EK60
+    - use `backscatter_r` to store `power_data` unpacked from EK60
+  - `non_quantitative_processing` is set to 0
+  - `sample_data['offset']` is 0 --> set `beam_dict['sample_time_offset']` = 2 for EK60 data
+  - `transducer_gain` is used to stored `sample_data['gain']`
+  - define `conversion_equation_t` = 'type_3' for EK60 calibration
+
+Under Platform group:
+  - haven't implemented the following:
+    - `distance`
+    - `heading`
+    - `latitude`
+    - `longitude`
+    - `MRU_offset_x/y/z`
+    - `MRU_rotation_x/y/z`
+    - `position_offset_x/y/z`
+    - `speed_ground`
+    - `speed_relative`
+    - `vertical_offset`
+    - `water_level`
+  - adding:
+    - dimension `frequency` for multi-freq echosounder files with attributes `units` and `valid_min`
+  - `transducer_offset_z` is a combination of `config_transducer['pos_z'] + first_ping_metadata['trans']`
+
 Cautions and questions:
-- many variables in `sample_data` are fixed for OOI data but may vary for shipboard data? in SONAR-netCDF4 convention they all have dimension `ping_time`
-  - `sample_interval`
-  - `bandwidth` (`transmit_bandwidth` in convention)
-  - `pulse_length` (`transmit_duration_nominal` in convention)
-  - `transmit_power`
-  - `frequency`: this is fixed for EK60 but may change for EK80? (**check with Chu/Robert**)
-- current not dealing with:
+- current not storing the following in `sample_data`:
   - `trawl_upper_depth_valid`
   - `trawl_opening_valid`
   - `trawl_upper_depth`
   - `trawl_opening`
-- **not sure what `sample_data['offset']` is**
+- **not sure what `sample_data['offset']` is** --> currently not stored in nc file, `beam_dict['sample_time_offset']` set to 2 based on TVG calculation from example in Echolab
+- **CHECK** `transducer_depth` is currently unpacked into `first_ping_metadata` and is only saved once for each channel, need to figure out if it's changing ping-by-ping
+- consider moving `channel_id`, `sa_correction`, `gpt_software_version` to the Vendor-specific group, currently they are in the Beam group
+- variables that need to think about where it should be:
+  - `config_header['sounder_name']` --> current not stored under Sonar group as `sonar_model` (e.g., ER60)
+  - `config_header['survey_name']` --> current stored under Platform group as `platform_name` (e.g., DY1801_EK60)
+  - `config_transducer['channel_id']` --> currently stored under Beam group as `channel_id`
+  - `config_transducer['sa_correction_table']` --> currently stored under Beam group as `sa_correction` after sorting out the match using `pulse_length`
+  - `config_transducer['gpt_software_version']` --> currently stored under Beam group as `gpt_software_version`
+- **TODO**: need to figure out how to code the time properly in nc files, the SONAR-netCDF4 convention uses "nanoseconds since .."" doesn't seem to be allowed under CF convention
+- **TODO**: need to change all trailing 'Z' in the saved times to actual timezone
+- **TODO** move `transducer_offset_x/y/z` from Platform to Beam group
+- **consider combining beam group with sonar group**
+
+
+
 
 ****************************************************
 ## Next steps
