@@ -20,7 +20,8 @@ import numpy as np
 import re
 import os
 from datetime import datetime as dt
-from matplotlib.dates import num2date, date2num
+from matplotlib.dates import date2num
+import pytz
 import echopype as ep
 
 
@@ -423,7 +424,7 @@ def save_raw_to_nc(raw_filename):
 
     # Provenance group
     prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
-    prov_vals = ('echopype', 'v0.1', dt.now().isoformat(timespec='seconds')+'Z')
+    prov_vals = ('echopype', 'v0.1', dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
     prov_dict = dict(zip(prov_attrs, prov_vals))
     ep.set_group_provenance(nc_path, os.path.basename(raw_filename), prov_dict)
 
