@@ -20,7 +20,7 @@ import numpy as np
 import re
 import os
 from datetime import datetime as dt
-from matplotlib.dates import date2num
+from matplotlib.dates import num2date, date2num
 import echopype as ep
 
 
@@ -278,7 +278,6 @@ def load_ek60_raw(raw_filename):
         first_ping_metadata = defaultdict(list)  # metadata for each channel
         power_data_dict = defaultdict(list)      # echo power
         angle_data_dict = defaultdict(list)      # alongship and athwartship electronic angle
-        motion_data_dict = defaultdict(list)     # heave, pitch, and roll motion
         tr_data_dict = defaultdict(list)         # transmit signal metadata
         data_times = []                          # ping time
         motion = []                              # pitch, roll, heave
@@ -370,10 +369,7 @@ def load_ek60_raw(raw_filename):
             # Read the next block for regex search
             raw = input_file.read(BLOCK_SIZE)
 
-        # convert ntp time, i.e. seconds since 1900-01-01 00:00:00 to matplotlib time
         data_times = np.array(data_times)
-        data_times = (data_times / (60 * 60 * 24)) + REF_TIME
-
         # Convert to numpy array and decompress power data to dB
         for channel in power_data_dict:
             power_data_dict[channel] = np.array(power_data_dict[channel]) * 10. * np.log10(2) / 256.
@@ -381,7 +377,6 @@ def load_ek60_raw(raw_filename):
                 angle_data_dict[channel] = np.array(angle_data_dict[channel])
             else:  # if single-beam data
                 angle_data_dict[channel] = []
-            motion_data_dict[channel] = np.array(motion_data_dict[channel])
             tr_data_dict[channel] = np.array(tr_data_dict[channel])
 
         return first_ping_metadata, data_times, motion, \
@@ -418,11 +413,11 @@ def save_raw_to_nc(raw_filename):
     ep.set_attrs_toplevel(nc_path, tl_dict)
 
     # Environment group
-    freq_coord = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
+    freq = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
     abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
     ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
     env_attrs = ('frequency', 'absorption_coeff', 'sound_speed')
-    env_vals = (freq_coord, abs_val, ss_val)
+    env_vals = (freq, abs_val, ss_val)
     env_dict = dict(zip(env_attrs, env_vals))
     ep.set_group_environment(nc_path, env_dict)
 
@@ -444,7 +439,8 @@ def save_raw_to_nc(raw_filename):
     beam_dict = dict()
     beam_dict['beam_mode'] = 'vertical'
     beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
-    beam_dict['ping_time'] = data_times            # here in matplotlib time
+    beam_dict['ping_time'] = data_times   # here in seconds since 1900-01-01
+                                          # this makes it easier for xarray.to_netcdf conversion
     beam_dict['backscatter_r'] = np.array([power_data_dict[x] for x in power_data_dict])
     beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship']
                                                      for x in config_transducer.__iter__()], dtype='float32')
@@ -460,10 +456,10 @@ def save_raw_to_nc(raw_filename):
     beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle']
                                                    for x in config_transducer.__iter__()], dtype='float32')
     beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['non_quantitative_processing'] = np.array([0, ]*freq_coord.size, dtype='int32')
+    beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
     beam_dict['sample_interval'] = np.array([x['sample_interval'] for x in tr_data_dict.values()],
                                             dtype='float32').squeeze()  # dimension frequency
-    beam_dict['sample_time_offset'] = np.array([2, ]*freq_coord.size,
+    beam_dict['sample_time_offset'] = np.array([2, ] * freq.size,
                                                dtype='int32')  # set to 2 for EK60 data, NOT from sample_data['offset']
     beam_dict['transmit_duration_nominal'] = np.array([x['pulse_length']
                                                        for x in tr_data_dict.values()], dtype='float32').squeeze()
@@ -472,7 +468,7 @@ def save_raw_to_nc(raw_filename):
     beam_dict['transmit_bandwidth'] = np.array([x['bandwidth']
                                                 for x in tr_data_dict.values()], dtype='float32').squeeze()
     # Below not in convention
-    beam_dict['frequency'] = freq_coord
+    beam_dict['frequency'] = freq
     beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])
     beam_dict['channel_id'] = [x['channel_id'].decode('utf-8') for x in config_transducer.__iter__()]
     beam_dict['gpt_software_version'] = [x['gpt_software_version'].decode('utf-8')
@@ -498,7 +494,8 @@ def save_raw_to_nc(raw_filename):
         platform_dict['platform_type'] = 'subsurface mooring'  # if OOI
     else:
         platform_dict['platform_type'] = 'ship'  # default to ship
-    platform_dict['time'] = data_times          # here in matplotlib time
+    platform_dict['time'] = data_times    # here in seconds since 1900-01-01
+                                          # this makes it easier for xarray.to_netcdf conversion
     platform_dict['pitch'] = np.array([x['pitch'] for x in motion.__iter__()], dtype='float32').squeeze()
     platform_dict['roll'] = np.array([x['roll'] for x in motion.__iter__()], dtype='float32').squeeze()
     platform_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()

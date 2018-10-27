@@ -218,7 +218,7 @@ def set_group_beam(nc_path, beam_dict):
                                                'calendar': 'gregorian',
                                                'long_name': 'Timestamp of each ping',
                                                'standard_name': 'time',
-                                               'units': 'nanoseconds since 1601-01-01 00:00:00Z'}),
+                                               'units': 'seconds since 1900-01-01'}),
                                 'range_bin': (['range_bin'], beam_dict['range_bin'])},
                         attrs={'beam_mode': 'vertical',
                                'conversion_equation_t': 'type_3'})
@@ -263,7 +263,7 @@ def set_group_platform(nc_path, platform_dict):
                                           'calendar': 'gregorian',
                                           'long_name': 'Timestamps for position data',
                                           'standard_name': 'time',
-                                          'units': 'nanoseconds since 1601-01-01 00:00:00Z'})},
+                                          'units': 'seconds since 1900-01-01'})},
                         attrs={'platform_code_ICES': '',
                                'platform_name': platform_dict['platform_name'],
                                'platform_type': platform_dict['platform_type']})
