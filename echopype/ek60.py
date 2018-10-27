@@ -460,10 +460,11 @@ def save_raw_to_nc(raw_filename):
     beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle']
                                                    for x in config_transducer.__iter__()], dtype='float32')
     beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['non_quantitative_processing'] = np.array([0, ]*5, dtype='int32')
+    beam_dict['non_quantitative_processing'] = np.array([0, ]*freq_coord.size, dtype='int32')
     beam_dict['sample_interval'] = np.array([x['sample_interval'] for x in tr_data_dict.values()],
                                             dtype='float32').squeeze()  # dimension frequency
-    beam_dict['sample_time_offset'] = np.array([2, ]*5, dtype='int32')  # set to 2 for EK60 data, NOT from sample_data['offset']
+    beam_dict['sample_time_offset'] = np.array([2, ]*freq_coord.size,
+                                               dtype='int32')  # set to 2 for EK60 data, NOT from sample_data['offset']
     beam_dict['transmit_duration_nominal'] = np.array([x['pulse_length']
                                                        for x in tr_data_dict.values()], dtype='float32').squeeze()
     beam_dict['transmit_power'] = np.array([x['transmit_power']
