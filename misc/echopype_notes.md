@@ -210,8 +210,6 @@ Cautions and questions:
   - use UTC time in the Provenance group for file conversion time `dt.now(tz=pytz.utc).isoformat(timespec='seconds')`, note the use of `pytz.utc` here
 
 TODO:
-- change all trailing 'Z' in the saved times to actual timezone
-- move `transducer_offset_x/y/z` from Platform to Beam group
 - consider combining beam group with sonar group
 - revive error catching code
 - revise data manipulation (TVG compensation, noise removal, db-differencing, etc) classes using nc file as input
