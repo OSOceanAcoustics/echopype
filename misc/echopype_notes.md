@@ -205,77 +205,12 @@ Cautions and questions:
   - `config_transducer['channel_id']` --> currently stored under Beam group as `channel_id`
   - `config_transducer['sa_correction_table']` --> currently stored under Beam group as `sa_correction` after sorting out the match using `pulse_length`
   - `config_transducer['gpt_software_version']` --> currently stored under Beam group as `gpt_software_version`
-- **TODO**: need to figure out how to code the time properly in nc files, the SONAR-netCDF4 convention uses "nanoseconds since .."" doesn't seem to be allowed under CF convention
-- **TODO**: need to change all trailing 'Z' in the saved times to actual timezone
-- **TODO** move `transducer_offset_x/y/z` from Platform to Beam group
-- **consider combining beam group with sonar group**
+- To take advantage of the serialization supported by xarray, the `ping_time` units is changed to 'seconds since 1900-01-01'. The recommended 'nanoseconds since 1601-01-01' results in errors when using `xr.opendataset` unless a flag `decode_time=False` is used.
 
-
-
-
-****************************************************
-## Next steps
-- change `raw2hdf5` functions to `raw2netcdf` functions
-- Save temperature??
-- Need to revive error catch code
+TODO:
+- change all trailing 'Z' in the saved times to actual timezone
+- move `transducer_offset_x/y/z` from Platform to Beam group
+- consider combining beam group with sonar group
+- revive error catching code
+- revise data manipulation (TVG compensation, noise removal, db-differencing, etc) classes using nc file as input
 - write a method in the model class to convert electronic angle to mechanical angle
-
-
-
-## Echolab metadata format --> common sonar netCDF format
-This keeps tracks of which parameters in the common sonar netCDF format are from where in the original Echolab unpacked structure.
-
-Below 'X' indicates not available in the netCDF file.
-
-### `config_header`
-These data are stored in `config_header` and unpacked once per file.
-
-Echolab           | Common netCDF                          | Example/Description
------------------ | -------------------------------------- | -----------------------
-sunder_name       | sensor_model                           | ER60
-survey_name       | deployment_info                        | DY1801_EK60
-transect_name     | X                                      |
-version           | firmware_info                          | 2.4.3
-transducer_count  | X                                      |
-
-### `config_transducer`
-These data are stored in `config_transducer` and unpacked once per file.
-
-Echolab                        | Common netCDF                      | Example/Description
------------------------------- | ---------------------------------- | ---------------------------
-channel_id                     | sensor_model                       | GPT  18 kHz 009072034d45 1-1 ES18-11
-beam_type                      | beam_type                          | 1
-frequency                      | frequency                          | 18000.0
-gain                           | gain                               |
-equiv_beam_angle               | equiv_beam_angle                   |
-beam_width_alongship           | beam_width_alongship               |
-beam_width_athwartship         | beam_width_athwartship             |
-angle_sensitivity_alongship    | angle_sensitivity_alongship        |
-angle_sensitivity_athwartship  | angle_sensitivity_athwartship      |
-angle_offset_alongship         | angle_offset_alongship             |
-angle_offset_athwart           | angle_offset_athwartship           |
-pos_x                          | pos_x                              |
-pos_y                          | pos_y                              |
-pos_z                          | pos_z                              |
-dir_x                          | dir_x                              |
-dir_y                          | dir_y                              |
-dir_z                          | dir_z                              |
-pulse_length_table             | X --> only keep pulse_length       |
-gain_table                     | X --> only keep gain               |
-gpt_software_version           | software_info                      |
-sa_correction_table            | X --> only keep sa_correction      |
-
-### Other metadata from `sample_data`
-These data are stored in `sample_data` and unpacked **per ping**.
-
-Echolab                        | Common netCDF                      | Example/Description
------------------------------- | ---------------------------------- | ---------------------------
-transducer_depth               | transducer_depth                   |
-transmit_power                 | transmit_power                     |
-pulse_length                   | pulse_length                       |
-bandwidth                      | bandwidth                          |
-sample_interval                | sample_interval                    |
-sound_velocity                 | sound_velocity                     |
-absorption_coeff               | absorption_coeff                   |
-temperature                    | temperature                        |
-channel_number                 | channel_number                     | numerical sequence of channel
