@@ -481,22 +481,27 @@ def save_raw_to_nc(raw_filename):
            for x in range(len(config_transducer))]
     beam_dict['sa_correction'] = np.array([x['sa_correction_table'][y]
                                            for x, y in zip(config_transducer.__iter__(), np.array(idx))])
+
+    # Below is in Platform group in convention
+    beam_dict['transducer_offset_x'] = np.array([x['pos_x'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['transducer_offset_y'] = np.array([x['pos_y'] for x in config_transducer.__iter__()], dtype='float32')
+    beam_dict['transducer_offset_z'] = np.array([x['pos_z'] for x in config_transducer.__iter__()],
+                                                dtype='float32') + \
+                                       np.array([x['transducer_depth'][0] for x in first_ping_metadata.values()],
+                                                dtype='float32')
     ep.set_group_beam(nc_path, beam_dict)
 
     # Platform group
     platform_dict = dict()
     platform_dict['platform_name'] = config_header['survey_name'].decode('utf-8')
+    if re.search('OOI', platform_dict['platform_name']):
+        platform_dict['platform_type'] = 'subsurface mooring'  # if OOI
+    else:
+        platform_dict['platform_type'] = 'ship'  # default to ship
     platform_dict['time'] = data_times          # here in matplotlib time
-    platform_dict['frequency'] = freq_coord     # this is not in convention
     platform_dict['pitch'] = np.array([x['pitch'] for x in motion.__iter__()], dtype='float32').squeeze()
     platform_dict['roll'] = np.array([x['roll'] for x in motion.__iter__()], dtype='float32').squeeze()
     platform_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()
-    platform_dict['transducer_offset_x'] = np.array([x['pos_x'] for x in config_transducer.__iter__()], dtype='float32')
-    platform_dict['transducer_offset_y'] = np.array([x['pos_y'] for x in config_transducer.__iter__()], dtype='float32')
-    platform_dict['transducer_offset_z'] = np.array([x['pos_z'] for x in config_transducer.__iter__()],
-                                                    dtype='float32') + \
-                                           np.array([x['transducer_depth'][0] for x in first_ping_metadata.values()],
-                                                    dtype='float32')
     platform_dict['water_level'] = np.int32(0)  # set to 0 for EK60 since this is not separately recorded
                                                 # and is part of transducer_depth
     ep.set_group_platform(nc_path, platform_dict)
