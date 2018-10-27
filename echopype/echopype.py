@@ -194,6 +194,18 @@ def set_group_beam(nc_path, beam_dict):
                                             {'long_name': 'Nominal transmit power',
                                              'units': 'W',
                                              'valid_min': 0.0}),
+                         'transducer_offset_x': (['frequency'], beam_dict['transducer_offset_x'],
+                                                 {'long_name': 'x-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
+                         'transducer_offset_y': (['frequency'], beam_dict['transducer_offset_y'],
+                                                 {'long_name': 'y-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
+                         'transducer_offset_z': (['frequency'], beam_dict['transducer_offset_z'],
+                                                 {'long_name': 'z-axis distance from the platform coordinate system '
+                                                               'origin to the sonar transducer',
+                                                  'units': 'm'}),
                          'channel_id': (['frequency'], beam_dict['channel_id']),
                          'gpt_software_version': (['frequency'], beam_dict['gpt_software_version']),
                          'sa_correction': (['frequency'], beam_dict['sa_correction'])
@@ -241,27 +253,12 @@ def set_group_platform(nc_path, platform_dict):
                                     'standard_name': 'platform_heave_angle',
                                     'units': 'arc_degree',
                                     'valid_range': (-90.0, 90.0)}),
-                         'transducer_offset_x': (['frequency'], platform_dict['transducer_offset_x'],
-                                                 {'long_name': 'x-axis distance from the platform coordinate system '
-                                                               'origin to the sonar transducer',
-                                                  'units': 'm'}),
-                         'transducer_offset_y': (['frequency'], platform_dict['transducer_offset_y'],
-                                                 {'long_name': 'y-axis distance from the platform coordinate system '
-                                                               'origin to the sonar transducer',
-                                                  'units': 'm'}),
-                         'transducer_offset_z': (['frequency'], platform_dict['transducer_offset_z'],
-                                                 {'long_name': 'z-axis distance from the platform coordinate system '
-                                                               'origin to the sonar transducer',
-                                                  'units': 'm'}),
                          'water_level': ([], platform_dict['water_level'],
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                           'units': 'm'})
                          },
-                        coords={'frequency': (['frequency'], platform_dict['frequency'],
-                                              {'units': 'Hz',
-                                               'valid_min': 0.0}),
-                                'time': (['time'], platform_dict['time'],
+                        coords={'time': (['time'], platform_dict['time'],
                                          {'axis': 'T',
                                           'calendar': 'gregorian',
                                           'long_name': 'Timestamps for position data',
@@ -269,7 +266,6 @@ def set_group_platform(nc_path, platform_dict):
                                           'units': 'nanoseconds since 1601-01-01 00:00:00Z'})},
                         attrs={'platform_code_ICES': '',
                                'platform_name': platform_dict['platform_name'],
-                               'platform_type': 'Ship'})
-                               # platform_type from: http://vocab.ices.dk/services/pox/GetCodeList/Platform%20Class
+                               'platform_type': platform_dict['platform_type']})
         # save to file
         ds.to_netcdf(path=nc_path, mode="a", group="Platform")
