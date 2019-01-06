@@ -206,6 +206,7 @@ Cautions and questions:
   - `config_transducer['sa_correction_table']` --> currently stored under Beam group as `sa_correction` after sorting out the match using `pulse_length`
   - `config_transducer['gpt_software_version']` --> currently stored under Beam group as `gpt_software_version`
 - [Solved] figure out how to code the time properly in nc files, the SONAR-netCDF4 convention uses "nanoseconds since .." doesn't seem to be allowed under CF convention
+  - some hints here: https://github.com/pydata/xarray/issues/1324
   - To take advantage of the serialization supported by xarray, the `ping_time` units is changed to 'seconds since 1900-01-01'. The recommended 'nanoseconds since 1601-01-01' results in errors when using `xr.opendataset` unless a flag `decode_time=False` is used.
   - use UTC time in the Provenance group for file conversion time `dt.now(tz=pytz.utc).isoformat(timespec='seconds')`, note the use of `pytz.utc` here
 
