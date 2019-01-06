@@ -8,20 +8,22 @@ echopype is an open-source tool for converting and processing active sonar data 
 
 This project is lead by [Wu-Jung Lee](http://leewujung.github.io) ([@leewujung](https://github.com/leewujung)) with contributions from multiple participants of [Oceanhackweek 2018](https://oceanhackweek.github.io/).
 
-**Status update**: ongoing work:
+### Status update
+Ongoing work:
 - modification of the ICES SONAR-netCDF4 convention to facilitate later use of Python distributed processing libraries
 - reorganization of project folder structure to facilitate modularization and testing.
 - file conversion functionality from Simrad EK60 `.raw` files to `.nc` files nearly complete
 
+
 ## Sonar data format conversion
-The lack of interoperability among data collected by different sonar systems is currently a major obstacle in integrative analysis of sonar data across large temporal and spatial regions. echopype aims to address this problem by creating convenient tools for converting data from manufacturer-specific formats into [netCDF files](https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html) of a common, interoperable format. This file format is widely used in geosciences and climate research, supported by many powerful software packages (e.g.,[xarray](http://xarray.pydata.org)) and allow random data access and out-of-memory operations.
+The lack of interoperability among data collected by different sonar systems is currently a major obstacle in integrative analysis of sonar data across large temporal and spatial regions. echopype aims to address this problem by creating convenient tools for converting data from manufacturer-specific formats into [netCDF files](https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html) of a common, interoperable format. This file format is widely used in geosciences and climate research and is supported by many powerful Python distributed processing libraries, such as [xarray](http://xarray.pydata.org).
 
 ### Common file format
 Currently echopype use a modified form of the [ICES SONAR-netCDF4 convention](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf) as the interoperable common data format to which all data will be converted to. [Here](https://github.com/ices-eg/wg_WGFAST/tree/master/SONAR-netCDF4) is a GitHub folder with details of this convention in convenient tables. Detail of the modification is discussed in a separate section below.
 
 ### Supported file types
 In the first stage of development, we plan to support data conversion for data collected by three sonar systems commonly found on research vessels:
-1. `.raw` files from Simrad EK60 narrowband echosounder
+- `.raw` files from Simrad EK60 narrowband echosounder
 - `.raw` files from Simrad EK80 broadband echosounder
 - `.01A` files from ASL Environmental Sciences AZFP echosounder
 
