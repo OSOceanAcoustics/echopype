@@ -7,23 +7,24 @@ ver_file = os.path.join('echopype', 'version.py')
 with open(ver_file) as f:
     exec(f.read())
 
-opts = dict(name=echopype,
-            maintainer=MAINTAINER,
-            maintainer_email=MAINTAINER_EMAIL,
-            description=DESCRIPTION,
-            long_description=LONG_DESCRIPTION,
-            url=URL,
-            download_url=DOWNLOAD_URL,
-            license=LICENSE,
-            classifiers=CLASSIFIERS,
-            author=AUTHOR,
-            author_email=AUTHOR_EMAIL,
-            platforms=PLATFORMS,
-            version=VERSION,
-            packages=PACKAGES,
-            package_data=PACKAGE_DATA,
-            install_requires=REQUIRES,
-            requires=REQUIRES)
+opts = dict(name = "echopype",
+            maintainer = "Wu-Jung Lee",
+            maintainer_email = "leewujung@gmail.com",
+            description = DESCRIPTION,
+            long_description = LONG_DESCRIPTION,
+            url = "https://github.com/OSOceanAcoustics/echopype",
+            download_url = "",
+            license = "Apache 2.0",
+            classifiers = CLASSIFIERS,
+            author = "Wu-Jung Lee",
+            author_email = "leewujung@gmail.com",
+            platforms = "OS Independent",
+            version = VERSION,
+            packages = PACKAGES,
+            package_data = PACKAGE_DATA,
+            install_requires = REQUIRES,
+            requires = REQUIRES,
+            test_requires = ['tox'])
 
 
 if __name__ == '__main__':
