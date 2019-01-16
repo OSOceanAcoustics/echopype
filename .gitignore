@@ -12,3 +12,5 @@ __pycache__/
 *.tex
 *~
 *.nc
+*.egg-info/
+.tox/
