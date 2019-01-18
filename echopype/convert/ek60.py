@@ -1,16 +1,12 @@
-"""
-Functions to unpack Simrad EK60 .raw files
-Modification from original source (mentioned below) included:
+"""Functions to unpack Simrad EK60 .raw and save to .nc.
+
+Pieces for unpacking power data part came from:
+https://github.com/oceanobservatories/mi-instrument (authors: Ronald Ronquillo & Richard Han)
+Specific modifications include:
 - python 3.6 compatibility
 - strip off dependency on other mi-instrument functions
 - unpack split-beam angle data
-- unpack various additional variables
-- support saving to netCDF file
-
-Original source for unpacking power data part:
-oceanobservatories/mi-instrument @https://github.com/oceanobservatories/mi-instrument
-Authors: Ronald Ronquillo & Richard Han
-
+- unpack various additional variables needed for calibration
 """
 
 
@@ -22,7 +18,7 @@ import os
 from datetime import datetime as dt
 from matplotlib.dates import date2num
 import pytz
-import echopype as ep
+from .set_nc_groups import SetGroups
 
 
 # Set constants for unpacking .raw files
@@ -386,22 +382,24 @@ def load_ek60_raw(raw_filename):
 
 
 def save_raw_to_nc(raw_filename):
-    """
-    Save data from RAW to netCDF format
+    """ Save data from RAW to netCDF format.
+
     :param raw_filename:
-    :return:
     """
     # Load data from RAW file
     first_ping_metadata, data_times, motion, \
-    power_data_dict, angle_data_dict, tr_data_dict, \
-    config_header, config_transducer = load_ek60_raw(raw_filename)
+        power_data_dict, angle_data_dict, tr_data_dict, \
+        config_header, config_transducer = load_ek60_raw(raw_filename)
 
     # Get nc filename
     filename = os.path.splitext(os.path.basename(raw_filename))[0]
     nc_path = os.path.join(os.path.split(raw_filename)[0], filename + '.nc')
     fm = FILENAME_MATCHER.match(filename)
 
-    # Create nc file by creating top-level group
+    # Create SetGroups object
+    grp = SetGroups(file_path=nc_path)
+
+    # Top-level group
     tl_attrs = ('Conventions', 'keywords',
                 'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
                 'summary', 'title')
@@ -411,7 +409,7 @@ def save_raw_to_nc(raw_filename):
     tl_dict = dict(zip(tl_attrs, tl_vals))
     tl_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
                                           '%Y%m%d-%H%M%S').isoformat() +'Z'
-    ep.set_attrs_toplevel(nc_path, tl_dict)
+    grp.set_toplevel(tl_dict)  # save to nc file
 
     # Environment group
     freq = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
@@ -420,13 +418,13 @@ def save_raw_to_nc(raw_filename):
     env_attrs = ('frequency', 'absorption_coeff', 'sound_speed')
     env_vals = (freq, abs_val, ss_val)
     env_dict = dict(zip(env_attrs, env_vals))
-    ep.set_group_environment(nc_path, env_dict)
+    grp.set_env(env_dict)  # save to nc file
 
     # Provenance group
     prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
     prov_vals = ('echopype', 'v0.1', dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
     prov_dict = dict(zip(prov_attrs, prov_vals))
-    ep.set_group_provenance(nc_path, os.path.basename(raw_filename), prov_dict)
+    grp.set_provenance(os.path.basename(raw_filename), prov_dict)  # save to nc file
 
     # Sonar group
     sonar_attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
@@ -434,7 +432,7 @@ def save_raw_to_nc(raw_filename):
     sonar_vals = ('Simrad', config_header['sounder_name'].decode('utf-8'), '',
                   '', config_header['version'].decode('utf-8'), 'echosounder')
     sonar_dict = dict(zip(sonar_attrs, sonar_vals))
-    ep.set_group_sonar(nc_path, sonar_dict)
+    grp.set_sonar(sonar_dict)  # save to nc file
 
     # Beam group
     beam_dict = dict()
@@ -486,7 +484,7 @@ def save_raw_to_nc(raw_filename):
                                                 dtype='float32') + \
                                        np.array([x['transducer_depth'][0] for x in first_ping_metadata.values()],
                                                 dtype='float32')
-    ep.set_group_beam(nc_path, beam_dict)
+    grp.set_beam(beam_dict)  # save to nc file
 
     # Platform group
     platform_dict = dict()
@@ -502,4 +500,4 @@ def save_raw_to_nc(raw_filename):
     platform_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()
     platform_dict['water_level'] = np.int32(0)  # set to 0 for EK60 since this is not separately recorded
                                                 # and is part of transducer_depth
-    ep.set_group_platform(nc_path, platform_dict)
+    grp.set_platform(platform_dict)  # save to nc file
