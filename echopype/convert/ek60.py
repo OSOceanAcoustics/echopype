@@ -1,8 +1,9 @@
-"""Functions to unpack Simrad EK60 .raw and save to .nc.
+"""
+Functions to unpack Simrad EK60 .raw and save to .nc.
 
-Pieces for unpacking power data part came from:
+Pieces for unpacking power data came from:
 https://github.com/oceanobservatories/mi-instrument (authors: Ronald Ronquillo & Richard Han)
-Specific modifications include:
+with modifications:
 - python 3.6 compatibility
 - strip off dependency on other mi-instrument functions
 - unpack split-beam angle data
@@ -547,3 +548,4 @@ def save_raw_to_nc(raw_filename):
     grp.set_sonar(_set_sonar_dict())        # sonar group
     grp.set_beam(*_set_beam_dict())        # beam group
 
+    return nc_path
