@@ -3,9 +3,10 @@ channels:
   - conda-forge
 dependencies:
   - numpy
-  - h5py
+  - netCDF4
   - matplotlib
   - datetime
+  - pytz
   - xarray
   - pandas
   - scipy
