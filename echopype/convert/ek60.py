@@ -418,6 +418,7 @@ def save_raw_to_nc(raw_filename):
 
     # Retrieve variables
     tx_num = config_header['transducer_count']
+    ping_num = data_times.size
     freq = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
     abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
     ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
@@ -517,8 +518,8 @@ def save_raw_to_nc(raw_filename):
                 tx_sig['transmit_bandwidth'][t_seq] = tr_data_dict[t_seq + 1]['bandwidth'][0]
                 beam_dict['sample_interval'][t_seq] = tr_data_dict[t_seq + 1]['sample_interval'][0]
         else:
-            tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, data_times.size), dtype='float32'))
-            beam_dict['sample_interval'] = np.zeros(shape=(tx_num, data_times.size), dtype='float32')
+            tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, ping_num), dtype='float32'))
+            beam_dict['sample_interval'] = np.zeros(shape=(tx_num, ping_num), dtype='float32')
             for t_seq in range(tx_num):
                 tx_sig['transmit_duration_nominal'][t_seq, :] = tr_data_dict[t_seq + 1]['pulse_length'].squeeze()
                 tx_sig['transmit_power'][t_seq, :] = tr_data_dict[t_seq + 1]['transmit_power'].squeeze()
@@ -534,7 +535,7 @@ def save_raw_to_nc(raw_filename):
                for x in range(len(config_transducer))]
         beam_dict['sa_correction'] = np.array([x['sa_correction_table'][y]
                                                for x, y in zip(config_transducer.__iter__(), np.array(idx))])
-        return beam_dict
+        return beam_dict, bm_width, bm_dir, tx_pos, tx_sig
 
     # Create SetGroups object
     grp = SetGroups(file_path=nc_path)
@@ -544,5 +545,5 @@ def save_raw_to_nc(raw_filename):
                        _set_prov_dict())    # provenance group
     grp.set_platform(_set_platform_dict())  # platform group
     grp.set_sonar(_set_sonar_dict())        # sonar group
-    grp.set_beam(_set_beam_dict())          # beam group
+    grp.set_beam(*_set_beam_dict())        # beam group
 
