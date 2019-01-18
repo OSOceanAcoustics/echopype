@@ -18,6 +18,7 @@ from datetime import datetime as dt
 from matplotlib.dates import date2num
 import pytz
 from .set_nc_groups import SetGroups
+from echopype.version import VERSION as ECHOPYPE_VERSION
 
 
 # Set constants for unpacking .raw files
@@ -415,108 +416,133 @@ def save_raw_to_nc(raw_filename):
     nc_path = os.path.join(os.path.split(raw_filename)[0], filename + '.nc')
     fm = FILENAME_MATCHER.match(filename)
 
-    # Create SetGroups object
-    grp = SetGroups(file_path=nc_path)
-
-    # Top-level group
-    tl_attrs = ('Conventions', 'keywords',
-                'sonar_convention_authority', 'sonar_convention_name', 'sonar_convention_version',
-                'summary', 'title')
-    tl_vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
-               'ICES', 'SONAR-netCDF4', '1.7',
-               '', '')
-    tl_dict = dict(zip(tl_attrs, tl_vals))
-    tl_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
-                                          '%Y%m%d-%H%M%S').isoformat() +'Z'
-    grp.set_toplevel(tl_dict)  # save to nc file
-
-    # Environment group
+    # Retrieve variables
+    tx_num = config_header['transducer_count']
     freq = np.array([x['frequency'][0] for x in first_ping_metadata.values()], dtype='float32')
     abs_val = np.array([x['absorption_coeff'][0] for x in first_ping_metadata.values()], dtype='float32')
     ss_val = np.array([x['sound_velocity'][0] for x in first_ping_metadata.values()], dtype='float32')
-    env_attrs = ('frequency', 'absorption_coeff', 'sound_speed')
-    env_vals = (freq, abs_val, ss_val)
-    env_dict = dict(zip(env_attrs, env_vals))
-    grp.set_env(env_dict)  # save to nc file
 
-    # Provenance group
-    prov_attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
-    prov_vals = ('echopype', 'v0.1', dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
-    prov_dict = dict(zip(prov_attrs, prov_vals))
-    grp.set_provenance(os.path.basename(raw_filename), prov_dict)  # save to nc file
+    # Subfunctions to set various dictionaries
+    def _set_toplevel_dict():
+        attrs = ('Conventions', 'keywords',
+                 'sonar_convention_authority', 'sonar_convention_name',
+                 'sonar_convention_version', 'summary', 'title')
+        vals = ('CF-1.7, SONAR-netCDF4, '
+                'ACDD-1.3', 'EK60',
+                'ICES', 'SONAR-netCDF4', '1.7',
+                '', '')
+        out_dict = dict(zip(attrs, vals))
+        out_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
+                                               '%Y%m%d-%H%M%S').isoformat() + 'Z'
+        return out_dict
 
-    # Sonar group
-    sonar_attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
-                   'sonar_software_name', 'sonar_software_version', 'sonar_type')
-    sonar_vals = ('Simrad', config_header['sounder_name'].decode('utf-8'), '',
-                  '', config_header['version'].decode('utf-8'), 'echosounder')
-    sonar_dict = dict(zip(sonar_attrs, sonar_vals))
-    grp.set_sonar(sonar_dict)  # save to nc file
+    def _set_env_dict():
+        attrs = ('frequency', 'absorption_coeff', 'sound_speed')
+        vals = (freq, abs_val, ss_val)
+        return dict(zip(attrs, vals))
 
-    # Beam group
-    beam_dict = dict()
-    beam_dict['beam_mode'] = 'vertical'
-    beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
-    beam_dict['ping_time'] = data_times   # here in seconds since 1900-01-01
-                                          # this makes it easier for xarray.to_netcdf conversion
-    beam_dict['backscatter_r'] = np.array([power_data_dict[x] for x in power_data_dict])
-    beam_dict['beamwidth_receive_major'] = np.array([x['beam_width_alongship']
-                                                     for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beamwidth_receive_minor'] = np.array([x['beam_width_athwartship']
-                                                     for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beamwidth_transmit_major'] = np.array([x['beam_width_alongship']
-                                                      for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beamwidth_transmit_minor'] = np.array([x['beam_width_athwartship']
-                                                      for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beam_direction_x'] = np.array([x['dir_x'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beam_direction_y'] = np.array([x['dir_y'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['beam_direction_z'] = np.array([x['dir_z'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['equivalent_beam_angle'] = np.array([x['equiv_beam_angle']
-                                                   for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['gain_correction'] = np.array([x['gain'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
-    beam_dict['sample_interval'] = np.array([x['sample_interval'] for x in tr_data_dict.values()],
-                                            dtype='float32').squeeze()  # dimension frequency
-    beam_dict['sample_time_offset'] = np.array([2, ] * freq.size,
-                                               dtype='int32')  # set to 2 for EK60 data, NOT from sample_data['offset']
-    beam_dict['transmit_duration_nominal'] = np.array([x['pulse_length']
-                                                       for x in tr_data_dict.values()], dtype='float32').squeeze()
-    beam_dict['transmit_power'] = np.array([x['transmit_power']
-                                            for x in tr_data_dict.values()], dtype='float32').squeeze()
-    beam_dict['transmit_bandwidth'] = np.array([x['bandwidth']
-                                                for x in tr_data_dict.values()], dtype='float32').squeeze()
-    # Below not in convention
-    beam_dict['frequency'] = freq
-    beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])
-    beam_dict['channel_id'] = [x['channel_id'].decode('utf-8') for x in config_transducer.__iter__()]
-    beam_dict['gpt_software_version'] = [x['gpt_software_version'].decode('utf-8')
-                                         for x in config_transducer.__iter__()]
-    idx = [np.argwhere(tr_data_dict[x + 1]['pulse_length'][0] == config_transducer[x]['pulse_length_table']).squeeze()
-           for x in range(len(config_transducer))]
-    beam_dict['sa_correction'] = np.array([x['sa_correction_table'][y]
-                                           for x, y in zip(config_transducer.__iter__(), np.array(idx))])
+    def _set_prov_dict():
+        attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
+        vals = ('echopype', ECHOPYPE_VERSION, dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+        return dict(zip(attrs, vals))
 
-    # Below is in Platform group in convention
-    beam_dict['transducer_offset_x'] = np.array([x['pos_x'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['transducer_offset_y'] = np.array([x['pos_y'] for x in config_transducer.__iter__()], dtype='float32')
-    beam_dict['transducer_offset_z'] = np.array([x['pos_z'] for x in config_transducer.__iter__()],
-                                                dtype='float32') + \
-                                       np.array([x['transducer_depth'][0] for x in first_ping_metadata.values()],
-                                                dtype='float32')
-    grp.set_beam(beam_dict)  # save to nc file
+    def _set_sonar_dict():
+        attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
+                       'sonar_software_name', 'sonar_software_version', 'sonar_type')
+        vals = ('Simrad', config_header['sounder_name'].decode('utf-8'), '',
+                      '', config_header['version'].decode('utf-8'), 'echosounder')
+        return dict(zip(attrs, vals))
 
-    # Platform group
-    platform_dict = dict()
-    platform_dict['platform_name'] = config_header['survey_name'].decode('utf-8')
-    if re.search('OOI', platform_dict['platform_name']):
-        platform_dict['platform_type'] = 'subsurface mooring'  # if OOI
-    else:
-        platform_dict['platform_type'] = 'ship'  # default to ship
-    platform_dict['time'] = data_times    # here in seconds since 1900-01-01
-                                          # this makes it easier for xarray.to_netcdf conversion
-    platform_dict['pitch'] = np.array([x['pitch'] for x in motion.__iter__()], dtype='float32').squeeze()
-    platform_dict['roll'] = np.array([x['roll'] for x in motion.__iter__()], dtype='float32').squeeze()
-    platform_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()
-    platform_dict['water_level'] = np.int32(0)  # set to 0 for EK60 since this is not separately recorded
-                                                # and is part of transducer_depth
-    grp.set_platform(platform_dict)  # save to nc file
+    def _set_platform_dict():
+        out_dict = dict()
+        out_dict['platform_name'] = config_header['survey_name'].decode('utf-8')
+        if re.search('OOI', out_dict['platform_name']):
+            out_dict['platform_type'] = 'subsurface mooring'  # if OOI
+        else:
+            out_dict['platform_type'] = 'ship'  # default to ship
+        out_dict['time'] = data_times  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        out_dict['pitch'] = np.array([x['pitch'] for x in motion.__iter__()], dtype='float32').squeeze()
+        out_dict['roll'] = np.array([x['roll'] for x in motion.__iter__()], dtype='float32').squeeze()
+        out_dict['heave'] = np.array([x['heave'] for x in motion.__iter__()], dtype='float32').squeeze()
+        # water_level is set to 0 for EK60 since this is not separately recorded
+        # and is part of transducer_depth
+        out_dict['water_level'] = np.int32(0)
+        return out_dict
+
+    def _set_beam_dict():
+        beam_dict = dict()
+        beam_dict['beam_mode'] = 'vertical'
+        beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
+        beam_dict['ping_time'] = data_times   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        beam_dict['backscatter_r'] = np.array([power_data_dict[x] for x in power_data_dict])
+        beam_dict['frequency'] = freq                                    # added by echopype, not in convention
+        beam_dict['range_bin'] = np.arange(power_data_dict[1].shape[1])  # added by echopype, not in convention
+
+        # Loop through each transducer for variables that are the same for each file
+        bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+        bm_dir = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+        tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+        beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
+        beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
+        beam_dict['gpt_software_version'] = []
+        beam_dict['channel_id'] = []
+        for c_seq, c in enumerate(config_transducer.__iter__()):
+            bm_width['beamwidth_receive_major'][c_seq] = c['beam_width_alongship']
+            bm_width['beamwidth_receive_minor'][c_seq] = c['beam_width_athwartship']
+            bm_width['beamwidth_transmit_major'][c_seq] = c['beam_width_alongship']
+            bm_width['beamwidth_transmit_minor'][c_seq] = c['beam_width_athwartship']
+            bm_dir['beam_direction_x'][c_seq] = c['dir_x']
+            bm_dir['beam_direction_y'][c_seq] = c['dir_y']
+            bm_dir['beam_direction_z'][c_seq] = c['dir_z']
+            tx_pos['transducer_offset_x'][c_seq] = c['pos_x']
+            tx_pos['transducer_offset_y'][c_seq] = c['pos_y']
+            tx_pos['transducer_offset_z'][c_seq] = c['pos_z'] + first_ping_metadata[c_seq+1]['transducer_depth'][0]
+            beam_dict['equivalent_beam_angle'][c_seq] = c['equiv_beam_angle']
+            beam_dict['gain_correction'][c_seq] = c['gain']
+            beam_dict['gpt_software_version'].append(c['gpt_software_version'].decode('utf-8'))
+            beam_dict['channel_id'].append(c['channel_id'].decode('utf-8'))
+
+        # Loop through each transducer for variables that may vary at each ping
+        # -- this rarely is the case for EK60 so we check first before saving
+        pl_tmp = np.unique(tr_data_dict[1]['pulse_length']).size
+        pw_tmp = np.unique(tr_data_dict[1]['transmit_power']).size
+        bw_tmp = np.unique(tr_data_dict[1]['bandwidth']).size
+        si_tmp = np.unique(tr_data_dict[1]['sample_interval']).size
+        if pl_tmp==1 and pw_tmp==1 and bw_tmp==1 and si_tmp==1:
+            tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+            beam_dict['sample_interval'] = np.zeros(shape=(tx_num,), dtype='float32')
+            for t_seq in range(tx_num):
+                tx_sig['transmit_duration_nominal'][t_seq] = tr_data_dict[t_seq + 1]['pulse_length'][0]
+                tx_sig['transmit_power'][t_seq] = tr_data_dict[t_seq + 1]['transmit_power'][0]
+                tx_sig['transmit_bandwidth'][t_seq] = tr_data_dict[t_seq + 1]['bandwidth'][0]
+                beam_dict['sample_interval'][t_seq] = tr_data_dict[t_seq + 1]['sample_interval'][0]
+        else:
+            tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, data_times.size), dtype='float32'))
+            beam_dict['sample_interval'] = np.zeros(shape=(tx_num, data_times.size), dtype='float32')
+            for t_seq in range(tx_num):
+                tx_sig['transmit_duration_nominal'][t_seq, :] = tr_data_dict[t_seq + 1]['pulse_length'].squeeze()
+                tx_sig['transmit_power'][t_seq, :] = tr_data_dict[t_seq + 1]['transmit_power'].squeeze()
+                tx_sig['transmit_bandwidth'][t_seq, :] = tr_data_dict[t_seq + 1]['bandwidth'].squeeze()
+                beam_dict['sample_interval'][t_seq, :] = tr_data_dict[t_seq + 1]['sample_interval'].squeeze()
+
+        # Build other parameters
+        beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
+        # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
+        beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
+
+        idx = [np.argwhere(tr_data_dict[x + 1]['pulse_length'][0] == config_transducer[x]['pulse_length_table']).squeeze()
+               for x in range(len(config_transducer))]
+        beam_dict['sa_correction'] = np.array([x['sa_correction_table'][y]
+                                               for x, y in zip(config_transducer.__iter__(), np.array(idx))])
+        return beam_dict
+
+    # Create SetGroups object
+    grp = SetGroups(file_path=nc_path)
+    grp.set_toplevel(_set_toplevel_dict())  # top-level group
+    grp.set_env(_set_env_dict())            # environment group
+    grp.set_provenance(os.path.basename(raw_filename),
+                       _set_prov_dict())    # provenance group
+    grp.set_platform(_set_platform_dict())  # platform group
+    grp.set_sonar(_set_sonar_dict())        # sonar group
+    grp.set_beam(_set_beam_dict())          # beam group
+
