@@ -139,7 +139,11 @@ class SetGroups(object):
     def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig):
         """Set the Beam group in the nc file.
 
-        :param beam_dict: dictionary containing beam parameters
+        :param beam_dict: dictionary containing general beam parameters
+        :param bm_width:  dictionary containing parameters related to beamwidth
+        :param bm_dir:    dictionary containing parameters related to beam direction
+        :param tx_pos:    dictionary containing parameters related to transducer position
+        :param tx_sig:    dictionary containing parameters related to transmit signals
         """
         # Only save beam group if file_path exists
         if not os.path.exists(self.file_path):
@@ -233,9 +237,6 @@ class SetGroups(object):
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                           'units': 'm'}),
-                 'channel_id': (['frequency'], beam_dict['channel_id']),
-                 'gpt_software_version': (['frequency'], beam_dict['gpt_software_version']),
-                 'sa_correction': (['frequency'], beam_dict['sa_correction'])
                  },
                 coords={'frequency': (['frequency'], beam_dict['frequency'],
                                       {'units': 'Hz',
@@ -249,5 +250,14 @@ class SetGroups(object):
                         'range_bin': (['range_bin'], beam_dict['range_bin'])},
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
+
+            # Below are specific to Simrad EK60 .raw files
+            if 'channel_id' in beam_dict:
+                ds['channel_id'] = ('frequency', beam_dict['channel_id'])
+            if 'gpt_software_version' in beam_dict:
+                ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
+            if 'sa_correction' in beam_dict:
+                ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
+
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
