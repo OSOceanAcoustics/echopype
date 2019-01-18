@@ -10,11 +10,10 @@ Specific modifications include:
 """
 
 
+import re, os
 from collections import defaultdict
 from struct import unpack_from, unpack
 import numpy as np
-import re
-import os
 from datetime import datetime as dt
 from matplotlib.dates import date2num
 import pytz
@@ -78,9 +77,10 @@ angle_dtype = np.dtype([('athwartship', '<i1'), ('alongship', '<i1')])     # 1 b
 def read_config_header(chunk):
     """
     Reads the EK60 raw data file configuration header information
-    from the byte string passed in as a chunk
-    @param chunk data chunk to read the config header from
-    @return: configuration header
+    from the byte string passed in as a chunk.
+
+    :param chunk: data chunk to read the config header from
+    :return:      configuration header
     """
     # setup unpack structure and field names
     field_names = ('survey_name', 'transect_name', 'sounder_name',
@@ -104,9 +104,10 @@ def read_config_header(chunk):
 def read_config_transducer(chunk):
     """
     Reads the EK60 raw data file configuration transducer information
-    from the byte string passed in as a chunk
-    @param chunk data chunk to read the configuration transducer information from
-    @return: configuration transducer information
+    from the byte string passed in as a chunk.
+
+    :param chunk: data chunk to read the configuration transducer information from
+    :return:      configuration transducer information
     """
 
     # setup unpack structure and field names
@@ -140,6 +141,8 @@ def read_config_transducer(chunk):
 
 
 def read_header(filehandle):
+    """Read header and transducer config from EK60 raw data file."""
+
     # Read binary file a block at a time
     raw = filehandle.read(BLOCK_SIZE)
 
@@ -176,7 +179,8 @@ def read_header(filehandle):
 
 def windows_to_ntp(windows_time):
     """
-    Convert a windows file timestamp into Network Time Protocol
+    Convert a windows file timestamp into Network Time Protocol.
+
     :param windows_time:  100ns since Windows time epoch
     :return:
     """
@@ -195,6 +199,14 @@ def build_windows_time(high_word, low_word):
 
 
 def process_sample(input_file, transducer_count):
+    """
+    Processing one sample at a time from input_file.
+
+    :param input_file:        EK60 raw data file name
+    :param transducer_count:  number of transducers
+    :return:  data contained in each sample, in the following sequence:
+              channel, ntp_time, sample_data, power_data, angle_data
+    """
     # log.trace('Processing one sample from input_file: %r', input_file)
     # print('Processing one sample from input_file')
 
@@ -241,6 +253,14 @@ def process_sample(input_file, transducer_count):
 
 
 def append_metadata(metadata, channel, sample_data):
+    """
+    Store metadata when reading the first ping of all channels.
+
+    :param metadata:     first_ping_metadata[channel] to be saved to
+    :param channel:      channel from which metadata is being read
+    :param sample_data:  unpacked sample data from process_sample()
+    :return:
+    """
     # Fixed across ping
     metadata['channel'].append(channel)
     metadata['transducer_depth'].append(sample_data['transducer_depth'][0])          # [meters]
@@ -250,21 +270,20 @@ def append_metadata(metadata, channel, sample_data):
     metadata['temperature'].append(sample_data['temperature'][0])                    # [degC]
     metadata['mode'].append(sample_data['mode'][0])             # >1: split-beam, 0: single-beam
 
-    return metadata
+    return metadata  # this may be removed?
 
 
 def load_ek60_raw(raw_filename):
     """
     Parse the *.raw file.
-    @param raw_filename absolute path/name to file to be parsed
+
+    :param raw_filename:  absolute path/name to file to be parsed
     """
     print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), raw_filename))
 
     with open(raw_filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
         config_header, config_transducer = read_header(input_file)
-        transducer_count = config_header['transducer_count']
-
         position = input_file.tell()
 
         # *_data_temp_dict are for storing different channels within each ping
@@ -298,7 +317,7 @@ def load_ek60_raw(raw_filename):
 
                 # try:
                 next_channel, next_time, next_sample, next_power, next_angle = \
-                    process_sample(input_file, transducer_count)  # read each sample
+                    process_sample(input_file, config_header['transducer_count'])  # read each sample
 
                 # Check if it's from different channels within the same ping
                 # next_time=last_time when it's the same ping but different channel
@@ -320,7 +339,7 @@ def load_ek60_raw(raw_filename):
                 # if only 2 channels of data were received but there are a total of 3 transducers,
                 # the data are not stored in the final power_data_dict
                 if len(sample_temp_dict) == len(power_temp_dict) == \
-                        len(angle_temp_dict) == transducer_count:
+                        len(angle_temp_dict) == config_header['transducer_count']:
 
                     # if this is the first ping from all channels,
                     # create metadata particle and store the frequency / bin_size
@@ -377,14 +396,14 @@ def load_ek60_raw(raw_filename):
             tr_data_dict[channel] = np.array(tr_data_dict[channel])
 
         return first_ping_metadata, data_times, motion, \
-               power_data_dict, angle_data_dict, tr_data_dict, \
-               config_header, config_transducer
+            power_data_dict, angle_data_dict, tr_data_dict, \
+            config_header, config_transducer
 
 
 def save_raw_to_nc(raw_filename):
     """ Save data from RAW to netCDF format.
 
-    :param raw_filename:
+    :param raw_filename:  file name of EK60 raw data file
     """
     # Load data from RAW file
     first_ping_metadata, data_times, motion, \
