@@ -4,7 +4,6 @@
 __pycache__/
 .pytest_cache/
 .gitignore~
-*.raw
 *.h5
 *.bot
 *.idx
