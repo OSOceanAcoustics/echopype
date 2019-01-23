@@ -429,8 +429,7 @@ def save_raw_to_nc(raw_filename):
         attrs = ('Conventions', 'keywords',
                  'sonar_convention_authority', 'sonar_convention_name',
                  'sonar_convention_version', 'summary', 'title')
-        vals = ('CF-1.7, SONAR-netCDF4, '
-                'ACDD-1.3', 'EK60',
+        vals = ('CF-1.7, SONAR-netCDF4, ACDD-1.3', 'EK60',
                 'ICES', 'SONAR-netCDF4', '1.7',
                 '', '')
         out_dict = dict(zip(attrs, vals))
