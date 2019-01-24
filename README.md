@@ -8,7 +8,7 @@ This is an ongoing project and the first stage (current) development goals are:
 1. Conversion of data from 3 sonar manufacturer-specific file formats into a [common file format](#common-file-format) to enhance sonar data interoperability.
 2. Basic [data processing functionalities](#sonar-data-processing) that operate on the common data format.
 
-Details of the above and other future plans can be found below.
+Details of the above can be found below.
 
 This project is lead by [Wu-Jung Lee](http://leewujung.github.io) (@leewujung) and was contributed by multiple participants during [Oceanhackweek 2018](https://oceanhackweek.github.io/).
 

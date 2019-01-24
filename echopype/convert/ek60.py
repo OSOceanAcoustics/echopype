@@ -1,6 +1,6 @@
 """
 Functions to unpack Simrad EK60 .raw files
-Modification from original source (cited below) included:
+Modification from original source (mentioned below) included:
 - python 3.6 compatibility
 - strip off dependency on other mi-instrument functions
 - unpack split-beam angle data
