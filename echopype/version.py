@@ -26,18 +26,15 @@ CLASSIFIERS = ["Development Status :: 3 - Alpha",
                "Topic :: Scientific/Engineering"]
 
 # Description should be a one-liner:
-description = "echopype: an open-source tool for unpacking echosounder data"
+description = "echopype is an open-source tool for converting and processing active sonar data for biological information in the ocean."
 # Long description will go up on the pypi page
 long_description = """
 
 echopype
 ========
-Echopype is an open source Python package that converts data from various manufacturer proprietary format into netCDF4 files. The netCDF4 file follows the [ICES SONAR-netCDF4 convention](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf). [Here](https://github.com/ices-eg/wg_WGFAST/tree/master/SONAR-netCDF4) is a GitHub folder with details of this convention in convenient tables. Echopype supports reading:
-- .raw files from Simrad EK60 narrowband echosounder
-- .raw files from Simrad EK80 broadband echosounder
-- .01A files from ASL Environmental Sciences AZFP echosounder
+echopype is an open-source tool for converting and processing active sonar data for biological information in the ocean. The goal is to create a toolkit that can leverage the rapidly-developing Python distributed processing libraries and interface with both local and cloud storage.
 
-.. _README: https://github.com/leewujung/echopype/blob/master/README.md
+.. _README: https://github.com/OSOceanAcoustics/echopype/blob/master/README.md
 
 License
 =======
@@ -66,4 +63,5 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'echopype': [pjoin('data', '*')]}
-REQUIRES = ["numpy"]
+REQUIRES = ["numpy", "pandas"]
+TEST_REQUIRES = ['tox']
