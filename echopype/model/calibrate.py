@@ -12,11 +12,16 @@ import echopype.model as epm
 
 
 def calibrate(epm):
-    """Calibrate sonar data by calling manufacturer specific function."""
+    """
+    Calibrate sonar data by calling manufacturer specific function.
+
+    :param epm: an object of class EchoData
+    :return da_Sv: volume backscattering strength an xarray DataArray
+    """
 
     if 'EK60' in epm.ds_toplevel.keywords:
         print('Calibrating data from Simrad EK60 echosounder...')
-        calibrate_ek60(epm)
+        return calibrate_ek60(epm)
 
 
 def calibrate_ek60(epm, tvg_correction_factor=2):
@@ -44,8 +49,8 @@ def calibrate_ek60(epm, tvg_correction_factor=2):
         Sac = 2 * epm.beam.sa_correction.sel(frequency=freq).values
 
         # Derived params
-        dR = c * t / 2  # sample thickness
-        wvlen = c / freq  # wavelength
+        dR = c*t/2  # sample thickness
+        wvlen = c/freq  # wavelength
 
         # Calc gain
         CSv = 10 * np.log10((pt * (10 ** (gain / 10))**2 *
@@ -73,6 +78,7 @@ def calibrate_ek60(epm, tvg_correction_factor=2):
                          dims=['frequency', 'ping_time', 'range_bin'],
                          coords={'frequency': epm.beam.frequency,
                                  'ping_time': epm.beam.ping_time,
-                                 'range_bin': epm.beam.range_bin})
+                                 'range_bin': epm.beam.range_bin},
+                         attrs={'tvg_correction_factor': tvg_correction_factor})
     return da_Sv
 
