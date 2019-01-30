@@ -15,14 +15,13 @@
 
 import os
 import datetime
-from pytz import timezone
 import numpy as np
+from pytz import timezone
 from .util.ek60_raw_file import RawSimradFile, SimradEOF
-#from ..ping_data import PingData
+from .util.nmea_data import nmea_data
 from ..ping_data import PingData
 from ..processing.processed_data import ProcessedData
 from ..processing import line
-from .util.nmea_data import nmea_data
 
 
 class EK60(object):
@@ -1391,7 +1390,10 @@ class RawData(PingData):
 
         The sounder detected bottom depths are computed using the sound speed
         setting at the time of recording. If you are applying a different sound
-        speed setting via the calibration argument when
+        speed setting via the calibration argument when getting the converted
+        sample data, you must also pass the same calibration object to this method
+        to ensure that the sounder detected bottom depths align with your sample
+        data.
 
         heave_correct is only used to determine if we need to return depths.
 
