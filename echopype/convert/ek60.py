@@ -451,7 +451,7 @@ class ConvertEK60(object):
 
         # Get nc filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
-        nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
+        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
         fm = self.FILENAME_MATCHER.match(self.filename)
 
         # Retrieve variables
@@ -576,7 +576,7 @@ class ConvertEK60(object):
             return beam_dict, bm_width, bm_dir, tx_pos, tx_sig
 
         # Create SetGroups object
-        grp = SetGroups(file_path=nc_path)
+        grp = SetGroups(file_path=self.nc_path)
         grp.set_toplevel(_set_toplevel_dict())  # top-level group
         grp.set_env(_set_env_dict())            # environment group
         grp.set_provenance(os.path.basename(self.filename),
@@ -584,4 +584,3 @@ class ConvertEK60(object):
         grp.set_platform(_set_platform_dict())  # platform group
         grp.set_sonar(_set_sonar_dict())        # sonar group
         grp.set_beam(*_set_beam_dict())         # beam group
-
