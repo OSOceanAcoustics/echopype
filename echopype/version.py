@@ -63,5 +63,4 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'echopype': [pjoin('data', '*')]}
-REQUIRES = ["numpy", "pandas"]
-TEST_REQUIRES = ['tox']
+REQUIRES = ["numpy", "pandas", "xarray"]
