@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert import ek60
+from echopype.convert.ek60 import ConvertEK60
 
 raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 
@@ -14,21 +14,21 @@ raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 def test_convert_ek60():
     """Test converting """
     # Unpacking data
-    first_ping_metadata, data_times, motion, \
-        power_data_dict, angle_data_dict, tr_data_dict, \
-        config_header, config_transducer = ek60.load_ek60_raw(raw_path)
+    tmp = ConvertEK60(raw_path)
+    tmp.load_ek60_raw()
 
     # Convert to .nc file
-    nc_path = ek60.save_raw_to_nc(raw_path)
+    tmp.raw2nc()
 
     # Read .nc file into an xarray DataArray
-    ds_beam = xr.open_dataset(nc_path, group='Beam')
+    ds_beam = xr.open_dataset(tmp.nc_path, group='Beam')
 
     # Check if backscatter data from all channels are identical to those directly unpacked
-    for idx in range(config_header['transducer_count']):
+    for idx in range(tmp.config_header['transducer_count']):
         # idx is channel index starting from 0
-        assert np.any(power_data_dict[idx + 1] ==
-                      ds_beam.backscatter_r.sel(frequency=config_transducer[idx]['frequency']).data)
-    os.remove(nc_path)
+        assert np.any(tmp.power_data_dict[idx + 1] ==
+                      ds_beam.backscatter_r.sel(frequency=tmp.config_transducer[idx]['frequency']).data)
+    os.remove(tmp.nc_path)
+    del tmp
 
 
