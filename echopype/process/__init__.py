@@ -1,9 +1,7 @@
 """
 Sonar data processing methods:
-- calibration
-- noise removal
-- calculate MVBS
 - frequency-differencing
+- single target detection
 
-The current version only works with EK60 .raw data
+The current version supports EK60 .raw data.
 """
