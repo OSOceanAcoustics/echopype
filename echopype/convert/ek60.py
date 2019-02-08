@@ -314,7 +314,7 @@ class ConvertEK60(object):
         """
         Method to parse the *.raw file.
         """
-        print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), self.filename))
+        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
         with open(self.filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
