@@ -20,13 +20,13 @@ __version__ = '.'.join(map(str, _ver))
 CLASSIFIERS = ["Development Status :: 3 - Alpha",
                "Environment :: Console",
                "Intended Audience :: Science/Research",
-               "License :: Apache 2.0 License",
+               "License :: OSI Approved :: Apache Software License",
                "Operating System :: OS Independent",
                "Programming Language :: Python",
                "Topic :: Scientific/Engineering"]
 
 # Description should be a one-liner:
-description = "echopype is an open-source tool for converting and processing active sonar data for biological information in the ocean."
+description = "echopype is an open-source toolkit for analyzing active sonar data for biological information in the ocean."
 # Long description will go up on the pypi page
 long_description = """
 
@@ -54,7 +54,7 @@ DESCRIPTION = description
 LONG_DESCRIPTION = long_description
 URL = "https://github.com/OSOceanAcoustics/echopype"
 DOWNLOAD_URL = ""
-LICENSE = "Apache 2.0"
+LICENSE = 'Apache License, Version 2.0'
 AUTHOR = "Wu-Jung Lee"
 AUTHOR_EMAIL = "leewujung@gmail.com"
 PLATFORMS = "OS Independent"
