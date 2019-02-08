@@ -66,4 +66,4 @@ PACKAGE_DATA = {'echopype': [pjoin('data', '*')]}
 REQUIRES = ["numpy", "pandas", "xarray"]
 TEST_REQUIRES = ["tox"]
 INSTALL_REQUIRES = ["click"]
-SCRIPTS = ['echopype/sonar_converter']
+SCRIPTS = ['echopype/convert/echopype_converter']
