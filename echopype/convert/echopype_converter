@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+"""
+Command line tool for converting sonar data into an interoperable netCDF format.
+
+The tool currently supports converting EK60 .raw to .nc files.
+"""
+
+import os
+from datetime import datetime as dt
+import click
+import echopype
+
+
+@click.command(context_settings={"ignore_unknown_options": True})
+@click.option('--system', '-s', help="Sonar system specified: 'ek60'")
+@click.argument('files', nargs=-1, type=click.Path())
+def main(system, files):
+    click.echo('echopype sonar data converter')
+    if system:
+        print('Data to be converted were from: %s' % system)
+    if files:
+        for filename in files:
+            if os.path.splitext(filename)[1] != '.raw':
+                print('%s  %s is not a .raw file' % (dt.now().strftime('%H:%M:%S'),
+                                                     os.path.basename(filename)))
+            else:
+                tmp = echopype.convert.ConvertEK60(filename)
+                tmp.raw2nc()
+                del tmp
+
+
+if __name__ == '__main__':
+    main()
