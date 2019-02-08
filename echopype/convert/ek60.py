@@ -314,7 +314,7 @@ class ConvertEK60(object):
         """
         Method to parse the *.raw file.
         """
-        print('%s  unpacking file: %s' % (dt.now().strftime('%H:%M:%S'), self.filename))
+        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
         with open(self.filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
@@ -442,25 +442,6 @@ class ConvertEK60(object):
         Save data from RAW to netCDF format.
         """
 
-        if self.filename == '':
-            print('Please set raw filename first for the ConvertEK60 instance by:')
-            print('ConvertEK60.filename = YOUR-FILENAME.RAW')
-
-        # Load data from RAW file
-        self.load_ek60_raw()
-
-        # Get nc filename
-        filename = os.path.splitext(os.path.basename(self.filename))[0]
-        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        fm = self.FILENAME_MATCHER.match(self.filename)
-
-        # Retrieve variables
-        tx_num = self.config_header['transducer_count']
-        ping_num = self.data_times.size
-        freq = np.array([x['frequency'][0] for x in self.first_ping_metadata.values()], dtype='float32')
-        abs_val = np.array([x['absorption_coeff'][0] for x in self.first_ping_metadata.values()], dtype='float32')
-        ss_val = np.array([x['sound_velocity'][0] for x in self.first_ping_metadata.values()], dtype='float32')
-
         # Subfunctions to set various dictionaries
         def _set_toplevel_dict():
             attrs = ('Conventions', 'keywords',
@@ -575,12 +556,33 @@ class ConvertEK60(object):
                                                    for x, y in zip(self.config_transducer.__iter__(), np.array(idx))])
             return beam_dict, bm_width, bm_dir, tx_pos, tx_sig
 
-        # Create SetGroups object
-        grp = SetGroups(file_path=self.nc_path)
-        grp.set_toplevel(_set_toplevel_dict())  # top-level group
-        grp.set_env(_set_env_dict())            # environment group
-        grp.set_provenance(os.path.basename(self.filename),
-                           _set_prov_dict())    # provenance group
-        grp.set_platform(_set_platform_dict())  # platform group
-        grp.set_sonar(_set_sonar_dict())        # sonar group
-        grp.set_beam(*_set_beam_dict())         # beam group
+        # Load data from RAW file
+        self.load_ek60_raw()
+
+        # Get nc filename
+        filename = os.path.splitext(os.path.basename(self.filename))[0]
+        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
+        fm = self.FILENAME_MATCHER.match(self.filename)
+
+        # Check if nc file already exists
+        # ... if yes, abort conversion and issue warning
+        # ... if not, continue with conversion
+        if os.path.exists(self.nc_path):
+            print('          ... this file has already been converted to .nc, conversion not executed.')
+        else:
+            # Retrieve variables
+            tx_num = self.config_header['transducer_count']
+            ping_num = self.data_times.size
+            freq = np.array([x['frequency'][0] for x in self.first_ping_metadata.values()], dtype='float32')
+            abs_val = np.array([x['absorption_coeff'][0] for x in self.first_ping_metadata.values()], dtype='float32')
+            ss_val = np.array([x['sound_velocity'][0] for x in self.first_ping_metadata.values()], dtype='float32')
+
+            # Create SetGroups object
+            grp = SetGroups(file_path=self.nc_path)
+            grp.set_toplevel(_set_toplevel_dict())  # top-level group
+            grp.set_env(_set_env_dict())            # environment group
+            grp.set_provenance(os.path.basename(self.filename),
+                               _set_prov_dict())    # provenance group
+            grp.set_platform(_set_platform_dict())  # platform group
+            grp.set_sonar(_set_sonar_dict())        # sonar group
+            grp.set_beam(*_set_beam_dict())         # beam group

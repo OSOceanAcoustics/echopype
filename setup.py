@@ -22,9 +22,10 @@ opts = dict(name=NAME,
             version=VERSION,
             packages=PACKAGES,
             package_data=PACKAGE_DATA,
-            install_requires=REQUIRES,
+            install_requires=INSTALL_REQUIRES,
             requires=REQUIRES,
-            test_requires=TEST_REQUIRES)
+            test_requires=TEST_REQUIRES,
+            scripts=SCRIPTS)
 
 
 if __name__ == '__main__':
