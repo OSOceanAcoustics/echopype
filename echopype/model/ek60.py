@@ -19,28 +19,49 @@ class EchoData(object):
 
     @file_path.setter
     def file_path(self, p):
-        pp = os.path.basename(p)
-        _, ext = os.path.splitext(pp)
-        if ext == '.raw':
-            raise ValueError('Data file in manufacturer format, please convert first. '
-                             'To convert data, follow the steps below:')
-            # print('Data file in manufacturer format, please convert first.')
-            # print('To convert data, follow the steps below:')
-        elif ext == '.nc':
-            print('Got nc file! can start processing!')
-        else:
-            # print('Not sure what file this is?? try to find a .nc file??')
-            raise ValueError('Not sure what file this is?? try to find a .nc file??')
         self._file_path = p
 
+        # Load netCDF groups if file format is correct
+        pp = os.path.basename(p)
+        _, ext = os.path.splitext(pp)
 
-        # # attributes for loading data
-        # self.toplevel = []
-        # self.provenance = []
-        # self.environment = []
-        # self.platform = []
-        # self.sonar = []
-        # self.beam = []
+        if ext is '.raw':
+            print('Data file in manufacturer format, please convert to .nc first.')
+        elif ext is '.nc':
+            self.toplevel = xr.open_dataset(self.file_path)
+            if self.toplevel['sonar_convention_version'] == 'SONAR-netCDF4':
+                self.provenance = xr.open_dataset(self.file_path, group="Provenance")
+                self.environment = xr.open_dataset(self.file_path, group="Environment")
+                self.platform = xr.open_dataset(self.file_path, group="Platform")
+                self.sonar = xr.open_dataset(self.file_path, group="Sonar")
+                self.beam = xr.open_dataset(self.file_path, group="Beam")
+            else:
+                print('netCDF file convention not recognized.')
+        else:
+            print('Data file format not recognized.')
+
+    # @file_path.setter
+    # def file_path(self, p):
+    #     pp = os.path.basename(p)
+    #     _, ext = os.path.splitext(pp)
+    #     if ext == '.raw':
+    #         raise ValueError('Data file in manufacturer format, please convert to .nc format first.')
+    #     elif ext == '.nc':
+    #         print('Got an .nc file! can start processing!')
+    #         # print('Let us try to set some attributes')
+    #     elif ext == '':
+    #         print('Do nothing with empty file_path')
+    #         self.toplevel = []
+    #         self.provenance = []
+    #         self.environment = []
+    #         self.platform = []
+    #         self.sonar = []
+    #         self.beam = []
+    #     else:
+    #         # print('Not sure what file this is. EchoData only accepts .nc file as inputs.)
+    #         raise ValueError('Not sure what file this is?? try to find a .nc file??')
+    #     self._file_path = p
+
 
     # def load(self, data_path):
     #     data_file = os.path.basename(data_path)
