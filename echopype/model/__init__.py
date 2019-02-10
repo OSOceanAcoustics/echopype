@@ -9,3 +9,4 @@ Include methods to do the following:
 The current version supports EK60 .raw data.
 """
 
+from .ek60 import EchoData
