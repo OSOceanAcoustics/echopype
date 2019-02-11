@@ -154,7 +154,8 @@ class EchoData(object):
         t = self.beam.sample_interval
         dR = c * t / 2  # sample thickness
         range_idx = xr.DataArray(np.array([np.arange(self.beam.range_bin.size)] * 5).squeeze(),
-                                   dims=['frequency', 'i1'], coords={'frequency': self.beam.frequency})
+                                 dims=['frequency', 'range_bin'],
+                                 coords={'frequency': self.beam.frequency, 'range_bin': self.beam.range_bin})
         range_meter = range_idx * dR - self.tvg_correction_factor * dR  # return DataArray with dim frequency x i1 (1:1386)
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
@@ -162,41 +163,85 @@ class EchoData(object):
         alpha = self.environment.absorption_indicative
         ABS = 2 * alpha * range_meter
 
-        # Loop through each frequency to estimate noise
-        for f_seq, freq in enumerate(self.beam.frequency.values):
+        # Get calibrated power
+        proc_data = xr.open_dataset(self.proc_path)
+        power_cal_lin = 10 ** ((proc_data.Sv - TVG - ABS) / 10)  # calibrated power, based on which noise is estimated
 
-            # Get range bin size
-            c = self.environment.sound_speed_indicative.sel(frequency=freq).values
-            t = self.beam.sample_interval.sel(frequency=freq).values
-            range_bin_size = c * t / 2
+        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
+        num_range_bin_per_tile = (np.round(self.noise_est_range_bin_size /
+                                           dR).astype(int)).values.max()  # number of range_bin per tile
+        self.noise_est_range_bin_size = (num_range_bin_per_tile * dR).values
 
-            # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-            num_range_bin_per_tile = np.round(self.noise_est_range_bin_size /
-                                              range_bin_size).astype(int)  # number of range_bin per tile
-            self.noise_est_range_bin_size = num_range_bin_per_tile * range_bin_size
+        # Number of tiles along range_bin
+        N_range_bin = np.ceil(self.beam.range_bin.size / num_range_bin_per_tile).astype(int)
+        N_ping = np.ceil(self.beam.ping_time.size / self.noise_est_ping_size).astype(int)
 
-            # Number of tiles along range_bin
-            if np.mod(self.beam.range_bin.size, num_range_bin_per_tile) != 0:
-                N_range_bin = np.floor(self.beam.range_bin.size / num_range_bin_per_tile).astype(int) + 1
-            else:
-                N_range_bin = np.int(self.beam.range_bin.size / num_range_bin_per_tile)
-            if np.mod(self.beam.ping_time.size, self.noise_est_ping_size) != 0:
-                N_ping = np.floor(self.beam.ping_time.size / self.noise_est_ping_size).astype(int) + 1
-            else:
-                N_ping = np.int(self.beam.ping_time.size / self.noise_est_ping_size)
+        # Use groupby_bins to compute noise estimates over N_range_bin x N_ping tile
+        range_bin_bin = np.arange(N_range_bin)*num_range_bin_per_tile
+        ping_bin = self.beam.ping_time.isel(ping_time=np.arange(N_ping)*self.noise_est_ping_size)
 
-            # Get noise estimates over N_range_bin x N_ping tile
-            idx_p_base = np.arange(self.noise_est_ping_size, dtype=int)
-            idx_r_base = np.arange(num_range_bin_per_tile, dtype=int)
-            noise_est = np.empty((self.beam.frequency.size, N_ping, N_range_bin))
-            for p_seq in range(N_ping):  # loop through all pings
-                for r_seq in range(N_range_bin):  # loop through all range bins
-                    idx_p = idx_p_base[[0, -1]] + self.noise_est_ping_size * p_seq
-                    idx_r = idx_r_base[[0, -1]] + num_range_bin_per_tile * r_seq
-                    noise_est[:, p_seq, r_seq] = \
-                        np.mean(10 ** (self.beam.backscatter_r.isel(ping_time=slice(idx_p[0], idx_p[1]),
-                                                                    range_bin=slice(idx_r[0], idx_r[1])).values / 10))
-            noise_est = noise_est.min(axis=2)
+        noise_est_r = power_cal_lin.groupby_bins('range_bin', range_bin_bin).mean('range_bin')
+        noise_est = 10*np.log10(noise_est_r.groupby_bins('ping_time', ping_bin).mean('ping_time'))
+
+        ping_time_noise_est = (ping_bin - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+
+        # Assemble an xarray DataArray
+        # TODO: convert noise_est to a DataSet,
+        #  and attach the right coordinates ping_time_noise_est and range_bin_noise_est
+
+
+        #
+        # # Get noise estimates over N_range_bin x N_ping tile
+        # idx_r_base = np.arange(num_range_bin_per_tile, dtype=int)
+        # idx_p_base = np.arange(self.noise_est_ping_size, dtype=int)
+        # noise_est = np.empty((self.beam.frequency.size, N_ping, N_range_bin))
+        # # for f_seq in range(self.beam.frequency.size):  # loop through all freuqency
+        # for p_seq in range(N_ping):  # loop through all pings
+        #     for r_seq in range(N_range_bin):  # loop through all range bins
+        #         idx_p = idx_p_base[[0, -1]] + self.noise_est_ping_size * p_seq
+        #         idx_r = idx_r_base[[0, -1]] + num_range_bin_per_tile * r_seq
+        #         noise_est[:, p_seq, r_seq] = \
+        #             10 * np.log10(np.mean(10 ** (self.beam.backscatter_r.isel(
+        #                 ping_time=slice(idx_p[0], idx_p[1]),
+        #                 range_bin=slice(idx_r[0], idx_r[1])).values.reshape((self.beam.frequency.size, -1)) / 10),
+        #                                   axis=1))
+        #     noise_est = noise_est.min(axis=2)
+        #
+        # # Loop through each frequency to estimate noise
+        # for f_seq, freq in enumerate(self.beam.frequency.values):
+        #
+        #     # Get range bin size
+        #     c = self.environment.sound_speed_indicative.sel(frequency=freq).values
+        #     t = self.beam.sample_interval.sel(frequency=freq).values
+        #     range_bin_size = c * t / 2
+        #
+        #     # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
+        #     num_range_bin_per_tile = np.round(self.noise_est_range_bin_size /
+        #                                       range_bin_size).astype(int)  # number of range_bin per tile
+        #     self.noise_est_range_bin_size = num_range_bin_per_tile * range_bin_size
+        #
+        #     # Number of tiles along range_bin
+        #     if np.mod(self.beam.range_bin.size, num_range_bin_per_tile) != 0:
+        #         N_range_bin = np.floor(self.beam.range_bin.size / num_range_bin_per_tile).astype(int) + 1
+        #     else:
+        #         N_range_bin = np.int(self.beam.range_bin.size / num_range_bin_per_tile)
+        #     if np.mod(self.beam.ping_time.size, self.noise_est_ping_size) != 0:
+        #         N_ping = np.floor(self.beam.ping_time.size / self.noise_est_ping_size).astype(int) + 1
+        #     else:
+        #         N_ping = np.int(self.beam.ping_time.size / self.noise_est_ping_size)
+        #
+        #     # Get noise estimates over N_range_bin x N_ping tile
+        #     idx_p_base = np.arange(self.noise_est_ping_size, dtype=int)
+        #     idx_r_base = np.arange(num_range_bin_per_tile, dtype=int)
+        #     noise_est = np.empty((self.beam.frequency.size, N_ping, N_range_bin))
+        #     for p_seq in range(N_ping):  # loop through all pings
+        #         for r_seq in range(N_range_bin):  # loop through all range bins
+        #             idx_p = idx_p_base[[0, -1]] + self.noise_est_ping_size * p_seq
+        #             idx_r = idx_r_base[[0, -1]] + num_range_bin_per_tile * r_seq
+        #             noise_est[:, p_seq, r_seq] = \
+        #                 np.mean(10 ** (self.beam.backscatter_r.isel(ping_time=slice(idx_p[0], idx_p[1]),
+        #                                                             range_bin=slice(idx_r[0], idx_r[1])).values / 10))
+        #     noise_est = noise_est.min(axis=2)
             ping_time_reduce = self.beam.ping_time.isel(ping_time=np.arange(0, self.beam.ping_time.size,
                                                                             self.noise_est_ping_size)).data
             # Assemble an xarray DataArray
