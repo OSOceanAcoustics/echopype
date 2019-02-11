@@ -28,7 +28,7 @@ CLASSIFIERS = ["Development Status :: 3 - Alpha",
 # Description should be a one-liner:
 description = "echopype is an open-source toolkit for analyzing active sonar data for biological information in the ocean."
 # Long description will go up on the pypi page
-with open('README.rst') as file:
+with open('../README.rst') as file:
     long_description = file.read()
 
 NAME = "echopype"
