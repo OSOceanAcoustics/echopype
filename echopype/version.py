@@ -1,10 +1,11 @@
 from __future__ import absolute_import, division, print_function
 from os.path import join as pjoin
 
+
 # Format expected by setup.py and doc/source/conf.py: string of form "X.Y.Z"
 _version_major = 0
 _version_minor = 1
-_version_micro = 0  # use '' for first of series, number for 1 and above
+_version_micro = 35  # use '' for first of series, number for 1 and above
 _version_extra = ''
 # _version_extra = ''  # Uncomment this for full releases
 
@@ -27,15 +28,12 @@ CLASSIFIERS = ["Development Status :: 3 - Alpha",
 
 # Description should be a one-liner:
 description = "echopype is an open-source toolkit for analyzing active sonar data for biological information in the ocean."
-# Long description will go up on the pypi page
-with open('../README.rst') as file:
-    long_description = file.read()
 
 NAME = "echopype"
 MAINTAINER = "Wu-Jung Lee"
 MAINTAINER_EMAIL = "leewujung@gmail.com"
 DESCRIPTION = description
-LONG_DESCRIPTION = long_description
+# LONG_DESCRIPTION = long_description
 URL = "https://github.com/OSOceanAcoustics/echopype"
 DOWNLOAD_URL = ""
 LICENSE = 'Apache License, Version 2.0'
