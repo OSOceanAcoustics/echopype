@@ -126,7 +126,7 @@ class EchoData(object):
             attrs={'tvg_correction_factor': self.tvg_correction_factor})
 
         # Save calibrated data to a separate .nc file in the same directory as the data file
-        print('Saving calibrated Sv into %s' % self.proc_path)
+        print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.proc_path))
         ds.to_netcdf(path=self.proc_path, mode="w")
         ds.close()
 
@@ -148,6 +148,19 @@ class EchoData(object):
             self.noise_est_range_bin_size = noise_est_range_bin_size
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
+
+        # Get TVG and absorption
+        c = self.environment.sound_speed_indicative
+        t = self.beam.sample_interval
+        dR = c * t / 2  # sample thickness
+        range_idx = xr.DataArray(np.array([np.arange(self.beam.range_bin.size)] * 5).squeeze(),
+                                   dims=['frequency', 'i1'], coords={'frequency': self.beam.frequency})
+        range_meter = range_idx * dR - self.tvg_correction_factor * dR  # return DataArray with dim frequency x i1 (1:1386)
+        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+
+        alpha = self.environment.absorption_indicative
+        ABS = 2 * alpha * range_meter
 
         # Loop through each frequency to estimate noise
         for f_seq, freq in enumerate(self.beam.frequency.values):
@@ -205,12 +218,98 @@ class EchoData(object):
                        'noise_est_ping_size': self.noise_est_ping_size})
 
             # Save noise estimates to _proc.nc
-            print('Saving calibrated Sv into %s' % self.proc_path)
+            print('%s  saving noise estimates to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.proc_path))
             ds.to_netcdf(path=self.proc_path, mode="a")
             ds.close()
 
             # Average uncompensated power over each tile and find minimum value of power for each averaged bin
             # TODO: Let's use xarray dataArray/dataSet.coarsen for this average
+
+    # def remove_noise(self):
+    #     """
+    #     Noise removal and TVG + absorption compensation
+    #     This method will call `get_noise` to make sure to have attribute `noise_est`
+    #     [Reference] De Robertis & Higginbottom, 2017, ICES JMR
+    #     INPUT:
+    #         const_noise   use a single value of const noise for all frequencies
+    #     """
+    #
+    #     # Get noise estimation
+    #     if const_noise!=[]:
+    #         for freq_str in self.cal_params.keys():
+    #             self.noise_est[freq_str] = const_noise
+    #     else:
+    #         self.get_noise()
+    #
+    #     # Initialize arrays
+    #     Sv_raw = defaultdict(list)
+    #     Sv_corrected = defaultdict(list)
+    #     Sv_noise = defaultdict(list)
+    #
+    #     # Remove noise
+    #     for (freq_str,vals) in self.cal_params.items():  # Loop through all transducers
+    #         # Get cal params
+    #         f = self.cal_params[freq_str]['frequency']
+    #         c = self.cal_params[freq_str]['soundvelocity']
+    #         t = self.cal_params[freq_str]['sampleinterval']
+    #         alpha = self.cal_params[freq_str]['absorptioncoefficient']
+    #         G = self.cal_params[freq_str]['gain']
+    #         phi = self.cal_params[freq_str]['equivalentbeamangle']
+    #         pt = self.cal_params[freq_str]['transmitpower']
+    #         tau = self.cal_params[freq_str]['pulselength']
+    #
+    #         # key derived params
+    #         dR = c*t/2   # sample thickness
+    #         wvlen = c/f  # wavelength
+    #
+    #         # Calc gains
+    #         CSv = 10 * np.log10((pt * (10**(G/10))**2 * wvlen**2 * c * tau * 10**(phi/10)) / (32 * np.pi**2))
+    #
+    #         # calculate Sa Correction
+    #         idx = [i for i,dd in enumerate(self.cal_params[freq_str]['pulselengthtable']) if dd==tau]
+    #         Sac = 2 * self.cal_params[freq_str]['sacorrectiontable'][idx]
+    #
+    #         # Get TVG
+    #         range_vec = np.arange(self.hdf5_handle['power_data'][freq_str].shape[0]) * dR
+    #         range_corrected = range_vec - (self.tvg_correction_factor * dR)
+    #         range_corrected[range_corrected<0] = 0
+    #
+    #         TVG = np.empty(range_corrected.shape)
+    #         # TVG = real(20 * log10(range_corrected));
+    #         TVG[range_corrected!=0] = np.real( 20*np.log10(range_corrected[range_corrected!=0]) )
+    #         TVG[range_corrected==0] = 0
+    #
+    #         # Get absorption
+    #         ABS = 2*alpha*range_corrected
+    #
+    #         # Remove noise and compensate measurement for transmission loss
+    #         # also estimate Sv_noise for subsequent SNR check
+    #         if isinstance(self.noise_est[freq_str],(int,float)):  # if noise_est is a single element
+    #             subtract = 10**(self.hdf5_handle['power_data'][freq_str][:]/10)-self.noise_est[freq_str]
+    #             tmp = 10*np.log10(np.ma.masked_less_equal(subtract,0))
+    #             tmp.set_fill_value(-999)
+    #             Sv_corrected[freq_str] = (tmp.T+TVG+ABS-CSv-Sac).T
+    #             Sv_noise[freq_str] = 10*np.log10(self.noise_est[freq_str])+TVG+ABS-CSv-Sac
+    #         else:
+    #             sz = self.hdf5_handle['power_data'][freq_str].shape
+    #             ping_bin_num = int(np.floor(sz[1]/self.ping_bin))
+    #             Sv_corrected[freq_str] = np.ma.empty(sz)  # log domain corrected Sv
+    #             Sv_noise[freq_str] = np.empty(sz)    # Sv_noise
+    #             for iP in range(ping_bin_num):
+    #                 ping_idx = np.arange(self.ping_bin) +iP*self.ping_bin
+    #                 subtract = 10**(self.hdf5_handle['power_data'][freq_str][:,ping_idx]/10) -self.noise_est[freq_str][iP]
+    #                 tmp = 10*np.log10(np.ma.masked_less_equal(subtract,0))
+    #                 tmp.set_fill_value(-999)
+    #                 Sv_corrected[freq_str][:,ping_idx] = (tmp.T +TVG+ABS-CSv-Sac).T
+    #                 Sv_noise[freq_str][:,ping_idx] = np.array([10*np.log10(self.noise_est[freq_str][iP])+TVG+ABS-CSv-Sac]*self.ping_bin).T
+    #
+    #         # Raw Sv withour noise removal but with TVG/absorption compensation
+    #         Sv_raw[freq_str] = (self.hdf5_handle['power_data'][freq_str][:].T+TVG+ABS-CSv-Sac).T
+    #
+    #     # Save results
+    #     self.Sv_raw = Sv_raw
+    #     self.Sv_corrected = Sv_corrected
+    #     self.Sv_noise = Sv_noise
 
     # @file_path.setter
     # def file_path(self, p):
