@@ -165,7 +165,7 @@ class EchoData(object):
 
         # Get calibrated power
         proc_data = xr.open_dataset(self.proc_path)
-        power_cal_lin = 10 ** ((proc_data.Sv - TVG - ABS) / 10)  # calibrated power, based on which noise is estimated
+        # power_cal_lin = 10 ** ((proc_data.Sv - TVG - ABS) / 10)  # calibrated power, based on which noise is estimated
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
         num_range_bin_per_tile = (np.round(self.noise_est_range_bin_size /
@@ -173,17 +173,51 @@ class EchoData(object):
         self.noise_est_range_bin_size = (num_range_bin_per_tile * dR).values
 
         # Number of tiles along range_bin
-        N_range_bin = np.ceil(self.beam.range_bin.size / num_range_bin_per_tile).astype(int)
-        N_ping = np.ceil(self.beam.ping_time.size / self.noise_est_ping_size).astype(int)
+        if np.mod(self.beam.range_bin.size, num_range_bin_per_tile) == 0:
+            N_range_bin = np.ceil(self.beam.range_bin.size / num_range_bin_per_tile).astype(int) + 1
+        else:
+            N_range_bin = np.ceil(self.beam.range_bin.size / num_range_bin_per_tile).astype(int)
+
+        # Produce a new coordinate for groupby operation
+        if np.mod(self.beam.ping_time.size, self.noise_est_ping_size) == 0:
+            N_ping = np.ceil(self.beam.ping_time.size / self.noise_est_ping_size).astype(int) + 1
+            z = np.array([np.arange(N_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel()
+        else:
+            N_ping = np.ceil(self.beam.ping_time.size / self.noise_est_ping_size).astype(int)
+            pad = np.ones(N_ping*self.noise_est_ping_size - self.beam.ping_time.size, dtype=int)*(N_ping-1)
+            z = np.hstack((np.array([np.arange(N_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel(), pad))
 
         # Use groupby_bins to compute noise estimates over N_range_bin x N_ping tile
         range_bin_bin = np.arange(N_range_bin)*num_range_bin_per_tile
-        ping_bin = self.beam.ping_time.isel(ping_time=np.arange(N_ping)*self.noise_est_ping_size)
 
-        noise_est_r = power_cal_lin.groupby_bins('range_bin', range_bin_bin).mean('range_bin')
-        noise_est = 10*np.log10(noise_est_r.groupby_bins('ping_time', ping_bin).mean('ping_time'))
+        # Function for use with apply
+        def remove_n(x):
+            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
+            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_bin).mean('range_bin').
+                               groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+            return x.where(x > nn, other=np.nan)
 
-        ping_time_noise_est = (ping_bin - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        # Groupby noise removal operation
+        Sv = proc_data.Sv
+        Sv.coords['add_idx'] = ('ping_time', z)
+        Sv_clean = Sv.groupby('add_idx').apply(remove_n)
+        Sv_clean.name = 'Sv_clean'
+        Sv_clean = Sv_clean.drop('add_idx')
+        proc_data['Sv_clean'] = Sv_clean
+
+        # if (N_ping-1)*self.noise_est_ping_size >= self.beam.ping_time.size:
+        #     ping_bin = self.beam.ping_time.isel(ping_time=np.hstack((np.arange(N_ping-1) * self.noise_est_ping_size,
+        #                                                              self.beam.ping_time.size-1)))
+        # else:
+        #     ping_bin = self.beam.ping_time.isel(ping_time=np.arange(N_ping) * self.noise_est_ping_size)
+        #
+        # noise_est_r = power_cal_lin.groupby_bins('range_bin', range_bin_bin).mean('range_bin')
+        # noise_est_rp = 10*np.log10(noise_est_r.groupby_bins('ping_time', ping_bin).mean('ping_time'))
+        # noise_est = noise_est_rp.groupby('ping_time_bins').min('range_bin_bins')
+
+
+        # nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_bin).mean('range_bin').
+        #                    groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
 
         # Assemble an xarray DataArray
         # TODO: convert noise_est to a DataSet,
@@ -242,30 +276,30 @@ class EchoData(object):
         #                 np.mean(10 ** (self.beam.backscatter_r.isel(ping_time=slice(idx_p[0], idx_p[1]),
         #                                                             range_bin=slice(idx_r[0], idx_r[1])).values / 10))
         #     noise_est = noise_est.min(axis=2)
-            ping_time_reduce = self.beam.ping_time.isel(ping_time=np.arange(0, self.beam.ping_time.size,
-                                                                            self.noise_est_ping_size)).data
-            # Assemble an xarray DataArray
-            ping_time_reduce = (ping_time_reduce - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
-            ds = xr.Dataset(
-                {'noise_est': (['frequency', 'ping_time_noise_est'], noise_est,),
-                 },
-                coords={'frequency': (['frequency'], self.beam.frequency,
-                                      {'units': 'Hz',
-                                       'valid_min': 0.0}),
-                        'ping_time_noise_est': (['ping_time_noise_est'], ping_time_reduce,
-                                      {'axis': 'T',
-                                       'calendar': 'gregorian',
-                                       'long_name': 'Timestamp of each ping',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})},
-                attrs={'tvg_correction_factor': self.tvg_correction_factor,
-                       'noise_est_range_bin_size': self.noise_est_range_bin_size,
-                       'noise_est_ping_size': self.noise_est_ping_size})
-
-            # Save noise estimates to _proc.nc
-            print('%s  saving noise estimates to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.proc_path))
-            ds.to_netcdf(path=self.proc_path, mode="a")
-            ds.close()
+        #     ping_time_reduce = self.beam.ping_time.isel(ping_time=np.arange(0, self.beam.ping_time.size,
+        #                                                                     self.noise_est_ping_size)).data
+        #     # Assemble an xarray DataArray
+        #     ping_time_reduce = (ping_time_reduce - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        #     ds = xr.Dataset(
+        #         {'noise_est': (['frequency', 'ping_time_noise_est'], noise_est,),
+        #          },
+        #         coords={'frequency': (['frequency'], self.beam.frequency,
+        #                               {'units': 'Hz',
+        #                                'valid_min': 0.0}),
+        #                 'ping_time_noise_est': (['ping_time_noise_est'], ping_time_reduce,
+        #                               {'axis': 'T',
+        #                                'calendar': 'gregorian',
+        #                                'long_name': 'Timestamp of each ping',
+        #                                'standard_name': 'time',
+        #                                'units': 'seconds since 1900-01-01'})},
+        #         attrs={'tvg_correction_factor': self.tvg_correction_factor,
+        #                'noise_est_range_bin_size': self.noise_est_range_bin_size,
+        #                'noise_est_ping_size': self.noise_est_ping_size})
+        #
+        #     # Save noise estimates to _proc.nc
+        #     print('%s  saving noise estimates to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.proc_path))
+        #     ds.to_netcdf(path=self.proc_path, mode="a")
+        #     ds.close()
 
             # Average uncompensated power over each tile and find minimum value of power for each averaged bin
             # TODO: Let's use xarray dataArray/dataSet.coarsen for this average
