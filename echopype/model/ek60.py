@@ -74,25 +74,13 @@ class EchoData(object):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        # Params from env group
-        c = ds_env.sound_speed_indicative
-        alpha = ds_env.absorption_indicative
-
-        # Params from beam group
-        t = ds_beam.sample_interval
-        gain = ds_beam.gain_correction
-        phi = ds_beam.equivalent_beam_angle
-        pt = ds_beam.transmit_power
-        tau = ds_beam.transmit_duration_nominal
-        Sac = 2 * ds_beam.sa_correction
-
         # Derived params
-        dR = c * t / 2  # sample thickness
-        wavelength = c / ds_env.frequency  # wavelength
+        dR = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
+        wavelength = ds_env.sound_speed_indicative / ds_env.frequency  # wavelength
 
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
-                             wavelength ** 2 * c * ds_beam.transmit_duration_nominal *
+                             wavelength ** 2 * ds_env.sound_speed_indicative * ds_beam.transmit_duration_nominal *
                              10 ** (ds_beam.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
@@ -100,7 +88,7 @@ class EchoData(object):
         range_meter = ds_beam.range_bin * dR - self.tvg_correction_factor * dR  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
-        ABS = 2 * alpha * range_meter
+        ABS = 2 * ds_env.absorption_indicative * range_meter
 
         # Calibration and echo integration
         Sv = ds_beam.backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
