@@ -74,66 +74,42 @@ class EchoData(object):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        # TODO: change the code below to use xarray func
-        # Loop through each frequency for calibration
-        Sv = np.zeros(ds_beam.backscatter_r.shape)
-        for f_seq, freq in enumerate(ds_beam.frequency.values):
-            # Params from env group
-            c = ds_env.sound_speed_indicative.sel(frequency=freq).values
-            alpha = ds_env.absorption_indicative.sel(frequency=freq).values
+        # Params from env group
+        c = ds_env.sound_speed_indicative
+        alpha = ds_env.absorption_indicative
 
-            # Params from beam group
-            t = ds_beam.sample_interval.sel(frequency=freq).values
-            gain = ds_beam.gain_correction.sel(frequency=freq).values
-            phi = ds_beam.equivalent_beam_angle.sel(frequency=freq).values
-            pt = ds_beam.transmit_power.sel(frequency=freq).values
-            tau = ds_beam.transmit_duration_nominal.sel(frequency=freq).values
-            Sac = 2 * ds_beam.sa_correction.sel(frequency=freq).values
+        # Params from beam group
+        t = ds_beam.sample_interval
+        gain = ds_beam.gain_correction
+        phi = ds_beam.equivalent_beam_angle
+        pt = ds_beam.transmit_power
+        tau = ds_beam.transmit_duration_nominal
+        Sac = 2 * ds_beam.sa_correction
 
-            # Derived params
-            dR = c*t/2  # sample thickness
-            wvlen = c/freq  # wavelength
+        # Derived params
+        dR = c * t / 2  # sample thickness
+        wavelength = c / ds_env.frequency  # wavelength
 
-            # Calc gain
-            CSv = 10 * np.log10((pt * (10 ** (gain / 10))**2 *
-                                 wvlen**2 * c * tau * 10**(phi / 10)) /
-                                (32 * np.pi ** 2))
+        # Calc gain
+        CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
+                             wavelength ** 2 * c * ds_beam.transmit_duration_nominal *
+                             10 ** (ds_beam.equivalent_beam_angle / 10)) /
+                            (32 * np.pi ** 2))
 
-            # Get TVG
-            range_vec = np.arange(ds_beam.range_bin.size) * dR
-            range_vec = range_vec - (self.tvg_correction_factor * dR)
-            range_vec[range_vec < 0] = 0
+        # Get TVG and absorption
+        range_meter = ds_beam.range_bin * dR - self.tvg_correction_factor * dR  # DataArray [frequency x range_bin]
+        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+        ABS = 2 * alpha * range_meter
 
-            TVG = np.empty(range_vec.shape)
-            TVG[range_vec != 0] = np.real(20 * np.log10(range_vec[range_vec != 0]))
-            TVG[range_vec == 0] = 0
-
-            # Get absorption
-            ABS = 2 * alpha * range_vec
-
-            # Compute Sv
-            Sv[f_seq, :, :] = ds_beam.backscatter_r.sel(frequency=freq).values + TVG + ABS - CSv - Sac
-
-        # Assemble an xarray DataSet
-        ping_time = (ds_beam.ping_time.data - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
-        ds = xr.Dataset(
-            {'Sv': (['frequency', 'ping_time', 'range_bin'], Sv)},
-            coords={'frequency': (['frequency'], ds_beam.frequency,
-                                  {'units': 'Hz',
-                                   'valid_min': 0.0}),
-                    'ping_time': (['ping_time'], ping_time,
-                                  {'axis': 'T',
-                                   'calendar': 'gregorian',
-                                   'long_name': 'Timestamp of each ping',
-                                   'standard_name': 'time',
-                                   'units': 'seconds since 1900-01-01'}),
-                    'range_bin': (['range_bin'], ds_beam.range_bin)},
-            attrs={'tvg_correction_factor': self.tvg_correction_factor})
+        # Calibration and echo integration
+        Sv = ds_beam.backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
 
         # Save calibrated data to a separate .nc file in the same directory as the data file
         print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.proc_path))
-        ds.to_netcdf(path=self.proc_path, mode="w")
-        ds.close()
+        Sv.to_dataset().to_netcdf(path=self.proc_path, mode="w")
+        ds_env.close()
+        ds_beam.close()
 
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
         """
@@ -163,10 +139,7 @@ class EchoData(object):
         c = ds_env.sound_speed_indicative
         t = ds_beam.sample_interval
         dR = c * t / 2  # sample thickness
-        range_idx = xr.DataArray(np.array([np.arange(ds_beam.range_bin.size)] * 5).squeeze(),
-                                 dims=['frequency', 'range_bin'],
-                                 coords={'frequency': ds_beam.frequency, 'range_bin': ds_beam.range_bin})
-        range_meter = range_idx * dR - self.tvg_correction_factor * dR  # return DataArray [frequency x range_bin]
+        range_meter = ds_beam.range_bin * dR - self.tvg_correction_factor * dR  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
 
@@ -217,6 +190,8 @@ class EchoData(object):
         # Save as a netCDF file
         Sv_clean.to_dataset().to_netcdf(self.proc_path)
         proc_data.close()
+        ds_env.close()
+        ds_beam.close()
 
     def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
         """
@@ -255,10 +230,7 @@ class EchoData(object):
         c = ds_env.sound_speed_indicative
         t = ds_beam.sample_interval
         dR = c * t / 2  # sample thickness
-        range_idx = xr.DataArray(np.array([np.arange(ds_beam.range_bin.size)] * 5).squeeze(),
-                                 dims=['frequency', 'range_bin'],
-                                 coords={'frequency': ds_beam.frequency, 'range_bin': ds_beam.range_bin})
-        range_meter = range_idx * dR - self.tvg_correction_factor * dR  # return DataArray [frequency x range_bin]
+        range_meter = ds_beam.range_bin * dR - self.tvg_correction_factor * dR  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
 
@@ -312,6 +284,10 @@ class EchoData(object):
         # Groupby operation for estimating noise
         proc_data.coords['add_idx'] = ('ping_time', z)
         _ = proc_data.Sv.groupby('add_idx').apply(est_n)
+
+        # Close opened resources
+        ds_env.close()
+        ds_beam.close()
 
         return noise_est
 
