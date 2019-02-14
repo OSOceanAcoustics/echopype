@@ -179,9 +179,9 @@ class EchoData(object):
 
         Returns
         ---------
-        noise_est : float
-            noise estimates as a numpy array with dimension [ping_bin x frequency]
-            ping_bin is the number of tiles along ping_time calculated from attributes noise_est_ping_size
+        noise_est : xarray DataArray
+            noise estimates as a DataArray with dimension [ping_time x range_bin]
+            ping_time and range_bin are taken from the first element of each tile along each of the dimensions
         """
 
         # Check params
@@ -189,9 +189,6 @@ class EchoData(object):
             self.noise_est_range_bin_size = noise_est_range_bin_size
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
-
-        # Open data set for Environment and Beam groups
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         # Use calibrated data to calculate noise removal
         proc_data = xr.open_dataset(self.Sv_path)
@@ -202,18 +199,18 @@ class EchoData(object):
         self.noise_est_range_bin_size = (num_range_bin_per_tile * self.sample_thickness).values
 
         # Number of tiles along range_bin
-        if np.mod(ds_beam.range_bin.size, num_range_bin_per_tile) == 0:
-            num_tile_range_bin = np.ceil(ds_beam.range_bin.size / num_range_bin_per_tile).astype(int) + 1
+        if np.mod(proc_data.range_bin.size, num_range_bin_per_tile) == 0:
+            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int) + 1
         else:
-            num_tile_range_bin = np.ceil(ds_beam.range_bin.size / num_range_bin_per_tile).astype(int)
+            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int)
 
         # Produce a new coordinate for groupby operation
-        if np.mod(ds_beam.ping_time.size, self.noise_est_ping_size) == 0:
-            num_tile_ping = np.ceil(ds_beam.ping_time.size / self.noise_est_ping_size).astype(int) + 1
+        if np.mod(proc_data.ping_time.size, self.noise_est_ping_size) == 0:
+            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int) + 1
             z = np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel()
         else:
-            num_tile_ping = np.ceil(ds_beam.ping_time.size / self.noise_est_ping_size).astype(int)
-            pad = np.ones(ds_beam.ping_time.size - (num_tile_ping - 1) * self.noise_est_ping_size, dtype=int) \
+            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int)
+            pad = np.ones(proc_data.ping_time.size - (num_tile_ping - 1) * self.noise_est_ping_size, dtype=int) \
                   * (num_tile_ping - 1)
             z = np.hstack(
                 (np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel(), pad))
@@ -222,26 +219,21 @@ class EchoData(object):
         # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
         range_bin_tile_bin = np.arange(num_tile_range_bin+1) * num_range_bin_per_tile - 1
 
-        # Get noise estimates
+        # Noise estimates
+        proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
         proc_data.coords['add_idx'] = ('ping_time', z)
-        proc_data.Sv.groupby('add_idx').groupby_bins('range_bin', range_bin_tile_bin)
+        noise_est = np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
+                             groupby_bins('range_bin', range_bin_tile_bin).mean(['range_bin']))
 
-        # Function for use with apply
-        noise_est = []
-
-        def est_n(x):
-            p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin).mean('range_bin').
-                               groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
-            noise_est.append(nn.values)
-            return x
-
-        # Groupby operation for estimating noise
-        proc_data.coords['add_idx'] = ('ping_time', z)
-        _ = proc_data.Sv.groupby('add_idx').apply(est_n)
-
-        # Close opened resources
-        ds_beam.close()
+        # Set noise estimates coordinates
+        ping_time = proc_data.ping_time[list(map(lambda x: x[0],
+                                                 list(proc_data.ping_time.groupby('add_idx').groups.values())))]
+        noise_est.coords['ping_time'] = ('add_idx', ping_time)
+        range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
+                                                  groupby_bins('range_bin', range_bin_tile_bin).groups.values())))
+        noise_est.coords['range_bin'] = ('range_bin_bins', range_bin)
+        noise_est = noise_est.swap_dims({'add_idx': 'ping_time', 'range_bin_bins': 'range_bin'}).\
+            drop({'add_idx', 'range_bin_bins'})
 
         return noise_est
 
@@ -319,11 +311,11 @@ class EchoData(object):
         # Set MVBS coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0], list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         MVBS.coords['ping_time'] = ('add_idx', ping_time)
-        MVBS.coords['ping_time'] = ('add_idx', ping_time)
         range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
                                                        groupby_bins('range_bin', range_bin_tile_bin).groups.values())))
         MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
-        MVBS.swap_dims({'range_bin_bins': 'range_bin'})
+        MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
+            drop({'add_idx', 'range_bin_bins'})
 
         # Save results in object and as a netCDF file
         print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
