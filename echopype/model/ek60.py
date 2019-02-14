@@ -199,7 +199,8 @@ class EchoData(object):
             z = np.hstack((np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel(), pad))
 
         # Tile bin edges along range
-        range_bin_tile_bin = np.arange(num_tile_range_bin) * num_range_bin_per_tile
+        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
+        range_bin_tile_bin = np.arange(num_tile_range_bin) * num_range_bin_per_tile - 1
 
         # Function for use with apply
         def remove_n(x):
@@ -217,6 +218,102 @@ class EchoData(object):
         Sv_clean.to_dataset().to_netcdf(self.proc_path)
         proc_data.close()
 
+    def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
+        """
+        Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
+
+        The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
+        This method contains redundant pieces of code that also appear in method remove_noise(),
+        but this method can be used separately to determine the exact tile size for noise removal before
+        noise removal is actually performed.
+
+        Parameters
+        ------------
+        noise_est_range_bin_size : float
+            meters per tile for noise estimation [m]
+        noise_est_ping_size : int
+            number of pings per tile for noise estimation
+
+        Returns
+        ---------
+        noise_est : float
+            noise estimates as a numpy array with dimension [ping_bin x frequency]
+            ping_bin is the number of tiles along ping_time calculated from attributes noise_est_ping_size
+        """
+
+        # Check params
+        if (noise_est_range_bin_size is not None) and (self.noise_est_range_bin_size != noise_est_range_bin_size):
+            self.noise_est_range_bin_size = noise_est_range_bin_size
+        if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
+            self.noise_est_ping_size = noise_est_ping_size
+
+        # Open data set for Environment and Beam groups
+        ds_env = xr.open_dataset(self.file_path, group="Environment")
+        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+
+        # Get TVG and absorption
+        c = ds_env.sound_speed_indicative
+        t = ds_beam.sample_interval
+        dR = c * t / 2  # sample thickness
+        range_idx = xr.DataArray(np.array([np.arange(ds_beam.range_bin.size)] * 5).squeeze(),
+                                 dims=['frequency', 'range_bin'],
+                                 coords={'frequency': ds_beam.frequency, 'range_bin': ds_beam.range_bin})
+        range_meter = range_idx * dR - self.tvg_correction_factor * dR  # return DataArray [frequency x range_bin]
+        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+
+        alpha = ds_env.absorption_indicative
+        ABS = 2 * alpha * range_meter
+
+        # Use calibrated data to calculate noise removal
+        proc_data = xr.open_dataset(self.proc_path)
+        # power_cal_lin = 10 ** ((proc_data.Sv - TVG - ABS) / 10)  # calibrated power, based on which noise is estimated
+
+        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
+        num_range_bin_per_tile = (np.round(self.noise_est_range_bin_size /
+                                           dR).astype(int)).values.max()  # number of range_bin per tile
+        self.noise_est_range_bin_size = (num_range_bin_per_tile * dR).values
+
+        # Number of tiles along range_bin
+        if np.mod(ds_beam.range_bin.size, num_range_bin_per_tile) == 0:
+            num_tile_range_bin = np.ceil(ds_beam.range_bin.size / num_range_bin_per_tile).astype(int) + 1
+        else:
+            num_tile_range_bin = np.ceil(ds_beam.range_bin.size / num_range_bin_per_tile).astype(int)
+
+        # Produce a new coordinate for groupby operation
+        if np.mod(ds_beam.ping_time.size, self.noise_est_ping_size) == 0:
+            num_tile_ping = np.ceil(ds_beam.ping_time.size / self.noise_est_ping_size).astype(int) + 1
+            z = np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel()
+        else:
+            num_tile_ping = np.ceil(ds_beam.ping_time.size / self.noise_est_ping_size).astype(int)
+            pad = np.ones(ds_beam.ping_time.size - (num_tile_ping - 1) * self.noise_est_ping_size, dtype=int) \
+                  * (num_tile_ping - 1)
+            z = np.hstack(
+                (np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel(), pad))
+
+        # Tile bin edges along range
+        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
+        range_bin_tile_bin = np.arange(num_tile_range_bin+1) * num_range_bin_per_tile - 1
+
+        # Get noise estimates
+        proc_data.coords['add_idx'] = ('ping_time', z)
+        proc_data.Sv.groupby('add_idx').groupby_bins('range_bin', range_bin_tile_bin)
+
+        # Function for use with apply
+        noise_est = []
+
+        def est_n(x):
+            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
+            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin).mean('range_bin').
+                               groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+            noise_est.append(nn.values)
+            return x
+
+        # Groupby operation for estimating noise
+        proc_data.coords['add_idx'] = ('ping_time', z)
+        _ = proc_data.Sv.groupby('add_idx').apply(est_n)
+
+        return noise_est
 
         # if (N_ping-1)*self.noise_est_ping_size >= self.beam.ping_time.size:
         #     ping_bin = self.beam.ping_time.isel(ping_time=np.hstack((np.arange(N_ping-1) * self.noise_est_ping_size,
