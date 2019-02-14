@@ -46,7 +46,8 @@ class EchoData(object):
             # Get .nc filenames for storing processed data if computation is performed
             self.Sv_path = os.path.join(os.path.dirname(self.file_path),
                                         os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv.nc')
-            self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path), '_Sv_clean.nc')
+            self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
+                                              os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv_clean.nc')
             self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
                                           os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.nc')
 
@@ -254,6 +255,9 @@ class EchoData(object):
         noise_est.coords['range_bin'] = ('range_bin_bins', range_bin)
         noise_est = noise_est.swap_dims({'add_idx': 'ping_time', 'range_bin_bins': 'range_bin'}).\
             drop({'add_idx', 'range_bin_bins'})
+
+        # Close opened resources
+        proc_data.close()
 
         return noise_est
 
