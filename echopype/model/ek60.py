@@ -96,6 +96,61 @@ class EchoData(object):
         ds_env.close()
         ds_beam.close()
 
+    @staticmethod
+    def get_tile_params(r_data_sz, p_data_sz, r_tile_sz, p_tile_sz, sample_thickness):
+        """Obtain ping_time and range_bin parameters associated with groupby and groupby_bins operations.
+
+        These parameters are used in methods remove_noise(), noise_estimates(), get_MVBS().
+
+        Parameters
+        -----------
+        r_data_sz : int
+            number of range_bin entries in data
+        p_data_sz : int
+            number of ping_time entries in data
+        r_tile_sz : float
+            tile size along the range_bin dimension [m]
+        p_tile_sz : int
+            tile size along the ping_time dimension [number of pings]
+        sample_thickness : float
+            thickness of each data sample, determined by sound speed and pulse duration
+
+        Returns
+        --------
+        r_tile_sz : int
+            modified tile size along the range dimension [m], determined by sample_thickness
+        p_idx : list of int
+            indices along the ping_time dimension for :py:func:`xarray.DataArray.groupby` operation
+        r_tile_bin_edge : list of int
+            bin edges along the range_bin dimension for :py:func:`xarray.DataArray.groupby_bins` operation
+        """
+        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
+        num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
+        r_tile_sz = (num_r_per_tile * sample_thickness).values
+
+        # Number of tiles along range_bin
+        if np.mod(r_data_sz, num_r_per_tile) == 0:
+            num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
+        else:
+            num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+
+        # Produce a new coordinate for groupby operation
+        if np.mod(p_data_sz, p_tile_sz) == 0:
+            num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
+            p_idx = np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel()
+        else:
+            num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int)
+            pad = np.ones(p_data_sz - (num_tile_ping - 1) * p_tile_sz, dtype=int) \
+                  * (num_tile_ping - 1)
+            p_idx = np.hstack(
+                (np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel(), pad))
+
+        # Tile bin edges along range
+        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
+        r_tile_bin_edge = np.arange(num_tile_range_bin+1) * num_r_per_tile - 1
+
+        return r_tile_sz, p_idx, r_tile_bin_edge
+
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
@@ -118,43 +173,26 @@ class EchoData(object):
         # Get calibrated power
         proc_data = xr.open_dataset(self.Sv_path)
 
-        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        num_range_bin_per_tile = (np.round(self.noise_est_range_bin_size /
-                                           self.sample_thickness).astype(int)).values.max()  # num of range_bin per tile
-        self.noise_est_range_bin_size = (num_range_bin_per_tile * self.sample_thickness).values
-
-        # Number of tiles along range_bin
-        if np.mod(proc_data.range_bin.size, num_range_bin_per_tile) == 0:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int) + 1
-        else:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int)
-
-        # Produce a new coordinate for groupby operation
-        if np.mod(proc_data.ping_time.size, self.noise_est_ping_size) == 0:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int) + 1
-            z = np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel()
-        else:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int)
-            pad = np.ones(proc_data.ping_time.size - (num_tile_ping - 1) * self.noise_est_ping_size, dtype=int) \
-                  * (num_tile_ping - 1)
-            z = np.hstack((np.array([np.arange(num_tile_ping - 1)]
-                                    * self.noise_est_ping_size).squeeze().T.ravel(), pad))
-
-        # Tile bin edges along range
-        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        range_bin_tile_bin = np.arange(num_tile_range_bin) * num_range_bin_per_tile - 1
+        # Get tile indexing parameters
+        self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
+            self.get_tile_params(r_data_sz=proc_data.range_bin.size,
+                                 p_data_sz=proc_data.ping_time.size,
+                                 r_tile_sz=self.noise_est_range_bin_size,
+                                 p_tile_sz=self.noise_est_ping_size,
+                                 sample_thickness=self.sample_thickness)
 
         # Function for use with apply
         def remove_n(x):
             p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin).mean('range_bin').
+            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
             return x.where(x > nn, other=np.nan)
 
         # Groupby noise removal operation
-        proc_data.coords['add_idx'] = ('ping_time', z)
+        proc_data.coords['add_idx'] = ('ping_time', add_idx)
         Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
         Sv_clean.name = 'Sv_clean'
+        Sv_clean = Sv_clean.drop('add_idx')
 
         # Save as a netCDF file
         print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
@@ -193,44 +231,26 @@ class EchoData(object):
         # Use calibrated data to calculate noise removal
         proc_data = xr.open_dataset(self.Sv_path)
 
-        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        num_range_bin_per_tile = (np.round(self.noise_est_range_bin_size /
-                                           self.sample_thickness).astype(int)).values.max()  # num of range_bin per tile
-        self.noise_est_range_bin_size = (num_range_bin_per_tile * self.sample_thickness).values
-
-        # Number of tiles along range_bin
-        if np.mod(proc_data.range_bin.size, num_range_bin_per_tile) == 0:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int) + 1
-        else:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int)
-
-        # Produce a new coordinate for groupby operation
-        if np.mod(proc_data.ping_time.size, self.noise_est_ping_size) == 0:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int) + 1
-            z = np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel()
-        else:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.noise_est_ping_size).astype(int)
-            pad = np.ones(proc_data.ping_time.size - (num_tile_ping - 1) * self.noise_est_ping_size, dtype=int) \
-                  * (num_tile_ping - 1)
-            z = np.hstack(
-                (np.array([np.arange(num_tile_ping - 1)] * self.noise_est_ping_size).squeeze().T.ravel(), pad))
-
-        # Tile bin edges along range
-        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        range_bin_tile_bin = np.arange(num_tile_range_bin+1) * num_range_bin_per_tile - 1
+        # Get tile indexing parameters
+        self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
+            self.get_tile_params(r_data_sz=proc_data.range_bin.size,
+                                 p_data_sz=proc_data.ping_time.size,
+                                 r_tile_sz=self.noise_est_range_bin_size,
+                                 p_tile_sz=self.noise_est_ping_size,
+                                 sample_thickness=self.sample_thickness)
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
-        proc_data.coords['add_idx'] = ('ping_time', z)
+        proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
-                             groupby_bins('range_bin', range_bin_tile_bin).mean(['range_bin']))
+                             groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']))
 
         # Set noise estimates coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         noise_est.coords['ping_time'] = ('add_idx', ping_time)
         range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
-                                                  groupby_bins('range_bin', range_bin_tile_bin).groups.values())))
+                                                  groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
         noise_est.coords['range_bin'] = ('range_bin_bins', range_bin)
         noise_est = noise_est.swap_dims({'add_idx': 'ping_time', 'range_bin_bins': 'range_bin'}).\
             drop({'add_idx', 'range_bin_bins'})
@@ -277,42 +297,25 @@ class EchoData(object):
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
 
-        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        num_range_bin_per_tile = (np.round(self.MVBS_range_bin_size /
-                                           self.sample_thickness).astype(int)).values.max()  # num of range_bin per tile
-        self.MVBS_range_bin_size = (num_range_bin_per_tile * self.sample_thickness).values
-
-        # Number of tiles along range_bin
-        if np.mod(proc_data.range_bin.size, num_range_bin_per_tile) == 0:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int) + 1
-        else:
-            num_tile_range_bin = np.ceil(proc_data.range_bin.size / num_range_bin_per_tile).astype(int)
-
-        # Produce a new coordinate for groupby operation
-        if np.mod(proc_data.ping_time.size, self.MVBS_ping_size) == 0:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.MVBS_ping_size).astype(int) + 1
-            z = np.array([np.arange(num_tile_ping - 1)] * self.MVBS_ping_size).squeeze().T.ravel()
-        else:
-            num_tile_ping = np.ceil(proc_data.ping_time.size / self.MVBS_ping_size).astype(int)
-            pad = np.ones(proc_data.ping_time.size - (num_tile_ping - 1) * self.MVBS_ping_size, dtype=int) \
-                  * (num_tile_ping - 1)
-            z = np.hstack(
-                (np.array([np.arange(num_tile_ping - 1)] * self.MVBS_ping_size).squeeze().T.ravel(), pad))
-
-        # Tile bin edges along range
-        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        range_bin_tile_bin = np.arange(num_tile_range_bin+1) * num_range_bin_per_tile - 1
+        # Get tile indexing parameters
+        self.MVBS_range_bin_size, add_idx, range_bin_tile_bin_edge = \
+            self.get_tile_params(r_data_sz=proc_data.range_bin.size,
+                                 p_data_sz=proc_data.ping_time.size,
+                                 r_tile_sz=self.MVBS_range_bin_size,
+                                 p_tile_sz=self.MVBS_ping_size,
+                                 sample_thickness=self.sample_thickness)
 
         # Calculate MVBS
-        proc_data.coords['add_idx'] = ('ping_time', z)
+        proc_data.coords['add_idx'] = ('ping_time', add_idx)
         MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-            groupby_bins('range_bin', range_bin_tile_bin).mean(['range_bin'])
+            groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
 
         # Set MVBS coordinates
-        ping_time = proc_data.ping_time[list(map(lambda x: x[0], list(proc_data.ping_time.groupby('add_idx').groups.values())))]
+        ping_time = proc_data.ping_time[list(map(lambda x: x[0],
+                                                 list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         MVBS.coords['ping_time'] = ('add_idx', ping_time)
         range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
-                                                       groupby_bins('range_bin', range_bin_tile_bin).groups.values())))
+                                                  groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
         MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
         MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
             drop({'add_idx', 'range_bin_bins'})
