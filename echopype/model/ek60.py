@@ -196,53 +196,8 @@ class EchoData(object):
         Sv_clean.name = 'Sv_clean'
         Sv_clean = Sv_clean.drop('add_idx')
 
-
-        # Check if noise estimation and removal is correctly implemented
-        power_cal_test = (10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)).values
-        num_ping_bins = np.unique(add_idx).size
-        num_range_bins = range_bin_tile_bin_edge.size-1
-        noise_est_tmp = np.empty((proc_data.frequency.size, num_range_bins, num_ping_bins))  # all tiles
-        noise_est_test = np.empty((proc_data.frequency.size, num_ping_bins))  # all columns
-        p_sz = self.noise_est_ping_size
-        p_idx = np.arange(p_sz, dtype=int)
-        r_sz = (self.noise_est_range_bin_size.max() / self.sample_thickness[0].values).astype(int)
-        r_idx = np.arange(r_sz, dtype=int)
-
-        # Get noise estimates manually
-        for f, f_seq in enumerate(np.arange(proc_data.frequency.size)):
-            for p, p_seq in enumerate(np.arange(num_ping_bins)):
-                for r, r_seq in enumerate(np.arange(num_range_bins)):
-                    if p_idx[-1] + p_sz * p_seq < power_cal_test.shape[1]:
-                        pp_idx = p_idx + p_sz * p_seq
-                    else:
-                        pp_idx = np.arange(p_sz * p_seq, power_cal_test.shape[1])
-                    if r_idx[-1] + r_sz * r_seq < power_cal_test.shape[2]:
-                        rr_idx = r_idx + r_sz * r_seq
-                    else:
-                        rr_idx = np.arange(r_sz * r_seq, power_cal_test.shape[2])
-                    nn = power_cal_test[f_seq, :, :][np.ix_(pp_idx, rr_idx)]
-                    noise_est_tmp[f_seq, r_seq, p_seq] = 10 * np.log10(nn.mean())
-                noise_est_test[f_seq, p_seq] = noise_est_tmp[f_seq, :, p_seq].min()
-        assert np.isclose(noise_est_test, noise_est.values)
-
-        # Remove noise manually
-        Sv_clean_test = np.empty(proc_data.Sv.shape)
-        for f, f_seq in enumerate(np.arange(proc_data.frequency.size)):
-            for p, p_seq in enumerate(np.arange(num_ping_bins)):
-                if p_idx[-1] + p_sz * p_seq < power_cal_test.shape[1]:
-                    pp_idx = p_idx + p_sz * p_seq
-                else:
-                    pp_idx = np.arange(p_sz * p_seq, power_cal_test.shape[1])
-                Sv_clean_tmp = proc_data.Sv.values[f_seq, pp_idx, :]
-                nn_tmp = (noise_est_test[f_seq, p_seq] +
-                          self.ABS.isel(frequency=f_seq) + self.TVG.isel(frequency=f_seq)).values
-                Sv_clean_aa = Sv_clean_tmp.copy()
-                Sv_clean_aa[Sv_clean_aa < nn_tmp] = np.nan
-                Sv_clean_test[f_seq, pp_idx, :] = Sv_clean_aa
-        assert ~np.any(Sv_clean.values[~np.isnan(Sv_clean.values)] != Sv_clean_test[~np.isnan(Sv_clean_test)])
-
-
         # Save as a netCDF file
+        self.Sv_clean = Sv_clean
         print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
         Sv_clean.to_netcdf(self.Sv_clean_path)
         proc_data.close()
@@ -298,11 +253,7 @@ class EchoData(object):
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         noise_est.coords['ping_time'] = ('add_idx', ping_time)
-        range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
-                                                  groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
-        noise_est.coords['range_bin'] = ('range_bin_bins', range_bin)
-        noise_est = noise_est.swap_dims({'add_idx': 'ping_time', 'range_bin_bins': 'range_bin'}).\
-            drop({'add_idx', 'range_bin_bins'})
+        noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop({'add_idx'})
 
         # Close opened resources
         proc_data.close()
