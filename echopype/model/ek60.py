@@ -57,8 +57,14 @@ class EchoData(object):
         else:
             raise ValueError('Data file format not recognized.')
 
-    def calibrate(self):
+    def calibrate(self, save=True):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
+
+        Parameters
+        -----------
+        save : bool, optional
+            whether to save calibrated Sv output
+            default to ``True``
         """
 
         # Open data set for Environment and Beam groups
@@ -91,9 +97,14 @@ class EchoData(object):
         Sv = ds_beam.backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         Sv.name = 'Sv'
 
-        # Save calibrated data to a separate .nc file in the same directory as the data file
-        print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-        Sv.to_netcdf(path=self.Sv_path, mode="w")
+        # Save calibrated data into the calling instance and
+        # ... to a separate .nc file in the same directory as the data file
+        self.Sv = Sv
+        if save:
+            print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
+            Sv.to_netcdf(path=self.Sv_path, mode="w")
+
+        # Close opened resources
         ds_env.close()
         ds_beam.close()
 
@@ -152,7 +163,7 @@ class EchoData(object):
 
         return r_tile_sz, p_idx, r_tile_bin_edge
 
-    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
+    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -161,8 +172,13 @@ class EchoData(object):
 
         Parameters
         ------------
-        noise_est_range_bin_size : meters per tile for noise estimation [m]
-        noise_est_ping_size : number of pings per tile for noise estimation
+        noise_est_range_bin_size : float, optional
+            meters per tile for noise estimation [m]
+        noise_est_ping_size : int, optional
+            number of pings per tile for noise estimation
+        save : bool, optional
+            whether to save the denoised Sv (``Sv_clean``) into a new .nc file
+            default to ``False``
         """
 
         # Check params
@@ -193,13 +209,22 @@ class EchoData(object):
         # Groupby noise removal operation
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
+
+        # Set up DataArray
         Sv_clean.name = 'Sv_clean'
         Sv_clean = Sv_clean.drop('add_idx')
+        Sv_clean = Sv_clean.to_dataset()
+        Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
+        Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
+        Sv_clean['sample_thickness'] = ('frequency', self.sample_thickness)
 
-        # Save as a netCDF file
+        # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
-        print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
-        Sv_clean.to_netcdf(self.Sv_clean_path)
+        if save:
+            print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
+            Sv_clean.to_netcdf(self.Sv_clean_path)
+
+        # Close opened resources
         proc_data.close()
 
     def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
@@ -220,7 +245,7 @@ class EchoData(object):
 
         Returns
         ---------
-        noise_est : xarray DataArray
+        noise_est : xarray DataSet
             noise estimates as a DataArray with dimension [ping_time x range_bin]
             ping_time and range_bin are taken from the first element of each tile along each of the dimensions
         """
@@ -249,21 +274,29 @@ class EchoData(object):
                                   groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']).
                                   min('range_bin_bins'))
 
-        # Set noise estimates coordinates
+        # Set noise estimates coordinates and other attributes
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         noise_est.coords['ping_time'] = ('add_idx', ping_time)
         noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop({'add_idx'})
+        noise_est = noise_est.to_dataset()
+        noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
+        noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
+        noise_est['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Close opened resources
         proc_data.close()
 
         return noise_est
 
-    def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None):
+    def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None, save=False):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
-        The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size.
+        The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
+        calculate and save MVBS as a new attribute to the calling EchoData instance.
+        MVBS is an xarray DataArray with dimensions ``ping_time`` and ``range_bin``
+        that are from the first elements of each tile along the corresponding dimensions
+        in the original Sv or Sv_clean DataArray.
 
         Parameters
         ------------
@@ -271,17 +304,13 @@ class EchoData(object):
             source used to calculate MVBS, can be ``Sv`` or ``Sv_clean``,
             where ``Sv`` and ``Sv_clean`` are the original and denoised volume
             backscattering strengths, respectively. Both are calibrated.
-        MVBS_range_bin_size : float
+        MVBS_range_bin_size : float, optional
             meters per tile for calculating MVBS [m]
-        MVBS_ping_size : int
+        MVBS_ping_size : int, optional
             number of pings per tile for calculating MVBS
-
-        Returns
-        ---------
-        MVBS : xarray DataArray
-            MVBS has dimensions [ping_bin and range_bin_bin]
-            range_bin_bin is the number of tiles along range_bin calculated from attributes MVBS_range_bin_size
-            ping_bin is the number of tiles along ping_time calculated from attributes MVBS_ping_size
+        save : bool, optional
+            whether to save the denoised Sv (``Sv_clean``) into a new .nc file
+            default to ``False``
         """
         # Check params
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
@@ -323,8 +352,17 @@ class EchoData(object):
         MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
             drop({'add_idx', 'range_bin_bins'})
 
+        # Set MVBS attributes
+        MVBS = MVBS.to_dataset()
+        MVBS['noise_est_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
+        MVBS.attrs['noise_est_ping_size'] = self.MVBS_ping_size
+        MVBS['sample_thickness'] = ('frequency', self.sample_thickness)
+
         # Save results in object and as a netCDF file
-        print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
         self.MVBS = MVBS
-        MVBS.to_netcdf(self.MVBS_path)
+        if save:
+            print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
+            MVBS.to_netcdf(self.MVBS_path)
+
+        # Close opened resources
         proc_data.close()
