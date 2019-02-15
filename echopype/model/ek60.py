@@ -279,7 +279,7 @@ class EchoData(object):
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         noise_est.coords['ping_time'] = ('add_idx', ping_time)
         noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop({'add_idx'})
-        noise_est = noise_est.to_dataset()
+        noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
         noise_est['sample_thickness'] = ('frequency', self.sample_thickness)

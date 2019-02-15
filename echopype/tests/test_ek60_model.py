@@ -65,7 +65,7 @@ def test_noise_estimates_removal():
             noise_est_test[f_seq, p_seq] = noise_est_tmp[f_seq, :, p_seq].min()
 
     # Check xarray and numpy noise estimates
-    assert np.all(np.isclose(noise_est_test, noise_est.values))
+    assert np.all(np.isclose(noise_est_test, noise_est.noise_est.values))
 
     # Remove noise manually
     Sv_clean_test = np.empty(proc_data.Sv.shape)
@@ -83,7 +83,7 @@ def test_noise_estimates_removal():
             Sv_clean_test[f_seq, pp_idx, :] = Sv_clean_tmp
 
     # Check xarray and numpy noise removal
-    assert ~np.any(e_data.Sv_clean.values[~np.isnan(e_data.Sv_clean.values)]
+    assert ~np.any(e_data.Sv_clean.Sv_clean.values[~np.isnan(e_data.Sv_clean.Sv_clean.values)]
                    != Sv_clean_test[~np.isnan(Sv_clean_test)])
 
     proc_data.close()
