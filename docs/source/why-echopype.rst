@@ -1,0 +1,12 @@
+Why echopype?
+=================
+
+Over the last decade, advancements in instrumentation have resulted in a deluge of water column sonar data from vessels, moorings and autonomous vehicles. These data contain vital information concerning the health of the ocean and the economic well-being of a significant population of society. However, they remain significantly under-utilized. One of the primary reason for this underuse of data is the inefficiency and incompatibility of existing software to handle large volumes of data stored in heterogeneous formats. The goal of ``echopype`` is to tackle these challenges by enhancing the interoperability and scalability of water column sonar data analysis.
+
+Interoperability
+------------------
+echopype contains tools for converting data from various manufacturer-specific formats into a common, interoperable `netCDF <https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html>`_ file. This is useful, because NetCDF is the `current defacto standard <https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html>`_ in climate research and is supported by many powerful Python packages for efficient computation. This means that once data are converted, researchers can then pick and choose what they need directly from the file and do not necessarily need specialized software to analyze sonar data. This approach also allows sonar data to be combined and analyzed flexibly with other climate and oceanographic data, making acoustic data an integrated part of oceanographic research.
+
+Scalability
+--------------
+echopype is written to use as much as functionality of `xarray <http://xarray.pydata.org/>`_ as possible. xarray is a powerful module that let you work with multi-dimensional labeled data set the same way as in `pandas <https://pandas.pydata.org/>`_. Under the hood, xarray uses `dask <http://dask.pydata.org/>`_ to support parallel computations and streaming computation on data sets that don't fit into memory. With this combination, echopype is aimed making sonar data analysis more efficient by supporting distributed computing harness the power of distributed computing for data stored either locally or on the cloud.
