@@ -353,6 +353,7 @@ class EchoData(object):
             drop({'add_idx', 'range_bin_bins'})
 
         # Set MVBS attributes
+        MVBS.name = 'MVBS'
         MVBS = MVBS.to_dataset()
         MVBS['noise_est_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['noise_est_ping_size'] = self.MVBS_ping_size
