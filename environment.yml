@@ -12,4 +12,5 @@ dependencies:
   - scipy
   - ipykernel
   - click
+  - datetime
 
