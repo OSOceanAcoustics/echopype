@@ -1,0 +1,127 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Why echopype? &#8212; echopype 0.1.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Format" href="data-format.html" />
+    <link rel="prev" title="Welcome to echopype’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="why-echopype">
+<h1>Why echopype?<a class="headerlink" href="#why-echopype" title="Permalink to this headline">¶</a></h1>
+<p>Over the last decade, advancements in instrumentation have resulted in a deluge of water column sonar data from vessels, moorings and autonomous vehicles. These data contain vital information concerning the health of the ocean and the economic well-being of a significant population of society. However, they remain significantly under-utilized. One of the primary reason for this underuse of data is the inefficiency and incompatibility of existing software to handle large volumes of data stored in heterogeneous formats. The goal of <code class="docutils literal notranslate"><span class="pre">echopype</span></code> is to tackle these challenges by enhancing the interoperability and scalability of water column sonar data analysis.</p>
+<div class="section" id="interoperability">
+<h2>Interoperability<a class="headerlink" href="#interoperability" title="Permalink to this headline">¶</a></h2>
+<p>echopype contains tools for converting data from various manufacturer-specific formats into a common, interoperable <a class="reference external" href="https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html">netCDF</a> file. This is useful, because NetCDF is the <a class="reference external" href="https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html">current defacto standard</a> in climate research and is supported by many powerful Python packages for efficient computation. This means that once data are converted, researchers can then pick and choose what they need directly from the file and do not necessarily need specialized software to analyze sonar data. This approach also allows sonar data to be combined and analyzed flexibly with other climate and oceanographic data, making acoustic data an integrated part of oceanographic research.</p>
+</div>
+<div class="section" id="scalability">
+<h2>Scalability<a class="headerlink" href="#scalability" title="Permalink to this headline">¶</a></h2>
+<p>echopype is written to use as much as functionality of <a class="reference external" href="http://xarray.pydata.org/">xarray</a> as possible. xarray is a powerful module that let you work with multi-dimensional labeled data set the same way as in <a class="reference external" href="https://pandas.pydata.org/">pandas</a>. Under the hood, xarray uses <a class="reference external" href="http://dask.pydata.org/">dask</a> to support parallel computations and streaming computation on data sets that don’t fit into memory. With this combination, echopype is aimed making sonar data analysis more efficient by supporting distributed computing harness the power of distributed computing for data stored either locally or on the cloud.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">echopype</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Why echopype?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#interoperability">Interoperability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scalability">Scalability</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data-format.html">Data Format</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other-resources.html">Other Resources</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to echopype’s documentation!</a></li>
+      <li>Next: <a href="data-format.html" title="next chapter">Data Format</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Wu-Jung Lee.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/why-echopype.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
