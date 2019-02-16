@@ -1,127 +1,266 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-<html xmlns="http://www.w3.org/1999/xhtml">
-  <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Data Format &#8212; echopype 0.1.1 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Data Format &mdash; echopype 0.1.1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Other Resources" href="other-resources.html" />
-    <link rel="prev" title="Why echopype?" href="why-echopype.html" />
+    <link rel="prev" title="Why echopype?" href="why-echopype.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
-  
-  
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
-
-  </head><body>
-  
-
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
           
 
-          <div class="body" role="main">
+          
+            <a href="index.html" class="icon icon-home"> echopype
+          
+
+          
+          </a>
+
+          
             
-  <div class="section" id="data-format">
-<h1>Data Format<a class="headerlink" href="#data-format" title="Permalink to this headline">¶</a></h1>
-<p>The lack of interoperability among data collected by different sonar systems is currently a major obstacle in integrative analysis of sonar data at large scales.</p>
-<p>echopype addresses this problem by creating tools for converting data from manufacturer-specific formats into a common, interoperable [netCDF](<a class="reference external" href="https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html">https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html</a>) file format. NetCDF is the [current defacto standard](<a class="reference external" href="https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html">https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html</a>) in climate research and is supported by many powerful Python packages for efficient computation.</p>
-<p>### Common file format
-Currently echopype use a modified form of the [ICES SONAR-netCDF4 convention](<a class="reference external" href="http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf">http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf</a>) as the common data format to which all data can be converted to. This convention is actually pretty new (released in mid 2018) and we think modification is needed to leverage functionalities of many powerful Python libraries. Detail of the modification is discussed [below](#modification-to-the-SONAR-netCDF4-convention). We consider switching to using [zarr](<a class="reference external" href="https://zarr.readthedocs.io/en/stable/">https://zarr.readthedocs.io/en/stable/</a>) for cloud-optimized data storage and access in the future.</p>
-<p>### Supported file types
-In the first stage of development (until spring 2019), we plan to support data conversion for three sonar systems commonly found on research vessels:
-- <cite>.raw</cite> files from Simrad EK60 narrowband echosounder
-- <cite>.raw</cite> files from Simrad EK80 broadband echosounder
-- <cite>.01A</cite> files from ASL Environmental Sciences AZFP echosounder</p>
-<p>We plan to support conversion of <em>raw beam</em> data from common Acoustic Doppler Current Profilers (ADCPs) and echo data from multibeam sonar in the next stage of development.</p>
-<p>### Modification to the SONAR-netCDF4 convention
-We modified how backscatter data (the sonar echoes) are stored in a netCDF file. In the SONAR-netCDF4 convention, backscatter data from each sonar beam are stored in separate <cite>Beam</cite> subgroups under the <cite>Sonar</cite> group. This was designed to accommodate potential differences in the recorded echo lengths across different channels. Specifically, the number of bins and bin size along range (which corresponds to depth in most cases) may differ. However, this form of storage is not the most efficient if the number of bins and bin size are the same. If these parameters are identical, it is much more convenient to store and access data as a multi-dimensional array indexed by time, range, <em>and</em> frequency or beam direction (for multibeam data).</p>
-<p>echopype handles this by adaptively switching the storage format depending on the range bin parameters. This is not a perfect solution, since this means that all subsequent computation needs to be adaptive as well. However this is an acceptable solution, since many popular analysis routines operate on top of heavily averaged and interpolated echo data, instead of the <em>raw</em> data discussed here. At that stage, data across frequency or channel are required to have the dimensions and coordinates.</p>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
 </div>
 
-
-          </div>
           
         </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="index.html">echopype</a></h1>
 
-
-
-
-
-
-
-
-<h3>Navigation</h3>
-<p class="caption"><span class="caption-text">Contents:</span></p>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="why-echopype.html">Why echopype?</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Format</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Format</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#interoperable-netcdf-file">Interoperable netCDF file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#supported-file-types">Supported file types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#modifications-to-sonar-netcdf4">Modifications to SONAR-netCDF4</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="other-resources.html">Other Resources</a></li>
 </ul>
 
-<div class="relations">
-<h3>Related Topics</h3>
-<ul>
-  <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="why-echopype.html" title="previous chapter">Why echopype?</a></li>
-      <li>Next: <a href="other-resources.html" title="next chapter">Other Resources</a></li>
-  </ul></li>
-</ul>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">echopype</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Data Format</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/data-format.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
 </div>
-<div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="data-format">
+<h1>Data Format<a class="headerlink" href="#data-format" title="Permalink to this headline">¶</a></h1>
+<p>The lack of interoperability among data collected by different sonar
+systems is currently a major obstacle in integrative analysis of sonar
+data at large scales.</p>
+<p>echopype addresses this problem by creating tools for converting data
+from manufacturer-specific formats into a common, interoperable
+<a class="reference external" href="https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html">netCDF</a> file format.
+NetCDF is the <a class="reference external" href="https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html">current defacto standard</a> in climate
+research and is supported by many powerful Python packages for
+efficient computation.</p>
+<div class="section" id="interoperable-netcdf-file">
+<h2>Interoperable netCDF file<a class="headerlink" href="#interoperable-netcdf-file" title="Permalink to this headline">¶</a></h2>
+<p>echopype use a modified form of the <a class="reference external" href="http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf">ICES SONAR-netCDF4 convention</a> as the
+interoperable data format to which all data can be converted to.
+This convention is very recently proposed (mid 2018) and we made
+critical modifications to the data storage structure so that
+the underlying computation can take full advantage of the power of
+xarray in manipulating labelled multi-dimensional arrays. Detail of
+the modification is discussed a separate section below. We also
+consider switching to use <a class="reference external" href="https://zarr.readthedocs.io/en/stable/">zarr</a>
+in the future for cloud-optimized data storage and access.</p>
+</div>
+<div class="section" id="supported-file-types">
+<h2>Supported file types<a class="headerlink" href="#supported-file-types" title="Permalink to this headline">¶</a></h2>
+<p>In the first stage of development (until spring 2019), we plan to
+support data conversion for three sonar systems commonly found on
+research vessels and moorings:
+- <cite>.raw</cite> files from Simrad EK60 narrowband echosounder
+- <cite>.raw</cite> files from Simrad EK80 broadband echosounder
+- <cite>.01A</cite> files from ASL Environmental Sciences AZFP echosounder</p>
+<p>We plan to support conversion of <em>raw beam</em> data from common Acoustic
+Doppler Current Profilers (ADCPs) and echo data from multibeam sonar
+in the next stage of development.</p>
+</div>
+<div class="section" id="modifications-to-sonar-netcdf4">
+<h2>Modifications to SONAR-netCDF4<a class="headerlink" href="#modifications-to-sonar-netcdf4" title="Permalink to this headline">¶</a></h2>
+<p>We modified how backscatter data (the sonar echoes) are stored in a
+netCDF file. In the SONAR-netCDF4 convention, backscatter data from
+each sonar beam are stored in separate <code class="docutils literal notranslate"><span class="pre">Beam</span></code> subgroups under the
+<code class="docutils literal notranslate"><span class="pre">Sonar</span></code> group. This was designed to accommodate potential
+differences in the recorded echo lengths across different channels.
+Specifically, the number of bins and bin size along range
+(which corresponds to depth in most cases) may differ. However, this
+form of storage is not the most efficient if the number of bins and
+bin size are the same. If these parameters are identical, it is much
+more convenient to store and access data as a multi-dimensional array
+indexed by time, range, <em>and</em> frequency or beam direction (for
+multibeam data).</p>
+<p>echopype handles this by adaptively switching the storage format
+depending on the range bin parameters. This is not a perfect solution,
+since this means that all subsequent computation needs to be adaptive
+as well. However this is an acceptable solution, since many popular
+analysis routines operate on top of heavily averaged and interpolated
+echo data, instead of the <em>raw</em> data discussed here. At that stage,
+data across frequency or channel are required to have the dimensions
+and coordinates.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="other-resources.html" class="btn btn-neutral float-right" title="Other Resources" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="why-echopype.html" class="btn btn-neutral float-left" title="Why echopype?" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
     </div>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+  
 
+  <hr/>
 
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Wu-Jung Lee
 
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
-
-
-
+</footer>
 
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="footer">
-      &copy;2019, Wu-Jung Lee.
-      
-      |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
-      
-      |
-      <a href="_sources/data-format.rst.txt"
-          rel="nofollow">Page source</a>
-    </div>
 
-    
+    </section>
 
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
     
-  </body>
+   
+
+</body>
 </html>
