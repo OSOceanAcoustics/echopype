@@ -1,5 +1,7 @@
+.. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
+    :target: https://travis-ci.org/OSOceanAcoustics/echopype
 .. image:: https://mybinder.org/badge_logo.svg
- :target: https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master
+    :target: https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master
 
 echopype
 ===========
