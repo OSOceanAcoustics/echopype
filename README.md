@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/leewujung/echopype.svg?branch=master)](https://travis-ci.org/leewujung/echopype)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master)
 
 # echopype
 
