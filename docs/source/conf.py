@@ -12,10 +12,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-
-import os
-import sys
-sys.path.insert(0, os.path.abspath('../../'))
+# import os
+# import sys
+# sys.path.insert(0, os.path.abspath('.'))
 
 
 # -- Project information -----------------------------------------------------
@@ -27,7 +26,7 @@ author = 'Wu-Jung Lee'
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = ''
+release = '0.1.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -41,12 +40,9 @@ release = ''
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
+    'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
 ]
 
@@ -188,8 +184,3 @@ epub_exclude_files = ['search.html']
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
-
-# -- Options for todo extension ----------------------------------------------
-
-# If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = True
