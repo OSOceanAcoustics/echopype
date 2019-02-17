@@ -6,9 +6,10 @@
 echopype
 ===========
 
-The goal of echopype is to improve the interoperability and scalability in
-processing water column sonar data. These data are commonly used for inferring
-information about mid-trophic organisms in the ocean, such as fish and krill.
+echopype is a package built for improving the interoperability and scalability
+in processing water column sonar data. These data are commonly used for
+inferring information about mid-trophic organisms in the ocean, such as fish
+and krill.
 
 
 Functionality
