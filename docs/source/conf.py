@@ -6,27 +6,29 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
+import echopype
+
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../../'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'echopype'
-copyright = '2019, Wu-Jung Lee'
+copyright = '2018-, Wu-Jung Lee'
 author = 'Wu-Jung Lee'
 
 # The short X.Y version
-version = ''
+version = echopype.__version__
 # The full version, including alpha/beta/rc tags
-release = '0.1.1'
+release = echopype.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -40,11 +42,17 @@ release = '0.1.1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
 ]
+
+autosummary_generate = True
+
+numpydoc_class_members_toctree = True
+# numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -71,7 +79,7 @@ language = None
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = 'sphinx'
 
 
 # -- Options for HTML output -------------------------------------------------

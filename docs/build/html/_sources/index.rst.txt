@@ -3,16 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to echopype's documentation!
+Welcome to echopype!
 ====================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-   why-echopype.rst
-   data-format.rst
-   other-resources.rst
+   why
+   data-format
+   resources
+   api
 
 
 
