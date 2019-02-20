@@ -10,6 +10,11 @@ with open(ver_file) as f:
 # Long description will go up on the pypi page
 with open('README.rst') as file:
     LONG_DESCRIPTION = file.read()
+    
+# Dependencies.
+with open('requirements.txt') as f:
+    requirements = f.readlines()
+INSTALL_REQUIRES = [t.strip() for t in requirements]
 
 opts = dict(name=NAME,
             maintainer=MAINTAINER,
