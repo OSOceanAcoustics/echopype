@@ -14,3 +14,4 @@ __pycache__/
 *.egg-info/
 .tox/
 dist/
+build/
