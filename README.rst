@@ -126,7 +126,7 @@ Other contributors include:
 - `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_
   (@marianpena)
 - `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys)
-- `Erin Labrecque <https://www.linkedin.com/in/erin-labrecque/>`_
+- `Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_
   (@erinann)
 - `Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_
   (@emma-ozanich)
