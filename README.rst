@@ -6,10 +6,21 @@
 echopype
 ===========
 
-echopype is a package built for improving the interoperability and scalability
-in processing water column sonar data. These data are commonly used for
-inferring information about mid-trophic organisms in the ocean, such as fish
-and krill.
+echopype is a package built for enhancing the interoperability and scalability
+in ocean sonar data processing.
+These data are widely used for obtaining information about the distribution and
+abundance of marine animals, such as fish and krill.
+Our ability to collect large volumes of sonar data from a variety of
+ocean platforms has grown significantly in the last decade.
+However, most of the new data remain under-utilized.
+echopype aims to address the root cause of this problem - the lack of
+interoperable data format and scalable analysis workflows that adapt well
+with increasing data volume - by providing open-source tools as entry points for
+scientists to make discovery using these new data.
+
+See the `echopype documentation`_ for more detail.
+
+.. _echopype documentation: https://echopype.readthedocs.io
 
 
 Functionality
