@@ -92,8 +92,8 @@ proper dimension labels.
 
 
 
-References
-------------
+---------------
+
 .. [1] De Robertis and Higginbottoms (2007) A post-processing technique to
    estimate the signal-to-noise ratio and remove echosounder background noise.
    `ICES J. Mar. Sci. 64(6): 1282–1291. <https://academic.oup.com/icesjms/article/64/6/1282/616894>`_
