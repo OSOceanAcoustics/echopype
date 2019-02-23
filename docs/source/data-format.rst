@@ -96,6 +96,6 @@ sequence of the index of the selected frequency:
     import xarray as xr
     fname = 'some-path/some-file.nc'
     ds = xr.open_dataset(fname, group='Beam')  # open file as an xarray DataSet
-    data_120k = ds.backscatter_r.sel(frequency=120000)  # explicit indexing for frequency and ping time
+    data_120k = ds.backscatter_r.sel(frequency=120000)  # explicit indexing for frequency
 
 
