@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 from os.path import join as pjoin
 from setuptools import setup, find_packages
 import versioneer
-PACKAGES = find_packages()
 
 # Long description will go up on the pypi page
 with open('README.rst') as file:
