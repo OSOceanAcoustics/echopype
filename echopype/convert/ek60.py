@@ -20,7 +20,10 @@ from datetime import datetime as dt
 from matplotlib.dates import date2num
 import pytz
 from .set_nc_groups import SetGroups
-from echopype.version import VERSION as ECHOPYPE_VERSION
+from echopype._version import get_versions
+ECHOPYPE_VERSION = get_versions()['version']
+del get_versions
+
 
 
 class ConvertEK60(object):

@@ -1,12 +1,7 @@
-import os
+from __future__ import absolute_import, division, print_function
+from os.path import join as pjoin
 from setuptools import setup, find_packages
 import versioneer
-PACKAGES = find_packages()
-
-# Get version and release info, which is all stored in echopype/version.py
-ver_file = os.path.join('echopype', 'version.py')
-with open(ver_file) as f:
-    exec(f.read())
 
 # Long description will go up on the pypi page
 with open('README.rst') as file:
@@ -17,26 +12,31 @@ with open('requirements.txt') as f:
     requirements = f.readlines()
 INSTALL_REQUIRES = [t.strip() for t in requirements]
 
-opts = dict(name=NAME,
-            maintainer=MAINTAINER,
-            maintainer_email=MAINTAINER_EMAIL,
-            description=DESCRIPTION,
+opts = dict(name='echopype',
+            maintainer='Wu-Jung Lee',
+            maintainer_email='leewujung@gmail.com',
+            description='Enhancing the interoperability and scalability in analyzing ocean sonar data',
             long_description=LONG_DESCRIPTION,
-            url=URL,
-            download_url=DOWNLOAD_URL,
-            license=LICENSE,
-            classifiers=CLASSIFIERS,
-            author=AUTHOR,
-            author_email=AUTHOR_EMAIL,
-            platforms=PLATFORMS,
+            url='https://github.com/OSOceanAcoustics/echopype',
+            download_url='',
+            license='Apache License, Version 2.0',
+            classifiers=['Development Status :: 3 - Alpha',
+                         'Environment :: Console',
+                         'Intended Audience :: Science/Research',
+                         'License :: OSI Approved :: Apache Software License',
+                         'Operating System :: OS Independent',
+                         'Programming Language :: Python',
+                         'Topic :: Scientific/Engineering'],
+            author='Wu-Jung Lee',
+            author_email='leewujung@gmail.com',
+            platforms='OS Independent',
             version=versioneer.get_version(),
             cmdclass=versioneer.get_cmdclass(),
-            packages=PACKAGES,
-            package_data=PACKAGE_DATA,
+            packages=find_packages(),
+            package_data={'echopype': [pjoin('data', '*')]},
             install_requires=INSTALL_REQUIRES,
-            requires=REQUIRES,
-            test_requires=TEST_REQUIRES,
-            scripts=SCRIPTS)
+            tests_require='tox',
+            scripts=['echopype/convert/echopype_converter'])
 
 
 if __name__ == '__main__':
