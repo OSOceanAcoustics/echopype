@@ -6,7 +6,8 @@ import xarray as xr
 
 
 class SetGroups(object):
-    """Class for setting groups in netCDF file."""
+    """Class for setting groups in netCDF file.
+    """
 
     def __init__(self, file_path='test.nc'):
         self.file_path = file_path
@@ -19,10 +20,14 @@ class SetGroups(object):
     def set_env(self, env_dict):
         """Set the Environment group in the netCDF file.
 
-        :param env_dict: dictionary containing environment group params
+        Parameters
+        ----------
+        env_dict
+            dictionary containing environment group params
                          env_dict['frequency']
                          env_dict['absorption_coeff']
                          env_dict['sound_speed']
+
         """
         # Only save environment group if file_path exists
         if not os.path.exists(self.file_path):
@@ -53,8 +58,12 @@ class SetGroups(object):
     def set_provenance(self, src_file_names, prov_dict):
         """Set the Provenance group in the nc file.
 
-        :param src_file_names: source filenames
-        :param prov_dict: dictionary containing file conversion parameters
+        Parameters
+        ----------
+        src_file_names
+            source filenames
+        prov_dict
+            dictionary containing file conversion parameters
                           prov_dict['conversion_software_name']
                           prov_dict['conversion_software_version']
                           prov_dict['conversion_time']
@@ -80,7 +89,10 @@ class SetGroups(object):
     def set_sonar(self, sonar_dict):
         """Set the Sonar group in the nc file.
 
-        :param sonar_dict: dictionary containing sonar parameters
+        Parameters
+        ----------
+        sonar_dict
+            dictionary containing sonar parameters
         """
         # create group
         ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
@@ -96,7 +108,10 @@ class SetGroups(object):
     def set_platform(self, platform_dict):
         """Set the Platform group in the nc file.
 
-        :param platform_dict: dictionary containing platform parameters
+        Parameters
+        ----------
+        platform_dict
+            dictionary containing platform parameters
         """
         # Only save platform group if file_path exists
         if not os.path.exists(self.file_path):
@@ -139,11 +154,18 @@ class SetGroups(object):
     def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig):
         """Set the Beam group in the nc file.
 
-        :param beam_dict: dictionary containing general beam parameters
-        :param bm_width:  dictionary containing parameters related to beamwidth
-        :param bm_dir:    dictionary containing parameters related to beam direction
-        :param tx_pos:    dictionary containing parameters related to transducer position
-        :param tx_sig:    dictionary containing parameters related to transmit signals
+        Parameters
+        ----------
+        beam_dict
+            dictionary containing general beam parameters
+        bm_width
+            dictionary containing parameters related to beamwidth
+        bm_dir
+            dictionary containing parameters related to beam direction
+        tx_pos
+            dictionary containing parameters related to transducer position
+        tx_sig
+            dictionary containing parameters related to transmit signals
         """
         # Only save beam group if file_path exists
         if not os.path.exists(self.file_path):
