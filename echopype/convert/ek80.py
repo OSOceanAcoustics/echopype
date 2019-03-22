@@ -36,7 +36,7 @@ class convertEK80(object):
         self.count_filt = -1
         self.count_mru = -1
         
-        self.fn = fn
+        self.fn = _fn
 
     def cmpPwrEK80(self, ping, config, ztrd = 75):
         """
@@ -217,7 +217,7 @@ class convertEK80(object):
                     head.update({'dgTime' : datetime(1601, 1, 1, 0, 0, 0) + timedelta(seconds = ntSecs)})
                 
                     #get channel ID
-                    head.update({'self.CID' : self.CID.index(head['chID'].decode('ascii'))})
+                    head.update({'cid' : self.CID.index(head['chID'].decode('ascii'))})
                     
                     #get current ping number
                     ping_count[head['cid']] += 1
@@ -273,7 +273,7 @@ class convertEK80(object):
                                 comp_sig.update([('comp_sig_%i'%int(isig), 
                                                   temp[:, 1 + 2 * (isig) - 1 ] + complex(0,1) * temp[:, 2+2*(isig)-1])  ]  )
                             head.update({'comp_sig':comp_sig})
-                            self.cmpPwrEK80(ping = head, config= config_transceiver)
+                            self.cmpPwrEK80(ping = head, config= self.config_transceiver)
                     
                     self.pings[head['cid']][ping_n] = head  
         #get power, y and complex np arrays in shape 
