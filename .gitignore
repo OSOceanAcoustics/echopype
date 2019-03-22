@@ -16,5 +16,5 @@ __pycache__/
 dist/
 build/
 docs/build/
-dask-worker-space/
 profile.html
+dask-worker-space/
