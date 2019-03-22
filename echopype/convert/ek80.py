@@ -1,13 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sat Mar  9 10:22:56 2019
-
-@author: Sven Gastauer
-@licence: GPLv3 or higher
-@credits: Wu-Jung Lee, Yoann Ladroit, Dezhang Chu, Martin J. Cox
-@maintainer: Sven Gastauer
-@status: development
-
+Functions to unpack Simrad EK80 .raw and save to .nc.
 TO DO:
     PULSE COMPRESSION
     ANGULAR POSITION
@@ -139,8 +131,8 @@ class ConvertEK80(object):
         
         
         '''
-        cid = ping['cid']
-        impedance = int(config[0][cid]['Impedance'])
+         = ping['']
+        impedance = int(config[0][]['Impedance'])
         y = ping['comp_sig']
         nb_elem = len(y)
         y = pd.DataFrame(y)
@@ -336,7 +328,7 @@ class ConvertEK80(object):
                         config_count += 1
                         self.n_trans = len(xml0_dict['Configuration']['Transceivers'][0]['Transceiver'])
                         ping_count = np.repeat(0,self.n_trans)
-                        self.CID = []
+                        self. = []
                         for c in range(self.n_trans):
                             self.CID.append(xml0_dict['Configuration']['Transceivers'][0]['Transceiver'][c]['Channels'][0]['Channel'][0]['ChannelID'])
                             ping_tmp_dict[c] = defaultdict(list)
@@ -410,7 +402,7 @@ class ConvertEK80(object):
                             comp_sig = {}
                             for isig in range(int(nb_cplx_per_samples/2)):
                                 comp_sig.update([('comp_sig_%i'%int(isig), 
-                                                  temp[ 1 + 2 * (isig) - 1, : ] + complex(0,1) * temp[2+2*(isig)-1,:])  ]  )
+                                                  temp[:, 1 + 2 * (isig) - 1 ] + complex(0,1) * temp[:, 2+2*(isig)-1])  ]  )
                             ping_tmp.update({'comp_sig':comp_sig})
                             self.cmpPwrEK80(ping = ping_tmp, config= config_transceiver_tmp_dict)
                     
