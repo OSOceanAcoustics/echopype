@@ -35,6 +35,8 @@ class convertEK80(object):
         self.count_para = -1
         self.count_filt = -1
         self.count_mru = -1
+        
+        self.fn = fn
 
     def cmpPwrEK80(self, ping, config, ztrd = 75):
         """
