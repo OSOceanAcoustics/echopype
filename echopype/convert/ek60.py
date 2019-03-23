@@ -111,12 +111,14 @@ class ConvertEK60(object):
 
     @staticmethod
     def _read_config_header(chunk):
-        """
-        Reading EK60 .raw configuration header information from the byte string passed in as a chunk.
+        """Reading EK60 .raw configuration header information from the byte string passed in as a chunk.
 
         This method unpacks info from configuration header into self.config_header
 
-        :param chunk: data chunk to read the config header from
+        Parameters
+        ----------
+        chunk : int
+            data chunk to read the config header from
         """
         # setup unpack structure and field names
         field_names = ('survey_name', 'transect_name', 'sounder_name',
@@ -137,12 +139,14 @@ class ConvertEK60(object):
 
     @staticmethod
     def _read_config_transducer(chunk):
-        """
-        Reading EK60 .raw configuration transducer information from the byte string passed in as a chunk.
+        """Reading EK60 .raw configuration transducer information from the byte string passed in as a chunk.
 
         This method unpacks info from transducer header info self.config_transducer
 
-        :param chunk: data chunk to read the configuration transducer information from
+        Parameters
+        ----------
+        chunk : int
+            data chunk to read the configuration transducer information from
         """
 
         # setup unpack structure and field names
@@ -175,8 +179,7 @@ class ConvertEK60(object):
         return config_transducer
 
     def read_header(self, file_handle):
-        """
-        Read header and transducer config from EK60 raw data file.
+        """Read header and transducer config from EK60 raw data file.
 
         This method calls private methods _read_config_header() and _read_config_transducer() to
         populate self.config_header and self.config_transducer.
@@ -219,33 +222,50 @@ class ConvertEK60(object):
         self.config_transducer = config_transducer
 
     def _windows_to_ntp(self, windows_time):
-        """
-        Convert a windows file timestamp into Network Time Protocol.
+        """Convert a windows file timestamp into Network Time Protocol.
 
-        :param windows_time: 100ns since Windows time epoch
-        :return: timestamp into Network Time Protocol (NTP).
+        Parameters
+        ----------
+        windows_time
+            100ns since Windows time epoch
+
+        Returns
+        -------
+            timestamp into Network Time Protocol (NTP).
         """
         return windows_time / 1e7 - self.NTP_WINDOWS_DELTA
 
     @staticmethod
     def _build_windows_time(high_word, low_word):
-        """
-        Generate Windows time value from high and low date times.
+        """Generate Windows time value from high and low date times.
 
-        :param high_word: high word portion of the Windows datetime
-        :param low_word: low word portion of the Windows datetime
-        :return: time in 100ns since 1601/01/01 00:00:00 UTC
+        Parameters
+        ----------
+        high_word
+            high word portion of the Windows datetime
+        low_word
+            low word portion of the Windows datetime
+
+        Returns
+        -------
+            time in 100ns since 1601/01/01 00:00:00 UTC
         """
         return (high_word << 32) + low_word
 
     def process_sample(self, input_file, transducer_count):
-        """
-        Processing one sample at a time from input_file.
+        """Processing one sample at a time from input_file.
 
-        :param input_file: EK60 raw data file name
-        :param transducer_count: number of transducers
-        :return: data contained in each sample, in the following sequence:
-                channel, ntp_time, sample_data, power_data, angle_data
+        Parameters
+        ----------
+        input_file
+            EK60 raw data file name
+        transducer_count : int
+            number of transducers
+
+        Returns
+        -------
+            data contained in each sample, in the following sequence:
+            channel, ntp_time, sample_data, power_data, angle_data
         """
         # log.trace('Processing one sample from input_file: %r', input_file)
         # print('Processing one sample from input_file')
@@ -294,13 +314,16 @@ class ConvertEK60(object):
 
     @staticmethod
     def append_metadata(metadata, channel, sample_data):
-        """
-        Store metadata when reading the first ping of all channels.
+        """Store metadata when reading the first ping of all channels.
 
-        :param metadata:     first_ping_metadata[channel] to be saved to
-        :param channel:      channel from which metadata is being read
-        :param sample_data:  unpacked sample data from process_sample()
-        :return:
+        Parameters
+        ----------
+        metadata
+            first_ping_metadata[channel] to be saved to
+        channel
+            channel from which metadata is being read
+        sample_data
+            unpacked sample data from process_sample()
         """
         # Fixed across ping
         metadata['channel'].append(channel)
@@ -314,8 +337,7 @@ class ConvertEK60(object):
         return metadata  # this may be removed?
 
     def load_ek60_raw(self):
-        """
-        Method to parse the *.raw file.
+        """Method to parse the *.raw file.
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
@@ -441,8 +463,7 @@ class ConvertEK60(object):
             self.tr_data_dict = tr_data_dict
 
     def raw2nc(self):
-        """
-        Save data from RAW to netCDF format.
+        """Save data from RAW to netCDF format.
         """
 
         # Subfunctions to set various dictionaries
@@ -470,9 +491,9 @@ class ConvertEK60(object):
 
         def _set_sonar_dict():
             attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
-                           'sonar_software_name', 'sonar_software_version', 'sonar_type')
+                     'sonar_software_name', 'sonar_software_version', 'sonar_type')
             vals = ('Simrad', self.config_header['sounder_name'].decode('utf-8'), '',
-                          '', self.config_header['version'].decode('utf-8'), 'echosounder')
+                    '', self.config_header['version'].decode('utf-8'), 'echosounder')
             return dict(zip(attrs, vals))
 
         def _set_platform_dict():
