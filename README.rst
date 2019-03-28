@@ -138,6 +138,8 @@ Other contributors include:
 
 - `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_
   (@valentina-s)
+- `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_
+  (@SvenGastauer)
 - `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_
   (@marianpena)
 - `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys)
@@ -159,4 +161,4 @@ References
 
 ---------------
 
-Copyright (c) 2018--, Wu-Jung Lee, Applied Physics Laboratory, University of Washington.
+Copyright (c) 2018--, echopype Developers.
