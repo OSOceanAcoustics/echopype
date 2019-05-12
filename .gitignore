@@ -18,3 +18,4 @@ build/
 docs/build/
 profile.html
 dask-worker-space/
+toolbox
