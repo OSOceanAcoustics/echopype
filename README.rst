@@ -138,6 +138,8 @@ Other contributors include:
 
 - `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_
   (@valentina-s)
+- `Kavin Nguyen <https://github.com/ngkavin>`_
+  (@ngkavin)
 - `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_
   (@SvenGastauer)
 - `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_
