@@ -8,66 +8,142 @@ path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022316.01A"
 class ConvertAZFP:
     """Class for converting raw .01A AZFP files """
 
-    def __init__(self, _filename=""):
-        self.file_name = _filename
+    def __init__(self, _path=""):
+        self.path = _path
+        self.file_name = os.path.split(path)[1]
         self.file_type = 64770
-        self.bytes_per_header = 124
+        self.header_size = 124
         self.format = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
+        self.parameters = {
+            # FILE LOADING AND AVERAGING:
+            'proc_dir': 1,          # 1 will prompt for an entire directory to process
+                                    # 0 will prompt to load individual files in a directory
+            'data_file_name': "",   # "" will prompt for hourly AZFP files to load
+            # "" will prompt for XML filename if no XML file exists in the directory
+            'xml_file_name': "D:\\Documents\\Projects\\echopype\\toolbox\\12022310.XML",
+
+            'salinity': 29.6,       # Salinity psu
+            'bins_2_avg': 1,        # Number of range bins to average
+            'time_2_avg': 40,       # number of time values to average
+            'pressure': 60,         # in dbars (~ depth of instument in meters)
+                                    # can be approximate. Used in soundspeed and absorption calc
+            # PLOTTING
+            'plot': 1,              # Show an echogram plot for each channel
+            'channel': 1,           # freq to plot #1-4, Default = 1
+            'value_2_plot': 2,      # 1,2,3,4 = Counts, Sv, TS, Temperature/Tilts, default 2
+            # for Sv and Ts plotting only, values with counts < NoiseFloor will set to -150,
+            # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
+            'noise_floor': 10000,   # Default = 10000
+            # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
+            # This changes the ydir on the echogram plots only.
+            'orientation': 1,       # Default = 1
+            # Use tilt corrected ranges for the echogram plots
+            # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
+            'use_tilt_corr': 0      # Default = 0
+        }
 
     def parse_raw(self):
-        with open(self.file_name, "rb") as raw:
-            data_values = []
-            ii = 1  # Number of chunks
-            while True:
-                chunk = raw.read(self.bytes_per_header)
-                if chunk:
-                    unpacked_chunk = unpack(self.format, chunk)
-                    split = self.split_chunk(raw, ii, unpacked_chunk)
-                    data_values.append(split)
-                    break
+        with open(self.path, 'rb') as raw:
+            ii = 0
+            Data = []
+            eof = False
+            while not eof:
+                header_chunk = raw.read(self.header_size)
+                if header_chunk:
+                    header_unpacked = unpack(self.format, header_chunk)
+                    test_dict = {}
+                    Data.append(test_dict)
+                    # Reading will stop if the file contains an unexpected flag
+                    if self.split_header(raw, header_unpacked, ii, Data):
+                        Data[ii]['counts'] = []
+                        # Appends the actual 'data values' to Data
+                        self.add_counts(raw, ii, Data)
+                        # Preallocate array if data averaging to #values in the hourly file x number
+                        if ii == 0 and (self.parameters['bins_2_avg'] > 1 or
+                                        self.parameters['time_2_avg'] > 1):
+                            pavg_arr = self.get_pavg_arr(ii, Data)
+                            pass
+                        if ii == 0:
+                            # Display information about the file that was loaded in
+                            self.print_status(path, Data)
+                        # compute temperature from Data[ii]['ancillary][5]
+                        Data[ii]['temperature'] = self.computeTemperature(Data[ii]['ancillary'][4], self.parameters)
+                    else:
+                        break
                 else:
                     # End of file
-                    break
+                    eof = True
                 ii += 1
-
-        dtype = self.get_dtypes()
-        # Puts data values and data type into a numpy record array
-        Data = np.rec.array(data_values, dtype=dtype)
         return Data
 
-    def split_chunk(self, raw, ii, unpacked_chunk):
-        # Checks the flag in each header with the correct AZFP flag
-        Flag = unpacked_chunk[0]
+    def split_header(self, raw, header_unpacked, ii, Data):
+        ''' Input open raw file, header, current bin, and the Data
+            adds to Data from header_unpacked 
+            returns True if successful, False otherwise'''
+        Flag = header_unpacked[0]
         if Flag != self.file_type:
             check_eof = raw.read(1)
             if check_eof:
                 print("Error: Unknown file type")
-            return
+                return False
         fields = self.get_fields()
-        data_values = []
-
         i = 0
         for field in fields:
             if len(field) == 3:
                 arr = []
                 for _ in range(field[2]):
-                    arr.append(unpacked_chunk[i])
+                    arr.append(header_unpacked[i])
                     i += 1
-                data_values.append(arr)
+                Data[ii][field[0]] = arr
             else:
-                data_values.append(unpacked_chunk[i])
+                Data[ii][field[0]] = header_unpacked[i]
                 i += 1
+        return True
 
-        return tuple(data_values)
+    def add_counts(self, raw, ii, Data):
+        ''' Input open raw file, the bin number, and Data
+            adds "counts" to Data for given bin. Represents most of the measured data
+            Assumed to be valid past header'''
+        for jj in range(Data[ii]['num_chan']):
+            if Data[ii]['data_type'][jj]:
+                if Data[ii]['avg_pings']:
+                    divisor = Data[ii]['ping_per_profile'] * Data[ii]['range_samples'][jj]
+                else:
+                    divisor = Data[ii]['range_samples'][jj]
+                # ls and lso unimplemented
+            else:
+                counts_byte_size = Data[ii]['num_bins'][jj]
+                counts_chunk = raw.read(counts_byte_size * 2)
+                counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
+                Data[ii]['counts'].append(counts_unpacked)
 
-    def get_dtypes(self):
-        '''Returns a set containing the data types of each header field'''
-        fields = self.get_fields()
-        dtype = []
-        for field in fields:
-            dtype.append(field)
+        return True
 
-        return dtype
+    def get_pavg_arr(self, ii, Data):
+        ''' Input the bin number and Data Makes an empty array for some purpose'''
+        pavg_arr = []
+        for jj in range(Data[ii]['num_chan']):
+            num_avg = 1
+            if Data[0]['data_type'][jj]:
+                num_avg = Data[0]['num_acq_pings']
+            pavg_arr_size = (int(3600 / Data[0]['burst_int'] * Data[0]['ping_per_profile'] / num_avg), Data[0]['num_bins'][jj])
+            pavg_arr.append(np.zeros(pavg_arr_size, dtype=int))
+        return pavg_arr
+    
+    def print_status(self, path, Data):
+        filename = os.path.split(path)[1]
+        (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
+        print('File: {} - Loading Profile #{} {} using xml={} Bins2Avg={} Time2Avg={} Salinity={} Pressure={}\n'.format(
+            filename, Data[0]['profile_number'], Data[0]['year'], name, self.parameters['bins_2_avg'],
+            self.parameters['time_2_avg'], self.parameters['salinity'], self.parameters['pressure']))
+
+    def computeTemperature(self, counts, parameters):
+        v_in = 2.5 * (counts / 65535)
+        R = ()
+        return None
+
+    def loadAZFPxml():
+        pass
 
     @staticmethod
     def get_fields():
@@ -90,8 +166,8 @@ class ConvertAZFP:
             ('num_bins', 'u2', 4),
             ('range_samples', 'u2', 4),
             ('ping_per_profile', 'u2'),
-            ('avg_ping', 'u2'),
-            ('num_ping_acq', 'u2'),
+            ('avg_pings', 'u2'),
+            ('num_acq_pings', 'u2'),
             ('ping_period', 'u2'),
             ('first_ping', 'u2'),
             ('last_ping', 'u2'),
@@ -106,13 +182,8 @@ class ConvertAZFP:
             ('board_num', 'u2', 4),
             ('frequency', 'u2', 4),
             ('sensor_flag', 'u2'),
-            ('tilt_x', 'u2'),                 # 110 - Tilt X (counts)
-            ('tilt_y', 'u2'),                 # 112 - Tilt Y (counts)
-            ('battery_voltage', 'u2'),        # 114 - Battery voltage (counts)
-            ('pressure', 'u2'),               # 116 - Pressure (counts)
-            ('temperature', 'u2'),            # 118 - Temperature (counts)
-            ('ad_channel_6', 'u2'),           # 120 - AD channel 6
-            ('ad_channel_7', 'u2')            # 122 - AD channel 7
+            ('ancillary', 'u2', 5),   # Tilt-X, Y, Battery, Pressure, Temperature
+            ('ad', 'u2', 2)            # AD channel 6 and 7
         )
 
         return _fields
