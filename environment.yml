@@ -6,9 +6,12 @@ dependencies:
   - netCDF4
   - matplotlib
   - pytz
+  - dask
   - xarray
   - pandas
   - scipy
   - ipykernel
   - click
+  - requests
+  - beautifulsoup4
 
