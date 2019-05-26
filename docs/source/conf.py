@@ -6,7 +6,7 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
-import echopype
+# import echopype
 
 # -- Path setup --------------------------------------------------------------
 
@@ -17,6 +17,7 @@ import echopype
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
+# sys.path.append(os.path.join(os.path.abspath(os.pardir)))
 
 
 # -- Project information -----------------------------------------------------
@@ -26,33 +27,33 @@ copyright = '2018-, Wu-Jung Lee'
 author = 'Wu-Jung Lee'
 
 # The short X.Y version
-version = echopype.__version__
+# version = echopype.__version__
+
 # The full version, including alpha/beta/rc tags
-release = echopype.__version__
+# release = echopype.__version__
 
 
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-#
-# needs_sphinx = '1.0'
+needs_sphinx = '1.3'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
+    'sphinx_automodapi.automodapi',
+    'numpydoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'sphinx.ext.githubpages',
+    'sphinx.ext.githubpages'
 ]
 
-autosummary_generate = True
+numpydoc_show_class_members = False
 
-numpydoc_class_members_toctree = True
-# numpydoc_show_class_members = False
+# autosummary_generate = True
+# numpydoc_class_members_toctree = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
