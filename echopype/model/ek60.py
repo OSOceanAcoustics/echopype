@@ -10,7 +10,7 @@ import xarray as xr
 
 
 class EchoData(object):
-    """Base class for echo data."""
+    """Class for manipulating echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
         self.file_path = file_path  # this passes the input through file name test
@@ -115,7 +115,7 @@ class EchoData(object):
         These parameters are used in methods remove_noise(), noise_estimates(), get_MVBS().
 
         Parameters
-        -----------
+        ----------
         r_data_sz : int
             number of range_bin entries in data
         p_data_sz : int
@@ -128,7 +128,7 @@ class EchoData(object):
             thickness of each data sample, determined by sound speed and pulse duration
 
         Returns
-        --------
+        -------
         r_tile_sz : int
             modified tile size along the range dimension [m], determined by sample_thickness
         p_idx : list of int
@@ -171,7 +171,7 @@ class EchoData(object):
         Reference: De Robertis & Higginbottom, 2017, ICES Journal of Marine Sciences
 
         Parameters
-        ------------
+        ----------
         noise_est_range_bin_size : float, optional
             meters per tile for noise estimation [m]
         noise_est_ping_size : int, optional
@@ -228,8 +228,7 @@ class EchoData(object):
         proc_data.close()
 
     def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
-        """
-        Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
+        """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
 
         The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
         This method contains redundant pieces of code that also appear in method remove_noise(),
@@ -237,14 +236,14 @@ class EchoData(object):
         noise removal is actually performed.
 
         Parameters
-        ------------
+        ----------
         noise_est_range_bin_size : float
             meters per tile for noise estimation [m]
         noise_est_ping_size : int
             number of pings per tile for noise estimation
 
         Returns
-        ---------
+        -------
         noise_est : xarray DataSet
             noise estimates as a DataArray with dimension [ping_time x range_bin]
             ping_time and range_bin are taken from the first element of each tile along each of the dimensions
@@ -299,7 +298,7 @@ class EchoData(object):
         in the original Sv or Sv_clean DataArray.
 
         Parameters
-        ------------
+        ----------
         source : str
             source used to calculate MVBS, can be ``Sv`` or ``Sv_clean``,
             where ``Sv`` and ``Sv_clean`` are the original and denoised volume
