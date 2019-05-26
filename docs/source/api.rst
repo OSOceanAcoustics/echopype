@@ -1,20 +1,10 @@
 API reference
 ==============
 
+This page provides an auto-generated summary of echopype’s API.
 
-File conversion tools
-----------------------
+.. automodapi:: echopype.convert
+   :no-inheritance-diagram:
 
-.. autosummary::
-   :toctree: generated/
-
-   echopype.convert.ek60.ConvertEK60
-
-
-Echo data models
--------------------
-
-.. autosummary::
-   :toctree: generated/
-
-   echopype.model.ek60
+.. automodapi:: echopype.model
+   :no-inheritance-diagram:
