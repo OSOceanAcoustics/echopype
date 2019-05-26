@@ -27,6 +27,7 @@ scientists to make discovery using these new data.
    usage
    data-format
    resources
+   api
 
 
 
