@@ -27,7 +27,7 @@ del get_versions
 
 
 class ConvertEK60(object):
-    """Class for converting EK60 .raw files."""
+    """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
 
@@ -111,7 +111,7 @@ class ConvertEK60(object):
 
     @staticmethod
     def _read_config_header(chunk):
-        """Reading EK60 .raw configuration header information from the byte string passed in as a chunk.
+        """Reading EK60 `.raw` configuration header information from the byte string passed in as a chunk.
 
         This method unpacks info from configuration header into self.config_header
 
@@ -139,7 +139,7 @@ class ConvertEK60(object):
 
     @staticmethod
     def _read_config_transducer(chunk):
-        """Reading EK60 .raw configuration transducer information from the byte string passed in as a chunk.
+        """Reading EK60 `.raw` configuration transducer information from the byte string passed in as a chunk.
 
         This method unpacks info from transducer header info self.config_transducer
 
@@ -181,7 +181,7 @@ class ConvertEK60(object):
     def read_header(self, file_handle):
         """Read header and transducer config from EK60 raw data file.
 
-        This method calls private methods _read_config_header() and _read_config_transducer() to
+        This method calls private methods `_read_config_header()` and `_read_config_transducer()` to
         populate self.config_header and self.config_transducer.
         """
 
@@ -257,15 +257,19 @@ class ConvertEK60(object):
 
         Parameters
         ----------
-        input_file
+        input_file : str
             EK60 raw data file name
         transducer_count : int
             number of transducers
 
         Returns
         -------
-            data contained in each sample, in the following sequence:
-            channel, ntp_time, sample_data, power_data, angle_data
+        channel : int
+            number of channels in the sample
+        ntp_time : float
+            Network Time Protocol time
+        sample_data, power_data, angle_data : list
+            data and metadata contained in each sample
         """
         # log.trace('Processing one sample from input_file: %r', input_file)
         # print('Processing one sample from input_file')
@@ -337,7 +341,7 @@ class ConvertEK60(object):
         return metadata  # this may be removed?
 
     def load_ek60_raw(self):
-        """Method to parse the *.raw file.
+        """Method to parse the `.raw` file.
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
@@ -463,7 +467,7 @@ class ConvertEK60(object):
             self.tr_data_dict = tr_data_dict
 
     def raw2nc(self):
-        """Save data from RAW to netCDF format.
+        """Save data from `.raw` to netCDF format.
         """
 
         # Subfunctions to set various dictionaries
