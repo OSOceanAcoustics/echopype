@@ -1,12 +1,12 @@
 """
-Base echo data model.
+Include methods to manipulate echo data that is already converted to netCDF.
+Currently the operations include:
 
-Include methods to do the following:
 - calibration
 - noise removal
-- calculate MVBS
+- calculating mean volume backscattering strength (MVBS)
 
-The current version supports EK60 .raw data.
+The current version supports EK60 `.raw` data.
 """
 
 from .ek60 import EchoData
