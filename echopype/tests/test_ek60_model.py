@@ -22,7 +22,7 @@ def test_noise_estimates_removal():
 
     # Read .nc file into an EchoData object and calibrate
     e_data = EchoData(nc_path)
-    e_data.calibrate()
+    e_data.calibrate(save=True)
     noise_est = e_data.noise_estimates()
     e_data.remove_noise()
 
