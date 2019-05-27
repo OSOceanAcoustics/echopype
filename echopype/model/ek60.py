@@ -129,37 +129,42 @@ class EchoData(object):
 
         Returns
         -------
-        r_tile_sz : int
-            modified tile size along the range dimension [m], determined by sample_thickness
+        r_tile_sz : float
+            modified tile size along the range dimension [m],
+            determined by the closest multiples of sample_thickness along range
         p_idx : list of int
             indices along the ping_time dimension for :py:func:`xarray.DataArray.groupby` operation
         r_tile_bin_edge : list of int
             bin edges along the range_bin dimension for :py:func:`xarray.DataArray.groupby_bins` operation
         """
-        # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
-        r_tile_sz = (num_r_per_tile * sample_thickness).values
+        # For operation along range_bin
+        if np.unique(sample_thickness).size == 1:  # sample_thickness of all channels are the same
+            # Adjust bin size along range_bin to multiples of sample_thickness
+            num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values[0]  # num of range_bin per tile
+            r_tile_sz = (num_r_per_tile * sample_thickness).values
 
-        # Number of tiles along range_bin
-        if np.mod(r_data_sz, num_r_per_tile) == 0:
-            num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
-        else:
+            # Number of tiles along range_bin
             num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+        else:
+            # TODO: deal with different sample_thickness across channel
+            raise ValueError('Currently not supporting scenarios with different sample_thickness across channel!')
 
+        # Tile bin edges along range
+        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
+        r_tile_bin_edge = np.arange(num_tile_range_bin+1) * num_r_per_tile - 1
+
+        # For operation along ping_time
         # Produce a new coordinate for groupby operation
         if np.mod(p_data_sz, p_tile_sz) == 0:
-            num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
-            p_idx = np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel()
+            num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int)
+            p_idx = np.array([np.arange(num_tile_ping)] * p_tile_sz).squeeze().T.ravel()
         else:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int)
             pad = np.ones(p_data_sz - (num_tile_ping - 1) * p_tile_sz, dtype=int) \
                   * (num_tile_ping - 1)
             p_idx = np.hstack(
                 (np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel(), pad))
-
-        # Tile bin edges along range
-        # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        r_tile_bin_edge = np.arange(num_tile_range_bin+1) * num_r_per_tile - 1
+        # TODO: should be able to select ping tile based on time or distance, require feeding ping_time or lat/lon
 
         return r_tile_sz, p_idx, r_tile_bin_edge
 
@@ -271,7 +276,7 @@ class EchoData(object):
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
                                   groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']).
-                                  min('range_bin_bins'))
+                                  min('range_bin_bins')) + self.ABS + self.TVG
 
         # Set noise estimates coordinates and other attributes
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
