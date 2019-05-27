@@ -57,7 +57,7 @@ class EchoData(object):
         else:
             raise ValueError('Data file format not recognized.')
 
-    def calibrate(self, save=True):
+    def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
 
         Parameters
@@ -296,10 +296,11 @@ class EchoData(object):
     def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None, save=False):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
-        The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
+        Uses class attributes ``MVBS_ping_size`` and ``MVBS_range_bin_size`` to
         calculate and save MVBS as a new attribute to the calling EchoData instance.
+
         MVBS is an xarray DataArray with dimensions ``ping_time`` and ``range_bin``
-        that are from the first elements of each tile along the corresponding dimensions
+        that are from the first elements of each tile along corresponding dimensions
         in the original Sv or Sv_clean DataArray.
 
         Parameters
@@ -344,7 +345,7 @@ class EchoData(object):
         # Calculate MVBS
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-            groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+            groupby_bins('range_bin', bins=range_bin_tile_bin_edge).mean(['range_bin'])
 
         # Set MVBS coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
