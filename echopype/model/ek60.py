@@ -276,7 +276,7 @@ class EchoData(object):
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
                                   groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']).
-                                  min('range_bin_bins')) + self.ABS + self.TVG
+                                  min('range_bin_bins'))
 
         # Set noise estimates coordinates and other attributes
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
