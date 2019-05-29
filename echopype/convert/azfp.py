@@ -65,10 +65,9 @@ class ConvertAZFP:
                         # Appends the actual 'data values' to Data
                         self.add_counts(raw, ii, Data)
                         # Preallocate array if data averaging to #values in the hourly file x number
-                        if ii == 0 and (self.parameters['bins_2_avg'] > 1 or
-                                        self.parameters['time_2_avg'] > 1):
-                            pavg_arr = self.get_pavg_arr(ii, Data)
-                            pass
+                        # if ii == 0 and (self.parameters['bins_2_avg'] > 1 or
+                        #                 self.parameters['time_2_avg'] > 1):
+                        #     pavg_arr = self.get_pavg_arr(ii, Data)
                         if ii == 0:
                             # Display information about the file that was loaded in
                             self.print_status(path, Data)
@@ -88,13 +87,16 @@ class ConvertAZFP:
                                                             Data[ii]['tilt_y'] ** 2)) * math.pi / 180)
                         # Compute power if the data is being averaged
                         if self.parameters['bins_2_avg'] > 1 or self.parameters['time_2_avg'] > 1:
+                            pavg_arr = self.get_pavg_arr(ii, Data)
+                            Data[ii]['pavg'] = []
                             for jj in range(Data[ii]['num_chan']):
                                 x = self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj]
-                                el = tuple(x + c / (26214 * self.parameters['DS'][jj]) for c in Data[ii]['counts'][jj])
-                                P = tuple(10.0 ** (i / 10) for i in el)
-                                if 3<2:
-                                    pass
-
+                                el = x + np.array(Data[ii]['counts'][jj]) / (26214 * self.parameters['DS'][jj])
+                                P = 10 ** (el / 10)
+                                if P.any:
+                                    Data[ii]['pavg'].append(P)
+                                    # Used to simplify time averaging
+                                    pavg_arr[jj].append([P])
                     else:
                         break
                 else:
@@ -147,15 +149,9 @@ class ConvertAZFP:
         return True
 
     def get_pavg_arr(self, ii, Data):
-        """Input the bin number and Data to make an empty array for some purpose"""
         pavg_arr = []
         for jj in range(Data[ii]['num_chan']):
-            num_avg = 1
-            if Data[0]['data_type'][jj]:
-                num_avg = Data[0]['num_acq_pings']
-            pavg_arr_size = (int(3600 / Data[0]['burst_int'] * Data[0]['ping_per_profile'] / num_avg),
-                             Data[0]['num_bins'][jj])
-            pavg_arr.append(np.zeros(pavg_arr_size, dtype=int))
+            pavg_arr.append([])
         return pavg_arr
 
     def print_status(self, path, Data):
@@ -282,4 +278,5 @@ class ConvertAZFP:
 
 file1 = ConvertAZFP(path)
 d = file1.parse_raw()
+pass
 # print(d)
