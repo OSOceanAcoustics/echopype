@@ -26,11 +26,13 @@ class ConvertAZFP:
             # "" will prompt for XML filename if no XML file exists in the directory
             'xml_file_name': "12022310.XML",
 
-            'salinity': 29.6,       # Salinity psu
-            'bins_2_avg': 1,        # Number of range bins to average
-            'time_2_avg': 40,       # number of time values to average
+            'salinity': 29.6,       # Salinity in psu
+            'bins_to_avg': 1,        # Number of range bins to average
+            'time_to_avg': 40,       # number of time values to average
             'pressure': 60,         # in dbars (~ depth of instument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
+            'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
+                                    # Used to calculate sound-speed and range
             # PLOTTING
             'plot': 1,              # Show an echogram plot for each channel
             'channel': 1,           # freq to plot #1-4, Default = 1
@@ -65,14 +67,14 @@ class ConvertAZFP:
                         # Appends the actual 'data values' to Data
                         self.add_counts(raw, ii, Data)
                         # Preallocate array if data averaging to #values in the hourly file x number
-                        # if ii == 0 and (self.parameters['bins_2_avg'] > 1 or
-                        #                 self.parameters['time_2_avg'] > 1):
+                        # if ii == 0 and (self.parameters['bins_to_avg'] > 1 or
+                        #                 self.parameters['time_to_avg'] > 1):
                         #     pavg_arr = self.get_pavg_arr(ii, Data)
                         if ii == 0:
                             # Display information about the file that was loaded in
                             self.print_status(path, Data)
                         # Compute temperature from Data[ii]['ancillary][5]
-                        Data[ii]['temperature'] = self.compute_temperature(Data[ii]['ancillary'][4])
+                        Data[ii]['temperature'] = self.compute_temp(Data[ii]['ancillary'][4])
                         # compute x tilt from Data[ii]['ancillary][0]
                         Data[ii]['tilt_x'] = self.compute_tilt(Data[ii]['ancillary'][0],
                                                                self.parameters['X_a'], self.parameters['X_b'],
@@ -86,23 +88,59 @@ class ConvertAZFP:
                                                             Data[ii]['tilt_x'] ** 2 +
                                                             Data[ii]['tilt_y'] ** 2)) * math.pi / 180)
                         # Compute power if the data is being averaged
-                        if self.parameters['bins_2_avg'] > 1 or self.parameters['time_2_avg'] > 1:
+                        if self.parameters['bins_to_avg'] > 1 or self.parameters['time_to_avg'] > 1:
                             pavg_arr = self.get_pavg_arr(ii, Data)
                             Data[ii]['pavg'] = []
                             for jj in range(Data[ii]['num_chan']):
                                 x = self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj]
-                                el = x + np.array(Data[ii]['counts'][jj]) / (26214 * self.parameters['DS'][jj])
-                                P = 10 ** (el / 10)
-                                if P.any:
-                                    Data[ii]['pavg'].append(P)
-                                    # Used to simplify time averaging
-                                    pavg_arr[jj].append([P])
+                                # el = x + np.array(Data[ii]['counts'][jj]) / (26214 * self.parameters['DS'][jj])
+                                # P = 10 ** (el / 10)
+                                # if P.any:
+                                #     Data[ii]['pavg'].append(P)
+                                #     # Used to simplify time averaging
+                                #     pavg_arr[jj].append([P])
                     else:
                         break
                 else:
                     # End of file
                     eof = True
                 ii += 1
+
+        # Compute hourly average temperature for sound speed calculation
+        Data[0]['hourly_avg_temp'] = self.compute_avg_temp(Data)
+        Data[0]['sound_speed'] = self.compute_ss(Data[0]['hourly_avg_temp'], self.parameters['pressure'],
+                                                 self.parameters['salinity'])
+        Data[0]['hourly_avg_cos'] = self.compute_avg_tilt_mag(Data)
+        Data[0]['range'] = []       # Initializing range
+        Data[0]['sea_abs'] = []     # Initializing sea absorption
+        for jj in range(Data[0]['num_chan']):
+            # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
+            m = np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
+                          self.parameters['bins_to_avg'])
+            # Calculate range from soundspeed for each frequency
+            Data[0]['range'].append(Data[0]['sound_speed'] * Data[0]['lockout_index'][jj] /
+                                    (2 * Data[0]['dig_rate'][jj]) + Data[0]['sound_speed'] / 4 *
+                                    (((2 * m - 1) * Data[0]['range_samples'][jj] * self.parameters['bins_to_avg'] - 1) /
+                                    Data[0]['dig_rate'][jj] + Data[0]['pulse_length'][jj] / 1e6))
+            # Compute absorption for each frequency
+            Data[0]['sea_abs'].append(self.compute_sea_abs(Data, jj))
+            if self.parameters['time_to_avg'] > len(Data):
+                self.parameters['time_to_avg'] = len(Data)
+
+            # Bin average ----INCOMPLETE----
+            if self.parameters['bins_to_avg'] > 1:
+                for jj in Data[0]['num_chan']:
+                    bins_to_avg = self.parameters['bins_to_avg']
+                    num_bins = Data[0]['counts'][jj]
+                    num_bins = len(np.arange(0, len(num_bins) - bins_to_avg + 1, bins_to_avg))
+
+            # Time average
+            if self.parameters['time_to_avg'] > 1:
+                num_time = math.floor(length(Data)/self.parameters['time_to_avg'])
+                for kk in range(Data[0]['num_chan']):
+                    el_avg = 10 * math.log10(1)
+                pass
+            
         return Data
 
     def split_header(self, raw, header_unpacked, ii, Data):
@@ -162,10 +200,10 @@ class ConvertAZFP:
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
         (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
         print("File: {} - Loading Profile #{} {} with xml={} Bins2Avg={} Time2Avg={} Salinity={:.2f} Pressure={:.1f}\n"
-              .format(filename, Data[0]['profile_number'], timestr, name, self.parameters['bins_2_avg'],
-                      self.parameters['time_2_avg'], self.parameters['salinity'], self.parameters['pressure']))
+              .format(filename, Data[0]['profile_number'], timestr, name, self.parameters['bins_to_avg'],
+                      self.parameters['time_to_avg'], self.parameters['salinity'], self.parameters['pressure']))
 
-    def compute_temperature(self, counts):
+    def compute_temp(self, counts):
         """Returns the temperature in celsius given from xml data and the counts from ancillary"""
         v_in = 2.5 * (counts / 65535)
         R = (self.parameters['ka'] + self.parameters['kb'] * v_in) / (self.parameters['kc'] - v_in)
@@ -173,8 +211,62 @@ class ConvertAZFP:
                  self.parameters['C'] * (math.log(R) ** 3)) - 273
         return T
 
+    def compute_avg_temp(self, Data):
+        """Input the data with temperature values and averages all the temperatures""" 
+        sum = 0
+        total = 0
+        for ii in range(len(Data)):
+            val = Data[ii]['temperature']
+            if not math.isnan(val):
+                total += 1
+                sum += val
+        if total == 0:
+            print("**** No AZFP temperature found. Using default of {:.2f} degC to calculate sound-speed and range\n"
+                  .format(self.parameters['hourly_avg_temp']))
+            return self.parameters['hourly_avg_temp']    # default value
+        else:
+            return sum / total
+
+    def compute_avg_tilt_mag(self, Data):
+        """Input the data and calculates the average of the cosine tilt magnitudes"""
+        sum = 0
+        for ii in range(len(Data)):
+            sum += Data[ii]['cos_tilt_mag']
+        return sum / len(Data)
+
+    def compute_ss(self, T, P, S):
+        z = T / 10
+        return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
+                (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
+
     def compute_tilt(self, N, a, b, c, d):
         return a + b * (N) + c * (N)**2 + d * (N)**3
+
+    def compute_sea_abs(self, Data, jj):
+        """Input Data and the frequency number to calculate the absorption coefficient using
+        the hourly average temperature, pressure, salinity, and transducer frequency"""
+        T = Data[0]['hourly_avg_temp']
+        P = self.parameters['pressure']
+        S = self.parameters['salinity']
+        F = Data[0]['frequency'][jj]
+
+        # Calculate relaxation frequencies
+        T_k = T + 273.0
+        f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
+        f2 = (1.55e7) * T_k * math.exp(-3052 / T_k)
+
+        # Coefficients for absorption calculations
+        k = 1 + P / 10.0
+        a = (8.95e-8) * (1 + T * ((2.29e-2) - (5.08e-4) * T))
+        b = (S / 35.0) * (4.88e-7) * (1 + 0.0134 * T) * (1 - 0.00103 * k + (3.7e-7) * (k * k))
+        c = (4.86e-13) * (1 + T * ((-0.042) + T * ((8.53e-4) - T * 6.23e-6))) * (1 + k * (-(3.84e-4) + k * 7.57e-8))
+        F_k = F * 1000
+        if S == 0:
+            return c * F_k ^ 2
+        else:
+            # Update later: f_k might be a list
+            return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
+                    (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
 
     def loadAZFPxml(self):
 
@@ -278,5 +370,3 @@ class ConvertAZFP:
 
 file1 = ConvertAZFP(path)
 d = file1.parse_raw()
-pass
-# print(d)
