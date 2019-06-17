@@ -1,9 +1,16 @@
 import os
+import re
 import numpy as np
+import xarray as xr
 import xml.dom.minidom
-import datetime
 import math
+from datetime import datetime as dt
+from set_nc_groups import SetGroups
 from struct import unpack
+from echopype._version import get_versions
+ECHOPYPE_VERSION = get_versions()['version']
+del get_versions
+
 
 path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022316.01A"
 xml_path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022310.XML"
@@ -11,6 +18,44 @@ xml_path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022310.XML"
 
 class ConvertAZFP:
     """Class for converting raw .01A AZFP files """
+
+    def __init__(self, _path=""):
+        self.path = _path
+        self.file_name = os.path.split(path)[1]
+        self.FILE_TYPE = 64770
+        self.HEADER_SIZE = 124
+        self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
+        self.parameters = {
+            # FILE LOADING AND AVERAGING:
+            'proc_dir': 1,          # 1 will prompt for an entire directory to process
+                                    # 0 will prompt to load individual files in a directory
+            'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
+            # "" will prompt for XML filename if no XML file exists in the directory
+            'xml_file_name': "12022310.XML",
+
+            'salinity': 29.6,       # Salinity in psu
+            'bins_to_avg': 1,        # Number of range bins to average
+            'time_to_avg': 40,       # number of time values to average
+            'pressure': 60,         # in dbars (~ depth of instument in meters)
+                                    # can be approximate. Used in soundspeed and absorption calc
+            'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
+                                    # Used to calculate sound-speed and range
+            # PLOTTING
+            'plot': 1,              # Show an echogram plot for each channel
+            'channel': 1,           # freq to plot #1-4, Default = 1
+            'value_2_plot': 2,      # 1,2,3,4 = Counts, Sv, TS, Temperature/Tilts, default 2
+            # for Sv and Ts plotting only, values with counts < NoiseFloor will set to -150,
+            # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
+            'noise_floor': 10000,   # Default = 10000
+            # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
+            # This changes the ydir on the echogram plots only.
+            'orientation': 1,       # Default = 1
+            # Use tilt corrected ranges for the echogram plots
+            # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
+            'use_tilt_corr': 0      # Default = 0
+        }
+        # Adds to self.parameters the contents of the xml file
+        self.loadAZFPxml()
 
     def loadAZFPxml(self):
         ''' Parses the AZFP  XML file '''
@@ -110,44 +155,6 @@ class ConvertAZFP:
         )
         return _fields
 
-    def __init__(self, _path=""):
-        self.path = _path
-        self.file_name = os.path.split(path)[1]
-        self.FILE_TYPE = 64770
-        self.HEADER_SIZE = 124
-        self.FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
-        self.parameters = {
-            # FILE LOADING AND AVERAGING:
-            'proc_dir': 1,          # 1 will prompt for an entire directory to process
-                                    # 0 will prompt to load individual files in a directory
-            'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
-            # "" will prompt for XML filename if no XML file exists in the directory
-            'xml_file_name': "12022310.XML",
-
-            'salinity': 29.6,       # Salinity in psu
-            'bins_to_avg': 1,        # Number of range bins to average
-            'time_to_avg': 40,       # number of time values to average
-            'pressure': 60,         # in dbars (~ depth of instument in meters)
-                                    # can be approximate. Used in soundspeed and absorption calc
-            'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
-                                    # Used to calculate sound-speed and range
-            # PLOTTING
-            'plot': 1,              # Show an echogram plot for each channel
-            'channel': 1,           # freq to plot #1-4, Default = 1
-            'value_2_plot': 2,      # 1,2,3,4 = Counts, Sv, TS, Temperature/Tilts, default 2
-            # for Sv and Ts plotting only, values with counts < NoiseFloor will set to -150,
-            # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
-            'noise_floor': 10000,   # Default = 10000
-            # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
-            # This changes the ydir on the echogram plots only.
-            'orientation': 1,       # Default = 1
-            # Use tilt corrected ranges for the echogram plots
-            # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
-            'use_tilt_corr': 0      # Default = 0
-        }
-        # Adds to self.parameters the contents of the xml file
-        self.loadAZFPxml()
-
     def split_header(self, raw, header_unpacked, ii, Data):
         ''' Input open raw file, header, current bin, and the Data
             adds to Data the values from header_unpacked
@@ -200,8 +207,8 @@ class ConvertAZFP:
     def print_status(self, path, Data):
         """Prints message to console giving information about the raw file being parsed"""
         filename = os.path.split(path)[1]
-        timestamp = datetime.datetime(Data[0]['year'], Data[0]['month'], Data[0]['day'], Data[0]['hour'],
-                                      Data[0]['minute'], int(Data[0]['second'] + Data[0]['hundredths'] / 100))
+        timestamp = dt(Data[0]['year'], Data[0]['month'], Data[0]['day'], Data[0]['hour'],
+                                Data[0]['minute'], int(Data[0]['second'] + Data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
         (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
         print("File: {} - Loading Profile #{} {} with xml={} Bins2Avg={} Time2Avg={} Salinity={:.2f} Pressure={:.1f}\n"
@@ -209,7 +216,7 @@ class ConvertAZFP:
                       self.parameters['time_to_avg'], self.parameters['salinity'], self.parameters['pressure']))
 
     def parse_raw(self):
-        """Parses a RAW AZFP file and returns the parsed data"""
+        """Parses a RAW AZFP file and stores the parsed data in self.data"""
 
         """Start of computation subfunctions"""
         def compute_temp(counts):
@@ -286,7 +293,7 @@ class ConvertAZFP:
             while not eof:
                 header_chunk = raw.read(self.HEADER_SIZE)
                 if header_chunk:
-                    header_unpacked = unpack(self.FORMAT, header_chunk)
+                    header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
                     test_dict = {}
                     Data.append(test_dict)
                     # Reading will stop if the file contains an unexpected flag
@@ -365,13 +372,139 @@ class ConvertAZFP:
 
             # Time average  ----INCOMPLETE----
             if self.parameters['time_to_avg'] > 1:
-                num_time = math.floor(len(Data) / self.parameters['time_to_avg'])
+                # num_time = math.floor(len(Data) / self.parameters['time_to_avg'])
                 for kk in range(Data[0]['num_chan']):
-                    el_avg = 10 * math.log10(1)
-                pass
+                    # el_avg = 10 * math.log10(1)
+                    pass
+            else:  # no time averaging but may still have range averaging
+                if self.parameters['bins_to_avg'] > 1:
+                    pass  # INCOMPLETE
+                else:
+                    pass
 
-        return Data
+        self.Data = Data
+        # Output = self.create_output()
+
+    def create_output(self):
+        out_N = []
+        out_range = []
+        out_date = []
+        freq = self.Data[0]['frequency']
+
+        for ii in range(len(self.Data)):
+            out_date.append(dt.toordinal(dt(self.Data[0]['year'], self.Data[0]['month'], self.Data[0]['day'],
+                                            self.Data[0]['hour'], self.Data[0]['minute'],
+                                            round(self.Data[0]['second'] + self.Data[0]['hundredths'] / 100))))
+
+        for jj in range(self.Data[0]['num_chan']):
+            n = []
+            for ii in range(len(self.Data)):
+                n.append(self.Data[ii]['counts'][jj])
+            out_N.append(n)
+            out_range.append(self.Data[0]['range'][jj])
+
+        out_N = np.array(out_N) # Range may vary with frequency
+        out_range0 = out_range[0]
+        N = xr.DataArray(out_N, coords={'frequency': freq, 'times': out_date, 'range': out_range0},
+                         dims=['frequency', 'times', 'range'])
+        # xr.DataArray(out_N, coords={'frequency': freq, 'times': out_date, 'range': ('frequency', out_range)},
+        #                 dims=['frequency', 'times'])
+        pass
+
+    def convert_to_nc(self):
+        def _set_toplevel_dict():
+            attrs = ('Conventions', 'keywords',
+                     'sonar_convention_authority', 'sonar_convention_name',
+                     'sonar_convention_version', 'summary', 'title')
+            vals = ('CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3', 'AZFP',
+                    'ICES', 'SONAR-netCDF4', '1.0',
+                    '', '')
+            out_dict = dict(zip(attrs, vals))
+
+            date = dt.utcfromtimestamp(os.path.getctime(self.path)).isoformat(timespec='seconds') + 'Z'
+            out_dict['date_created'] = date
+            return out_dict
+
+        def _set_env_dict():
+            def get_temps():
+                """Temporary subfunction that a list containing temperatures of the data"""
+                temps = []
+                for ii in range(len(self.Data)):
+                    temps.append(self.Data[ii]['temperature'])
+                return temps
+            
+            attrs = ('frequency', 'absorption_coeff', 'sound_speed', 'salinity', 'temperature', 'pressure')
+            vals = (freq, abs_val, ss_val, self.parameters['salinity'], get_temps(), self.parameters['pressure'])
+            return dict(zip(attrs, vals))
+
+        def _set_platform_dict():
+            out_dict = dict()
+            out_dict['platform_name'] = 'AZFP'      # Placeholder for real name
+            if re.search('OOI', out_dict['platform_name']):
+                out_dict['platform_type'] = 'subsurface mooring'  # if OOI
+            else:
+                out_dict['platform_type'] = 'ship'  # default to ship
+            out_dict['time'] = np.int32(0)  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+            out_dict['pitch'] = np.int32(0)
+            out_dict['roll'] = np.int32(0)
+            out_dict['heave'] = np.int32(0)
+            # water_level is set to 0 for AZFP since this is not recorded
+            out_dict['water_level'] = np.int32(0)
+            return out_dict
+
+        def _set_prov_dict():
+            attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
+            vals = ('echopype', ECHOPYPE_VERSION, dt.utcnow().isoformat(timespec='seconds') + 'Z')  # use UTC time
+            return dict(zip(attrs, vals))
+
+        def _set_sonar_dict():
+            attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
+                     'sonar_software_name', 'sonar_software_version', 'sonar_type')
+            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler', self.Data[0]['serial_number'],
+                    'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
+            return dict(zip(attrs, vals))
+
+        self.parse_raw()
+
+        filename = os.path.splitext(os.path.basename(self.path))[0]
+        self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
+
+        if os.path.exists(self.nc_path):
+            print('          ... this file has already been converted to .nc, conversion not executed.')
+        else:
+            # Retrieve variables
+            freq = np.array(self.Data[0]['frequency']) * 1000   # Frequency in Hz
+            abs_val = self.Data[0]['sea_abs']
+            ss_val = [self.Data[0]['sound_speed']] * 4  # Independent of frequency
+            env_dict = _set_env_dict()
+
+            absorption = xr.DataArray(env_dict['absorption_coeff'],
+                                      coords=[env_dict['frequency']], dims=['frequency'],
+                                      attrs={'long_name': "Indicative acoustic absorption",
+                                             'units': "dB/m",
+                                             'valid_min': 0.0})
+            sound_speed = xr.DataArray(env_dict['sound_speed'],
+                                       coords=[env_dict['frequency']], dims=['frequency'],
+                                       attrs={'long_name': "Indicative sound speed",
+                                              'standard_name': "speed_of_sound_in_sea_water",
+                                              'units': "m/s",
+                                              'valid_min': 0.0})
+            ds = xr.Dataset({'absorption_indicative': absorption,
+                             'sound_speed_indicative': sound_speed},
+                            coords={'frequency': (['frequency'], env_dict['frequency']),
+                                    'temperature': env_dict['temperature'], 'pressure': env_dict['pressure'],
+                                    'salinity': env_dict['salinity']})
+            print(ds)   # check
+            # Create SetGroups object
+            grp = SetGroups(file_path=self.nc_path)
+            grp.set_toplevel(_set_toplevel_dict())  # top-level group
+            grp.set_env(_set_env_dict())            # environment group
+            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
+            grp.set_platform(_set_platform_dict())  # platform group
+            grp.set_sonar(_set_sonar_dict())        # sonar group
 
 
 file1 = ConvertAZFP(path)
-d = file1.parse_raw()
+file1.convert_to_nc()
+file1.data
+pass
