@@ -17,7 +17,7 @@ class SetGroups(object):
         with netCDF4.Dataset(self.file_path, "w", format="NETCDF4") as ncfile:
             [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
 
-    def set_env(self, env_dict):
+    def set_env(self, env_dict, AZFP=False):
         """Set the Environment group in the netCDF file.
 
         Parameters
@@ -44,9 +44,17 @@ class SetGroups(object):
                                               'standard_name': "speed_of_sound_in_sea_water",
                                               'units': "m/s",
                                               'valid_min': 0.0})
-            ds = xr.Dataset({'absorption_indicative': absorption,
-                             'sound_speed_indicative': sound_speed},
-                            coords={'frequency': (['frequency'], env_dict['frequency'])})
+            if AZFP:    # Extra AZFP-specific parameters 'salinity', 'temperature', and 'pressure'
+                ds = xr.Dataset({'absorption_indicative': absorption,
+                                 'sound_speed_indicative': sound_speed},
+                                coords={'frequency': (['frequency'], env_dict['frequency']),
+                                        'temperature': env_dict['temperature'], 'pressure': env_dict['pressure'],
+                                        'salinity': env_dict['salinity']})
+            else:   # EK60
+                ds = xr.Dataset({'absorption_indicative': absorption,
+                                 'sound_speed_indicative': sound_speed},
+                                coords={'frequency': (['frequency'], env_dict['frequency'])})
+            
             ds.frequency.attrs['long_name'] = "Acoustic frequency"
             ds.frequency.attrs['standard_name'] = "sound_frequency"
             ds.frequency.attrs['units'] = "Hz"
