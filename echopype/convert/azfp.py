@@ -5,6 +5,7 @@ import xarray as xr
 import xml.dom.minidom
 import math
 from datetime import datetime as dt
+from datetime import timezone
 from set_nc_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
@@ -21,7 +22,7 @@ class ConvertAZFP:
 
     def __init__(self, _path=""):
         self.path = _path
-        self.file_name = os.path.split(path)[1]
+        self.file_name = os.path.basename(path)
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
@@ -32,10 +33,11 @@ class ConvertAZFP:
             'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
             # "" will prompt for XML filename if no XML file exists in the directory
             'xml_file_name': "12022310.XML",
-
+            'platform_name': "",    # Name of the platform. Fill in with actual value
+            'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
             'salinity': 29.6,       # Salinity in psu
-            'bins_to_avg': 1,        # Number of range bins to average
-            'time_to_avg': 40,       # number of time values to average
+            'bins_to_avg': 1,       # Number of range bins to average
+            'time_to_avg': 40,      # number of time values to average
             'pressure': 60,         # in dbars (~ depth of instument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
             'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
@@ -59,59 +61,62 @@ class ConvertAZFP:
 
     def loadAZFPxml(self):
         ''' Parses the AZFP  XML file '''
-        def get_value_by_tag_name(px, tag_name, element=0):
+        def get_value_by_tag_name(tag_name, element=0):
             """Input a minidom parsed xml file, a tag name, and the number of the tag's occurances
                returns the value in the tag"""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
         px = xml.dom.minidom.parse(xml_path)
-        self.parameters['num_freq'] = int(get_value_by_tag_name(px, 'NumFreq'))
-        self.parameters['serial_number'] = int(get_value_by_tag_name(px, 'SerialNumber'))
-        self.parameters['burst_interval'] = float(get_value_by_tag_name(px, 'BurstInterval'))
-        self.parameters['pings_per_burst'] = int(get_value_by_tag_name(px, 'PingsPerBurst'))
-        self.parameters['average_burst_pings'] = int(get_value_by_tag_name(px, 'AverageBurstPings'))
+        self.parameters['num_freq'] = int(get_value_by_tag_name('NumFreq'))
+        self.parameters['serial_number'] = int(get_value_by_tag_name('SerialNumber'))
+        self.parameters['burst_interval'] = float(get_value_by_tag_name('BurstInterval'))
+        self.parameters['pings_per_burst'] = int(get_value_by_tag_name('PingsPerBurst'))
+        self.parameters['average_burst_pings'] = int(get_value_by_tag_name('AverageBurstPings'))
 
         # Temperature coeff
-        self.parameters['ka'] = float(get_value_by_tag_name(px, 'ka'))
-        self.parameters['kb'] = float(get_value_by_tag_name(px, 'kb'))
-        self.parameters['kc'] = float(get_value_by_tag_name(px, 'kc'))
-        self.parameters['A'] = float(get_value_by_tag_name(px, 'A'))
-        self.parameters['B'] = float(get_value_by_tag_name(px, 'B'))
-        self.parameters['C'] = float(get_value_by_tag_name(px, 'C'))
+        self.parameters['ka'] = float(get_value_by_tag_name('ka'))
+        self.parameters['kb'] = float(get_value_by_tag_name('kb'))
+        self.parameters['kc'] = float(get_value_by_tag_name('kc'))
+        self.parameters['A'] = float(get_value_by_tag_name('A'))
+        self.parameters['B'] = float(get_value_by_tag_name('B'))
+        self.parameters['C'] = float(get_value_by_tag_name('C'))
 
         # tilts
-        self.parameters['X_a'] = float(get_value_by_tag_name(px, 'X_a'))
-        self.parameters['X_b'] = float(get_value_by_tag_name(px, 'X_b'))
-        self.parameters['X_c'] = float(get_value_by_tag_name(px, 'X_c'))
-        self.parameters['X_d'] = float(get_value_by_tag_name(px, 'X_d'))
-        self.parameters['Y_a'] = float(get_value_by_tag_name(px, 'Y_a'))
-        self.parameters['Y_b'] = float(get_value_by_tag_name(px, 'Y_b'))
-        self.parameters['Y_c'] = float(get_value_by_tag_name(px, 'Y_c'))
-        self.parameters['Y_d'] = float(get_value_by_tag_name(px, 'Y_d'))
+        self.parameters['X_a'] = float(get_value_by_tag_name('X_a'))
+        self.parameters['X_b'] = float(get_value_by_tag_name('X_b'))
+        self.parameters['X_c'] = float(get_value_by_tag_name('X_c'))
+        self.parameters['X_d'] = float(get_value_by_tag_name('X_d'))
+        self.parameters['Y_a'] = float(get_value_by_tag_name('Y_a'))
+        self.parameters['Y_b'] = float(get_value_by_tag_name('Y_b'))
+        self.parameters['Y_c'] = float(get_value_by_tag_name('Y_c'))
+        self.parameters['Y_d'] = float(get_value_by_tag_name('Y_d'))
 
         # Initializing fields for each tranducer frequency
         self.parameters['dig_rate'] = []
         self.parameters['lock_out_index'] = []
         self.parameters['gain'] = []
-        self.parameters['pulse_len'] = []
+        self.parameters['pulse_length'] = []
         self.parameters['DS'] = []
         self.parameters['EL'] = []
         self.parameters['TVR'] = []
         self.parameters['VTX'] = []
         self.parameters['BP'] = []
-
+        self.parameters['range_samples'] = []
+        self.parameters['range_averaging_samples'] = []
         # Get parameters for each transducer frequency
         for jj in range(self.parameters['num_freq']):
-            self.parameters['dig_rate'].append(float(get_value_by_tag_name(px, 'DigRate', jj)))
-            self.parameters['lock_out_index'].append(float(get_value_by_tag_name(px, 'LockOutIndex', jj)))
-            self.parameters['gain'].append(float(get_value_by_tag_name(px, 'Gain', jj)))
-            self.parameters['pulse_len'].append(float(get_value_by_tag_name(px, 'PulseLen', jj)))
-            self.parameters['DS'].append(float(get_value_by_tag_name(px, 'DS', jj)))
-            self.parameters['EL'].append(float(get_value_by_tag_name(px, 'EL')))
-            self.parameters['TVR'].append(float(get_value_by_tag_name(px, 'TVR', jj)))
-            self.parameters['VTX'].append(float(get_value_by_tag_name(px, 'VTX0', jj)))
-            self.parameters['BP'].append(float(get_value_by_tag_name(px, 'BP', jj)))
-        self.parameters['sensors_flag'] = float(get_value_by_tag_name(px, 'SensorsFlag'))
+            self.parameters['range_samples'].append(int(get_value_by_tag_name('RangeSamples', jj)))
+            self.parameters['range_averaging_samples'].append(int(get_value_by_tag_name('RangeAveragingSamples', jj)))
+            self.parameters['dig_rate'].append(float(get_value_by_tag_name('DigRate', jj)))
+            self.parameters['lock_out_index'].append(float(get_value_by_tag_name('LockOutIndex', jj)))
+            self.parameters['gain'].append(float(get_value_by_tag_name('Gain', jj)))
+            self.parameters['pulse_length'].append(float(get_value_by_tag_name('PulseLen', jj)))
+            self.parameters['DS'].append(float(get_value_by_tag_name('DS', jj)))
+            self.parameters['EL'].append(float(get_value_by_tag_name('EL', jj)))
+            self.parameters['TVR'].append(float(get_value_by_tag_name('TVR', jj)))
+            self.parameters['VTX'].append(float(get_value_by_tag_name('VTX0', jj)))
+            self.parameters['BP'].append(float(get_value_by_tag_name('BP', jj)))
+        self.parameters['sensors_flag'] = float(get_value_by_tag_name('SensorsFlag'))
 
     @staticmethod
     def get_fields():
@@ -180,7 +185,7 @@ class ConvertAZFP:
         return True
 
     def add_counts(self, raw, ii, Data):
-        """Input open raw file, the bin number, and Data
+        """Input open raw file, the ping number, and Data
             adds "counts" to Data for given bin. Represents most of the measured data
             Assumed to be valid past header"""
         for jj in range(Data[ii]['num_chan']):
@@ -206,7 +211,7 @@ class ConvertAZFP:
 
     def print_status(self, path, Data):
         """Prints message to console giving information about the raw file being parsed"""
-        filename = os.path.split(path)[1]
+        filename = os.path.basename(path)
         timestamp = dt(Data[0]['year'], Data[0]['month'], Data[0]['day'], Data[0]['hour'],
                                 Data[0]['minute'], int(Data[0]['second'] + Data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
@@ -216,7 +221,7 @@ class ConvertAZFP:
                       self.parameters['time_to_avg'], self.parameters['salinity'], self.parameters['pressure']))
 
     def parse_raw(self):
-        """Parses a RAW AZFP file and stores the parsed data in self.data"""
+        """Parses a RAW AZFP file and returns the result"""
 
         """Start of computation subfunctions"""
         def compute_temp(counts):
@@ -344,7 +349,7 @@ class ConvertAZFP:
         # Compute hourly average temperature for sound speed calculation
         Data[0]['hourly_avg_temp'] = compute_avg_temp(Data, self.parameters['hourly_avg_temp'])
         Data[0]['sound_speed'] = compute_ss(Data[0]['hourly_avg_temp'], self.parameters['pressure'],
-                                                 self.parameters['salinity'])
+                                            self.parameters['salinity'])
         Data[0]['hourly_avg_cos'] = compute_avg_tilt_mag(Data)
         Data[0]['range'] = []       # Initializing range
         Data[0]['sea_abs'] = []     # Initializing sea absorption
@@ -382,34 +387,142 @@ class ConvertAZFP:
                 else:
                     pass
 
-        self.Data = Data
-        # Output = self.create_output()
+        return Data
 
-    def create_output(self):
-        out_N = []
-        out_range = []
-        out_date = []
-        freq = self.Data[0]['frequency']
+    def create_output(self, Data):
+        """Requires a parsed raw AZFP file as input
+        This method returns an xarray dataset containing N, Sv, TS, 
+        range, tilt corrected range, temperature, tilt x, tilt y,
+        sea absorption, frequency, ping times, number of channels,
+        burst interval, hourly average temperature, and number of acquired pings"""
+        def calc_sv_offset(freq, pulse_length):
+            """Input the frequency in kHz and the pulse length for the
+            function to calculate a compensation for the effects of finite response
+            times of both the recieving and transmitting parts of the transducer.
+            The correction magnitude depends on the length of the transmitted pulse
+            and the response time (transmission and reception) of the transducer."""
+            if freq > 38:
+                if pulse_length == 300:
+                    return 1.1
+                elif pulse_length == 500:
+                    return 0.8
+                elif pulse_length == 700:
+                    return 0.5
+                elif pulse_length == 900:
+                    return 0.3
+                elif pulse_length == 1000:
+                    return 0.3
+            else:
+                if pulse_length == 500:
+                    return 1.1
+                elif pulse_length == 1000:
+                    return 0.7
 
-        for ii in range(len(self.Data)):
-            out_date.append(dt.toordinal(dt(self.Data[0]['year'], self.Data[0]['month'], self.Data[0]['day'],
-                                            self.Data[0]['hour'], self.Data[0]['minute'],
-                                            round(self.Data[0]['second'] + self.Data[0]['hundredths'] / 100))))
+        cos_tilt_mag = [d['cos_tilt_mag'] for d in Data]
+        tilt_x_counts = [d['ancillary'][0] for d in Data]
+        tilt_y_counts = [d['ancillary'][1] for d in Data]
+        range_samples = [d['range_samples'] for d in Data]
+        dig_rate = [d['dig_rate'] for d in Data]
+        temp_counts = [d['ancillary'][4] for d in Data]
+        tilt_x = [d['tilt_x'] for d in Data]
+        tily_y = [d['tilt_y'] for d in Data]
+        date_out = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
+                       int(d['second'] + d['hundredths'] / 100)).replace(tzinfo=timezone.utc).timestamp()
+                    for d in Data]
 
-        for jj in range(self.Data[0]['num_chan']):
-            n = []
-            for ii in range(len(self.Data)):
-                n.append(self.Data[ii]['counts'][jj])
-            out_N.append(n)
-            out_range.append(self.Data[0]['range'][jj])
+        # Initialize variables in the output xarray Dataset
+        N = []
+        ts = []
+        sv = []
+        sv_offset = 0
+        sv_offset = []
+        freq = Data[0]['frequency']
+        # Loop over each frequency "jj"
+        for jj in range(Data[0]['num_chan']):
+            # Loop over all pings for each frequency
+            N.append(np.array([d['counts'][jj] for d in Data]))
+            # Calculate correction to Sv due to a non square tramsit pulse
+            sv_offset.append(calc_sv_offset(freq[jj], Data[0]['pulse_length'][jj]))
+            ts_calc = (self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
+                       N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
+                       20 * np.log10(self.parameters['VTX'][jj]) +
+                       40 * np.log10(np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
+                       2 * Data[0]['sea_abs'][jj] * np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))
+                       )
+            sv_calc = list(self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
+                           N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
+                           20 * np.log10(self.parameters['VTX'][jj]) +
+                           20 * np.log10(np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
+                           2 * Data[0]['sea_abs'][jj] * np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1)) -
+                           10 * np.log10(0.5 * Data[0]['sound_speed'] * self.parameters['pulse_length'][jj] / 1e6 *
+                           self.parameters['BP'][jj]) + sv_offset[jj]
+                           )
+            ts.append(ts_calc)
+            sv.append(sv_calc)
 
-        out_N = np.array(out_N) # Range may vary with frequency
-        out_range0 = out_range[0]
-        N = xr.DataArray(out_N, coords={'frequency': freq, 'times': out_date, 'range': out_range0},
-                         dims=['frequency', 'times', 'range'])
-        # xr.DataArray(out_N, coords={'frequency': freq, 'times': out_date, 'range': ('frequency', out_range)},
-        #                 dims=['frequency', 'times'])
-        pass
+        freq = np.array(freq) * 1000    # Convert to Hz from kHz
+        tdn = np.array(self.parameters['pulse_length']) * 1000  # Convert microseconds to seconds
+        sample_int = np.transpose(np.array(range_samples) / np.array(dig_rate))
+        range_bin = list(range(np.size(N, 2)))
+        ras = self.parameters['range_averaging_samples']
+        rs = self.parameters['range_samples']
+        range_out = xr.DataArray(np.stack(Data[0]['range']), coords=[('frequency', freq), ('range_bin', range_bin)])
+        tilt_corr_range = range_out * Data[0]['hourly_avg_cos']
+        output = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], np.stack(N)),
+                             'Sv': (['frequency', 'ping_time', 'range_bin'], np.stack(sv)),
+                             'TS': (['frequency', 'ping_time', 'range_bin'], np.stack(ts)),
+                             'equivalent_beam_angle': (['frequency'], self.parameters['BP']),
+                             'gain_correction': (['frequency'], self.parameters['gain']),
+                             'sample_interval': (['frequency', 'ping_time'], sample_int, {'units': 'seconds'}),
+                             'transmit_duration_nominal': (['frequency'], tdn, {'units': 'seconds'}),
+                             'range': range_out,
+                             'tilt_corr_range': tilt_corr_range,
+                             'temperature_counts': (['ping_time'], temp_counts),
+                             'tilt_x_count': (['ping_time'], tilt_x_counts),
+                             'tilt_y_count': (['ping_time'], tilt_y_counts),
+                             'tilt_x': (['ping_time'], tilt_x),
+                             'tilt_y': (['ping_time'], tily_y),
+                             'cos_tilt_mag': (['ping_time'], cos_tilt_mag),
+                             'DS': (['frequency'], self.parameters['DS']),
+                             'EL': (['frequency'], self.parameters['EL']),
+                             'TVR': (['frequency'], self.parameters['TVR']),
+                             'VTX': (['frequency'], self.parameters['VTX']),
+                             'Sv_offset': (['frequency'], sv_offset),
+                             'number_of_samples_digitized_per_pings': (['frequency'], rs),
+                             'number_of_digitized_samples_averaged_per_pings': (['frequency'], ras),
+                             'sea_abs': (['frequency'], Data[0]['sea_abs'])},
+                            coords={'frequency': (['frequency'], freq,
+                                                  {'units': 'Hz',
+                                                   'valid_min': 0.0}),
+                                    'ping_time': (['ping_time'], date_out,
+                                                  {'axis': 'T',
+                                                   'calendar': 'gregorian',
+                                                   'long_name': 'Timestamp of each ping',
+                                                   'standard_name': 'time',
+                                                   'units': 'seconds since 1970-01-01'}),
+                                    'range_bin': (['range_bin'], range_bin)},
+                            attrs={'beam_mode': '',
+                                   'conversion_equation_t': 'type_4',
+                                   'number_of_frequency': self.parameters['num_freq'],
+                                   'number_of_pings_per_burst': self.parameters['pings_per_burst'],
+                                   'average_burst_pings_flag': self.parameters['average_burst_pings'],
+                                   # Temperature coefficients
+                                   'temperature_ka': self.parameters['ka'],
+                                   'temperature_kb': self.parameters['kb'],
+                                   'temperature_kc': self.parameters['kc'],
+                                   'temperature_A': self.parameters['A'],
+                                   'temperature_B': self.parameters['B'],
+                                   'temperature_C': self.parameters['C'],
+                                   # Tilt coefficients
+                                   'tilt_X_a': self.parameters['X_a'],
+                                   'tilt_X_b': self.parameters['X_b'],
+                                   'tilt_X_c': self.parameters['X_c'],
+                                   'tilt_X_d': self.parameters['X_d'],
+                                   'tilt_Y_a': self.parameters['Y_a'],
+                                   'tilt_Y_b': self.parameters['Y_b'],
+                                   'tilt_Y_c': self.parameters['Y_c'],
+                                   'tilt_Y_d': self.parameters['Y_d']})
+        return output
 
     def convert_to_nc(self):
         def _set_toplevel_dict():
@@ -420,36 +533,27 @@ class ConvertAZFP:
                     'ICES', 'SONAR-netCDF4', '1.0',
                     '', '')
             out_dict = dict(zip(attrs, vals))
-
-            date = dt.utcfromtimestamp(os.path.getctime(self.path)).isoformat(timespec='seconds') + 'Z'
-            out_dict['date_created'] = date
+            # Date is acquired from time of first ping
+            date_created = dt.utcfromtimestamp(Output.ping_time.values[0]).isoformat(timespec='seconds') + 'Z'
+            out_dict['date_created'] = date_created
             return out_dict
 
         def _set_env_dict():
-            def get_temps():
-                """Temporary subfunction that a list containing temperatures of the data"""
-                temps = []
-                for ii in range(len(self.Data)):
-                    temps.append(self.Data[ii]['temperature'])
-                return temps
-            
+            temps = [d['temperature'] for d in Data]
+            freq = np.array(Data[0]['frequency']) * 1000    # Frequency in Hz
+            abs_val = Data[0]['sea_abs']
+            ss_val = [Data[0]['sound_speed']] * 4           # Sound speed independent of frequency
+
             attrs = ('frequency', 'absorption_coeff', 'sound_speed', 'salinity', 'temperature', 'pressure')
-            vals = (freq, abs_val, ss_val, self.parameters['salinity'], get_temps(), self.parameters['pressure'])
+            vals = (freq, abs_val, ss_val, self.parameters['salinity'], temps, self.parameters['pressure'])
             return dict(zip(attrs, vals))
 
         def _set_platform_dict():
             out_dict = dict()
-            out_dict['platform_name'] = 'AZFP'      # Placeholder for real name
-            if re.search('OOI', out_dict['platform_name']):
-                out_dict['platform_type'] = 'subsurface mooring'  # if OOI
-            else:
-                out_dict['platform_type'] = 'ship'  # default to ship
-            out_dict['time'] = np.int32(0)  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            out_dict['pitch'] = np.int32(0)
-            out_dict['roll'] = np.int32(0)
-            out_dict['heave'] = np.int32(0)
+            out_dict['platform_name'] = self.parameters['platform_name']
+            out_dict['platform_type'] = self.parameters['platform_type']
             # water_level is set to 0 for AZFP since this is not recorded
-            out_dict['water_level'] = np.int32(0)
+            out_dict['water_level'] = 0
             return out_dict
 
         def _set_prov_dict():
@@ -460,51 +564,70 @@ class ConvertAZFP:
         def _set_sonar_dict():
             attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
                      'sonar_software_name', 'sonar_software_version', 'sonar_type')
-            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler', self.Data[0]['serial_number'],
+            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler', Data[0]['serial_number'],
                     'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
             return dict(zip(attrs, vals))
 
-        self.parse_raw()
+        def _set_beam_dict():
+            return None, None, None, None, None, Output
 
+        def _set_vendor_specific_dict():
+            out_dict = {
+                'ping_time': Output.ping_time.values,
+                'frequency': Output.frequency.values,
+                'profile_flag': [d['profile_flag'] for d in Data],
+                'profile_number': [d['profile_number'] for d in Data],
+                'ping_status': [d['ping_status'] for d in Data],
+                'burst_interval': [d['burst_int'] for d in Data],
+                'digitization_rate': [d['dig_rate'] for d in Data],     # Dim: frequency
+                'lock_out_index': [d['lockout_index'] for d in Data],   # Dim: frequency
+                'num_bins': [d['num_bins'] for d in Data],              # Dim: frequency
+                'range_samples': [d['range_samples'] for d in Data],    # Dim: frequency
+                'ping_per_profile': [d['ping_per_profile'] for d in Data],
+                'average_pings_flag': [d['avg_pings'] for d in Data],
+                'number_of_acquired_pings': [d['num_acq_pings'] for d in Data],
+                'ping_period': [d['ping_period'] for d in Data],
+                'first_ping': [d['first_ping'] for d in Data],
+                'last_ping': [d['last_ping'] for d in Data],
+                'data_type': [d['data_type'] for d in Data],
+                'data_error': [d['data_error'] for d in Data],
+                'phase': [d['phase'] for d in Data],
+                'number_of_channels': [d['num_chan'] for d in Data],
+                'spare_channel': [d['spare_chan'] for d in Data],
+                'board_number': [d['board_num'] for d in Data],         # Dim: frequency
+                'sensor_flag': [d['sensor_flag'] for d in Data],
+                'ancillary': [d['ancillary'] for d in Data],            # 5 values
+                'ad_channels': [d['ad'] for d in Data]                  # 2 values
+            }
+            ancillary_len = list(range(len(out_dict['ancillary'][0])))
+            ad_len = list(range(len(out_dict['ad_channels'][0])))
+            out_dict['ancillary_len'] = ancillary_len
+            out_dict['ad_len'] = ad_len
+            return out_dict
+
+        Data = self.parse_raw()
+        Output = self.create_output(Data)
         filename = os.path.splitext(os.path.basename(self.path))[0]
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
+
+        if os.path.exists(self.nc_path):    # USED FOR TESTING
+            os.remove(self.nc_path)
 
         if os.path.exists(self.nc_path):
             print('          ... this file has already been converted to .nc, conversion not executed.')
         else:
-            # Retrieve variables
-            freq = np.array(self.Data[0]['frequency']) * 1000   # Frequency in Hz
-            abs_val = self.Data[0]['sea_abs']
-            ss_val = [self.Data[0]['sound_speed']] * 4  # Independent of frequency
-            env_dict = _set_env_dict()
-
-            absorption = xr.DataArray(env_dict['absorption_coeff'],
-                                      coords=[env_dict['frequency']], dims=['frequency'],
-                                      attrs={'long_name': "Indicative acoustic absorption",
-                                             'units': "dB/m",
-                                             'valid_min': 0.0})
-            sound_speed = xr.DataArray(env_dict['sound_speed'],
-                                       coords=[env_dict['frequency']], dims=['frequency'],
-                                       attrs={'long_name': "Indicative sound speed",
-                                              'standard_name': "speed_of_sound_in_sea_water",
-                                              'units': "m/s",
-                                              'valid_min': 0.0})
-            ds = xr.Dataset({'absorption_indicative': absorption,
-                             'sound_speed_indicative': sound_speed},
-                            coords={'frequency': (['frequency'], env_dict['frequency']),
-                                    'temperature': env_dict['temperature'], 'pressure': env_dict['pressure'],
-                                    'salinity': env_dict['salinity']})
-            print(ds)   # check
+            vendor = 'AZFP'
             # Create SetGroups object
             grp = SetGroups(file_path=self.nc_path)
-            grp.set_toplevel(_set_toplevel_dict())  # top-level group
-            grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
-            grp.set_platform(_set_platform_dict())  # platform group
-            grp.set_sonar(_set_sonar_dict())        # sonar group
+            grp.set_toplevel(_set_toplevel_dict())      # top-level group
+            grp.set_env(_set_env_dict(), vendor)        # environment group
+            grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())    # provenance group
+            grp.set_platform(_set_platform_dict(), vendor)      # platform group
+            grp.set_sonar(_set_sonar_dict())                    # sonar group
+            grp.set_beam(*_set_beam_dict(), vendor)             # beam group
+            grp.set_vendor_specific(_set_vendor_specific_dict(), vendor)    # AZFP Vendor specific group
 
 
 file1 = ConvertAZFP(path)
 file1.convert_to_nc()
-file1.data
 pass
