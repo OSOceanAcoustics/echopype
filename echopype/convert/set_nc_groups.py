@@ -47,8 +47,20 @@ class SetGroups(object):
                                               'units': "m/s",
                                               'valid_min': 0.0})
             if vendor == "AZFP":  # Extra AZFP-specific parameters 'salinity', 'temperature', and 'pressure'
+                salinity = xr.DataArray(env_dict['salinity'],
+                                        coords=[env_dict['frequency']], dims=['frequency'],
+                                        attrs={'long_name': "Water salinity",
+                                               'standard_name': "salinity_of_sea_water",
+                                               'units': "PSU"})
+                pressure = xr.DataArray(env_dict['pressure'],
+                                        coords=[env_dict['frequency']], dims=['frequency'],
+                                        attrs={'long_name': "Water pressure",
+                                               'standard_name': "pressure_in_sea_water",
+                                               'units': "dBar"})
                 ds = xr.Dataset({'absorption_indicative': absorption,
-                                 'sound_speed_indicative': sound_speed},
+                                 'sound_speed_indicative': sound_speed,
+                                 'salinity': salinity,
+                                 'pressure': pressure},
                                 coords={'frequency': (['frequency'], env_dict['frequency']),
                                         'temperature': env_dict['temperature']},
                                 attrs={'pressure': env_dict['pressure'],    # pressure in dBar
