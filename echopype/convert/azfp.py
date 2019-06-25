@@ -1,5 +1,4 @@
 import os
-import re
 import numpy as np
 import xarray as xr
 import xml.dom.minidom
@@ -13,16 +12,17 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
-path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022316.01A"
-xml_path = "D:\\Documents\\Projects\\echopype\\toolbox\\12022310.XML"
+path = "../echopype/toolbox/12022316.01A"
+xml_path = "../echopype/toolbox/12022310.XML"
 
 
 class ConvertAZFP:
     """Class for converting raw .01A AZFP files """
 
-    def __init__(self, _path=""):
+    def __init__(self, _path='', _xml_path=''):
         self.path = _path
-        self.file_name = os.path.basename(path)
+        self.xml_path = _xml_path
+        self.file_name = os.path.basename(self.path)
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
@@ -66,7 +66,7 @@ class ConvertAZFP:
                returns the value in the tag"""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
-        px = xml.dom.minidom.parse(xml_path)
+        px = xml.dom.minidom.parse(self.xml_path)
         self.parameters['num_freq'] = int(get_value_by_tag_name('NumFreq'))
         self.parameters['serial_number'] = int(get_value_by_tag_name('SerialNumber'))
         self.parameters['burst_interval'] = float(get_value_by_tag_name('BurstInterval'))
@@ -387,11 +387,10 @@ class ConvertAZFP:
                 else:
                     pass
 
-        return Data
+        self.data = Data
 
-    def create_output(self, Data):
-        """Requires a parsed raw AZFP file as input
-        This method returns an xarray dataset containing N, Sv, TS, 
+    def create_output(self):
+        """This method returns an xarray dataset containing N, Sv, TS, 
         range, tilt corrected range, temperature, tilt x, tilt y,
         sea absorption, frequency, ping times, number of channels,
         burst interval, hourly average temperature, and number of acquired pings"""
@@ -418,47 +417,52 @@ class ConvertAZFP:
                 elif pulse_length == 1000:
                     return 0.7
 
-        cos_tilt_mag = [d['cos_tilt_mag'] for d in Data]
-        tilt_x_counts = [d['ancillary'][0] for d in Data]
-        tilt_y_counts = [d['ancillary'][1] for d in Data]
-        range_samples = [d['range_samples'] for d in Data]
-        dig_rate = [d['dig_rate'] for d in Data]
-        temp_counts = [d['ancillary'][4] for d in Data]
-        tilt_x = [d['tilt_x'] for d in Data]
-        tily_y = [d['tilt_y'] for d in Data]
+        try:
+            self.data
+        except NameError:
+            self.parse_raw()
+        
+        cos_tilt_mag = [d['cos_tilt_mag'] for d in self.data]
+        tilt_x_counts = [d['ancillary'][0] for d in self.data]
+        tilt_y_counts = [d['ancillary'][1] for d in self.data]
+        range_samples = [d['range_samples'] for d in self.data]
+        dig_rate = [d['dig_rate'] for d in self.data]
+        temp_counts = [d['ancillary'][4] for d in self.data]
+        tilt_x = [d['tilt_x'] for d in self.data]
+        tily_y = [d['tilt_y'] for d in self.data]
         date_out = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
                        int(d['second'] + d['hundredths'] / 100)).replace(tzinfo=timezone.utc).timestamp()
-                    for d in Data]
+                    for d in self.data]
 
         # Initialize variables in the output xarray Dataset
         N = []
-        ts = []
-        sv = []
-        sv_offset = 0
+        freq = self.data[0]['frequency']
+        # ts = []
+        # sv = []
+        # sv_offset = 0
         sv_offset = []
-        freq = Data[0]['frequency']
         # Loop over each frequency "jj"
-        for jj in range(Data[0]['num_chan']):
+        for jj in range(self.data[0]['num_chan']):
             # Loop over all pings for each frequency
-            N.append(np.array([d['counts'][jj] for d in Data]))
+            N.append(np.array([d['counts'][jj] for d in self.data]))
             # Calculate correction to Sv due to a non square tramsit pulse
-            sv_offset.append(calc_sv_offset(freq[jj], Data[0]['pulse_length'][jj]))
-            ts_calc = (self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
-                       N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
-                       20 * np.log10(self.parameters['VTX'][jj]) +
-                       40 * np.log10(np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
-                       2 * Data[0]['sea_abs'][jj] * np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))
-                       )
-            sv_calc = list(self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
-                           N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
-                           20 * np.log10(self.parameters['VTX'][jj]) +
-                           20 * np.log10(np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
-                           2 * Data[0]['sea_abs'][jj] * np.tile(Data[0]['range'][jj], (np.size(N[jj], 0), 1)) -
-                           10 * np.log10(0.5 * Data[0]['sound_speed'] * self.parameters['pulse_length'][jj] / 1e6 *
-                           self.parameters['BP'][jj]) + sv_offset[jj]
-                           )
-            ts.append(ts_calc)
-            sv.append(sv_calc)
+            sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
+            # ts_calc = (self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
+            #            N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
+            #            20 * np.log10(self.parameters['VTX'][jj]) +
+            #            40 * np.log10(np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
+            #            2 * self.data[0]['sea_abs'][jj] * np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))
+            #            )
+            # sv_calc = list(self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
+            #                N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
+            #                20 * np.log10(self.parameters['VTX'][jj]) +
+            #                20 * np.log10(np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
+            #                2 * self.data[0]['sea_abs'][jj] * np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1)) -
+            #                10 * np.log10(0.5 * self.data[0]['sound_speed'] * self.parameters['pulse_length'][jj] / 1e6 *
+            #                self.parameters['BP'][jj]) + sv_offset[jj]
+            #                )
+            # ts.append(ts_calc)
+            # sv.append(sv_calc)
 
         freq = np.array(freq) * 1000    # Convert to Hz from kHz
         tdn = np.array(self.parameters['pulse_length']) * 1000  # Convert microseconds to seconds
@@ -466,11 +470,9 @@ class ConvertAZFP:
         range_bin = list(range(np.size(N, 2)))
         ras = self.parameters['range_averaging_samples']
         rs = self.parameters['range_samples']
-        range_out = xr.DataArray(np.stack(Data[0]['range']), coords=[('frequency', freq), ('range_bin', range_bin)])
-        tilt_corr_range = range_out * Data[0]['hourly_avg_cos']
+        range_out = xr.DataArray(np.stack(self.data[0]['range']), coords=[('frequency', freq), ('range_bin', range_bin)])
+        tilt_corr_range = range_out * self.data[0]['hourly_avg_cos']
         output = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], np.stack(N)),
-                             'Sv': (['frequency', 'ping_time', 'range_bin'], np.stack(sv)),
-                             'TS': (['frequency', 'ping_time', 'range_bin'], np.stack(ts)),
                              'equivalent_beam_angle': (['frequency'], self.parameters['BP']),
                              'gain_correction': (['frequency'], self.parameters['gain']),
                              'sample_interval': (['frequency', 'ping_time'], sample_int, {'units': 'seconds'}),
@@ -490,7 +492,7 @@ class ConvertAZFP:
                              'Sv_offset': (['frequency'], sv_offset),
                              'number_of_samples_digitized_per_pings': (['frequency'], rs),
                              'number_of_digitized_samples_averaged_per_pings': (['frequency'], ras),
-                             'sea_abs': (['frequency'], Data[0]['sea_abs'])},
+                             'sea_abs': (['frequency'], self.data[0]['sea_abs'])},
                             coords={'frequency': (['frequency'], freq,
                                                   {'units': 'Hz',
                                                    'valid_min': 0.0}),
@@ -539,13 +541,15 @@ class ConvertAZFP:
             return out_dict
 
         def _set_env_dict():
-            temps = [d['temperature'] for d in Data]
-            freq = np.array(Data[0]['frequency']) * 1000    # Frequency in Hz
-            abs_val = Data[0]['sea_abs']
-            ss_val = [Data[0]['sound_speed']] * 4           # Sound speed independent of frequency
+            temps = [d['temperature'] for d in self.data]
+            freq = np.array(self.data[0]['frequency']) * 1000    # Frequency in Hz
+            abs_val = self.data[0]['sea_abs']
+            ss_val = [self.data[0]['sound_speed']] * 4           # Sound speed independent of frequency
+            salinity = [self.parameters['salinity']] * 4    # Salinity independent of frequency
+            pressure = [self.parameters['pressure']] * 4    # Pressure independent of frequency
 
             attrs = ('frequency', 'absorption_coeff', 'sound_speed', 'salinity', 'temperature', 'pressure')
-            vals = (freq, abs_val, ss_val, self.parameters['salinity'], temps, self.parameters['pressure'])
+            vals = (freq, abs_val, ss_val, salinity, temps, pressure)
             return dict(zip(attrs, vals))
 
         def _set_platform_dict():
@@ -564,7 +568,7 @@ class ConvertAZFP:
         def _set_sonar_dict():
             attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
                      'sonar_software_name', 'sonar_software_version', 'sonar_type')
-            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler', Data[0]['serial_number'],
+            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler', self.data[0]['serial_number'],
                     'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
             return dict(zip(attrs, vals))
 
@@ -575,29 +579,29 @@ class ConvertAZFP:
             out_dict = {
                 'ping_time': Output.ping_time.values,
                 'frequency': Output.frequency.values,
-                'profile_flag': [d['profile_flag'] for d in Data],
-                'profile_number': [d['profile_number'] for d in Data],
-                'ping_status': [d['ping_status'] for d in Data],
-                'burst_interval': [d['burst_int'] for d in Data],
-                'digitization_rate': [d['dig_rate'] for d in Data],     # Dim: frequency
-                'lock_out_index': [d['lockout_index'] for d in Data],   # Dim: frequency
-                'num_bins': [d['num_bins'] for d in Data],              # Dim: frequency
-                'range_samples': [d['range_samples'] for d in Data],    # Dim: frequency
-                'ping_per_profile': [d['ping_per_profile'] for d in Data],
-                'average_pings_flag': [d['avg_pings'] for d in Data],
-                'number_of_acquired_pings': [d['num_acq_pings'] for d in Data],
-                'ping_period': [d['ping_period'] for d in Data],
-                'first_ping': [d['first_ping'] for d in Data],
-                'last_ping': [d['last_ping'] for d in Data],
-                'data_type': [d['data_type'] for d in Data],
-                'data_error': [d['data_error'] for d in Data],
-                'phase': [d['phase'] for d in Data],
-                'number_of_channels': [d['num_chan'] for d in Data],
-                'spare_channel': [d['spare_chan'] for d in Data],
-                'board_number': [d['board_num'] for d in Data],         # Dim: frequency
-                'sensor_flag': [d['sensor_flag'] for d in Data],
-                'ancillary': [d['ancillary'] for d in Data],            # 5 values
-                'ad_channels': [d['ad'] for d in Data]                  # 2 values
+                'profile_flag': [d['profile_flag'] for d in self.data],
+                'profile_number': [d['profile_number'] for d in self.data],
+                'ping_status': [d['ping_status'] for d in self.data],
+                'burst_interval': [d['burst_int'] for d in self.data],
+                'digitization_rate': [d['dig_rate'] for d in self.data],     # Dim: frequency
+                'lock_out_index': [d['lockout_index'] for d in self.data],   # Dim: frequency
+                'num_bins': [d['num_bins'] for d in self.data],              # Dim: frequency
+                'range_samples': [d['range_samples'] for d in self.data],    # Dim: frequency
+                'ping_per_profile': [d['ping_per_profile'] for d in self.data],
+                'average_pings_flag': [d['avg_pings'] for d in self.data],
+                'number_of_acquired_pings': [d['num_acq_pings'] for d in self.data],
+                'ping_period': [d['ping_period'] for d in self.data],
+                'first_ping': [d['first_ping'] for d in self.data],
+                'last_ping': [d['last_ping'] for d in self.data],
+                'data_type': [d['data_type'] for d in self.data],
+                'data_error': [d['data_error'] for d in self.data],
+                'phase': [d['phase'] for d in self.data],
+                'number_of_channels': [d['num_chan'] for d in self.data],
+                'spare_channel': [d['spare_chan'] for d in self.data],
+                'board_number': [d['board_num'] for d in self.data],         # Dim: frequency
+                'sensor_flag': [d['sensor_flag'] for d in self.data],
+                'ancillary': [d['ancillary'] for d in self.data],            # 5 values
+                'ad_channels': [d['ad'] for d in self.data]                  # 2 values
             }
             ancillary_len = list(range(len(out_dict['ancillary'][0])))
             ad_len = list(range(len(out_dict['ad_channels'][0])))
@@ -605,8 +609,8 @@ class ConvertAZFP:
             out_dict['ad_len'] = ad_len
             return out_dict
 
-        Data = self.parse_raw()
-        Output = self.create_output(Data)
+        self.parse_raw()
+        Output = self.create_output()
         filename = os.path.splitext(os.path.basename(self.path))[0]
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
 
@@ -628,6 +632,5 @@ class ConvertAZFP:
             grp.set_vendor_specific(_set_vendor_specific_dict(), vendor)    # AZFP Vendor specific group
 
 
-file1 = ConvertAZFP(path)
+file1 = ConvertAZFP(path, xml_path)
 file1.convert_to_nc()
-pass
