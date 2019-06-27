@@ -5,15 +5,15 @@ import xml.dom.minidom
 import math
 from datetime import datetime as dt
 from datetime import timezone
-from set_nc_groups import SetGroups
+from .set_nc_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
-path = "../echopype/toolbox/12022316.01A"
-xml_path = "../echopype/toolbox/12022310.XML"
+path = "../echopype/toolbox/17082117.01A"
+xml_path = "../echopype/toolbox/17041823.XML"
 
 
 class ConvertAZFP:
@@ -203,12 +203,6 @@ class ConvertAZFP:
 
         return True
 
-    def get_pavg_arr(self, ii, Data):
-        pavg_arr = []
-        for jj in range(Data[ii]['num_chan']):
-            pavg_arr.append([])
-        return pavg_arr
-
     def print_status(self, path, Data):
         """Prints message to console giving information about the raw file being parsed"""
         filename = os.path.basename(path)
@@ -327,18 +321,7 @@ class ConvertAZFP:
                         Data[ii]['cos_tilt_mag'] = math.cos((math.sqrt(
                                                             Data[ii]['tilt_x'] ** 2 +
                                                             Data[ii]['tilt_y'] ** 2)) * math.pi / 180)
-                        # Compute power if the data is being averaged
-                        if self.parameters['bins_to_avg'] > 1 or self.parameters['time_to_avg'] > 1:
-                            pavg_arr = self.get_pavg_arr(ii, Data)
-                            Data[ii]['pavg'] = []
-                            for jj in range(Data[ii]['num_chan']):
-                                x = self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj]
-                                # el = x + np.array(Data[ii]['counts'][jj]) / (26214 * self.parameters['DS'][jj])
-                                # P = 10 ** (el / 10)
-                                # if P.any:
-                                #     Data[ii]['pavg'].append(P)
-                                #     # Used to simplify time averaging
-                                #     pavg_arr[jj].append([P])
+
                     else:
                         break
                 else:
@@ -421,7 +404,7 @@ class ConvertAZFP:
             self.data
         except NameError:
             self.parse_raw()
-        
+
         cos_tilt_mag = [d['cos_tilt_mag'] for d in self.data]
         tilt_x_counts = [d['ancillary'][0] for d in self.data]
         tilt_y_counts = [d['ancillary'][1] for d in self.data]
@@ -470,9 +453,9 @@ class ConvertAZFP:
         range_bin = list(range(np.size(N, 2)))
         ras = self.parameters['range_averaging_samples']
         rs = self.parameters['range_samples']
-        range_out = xr.DataArray(np.stack(self.data[0]['range']), coords=[('frequency', freq), ('range_bin', range_bin)])
+        range_out = xr.DataArray(self.data[0]['range'], coords=[('frequency', freq), ('range_bin', range_bin)])
         tilt_corr_range = range_out * self.data[0]['hourly_avg_cos']
-        output = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], np.stack(N)),
+        output = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                              'equivalent_beam_angle': (['frequency'], self.parameters['BP']),
                              'gain_correction': (['frequency'], self.parameters['gain']),
                              'sample_interval': (['frequency', 'ping_time'], sample_int, {'units': 'seconds'}),
@@ -526,7 +509,7 @@ class ConvertAZFP:
                                    'tilt_Y_d': self.parameters['Y_d']})
         return output
 
-    def convert_to_nc(self):
+    def raw2nc(self):
         def _set_toplevel_dict():
             attrs = ('Conventions', 'keywords',
                      'sonar_convention_authority', 'sonar_convention_name',
@@ -609,7 +592,11 @@ class ConvertAZFP:
             out_dict['ad_len'] = ad_len
             return out_dict
 
-        self.parse_raw()
+        try:
+            self.data
+        except AttributeError:
+            self.parse_raw()
+
         Output = self.create_output()
         filename = os.path.splitext(os.path.basename(self.path))[0]
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
@@ -619,6 +606,7 @@ class ConvertAZFP:
 
         if os.path.exists(self.nc_path):
             print('          ... this file has already been converted to .nc, conversion not executed.')
+            os.remove(self.nc_path)     # Used for testing
         else:
             vendor = 'AZFP'
             # Create SetGroups object
@@ -632,5 +620,5 @@ class ConvertAZFP:
             grp.set_vendor_specific(_set_vendor_specific_dict(), vendor)    # AZFP Vendor specific group
 
 
-file1 = ConvertAZFP(path, xml_path)
-file1.convert_to_nc()
+# file1 = ConvertAZFP(path, xml_path)
+# file1.raw2nc()
