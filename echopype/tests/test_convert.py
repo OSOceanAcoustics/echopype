@@ -54,7 +54,7 @@ def test_convert_AZFP():
         # Test ping time
         assert np.array_equal(ds_test.ping_time.values, ds_beam.ping_time.values)
         # Test tilt x and y
-        assert np.array_equal(ds_test.tilt_x.values, ds_beam.tilt_x.values)
+        assert np.array_equal(ds_test.frequency.values, ds_beam.tilt_x.values)
         assert np.array_equal(ds_test.tilt_y.values, ds_beam.tilt_y.values)
         # Test range
         assert np.array_equal(ds_test.range.values.squeeze(), ds_beam.range.values)
