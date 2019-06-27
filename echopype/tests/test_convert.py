@@ -31,6 +31,7 @@ def test_convert_ek60():
         # idx is channel index starting from 0
         assert np.any(tmp.power_data_dict[idx + 1] ==
                       ds_beam.backscatter_r.sel(frequency=tmp.config_transducer[idx]['frequency']).data)
+    ds_beam.close()
     os.remove(tmp.nc_path)
     del tmp
 
