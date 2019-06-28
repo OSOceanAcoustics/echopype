@@ -51,6 +51,8 @@ def test_convert_AZFP():
     with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
         # Test frequency
         assert np.array_equal(ds_test.frequency.values, ds_beam.frequency.values)
+        # Test sea absorption
+        assert np.array_equal(ds_test.sea_abs, ds_beam.sea_abs.values)
         # Test ping time
         assert np.array_equal(ds_test.ping_time.values, ds_beam.ping_time.values)
         # Test tilt x and y
