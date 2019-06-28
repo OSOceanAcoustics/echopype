@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
-    :target: https://travis-ci.org/OSOceanAcoustics/echopype
+.. image:: https://travis-ci.org/ngkavin/echopype.svg?branch=azfp
+    :target: https://travis-ci.org/ngkavin/echopype
 .. image:: https://readthedocs.org/projects/echopype/badge/?version=latest
     :target: https://echopype.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
