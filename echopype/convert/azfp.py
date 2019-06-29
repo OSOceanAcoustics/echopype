@@ -160,10 +160,24 @@ class ConvertAZFP:
         )
         return _fields
 
-    def split_header(self, raw, header_unpacked, ii, Data):
-        ''' Input open raw file, header, current bin, and the Data
-            adds to Data the values from header_unpacked
-            returns True if successful, False otherwise'''
+    def _split_header(self, raw, header_unpacked, ii, Data):
+        """Splits the header information into a dictionary
+
+        Parameters
+        ----------
+        raw
+            open binary file
+        header_unpacked
+            output of struct unpack of raw file
+        ii
+            ping number
+        Data
+            current unpacked data
+
+        Returns
+        -------
+            True or False depending on whether the unpack succeeded
+        """
         Flag = header_unpacked[0]
         if Flag != self.FILE_TYPE:
             check_eof = raw.read(1)
@@ -184,10 +198,18 @@ class ConvertAZFP:
                 i += 1
         return True
 
-    def add_counts(self, raw, ii, Data):
-        """Input open raw file, the ping number, and Data
-            adds "counts" to Data for given bin. Represents most of the measured data
-            Assumed to be valid past header"""
+    def _add_counts(self, raw, ii, Data):
+        """Unpacks the echosounder raw data. Modifies Data in place
+
+        Parameters
+        ----------
+        raw
+            open binary file
+        ii
+            ping number
+        Data
+            current unpacked data.
+        """
         for jj in range(Data[ii]['num_chan']):
             if Data[ii]['data_type'][jj]:
                 if Data[ii]['avg_pings']:
@@ -201,13 +223,20 @@ class ConvertAZFP:
                 counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
                 Data[ii]['counts'].append(counts_unpacked)
 
-        return True
 
-    def print_status(self, path, Data):
-        """Prints message to console giving information about the raw file being parsed"""
+    def _print_status(self, path, Data):
+        """Prints message to console giving information about the raw file being parsed
+        
+        Parameters
+        ----------
+        path
+            path to the 01A file
+        Data
+            current unpacked data
+        """
         filename = os.path.basename(path)
         timestamp = dt(Data[0]['year'], Data[0]['month'], Data[0]['day'], Data[0]['hour'],
-                                Data[0]['minute'], int(Data[0]['second'] + Data[0]['hundredths'] / 100))
+                       Data[0]['minute'], int(Data[0]['second'] + Data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
         (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
         print("File: {} - Loading Profile #{} {} with xml={} Bins2Avg={} Time2Avg={} Salinity={:.2f} Pressure={:.1f}\n"
@@ -215,7 +244,7 @@ class ConvertAZFP:
                       self.parameters['time_to_avg'], self.parameters['salinity'], self.parameters['pressure']))
 
     def parse_raw(self):
-        """Parses a RAW AZFP file and returns the result"""
+        """Parses a raw AZFP file of the 01A file format"""
 
         """Start of computation subfunctions"""
         def compute_temp(counts):
@@ -227,7 +256,7 @@ class ConvertAZFP:
             return T
 
         def compute_avg_temp(Data, hourly_avg_temp):
-            """Input the data with temperature values and averages all the temperatures""" 
+            """Input the data with temperature values and averages all the temperatures"""
             sum = 0
             total = 0
             for ii in range(len(Data)):
@@ -296,17 +325,17 @@ class ConvertAZFP:
                     test_dict = {}
                     Data.append(test_dict)
                     # Reading will stop if the file contains an unexpected flag
-                    if self.split_header(raw, header_unpacked, ii, Data):
+                    if self._split_header(raw, header_unpacked, ii, Data):
                         Data[ii]['counts'] = []
                         # Appends the actual 'data values' to Data
-                        self.add_counts(raw, ii, Data)
+                        self._add_counts(raw, ii, Data)
                         # Preallocate array if data averaging to #values in the hourly file x number
                         # if ii == 0 and (self.parameters['bins_to_avg'] > 1 or
                         #                 self.parameters['time_to_avg'] > 1):
                         #     pavg_arr = self.get_pavg_arr(ii, Data)
                         if ii == 0:
                             # Display information about the file that was loaded in
-                            self.print_status(path, Data)
+                            self._print_status(path, Data)
                         # Compute temperature from Data[ii]['ancillary][4]
                         Data[ii]['temperature'] = compute_temp(Data[ii]['ancillary'][4])
                         # compute x tilt from Data[ii]['ancillary][0]
@@ -373,16 +402,24 @@ class ConvertAZFP:
         self.data = Data
 
     def create_output(self):
-        """This method returns an xarray dataset containing N, Sv, TS, 
+        """Returns an xarray dataset containing N, Sv, TS,
         range, tilt corrected range, temperature, tilt x, tilt y,
         sea absorption, frequency, ping times, number of channels,
-        burst interval, hourly average temperature, and number of acquired pings"""
+        burst interval, hourly average temperature, and number of acquired pings
+        """
         def calc_sv_offset(freq, pulse_length):
-            """Input the frequency in kHz and the pulse length for the
-            function to calculate a compensation for the effects of finite response
+            """Calculate a compensation for the effects of finite response
             times of both the recieving and transmitting parts of the transducer.
             The correction magnitude depends on the length of the transmitted pulse
-            and the response time (transmission and reception) of the transducer."""
+            and the response time (transmission and reception) of the transducer.
+            
+            Parameters
+            ----------
+            freq
+                frequency in kHz
+            pulse_length
+                pulse length in ms
+            """
             if freq > 38:
                 if pulse_length == 300:
                     return 1.1
@@ -423,32 +460,16 @@ class ConvertAZFP:
         # ts = []
         # sv = []
         # sv_offset = 0
-        sv_offset = []
+        Sv_offset = []
         # Loop over each frequency "jj"
         for jj in range(self.data[0]['num_chan']):
             # Loop over all pings for each frequency
             N.append(np.array([d['counts'][jj] for d in self.data]))
             # Calculate correction to Sv due to a non square tramsit pulse
-            sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
-            # ts_calc = (self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
-            #            N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
-            #            20 * np.log10(self.parameters['VTX'][jj]) +
-            #            40 * np.log10(np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
-            #            2 * self.data[0]['sea_abs'][jj] * np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))
-            #            )
-            # sv_calc = list(self.parameters['EL'][jj] - 2.5 / self.parameters['DS'][jj] +
-            #                N[jj] / (26214 * self.parameters['DS'][jj]) - self.parameters['TVR'][jj] -
-            #                20 * np.log10(self.parameters['VTX'][jj]) +
-            #                20 * np.log10(np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1))) +
-            #                2 * self.data[0]['sea_abs'][jj] * np.tile(self.data[0]['range'][jj], (np.size(N[jj], 0), 1)) -
-            #                10 * np.log10(0.5 * self.data[0]['sound_speed'] * self.parameters['pulse_length'][jj] / 1e6 *
-            #                self.parameters['BP'][jj]) + sv_offset[jj]
-            #                )
-            # ts.append(ts_calc)
-            # sv.append(sv_calc)
+            Sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
 
         freq = np.array(freq) * 1000    # Convert to Hz from kHz
-        tdn = np.array(self.parameters['pulse_length']) * 1000  # Convert microseconds to seconds
+        tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
         sample_int = np.transpose(np.array(range_samples) / np.array(dig_rate))
         range_bin = list(range(np.size(N, 2)))
         ras = self.parameters['range_averaging_samples']
@@ -472,7 +493,7 @@ class ConvertAZFP:
                              'EL': (['frequency'], self.parameters['EL']),
                              'TVR': (['frequency'], self.parameters['TVR']),
                              'VTX': (['frequency'], self.parameters['VTX']),
-                             'Sv_offset': (['frequency'], sv_offset),
+                             'Sv_offset': (['frequency'], Sv_offset),
                              'number_of_samples_digitized_per_pings': (['frequency'], rs),
                              'number_of_digitized_samples_averaged_per_pings': (['frequency'], ras),
                              'sea_abs': (['frequency'], self.data[0]['sea_abs'])},
@@ -510,6 +531,10 @@ class ConvertAZFP:
         return output
 
     def raw2nc(self):
+        """Save data from raw 01A format to netCDF4 .nc format
+        """
+
+        """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
             attrs = ('Conventions', 'keywords',
                      'sonar_convention_authority', 'sonar_convention_name',
@@ -618,7 +643,3 @@ class ConvertAZFP:
             grp.set_sonar(_set_sonar_dict())                    # sonar group
             grp.set_beam(*_set_beam_dict(), vendor)             # beam group
             grp.set_vendor_specific(_set_vendor_specific_dict(), vendor)    # AZFP Vendor specific group
-
-
-# file1 = ConvertAZFP(path, xml_path)
-# file1.raw2nc()
