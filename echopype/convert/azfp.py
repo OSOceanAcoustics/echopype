@@ -62,8 +62,7 @@ class ConvertAZFP:
     def loadAZFPxml(self):
         ''' Parses the AZFP  XML file '''
         def get_value_by_tag_name(tag_name, element=0):
-            """Input a minidom parsed xml file, a tag name, and the number of the tag's occurances
-               returns the value in the tag"""
+            """Returns the value in an XML tag given the tag name and the number of occurances"""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
         px = xml.dom.minidom.parse(self.xml_path)
@@ -255,7 +254,19 @@ class ConvertAZFP:
             return T
 
         def compute_avg_temp(Data, hourly_avg_temp):
-            """Input the data with temperature values and averages all the temperatures"""
+            """Input the data with temperature values and averages all the temperatures
+
+            Parameters
+            ----------
+            Data
+                current unpacked data
+            hourly_avg_temp
+                xml parameter
+                
+            Returns
+            -------
+                the average temperature
+            """
             sum = 0
             total = 0
             for ii in range(len(Data)):
@@ -275,20 +286,60 @@ class ConvertAZFP:
             return a + b * (N) + c * (N)**2 + d * (N)**3
 
         def compute_avg_tilt_mag(Data):
-            """Input the data and calculates the average of the cosine tilt magnitudes"""
+            """Calculates the average of the cosine tilt magnitudes
+            
+            Parameters
+            ----------
+            Data
+                current unpacked data
+            
+            Returns
+            -------
+                number of the average of the cosine tilt magnitudes
+            """
             sum = 0
             for ii in range(len(Data)):
                 sum += Data[ii]['cos_tilt_mag']
             return sum / len(Data)
 
         def compute_ss(T, P, S):
+            """Computes the sound speed
+            
+            Parameters
+            ----------
+            T
+                Temperature
+            P
+                Pressure
+            S
+                Salinity
+            
+            Returns
+            -------
+                The sound speed in m/s
+            """
             z = T / 10
             return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
                     (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
 
         def compute_sea_abs(T, F, P, S):
-            """Input Data, frequency, pressure and salinity to calculate the absorption coefficient using
-            the hourly average temperature, pressure, salinity, and transducer frequency"""
+            """Computes the absorption coefficient
+            
+            Parameters
+            ----------
+            T
+                Temperature
+            F: Numpy array
+                Frequency
+            P
+                Pressure
+            S
+                Salinity
+            
+            Returns
+            -------
+                Numpy array containing the sea absorption for each frequency in dB/m
+            """
 
             T_k = T + 273.0
             f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
@@ -371,22 +422,26 @@ class ConvertAZFP:
         #                             Data[0]['dig_rate'][jj] + Data[0]['pulse_length'][jj] / 1e6))
         #     # Compute absorption for each frequency
         #     Data[0]['sea_abs'].append(compute_sea_abs(Data, Data[0]['frequency'][jj]))
+        # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
         m = []
         for jj in range(Data[0]['num_chan']):
             m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
                      self.parameters['bins_to_avg']))
         m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('len', list(range(len(m[0]))))])
         pass
+        # Create DataArrays for broadcasting on dimension frequency
         frequency = np.array(Data[0]['frequency'], dtype=np.int64)
         lockout_index = xr.DataArray(Data[0]['lockout_index'], coords=[('frequency', frequency)])
         range_samples = xr.DataArray(Data[0]['range_samples'], coords=[('frequency', frequency)])
         pulse_length = xr.DataArray(Data[0]['pulse_length'], coords=[('frequency', frequency)])
         dig_rate = xr.DataArray(Data[0]['dig_rate'], coords=[('frequency', frequency)])
 
+        # Calculate range from soundspeed for each frequency
         Data[0]['range'] = (Data[0]['sound_speed'] * lockout_index /
                             (2 * dig_rate) + Data[0]['sound_speed'] / 4 *
                             (((2 * m - 1) * range_samples * self.parameters['bins_to_avg'] - 1) /
                             dig_rate + pulse_length / 1e6))
+        # Compute absorption for each frequency
         Data[0]['sea_abs'] = compute_sea_abs(Data[0]['hourly_avg_temp'], frequency,
                                              self.parameters['pressure'], self.parameters['salinity'])
 
