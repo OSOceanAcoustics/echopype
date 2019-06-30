@@ -223,10 +223,9 @@ class ConvertAZFP:
                 counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
                 Data[ii]['counts'].append(counts_unpacked)
 
-
     def _print_status(self, path, Data):
         """Prints message to console giving information about the raw file being parsed
-        
+
         Parameters
         ----------
         path
@@ -287,13 +286,10 @@ class ConvertAZFP:
             return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
                     (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
 
-        def compute_sea_abs(Data, jj, P, S):
-            """Input Data, frequency number, pressure and salinity to calculate the absorption coefficient using
+        def compute_sea_abs(T, F, P, S):
+            """Input Data, frequency, pressure and salinity to calculate the absorption coefficient using
             the hourly average temperature, pressure, salinity, and transducer frequency"""
-            T = Data[0]['hourly_avg_temp']
-            F = Data[0]['frequency'][jj]
 
-            # Calculate relaxation frequencies
             T_k = T + 273.0
             f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
             f2 = (1.55e7) * T_k * math.exp(-3052 / T_k)
@@ -306,9 +302,8 @@ class ConvertAZFP:
                  (1 + k * (-(3.84e-4) + k * 7.57e-8)))
             F_k = F * 1000
             if S == 0:
-                return c * F_k ^ 2
+                return c * F_k ** 2
             else:
-                # Update later: f_k might be a list
                 return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
                         (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
 
@@ -363,41 +358,40 @@ class ConvertAZFP:
         Data[0]['sound_speed'] = compute_ss(Data[0]['hourly_avg_temp'], self.parameters['pressure'],
                                             self.parameters['salinity'])
         Data[0]['hourly_avg_cos'] = compute_avg_tilt_mag(Data)
-        Data[0]['range'] = []       # Initializing range
-        Data[0]['sea_abs'] = []     # Initializing sea absorption
+        # Data[0]['range'] = []       # Initializing range
+        # Data[0]['sea_abs'] = []     # Initializing sea absorption
+        # for jj in range(Data[0]['num_chan']):
+        #     # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
+        #     m = np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
+        #                   self.parameters['bins_to_avg'])
+        #     # Calculate range from soundspeed for each frequency
+        #     Data[0]['range'].append(Data[0]['sound_speed'] * Data[0]['lockout_index'][jj] /
+        #                             (2 * Data[0]['dig_rate'][jj]) + Data[0]['sound_speed'] / 4 *
+        #                             (((2 * m - 1) * Data[0]['range_samples'][jj] * self.parameters['bins_to_avg'] - 1) /
+        #                             Data[0]['dig_rate'][jj] + Data[0]['pulse_length'][jj] / 1e6))
+        #     # Compute absorption for each frequency
+        #     Data[0]['sea_abs'].append(compute_sea_abs(Data, Data[0]['frequency'][jj]))
+        m = []
         for jj in range(Data[0]['num_chan']):
-            # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
-            m = np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
-                          self.parameters['bins_to_avg'])
-            # Calculate range from soundspeed for each frequency
-            Data[0]['range'].append(Data[0]['sound_speed'] * Data[0]['lockout_index'][jj] /
-                                    (2 * Data[0]['dig_rate'][jj]) + Data[0]['sound_speed'] / 4 *
-                                    (((2 * m - 1) * Data[0]['range_samples'][jj] * self.parameters['bins_to_avg'] - 1) /
-                                    Data[0]['dig_rate'][jj] + Data[0]['pulse_length'][jj] / 1e6))
-            # Compute absorption for each frequency
-            Data[0]['sea_abs'].append(compute_sea_abs(Data, jj, self.parameters["pressure"],
-                                                      self.parameters["salinity"]))
-            if self.parameters['time_to_avg'] > len(Data):
-                self.parameters['time_to_avg'] = len(Data)
+            m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
+                     self.parameters['bins_to_avg']))
+        m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('len', list(range(len(m[0]))))])
+        pass
+        frequency = np.array(Data[0]['frequency'], dtype=np.int64)
+        lockout_index = xr.DataArray(Data[0]['lockout_index'], coords=[('frequency', frequency)])
+        range_samples = xr.DataArray(Data[0]['range_samples'], coords=[('frequency', frequency)])
+        pulse_length = xr.DataArray(Data[0]['pulse_length'], coords=[('frequency', frequency)])
+        dig_rate = xr.DataArray(Data[0]['dig_rate'], coords=[('frequency', frequency)])
 
-            # Bin average ----INCOMPLETE----
-            if self.parameters['bins_to_avg'] > 1:
-                for jj in Data[0]['num_chan']:
-                    bins_to_avg = self.parameters['bins_to_avg']
-                    num_bins = Data[0]['counts'][jj]
-                    num_bins = len(np.arange(0, len(num_bins) - bins_to_avg + 1, bins_to_avg))
+        Data[0]['range'] = (Data[0]['sound_speed'] * lockout_index /
+                            (2 * dig_rate) + Data[0]['sound_speed'] / 4 *
+                            (((2 * m - 1) * range_samples * self.parameters['bins_to_avg'] - 1) /
+                            dig_rate + pulse_length / 1e6))
+        Data[0]['sea_abs'] = compute_sea_abs(Data[0]['hourly_avg_temp'], frequency,
+                                             self.parameters['pressure'], self.parameters['salinity'])
 
-            # Time average  ----INCOMPLETE----
-            if self.parameters['time_to_avg'] > 1:
-                # num_time = math.floor(len(Data) / self.parameters['time_to_avg'])
-                for kk in range(Data[0]['num_chan']):
-                    # el_avg = 10 * math.log10(1)
-                    pass
-            else:  # no time averaging but may still have range averaging
-                if self.parameters['bins_to_avg'] > 1:
-                    pass  # INCOMPLETE
-                else:
-                    pass
+        if self.parameters['time_to_avg'] > len(Data):
+            self.parameters['time_to_avg'] = len(Data)
 
         self.data = Data
 
@@ -412,7 +406,7 @@ class ConvertAZFP:
             times of both the recieving and transmitting parts of the transducer.
             The correction magnitude depends on the length of the transmitted pulse
             and the response time (transmission and reception) of the transducer.
-            
+
             Parameters
             ----------
             freq
@@ -457,9 +451,6 @@ class ConvertAZFP:
         # Initialize variables in the output xarray Dataset
         N = []
         freq = self.data[0]['frequency']
-        # ts = []
-        # sv = []
-        # sv_offset = 0
         Sv_offset = []
         # Loop over each frequency "jj"
         for jj in range(self.data[0]['num_chan']):
@@ -631,7 +622,6 @@ class ConvertAZFP:
 
         if os.path.exists(self.nc_path):
             print('          ... this file has already been converted to .nc, conversion not executed.')
-            os.remove(self.nc_path)     # Used for testing
         else:
             vendor = 'AZFP'
             # Create SetGroups object
