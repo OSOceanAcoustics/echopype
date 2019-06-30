@@ -262,7 +262,7 @@ class ConvertAZFP:
                 current unpacked data
             hourly_avg_temp
                 xml parameter
-                
+
             Returns
             -------
                 the average temperature
@@ -287,12 +287,12 @@ class ConvertAZFP:
 
         def compute_avg_tilt_mag(Data):
             """Calculates the average of the cosine tilt magnitudes
-            
+
             Parameters
             ----------
             Data
                 current unpacked data
-            
+
             Returns
             -------
                 number of the average of the cosine tilt magnitudes
@@ -304,7 +304,7 @@ class ConvertAZFP:
 
         def compute_ss(T, P, S):
             """Computes the sound speed
-            
+
             Parameters
             ----------
             T
@@ -313,7 +313,7 @@ class ConvertAZFP:
                 Pressure
             S
                 Salinity
-            
+
             Returns
             -------
                 The sound speed in m/s
@@ -324,7 +324,7 @@ class ConvertAZFP:
 
         def compute_sea_abs(T, F, P, S):
             """Computes the absorption coefficient
-            
+
             Parameters
             ----------
             T
@@ -335,7 +335,7 @@ class ConvertAZFP:
                 Pressure
             S
                 Salinity
-            
+
             Returns
             -------
                 Numpy array containing the sea absorption for each frequency in dB/m
@@ -409,25 +409,13 @@ class ConvertAZFP:
         Data[0]['sound_speed'] = compute_ss(Data[0]['hourly_avg_temp'], self.parameters['pressure'],
                                             self.parameters['salinity'])
         Data[0]['hourly_avg_cos'] = compute_avg_tilt_mag(Data)
-        # Data[0]['range'] = []       # Initializing range
-        # Data[0]['sea_abs'] = []     # Initializing sea absorption
-        # for jj in range(Data[0]['num_chan']):
-        #     # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
-        #     m = np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
-        #                   self.parameters['bins_to_avg'])
-        #     # Calculate range from soundspeed for each frequency
-        #     Data[0]['range'].append(Data[0]['sound_speed'] * Data[0]['lockout_index'][jj] /
-        #                             (2 * Data[0]['dig_rate'][jj]) + Data[0]['sound_speed'] / 4 *
-        #                             (((2 * m - 1) * Data[0]['range_samples'][jj] * self.parameters['bins_to_avg'] - 1) /
-        #                             Data[0]['dig_rate'][jj] + Data[0]['pulse_length'][jj] / 1e6))
-        #     # Compute absorption for each frequency
-        #     Data[0]['sea_abs'].append(compute_sea_abs(Data, Data[0]['frequency'][jj]))
+
         # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
         m = []
         for jj in range(Data[0]['num_chan']):
             m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
                      self.parameters['bins_to_avg']))
-        m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('len', list(range(len(m[0]))))])
+        m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('range_bin', list(range(len(m[0]))))])
         pass
         # Create DataArrays for broadcasting on dimension frequency
         frequency = np.array(Data[0]['frequency'], dtype=np.int64)
@@ -520,8 +508,8 @@ class ConvertAZFP:
         range_bin = list(range(np.size(N, 2)))
         ras = self.parameters['range_averaging_samples']
         rs = self.parameters['range_samples']
-        range_out = xr.DataArray(self.data[0]['range'], coords=[('frequency', freq), ('range_bin', range_bin)])
-        tilt_corr_range = range_out * self.data[0]['hourly_avg_cos']
+        range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
+        tilt_corr_range = self.data[0]['range'] * self.data[0]['hourly_avg_cos']
         output = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                              'equivalent_beam_angle': (['frequency'], self.parameters['BP']),
                              'gain_correction': (['frequency'], self.parameters['gain']),
