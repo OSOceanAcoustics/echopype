@@ -5,13 +5,14 @@ from echopype.convert.ek60 import ConvertEK60
 from echopype.convert.azfp import ConvertAZFP
 
 raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
-azfp_01a_path = './echopype/data/17082117.01A'
-azfp_xml_path = './echopype/data/17041823.XML'
-azfp_test_path = './echopype/data/azfp_test.nc'
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
+
+azfp_01a_path = './echopype/data/17082117.01A'
+azfp_xml_path = './echopype/data/17041823.XML'
+azfp_test_path = './echopype/data/azfp_test/17082117.nc'
 
 
 def test_convert_ek60():
