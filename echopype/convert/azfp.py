@@ -210,7 +210,6 @@ class ConvertAZFP:
             current unpacked data.
         """
         for jj in range(Data[ii]['num_chan']):
-            Data[ii]['data_type'] = [1, 1, 1, 1]
             counts_byte_size = Data[ii]['num_bins'][jj]
             if Data[ii]['data_type'][jj]:
                 if Data[ii]['avg_pings']:
