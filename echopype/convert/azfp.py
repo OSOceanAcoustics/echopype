@@ -210,14 +210,20 @@ class ConvertAZFP:
             current unpacked data.
         """
         for jj in range(Data[ii]['num_chan']):
+            Data[ii]['data_type'] = [1, 1, 1, 1]
+            counts_byte_size = Data[ii]['num_bins'][jj]
             if Data[ii]['data_type'][jj]:
                 if Data[ii]['avg_pings']:
                     divisor = Data[ii]['ping_per_profile'] * Data[ii]['range_samples'][jj]
                 else:
                     divisor = Data[ii]['range_samples'][jj]
-                # ls and lso unimplemented
+                ls = unpack(">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4))     # Linear sum
+                lso = unpack(">" + "B" * counts_byte_size, raw.read(counts_byte_size * 1))    # linear sum overflow
+                v = (np.array(ls) + np.array(lso) * 4294967295) / divisor
+                v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters['DS'][jj]
+                v[np.isinf(v)] = 0
+                Data[ii]['counts'].append(v)
             else:
-                counts_byte_size = Data[ii]['num_bins'][jj]
                 counts_chunk = raw.read(counts_byte_size * 2)
                 counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
                 Data[ii]['counts'].append(counts_unpacked)
