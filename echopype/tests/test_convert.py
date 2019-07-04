@@ -4,7 +4,7 @@ import xarray as xr
 from echopype.convert.ek60 import ConvertEK60
 from echopype.convert.azfp import ConvertAZFP
 
-raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
+ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
@@ -18,7 +18,7 @@ azfp_test_path = './echopype/data/azfp_test/17082117.nc'
 def test_convert_ek60():
     """Test converting """
     # Unpacking data
-    tmp = ConvertEK60(raw_path)
+    tmp = ConvertEK60(ek60_raw_path)
     tmp.load_ek60_raw()
 
     # Convert to .nc file
