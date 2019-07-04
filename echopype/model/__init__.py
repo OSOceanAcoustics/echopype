@@ -9,4 +9,5 @@ Currently the operations include:
 The current version supports EK60 `.raw` data.
 """
 
-from .ek60 import EchoData
+from .ek60 import EchoDataEK60
+from .azfp import EchoDataAZFP
