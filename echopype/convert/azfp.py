@@ -17,7 +17,7 @@ xml_path = "../echopype/toolbox/17041823.XML"
 
 
 class ConvertAZFP:
-    """Class for converting raw .01A AZFP files """
+    """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
         self.path = _path
