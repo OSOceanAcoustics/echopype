@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/ngkavin/echopype.svg?branch=azfp
-    :target: https://travis-ci.org/ngkavin/echopype
+.. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
+    :target: https://travis-ci.org/OSOceanAcoustics/echopype
 .. image:: https://readthedocs.org/projects/echopype/badge/?version=latest
     :target: https://echopype.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
@@ -36,10 +36,15 @@ echopype include tools for:
 - Processing large volumes of sonar data in local or cloud storage by leveraging
   Python distributed computing libraries.
 
-The current version supports file conversion for the ``.raw`` data files
-collected by the SimRad EK60 echosounder. Conversion for other types of data
-files, including the ``.01A`` files from AZFP echosounder, the ``.raw`` files
-from the SimRad broadband EK80 echosounder, and the *raw beam* data from ADCP
+The current version supports file conversion for:
+
+- ``.raw`` data files collected by the SimRad EK60 echosounder
+
+- ``.01A`` data files collected by the ASL Environmental Sciences AZFP echosounder.
+  Note that an XML file (from each deployment) is required for unpacking AZFP data.
+
+Conversion for other data types, such as the ``.raw`` files from the SimRad
+broadband EK80 echosounder, and the *raw beam* data from ADCP
 (Acoustic Doppler Current Profiler) will be added in future releases.
 
 

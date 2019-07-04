@@ -9,7 +9,7 @@ from .echo_data import EchoData
 
 
 class EchoDataAZFP(EchoData):
-    """Base class for echo data."""
+    """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
         EchoData.__init__(self, file_path)
