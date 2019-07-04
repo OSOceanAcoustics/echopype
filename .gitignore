@@ -13,8 +13,10 @@ __pycache__/
 *.nc
 *.egg-info/
 .tox/
+.vscode/
 dist/
 build/
 docs/build/
 profile.html
 dask-worker-space/
+toolbox
