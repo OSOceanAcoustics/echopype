@@ -20,8 +20,8 @@ formats: []
 python:
    version: 3.7
    install:
-      - requirements: requirements.txt
       - requirements: docs/requirements.txt
+      - requirements: requirements.txt
       - method: pip
         path: .
    system_packages: true
