@@ -36,7 +36,7 @@ import logging
 import struct
 import re
 import sys
-from .date_conversion import nt_to_unix
+from .ek60_date_conversion import nt_to_unix
 
 
 __all__ = ['SimradNMEAParser', 'SimradDepthParser', 'SimradBottomParser',

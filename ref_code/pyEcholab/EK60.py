@@ -515,7 +515,7 @@ class EK60(object):
 
             # BOT datagrams contain sounder detected bottom depths from ".bot"
             # files.
-            elif new_datagram['type'].startswith('BOT'):
+            elif new_datagram['type'].startswith('TAG'):
                 # Iterate through our channels, extract the depth, and update
                 # the channel.
                 for channel_id in self.channel_ids:
