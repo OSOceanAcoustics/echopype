@@ -37,7 +37,7 @@ $Id$
 from io import BufferedReader, FileIO, SEEK_SET, SEEK_CUR, SEEK_END
 import struct
 import logging
-from . import parsers
+from . import ek60_raw_parsers as parsers
 
 __all__ = ['RawSimradFile']
 

@@ -11,6 +11,9 @@ with modifications:
 """
 
 
+from .ek60_raw_io import RawSimradFile, SimradEOF
+from .nmea_data import NMEAData
+
 import re
 import os
 from collections import defaultdict
@@ -25,6 +28,12 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
+# Create a constant to convert indexed power to power.
+INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+
+# Create a constant to convert from indexed angles to electrical angles.
+INDEX2ELEC = 180.0 / 128.0
+
 
 class ConvertEK60(object):
     """Class for converting EK60 `.raw` files."""
@@ -32,6 +41,16 @@ class ConvertEK60(object):
     def __init__(self, _filename=""):
 
         self.filename = _filename  # path to EK60 .raw filename to be parsed
+
+        # Initialize file parsing storage variables
+        self.config_datagram = None
+        self.nmea_data = NMEAData()  # object for NMEA data
+        self.ping_data_dict = {}   # dictionary to store metadata
+        self.power_dict = {}   # dictionary to store power data
+        self.angle_dict = {}   # dictionary to store angle data
+        self.ping_time = []    # list to store ping time
+        self.first_ch_flag = False   # flag to help check ping time
+        self.CON1_datagram = None    # storage for CON1 datagram for ME70
 
         # Constants for unpacking .raw files
         self.BLOCK_SIZE = 1024*4             # Block size read in from binary file to search for token
@@ -340,11 +359,144 @@ class ConvertEK60(object):
 
         return metadata  # this may be removed?
 
+    def _append_channel_ping_data(self, ch_num, datagram):
+        """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
+
+        Parameters
+        ----------
+        ch_num : int
+            number of the channel to append metadata to
+        datagram : dict
+            the newly read datagram of type 'RAW'
+        """
+        self.ping_data_dict[ch_num]['mode'].append(datagram['mode'])
+        self.ping_data_dict[ch_num]['transducer_depth'].append(datagram['transducer_depth'])
+        self.ping_data_dict[ch_num]['transmit_power'].append(datagram['transmit_power'])
+        self.ping_data_dict[ch_num]['pulse_length'].append(datagram['pulse_length'])
+        self.ping_data_dict[ch_num]['bandwidth'].append(datagram['bandwidth'])
+        self.ping_data_dict[ch_num]['sample_interval'].append(datagram['sample_interval'])
+        self.ping_data_dict[ch_num]['sound_velocity'].append(datagram['sound_velocity'])
+        self.ping_data_dict[ch_num]['absorption_coefficient'].append(datagram['absorption_coefficient'])
+        self.ping_data_dict[ch_num]['heave'].append(datagram['heave'])
+        self.ping_data_dict[ch_num]['roll'].append(datagram['roll'])
+        self.ping_data_dict[ch_num]['pitch'].append(datagram['pitch'])
+        self.ping_data_dict[ch_num]['temperature'].append(datagram['temperature'])
+        self.ping_data_dict[ch_num]['heading'].append(datagram['heading'])
+
+    def _read_datagrams(self, fid):
+        """
+        Read various datagrams until the end of a ``.raw`` file.
+
+        Only includes code for storing RAW and NMEA datagrams and
+        ignoring the TAG, BOT, and DEP datagrams.
+
+        Parameters
+        ----------
+        fid
+            a RawSimradFile file object opened in ``self.load_ek60.raw()``
+        """
+        num_datagrams_parsed = 0
+        num_pings_parsed = 0
+
+        while True:
+            try:
+                new_datagram = fid.read(1)
+            except SimradEOF:
+                break
+
+            # Convert the timestamp to a datetime64 object.
+            new_datagram['timestamp'] = \
+                np.datetime64(new_datagram['timestamp'], '[ms]')
+
+            num_datagrams_parsed += 1
+
+            # RAW datagrams store raw acoustic data for a channel
+            if new_datagram['type'].startswith('RAW'):
+                curr_ch_num = new_datagram['channel']
+
+                # If frequency matches for this channel
+                if self.ping_data_dict[curr_ch_num]['frequency'] == new_datagram['frequency']:
+                    # Append ping-by-ping metadata if frequency matches
+                    self._append_channel_ping_data(curr_ch_num, new_datagram)
+
+                    # Append ping-by-ping power and angle data
+                    self.power_dict[curr_ch_num].append(new_datagram['power'])
+                    self.angle_dict[curr_ch_num].append(new_datagram['angle'])
+
+                    # Append ping time only when reading from first channel of the same ping
+                    if curr_ch_num == 1 and self.first_ch_flag is False:
+                        self.ping_time.append(new_datagram['timestamp'])  # append ping time
+                        self.first_ch_flag = True
+                        num_pings_parsed += 1
+                    elif curr_ch_num == self.config_datagram['transceiver_count'] and \
+                            self.first_ch_flag is True:  # if last channel
+                        self.first_ch_flag = False  # reset first channel flag
+                    else:  # check ping time for middle channels, otherwise do nothing
+                        if self.first_ch_flag:  # if first channel already parsed
+                            if new_datagram['timestamp'] != self.ping_time[-1]:
+                                print('Ping time different across channels!')
+                else:
+                    print('Frequency mismatch for data from the same channel number!')
+
+            # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
+            elif new_datagram['type'].startswith('NME'):
+                # Add the datagram to our nmea_data object.
+                self.nmea_data.add_datagram(new_datagram['timestamp'],
+                                            new_datagram['nmea_string'])
+
+            # TAG datagrams contain time-stamped annotations inserted via the recording software
+            elif new_datagram['type'].startswith('TAG'):
+                print('TAG datagram encountered.')
+
+            # BOT datagrams contain sounder detected bottom depths from .bot files
+            elif new_datagram['type'].startswith('BOT'):
+                print('BOT datagram encountered.')
+
+            # DEP datagrams contain sounder detected bottom depths from .out files
+            # as well as reflectivity data
+            elif new_datagram['type'].startswith('DEP'):
+                print('DEP datagram encountered.')
+
+            else:
+                print("Unknown datagram type: " + str(new_datagram['type']))
+
     def load_ek60_raw(self):
-        """Method to parse the `.raw` file.
+        """Method to parse the EK60 ``.raw`` data file.
+
+        This method parses the ``.raw`` file and saves the parsed data
+        to the ConvertEK60 instance.
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
+        with RawSimradFile(self.filename, 'r') as fid:
+
+            # Read the CON0 configuration datagram
+            self.config_datagram = fid.read(1)
+            self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+
+            # Check if reading an ME70 file with a CON1 datagram.
+            next_datagram = fid.peek()
+            if next_datagram == 'CON1':
+                self.CON1_datagram = fid.read(1)
+            else:
+                self.CON1_datagram = None
+
+            for ch_num in self.config_datagram['transceivers'].keys():
+                self.ping_data_dict[ch_num] = defaultdict(list)
+                self.ping_data_dict[ch_num]['frequency'] = \
+                    self.config_datagram['transceivers'][ch_num]['frequency']
+                self.power_dict[ch_num] = []
+                self.angle_dict[ch_num] = []
+
+            # Read the rest of datagrams
+            self._read_datagrams(fid)
+
+            # Convert dicts to numpy arrays and adjust units
+            for ch_num in self.config_datagram['transceivers'].keys():
+                self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
+                # TODO: need to convert angle data too
+
+    def load_ek60_raw_old(self):
         with open(self.filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
             self.read_header(input_file)  # unpack info to self.config_header and self.config_transducer
