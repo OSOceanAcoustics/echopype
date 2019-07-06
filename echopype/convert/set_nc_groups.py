@@ -143,17 +143,13 @@ class SetGroups(object):
         vendor
             specifies the type of echosounder
         """
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ping_time = (platform_dict['time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
-
         # Only save platform group if file_path exists
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
             # Create an xarray dataset and save to netCDF
             if vendor == "AZFP":
-                # AZFP Does not use pitch, roll, and heave
+                # AZFP does not record pitch, roll, and heave
                 ds = xr.Dataset(
                     {'water_level': ([], platform_dict['water_level'],
                                      {'long_name': 'z-axis distance from the platform coordinate system '
@@ -164,6 +160,10 @@ class SetGroups(object):
                            'platform_name': platform_dict['platform_name'],
                            'platform_type': platform_dict['platform_type']})
             else:
+                # Convert np.datetime64 numbers to seconds since 1900-01-01
+                # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+                ping_time = (platform_dict['time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+
                 ds = xr.Dataset(
                     {'pitch': (['ping_time'], platform_dict['pitch'],
                                {'long_name': 'Platform pitch',
@@ -217,9 +217,6 @@ class SetGroups(object):
         vendor
             specifies type of echosounder
         """
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         # Only save beam group if file_path exists
         if not os.path.exists(self.file_path):
@@ -229,6 +226,10 @@ class SetGroups(object):
             if vendor == "AZFP":
                 ds = out
             else:
+                # Convert np.datetime64 numbers to seconds since 1900-01-01
+                # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+                ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+
                 ds = xr.Dataset(
                     {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Backscatter power',
