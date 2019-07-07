@@ -162,7 +162,10 @@ class SetGroups(object):
             else:
                 # Convert np.datetime64 numbers to seconds since 1900-01-01
                 # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-                ping_time = (platform_dict['time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+                ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                                / np.timedelta64(1, 's')
 
                 ds = xr.Dataset(
                     {'pitch': (['ping_time'], platform_dict['pitch'],
@@ -188,14 +191,51 @@ class SetGroups(object):
                     coords={'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
                                            'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for position data',
+                                           'long_name': 'Timestamps for position datagrams',
                                            'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})},
+                                           'units': 'seconds since 1900-01-01'}),
+                            'location_time': (['location_time'], location_time,
+                                          {'axis': 'T',
+                                           'calendar': 'gregorian',
+                                           'long_name': 'Timestamps for NMEA position datagrams',
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'})
+                            },
                     attrs={'platform_code_ICES': '',
                            'platform_name': platform_dict['platform_name'],
                            'platform_type': platform_dict['platform_type']})
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
+
+    def set_nmea(self, nmea_dict):
+        """Set the Platform/NMEA group in the nc file.
+
+        Parameters
+        ----------
+        nmea_dict
+            dictionary containing platform parameters
+        """
+        # Only save platform group if file_path exists
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Platform group...')
+        else:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            time = (nmea_dict['nmea_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                   / np.timedelta64(1, 's')
+            ds = xr.Dataset(
+                {'NMEA_datagram': (['time'], nmea_dict['nmea_datagram'],
+                                   {'long_name': 'NMEA datagram'})
+                 },
+                coords={'time': (['time'], time,
+                                 {'axis': 'T',
+                                  'calendar': 'gregorian',
+                                  'long_name': 'Timestamps for NMEA datagrams',
+                                  'standard_name': 'time',
+                                  'units': 'seconds since 1900-01-01'})},
+                attrs={'description': 'All NMEA sensor datagrams'})
+            # save to file
+            ds.to_netcdf(path=self.file_path, mode="a", group="Platform/NMEA")
 
     def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig, out=None, vendor="EK60"):
         """Set the Beam group in the nc file.
