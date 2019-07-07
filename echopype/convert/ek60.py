@@ -11,9 +11,6 @@ with modifications:
 """
 
 
-from .ek60_raw_io import RawSimradFile, SimradEOF
-from .nmea_data import NMEAData
-
 import re
 import os
 from collections import defaultdict
@@ -22,6 +19,10 @@ import numpy as np
 from datetime import datetime as dt
 from matplotlib.dates import date2num
 import pytz
+import pynmea2
+
+from .ek60_raw_io import RawSimradFile, SimradEOF
+from .nmea_data import NMEAData
 from .set_nc_groups import SetGroups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
@@ -497,6 +498,9 @@ class ConvertEK60(object):
                 # TODO: need to convert angle data too
             self.ping_time = np.array(self.ping_time)
 
+        # Trim excess data from NMEA object
+        self.nmea_data.trim()
+
     def load_ek60_raw_old(self):
         with open(self.filename, 'rb') as input_file:  # read ('r') input file using binary mode ('b')
 
@@ -661,13 +665,30 @@ class ConvertEK60(object):
                 out_dict['platform_type'] = 'subsurface mooring'  # if OOI
             else:
                 out_dict['platform_type'] = 'ship'  # default to ship
-            out_dict['time'] = self.ping_time  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+
+            # Read pitch/roll/heave from ping data
+            out_dict['ping_time'] = self.ping_time  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
             out_dict['pitch'] = np.array(self.ping_data_dict[1]['pitch'], dtype='float32')
             out_dict['roll'] = np.array(self.ping_data_dict[1]['roll'], dtype='float32')
             out_dict['heave'] = np.array(self.ping_data_dict[1]['heave'], dtype='float32')
             # water_level is set to 0 for EK60 since this is not separately recorded
             # and is part of transducer_depth
             out_dict['water_level'] = np.int32(0)
+
+            # Read lat/long from NMEA datagram
+            idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+            nmea_msg = []
+            [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
+            out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
+            out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
+            out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
+            return out_dict
+
+        def _set_nmea_dict():
+            # Assemble dict for saving to groups
+            out_dict = dict()
+            out_dict['nmea_time'] = self.nmea_data.nmea_times
+            out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
             return out_dict
 
         def _set_beam_dict():
@@ -801,5 +822,6 @@ class ConvertEK60(object):
             grp.set_provenance(os.path.basename(self.filename),
                                _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
+            grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
             grp.set_beam(*_set_beam_dict())         # beam group
