@@ -1,44 +1,19 @@
-﻿# coding=utf-8
-
-#     National Oceanic and Atmospheric Administration (NOAA)
-#     Alaskan Fisheries Science Center (AFSC)
-#     Resource Assessment and Conservation Engineering (RACE)
-#     Midwater Assessment and Conservation Engineering (MACE)
-
-#  THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
-#  AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED "AS IS."
-#  THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS,
-#  EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
-#  OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE. THEY ASSUME NO RESPONSIBILITY
-#  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
-#  SUPPORT TO USERS.
-
-'''
-.. module:: echolab.instruments.util.unit_conversion
-
-
-useful functions:
-
-    nt_to_unix
-    unix_to_nt
-
-    datetime_to_unix
-    unix_to_datetime
-
+﻿"""
+Code originally developed for pyEcholab
+(https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
+Contains functions to convert date info from EK60 data files.
+Called by class ConvertEK60 in ``echopype/convert/ek60.py``.
 
 | Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
 | National Oceanic and Atmospheric Administration (NOAA)
 | Alaska Fisheries Science Center (AFSC)
 | Midwater Assesment and Conservation Engineering Group (MACE)
-|
-| Author:
-|       Zac Berkowitz <zac.berkowitz@gmail.com>
 | Maintained by:
 |       Rick Towler   <rick.towler@noaa.gov>
 
-$Id$
-'''
-
+TODO: merge necessary function into ek60.py or group everything into a class
+TODO: fix docstring
+"""
 
 import datetime
 from pytz import utc as pytz_utc
@@ -57,7 +32,7 @@ __all__ = ['nt_to_unix', 'unix_to_nt']
 log = logging.getLogger(__name__)
 
 def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
-    '''
+    """
     :param nt_timestamp_tuple: Tuple of two longs representing the NT date
     :type nt_timestamp_tuple: (long, long)
 
@@ -76,7 +51,7 @@ def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
     >>> dt = nt_to_unix((19496896L, 30196149L))
     >>> match_dt = datetime.datetime(2011, 12, 23, 20, 54, 3, 964000, pytz_utc)
     >>> assert abs(dt - match_dt) <= dt.resolution
-    '''
+    """
 
     lowDateTime, highDateTime = nt_timestamp_tuple
     sec_past_nt_epoch = ((highDateTime << 32) + lowDateTime) * 1.0e-7
@@ -90,7 +65,7 @@ def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
 
 
 def unix_to_nt(unix_timestamp):
-    '''
+    """
     Given a date, return the 2-element tuple used for timekeeping with SIMRAD echosounders
 
 
@@ -108,7 +83,7 @@ def unix_to_nt(unix_timestamp):
     >>> d_mu_seconds = abs(orig_dt - back_to_dt).microseconds
     >>> mu_sec_resolution = orig_dt.resolution.microseconds
     >>> assert d_mu_seconds <= mu_sec_resolution
-    '''
+    """
 
     if isinstance(unix_timestamp, datetime.datetime):
         if unix_timestamp.tzinfo is None:
@@ -133,7 +108,7 @@ def unix_to_nt(unix_timestamp):
 
 
 def unix_to_datetime(unix_timestamp):
-    '''
+    """
     :param unix_timestamp: Number of seconds since unix epoch (1/1/1970)
     :type unix_timestamp: float
 
@@ -150,7 +125,7 @@ def unix_to_datetime(unix_timestamp):
     >>> from datetime import datetime
     >>> epoch = unix_to_datetime(0.0, tz=utc)
     >>> assert epoch == datetime(1970, 1, 1, tzinfo=utc)
-    '''
+    """
 
 
     if isinstance(unix_timestamp, datetime.datetime):
@@ -176,7 +151,7 @@ def unix_to_datetime(unix_timestamp):
 
 
 def datetime_to_unix(datetime_obj):
-    '''
+    """
     :param datetime_obj: datetime object to convert
     :type datetime_obj: :class:`datetime.datetime`
 
@@ -188,7 +163,7 @@ def datetime_to_unix(datetime_obj):
     >>> from datetime import datetime
     >>> epoch = datetime(1970, 1, 1, tzinfo=utc)
     >>> assert datetime_to_unix(epoch) == 0
-    '''
+    """
 
     timestamp = (datetime_obj - UTC_UNIX_EPOCH).total_seconds()
 
