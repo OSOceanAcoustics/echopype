@@ -391,7 +391,6 @@ class ConvertEK60(object):
             a RawSimradFile file object opened in ``self.load_ek60.raw()``
         """
         num_datagrams_parsed = 0
-        num_pings_parsed = 0
         tmp_num_ch_per_ping_parsed = 0  # number of channels of the same ping parsed
                                         # this is used to control saving only pings
                                         # that have all freq channels present
@@ -441,38 +440,8 @@ class ConvertEK60(object):
                             self.power_dict[ch_seq+1].append(tmp_datagram_dict[ch_seq]['power'])  # append power data
                             self.angle_dict[ch_seq+1].append(tmp_datagram_dict[ch_seq]['angle'])  # append angle data
                         else:
+                            # TODO: need error-handling code here
                             print('Frequency mismatch for data from the same channel number!')
-
-
-                # # If frequency matches for this channel
-                # if self.ping_data_dict[curr_ch_num]['frequency'] == new_datagram['frequency']:
-                #     # Append ping-by-ping metadata if frequency matches
-                #     self._append_channel_ping_data(curr_ch_num, new_datagram)
-                #
-                #     # Append ping-by-ping power and angle data
-                #     self.power_dict[curr_ch_num].append(new_datagram['power'])
-                #     self.angle_dict[curr_ch_num].append(new_datagram['angle'])
-                #
-                #     # Append ping time only when reading from first channel of the same ping
-                #     if curr_ch_num == 1 and self.first_ch_flag is False:
-                #         self.ping_time.append(new_datagram['timestamp'])  # append ping time
-                #         self.first_ch_flag = True
-                #         num_pings_parsed += 1
-                #         # print('------------')
-                #         # print('First channel')
-                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
-                #     elif curr_ch_num == self.config_datagram['transceiver_count'] and \
-                #             self.first_ch_flag is True:  # if last channel
-                #         self.first_ch_flag = False  # reset first channel flag
-                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
-                #         # print('Last channel')
-                #     else:  # check ping time for middle channels, otherwise do nothing
-                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
-                #         if self.first_ch_flag:  # if first channel already parsed
-                #             if new_datagram['timestamp'] != self.ping_time[-1]:
-                #                 print('Ping time different across channels!')
-                # else:
-                #     print('Frequency mismatch for data from the same channel number!')
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
@@ -541,8 +510,6 @@ class ConvertEK60(object):
                     if isinstance(y, list):  # if it's a list trim it
                         [y.pop(x) for x in idx_unwanted[::-1]]
 
-            # [self.ping_data_dict.pop(x) for x in idx_unwanted[::-1]]
-
             # Trim ping_time
             [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
             self.ping_time = np.array(self.ping_time)
@@ -550,8 +517,6 @@ class ConvertEK60(object):
             # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
                 [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
-                # new_list = self.power_dict[ch_num].copy()
-                # [new_list.pop(x) for x in idx_unwanted[::-1]]
                 self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
                 # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
                 # TODO: need to convert angle data too
