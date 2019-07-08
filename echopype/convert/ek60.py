@@ -1,13 +1,7 @@
 """
-Functions to unpack Simrad EK60 .raw and save to .nc.
+Functions to unpack Simrad EK60 .raw data file and save to .nc.
 
-Pieces for unpacking power data came from:
-https://github.com/oceanobservatories/mi-instrument (authors: Ronald Ronquillo & Richard Han)
-with modifications:
-- python 3.6 compatibility
-- strip off dependency on other mi-instrument functions
-- unpack split-beam angle data
-- unpack various additional variables needed for calibration
+TODO: remove old functions once verify everything is absolutely correct
 """
 
 
@@ -398,6 +392,11 @@ class ConvertEK60(object):
         """
         num_datagrams_parsed = 0
         num_pings_parsed = 0
+        tmp_num_ch_per_ping_parsed = 0  # number of channels of the same ping parsed
+                                        # this is used to control saving only pings
+                                        # that have all freq channels present
+        tmp_datagram_dict = []  # tmp list of datagrams, only saved to actual output
+                                # structure if data from all freq channels are present
 
         while True:
             try:
@@ -415,29 +414,62 @@ class ConvertEK60(object):
             if new_datagram['type'].startswith('RAW'):
                 curr_ch_num = new_datagram['channel']
 
-                # If frequency matches for this channel
-                if self.ping_data_dict[curr_ch_num]['frequency'] == new_datagram['frequency']:
-                    # Append ping-by-ping metadata if frequency matches
-                    self._append_channel_ping_data(curr_ch_num, new_datagram)
+                # Save datagram temporarily before knowing if all freq channels are present
+                tmp_num_ch_per_ping_parsed += 1
+                tmp_datagram_dict.append(new_datagram)
 
-                    # Append ping-by-ping power and angle data
-                    self.power_dict[curr_ch_num].append(new_datagram['power'])
-                    self.angle_dict[curr_ch_num].append(new_datagram['angle'])
+                # Actually save datagram when all freq channels are present
+                if np.all(np.array([curr_ch_num, tmp_num_ch_per_ping_parsed])
+                          == self.config_datagram['transceiver_count']):
 
-                    # Append ping time only when reading from first channel of the same ping
-                    if curr_ch_num == 1 and self.first_ch_flag is False:
-                        self.ping_time.append(new_datagram['timestamp'])  # append ping time
-                        self.first_ch_flag = True
-                        num_pings_parsed += 1
-                    elif curr_ch_num == self.config_datagram['transceiver_count'] and \
-                            self.first_ch_flag is True:  # if last channel
-                        self.first_ch_flag = False  # reset first channel flag
-                    else:  # check ping time for middle channels, otherwise do nothing
-                        if self.first_ch_flag:  # if first channel already parsed
-                            if new_datagram['timestamp'] != self.ping_time[-1]:
-                                print('Ping time different across channels!')
-                else:
-                    print('Frequency mismatch for data from the same channel number!')
+                    # append ping time from first channel
+                    self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
+
+                    for ch_seq in range(self.config_datagram['transceiver_count']):
+                        # If frequency matches for this channel, actually store data
+                        # Note all storage structure indices are 1-based since they are indexed by
+                        # the channel number as stored in config_datagram['transceivers'].keys()
+                        if self.config_datagram['transceivers'][ch_seq+1]['frequency'] \
+                                == tmp_datagram_dict[ch_seq]['frequency']:
+                            self._append_channel_ping_data(ch_seq+1, tmp_datagram_dict[ch_seq])  # ping-by-ping metadata
+                            self.power_dict[ch_seq+1].append(tmp_datagram_dict[ch_seq]['power'])  # append power data
+                            self.angle_dict[ch_seq+1].append(tmp_datagram_dict[ch_seq]['angle'])  # append angle data
+                        else:
+                            print('Frequency mismatch for data from the same channel number!')
+
+                    # Reset counter and storage for parsed number of channels
+                    tmp_num_ch_per_ping_parsed = 0
+                    tmp_datagram_dict = []
+
+                # # If frequency matches for this channel
+                # if self.ping_data_dict[curr_ch_num]['frequency'] == new_datagram['frequency']:
+                #     # Append ping-by-ping metadata if frequency matches
+                #     self._append_channel_ping_data(curr_ch_num, new_datagram)
+                #
+                #     # Append ping-by-ping power and angle data
+                #     self.power_dict[curr_ch_num].append(new_datagram['power'])
+                #     self.angle_dict[curr_ch_num].append(new_datagram['angle'])
+                #
+                #     # Append ping time only when reading from first channel of the same ping
+                #     if curr_ch_num == 1 and self.first_ch_flag is False:
+                #         self.ping_time.append(new_datagram['timestamp'])  # append ping time
+                #         self.first_ch_flag = True
+                #         num_pings_parsed += 1
+                #         # print('------------')
+                #         # print('First channel')
+                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
+                #     elif curr_ch_num == self.config_datagram['transceiver_count'] and \
+                #             self.first_ch_flag is True:  # if last channel
+                #         self.first_ch_flag = False  # reset first channel flag
+                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
+                #         # print('Last channel')
+                #     else:  # check ping time for middle channels, otherwise do nothing
+                #         # print('Channel %d of ping %d' % (curr_ch_num, num_pings_parsed))
+                #         if self.first_ch_flag:  # if first channel already parsed
+                #             if new_datagram['timestamp'] != self.ping_time[-1]:
+                #                 print('Ping time different across channels!')
+                # else:
+                #     print('Frequency mismatch for data from the same channel number!')
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
