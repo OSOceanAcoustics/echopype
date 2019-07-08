@@ -541,7 +541,7 @@ class ConvertEK60(object):
                     if isinstance(y, list):  # if it's a list trim it
                         [y.pop(x) for x in idx_unwanted[::-1]]
 
-            [self.ping_data_dict.pop(x) for x in idx_unwanted[::-1]]
+            # [self.ping_data_dict.pop(x) for x in idx_unwanted[::-1]]
 
             # Trim ping_time
             [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
@@ -549,9 +549,10 @@ class ConvertEK60(object):
 
             # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
-                new_list = self.power_dict[ch_num].copy()
-                [new_list.pop(x) for x in idx_unwanted[::-1]]
-                self.power_dict[ch_num] = np.array(new_list) * INDEX2POWER
+                [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
+                # new_list = self.power_dict[ch_num].copy()
+                # [new_list.pop(x) for x in idx_unwanted[::-1]]
+                self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
                 # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
                 # TODO: need to convert angle data too
 
