@@ -414,6 +414,12 @@ class ConvertEK60(object):
             if new_datagram['type'].startswith('RAW'):
                 curr_ch_num = new_datagram['channel']
 
+                # Reset counter and storage for parsed number of channels
+                # if encountering datagram from the first channel
+                if curr_ch_num == 1:
+                    tmp_num_ch_per_ping_parsed = 0
+                    tmp_datagram_dict = []
+
                 # Save datagram temporarily before knowing if all freq channels are present
                 tmp_num_ch_per_ping_parsed += 1
                 tmp_datagram_dict.append(new_datagram)
@@ -437,9 +443,6 @@ class ConvertEK60(object):
                         else:
                             print('Frequency mismatch for data from the same channel number!')
 
-                    # Reset counter and storage for parsed number of channels
-                    tmp_num_ch_per_ping_parsed = 0
-                    tmp_datagram_dict = []
 
                 # # If frequency matches for this channel
                 # if self.ping_data_dict[curr_ch_num]['frequency'] == new_datagram['frequency']:
@@ -524,11 +527,33 @@ class ConvertEK60(object):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-            # Convert dicts to numpy arrays and adjust units
-            for ch_num in self.config_datagram['transceivers'].keys():
-                self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
-                # TODO: need to convert angle data too
+            # Check lengths of power data and only store those with the majority sizes (for now)
+            # TODO: figure out how to handle this better when there's a clear switch in the middle
+
+            # Find indices of unwanted pings
+            lens = [len(l) for l in self.power_dict[1]]
+            uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
+            idx_unwanted = np.argwhere(lens != uni[np.argmax(uni_cnt)]).squeeze()
+
+            # Trim ping_data_dict
+            for c_seq, c in self.ping_data_dict.items():  # loop through all channels
+                for y_seq, y in c.items():
+                    if isinstance(y, list):  # if it's a list trim it
+                        [y.pop(x) for x in idx_unwanted[::-1]]
+
+            [self.ping_data_dict.pop(x) for x in idx_unwanted[::-1]]
+
+            # Trim ping_time
+            [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
             self.ping_time = np.array(self.ping_time)
+
+            # Trim unwanted pings, convert to numpy arrays and adjust units
+            for ch_num in self.config_datagram['transceivers'].keys():
+                new_list = self.power_dict[ch_num].copy()
+                [new_list.pop(x) for x in idx_unwanted[::-1]]
+                self.power_dict[ch_num] = np.array(new_list) * INDEX2POWER
+                # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
+                # TODO: need to convert angle data too
 
         # Trim excess data from NMEA object
         self.nmea_data.trim()
