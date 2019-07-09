@@ -28,10 +28,10 @@ def test_convert_ek60():
     ds_beam = xr.open_dataset(tmp.nc_path, group='Beam')
 
     # Check if backscatter data from all channels are identical to those directly unpacked
-    for idx in range(tmp.config_header['transducer_count']):
+    for idx in tmp.config_datagram['transceivers'].keys():
         # idx is channel index starting from 0
-        assert np.any(tmp.power_data_dict[idx + 1] ==
-                      ds_beam.backscatter_r.sel(frequency=tmp.config_transducer[idx]['frequency']).data)
+        assert np.any(tmp.power_dict[idx] ==
+                      ds_beam.backscatter_r.sel(frequency=tmp.config_datagram['transceivers'][idx]['frequency']).data)
     ds_beam.close()
     os.remove(tmp.nc_path)
     del tmp

@@ -5,4 +5,5 @@ matplotlib
 netCDF4
 xarray
 pytz
+pynmea2
 click

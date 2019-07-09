@@ -17,6 +17,7 @@ __pycache__/
 dist/
 build/
 docs/build/
+docs/source/api
 profile.html
 dask-worker-space/
 toolbox
