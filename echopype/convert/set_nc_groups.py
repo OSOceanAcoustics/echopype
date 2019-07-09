@@ -50,7 +50,8 @@ class SetGroups(object):
                                               'standard_name': "speed_of_sound_in_sea_water",
                                               'units': "m/s",
                                               'valid_min': 0.0})
-            if vendor == "AZFP":  # Extra AZFP-specific parameters 'salinity', 'temperature', and 'pressure'
+            # Additional AZFP-specific parameters 'salinity', 'temperature', and 'pressure'
+            if vendor == "AZFP":
                 salinity = xr.DataArray(env_dict['salinity'],
                                         coords=[env_dict['frequency']], dims=['frequency'],
                                         attrs={'long_name': "Water salinity",
@@ -67,9 +68,9 @@ class SetGroups(object):
                                  'pressure': pressure},
                                 coords={'frequency': (['frequency'], env_dict['frequency']),
                                         'temperature': env_dict['temperature']},
-                                attrs={'pressure': env_dict['pressure'],    # pressure in dBar
-                                       'salinity': env_dict['salinity']})   # salinity in PSU
-            else:   # EK60
+                                attrs={'pressure': env_dict['pressure'],  # pressure in dBar
+                                       'salinity': env_dict['salinity']})  # salinity in PSU
+            else:  # EK60 doesn't include additional parameters
                 ds = xr.Dataset({'absorption_indicative': absorption,
                                  'sound_speed_indicative': sound_speed},
                                 coords={'frequency': (['frequency'], env_dict['frequency'])})
@@ -148,7 +149,7 @@ class SetGroups(object):
         else:
             # Create an xarray dataset and save to netCDF
             if vendor == "AZFP":
-                # AZFP Does not use pitch, roll, and heave
+                # AZFP does not record pitch, roll, and heave
                 ds = xr.Dataset(
                     {'water_level': ([], platform_dict['water_level'],
                                      {'long_name': 'z-axis distance from the platform coordinate system '
@@ -159,38 +160,92 @@ class SetGroups(object):
                            'platform_name': platform_dict['platform_name'],
                            'platform_type': platform_dict['platform_type']})
             else:
+                # Convert np.datetime64 numbers to seconds since 1900-01-01
+                # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+                ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                                / np.timedelta64(1, 's')
+
                 ds = xr.Dataset(
-                    {'pitch': (['time'], platform_dict['pitch'],
-                            {'long_name': 'Platform pitch',
+                    {'pitch': (['ping_time'], platform_dict['pitch'],
+                               {'long_name': 'Platform pitch',
                                 'standard_name': 'platform_pitch_angle',
                                 'units': 'arc_degree',
                                 'valid_range': (-90.0, 90.0)}),
-                    'roll': (['time'], platform_dict['roll'],
-                            {'long_name': 'Platform roll',
-                            'standard_name': 'platform_roll_angle',
-                            'units': 'arc_degree',
-                            'valid_range': (-90.0, 90.0)}),
-                    'heave': (['time'], platform_dict['heave'],
-                            {'long_name': 'Platform heave',
+                     'roll': (['ping_time'], platform_dict['roll'],
+                              {'long_name': 'Platform roll',
+                               'standard_name': 'platform_roll_angle',
+                               'units': 'arc_degree',
+                               'valid_range': (-90.0, 90.0)}),
+                     'heave': (['ping_time'], platform_dict['heave'],
+                               {'long_name': 'Platform heave',
                                 'standard_name': 'platform_heave_angle',
                                 'units': 'arc_degree',
                                 'valid_range': (-90.0, 90.0)}),
-                    'water_level': ([], platform_dict['water_level'],
-                                    {'long_name': 'z-axis distance from the platform coordinate system '
-                                                'origin to the sonar transducer',
-                                    'units': 'm'})
-                    },
-                    coords={'time': (['time'], platform_dict['time'],
-                                    {'axis': 'T',
-                                    'calendar': 'gregorian',
-                                    'long_name': 'Timestamps for position data',
-                                    'standard_name': 'time',
-                                    'units': 'seconds since 1900-01-01'})},
+                     'latitude': (['location_time'], platform_dict['lat'],
+                               {'long_name': 'Platform latitude',
+                                'standard_name': 'latitude',
+                                'units': 'degrees_north',
+                                'valid_range': (-90.0, 90.0)}),
+                     'longitude': (['location_time'], platform_dict['lon'],
+                                  {'long_name': 'Platform longitude',
+                                   'standard_name': 'longitude',
+                                   'units': 'degrees_east',
+                                   'valid_range': (-180.0, 180.0)}),
+                     'water_level': ([], platform_dict['water_level'],
+                                     {'long_name': 'z-axis distance from the platform coordinate system '
+                                                   'origin to the sonar transducer',
+                                      'units': 'm'})
+                     },
+                    coords={'ping_time': (['ping_time'], ping_time,
+                                          {'axis': 'T',
+                                           'calendar': 'gregorian',
+                                           'long_name': 'Timestamps for position datagrams',
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'}),
+                            'location_time': (['location_time'], location_time,
+                                          {'axis': 'T',
+                                           'calendar': 'gregorian',
+                                           'long_name': 'Timestamps for NMEA position datagrams',
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'})
+                            },
                     attrs={'platform_code_ICES': '',
-                        'platform_name': platform_dict['platform_name'],
-                        'platform_type': platform_dict['platform_type']})
+                           'platform_name': platform_dict['platform_name'],
+                           'platform_type': platform_dict['platform_type']})
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
+
+    def set_nmea(self, nmea_dict):
+        """Set the Platform/NMEA group in the nc file.
+
+        Parameters
+        ----------
+        nmea_dict
+            dictionary containing platform parameters
+        """
+        # Only save platform group if file_path exists
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Platform group...')
+        else:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            time = (nmea_dict['nmea_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                   / np.timedelta64(1, 's')
+            ds = xr.Dataset(
+                {'NMEA_datagram': (['time'], nmea_dict['nmea_datagram'],
+                                   {'long_name': 'NMEA datagram'})
+                 },
+                coords={'time': (['time'], time,
+                                 {'axis': 'T',
+                                  'calendar': 'gregorian',
+                                  'long_name': 'Timestamps for NMEA datagrams',
+                                  'standard_name': 'time',
+                                  'units': 'seconds since 1900-01-01'})},
+                attrs={'description': 'All NMEA sensor datagrams'})
+            # save to file
+            ds.to_netcdf(path=self.file_path, mode="a", group="Platform/NMEA")
 
     def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig, out=None, vendor="EK60"):
         """Set the Beam group in the nc file.
@@ -212,6 +267,7 @@ class SetGroups(object):
         vendor
             specifies type of echosounder
         """
+
         # Only save beam group if file_path exists
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Beam group...')
@@ -220,106 +276,110 @@ class SetGroups(object):
             if vendor == "AZFP":
                 ds = out
             else:
+                # Convert np.datetime64 numbers to seconds since 1900-01-01
+                # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+                ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+
                 ds = xr.Dataset(
                     {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
-                                    {'long_name': 'Backscatter power',
+                                       {'long_name': 'Backscatter power',
                                         'units': 'dB'}),
-                    'beamwidth_receive_major': (['frequency'], bm_width['beamwidth_receive_major'],
-                                                {'long_name': 'Half power one-way receive beam width along '
-                                                            'major (horizontal) axis of beam',
-                                                'units': 'arc_degree',
-                                                'valid_range': (0.0, 360.0)}),
-                    'beamwidth_receive_minor': (['frequency'], bm_width['beamwidth_receive_minor'],
-                                                {'long_name': 'Half power one-way receive beam width along '
-                                                            'minor (vertical) axis of beam',
-                                                'units': 'arc_degree',
-                                                'valid_range': (0.0, 360.0)}),
-                    'beamwidth_transmit_major': (['frequency'], bm_width['beamwidth_transmit_major'],
-                                                {'long_name': 'Half power one-way transmit beam width along '
+                     'beamwidth_receive_major': (['frequency'], bm_width['beamwidth_receive_major'],
+                                                 {'long_name': 'Half power one-way receive beam width along '
+                                                               'major (horizontal) axis of beam',
+                                                  'units': 'arc_degree',
+                                                  'valid_range': (0.0, 360.0)}),
+                     'beamwidth_receive_minor': (['frequency'], bm_width['beamwidth_receive_minor'],
+                                                 {'long_name': 'Half power one-way receive beam width along '
+                                                               'minor (vertical) axis of beam',
+                                                  'units': 'arc_degree',
+                                                  'valid_range': (0.0, 360.0)}),
+                     'beamwidth_transmit_major': (['frequency'], bm_width['beamwidth_transmit_major'],
+                                                  {'long_name': 'Half power one-way transmit beam width along '
                                                                 'major (horizontal) axis of beam',
-                                                'units': 'arc_degree',
-                                                'valid_range': (0.0, 360.0)}),
-                    'beamwidth_transmit_minor': (['frequency'], bm_width['beamwidth_transmit_minor'],
-                                                {'long_name': 'Half power one-way transmit beam width along '
+                                                   'units': 'arc_degree',
+                                                   'valid_range': (0.0, 360.0)}),
+                     'beamwidth_transmit_minor': (['frequency'], bm_width['beamwidth_transmit_minor'],
+                                                  {'long_name': 'Half power one-way transmit beam width along '
                                                                 'minor (vertical) axis of beam',
-                                                'units': 'arc_degree',
-                                                'valid_range': (0.0, 360.0)}),
-                    'beam_direction_x': (['frequency'], bm_dir['beam_direction_x'],
-                                        {'long_name': 'x-component of the vector that gives the pointing '
+                                                   'units': 'arc_degree',
+                                                   'valid_range': (0.0, 360.0)}),
+                     'beam_direction_x': (['frequency'], bm_dir['beam_direction_x'],
+                                          {'long_name': 'x-component of the vector that gives the pointing '
                                                         'direction of the beam, in sonar beam coordinate '
                                                         'system',
-                                        'units': '1',
-                                        'valid_range': (-1.0, 1.0)}),
-                    'beam_direction_y': (['frequency'], bm_dir['beam_direction_x'],
-                                        {'long_name': 'y-component of the vector that gives the pointing '
+                                           'units': '1',
+                                           'valid_range': (-1.0, 1.0)}),
+                     'beam_direction_y': (['frequency'], bm_dir['beam_direction_x'],
+                                          {'long_name': 'y-component of the vector that gives the pointing '
                                                         'direction of the beam, in sonar beam coordinate '
                                                         'system',
-                                        'units': '1',
-                                        'valid_range': (-1.0, 1.0)}),
-                    'beam_direction_z': (['frequency'], bm_dir['beam_direction_x'],
-                                        {'long_name': 'z-component of the vector that gives the pointing '
+                                           'units': '1',
+                                           'valid_range': (-1.0, 1.0)}),
+                     'beam_direction_z': (['frequency'], bm_dir['beam_direction_x'],
+                                          {'long_name': 'z-component of the vector that gives the pointing '
                                                         'direction of the beam, in sonar beam coordinate '
                                                         'system',
-                                        'units': '1',
-                                        'valid_range': (-1.0, 1.0)}),
-                    'equivalent_beam_angle': (['frequency'], beam_dict['equivalent_beam_angle'],
-                                            {'long_name': 'Equivalent beam angle',
+                                           'units': '1',
+                                           'valid_range': (-1.0, 1.0)}),
+                     'equivalent_beam_angle': (['frequency'], beam_dict['equivalent_beam_angle'],
+                                               {'long_name': 'Equivalent beam angle',
                                                 'units': 'sr',
                                                 'valid_range': (0.0, 4 * np.pi)}),
-                    'gain_correction': (['frequency'], beam_dict['gain_correction'],
-                                        {'long_name': 'Gain correction',
-                                        'units': 'dB'}),
-                    'non_quantitative_processing': (['frequency'], beam_dict['non_quantitative_processing'],
-                                                    {'flag_meanings': 'no_non_quantitative_processing',
-                                                    'flag_values': '0',
-                                                    'long_name': 'Presence or not of non-quantitative '
-                                                                'processing applied to the backscattering '
-                                                                'data (sonar specific)'}),
-                    'sample_interval': (['frequency'], beam_dict['sample_interval'],
-                                        {'long_name': 'Interval between recorded raw data samples',
-                                        'units': 's',
-                                        'valid_min': 0.0}),
-                    'sample_time_offset': (['frequency'], beam_dict['sample_time_offset'],
+                     'gain_correction': (['frequency'], beam_dict['gain_correction'],
+                                         {'long_name': 'Gain correction',
+                                          'units': 'dB'}),
+                     'non_quantitative_processing': (['frequency'], beam_dict['non_quantitative_processing'],
+                                                     {'flag_meanings': 'no_non_quantitative_processing',
+                                                      'flag_values': '0',
+                                                      'long_name': 'Presence or not of non-quantitative '
+                                                                   'processing applied to the backscattering '
+                                                                   'data (sonar specific)'}),
+                     'sample_interval': (['frequency'], beam_dict['sample_interval'],
+                                         {'long_name': 'Interval between recorded raw data samples',
+                                          'units': 's',
+                                          'valid_min': 0.0}),
+                     'sample_time_offset': (['frequency'], beam_dict['sample_time_offset'],
                                             {'long_name': 'Time offset that is subtracted from the timestamp '
-                                                        'of each sample',
-                                            'units': 's'}),
-                    'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
+                                                          'of each sample',
+                                             'units': 's'}),
+                     'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
                                             {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                            'units': 'Hz',
-                                            'valid_min': 0.0}),
-                    'transmit_duration_nominal': (['frequency'], tx_sig['transmit_duration_nominal'],
-                                                {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                             'units': 'Hz',
+                                             'valid_min': 0.0}),
+                     'transmit_duration_nominal': (['frequency'], tx_sig['transmit_duration_nominal'],
+                                                   {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                     'units': 's',
                                                     'valid_min': 0.0}),
-                    'transmit_power': (['frequency'], tx_sig['transmit_power'],
+                     'transmit_power': (['frequency'], tx_sig['transmit_power'],
                                         {'long_name': 'Nominal transmit power',
-                                        'units': 'W',
-                                        'valid_min': 0.0}),
-                    'transducer_offset_x': (['frequency'], tx_pos['transducer_offset_x'],
-                                            {'long_name': 'x-axis distance from the platform coordinate system '
-                                                        'origin to the sonar transducer',
-                                            'units': 'm'}),
-                    'transducer_offset_y': (['frequency'], tx_pos['transducer_offset_y'],
-                                            {'long_name': 'y-axis distance from the platform coordinate system '
-                                                        'origin to the sonar transducer',
-                                            'units': 'm'}),
-                    'transducer_offset_z': (['frequency'], tx_pos['transducer_offset_z'],
-                                            {'long_name': 'z-axis distance from the platform coordinate system '
-                                                        'origin to the sonar transducer',
-                                            'units': 'm'}),
-                    },
+                                         'units': 'W',
+                                         'valid_min': 0.0}),
+                     'transducer_offset_x': (['frequency'], tx_pos['transducer_offset_x'],
+                                             {'long_name': 'x-axis distance from the platform coordinate system '
+                                                           'origin to the sonar transducer',
+                                              'units': 'm'}),
+                     'transducer_offset_y': (['frequency'], tx_pos['transducer_offset_y'],
+                                             {'long_name': 'y-axis distance from the platform coordinate system '
+                                                           'origin to the sonar transducer',
+                                              'units': 'm'}),
+                     'transducer_offset_z': (['frequency'], tx_pos['transducer_offset_z'],
+                                             {'long_name': 'z-axis distance from the platform coordinate system '
+                                                           'origin to the sonar transducer',
+                                              'units': 'm'}),
+                     },
                     coords={'frequency': (['frequency'], beam_dict['frequency'],
-                                        {'units': 'Hz',
-                                        'valid_min': 0.0}),
-                            'ping_time': (['ping_time'], beam_dict['ping_time'],
-                                        {'axis': 'T',
-                                        'calendar': 'gregorian',
-                                        'long_name': 'Timestamp of each ping',
-                                        'standard_name': 'time',
-                                        'units': 'seconds since 1900-01-01'}),
+                                          {'units': 'Hz',
+                                           'valid_min': 0.0}),
+                            'ping_time': (['ping_time'], ping_time,
+                                          {'axis': 'T',
+                                           'calendar': 'gregorian',
+                                           'long_name': 'Timestamp of each ping',
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'}),
                             'range_bin': (['range_bin'], beam_dict['range_bin'])},
                     attrs={'beam_mode': beam_dict['beam_mode'],
-                        'conversion_equation_t': beam_dict['conversion_equation_t']})
+                           'conversion_equation_t': beam_dict['conversion_equation_t']})
 
                 # Below are specific to Simrad EK60 .raw files
                 if 'channel_id' in beam_dict:
@@ -365,4 +425,8 @@ class SetGroups(object):
                         'ancillary_len': (['ancillary_len'], vendor_dict['ancillary_len']),
                         'ad_len': (['ad_len'], vendor_dict['ad_len'])}
             )
-        ds.to_netcdf(path=self.file_path, mode="a", group="Vendor")
+
+            ds.to_netcdf(path=self.file_path, mode="a", group="Vendor")
+
+        else:
+            pass
