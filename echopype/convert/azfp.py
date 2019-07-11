@@ -421,7 +421,6 @@ class ConvertAZFP:
             m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
                      self.parameters['bins_to_avg']))
         m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('range_bin', list(range(len(m[0]))))])
-        pass
         # Create DataArrays for broadcasting on dimension frequency
         frequency = np.array(Data[0]['frequency'], dtype=np.int64)
         lockout_index = xr.DataArray(Data[0]['lockout_index'], coords=[('frequency', frequency)])
@@ -437,9 +436,6 @@ class ConvertAZFP:
         # Compute absorption for each frequency
         Data[0]['sea_abs'] = compute_sea_abs(Data[0]['hourly_avg_temp'], frequency,
                                              self.parameters['pressure'], self.parameters['salinity'])
-
-        if self.parameters['time_to_avg'] > len(Data):
-            self.parameters['time_to_avg'] = len(Data)
 
         self.data = Data
 
