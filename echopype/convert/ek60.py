@@ -17,7 +17,7 @@ import pynmea2
 
 from .ek60_raw_io import RawSimradFile, SimradEOF
 from .nmea_data import NMEAData
-from .set_nc_groups import SetGroups
+from .ek60_set_groups import SetEK60Groups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
@@ -839,7 +839,7 @@ class ConvertEK60(object):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetGroups(file_path=self.nc_path)
+            grp = SetEK60Groups(file_path=self.nc_path)
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(os.path.basename(self.filename),
