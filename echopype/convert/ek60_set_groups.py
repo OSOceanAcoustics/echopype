@@ -5,6 +5,7 @@ import numpy as np
 
 
 class SetEK60Groups(SetGroups):
+
     def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig):
         """Set the Beam group in the nc file.
 
