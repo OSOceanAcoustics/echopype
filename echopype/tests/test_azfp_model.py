@@ -24,23 +24,20 @@ def test_model_AZFP():
 
     tmp_echo = EchoDataAZFP(tmp_convert.nc_path)
     tmp_echo.calibrate()
-    # TODO: add this back after adding TS component back in to data model
-    # tmp_echo.calibrate_ts()
+    tmp_echo.calibrate_ts()
 
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-11)
 
     # Test TS data
-    # TODO: add this back after adding TS component back in to data model
-    # with xr.open_dataset(tmp_echo.TS_path) as ds_TS:
-    #     assert np.allclose(TS_test.TS, ds_TS.TS, atol=1e-11)
+    with xr.open_dataset(tmp_echo.TS_path) as ds_TS:
+        assert np.allclose(TS_test.TS, ds_TS.TS, atol=1e-11)
 
     Sv_test.close()
     TS_test.close()
     os.remove(tmp_echo.Sv_path)
-    # TODO: add this back after adding TS component back in to data model
-    # os.remove(tmp_echo.TS_path)
+    os.remove(tmp_echo.TS_path)
     os.remove(tmp_convert.nc_path)
     del tmp_convert
     del tmp_echo
