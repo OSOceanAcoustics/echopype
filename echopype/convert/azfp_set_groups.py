@@ -1,8 +1,86 @@
 from .set_nc_groups import SetGroups
 import xarray as xr
+import os
 
 
 class SetAZFPGroups(SetGroups):
+
+    def set_env(self, env_dict):
+        """Set the Environment group in the netCDF file.
+        AZFP includes additional variables 'salinity' and 'pressure'
+
+        Parameters
+        ----------
+        env_dict
+            dictionary containing environment group params
+                         env_dict['frequency']
+                         env_dict['absorption_coeff']
+                         env_dict['sound_speed']
+        """
+        # Only save environment group if file_path exists
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Environment group...')
+        else:
+            absorption = xr.DataArray(env_dict['absorption_coeff'],
+                                      coords=[env_dict['frequency']], dims=['frequency'],
+                                      attrs={'long_name': "Indicative acoustic absorption",
+                                             'units': "dB/m",
+                                             'valid_min': 0.0})
+            sound_speed = xr.DataArray(env_dict['sound_speed'],
+                                       coords=[env_dict['frequency']], dims=['frequency'],
+                                       attrs={'long_name': "Indicative sound speed",
+                                              'standard_name': "speed_of_sound_in_sea_water",
+                                              'units': "m/s",
+                                              'valid_min': 0.0})
+            salinity = xr.DataArray(env_dict['salinity'],
+                                    coords=[env_dict['frequency']], dims=['frequency'],
+                                    attrs={'long_name': "Water salinity",
+                                           'standard_name': "salinity_of_sea_water",
+                                           'units': "PSU"})
+            pressure = xr.DataArray(env_dict['pressure'],
+                                    coords=[env_dict['frequency']], dims=['frequency'],
+                                    attrs={'long_name': "Water pressure",
+                                           'standard_name': "pressure_in_sea_water",
+                                           'units': "dBar"})
+            ds = xr.Dataset({'absorption_indicative': absorption,
+                             'sound_speed_indicative': sound_speed,
+                             'salinity': salinity,
+                             'pressure': pressure},
+                            coords={'frequency': (['frequency'], env_dict['frequency']),
+                                    'temperature': env_dict['temperature']},
+                            attrs={'pressure': env_dict['pressure'],  # pressure in dBar
+                                   'salinity': env_dict['salinity']})  # salinity in PSU
+
+            ds.frequency.attrs['long_name'] = "Acoustic frequency"
+            ds.frequency.attrs['standard_name'] = "sound_frequency"
+            ds.frequency.attrs['units'] = "Hz"
+            ds.frequency.attrs['valid_min'] = 0.0
+
+            # save to file
+            ds.to_netcdf(path=self.file_path, mode="a", group="Environment")
+
+    def set_platform(self, platform_dict):
+        """Set the Platform group in the nc file. AZFP does not record pitch, roll, and heave
+
+        Parameters
+        ----------
+        platform_dict
+            dictionary containing platform parameters
+        """
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Platform group...')
+        else:
+            ds = xr.Dataset(
+                {'water_level': ([], platform_dict['water_level'],
+                                 {'long_name': 'z-axis distance from the platform coordinate system '
+                                  'origin to the sonar transducer',
+                                  'units': 'm'})},
+                coords={'time': 0},
+                attrs={'platform_code_ICES': '',
+                       'platform_name': platform_dict['platform_name'],
+                       'platform_type': platform_dict['platform_type']})
+
+            ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
 
     def set_beam(self, beam_dict):
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r']),
