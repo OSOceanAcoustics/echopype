@@ -21,7 +21,7 @@ class SetGroups(object):
         with netCDF4.Dataset(self.file_path, "w", format="NETCDF4") as ncfile:
             [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
 
-    def set_env(self, env_dict, vendor="EK60"):
+    def set_env(self, env_dict):
         """Set the Environment group in the netCDF file.
 
         Parameters
@@ -31,9 +31,6 @@ class SetGroups(object):
                          env_dict['frequency']
                          env_dict['absorption_coeff']
                          env_dict['sound_speed']
-        vendor
-            specifies the type of echosounder
-
         """
         # Only save environment group if file_path exists
         if not os.path.exists(self.file_path):
@@ -50,30 +47,9 @@ class SetGroups(object):
                                               'standard_name': "speed_of_sound_in_sea_water",
                                               'units': "m/s",
                                               'valid_min': 0.0})
-            # Additional AZFP-specific parameters 'salinity', 'temperature', and 'pressure'
-            if vendor == "AZFP":
-                salinity = xr.DataArray(env_dict['salinity'],
-                                        coords=[env_dict['frequency']], dims=['frequency'],
-                                        attrs={'long_name': "Water salinity",
-                                               'standard_name': "salinity_of_sea_water",
-                                               'units': "PSU"})
-                pressure = xr.DataArray(env_dict['pressure'],
-                                        coords=[env_dict['frequency']], dims=['frequency'],
-                                        attrs={'long_name': "Water pressure",
-                                               'standard_name': "pressure_in_sea_water",
-                                               'units': "dBar"})
-                ds = xr.Dataset({'absorption_indicative': absorption,
-                                 'sound_speed_indicative': sound_speed,
-                                 'salinity': salinity,
-                                 'pressure': pressure},
-                                coords={'frequency': (['frequency'], env_dict['frequency']),
-                                        'temperature': env_dict['temperature']},
-                                attrs={'pressure': env_dict['pressure'],  # pressure in dBar
-                                       'salinity': env_dict['salinity']})  # salinity in PSU
-            else:  # EK60 doesn't include additional parameters
-                ds = xr.Dataset({'absorption_indicative': absorption,
-                                 'sound_speed_indicative': sound_speed},
-                                coords={'frequency': (['frequency'], env_dict['frequency'])})
+            ds = xr.Dataset({'absorption_indicative': absorption,
+                             'sound_speed_indicative': sound_speed},
+                            coords={'frequency': (['frequency'], env_dict['frequency'])})
 
             ds.frequency.attrs['long_name'] = "Acoustic frequency"
             ds.frequency.attrs['standard_name'] = "sound_frequency"
@@ -133,87 +109,72 @@ class SetGroups(object):
         # close nc file
         ncfile.close()
 
-    def set_platform(self, platform_dict, vendor="EK60"):
+    def set_platform(self, platform_dict):
         """Set the Platform group in the nc file.
 
         Parameters
         ----------
         platform_dict
             dictionary containing platform parameters
-        vendor
-            specifies the type of echosounder
         """
         # Only save platform group if file_path exists
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
-            # Create an xarray dataset and save to netCDF
-            if vendor == "AZFP":
-                # AZFP does not record pitch, roll, and heave
-                ds = xr.Dataset(
-                    {'water_level': ([], platform_dict['water_level'],
-                                     {'long_name': 'z-axis distance from the platform coordinate system '
-                                     'origin to the sonar transducer',
-                                                   'units': 'm'})},
-                    coords={'time': 0},
-                    attrs={'platform_code_ICES': '',
-                           'platform_name': platform_dict['platform_name'],
-                           'platform_type': platform_dict['platform_type']})
-            else:
-                # Convert np.datetime64 numbers to seconds since 1900-01-01
-                # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-                ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
+                        / np.timedelta64(1, 's')
+            location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
                             / np.timedelta64(1, 's')
-                location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                                / np.timedelta64(1, 's')
 
-                ds = xr.Dataset(
-                    {'pitch': (['ping_time'], platform_dict['pitch'],
-                               {'long_name': 'Platform pitch',
-                                'standard_name': 'platform_pitch_angle',
-                                'units': 'arc_degree',
-                                'valid_range': (-90.0, 90.0)}),
-                     'roll': (['ping_time'], platform_dict['roll'],
-                              {'long_name': 'Platform roll',
-                               'standard_name': 'platform_roll_angle',
-                               'units': 'arc_degree',
-                               'valid_range': (-90.0, 90.0)}),
-                     'heave': (['ping_time'], platform_dict['heave'],
-                               {'long_name': 'Platform heave',
-                                'standard_name': 'platform_heave_angle',
-                                'units': 'arc_degree',
-                                'valid_range': (-90.0, 90.0)}),
-                     'latitude': (['location_time'], platform_dict['lat'],
-                               {'long_name': 'Platform latitude',
-                                'standard_name': 'latitude',
-                                'units': 'degrees_north',
-                                'valid_range': (-90.0, 90.0)}),
-                     'longitude': (['location_time'], platform_dict['lon'],
-                                  {'long_name': 'Platform longitude',
-                                   'standard_name': 'longitude',
-                                   'units': 'degrees_east',
-                                   'valid_range': (-180.0, 180.0)}),
-                     'water_level': ([], platform_dict['water_level'],
-                                     {'long_name': 'z-axis distance from the platform coordinate system '
-                                                   'origin to the sonar transducer',
-                                      'units': 'm'})
-                     },
-                    coords={'ping_time': (['ping_time'], ping_time,
-                                          {'axis': 'T',
-                                           'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for position datagrams',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'}),
-                            'location_time': (['location_time'], location_time,
-                                          {'axis': 'T',
-                                           'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for NMEA position datagrams',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})
-                            },
-                    attrs={'platform_code_ICES': '',
-                           'platform_name': platform_dict['platform_name'],
-                           'platform_type': platform_dict['platform_type']})
+            ds = xr.Dataset(
+                {'pitch': (['ping_time'], platform_dict['pitch'],
+                            {'long_name': 'Platform pitch',
+                            'standard_name': 'platform_pitch_angle',
+                            'units': 'arc_degree',
+                            'valid_range': (-90.0, 90.0)}),
+                    'roll': (['ping_time'], platform_dict['roll'],
+                            {'long_name': 'Platform roll',
+                            'standard_name': 'platform_roll_angle',
+                            'units': 'arc_degree',
+                            'valid_range': (-90.0, 90.0)}),
+                    'heave': (['ping_time'], platform_dict['heave'],
+                            {'long_name': 'Platform heave',
+                            'standard_name': 'platform_heave_angle',
+                            'units': 'arc_degree',
+                            'valid_range': (-90.0, 90.0)}),
+                    'latitude': (['location_time'], platform_dict['lat'],
+                            {'long_name': 'Platform latitude',
+                            'standard_name': 'latitude',
+                            'units': 'degrees_north',
+                            'valid_range': (-90.0, 90.0)}),
+                    'longitude': (['location_time'], platform_dict['lon'],
+                                {'long_name': 'Platform longitude',
+                                'standard_name': 'longitude',
+                                'units': 'degrees_east',
+                                'valid_range': (-180.0, 180.0)}),
+                    'water_level': ([], platform_dict['water_level'],
+                                    {'long_name': 'z-axis distance from the platform coordinate system '
+                                                'origin to the sonar transducer',
+                                    'units': 'm'})
+                    },
+                coords={'ping_time': (['ping_time'], ping_time,
+                                        {'axis': 'T',
+                                        'calendar': 'gregorian',
+                                        'long_name': 'Timestamps for position datagrams',
+                                        'standard_name': 'time',
+                                        'units': 'seconds since 1900-01-01'}),
+                        'location_time': (['location_time'], location_time,
+                                        {'axis': 'T',
+                                        'calendar': 'gregorian',
+                                        'long_name': 'Timestamps for NMEA position datagrams',
+                                        'standard_name': 'time',
+                                        'units': 'seconds since 1900-01-01'})
+                        },
+                attrs={'platform_code_ICES': '',
+                        'platform_name': platform_dict['platform_name'],
+                        'platform_type': platform_dict['platform_type']})
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
 

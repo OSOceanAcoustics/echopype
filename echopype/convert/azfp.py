@@ -445,7 +445,7 @@ class ConvertAZFP:
 
     def get_ping_time(self):
         """Returns the ping times"""
-        
+
         try:
             self.data
         except AttributeError:
@@ -668,9 +668,9 @@ class ConvertAZFP:
             # Create SetGroups object
             grp = SetAZFPGroups(file_path=self.nc_path)
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
-            grp.set_env(_set_env_dict(), vendor)        # environment group
+            grp.set_env(_set_env_dict())        # environment group
             grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())    # provenance group
-            grp.set_platform(_set_platform_dict(), vendor)      # platform group
+            grp.set_platform(_set_platform_dict())      # platform group
             grp.set_sonar(_set_sonar_dict())                    # sonar group
             grp.set_beam(_set_beam_dict())                      # beam group
             grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group
