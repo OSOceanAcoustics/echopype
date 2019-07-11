@@ -26,7 +26,7 @@ format in the terminal:
 
 This will generate corresponding ``.nc`` files with the same leading
 filename as the original ``.raw`` files in the same directory.
-See `Data Format <data-format>`_ for details about the converted file format.
+See :ref:`data-format` for details about the converted file format.
 
 To use the EK60 data converter in an interactive Python session,
 you can do:
@@ -59,7 +59,7 @@ conversion.
 Data analysis
 ---------------
 
-The data analysis functionalites of echopype is being developed actively.
+The data analysis functionalities of echopype is being developed actively.
 Be sure to check back here often!
 
 echopype currently supports:
