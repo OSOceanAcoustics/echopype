@@ -6,25 +6,13 @@ import numpy as np
 
 class SetEK60Groups(SetGroups):
 
-    def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig):
+    def set_beam(self, beam_dict):
         """Set the Beam group in the nc file.
 
         Parameters
         ----------
         beam_dict
             dictionary containing general beam parameters
-        bm_width
-            dictionary containing parameters related to beamwidth
-        bm_dir
-            dictionary containing parameters related to beam direction
-        tx_pos
-            dictionary containing parameters related to transducer position
-        tx_sig
-            dictionary containing parameters related to transmit signals
-        out
-            dataset containing the beam group used for AZFP
-        vendor
-            specifies type of echosounder
         """
 
         # Only save beam group if file_path exists
@@ -39,39 +27,39 @@ class SetEK60Groups(SetGroups):
                 {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                    {'long_name': 'Backscatter power',
                                     'units': 'dB'}),
-                    'beamwidth_receive_major': (['frequency'], bm_width['beamwidth_receive_major'],
+                    'beamwidth_receive_major': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'major (horizontal) axis of beam',
                                                  'units': 'arc_degree',
                                                  'valid_range': (0.0, 360.0)}),
-                    'beamwidth_receive_minor': (['frequency'], bm_width['beamwidth_receive_minor'],
+                    'beamwidth_receive_minor': (['frequency'], beam_dict['beam_width']['beamwidth_receive_minor'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'minor (vertical) axis of beam',
                                                  'units': 'arc_degree',
                                                  'valid_range': (0.0, 360.0)}),
-                    'beamwidth_transmit_major': (['frequency'], bm_width['beamwidth_transmit_major'],
+                    'beamwidth_transmit_major': (['frequency'], beam_dict['beam_width']['beamwidth_transmit_major'],
                                                  {'long_name': 'Half power one-way transmit beam width along '
                                                                'major (horizontal) axis of beam',
                                                   'units': 'arc_degree',
                                                   'valid_range': (0.0, 360.0)}),
-                    'beamwidth_transmit_minor': (['frequency'], bm_width['beamwidth_transmit_minor'],
+                    'beamwidth_transmit_minor': (['frequency'], beam_dict['beam_width']['beamwidth_transmit_minor'],
                                                 {'long_name': 'Half power one-way transmit beam width along '
                                                             'minor (vertical) axis of beam',
                                                 'units': 'arc_degree',
                                                 'valid_range': (0.0, 360.0)}),
-                    'beam_direction_x': (['frequency'], bm_dir['beam_direction_x'],
+                    'beam_direction_x': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
                                         {'long_name': 'x-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
                                         'units': '1',
                                         'valid_range': (-1.0, 1.0)}),
-                    'beam_direction_y': (['frequency'], bm_dir['beam_direction_x'],
+                    'beam_direction_y': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
                                         {'long_name': 'y-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
                                         'units': '1',
                                         'valid_range': (-1.0, 1.0)}),
-                    'beam_direction_z': (['frequency'], bm_dir['beam_direction_x'],
+                    'beam_direction_z': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
                                         {'long_name': 'z-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
@@ -98,27 +86,27 @@ class SetEK60Groups(SetGroups):
                                         {'long_name': 'Time offset that is subtracted from the timestamp '
                                                         'of each sample',
                                             'units': 's'}),
-                    'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
+                    'transmit_bandwidth': (['frequency'], beam_dict['transmit_signal']['transmit_bandwidth'],
                                         {'long_name': 'Nominal bandwidth of transmitted pulse',
                                             'units': 'Hz',
                                             'valid_min': 0.0}),
-                    'transmit_duration_nominal': (['frequency'], tx_sig['transmit_duration_nominal'],
+                    'transmit_duration_nominal': (['frequency'], beam_dict['transmit_signal']['transmit_duration_nominal'],
                                                 {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                 'units': 's',
                                                 'valid_min': 0.0}),
-                    'transmit_power': (['frequency'], tx_sig['transmit_power'],
+                    'transmit_power': (['frequency'], beam_dict['transmit_signal']['transmit_power'],
                                     {'long_name': 'Nominal transmit power',
                                         'units': 'W',
                                         'valid_min': 0.0}),
-                    'transducer_offset_x': (['frequency'], tx_pos['transducer_offset_x'],
+                    'transducer_offset_x': (['frequency'], beam_dict['transducer_position']['transducer_offset_x'],
                                             {'long_name': 'x-axis distance from the platform coordinate system '
                                                         'origin to the sonar transducer',
                                             'units': 'm'}),
-                    'transducer_offset_y': (['frequency'], tx_pos['transducer_offset_y'],
+                    'transducer_offset_y': (['frequency'], beam_dict['transducer_position']['transducer_offset_y'],
                                             {'long_name': 'y-axis distance from the platform coordinate system '
                                                         'origin to the sonar transducer',
                                             'units': 'm'}),
-                    'transducer_offset_z': (['frequency'], tx_pos['transducer_offset_z'],
+                    'transducer_offset_z': (['frequency'], beam_dict['transducer_position']['transducer_offset_z'],
                                             {'long_name': 'z-axis distance from the platform coordinate system '
                                                         'origin to the sonar transducer',
                                             'units': 'm'}),
