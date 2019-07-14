@@ -568,7 +568,7 @@ class ConvertAZFP:
             beam_dict['gain_correction'] = self.parameters['gain']
             beam_dict['sample_interval'] = sample_int
             beam_dict['transmit_duration_nominal'] = tdn
-            beam_dict['range'] = self.data[0]['range'].data
+            beam_dict['range'] = np.array(self.data[0]['range'].data)
             beam_dict['tilt_corr_range'] = tilt_corr_range
             beam_dict['temperature_counts'] = temp_counts
             beam_dict['tilt_x_count'] = tilt_x_counts
