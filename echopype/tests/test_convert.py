@@ -51,23 +51,23 @@ def test_convert_AZFP():
     # Test beam group
     with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
         # Test frequency
-        assert np.array_equal(ds_test.frequency.values, ds_beam.frequency.values)
+        assert np.array_equal(ds_test.frequency, ds_beam.frequency)
         # Test sea absorption
-        assert np.array_equal(ds_test.sea_abs, ds_beam.sea_abs.values)
+        assert np.array_equal(ds_test.sea_abs, ds_beam.sea_abs)
         # Test ping time
-        assert np.array_equal(ds_test.ping_time.values, ds_beam.ping_time.values)
+        assert np.array_equal(ds_test.ping_time, ds_beam.ping_time)
         # Test tilt x and y
-        assert np.array_equal(ds_test.tilt_x.values, ds_beam.tilt_x.values)
-        assert np.array_equal(ds_test.tilt_y.values, ds_beam.tilt_y.values)
+        assert np.array_equal(ds_test.tilt_x, ds_beam.tilt_x)
+        assert np.array_equal(ds_test.tilt_y, ds_beam.tilt_y)
         # Test range
-        assert np.array_equal(ds_test.range.values.squeeze(), ds_beam.range.values)
+        assert np.array_equal(ds_test.range.squeeze(), ds_beam.range)
         # Test backscatter_r
-        assert np.array_equal(ds_test.backscatter.values, ds_beam.backscatter_r.values)
+        assert np.array_equal(ds_test.backscatter, ds_beam.backscatter_r)
 
     # Test enviroment group
     with xr.open_dataset(tmp.nc_path, group='Environment') as ds_env:
         # Test temperature
-        assert np.array_equal(ds_test.temperature.values, ds_env.temperature.values)
+        assert np.array_equal(ds_test.temperature, ds_env.temperature)
         # Test sound speed. 1 value is used because sound speed is the same across frequencies
         assert ds_test.sound_speed == ds_env.sound_speed_indicative.values[0]
 
