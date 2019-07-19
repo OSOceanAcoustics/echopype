@@ -86,7 +86,7 @@ class SetAZFPGroups(SetGroups):
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r']),
                          'equivalent_beam_angle': (['frequency'], beam_dict['EBA']),
                          'gain_correction': (['frequency'], beam_dict['gain_correction']),
-                         'sample_interval': (['frequency', 'ping_time'], beam_dict['sample_interval'],
+                         'sample_interval': (['frequency'], beam_dict['sample_interval'],
                                              {'units': 'seconds'}),
                          'transmit_duration_nominal': (['frequency'], beam_dict['transmit_duration_nominal'],
                                                        {'units': 'seconds'}),
@@ -137,7 +137,11 @@ class SetAZFPGroups(SetGroups):
                                'tilt_Y_a': beam_dict['tilt_Y_a'],
                                'tilt_Y_b': beam_dict['tilt_Y_b'],
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
-                               'tilt_Y_d': beam_dict['tilt_Y_d']})
+                               'tilt_Y_c': beam_dict['tilt_Y_c'],
+                               'tilt_Y_c': beam_dict['tilt_Y_d'],
+                               # Data averaging
+                               'time_to_avg': beam_dict['time_to_avg'],
+                               'bins_to_avg': beam_dict['bins_to_avg']})
 
         ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
         pass
