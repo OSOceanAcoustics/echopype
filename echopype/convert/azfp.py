@@ -437,6 +437,9 @@ class ConvertAZFP:
         Data[0]['sea_abs'] = compute_sea_abs(Data[0]['hourly_avg_temp'], frequency,
                                              self.parameters['pressure'], self.parameters['salinity'])
 
+        # The max number of values that can be averaged is the number of pings
+        if self.parameters['time_to_avg'] > len(Data):
+            self.parameters['time_to_avg'] = len(Data) 
         self.data = Data
 
     def get_ping_time(self):
@@ -535,8 +538,11 @@ class ConvertAZFP:
             cos_tilt_mag = [d['cos_tilt_mag'] for d in self.data]
             tilt_x_counts = [d['ancillary'][0] for d in self.data]
             tilt_y_counts = [d['ancillary'][1] for d in self.data]
-            range_samples = [d['range_samples'] for d in self.data]
-            dig_rate = [d['dig_rate'] for d in self.data]
+            # range_samples taken from xml data
+            # range_samples = [d['range_samples'] for d in self.data]
+            # dig_rate of 1st ping is used
+            # dig_rate = [d['dig_rate'] for d in self.data]
+            dig_rate = self.data[0]['dig_rate']
             temp_counts = [d['ancillary'][4] for d in self.data]
             tilt_x = [d['tilt_x'] for d in self.data]
             tily_y = [d['tilt_y'] for d in self.data]
@@ -555,10 +561,10 @@ class ConvertAZFP:
                 Sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
-            sample_int = np.transpose(np.array(range_samples) / np.array(dig_rate))
+            range_samples = self.parameters['range_samples']
+            sample_int = np.array(range_samples) / np.array(dig_rate)
             range_bin = list(range(np.size(N, 2)))
             range_averaging_samples = self.parameters['range_averaging_samples']
-            range_samples = self.parameters['range_samples']
             # range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
             tilt_corr_range = self.data[0]['range'] * self.data[0]['hourly_avg_cos']
 
@@ -606,7 +612,9 @@ class ConvertAZFP:
             beam_dict['tilt_Y_b'] = self.parameters['Y_b']
             beam_dict['tilt_Y_c'] = self.parameters['Y_c']
             beam_dict['tilt_Y_d'] = self.parameters['Y_d']
-
+            # Data averaging
+            beam_dict['time_to_avg'] = self.parameters['time_to_avg']
+            beam_dict['bins_to_avg'] = self.parameters['bins_to_avg']
             return beam_dict
 
         def _set_vendor_specific_dict():
