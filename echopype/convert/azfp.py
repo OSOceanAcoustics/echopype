@@ -563,7 +563,8 @@ class ConvertAZFP:
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
             range_samples = self.parameters['range_samples']
             sample_int = np.array(range_samples) / np.array(dig_rate)
-            range_bin = list(range(np.size(N, 2)))
+            range_bin = np.arange(np.size(N, 2))
+            ping_bin = np.arange(np.size(N, 1))
             range_averaging_samples = self.parameters['range_averaging_samples']
             # range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
             tilt_corr_range = self.data[0]['range'] * self.data[0]['hourly_avg_cos']
@@ -593,6 +594,7 @@ class ConvertAZFP:
             beam_dict['frequency'] = freq
             beam_dict['ping_time'] = ping_time
             beam_dict['range_bin'] = range_bin
+            beam_dict['ping_bin'] = ping_bin
             beam_dict['number_of_frequency'] = self.parameters['num_freq']
             beam_dict['number_of_pings_per_burst'] = self.parameters['pings_per_burst']
             beam_dict['average_burst_pings_flag'] = self.parameters['average_burst_pings']
