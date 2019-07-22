@@ -21,3 +21,4 @@ docs/source/api
 profile.html
 dask-worker-space/
 toolbox
+azfp_data/
