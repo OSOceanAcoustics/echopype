@@ -49,12 +49,15 @@ class EchoData(object):
                                         os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv.nc')
             self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
                                               os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv_clean.nc')
+            self.TS_path = os.path.join(os.path.dirname(self.file_path),
+                                        os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.nc')
             self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
                                           os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.nc')
 
             # Raise error if the file format convention does not match
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
+            self.toplevel.close()
         else:
             raise ValueError('Data file format not recognized.')
 
