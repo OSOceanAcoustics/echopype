@@ -5,6 +5,7 @@ echopype data model inherited from based class EchoData for AZFP data.
 import datetime as dt
 import numpy as np
 import xarray as xr
+import os
 from .echo_data import EchoData
 
 
@@ -51,3 +52,8 @@ class EchoDataAZFP(EchoData):
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
 
         ds_beam.close()
+
+    def get_MVBS(self):
+        with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+            super().get_MVBS('Sv', ds_beam.bins_to_avg, ds_beam.time_to_avg)
+        pass

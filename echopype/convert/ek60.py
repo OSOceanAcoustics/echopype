@@ -17,7 +17,7 @@ import pynmea2
 
 from .ek60_raw_io import RawSimradFile, SimradEOF
 from .nmea_data import NMEAData
-from .set_nc_groups import SetGroups
+from .ek60_set_groups import SetEK60Groups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
@@ -752,6 +752,10 @@ class ConvertEK60(object):
                 beam_dict['gpt_software_version'].append(c['gpt_software_version'])
                 beam_dict['channel_id'].append(c['channel_id'])
 
+            beam_dict['beam_width'] = bm_width
+            beam_dict['beam_direction'] = bm_dir
+            beam_dict['transducer_position'] = tx_pos
+
             # Loop through each transducer for variables that may vary at each ping
             # -- this rarely is the case for EK60 so we check first before saving
             pl_tmp = np.unique(self.ping_data_dict[1]['pulse_length']).size
@@ -783,6 +787,7 @@ class ConvertEK60(object):
                     beam_dict['sample_interval'][t_seq, :] = \
                         np.array(self.ping_data_dict[t_seq + 1]['sample_interval'], dtype='float32')
 
+            beam_dict['transmit_signal'] = tx_sig
             # Build other parameters
             beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
             # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
@@ -795,7 +800,7 @@ class ConvertEK60(object):
                 np.array([x['sa_correction_table'][y]
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
 
-            return beam_dict, bm_width, bm_dir, tx_pos, tx_sig
+            return beam_dict
 
         # Load data from RAW file
         if not bool(self.power_dict):  # if haven't parsed .raw file
@@ -839,7 +844,7 @@ class ConvertEK60(object):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetGroups(file_path=self.nc_path)
+            grp = SetEK60Groups(file_path=self.nc_path)
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(os.path.basename(self.filename),
@@ -847,4 +852,4 @@ class ConvertEK60(object):
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            grp.set_beam(*_set_beam_dict())         # beam group
+            grp.set_beam(_set_beam_dict())         # beam group
