@@ -417,6 +417,7 @@ class ConvertAZFP:
             m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
                      self.parameters['bins_to_avg']))
         m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('range_bin', list(range(len(m[0]))))])
+        # m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency'])])         # If range varies in frequency
         # Create DataArrays for broadcasting on dimension frequency
         frequency = np.array(Data[0]['frequency'], dtype=np.int64)
         lockout_index = xr.DataArray(Data[0]['lockout_index'], coords=[('frequency', frequency)])
@@ -424,6 +425,7 @@ class ConvertAZFP:
         pulse_length = xr.DataArray(Data[0]['pulse_length'], coords=[('frequency', frequency)])
         dig_rate = xr.DataArray(Data[0]['dig_rate'], coords=[('frequency', frequency)])
 
+        #TODO Handle varying range
         # Calculate range from soundspeed for each frequency
         Data[0]['range'] = (Data[0]['sound_speed'] * lockout_index /
                             (2 * dig_rate) + Data[0]['sound_speed'] / 4 *
@@ -566,7 +568,8 @@ class ConvertAZFP:
             #                  np.unique(dig_rate, axis=0)  # sample interval for every ping for each channel
             sample_int = np.array(range_samples) / np.array(dig_rate)
             range_bin = np.arange(np.size(N, 2))
-            ping_bin = np.arange(np.size(N, 1))
+            # range_bin = [np.arange(n.shape[1]) for n in N]
+            # ping_bin = np.arange(np.size(N, 1))
             range_averaging_samples = self.parameters['range_averaging_samples']
             # range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
             # TODO: the range_out variable is from line 432-436, which implements eqn(11) from p.86 of AZFP manual
@@ -583,7 +586,7 @@ class ConvertAZFP:
             beam_dict['gain_correction'] = self.parameters['gain']
             beam_dict['sample_interval'] = sample_int
             beam_dict['transmit_duration_nominal'] = tdn
-            beam_dict['range'] = np.array(self.data[0]['range'].data)
+            beam_dict['range'] = self.data[0]['range'].data
             beam_dict['tilt_corr_range'] = tilt_corr_range
             beam_dict['temperature_counts'] = temp_counts
             beam_dict['tilt_x_count'] = tilt_x_counts
@@ -602,7 +605,6 @@ class ConvertAZFP:
             beam_dict['frequency'] = freq
             beam_dict['ping_time'] = ping_time
             beam_dict['range_bin'] = range_bin
-            beam_dict['ping_bin'] = ping_bin
             beam_dict['number_of_frequency'] = self.parameters['num_freq']
             beam_dict['number_of_pings_per_burst'] = self.parameters['pings_per_burst']
             beam_dict['average_burst_pings_flag'] = self.parameters['average_burst_pings']
@@ -678,7 +680,6 @@ class ConvertAZFP:
         if os.path.exists(self.nc_path):
             print('          ... this file has already been converted to .nc, conversion not executed.')
         else:
-            vendor = 'AZFP'
             # Create SetGroups object
             grp = SetAZFPGroups(file_path=self.nc_path)
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
