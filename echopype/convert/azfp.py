@@ -538,7 +538,7 @@ class ConvertAZFP:
             # range_samples = [d['range_samples'] for d in self.data]
             # dig_rate of 1st ping is used
             # dig_rate = [d['dig_rate'] for d in self.data]
-            dig_rate = self.data[0]['dig_rate']
+            dig_rate = np.array(self.data[0]['dig_rate'])
             temp_counts = [d['ancillary'][4] for d in self.data]
             tilt_x = [d['tilt_x'] for d in self.data]
             tily_y = [d['tilt_y'] for d in self.data]
@@ -557,12 +557,24 @@ class ConvertAZFP:
                 Sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
-            range_samples = self.parameters['range_samples']
-            sample_int = np.array(range_samples) / np.array(dig_rate)
+            range_samples = np.array(self.parameters['range_samples'])
+
+            # Check if dig_rate and range_samples is unique within each frequency
+            # TODO: develop handling for alternative (which should be very rare, if it happens at all)
+            if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
+                sample_int = np.unique(range_samples, axis=0) / \
+                             np.unique(dig_rate, axis=0)  # sample interval for every ping for each channel
+
             range_bin = np.arange(np.size(N, 2))
             ping_bin = np.arange(np.size(N, 1))
             range_averaging_samples = self.parameters['range_averaging_samples']
             # range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
+            # TODO: the range_out variable is from line 432-436, which implements eqn(11) from p.86 of AZFP manual
+            # Let's remove this from the parsing routine, because this is not part of the convention and should go to
+            # the plotting routine.
+            # Try to understand eqn(11) from p.86 is doing and recreate that in your notebook based on parsed outputs.
+            # Hint: this requires: sound speed, range_bin, sample_int, pulse_length, dig_rate.
+
             tilt_corr_range = self.data[0]['range'] * self.data[0]['hourly_avg_cos']
 
             beam_dict = dict()
