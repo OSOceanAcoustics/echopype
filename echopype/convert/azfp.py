@@ -561,10 +561,10 @@ class ConvertAZFP:
 
             # Check if dig_rate and range_samples is unique within each frequency
             # TODO: develop handling for alternative (which should be very rare, if it happens at all)
-            if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
-                sample_int = np.unique(range_samples, axis=0) / \
-                             np.unique(dig_rate, axis=0)  # sample interval for every ping for each channel
-
+            # if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
+            #     sample_int = np.unique(range_samples, axis=0) / \
+            #                  np.unique(dig_rate, axis=0)  # sample interval for every ping for each channel
+            sample_int = np.array(range_samples) / np.array(dig_rate)
             range_bin = np.arange(np.size(N, 2))
             ping_bin = np.arange(np.size(N, 1))
             range_averaging_samples = self.parameters['range_averaging_samples']
