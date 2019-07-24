@@ -137,8 +137,7 @@ class SetAZFPGroups(SetGroups):
                                'tilt_Y_a': beam_dict['tilt_Y_a'],
                                'tilt_Y_b': beam_dict['tilt_Y_b'],
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
-                               'tilt_Y_c': beam_dict['tilt_Y_c'],
-                               'tilt_Y_c': beam_dict['tilt_Y_d'],
+                               'tilt_Y_d': beam_dict['tilt_Y_d'],
                                # Data averaging
                                'time_to_avg': beam_dict['time_to_avg'],
                                'bins_to_avg': beam_dict['bins_to_avg']})
