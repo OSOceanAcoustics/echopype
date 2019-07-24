@@ -31,8 +31,7 @@ We also consider switching to use `zarr <https://zarr.readthedocs.io/en/stable/>
 in the future for cloud-optimized data storage and access.
 
 .. _ICES SONAR-netCDF4 convention:
-   http://www.ices.dk/sites/pub/Publication%20Reports/
-   Cooperative%20Research%20Report%20(CRR)/CRR341/CRR341.pdf
+   http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf
 
 
 Supported file types
