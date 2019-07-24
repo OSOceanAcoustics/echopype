@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.ek60 import ConvertEK60
-from echopype.convert.azfp import ConvertAZFP
+from echopype.convert.convert import Convert
+# from echopype.convert.ek60 import ConvertEK60
+# from echopype.convert.azfp import ConvertAZFP
 
 ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # Other data files
@@ -18,10 +19,12 @@ azfp_test_path = './echopype/data/azfp_test/17082117.nc'
 def test_convert_ek60():
     """Test converting """
     # Unpacking data
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.load_ek60_raw()
+    # tmp = ConvertEK60(ek60_raw_path)
+    # tmp.load_ek60_raw()
 
-    # Convert to .nc file
+    # # Convert to .nc file
+    # tmp.raw2nc()
+    tmp = Convert(ek60_raw_path)
     tmp.raw2nc()
 
     # Read .nc file into an xarray DataArray
@@ -42,10 +45,9 @@ def test_convert_AZFP():
     ds_test = xr.open_dataset(azfp_test_path)
 
     # Unpacking data
-    tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
-    tmp.parse_raw()
-
-    # Convert to .nc file
+    # tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
+    # tmp.parse_raw()
+    tmp = Convert(azfp_01a_path, azfp_xml_path)
     tmp.raw2nc()
 
     # Test beam group
@@ -74,3 +76,5 @@ def test_convert_AZFP():
     ds_test.close()
     os.remove(tmp.nc_path)
     del tmp
+
+test_convert_AZFP()
