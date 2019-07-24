@@ -76,5 +76,3 @@ def test_convert_AZFP():
     ds_test.close()
     os.remove(tmp.nc_path)
     del tmp
-
-test_convert_AZFP()
