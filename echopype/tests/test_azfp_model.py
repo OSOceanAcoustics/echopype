@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.azfp import ConvertAZFP
-from echopype.model.azfp import EchoDataAZFP
+from echopype.convert import Convert
+from echopype.model.model import Model
 
 azfp_xml_path = './echopype/data/17041823.XML'
 azfp_01a_path = './echopype/data/17082117.01A'
@@ -15,14 +15,11 @@ def test_model_AZFP():
     Sv_test = xr.open_dataset(azfp_test_Sv_path)
     TS_test = xr.open_dataset(azfp_test_TS_path)
 
-    # Unpacking data
-    tmp_convert = ConvertAZFP(azfp_01a_path, azfp_xml_path)
-    tmp_convert.parse_raw()
-
     # Convert to .nc file
+    tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    tmp_echo = EchoDataAZFP(tmp_convert.nc_path)
+    tmp_echo = Model(tmp_convert)
     tmp_echo.calibrate()
     tmp_echo.calibrate_ts()
 
