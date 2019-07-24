@@ -12,10 +12,6 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
-path = "../echopype/toolbox/17082117.01A"
-xml_path = "../echopype/toolbox/17041823.XML"
-
-
 class ConvertAZFP:
     """Class for converting AZFP `.01A` files """
 
@@ -386,7 +382,7 @@ class ConvertAZFP:
                         #     pavg_arr = self.get_pavg_arr(ii, Data)
                         if ii == 0:
                             # Display information about the file that was loaded in
-                            self._print_status(path, Data)
+                            self._print_status(self.file_name, Data)
                         # Compute temperature from Data[ii]['ancillary][4]
                         Data[ii]['temperature'] = compute_temp(Data[ii]['ancillary'][4])
                         # compute x tilt from Data[ii]['ancillary][0]
@@ -439,7 +435,7 @@ class ConvertAZFP:
 
         # The max number of values that can be averaged is the number of pings
         if self.parameters['time_to_avg'] > len(Data):
-            self.parameters['time_to_avg'] = len(Data) 
+            self.parameters['time_to_avg'] = len(Data)
         self.data = Data
 
     def get_ping_time(self):
