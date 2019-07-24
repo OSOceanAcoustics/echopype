@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 from echopype.convert import Convert
-from echopype.model.model import Model
+from echopype.model import Model
 
 azfp_xml_path = './echopype/data/17041823.XML'
 azfp_01a_path = './echopype/data/17082117.01A'
