@@ -16,6 +16,7 @@ class ConvertAZFP:
     """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
+        self.type = "AZFP"
         self.path = _path
         self.xml_path = _xml_path
         self.file_name = os.path.basename(self.path)
@@ -286,23 +287,6 @@ class ConvertAZFP:
         def compute_tilt(N, a, b, c, d):
             return a + b * (N) + c * (N)**2 + d * (N)**3
 
-        def compute_avg_tilt_mag(Data):
-            """Calculates the average of the cosine tilt magnitudes
-
-            Parameters
-            ----------
-            Data
-                current unpacked data
-
-            Returns
-            -------
-                number of the average of the cosine tilt magnitudes
-            """
-            sum = 0
-            for ii in range(len(Data)):
-                sum += Data[ii]['cos_tilt_mag']
-            return sum / len(Data)
-
         def compute_ss(T, P, S):
             """Computes the sound speed
 
@@ -328,13 +312,13 @@ class ConvertAZFP:
 
             Parameters
             ----------
-            T
+            T : Float
                 Temperature
-            F: Numpy array
+            F : Numpy array
                 Frequency
-            P
+            P : Float
                 Pressure
-            S
+            S : Float
                 Salinity
 
             Returns
@@ -409,28 +393,8 @@ class ConvertAZFP:
         Data[0]['hourly_avg_temp'] = compute_avg_temp(Data, self.parameters['hourly_avg_temp'])
         Data[0]['sound_speed'] = compute_ss(Data[0]['hourly_avg_temp'], self.parameters['pressure'],
                                             self.parameters['salinity'])
-        Data[0]['hourly_avg_cos'] = compute_avg_tilt_mag(Data)
 
-        # Sampling volume for bin m from eqn. 11 pg. 86 of the AZFP Operator's Manual
-        m = []
-        for jj in range(Data[0]['num_chan']):
-            m.append(np.arange(1, len(Data[0]['counts'][jj]) - self.parameters['bins_to_avg'] + 2,
-                     self.parameters['bins_to_avg']))
-        m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency']), ('range_bin', list(range(len(m[0]))))])
-        # m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency'])])         # If range varies in frequency
-        # Create DataArrays for broadcasting on dimension frequency
         frequency = np.array(Data[0]['frequency'], dtype=np.int64)
-        lockout_index = xr.DataArray(Data[0]['lockout_index'], coords=[('frequency', frequency)])
-        range_samples = xr.DataArray(Data[0]['range_samples'], coords=[('frequency', frequency)])
-        pulse_length = xr.DataArray(Data[0]['pulse_length'], coords=[('frequency', frequency)])
-        dig_rate = xr.DataArray(Data[0]['dig_rate'], coords=[('frequency', frequency)])
-
-        #TODO Handle varying range
-        # Calculate range from soundspeed for each frequency
-        Data[0]['range'] = (Data[0]['sound_speed'] * lockout_index /
-                            (2 * dig_rate) + Data[0]['sound_speed'] / 4 *
-                            (((2 * m - 1) * range_samples * self.parameters['bins_to_avg'] - 1) /
-                            dig_rate + pulse_length / 1e6))
         # Compute absorption for each frequency
         Data[0]['sea_abs'] = compute_sea_abs(Data[0]['hourly_avg_temp'], frequency,
                                              self.parameters['pressure'], self.parameters['salinity'])
@@ -559,8 +523,8 @@ class ConvertAZFP:
                 Sv_offset.append(calc_sv_offset(freq[jj], self.data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
-            range_samples = np.array(self.parameters['range_samples'])
-
+            # range_samples = np.array(self.parameters['range_samples'])        # from xml file
+            range_samples = self.data[0]['range_samples']                       # from data header
             # Check if dig_rate and range_samples is unique within each frequency
             # TODO: develop handling for alternative (which should be very rare, if it happens at all)
             # if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
@@ -571,14 +535,6 @@ class ConvertAZFP:
             # range_bin = [np.arange(n.shape[1]) for n in N]
             # ping_bin = np.arange(np.size(N, 1))
             range_averaging_samples = self.parameters['range_averaging_samples']
-            # range_out = xr.DataArray(self.data[0]['range'].data, coords=[('frequency', freq), ('range_bin', range_bin)])
-            # TODO: the range_out variable is from line 432-436, which implements eqn(11) from p.86 of AZFP manual
-            # Let's remove this from the parsing routine, because this is not part of the convention and should go to
-            # the plotting routine.
-            # Try to understand eqn(11) from p.86 is doing and recreate that in your notebook based on parsed outputs.
-            # Hint: this requires: sound speed, range_bin, sample_int, pulse_length, dig_rate.
-
-            tilt_corr_range = self.data[0]['range'] * self.data[0]['hourly_avg_cos']
 
             beam_dict = dict()
             beam_dict['backscatter_r'] = N
@@ -586,8 +542,6 @@ class ConvertAZFP:
             beam_dict['gain_correction'] = self.parameters['gain']
             beam_dict['sample_interval'] = sample_int
             beam_dict['transmit_duration_nominal'] = tdn
-            beam_dict['range'] = self.data[0]['range'].data
-            beam_dict['tilt_corr_range'] = tilt_corr_range
             beam_dict['temperature_counts'] = temp_counts
             beam_dict['tilt_x_count'] = tilt_x_counts
             beam_dict['tilt_y_count'] = tilt_y_counts
@@ -638,7 +592,7 @@ class ConvertAZFP:
                 'ping_status': [d['ping_status'] for d in self.data],
                 'burst_interval': [d['burst_int'] for d in self.data],
                 'digitization_rate': [d['dig_rate'] for d in self.data],     # Dim: frequency
-                'lock_out_index': [d['lockout_index'] for d in self.data],   # Dim: frequency
+                'lockout_index': [d['lockout_index'] for d in self.data],   # Dim: frequency
                 'num_bins': [d['num_bins'] for d in self.data],              # Dim: frequency
                 'range_samples': [d['range_samples'] for d in self.data],    # Dim: frequency
                 'ping_per_profile': [d['ping_per_profile'] for d in self.data],
