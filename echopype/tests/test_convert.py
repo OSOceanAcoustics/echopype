@@ -61,8 +61,6 @@ def test_convert_AZFP():
         # Test tilt x and y
         assert np.array_equal(ds_test.tilt_x, ds_beam.tilt_x)
         assert np.array_equal(ds_test.tilt_y, ds_beam.tilt_y)
-        # Test range
-        assert np.array_equal(ds_test.range.squeeze(), ds_beam.range)
         # Test backscatter_r
         assert np.array_equal(ds_test.backscatter, ds_beam.backscatter_r)
 
