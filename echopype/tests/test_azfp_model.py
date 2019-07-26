@@ -22,7 +22,7 @@ def test_model_AZFP():
     tmp_echo = Model(tmp_convert)
     tmp_echo.calibrate()
     tmp_echo.calibrate_ts()
-
+    tmp_echo.get_MVBS()
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-11)
