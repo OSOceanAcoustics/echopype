@@ -63,8 +63,8 @@ class EchoDataAZFP(EchoData):
 
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
-        ds_beam.sample_interval
 
+        self.sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
         depth = self.calc_range()
         self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                    ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(depth) +
