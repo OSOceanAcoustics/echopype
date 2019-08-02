@@ -19,7 +19,7 @@ def test_model_AZFP():
     tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    tmp_echo = Model(tmp_convert)
+    tmp_echo = Model(tmp_convert.nc_path)
     tmp_echo.calibrate()
     tmp_echo.calibrate_ts()
     tmp_echo.get_MVBS()
