@@ -423,13 +423,13 @@ class ConvertAZFP:
 
         """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
-            attrs = ('Conventions', 'keywords',
-                     'sonar_convention_authority', 'sonar_convention_name',
-                     'sonar_convention_version', 'summary', 'title')
-            vals = ('CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3', 'AZFP',
-                    'ICES', 'SONAR-netCDF4', '1.0',
-                    '', '')
-            out_dict = dict(zip(attrs, vals))
+            out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+                            keywords='AZFP',
+                            sonar_convention_authority='ICES',
+                            sonar_convention_name='SONAR-netCDF4',
+                            sonar_convention_version='1.7',
+                            summary='',
+                            title='')
             # Date is acquired from time of first ping
             date_created = dt.utcfromtimestamp(ping_time[0]).isoformat(timespec='seconds') + 'Z'
             out_dict['date_created'] = date_created
