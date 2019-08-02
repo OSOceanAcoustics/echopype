@@ -9,20 +9,21 @@ from echopype.convert.ek60 import ConvertEK60
 
 class Convert:
     def __new__(self, path='', xml_path=''):
-        """Gets the type of echosounder the raw file was generated with using the extension of the file
+        """
+        Gets the type of echosounder the raw file was generated with using the extension of the file
 
-            Parameters
-            ----------
-            path : str
-                the file that will be converted. Currently only `.raw` and `.01A` files are supported
-                for the Simrad EK60 and ASL AZFP echosounders respectively
-            xml_path : str, optional
-                If AZFP echo data is used, the XML file that acompanies the raw file is required for conversion.
+        Parameters
+        ----------
+        path : str
+            the file that will be converted. Currently only `.raw` and `.01A` files are supported
+            for the Simrad EK60 and ASL AZFP echosounders respectively
+        xml_path : str, optional
+            If AZFP echo data is used, the XML file that acompanies the raw file is required for conversion.
 
-            Returns
-            -------
-                Specialized convert object that will be used to produce a .nc file
-            """
+        Returns
+        -------
+            Specialized convert object that will be used to produce a .nc file
+        """
 
         # Gets the type of echosounder from the extension of the raw file
         file_name = os.path.basename(path)
