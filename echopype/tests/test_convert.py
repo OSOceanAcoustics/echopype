@@ -11,8 +11,11 @@ ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
 
-azfp_01a_path = './echopype/data/17082117.01A'
-azfp_xml_path = './echopype/data/17041823.XML'
+# azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
+# azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
+azfp_01a_path = './echopype/data/azfp/17082117.01A'     # Standard test
+azfp_xml_path = './echopype/data/azfp/17041823.XML'     # Standard test
+
 azfp_test_path = './echopype/data/azfp_test/17082117.nc'
 
 
