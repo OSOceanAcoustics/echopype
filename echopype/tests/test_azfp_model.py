@@ -1,11 +1,11 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.azfp import ConvertAZFP
-from echopype.model.azfp import EchoDataAZFP
+from echopype.convert import Convert
+from echopype.model import Model
 
-azfp_xml_path = './echopype/data/17041823.XML'
-azfp_01a_path = './echopype/data/17082117.01A'
+azfp_xml_path = './echopype/data/azfp/17041823.XML'
+azfp_01a_path = './echopype/data/azfp/17082117.01A'
 azfp_test_Sv_path = './echopype/data/azfp_test/17082117_Sv.nc'
 azfp_test_TS_path = './echopype/data/azfp_test/17082117_TS.nc'
 
@@ -15,17 +15,14 @@ def test_model_AZFP():
     Sv_test = xr.open_dataset(azfp_test_Sv_path)
     TS_test = xr.open_dataset(azfp_test_TS_path)
 
-    # Unpacking data
-    tmp_convert = ConvertAZFP(azfp_01a_path, azfp_xml_path)
-    tmp_convert.parse_raw()
-
     # Convert to .nc file
+    tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    tmp_echo = EchoDataAZFP(tmp_convert.nc_path)
+    tmp_echo = Model(tmp_convert.nc_path)
     tmp_echo.calibrate()
     tmp_echo.calibrate_ts()
-
+    tmp_echo.get_MVBS()
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-11)

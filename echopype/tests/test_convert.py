@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.ek60 import ConvertEK60
-from echopype.convert.azfp import ConvertAZFP
+from echopype.convert.convert import Convert
+# from echopype.convert.ek60 import ConvertEK60
+# from echopype.convert.azfp import ConvertAZFP
 
 ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # Other data files
@@ -10,18 +11,23 @@ ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
 
-azfp_01a_path = './echopype/data/17082117.01A'
-azfp_xml_path = './echopype/data/17041823.XML'
+# azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
+# azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
+azfp_01a_path = './echopype/data/azfp/17082117.01A'     # Standard test
+azfp_xml_path = './echopype/data/azfp/17041823.XML'     # Standard test
+
 azfp_test_path = './echopype/data/azfp_test/17082117.nc'
 
 
 def test_convert_ek60():
     """Test converting """
     # Unpacking data
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.load_ek60_raw()
+    # tmp = ConvertEK60(ek60_raw_path)
+    # tmp.load_ek60_raw()
 
-    # Convert to .nc file
+    # # Convert to .nc file
+    # tmp.raw2nc()
+    tmp = Convert(ek60_raw_path)
     tmp.raw2nc()
 
     # Read .nc file into an xarray DataArray
@@ -42,10 +48,9 @@ def test_convert_AZFP():
     ds_test = xr.open_dataset(azfp_test_path)
 
     # Unpacking data
-    tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
-    tmp.parse_raw()
-
-    # Convert to .nc file
+    # tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
+    # tmp.parse_raw()
+    tmp = Convert(azfp_01a_path, azfp_xml_path)
     tmp.raw2nc()
 
     # Test beam group
@@ -59,8 +64,6 @@ def test_convert_AZFP():
         # Test tilt x and y
         assert np.array_equal(ds_test.tilt_x, ds_beam.tilt_x)
         assert np.array_equal(ds_test.tilt_y, ds_beam.tilt_y)
-        # Test range
-        assert np.array_equal(ds_test.range.squeeze(), ds_beam.range)
         # Test backscatter_r
         assert np.array_equal(ds_test.backscatter, ds_beam.backscatter_r)
 
