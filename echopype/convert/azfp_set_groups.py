@@ -1,6 +1,7 @@
 from .set_nc_groups import SetGroups
 import xarray as xr
 import os
+import numpy as np
 
 
 class SetAZFPGroups(SetGroups):
@@ -86,12 +87,10 @@ class SetAZFPGroups(SetGroups):
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r']),
                          'equivalent_beam_angle': (['frequency'], beam_dict['EBA']),
                          'gain_correction': (['frequency'], beam_dict['gain_correction']),
-                         'sample_interval': (['frequency', 'ping_time'], beam_dict['sample_interval'],
+                         'sample_interval': (['frequency'], beam_dict['sample_interval'],
                                              {'units': 'seconds'}),
                          'transmit_duration_nominal': (['frequency'], beam_dict['transmit_duration_nominal'],
                                                        {'units': 'seconds'}),
-                         'range': (['frequency', 'range_bin'], beam_dict['range']),
-                         'tilt_corr_range': (['frequency', 'range_bin'], beam_dict['tilt_corr_range']),
                          'temperature_counts': (['ping_time'], beam_dict['temperature_counts']),
                          'tilt_x_count': (['ping_time'], beam_dict['tilt_x_count']),
                          'tilt_y_count': (['ping_time'], beam_dict['tilt_y_count']),
@@ -137,7 +136,10 @@ class SetAZFPGroups(SetGroups):
                                'tilt_Y_a': beam_dict['tilt_Y_a'],
                                'tilt_Y_b': beam_dict['tilt_Y_b'],
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
-                               'tilt_Y_d': beam_dict['tilt_Y_d']})
+                               'tilt_Y_d': beam_dict['tilt_Y_d'],
+                               # Data averaging
+                               'time_to_avg': beam_dict['time_to_avg'],
+                               'bins_to_avg': beam_dict['bins_to_avg']})
 
         ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
         pass
@@ -150,7 +152,7 @@ class SetAZFPGroups(SetGroups):
                 'ping_status': (['ping_time'], vendor_dict['ping_status']),
                 'burst_interval': (['ping_time'], vendor_dict['burst_interval']),
                 'digitization_rate': (['ping_time', 'frequency'], vendor_dict['digitization_rate']),
-                'lock_out_index': (['ping_time', 'frequency'], vendor_dict['lock_out_index']),
+                'lockout_index': (['ping_time', 'frequency'], vendor_dict['lockout_index']),
                 'number_of_bins_per_channel': (['ping_time', 'frequency'], vendor_dict['num_bins']),
                 'number_of_samples_per_average_bin': (['ping_time', 'frequency'], vendor_dict['range_samples']),
                 'ping_per_profile': (['ping_time'], vendor_dict['ping_per_profile']),
