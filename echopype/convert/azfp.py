@@ -372,16 +372,17 @@ class ConvertAZFP:
                         unpacked_data[ii]['temperature'] = compute_temp(unpacked_data[ii]['ancillary'][4])
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         unpacked_data[ii]['tilt_x'] = compute_tilt(unpacked_data[ii]['ancillary'][0],
-                                                          self.parameters['X_a'], self.parameters['X_b'],
-                                                          self.parameters['X_c'], self.parameters['X_d'])
+                                                                   self.parameters['X_a'], self.parameters['X_b'],
+                                                                   self.parameters['X_c'], self.parameters['X_d'])
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         unpacked_data[ii]['tilt_y'] = compute_tilt(unpacked_data[ii]['ancillary'][1],
-                                                          self.parameters['Y_a'], self.parameters['Y_b'],
-                                                          self.parameters['Y_c'], self.parameters['Y_d'])
+                                                                   self.parameters['Y_a'], self.parameters['Y_b'],
+                                                                   self.parameters['Y_c'], self.parameters['Y_d'])
                         # Compute cos tilt magnitude from tilt x and y values
                         unpacked_data[ii]['cos_tilt_mag'] = math.cos((math.sqrt(
-                                                            unpacked_data[ii]['tilt_x'] ** 2 +
-                                                            unpacked_data[ii]['tilt_y'] ** 2)) * math.pi / 180)
+                                                                      unpacked_data[ii]['tilt_x'] ** 2 +
+                                                                      unpacked_data[ii]['tilt_y'] ** 2)) *
+                                                                     math.pi / 180)
 
                     else:
                         break
@@ -393,12 +394,12 @@ class ConvertAZFP:
         # Compute hourly average temperature for sound speed calculation
         unpacked_data[0]['hourly_avg_temp'] = compute_avg_temp(unpacked_data, self.parameters['hourly_avg_temp'])
         unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
-                                            self.parameters['salinity'])
+                                                     self.parameters['salinity'])
 
         frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
         # Compute absorption for each frequency
         unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
-                                             self.parameters['pressure'], self.parameters['salinity'])
+                                                      self.parameters['pressure'], self.parameters['salinity'])
 
         # The max number of values that can be averaged is the number of pings
         if self.parameters['time_to_avg'] > len(unpacked_data):
