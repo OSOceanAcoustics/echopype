@@ -1,9 +1,7 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.convert import Convert
-# from echopype.convert.ek60 import ConvertEK60
-# from echopype.convert.azfp import ConvertAZFP
+from echopype.convert import Convert
 
 ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 # Other data files

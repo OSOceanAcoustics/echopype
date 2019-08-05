@@ -9,7 +9,7 @@ from echopype.model.ek60 import ModelEK60
 
 
 class EchoData:
-    def __new__(self, nc_path):
+    def __new__(cls, nc_path):
         """
         Provides data analysis and computation tools for sonar data in netCDF form.
 
@@ -24,7 +24,7 @@ class EchoData:
             the type of echosounder the .nc file was produced with
         """
 
-        # Open nc file in order to determine what echo sounder produced the original dataset
+        # Open nc file in order to determine what echosounder produced the original dataset
         with xr.open_dataset(nc_path) as nc_file:
             try:
                 echo_type = nc_file.keywords
