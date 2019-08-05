@@ -8,9 +8,9 @@ from echopype.convert.ek60 import ConvertEK60
 
 
 class Convert:
-    def __new__(self, path='', xml_path=''):
+    def __new__(cls, path='', xml_path=''):
         """
-        Gets the type of echosounder the raw file was generated with using the extension of the file
+        Gets the type of echosounder the raw file was generated with using the filename extension.
 
         Parameters
         ----------
@@ -51,7 +51,7 @@ class Convert:
                 else:
                     raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
             else:
-                raise ValueError("XML file is rquired for AZFP raw data")
+                raise ValueError("XML file is required for AZFP raw data")
 
             return ConvertAZFP(path, xml_path)
         elif echosounder_type == 'EK60':

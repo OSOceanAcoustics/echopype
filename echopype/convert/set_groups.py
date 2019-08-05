@@ -9,8 +9,8 @@ import netCDF4
 import xarray as xr
 
 
-class SetGroups(object):
-    """Class for setting groups in netCDF file.
+class SetGroupsBase:
+    """Base class for setting groups in netCDF file.
     """
 
     def __init__(self, file_path='test.nc'):
@@ -207,6 +207,3 @@ class SetGroups(object):
                 attrs={'description': 'All NMEA sensor datagrams'})
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Platform/NMEA")
-
-    def set_beam(self, beam_dict, bm_width, bm_dir, tx_pos, tx_sig):
-        pass

@@ -4,11 +4,11 @@ Users will not need to know the names of the specific objects they need to creat
 """
 
 import xarray as xr
-from echopype.model.azfp import EchoDataAZFP
-from echopype.model.ek60 import EchoDataEK60
+from echopype.model.azfp import ModelAZFP
+from echopype.model.ek60 import ModelEK60
 
 
-class Model:
+class EchoData:
     def __new__(self, nc_path):
         """
         Provides data analysis and computation tools for sonar data in netCDF form.
@@ -33,8 +33,8 @@ class Model:
 
         # Returns specific EchoData object
         if echo_type == "EK60":
-            return EchoDataEK60(nc_path)
+            return ModelEK60(nc_path)
         elif echo_type == "AZFP":
-            return EchoDataAZFP(nc_path)
+            return ModelAZFP(nc_path)
         else:
             raise ValueError("Unsupported file type")
