@@ -1,10 +1,11 @@
-from .set_nc_groups import SetGroups
+from .set_groups import SetGroupsBase
 import xarray as xr
 import os
-import numpy as np
 
 
-class SetAZFPGroups(SetGroups):
+class SetGroupsAZFP(SetGroupsBase):
+    """Class for setting groups in netCDF file for AZFP data.
+    """
 
     def set_env(self, env_dict):
         """Set the Environment group in the netCDF file.

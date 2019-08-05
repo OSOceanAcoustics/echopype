@@ -1,10 +1,12 @@
-from .set_nc_groups import SetGroups
+from .set_groups import SetGroupsBase
 import xarray as xr
 import os
 import numpy as np
 
 
-class SetEK60Groups(SetGroups):
+class SetGroupsEK60(SetGroupsBase):
+    """Class for setting groups in netCDF file for EK60 data.
+    """
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the nc file.

@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 
-class EchoData(object):
+class ModelBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
@@ -64,7 +64,8 @@ class EchoData(object):
     def calibrate(self):
         """Base method to be overridden for calibration and echo-integration for different sonar models.
         """
-        pass
+        # issue warning when subclass methods not available
+        print('Calibration has not been implemented for this sonar model!')
 
     @staticmethod
     def get_tile_params(r_data_sz, p_data_sz, r_tile_sz, p_tile_sz, sample_thickness):

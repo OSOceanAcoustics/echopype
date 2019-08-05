@@ -1,11 +1,10 @@
 import os
 import numpy as np
-import xarray as xr
 import xml.dom.minidom
 import math
 from datetime import datetime as dt
 from datetime import timezone
-from .azfp_set_groups import SetAZFPGroups
+from .set_groups_azfp import SetGroupsAZFP
 from struct import unpack
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
@@ -33,7 +32,7 @@ class ConvertAZFP:
             'platform_name': "",    # Name of the platform. Fill in with actual value
             'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
             'salinity': 29.6,       # Salinity in psu
-            'bins_to_avg': 1,       # Number of range bins to average
+            # 'bins_to_avg': 1,     # Number of range bins to average --> remove as it's set to 1 in model/azfp.py
             'time_to_avg': 40,      # number of time values to average
             'pressure': 60,         # in dbars (~ depth of instument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
@@ -53,13 +52,18 @@ class ConvertAZFP:
             # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
             'use_tilt_corr': 0      # Default = 0
         }
+
         # Adds to self.parameters the contents of the xml file
         self.loadAZFPxml()
 
+        # Initialize variables that'll be filled later
+        self.unpacked_data = None
+
     def loadAZFPxml(self):
-        ''' Parses the AZFP  XML file '''
+        """Parses the AZFP  XML file.
+        """
         def get_value_by_tag_name(tag_name, element=0):
-            """Returns the value in an XML tag given the tag name and the number of occurances"""
+            """Returns the value in an XML tag given the tag name and the number of occurrences."""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
         px = xml.dom.minidom.parse(self.xml_path)
@@ -116,7 +120,7 @@ class ConvertAZFP:
 
     @staticmethod
     def get_fields():
-        '''Returns the fields contained in each header of the raw file'''
+        """Returns the fields contained in each header of the raw file."""
         _fields = (
             ('profile_flag', 'u2'),
             ('profile_number', 'u2'),
@@ -157,7 +161,7 @@ class ConvertAZFP:
         return _fields
 
     def _split_header(self, raw, header_unpacked, ii, unpacked_data):
-        """Splits the header information into a dictionary
+        """Splits the header information into a dictionary.
 
         Parameters
         ----------
@@ -195,7 +199,7 @@ class ConvertAZFP:
         return True
 
     def _add_counts(self, raw, ii, unpacked_data):
-        """Unpacks the echosounder raw data. Modifies unpacked_data in place
+        """Unpacks the echosounder raw data. Modifies unpacked_data in place.
 
         Parameters
         ----------
@@ -247,7 +251,7 @@ class ConvertAZFP:
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
 
-        """Start of computation subfunctions"""
+        # Start of computation subfunctions
         def compute_temp(counts):
             """Returns the temperature in celsius given from xml data and the counts from ancillary"""
             v_in = 2.5 * (counts / 65535)
@@ -344,7 +348,7 @@ class ConvertAZFP:
                 return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
                         (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
 
-        """ End of computation subfunctions"""
+        # End of computation subfunctions
 
         with open(self.path, 'rb') as raw:
             ii = 0
@@ -649,7 +653,7 @@ class ConvertAZFP:
             print('          ... this file has already been converted to .nc, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetAZFPGroups(file_path=self.nc_path)
+            grp = SetGroupsAZFP(file_path=self.nc_path)
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
             grp.set_env(_set_env_dict())        # environment group
             grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())    # provenance group
