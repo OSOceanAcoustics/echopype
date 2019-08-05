@@ -4,7 +4,7 @@ import xml.dom.minidom
 import math
 from datetime import datetime as dt
 from datetime import timezone
-from .set_groups_azfp import SetGroupsAZFP
+from .set_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
@@ -32,8 +32,6 @@ class ConvertAZFP:
             'platform_name': "",    # Name of the platform. Fill in with actual value
             'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
             'salinity': 29.6,       # Salinity in psu
-            # 'bins_to_avg': 1,     # Number of range bins to average --> remove as it's set to 1 in model/azfp.py
-            'time_to_avg': 40,      # number of time values to average
             'pressure': 60,         # in dbars (~ depth of instument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
             'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
@@ -57,6 +55,7 @@ class ConvertAZFP:
         self.loadAZFPxml()
 
         # Initialize variables that'll be filled later
+        self.nc_path = None
         self.unpacked_data = None
 
     def loadAZFPxml(self):
@@ -244,9 +243,9 @@ class ConvertAZFP:
                        int(unpacked_data[0]['second'] + unpacked_data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
         (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
-        print("File: {} - Loading Profile #{} {} with xml={} Bins2Avg={} Time2Avg={} Salinity={:.2f} Pressure={:.1f}\n"
-              .format(filename, unpacked_data[0]['profile_number'], timestr, name, self.parameters['bins_to_avg'],
-                      self.parameters['time_to_avg'], self.parameters['salinity'], self.parameters['pressure']))
+        print("File: {} - Loading Profile #{} {} with xml={} Salinity={:.2f} Pressure={:.1f}\n"
+              .format(filename, unpacked_data[0]['profile_number'], timestr, name,
+                      self.parameters['salinity'], self.parameters['pressure']))
 
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
@@ -365,10 +364,6 @@ class ConvertAZFP:
                         unpacked_data[ii]['counts'] = []
                         # Appends the actual 'data values' to unpacked_data
                         self._add_counts(raw, ii, unpacked_data)
-                        # Preallocate array if data averaging to #values in the hourly file x number
-                        # if ii == 0 and (self.parameters['bins_to_avg'] > 1 or
-                        #                 self.parameters['time_to_avg'] > 1):
-                        #     pavg_arr = self.get_pavg_arr(ii, unpacked_data)
                         if ii == 0:
                             # Display information about the file that was loaded in
                             self._print_status(self.file_name, unpacked_data)
@@ -405,9 +400,6 @@ class ConvertAZFP:
         unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
                                                       self.parameters['pressure'], self.parameters['salinity'])
 
-        # The max number of values that can be averaged is the number of pings
-        if self.parameters['time_to_avg'] > len(unpacked_data):
-            self.parameters['time_to_avg'] = len(unpacked_data)
         self.unpacked_data = unpacked_data
 
     def get_ping_time(self):
@@ -596,9 +588,6 @@ class ConvertAZFP:
             beam_dict['tilt_Y_b'] = self.parameters['Y_b']
             beam_dict['tilt_Y_c'] = self.parameters['Y_c']
             beam_dict['tilt_Y_d'] = self.parameters['Y_d']
-            # unpacked_data averaging
-            beam_dict['time_to_avg'] = self.parameters['time_to_avg']
-            beam_dict['bins_to_avg'] = self.parameters['bins_to_avg']
             return beam_dict
 
         def _set_vendor_specific_dict():
@@ -635,9 +624,7 @@ class ConvertAZFP:
             out_dict['ad_len'] = ad_len
             return out_dict
 
-        try:
-            self.unpacked_data
-        except AttributeError:
+        if not self.unpacked_data:
             self.parse_raw()
 
         filename = os.path.splitext(os.path.basename(self.path))[0]
@@ -653,11 +640,12 @@ class ConvertAZFP:
             print('          ... this file has already been converted to .nc, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetGroupsAZFP(file_path=self.nc_path)
+            grp = SetGroups(file_path=self.nc_path, echo_type='AZFP')
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
-            grp.set_env(_set_env_dict())        # environment group
-            grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())    # provenance group
+            grp.set_env(_set_env_dict())                # environment group
+            grp.set_provenance(os.path.basename(self.file_name),
+                               _set_prov_dict())        # provenance group
             grp.set_platform(_set_platform_dict())      # platform group
-            grp.set_sonar(_set_sonar_dict())                    # sonar group
-            grp.set_beam(_set_beam_dict())                      # beam group
+            grp.set_sonar(_set_sonar_dict())            # sonar group
+            grp.set_beam(_set_beam_dict())              # beam group
             grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group

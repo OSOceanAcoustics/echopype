@@ -1,4 +1,4 @@
-from .set_groups import SetGroupsBase
+from .set_groups_base import SetGroupsBase
 import xarray as xr
 import os
 
@@ -8,7 +8,7 @@ class SetGroupsAZFP(SetGroupsBase):
     """
 
     def set_env(self, env_dict):
-        """Set the Environment group in the netCDF file.
+        """Set the Environment group in the AZFP netCDF file.
         AZFP includes additional variables 'salinity' and 'pressure'
 
         Parameters
@@ -62,7 +62,7 @@ class SetGroupsAZFP(SetGroupsBase):
             ds.to_netcdf(path=self.file_path, mode="a", group="Environment")
 
     def set_platform(self, platform_dict):
-        """Set the Platform group in the nc file. AZFP does not record pitch, roll, and heave
+        """Set the Platform group in the AZFP nc file. AZFP does not record pitch, roll, and heave.
 
         Parameters
         ----------
@@ -85,6 +85,14 @@ class SetGroupsAZFP(SetGroupsBase):
             ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
 
     def set_beam(self, beam_dict):
+        """Set the Beam group in the AZFP nc file.
+
+        Parameters
+        ----------
+        beam_dict
+            dictionary containing general beam parameters
+        """
+
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r']),
                          'equivalent_beam_angle': (['frequency'], beam_dict['EBA']),
                          'gain_correction': (['frequency'], beam_dict['gain_correction']),
@@ -137,15 +145,20 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_a': beam_dict['tilt_Y_a'],
                                'tilt_Y_b': beam_dict['tilt_Y_b'],
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
-                               'tilt_Y_d': beam_dict['tilt_Y_d'],
-                               # Data averaging
-                               'time_to_avg': beam_dict['time_to_avg'],
-                               'bins_to_avg': beam_dict['bins_to_avg']})
+                               'tilt_Y_d': beam_dict['tilt_Y_d']})
 
         ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
         pass
 
     def set_vendor_specific(self, vendor_dict):
+        """Set the Vendor-specific group in the AZFP nc file.
+
+        Parameters
+        ----------
+        vendor_dict
+            dictionary containing vendor-specific parameters
+        """
+
         ds = xr.Dataset(
             {
                 'profile_flag': (['ping_time'], vendor_dict['profile_flag']),
