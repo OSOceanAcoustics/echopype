@@ -19,10 +19,11 @@ def test_model_AZFP():
     tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    tmp_echo = Model(tmp_convert.nc_path)
-    tmp_echo.calibrate()
-    tmp_echo.calibrate_ts()
+    tmp_echo = EchoData(tmp_convert.nc_path)
+    tmp_echo.calibrate(save=True)
+    tmp_echo.calibrate_ts(save=True)
     tmp_echo.get_MVBS()
+
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-11)
