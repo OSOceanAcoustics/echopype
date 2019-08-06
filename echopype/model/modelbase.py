@@ -122,6 +122,20 @@ class ModelBase(object):
 
         return r_tile_sz, p_idx, r_tile_bin_edge
 
+    def _get_proc_Sv(self):
+        """Private method to return calibrated Sv either from memory or _Sv.nc file.
+
+        This method is called by remove_noise(), noise_estimates() and get_MVBS().
+        """
+        if self.Sv is None:  # if don't have Sv as attribute
+            if os.path.exists(self.Sv_path):  # but have _Sv.nc file
+                return xr.open_dataset(self.Sv_path)  # just load results
+            else:  # if also don't have _Sv.nc file
+                self.calibrate()  # then calibrate
+                return self.Sv.to_dataset(name='Sv')  # and point to results
+        else:
+            return self.Sv.to_dataset(name='Sv')  # and point to results
+
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
@@ -147,7 +161,7 @@ class ModelBase(object):
             self.noise_est_ping_size = noise_est_ping_size
 
         # Get calibrated power
-        proc_data = xr.open_dataset(self.Sv_path)
+        proc_data = self._get_proc_Sv()
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
@@ -215,7 +229,7 @@ class ModelBase(object):
             self.noise_est_ping_size = noise_est_ping_size
 
         # Use calibrated data to calculate noise removal
-        proc_data = xr.open_dataset(self.Sv_path)
+        proc_data = self._get_proc_Sv()
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
@@ -278,14 +292,7 @@ class ModelBase(object):
 
         # Use calibrated data to calculate noise removal
         if source == 'Sv':
-            if self.Sv is None:                    # if don't have Sv as attribute
-                if os.path.exists(self.Sv_path):   # but have _Sv.nc file
-                    proc_data = xr.open_dataset(self.Sv_path)  # just load results
-                else:   # if also don't have _Sv.nc file
-                    self.calibrate()   # then calibrate
-                    proc_data = self.Sv.to_dataset(name='Sv')   # and point to results
-            else:
-                proc_data = self.Sv.to_dataset(name='Sv')   # and point to results
+            proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
             if self.Sv_clean is not None:              # if already have Sv_clean as attribute
                 proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
