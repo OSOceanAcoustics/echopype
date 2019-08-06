@@ -278,9 +278,18 @@ class ModelBase(object):
 
         # Use calibrated data to calculate noise removal
         if source == 'Sv':
-            proc_data = xr.open_dataset(self.Sv_path)
+            if self.Sv is None:                    # if don't have Sv as attribute
+                if os.path.exists(self.Sv_path):   # but have _Sv.nc file
+                    proc_data = xr.open_dataset(self.Sv_path)  # just load results
+                else:   # if also don't have _Sv.nc file
+                    self.calibrate()   # then calibrate
+                    proc_data = self.Sv.to_dataset(name='Sv')   # and point to results
+            else:
+                proc_data = self.Sv.to_dataset(name='Sv')   # and point to results
         elif source == 'Sv_clean':
-            if self.Sv_clean is not None:
+            if self.Sv_clean is not None:              # if already have Sv_clean as attribute
+                proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
+            elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
                 proc_data = xr.open_dataset(self.Sv_clean_path)
             else:
                 raise ValueError('Need to obtain Sv_clean first by calling remove_noise()')

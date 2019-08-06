@@ -80,7 +80,7 @@ class ModelAZFP(ModelBase):
         ds_beam.close()
         pass
 
-    def calibrate_ts(self, save=True):
+    def calibrate_ts(self, save=False):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
         depth = self.calc_range()
 
