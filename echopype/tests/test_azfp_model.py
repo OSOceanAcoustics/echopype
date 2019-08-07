@@ -4,10 +4,10 @@ import xarray as xr
 from echopype.convert import Convert
 from echopype.model import EchoData
 
-azfp_xml_path = './echopype/data/azfp/17041823.XML'
-azfp_01a_path = './echopype/data/azfp/17082117.01A'
-azfp_test_Sv_path = './echopype/data/azfp_test/17082117_Sv.nc'
-azfp_test_TS_path = './echopype/data/azfp_test/17082117_TS.nc'
+azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
+azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
+azfp_test_Sv_path = './echopype/test_data/azfp/from_matlab/17082117_Sv.nc'
+azfp_test_TS_path = './echopype/test_data/azfp/from_matlab/17082117_TS.nc'
 
 
 def test_model_AZFP():

@@ -531,7 +531,7 @@ class ConvertAZFP:
                 # sample_int = np.unique(range_samples, axis=0) / np.unique(dig_rate, axis=0)
                 sample_int = np.array(range_samples) / np.array(dig_rate)
             else:
-                raise ValueError("dig rate and range samples connot be unique across frequencies")
+                raise ValueError("dig_rate and range_samples not unique across frequencies")
 
             # Largest number of counts along the range dimension among the different channels
             longest = max(N, key=np.size).shape[1]

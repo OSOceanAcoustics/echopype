@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from echopype.convert import Convert
 
-ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
+ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
@@ -11,10 +11,10 @@ ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
 
 # azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
-azfp_01a_path = './echopype/data/azfp/17082117.01A'     # Standard test
-azfp_xml_path = './echopype/data/azfp/17041823.XML'     # Standard test
+azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
+azfp_xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
 
-azfp_test_path = './echopype/data/azfp_test/17082117.nc'
+azfp_test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
 
 
 def test_convert_ek60():
