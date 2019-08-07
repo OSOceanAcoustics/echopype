@@ -4,12 +4,12 @@ Users will not need to know the names of the specific objects they need to creat
 """
 
 import xarray as xr
-from echopype.model.azfp import EchoDataAZFP
-from echopype.model.ek60 import EchoDataEK60
+from echopype.model.azfp import ModelAZFP
+from echopype.model.ek60 import ModelEK60
 
 
-class Model:
-    def __new__(self, nc_path):
+class EchoData:
+    def __new__(cls, nc_path):
         """
         Provides data analysis and computation tools for sonar data in netCDF form.
 
@@ -24,7 +24,7 @@ class Model:
             the type of echosounder the .nc file was produced with
         """
 
-        # Open nc file in order to determine what echo sounder produced the original dataset
+        # Open nc file in order to determine what echosounder produced the original dataset
         with xr.open_dataset(nc_path) as nc_file:
             try:
                 echo_type = nc_file.keywords
@@ -33,8 +33,8 @@ class Model:
 
         # Returns specific EchoData object
         if echo_type == "EK60":
-            return EchoDataEK60(nc_path)
+            return ModelEK60(nc_path)
         elif echo_type == "AZFP":
-            return EchoDataAZFP(nc_path)
+            return ModelAZFP(nc_path)
         else:
             raise ValueError("Unsupported file type")
