@@ -10,7 +10,6 @@ __pycache__/
 *.png
 *.tex
 *~
-*.nc
 *.egg-info/
 .tox/
 .vscode/
@@ -21,5 +20,4 @@ docs/source/api
 profile.html
 dask-worker-space/
 toolbox
-azfp_data/
-201703/
+*.nc
