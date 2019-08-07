@@ -2,9 +2,9 @@ import os
 import numpy as np
 import xarray as xr
 from echopype.convert.ek60 import ConvertEK60
-from echopype.model.ek60 import EchoDataEK60
+from echopype.model.ek60 import ModelEK60
 
-ek60_raw_path = './echopype/data/DY1801_EK60-D20180211-T164025.raw'
+ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
 nc_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
 Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
@@ -21,7 +21,7 @@ def test_noise_estimates_removal():
     tmp.raw2nc()
 
     # Read .nc file into an EchoData object and calibrate
-    e_data = EchoDataEK60(nc_path)
+    e_data = ModelEK60(nc_path)
     e_data.calibrate(save=True)
     noise_est = e_data.noise_estimates()
     e_data.remove_noise()

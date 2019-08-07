@@ -5,15 +5,14 @@ echopype data model inherited from based class EchoData for AZFP data.
 import datetime as dt
 import numpy as np
 import xarray as xr
-import os
-from .echo_data import EchoData
+from .modelbase import ModelBase
 
 
-class EchoDataAZFP(EchoData):
+class ModelAZFP(ModelBase):
     """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
-        EchoData.__init__(self, file_path)
+        ModelBase.__init__(self, file_path)
 
     def calc_range(self, tilt_corrected=False):
         ds_beam = xr.open_dataset(self.file_path, group='Beam')
@@ -22,8 +21,8 @@ class EchoDataAZFP(EchoData):
 
         frequency = ds_beam.frequency
         range_samples = ds_beam.number_of_samples_digitized_per_pings
-        pulse_length = ds_beam.transmit_duration_nominal        # Units: seconds
-        bins_to_avg = ds_beam.bins_to_avg
+        pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
+        bins_to_avg = 1   # set to 1 since we want to calculate from raw data
         range_bin = ds_beam.range_bin
         sound_speed = ds_env.sound_speed_indicative
         dig_rate = ds_vend.digitization_rate
@@ -45,13 +44,13 @@ class EchoDataAZFP(EchoData):
         if tilt_corrected:
             depth = ds_beam.cos_tilt_mag.mean() * depth
 
-        return depth
-
         ds_beam.close()
         ds_vend.close()
         ds_env.close()
 
-    def calibrate(self, save=True):
+        return depth
+
+    def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
         Parameters
@@ -81,7 +80,7 @@ class EchoDataAZFP(EchoData):
         ds_beam.close()
         pass
 
-    def calibrate_ts(self, save=True):
+    def calibrate_ts(self, save=False):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
         depth = self.calc_range()
 
@@ -93,8 +92,3 @@ class EchoDataAZFP(EchoData):
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
 
         ds_beam.close()
-
-    def get_MVBS(self):
-        with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
-            super().get_MVBS('Sv', ds_beam.bins_to_avg, ds_beam.time_to_avg)
-        pass
