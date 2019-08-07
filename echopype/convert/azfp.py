@@ -32,7 +32,7 @@ class ConvertAZFP:
             'platform_name': "",    # Name of the platform. Fill in with actual value
             'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
             'salinity': 29.6,       # Salinity in psu
-            'pressure': 60,         # in dbars (~ depth of instument in meters)
+            'pressure': 60,         # in dbars (~ depth of instrument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
             'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
                                     # Used to calculate sound-speed and range
@@ -44,7 +44,7 @@ class ConvertAZFP:
             # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
             'noise_floor': 10000,   # Default = 10000
             # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
-            # This changes the ydir on the echogram plots only.
+            # This changes the y dir on the echogram plots only.
             'orientation': 1,       # Default = 1
             # Use tilt corrected ranges for the echogram plots
             # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
@@ -90,7 +90,7 @@ class ConvertAZFP:
         self.parameters['Y_c'] = float(get_value_by_tag_name('Y_c'))
         self.parameters['Y_d'] = float(get_value_by_tag_name('Y_d'))
 
-        # Initializing fields for each tranducer frequency
+        # Initializing fields for each transducer frequency
         self.parameters['dig_rate'] = []
         self.parameters['lock_out_index'] = []
         self.parameters['gain'] = []
@@ -132,20 +132,20 @@ class ConvertAZFP:
             ('hour', 'u2'),                 # Hour
             ('minute', 'u2'),               # Minute
             ('second', 'u2'),               # Second
-            ('hundredths', 'u2'),           # Hundreths of a second
+            ('hundredths', 'u2'),           # Hundredths of a second
             ('dig_rate', 'u2', 4),          # Digitalization rate for each channel
             ('lockout_index', 'u2', 4),     # Lockout index for each channel
             ('num_bins', 'u2', 4),          # Number of bins for each channel
             ('range_samples', 'u2', 4),     # Range ramples per bin for each channel
             ('ping_per_profile', 'u2'),     # Number of pings per profile
             ('avg_pings', 'u2'),            # Flag indicating whether the pings average in time
-            ('num_acq_pings', 'u2'),        # Pings aquired in the burst
+            ('num_acq_pings', 'u2'),        # Pings acquired in the burst
             ('ping_period', 'u2'),          # Ping period in seconds
             ('first_ping', 'u2'),
             ('last_ping', 'u2'),
             ('data_type', "u1", 4),         # Datatype for each channel 1=Avg unpacked_data (5bytes), 0=raw (2bytes)
             ('data_error', 'u2'),           # Error number is an error occurred
-            ('phase', 'u1'),                # Plase number used to aquire this profile
+            ('phase', 'u1'),                # Phase number used to acquire this profile
             ('overrun', 'u1'),              # 1 if an overrun occurred
             ('num_chan', 'u1'),             # 1, 2, 3, or 4
             ('gain', 'u1', 4),              # gain channel 1-4
@@ -153,7 +153,7 @@ class ConvertAZFP:
             ('pulse_length', 'u2', 4),      # Pulse length chan 1-4 uS
             ('board_num', 'u2', 4),         # The board the data came from channel 1-4
             ('frequency', 'u2', 4),         # frequency for channel 1-4 in hz
-            ('sensor_flag', 'u2'),          # Flag indicating if pressure sensor or temperature sensor is availible
+            ('sensor_flag', 'u2'),          # Flag indicating if pressure sensor or temperature sensor is available
             ('ancillary', 'u2', 5),         # Tilt-X, Y, Battery, Pressure, Temperature
             ('ad', 'u2', 2)                 # AD channel 6 and 7
         )
@@ -468,7 +468,7 @@ class ConvertAZFP:
         def _set_beam_dict():
             def calc_sv_offset(freq, pulse_length):
                 """Calculate a compensation for the effects of finite response
-                times of both the recieving and transmitting parts of the transducer.
+                times of both the receiving and transmitting parts of the transducer.
                 The correction magnitude depends on the length of the transmitted pulse
                 and the response time (transmission and reception) of the transducer.
 
@@ -506,7 +506,7 @@ class ConvertAZFP:
             dig_rate = np.array(self.unpacked_data[0]['dig_rate'])
             temp_counts = [d['ancillary'][4] for d in self.unpacked_data]
             tilt_x = [d['tilt_x'] for d in self.unpacked_data]
-            tily_y = [d['tilt_y'] for d in self.unpacked_data]
+            tilt_y = [d['tilt_y'] for d in self.unpacked_data]
             ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
                          int(d['second'] + d['hundredths'] / 100)).replace(tzinfo=timezone.utc).timestamp()
                          for d in self.unpacked_data]
@@ -556,7 +556,7 @@ class ConvertAZFP:
             beam_dict['tilt_x_count'] = tilt_x_counts
             beam_dict['tilt_y_count'] = tilt_y_counts
             beam_dict['tilt_x'] = tilt_x
-            beam_dict['tilt_y'] = tily_y
+            beam_dict['tilt_y'] = tilt_y
             beam_dict['cos_tilt_mag'] = cos_tilt_mag
             beam_dict['DS'] = self.parameters['DS']
             beam_dict['EL'] = self.parameters['EL']
