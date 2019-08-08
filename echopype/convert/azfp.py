@@ -15,7 +15,6 @@ class ConvertAZFP:
     """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
-        self.type = "AZFP"
         self.path = _path
         self.xml_path = _xml_path
         self.file_name = os.path.basename(self.path)
@@ -29,8 +28,9 @@ class ConvertAZFP:
             'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
             # "" will prompt for XML filename if no XML file exists in the directory
             'xml_file_name': "12022310.XML",
-            'platform_name': "",    # Name of the platform. Fill in with actual value
-            'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
+            'platform_name': "",    # Name of the platform. Set with actual value
+            'platform_type': "",    # Type of platform. Set with actual value
+            'platform_code_ICES': "",   # Code for the platform. Set with actual value
             'salinity': 29.6,       # Salinity in psu
             'pressure': 60,         # in dbars (~ depth of instrument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
@@ -159,6 +159,31 @@ class ConvertAZFP:
         )
         return _fields
 
+    """Setters and getters for platform information"""
+    @property
+    def platform_name(self):
+        return self.parameters['platform_name']
+
+    @platform_name.setter
+    def platform_name(self, platform_name):
+        self.parameters['platform_name'] = platform_name
+
+    @property
+    def platform_type(self):
+        return self.parameters['platform_type']
+
+    @platform_type.setter
+    def platform_type(self, platform_type):
+        self.parameters['platform_type'] = platform_type
+
+    @property
+    def platform_code_ICES(self):
+        return self.parameters['platform_code_ICES']
+
+    @platform_code_ICES.setter
+    def platform_code_ICES(self, platform_code_ICES):
+        self.parameters['platform_code_ICES'] = platform_code_ICES
+
     def _split_header(self, raw, header_unpacked, ii, unpacked_data):
         """Splits the header information into a dictionary.
 
@@ -259,34 +284,35 @@ class ConvertAZFP:
                      self.parameters['C'] * (math.log(R) ** 3)) - 273
             return T
 
-        def compute_avg_temp(unpacked_data, hourly_avg_temp):
-            """Input the data with temperature values and averages all the temperatures
+        # TODO Delete the following:
+        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
+        #     """Input the data with temperature values and averages all the temperatures
 
-            Parameters
-            ----------
-            unpacked_data
-                current unpacked data
-            hourly_avg_temp
-                xml parameter
+        #     Parameters
+        #     ----------
+        #     unpacked_data
+        #         current unpacked data
+        #     hourly_avg_temp
+        #         xml parameter
 
-            Returns
-            -------
-                the average temperature
-            """
-            sum = 0
-            total = 0
-            for ii in range(len(unpacked_data)):
-                val = unpacked_data[ii]['temperature']
-                if not math.isnan(val):
-                    total += 1
-                    sum += val
-            if total == 0:
-                print("**** No AZFP temperature found. Using default of {:.2f} "
-                      "degC to calculate sound-speed and range\n"
-                      .format(hourly_avg_temp))
-                return hourly_avg_temp    # default value
-            else:
-                return sum / total
+        #     Returns
+        #     -------
+        #         the average temperature
+        #     """
+        #     sum = 0
+        #     total = 0
+        #     for ii in range(len(unpacked_data)):
+        #         val = unpacked_data[ii]['temperature']
+        #         if not math.isnan(val):
+        #             total += 1
+        #             sum += val
+        #     if total == 0:
+        #         print("**** No AZFP temperature found. Using default of {:.2f} "
+        #               "degC to calculate sound-speed and range\n"
+        #               .format(hourly_avg_temp))
+        #         return hourly_avg_temp    # default value
+        #     else:
+        #         return sum / total
 
         def compute_tilt(N, a, b, c, d):
             return a + b * (N) + c * (N)**2 + d * (N)**3
@@ -390,15 +416,16 @@ class ConvertAZFP:
                     eof = True
                 ii += 1
 
+        # TODO Delete the following:
         # Compute hourly average temperature for sound speed calculation
-        unpacked_data[0]['hourly_avg_temp'] = compute_avg_temp(unpacked_data, self.parameters['hourly_avg_temp'])
-        unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
-                                                     self.parameters['salinity'])
+        # unpacked_data[0]['hourly_avg_temp'] = compute_avg_temp(unpacked_data, self.parameters['hourly_avg_temp'])
+        # unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
+        #                                              self.parameters['salinity'])
 
         frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
         # Compute absorption for each frequency
-        unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
-                                                      self.parameters['pressure'], self.parameters['salinity'])
+        # unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
+        #                                               self.parameters['pressure'], self.parameters['salinity'])
 
         self.unpacked_data = unpacked_data
 
@@ -421,35 +448,30 @@ class ConvertAZFP:
 
         """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
-            out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
                             keywords='AZFP',
                             sonar_convention_authority='ICES',
                             sonar_convention_name='SONAR-netCDF4',
                             sonar_convention_version='1.7',
                             summary='',
                             title='')
-            # Date is acquired from time of first ping
-            date_created = dt.utcfromtimestamp(ping_time[0]).isoformat(timespec='seconds') + 'Z'
-            out_dict['date_created'] = date_created
             return out_dict
 
         def _set_env_dict():
             temps = [d['temperature'] for d in self.unpacked_data]
-            abs_val = self.unpacked_data[0]['sea_abs']
-            ss_val = [self.unpacked_data[0]['sound_speed']] * 4           # Sound speed independent of frequency
-            salinity = [self.parameters['salinity']] * 4    # Salinity independent of frequency
-            pressure = [self.parameters['pressure']] * 4    # Pressure independent of frequency
+            # abs_val = self.unpacked_data[0]['sea_abs']
+            # ss_val = [self.unpacked_data[0]['sound_speed']] * 4           # Sound speed independent of frequency
+            # salinity = [self.parameters['salinity']] * 4    # Salinity independent of frequency
+            # pressure = [self.parameters['pressure']] * 4    # Pressure independent of frequency
 
-            attrs = ('frequency', 'absorption_coeff', 'sound_speed', 'salinity', 'temperature', 'pressure')
-            vals = (freq, abs_val, ss_val, salinity, temps, pressure)
-            return dict(zip(attrs, vals))
+            out_dict = dict(temperature=temps,
+                            ping_time=ping_time)
+            return out_dict
 
         def _set_platform_dict():
-            out_dict = dict()
-            out_dict['platform_name'] = self.parameters['platform_name']
-            out_dict['platform_type'] = self.parameters['platform_type']
-            # water_level is set to 0 for AZFP since this is not recorded
-            out_dict['water_level'] = 0
+            out_dict = dict(platform_name=self.parameters['platform_name'],
+                            platform_type=self.parameters['platform_type'],
+                            platform_code_ICES=self.parameters['platform_code_ICES'])
             return out_dict
 
         def _set_prov_dict():
@@ -507,9 +529,6 @@ class ConvertAZFP:
             temp_counts = [d['ancillary'][4] for d in self.unpacked_data]
             tilt_x = [d['tilt_x'] for d in self.unpacked_data]
             tilt_y = [d['tilt_y'] for d in self.unpacked_data]
-            ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
-                         int(d['second'] + d['hundredths'] / 100)).replace(tzinfo=timezone.utc).timestamp()
-                         for d in self.unpacked_data]
 
             # Initialize variables in the output xarray Dataset
             N = []
@@ -565,7 +584,6 @@ class ConvertAZFP:
             beam_dict['Sv_offset'] = Sv_offset
             beam_dict['range_samples'] = range_samples
             beam_dict['range_averaging_samples'] = range_averaging_samples
-            beam_dict['sea_abs'] = self.unpacked_data[0]['sea_abs']
             beam_dict['frequency'] = freq
             beam_dict['ping_time'] = ping_time
             beam_dict['range_bin'] = range_bin
