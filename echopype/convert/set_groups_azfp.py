@@ -1,5 +1,6 @@
 from .set_groups_base import SetGroupsBase
 import xarray as xr
+import netCDF4
 import os
 
 
@@ -23,43 +24,52 @@ class SetGroupsAZFP(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Environment group...')
         else:
-            absorption = xr.DataArray(env_dict['absorption_coeff'],
-                                      coords=[env_dict['frequency']], dims=['frequency'],
-                                      attrs={'long_name': "Indicative acoustic absorption",
-                                             'units': "dB/m",
-                                             'valid_min': 0.0})
-            sound_speed = xr.DataArray(env_dict['sound_speed'],
-                                       coords=[env_dict['frequency']], dims=['frequency'],
-                                       attrs={'long_name': "Indicative sound speed",
-                                              'standard_name': "speed_of_sound_in_sea_water",
-                                              'units': "m/s",
-                                              'valid_min': 0.0})
-            salinity = xr.DataArray(env_dict['salinity'],
-                                    coords=[env_dict['frequency']], dims=['frequency'],
-                                    attrs={'long_name': "Water salinity",
-                                           'standard_name': "salinity_of_sea_water",
-                                           'units': "PSU"})
-            pressure = xr.DataArray(env_dict['pressure'],
-                                    coords=[env_dict['frequency']], dims=['frequency'],
-                                    attrs={'long_name': "Water pressure",
-                                           'standard_name': "pressure_in_sea_water",
-                                           'units': "dBar"})
-            ds = xr.Dataset({'absorption_indicative': absorption,
-                             'sound_speed_indicative': sound_speed,
-                             'salinity': salinity,
-                             'pressure': pressure},
-                            coords={'frequency': (['frequency'], env_dict['frequency']),
-                                    'temperature': env_dict['temperature']},
-                            attrs={'pressure': env_dict['pressure'],  # pressure in dBar
-                                   'salinity': env_dict['salinity']})  # salinity in PSU
-
-            ds.frequency.attrs['long_name'] = "Acoustic frequency"
-            ds.frequency.attrs['standard_name'] = "sound_frequency"
-            ds.frequency.attrs['units'] = "Hz"
-            ds.frequency.attrs['valid_min'] = 0.0
+            # absorption = xr.DataArray(env_dict['absorption_coeff'],
+            #                           coords=[env_dict['frequency']], dims=['frequency'],
+            #                           attrs={'long_name': "Indicative acoustic absorption",
+            #                                  'units': "dB/m",
+            #                                  'valid_min': 0.0})
+            # sound_speed = xr.DataArray(env_dict['sound_speed'],
+            #                            coords=[env_dict['frequency']], dims=['frequency'],
+            #                            attrs={'long_name': "Indicative sound speed",
+            #                                   'standard_name': "speed_of_sound_in_sea_water",
+            #                                   'units': "m/s",
+            #                                   'valid_min': 0.0})
+            # salinity = xr.DataArray(env_dict['salinity'],
+            #                         coords=[env_dict['frequency']], dims=['frequency'],
+            #                         attrs={'long_name': "Water salinity",
+            #                                'standard_name': "salinity_of_sea_water",
+            #                                'units': "PSU"})
+            # pressure = xr.DataArray(env_dict['pressure'],
+            #                         coords=[env_dict['frequency']], dims=['frequency'],
+            #                         attrs={'long_name': "Water pressure",
+            #                                'standard_name': "pressure_in_sea_water",
+            #                                'units': "dBar"})
+            # ds = xr.Dataset({'absorption_indicative': absorption,
+            #                  'sound_speed_indicative': sound_speed,
+            #                  'salinity': salinity,
+            #                  'pressure': pressure},
+            #                 coords={'frequency': (['frequency'], env_dict['frequency']),
+            #                         'temperature': env_dict['temperature']},
+            #                 attrs={'pressure': env_dict['pressure'],  # pressure in dBar
+            #                        'salinity': env_dict['salinity']})  # salinity in PSU
+            # ds.frequency.attrs['long_name'] = "Acoustic frequency"
+            # ds.frequency.attrs['standard_name'] = "sound_frequency"
+            # ds.frequency.attrs['units'] = "Hz"
+            # ds.frequency.attrs['valid_min'] = 0.0
+            ds = xr.Dataset({'temperature': (['ping_time'], env_dict['temperature'])},
+                            coords={'ping_time': (['ping_time'], env_dict['ping_time'],
+                                    {'axis': 'T',
+                                     'calendar': 'gregorian',
+                                     'long_name': 'Timestamp of each ping',
+                                     'standard_name': 'time',
+                                     'units': 'seconds since 1970-01-01'})},
+                            attrs={'long_name': "Water temperature",
+                                   'units': "C"})
 
             # save to file
             ds.to_netcdf(path=self.file_path, mode="a", group="Environment")
+            pass
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the AZFP nc file. AZFP does not record pitch, roll, and heave.
@@ -72,17 +82,8 @@ class SetGroupsAZFP(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
-            ds = xr.Dataset(
-                {'water_level': ([], platform_dict['water_level'],
-                                 {'long_name': 'z-axis distance from the platform coordinate system '
-                                  'origin to the sonar transducer',
-                                  'units': 'm'})},
-                coords={'time': 0},
-                attrs={'platform_code_ICES': '',
-                       'platform_name': platform_dict['platform_name'],
-                       'platform_type': platform_dict['platform_type']})
-
-            ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
+            with netCDF4.Dataset(self.file_path, "a", format="NETCDF4") as ncfile:
+                [ncfile.setncattr(k, v) for k, v in platform_dict.items()]
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the AZFP nc file.
@@ -113,8 +114,7 @@ class SetGroupsAZFP(SetGroupsBase):
                          'Sv_offset': (['frequency'], beam_dict['Sv_offset']),
                          'number_of_samples_digitized_per_pings': (['frequency'], beam_dict['range_samples']),
                          'number_of_digitized_samples_averaged_per_pings': (['frequency'],
-                                                                            beam_dict['range_averaging_samples']),
-                         'sea_abs': (['frequency'], beam_dict['sea_abs'])},
+                                                                            beam_dict['range_averaging_samples'])},
                         coords={'frequency': (['frequency'], beam_dict['frequency'],
                                               {'units': 'Hz',
                                                'valid_min': 0.0}),
@@ -148,7 +148,6 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_d': beam_dict['tilt_Y_d']})
 
         ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
-        pass
 
     def set_vendor_specific(self, vendor_dict):
         """Set the Vendor-specific group in the AZFP nc file.
@@ -161,26 +160,26 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                'profile_flag': (['ping_time'], vendor_dict['profile_flag']),
-                'profile_number': (['ping_time'], vendor_dict['profile_number']),
+                # 'profile_flag': (['ping_time'], vendor_dict['profile_flag']),
+                # 'profile_number': (['ping_time'], vendor_dict['profile_number']),
                 'ping_status': (['ping_time'], vendor_dict['ping_status']),
-                'burst_interval': (['ping_time'], vendor_dict['burst_interval']),
-                'digitization_rate': (['ping_time', 'frequency'], vendor_dict['digitization_rate']),
-                'lockout_index': (['ping_time', 'frequency'], vendor_dict['lockout_index']),
-                'number_of_bins_per_channel': (['ping_time', 'frequency'], vendor_dict['num_bins']),
-                'number_of_samples_per_average_bin': (['ping_time', 'frequency'], vendor_dict['range_samples']),
-                'ping_per_profile': (['ping_time'], vendor_dict['ping_per_profile']),
-                'average_pings_flag': (['ping_time'], vendor_dict['average_pings_flag']),
+                # 'burst_interval': (['ping_time'], vendor_dict['burst_interval']),
+                'digitization_rate': (['frequency'], vendor_dict['digitization_rate']),
+                'lockout_index': (['frequency'], vendor_dict['lockout_index']),
+                'number_of_bins_per_channel': (['frequency'], vendor_dict['num_bins']),
+                'number_of_samples_per_average_bin': (['frequency'], vendor_dict['range_samples']),
+                # 'ping_per_profile': (['ping_time'], vendor_dict['ping_per_profile']),
+                # 'average_pings_flag': (['ping_time'], vendor_dict['average_pings_flag']),
                 'number_of_acquired_pings': (['ping_time'], vendor_dict['number_of_acquired_pings']),
-                'ping_period': (['ping_time'], vendor_dict['ping_period']),
+                # 'ping_period': (['ping_time'], vendor_dict['ping_period']),
                 'first_ping': (['ping_time'], vendor_dict['first_ping']),
                 'last_ping': (['ping_time'], vendor_dict['last_ping']),
                 'data_type': (['ping_time', 'frequency'], vendor_dict['data_type']),
                 'data_error': (['ping_time'], vendor_dict['data_error']),
-                'phase': (['ping_time'], vendor_dict['phase']),
-                'number_of_channels': (['ping_time'], vendor_dict['number_of_channels']),
+                # 'phase': (['ping_time'], vendor_dict['phase']),
+                # 'number_of_channels': (['ping_time'], vendor_dict['number_of_channels']),
                 'spare_channel': (['ping_time'], vendor_dict['spare_channel']),
-                'board_number': (['ping_time', 'frequency'], vendor_dict['board_number']),
+                'board_number': (['frequency'], vendor_dict['board_number']),
                 'sensor_flag': (['ping_time'], vendor_dict['sensor_flag']),
                 'ancillary': (['ping_time', 'ancillary_len'], vendor_dict['ancillary']),
                 'ad_channels': (['ping_time', 'ad_len'], vendor_dict['ad_channels'])
@@ -188,7 +187,15 @@ class SetGroupsAZFP(SetGroupsBase):
             coords={'frequency': (['frequency'], vendor_dict['frequency']),
                     'ping_time': (['ping_time'], vendor_dict['ping_time']),
                     'ancillary_len': (['ancillary_len'], vendor_dict['ancillary_len']),
-                    'ad_len': (['ad_len'], vendor_dict['ad_len'])}
+                    'ad_len': (['ad_len'], vendor_dict['ad_len'])},
+            attrs={'profile_flag': vendor_dict['profile_flag'],
+                   'profile_number': vendor_dict['profile_number'],
+                   'burst_interval': vendor_dict['burst_interval'],
+                   'ping_per_profile': vendor_dict['ping_per_profile'],
+                   'average_pings_flag': vendor_dict['average_pings_flag'],
+                   'ping_period': vendor_dict['ping_period'],
+                   'phase': vendor_dict['phase'],
+                   'number_of_channels': vendor_dict['number_of_channels']}
         )
 
         ds.to_netcdf(path=self.file_path, mode="a", group="Vendor")
