@@ -272,6 +272,39 @@ class ConvertAZFP:
               .format(filename, unpacked_data[0]['profile_number'], timestr, name,
                       self.parameters['salinity'], self.parameters['pressure']))
 
+    def check_uniqueness(self):
+        if not self.unpacked_data:
+            self.parse_raw()
+        header = {
+            'profile_flag': [d['profile_flag'] for d in self.unpacked_data],
+            # 'profile_number': [d['profile_number'] for d in self.unpacked_data],
+            # 'ping_status': [d['ping_status'] for d in self.unpacked_data],
+            'burst_interval': [d['burst_int'] for d in self.unpacked_data],
+            'digitization_rate': [d['dig_rate'] for d in self.unpacked_data],     # Dim: frequency
+            'lockout_index': [d['lockout_index'] for d in self.unpacked_data],   # Dim: frequency
+            'num_bins': [d['num_bins'] for d in self.unpacked_data],              # Dim: frequency
+            'range_samples': [d['range_samples'] for d in self.unpacked_data],    # Dim: frequency
+            'ping_per_profile': [d['ping_per_profile'] for d in self.unpacked_data],
+            'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
+            # 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
+            'ping_period': [d['ping_period'] for d in self.unpacked_data],
+            # 'first_ping': [d['first_ping'] for d in self.unpacked_data],
+            # 'last_ping': [d['last_ping'] for d in self.unpacked_data],
+            'data_type': [d['data_type'] for d in self.unpacked_data],
+            # 'data_error': [d['data_error'] for d in self.unpacked_data],
+            'phase': [d['phase'] for d in self.unpacked_data],
+            'number_of_channels': [d['num_chan'] for d in self.unpacked_data],
+            'spare_channel': [d['spare_chan'] for d in self.unpacked_data],
+            'board_number': [d['board_num'] for d in self.unpacked_data],         # Dim: frequency
+            # 'sensor_flag': [d['sensor_flag'] for d in self.unpacked_data],
+            # 'ancillary': [d['ancillary'] for d in self.unpacked_data],            # 5 values
+            # 'ad_channels': [d['ad'] for d in self.unpacked_data]
+        }
+
+        for key in header:
+            if np.unique(header[key], axis=0).shape[0] > 1:
+                raise ValueError(f"Header value {key} is not constant for each ping")
+
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
 
@@ -422,7 +455,7 @@ class ConvertAZFP:
         # unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
         #                                              self.parameters['salinity'])
 
-        frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
+        # frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
         # Compute absorption for each frequency
         # unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
         #                                               self.parameters['pressure'], self.parameters['salinity'])
@@ -612,26 +645,26 @@ class ConvertAZFP:
             out_dict = {
                 'ping_time': ping_time,
                 'frequency': freq,
-                'profile_flag': [d['profile_flag'] for d in self.unpacked_data],
+                'profile_flag': self.unpacked_data[0]['profile_flag'],
                 'profile_number': [d['profile_number'] for d in self.unpacked_data],
                 'ping_status': [d['ping_status'] for d in self.unpacked_data],
-                'burst_interval': [d['burst_int'] for d in self.unpacked_data],
-                'digitization_rate': [d['dig_rate'] for d in self.unpacked_data],     # Dim: frequency
-                'lockout_index': [d['lockout_index'] for d in self.unpacked_data],   # Dim: frequency
-                'num_bins': [d['num_bins'] for d in self.unpacked_data],              # Dim: frequency
-                'range_samples': [d['range_samples'] for d in self.unpacked_data],    # Dim: frequency
-                'ping_per_profile': [d['ping_per_profile'] for d in self.unpacked_data],
-                'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
+                'burst_interval': self.unpacked_data[0]['burst_int'],
+                'digitization_rate': self.unpacked_data[0]['dig_rate'],     # Dim: frequency
+                'lockout_index': self.unpacked_data[0]['lockout_index'],   # Dim: frequency
+                'num_bins': self.unpacked_data[0]['num_bins'],              # Dim: frequency
+                'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency
+                'ping_per_profile': self.unpacked_data[0]['ping_per_profile'],
+                'average_pings_flag': self.unpacked_data[0]['avg_pings'],
                 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
-                'ping_period': [d['ping_period'] for d in self.unpacked_data],
+                'ping_period': self.unpacked_data[0]['ping_period'],
                 'first_ping': [d['first_ping'] for d in self.unpacked_data],
                 'last_ping': [d['last_ping'] for d in self.unpacked_data],
                 'data_type': [d['data_type'] for d in self.unpacked_data],
                 'data_error': [d['data_error'] for d in self.unpacked_data],
-                'phase': [d['phase'] for d in self.unpacked_data],
-                'number_of_channels': [d['num_chan'] for d in self.unpacked_data],
+                'phase': self.unpacked_data[0]['phase'],
+                'number_of_channels': self.unpacked_data[0]['num_chan'],
                 'spare_channel': [d['spare_chan'] for d in self.unpacked_data],
-                'board_number': [d['board_num'] for d in self.unpacked_data],         # Dim: frequency
+                'board_number': self.unpacked_data[0]['board_num'],         # Dim: frequency
                 'sensor_flag': [d['sensor_flag'] for d in self.unpacked_data],
                 'ancillary': [d['ancillary'] for d in self.unpacked_data],            # 5 values
                 'ad_channels': [d['ad'] for d in self.unpacked_data]                  # 2 values
@@ -644,6 +677,9 @@ class ConvertAZFP:
 
         if not self.unpacked_data:
             self.parse_raw()
+
+        # Check variables that should not vary with ping time
+        self.check_uniqueness()
 
         filename = os.path.splitext(os.path.basename(self.path))[0]
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
