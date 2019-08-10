@@ -31,8 +31,8 @@ class ConvertAZFP:
             'platform_name': "",    # Name of the platform. Set with actual value
             'platform_type': "",    # Type of platform. Set with actual value
             'platform_code_ICES': "",   # Code for the platform. Set with actual value
-            'salinity': 29.6,       # Salinity in psu
-            'pressure': 60,         # in dbars (~ depth of instrument in meters)
+            # 'salinity': 29.6,       # Salinity in psu     UNUSED AT THE MOMENT
+            # 'pressure': 60,         # in dbars (~ depth of instrument in meters)          UNUSED AT THE MOMENT
                                     # can be approximate. Used in soundspeed and absorption calc
             'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
                                     # Used to calculate sound-speed and range
@@ -152,7 +152,7 @@ class ConvertAZFP:
             ('spare_chan', 'u1'),           # spare channel
             ('pulse_length', 'u2', 4),      # Pulse length chan 1-4 uS
             ('board_num', 'u2', 4),         # The board the data came from channel 1-4
-            ('frequency', 'u2', 4),         # frequency for channel 1-4 in hz
+            ('frequency', 'u2', 4),         # frequency for channel 1-4 in kHz
             ('sensor_flag', 'u2'),          # Flag indicating if pressure sensor or temperature sensor is available
             ('ancillary', 'u2', 5),         # Tilt-X, Y, Battery, Pressure, Temperature
             ('ad', 'u2', 2)                 # AD channel 6 and 7
@@ -264,13 +264,11 @@ class ConvertAZFP:
         """
         filename = os.path.basename(path)
         timestamp = dt(unpacked_data[0]['year'], unpacked_data[0]['month'], unpacked_data[0]['day'],
-                       unpacked_data[0]['hour'], unpacked_data[0]['minute'], 
+                       unpacked_data[0]['hour'], unpacked_data[0]['minute'],
                        int(unpacked_data[0]['second'] + unpacked_data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
-        (pathstr, name) = os.path.split(self.parameters['xml_file_name'])
-        print("File: {} - Loading Profile #{} {} with xml={} Salinity={:.2f} Pressure={:.1f}\n"
-              .format(filename, unpacked_data[0]['profile_number'], timestr, name,
-                      self.parameters['salinity'], self.parameters['pressure']))
+        (pathstr, xml_name) = os.path.split(self.parameters['xml_file_name'])
+        print(f"{timestr} converting file: {filename} with XML: {xml_name}")
 
     def check_uniqueness(self):
         if not self.unpacked_data:
@@ -283,7 +281,7 @@ class ConvertAZFP:
             'digitization_rate': [d['dig_rate'] for d in self.unpacked_data],     # Dim: frequency
             'lockout_index': [d['lockout_index'] for d in self.unpacked_data],   # Dim: frequency
             'num_bins': [d['num_bins'] for d in self.unpacked_data],              # Dim: frequency
-            'range_samples': [d['range_samples'] for d in self.unpacked_data],    # Dim: frequency
+            # 'range_samples': [d['range_samples'] for d in self.unpacked_data],    # Dim: frequency
             'ping_per_profile': [d['ping_per_profile'] for d in self.unpacked_data],
             'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
             # 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
@@ -458,7 +456,7 @@ class ConvertAZFP:
         # frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
         # Compute absorption for each frequency
         # unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
-        #                                               self.parameters['pressure'], self.parameters['salinity'])
+                                                    #   self.parameters['pressure'], self.parameters['salinity'])
 
         self.unpacked_data = unpacked_data
 
@@ -652,7 +650,7 @@ class ConvertAZFP:
                 'digitization_rate': self.unpacked_data[0]['dig_rate'],     # Dim: frequency
                 'lockout_index': self.unpacked_data[0]['lockout_index'],   # Dim: frequency
                 'num_bins': self.unpacked_data[0]['num_bins'],              # Dim: frequency
-                'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency
+                # 'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency  In beam dict
                 'ping_per_profile': self.unpacked_data[0]['ping_per_profile'],
                 'average_pings_flag': self.unpacked_data[0]['avg_pings'],
                 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
