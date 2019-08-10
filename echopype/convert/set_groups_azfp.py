@@ -167,7 +167,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'digitization_rate': (['frequency'], vendor_dict['digitization_rate']),
                 'lockout_index': (['frequency'], vendor_dict['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], vendor_dict['num_bins']),
-                'number_of_samples_per_average_bin': (['frequency'], vendor_dict['range_samples']),
+                # 'number_of_samples_per_average_bin': (['frequency'], vendor_dict['range_samples']), # beam dict
                 # 'ping_per_profile': (['ping_time'], vendor_dict['ping_per_profile']),
                 # 'average_pings_flag': (['ping_time'], vendor_dict['average_pings_flag']),
                 'number_of_acquired_pings': (['ping_time'], vendor_dict['number_of_acquired_pings']),
