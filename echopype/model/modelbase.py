@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 
-class EchoData(object):
+class ModelBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
@@ -64,7 +64,8 @@ class EchoData(object):
     def calibrate(self):
         """Base method to be overridden for calibration and echo-integration for different sonar models.
         """
-        pass
+        # issue warning when subclass methods not available
+        print('Calibration has not been implemented for this sonar model!')
 
     @staticmethod
     def get_tile_params(r_data_sz, p_data_sz, r_tile_sz, p_tile_sz, sample_thickness):
@@ -121,6 +122,20 @@ class EchoData(object):
 
         return r_tile_sz, p_idx, r_tile_bin_edge
 
+    def _get_proc_Sv(self):
+        """Private method to return calibrated Sv either from memory or _Sv.nc file.
+
+        This method is called by remove_noise(), noise_estimates() and get_MVBS().
+        """
+        if self.Sv is None:  # if don't have Sv as attribute
+            if os.path.exists(self.Sv_path):  # but have _Sv.nc file
+                return xr.open_dataset(self.Sv_path)  # just load results
+            else:  # if also don't have _Sv.nc file
+                self.calibrate()  # then calibrate
+                return self.Sv.to_dataset(name='Sv')  # and point to results
+        else:
+            return self.Sv.to_dataset(name='Sv')  # and point to results
+
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
@@ -146,7 +161,7 @@ class EchoData(object):
             self.noise_est_ping_size = noise_est_ping_size
 
         # Get calibrated power
-        proc_data = xr.open_dataset(self.Sv_path)
+        proc_data = self._get_proc_Sv()
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
@@ -214,7 +229,7 @@ class EchoData(object):
             self.noise_est_ping_size = noise_est_ping_size
 
         # Use calibrated data to calculate noise removal
-        proc_data = xr.open_dataset(self.Sv_path)
+        proc_data = self._get_proc_Sv()
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
@@ -277,9 +292,11 @@ class EchoData(object):
 
         # Use calibrated data to calculate noise removal
         if source == 'Sv':
-            proc_data = xr.open_dataset(self.Sv_path)
+            proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
-            if self.Sv_clean is not None:
+            if self.Sv_clean is not None:              # if already have Sv_clean as attribute
+                proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
+            elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
                 proc_data = xr.open_dataset(self.Sv_clean_path)
             else:
                 raise ValueError('Need to obtain Sv_clean first by calling remove_noise()')

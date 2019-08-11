@@ -17,7 +17,7 @@ import pynmea2
 
 from .ek60_raw_io import RawSimradFile, SimradEOF
 from .nmea_data import NMEAData
-from .ek60_set_groups import SetEK60Groups
+from .set_groups import SetGroups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
@@ -30,7 +30,7 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 INDEX2ELEC = 180.0 / 128.0
 
 
-class ConvertEK60(object):
+class ConvertEK60:
     """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
@@ -647,7 +647,7 @@ class ConvertEK60(object):
             self.tr_data_dict = tr_data_dict
 
     def raw2nc(self):
-        """Save data from `.raw` to netCDF format.
+        """Save data from EK60 `.raw` to netCDF format.
         """
 
         # Subfunctions to set various dictionaries
@@ -844,7 +844,7 @@ class ConvertEK60(object):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetEK60Groups(file_path=self.nc_path)
+            grp = SetGroups(file_path=self.nc_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(os.path.basename(self.filename),
@@ -852,4 +852,4 @@ class ConvertEK60(object):
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            grp.set_beam(_set_beam_dict())         # beam group
+            grp.set_beam(_set_beam_dict())          # beam group

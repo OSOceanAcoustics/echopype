@@ -16,6 +16,8 @@ in your terminal:
 
 File conversion
 -----------------
+EK60
+~~~~~~
 
 echopype supports batch conversion of ``.raw`` files to netCDF ``.nc``
 format in the terminal:
@@ -54,6 +56,18 @@ The ``ConvertEK60`` instance contains all the data unpacked from the
 .raw file, so it is a good idea to clear it from memory once done with
 conversion.
 
+AZFP
+~~~~~~
+AZFP conversion requires an ``.XML`` file along with the raw ``.01A`` file to convert into an ``.nc`` file. To do the conversion, simply use the ``convert.Convert`` method in the in an interactive session as follows:
+
+.. code-block:: python
+
+    import echopype as ep
+    data_tmp = ep.convert.Convert('FILENAME.01A', 'XMLFILE.xml')
+    data_tmp.raw2nc()
+
+This will save a ``.nc`` file to the same directory as the ``.01A`` file.
+    
 
 
 Data analysis
@@ -65,7 +79,7 @@ Be sure to check back here often!
 echopype currently supports:
 
 - calibration and echo-integration to obtain volume backscattering strength (Sv)
-  from the power data collected by EK60.
+  from the power data collected by EK60 and AZFP.
 
 - simple noise removal by suppressing data points below an adaptively estimated
   noise floor [1]_.
@@ -73,7 +87,10 @@ echopype currently supports:
 - binning and averaging to obtain mean volume backscattering strength (MVBS)
   from the calibrated data.
 
-The steps of performing these analysis are summarized below:
+The steps of performing these analysis for each echosounder are summarized below:
+
+EK60
+~~~~~~
 
 .. code-block:: python
 
@@ -90,6 +107,39 @@ from these two methods can be accessed from ``data.Sv_clean`` and ``data.MVBS``
 as xarray DataSets. The outputs of these methods are are xarray DataSets with
 proper dimension labels.
 
+AZFP
+~~~~~~
+You can initialize the functions for AZFP data analysis in exactly the same way as with EK60.
+
+.. code-block:: python
+
+    from echopype.model import EchoData
+    data = EchoData('FILENAME.nc')
+
+
+Before calibration, the salinity and pressure of the water should be adjusted if the default values of 29.6 PSU, and 60 dbars do not apply to the environment where data collection took place. For example:
+
+.. code-block:: python
+
+   data.salinity = 30     # Salinity in PSU
+   data.pressure = 50     # Pressure in dbars (~ equal to depth in meters)
+
+
+These values are used in calculating the sea absorption coefficients for each frequency as well as the sound speed in the water. The sound speed is used to calculate the range. These values can be retrieved with:
+
+.. code-block:: python
+
+    data.sea_abs
+    data.sound_speed
+    data.range
+
+Get Sv, Target Strength (TS), and MVBS by calling
+
+.. code-block:: python
+
+    data.calibrate()
+    data.calibrateTS()
+    data.get_MVBS(save=True)
 
 
 ---------------
