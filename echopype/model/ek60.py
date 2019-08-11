@@ -5,14 +5,14 @@ echopype data model inherited from based class EchoData for EK60 data.
 import datetime as dt
 import numpy as np
 import xarray as xr
-from .echo_data import EchoData
+from .modelbase import ModelBase
 
 
-class EchoDataEK60(EchoData):
+class ModelEK60(ModelBase):
     """Class for manipulating EK60 echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
-        EchoData.__init__(self, file_path)
+        ModelBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
 
     def calibrate(self, save=False):
