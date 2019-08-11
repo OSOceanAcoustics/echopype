@@ -2,14 +2,12 @@
 Code originally developed for pyEcholab
 (https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
 Contains class ``_SimradDatagramParser`` for low-level parsing of EK60 data files.
-Called by class ConvertEK60 in ``echopype/convert/ek60.py``.
+Called by class RawSimradFile in ``echopype/convert/ek60_raw_io.py``.
 
 | Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
 | National Oceanic and Atmospheric Administration (NOAA)
 | Alaska Fisheries Science Center (AFSC)
 | Midwater Assesment and Conservation Engineering Group (MACE)
-| Maintained by:
-|       Rick Towler   <rick.towler@noaa.gov>
 
 TODO: fix docstring
 """
