@@ -64,11 +64,20 @@ AZFP conversion requires an ``.XML`` file along with the raw ``.01A`` file to co
 
     import echopype as ep
     data_tmp = ep.convert.Convert('FILENAME.01A', 'XMLFILE.xml')
+
+However, before calling ``data_tmp.raw2nc()`` in order to create your netCDF4 file, you should first set ``platform_name``, ``platform_type``, and ``patform_code_ICES`` as these values are not recorded in the raw files but are used in the netCDF4 convention. Not setting these parameters will save them as empty strings, and you may set them thusly:
+
+.. code-block:: python
+
+    data_tmp.platform_name = 'Wilson'
+    data_tmp.platform_type = 'subsurface mooring'
+    data_tmp.platform_code_ICES = '3164'
+
+Then simply do the following to save  a ``.nc`` file to the same directory as the ``.01A`` file.
+
+.. code-block:: python
+
     data_tmp.raw2nc()
-
-This will save a ``.nc`` file to the same directory as the ``.01A`` file.
-    
-
 
 Data analysis
 ---------------
