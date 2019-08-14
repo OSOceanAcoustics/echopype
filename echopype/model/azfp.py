@@ -41,6 +41,19 @@ class ModelAZFP(ModelBase):
         except AttributeError:
             return self.calc_sea_abs()
 
+    @property
+    def temperature(self):
+        try:
+            return self._temperature
+        except AttributeError:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                self._temperature = ds_env.temperature
+                return self._temperature
+
+    @temperature.setter
+    def temperature(self, temperature):
+        self._temperature = temperature
+
     def calc_range(self, tilt_corrected=False):
         """Calculates the range in meters using sound speed and other measured values
 
@@ -58,7 +71,7 @@ class ModelAZFP(ModelBase):
         ds_vend = xr.open_dataset(self.file_path, group='Vendor')
 
         frequency = ds_beam.frequency
-        range_samples = ds_beam.number_of_samples_digitized_per_pings
+        range_samples = ds_vend.number_of_samples_per_average_bin
         pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
         bins_to_avg = 1   # set to 1 since we want to calculate from raw data
         range_bin = ds_beam.range_bin
@@ -95,12 +108,11 @@ class ModelAZFP(ModelBase):
 
         Returns
         -------
-        The average sound speed
+        A sound speed for each temperature.
         """
-        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            ss = arlpy.uwa.soundspeed(temperature=ds_env.temperature, salinity=self.salinity, depth=self.pressure)
-            self._sound_speed = ss.mean()
-            return self._sound_speed
+        ss = arlpy.uwa.soundspeed(temperature=self.temperature, salinity=self.salinity, depth=self.pressure)
+        self._sound_speed = ss
+        return self._sound_speed
 
     def calc_sea_abs(self):
         """Calculate the sea absorption for each frequency with arlpy.
