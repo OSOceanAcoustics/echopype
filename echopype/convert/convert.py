@@ -18,7 +18,7 @@ class Convert:
             the file that will be converted. Currently only `.raw` and `.01A` files are supported
             for the Simrad EK60 and ASL AZFP echosounders respectively
         xml_path : str, optional
-            If AZFP echo data is used, the XML file that acompanies the raw file is required for conversion.
+            If AZFP echo data is used, the XML file that accompanies the raw file is required for conversion.
 
         Returns
         -------
