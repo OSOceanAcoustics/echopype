@@ -160,16 +160,16 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                # 'profile_flag': (['ping_time'], vendor_dict['profile_flag']),
+                'profile_flag': (['ping_time'], vendor_dict['profile_flag']),
                 # 'profile_number': (['ping_time'], vendor_dict['profile_number']),
                 'ping_status': (['ping_time'], vendor_dict['ping_status']),
                 # 'burst_interval': (['ping_time'], vendor_dict['burst_interval']),
                 'digitization_rate': (['frequency'], vendor_dict['digitization_rate']),
                 'lockout_index': (['frequency'], vendor_dict['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], vendor_dict['num_bins']),
-                # 'number_of_samples_per_average_bin': (['frequency'], vendor_dict['range_samples']), # beam dict
+                'number_of_samples_per_average_bin': (['frequency'], vendor_dict['range_samples']),
                 # 'ping_per_profile': (['ping_time'], vendor_dict['ping_per_profile']),
-                # 'average_pings_flag': (['ping_time'], vendor_dict['average_pings_flag']),
+                'average_pings_flag': (['ping_time'], vendor_dict['average_pings_flag']),
                 'number_of_acquired_pings': (['ping_time'], vendor_dict['number_of_acquired_pings']),
                 # 'ping_period': (['ping_time'], vendor_dict['ping_period']),
                 'first_ping': (['ping_time'], vendor_dict['first_ping']),
@@ -178,7 +178,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'data_error': (['ping_time'], vendor_dict['data_error']),
                 # 'phase': (['ping_time'], vendor_dict['phase']),
                 # 'number_of_channels': (['ping_time'], vendor_dict['number_of_channels']),
-                'spare_channel': (['ping_time'], vendor_dict['spare_channel']),
+                # 'spare_channel': (['ping_time'], vendor_dict['spare_channel']),
                 'board_number': (['frequency'], vendor_dict['board_number']),
                 'sensor_flag': (['ping_time'], vendor_dict['sensor_flag']),
                 'ancillary': (['ping_time', 'ancillary_len'], vendor_dict['ancillary']),
@@ -188,11 +188,10 @@ class SetGroupsAZFP(SetGroupsBase):
                     'ping_time': (['ping_time'], vendor_dict['ping_time']),
                     'ancillary_len': (['ancillary_len'], vendor_dict['ancillary_len']),
                     'ad_len': (['ad_len'], vendor_dict['ad_len'])},
-            attrs={'profile_flag': vendor_dict['profile_flag'],
-                   'profile_number': vendor_dict['profile_number'],
+            attrs={'profile_number': vendor_dict['profile_number'],
                    'burst_interval': vendor_dict['burst_interval'],
                    'ping_per_profile': vendor_dict['ping_per_profile'],
-                   'average_pings_flag': vendor_dict['average_pings_flag'],
+                   'spare_channel': vendor_dict['spare_channel'],
                    'ping_period': vendor_dict['ping_period'],
                    'phase': vendor_dict['phase'],
                    'number_of_channels': vendor_dict['number_of_channels']}
