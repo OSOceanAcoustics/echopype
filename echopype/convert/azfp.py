@@ -463,9 +463,7 @@ class ConvertAZFP:
     def get_ping_time(self):
         """Returns the ping times"""
 
-        try:
-            self.unpacked_data
-        except AttributeError:
+        if not self.unpacked_data:
             self.parse_raw()
 
         ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
@@ -479,11 +477,11 @@ class ConvertAZFP:
 
         """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
-            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                             keywords='AZFP',
                             sonar_convention_authority='ICES',
                             sonar_convention_name='SONAR-netCDF4',
-                            sonar_convention_version='1.7',
+                            sonar_convention_version='1.0',
                             summary='',
                             title='')
             return out_dict
