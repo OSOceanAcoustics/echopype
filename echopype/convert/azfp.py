@@ -463,9 +463,7 @@ class ConvertAZFP:
     def get_ping_time(self):
         """Returns the ping times"""
 
-        try:
-            self.unpacked_data
-        except AttributeError:
+        if not self.unpacked_data:
             self.parse_raw()
 
         ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
@@ -479,11 +477,11 @@ class ConvertAZFP:
 
         """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
-            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                             keywords='AZFP',
                             sonar_convention_authority='ICES',
                             sonar_convention_name='SONAR-netCDF4',
-                            sonar_convention_version='1.7',
+                            sonar_convention_version='1.0',
                             summary='',
                             title='')
             return out_dict
@@ -573,13 +571,13 @@ class ConvertAZFP:
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
             range_samples = np.array(self.parameters['range_samples'])        # from xml file
-            # range_samples = self.unpacked_data[0]['range_samples']           # from data header
+            range_samples_head = self.unpacked_data[0]['range_samples']           # from data header
 
             # Check if dig_rate and range_samples is unique within each frequency
             if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
                 # sample interval for every ping for each channel
                 # sample_int = np.unique(range_samples, axis=0) / np.unique(dig_rate, axis=0)
-                sample_int = np.array(range_samples) / np.array(dig_rate)
+                sample_int = np.array(range_samples_head) / np.array(dig_rate)
             else:
                 raise ValueError("dig_rate and range_samples not unique across frequencies")
 
