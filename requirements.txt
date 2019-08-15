@@ -8,3 +8,4 @@ pytz
 pynmea2
 click
 arlpy
+dolfyn
