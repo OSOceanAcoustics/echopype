@@ -5,6 +5,7 @@ Users will not need to know the names of the specific objects they need to creat
 import os
 from echopype.convert.azfp import ConvertAZFP
 from echopype.convert.ek60 import ConvertEK60
+from echopype.convert.adcp import ConvertADCP
 
 
 class Convert:
@@ -33,6 +34,8 @@ class Convert:
             echosounder_type = 'EK60'
         elif ext == '.01A':
             echosounder_type = 'AZFP'
+        elif ext == '.ad2cp':
+            echosounder_type = 'ADCP'
         else:
             raise ValueError("'{}' is not a supported file type".format(ext))
 
@@ -56,5 +59,9 @@ class Convert:
             return ConvertAZFP(path, xml_path)
         elif echosounder_type == 'EK60':
             return ConvertEK60(path)
+        elif echosounder_type == 'AZFP':
+            return ConvertAZFP(path)
+        elif echosounder_type == 'ADCP':
+            return ConvertADCP(path)
         else:
-            raise ValueError("Unknown file extension")
+            raise ValueError(f"Unknown file extension {ext}")

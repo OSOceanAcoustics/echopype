@@ -5,6 +5,7 @@ Functions to unpack Simrad EK60 .raw and save to .nc.
 from __future__ import absolute_import, division, print_function
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_azfp import SetGroupsAZFP
+from .set_groups_adcp import SetGroupsADCP
 
 
 class SetGroups:
@@ -29,5 +30,7 @@ class SetGroups:
             return SetGroupsEK60(file_path)
         elif echo_type == "AZFP":
             return SetGroupsAZFP(file_path)
+        elif echo_type == "ADCP":
+            return SetGroupsADCP(file_path)
         else:
             raise ValueError("Unsupported file type")

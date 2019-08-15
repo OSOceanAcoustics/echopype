@@ -41,3 +41,5 @@ def test_model_AZFP():
     os.remove(tmp_convert.nc_path)
     del tmp_convert
     del tmp_echo
+
+test_model_AZFP()

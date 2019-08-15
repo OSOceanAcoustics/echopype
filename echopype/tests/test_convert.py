@@ -13,8 +13,9 @@ ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
-
 azfp_test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
+
+adcp_path = './echopype/test_data/adcp/Sig1000_IMU.ad2cp'
 
 
 def test_convert_ek60():
@@ -75,3 +76,11 @@ def test_convert_AZFP():
     ds_test.close()
     os.remove(tmp.nc_path)
     del tmp
+
+
+def test_convert_ADCP():
+    tmp = Convert(adcp_path)
+    tmp.raw2nc()
+    beam = xr.open_dataset(tmp.nc_path, group="Beam")
+    beam.close()
+    os.remove(tmp.nc_path)
