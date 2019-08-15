@@ -573,13 +573,13 @@ class ConvertAZFP:
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
             range_samples = np.array(self.parameters['range_samples'])        # from xml file
-            # range_samples = self.unpacked_data[0]['range_samples']           # from data header
+            range_samples_head = self.unpacked_data[0]['range_samples']           # from data header
 
             # Check if dig_rate and range_samples is unique within each frequency
             if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
                 # sample interval for every ping for each channel
                 # sample_int = np.unique(range_samples, axis=0) / np.unique(dig_rate, axis=0)
-                sample_int = np.array(range_samples) / np.array(dig_rate)
+                sample_int = np.array(range_samples_head) / np.array(dig_rate)
             else:
                 raise ValueError("dig_rate and range_samples not unique across frequencies")
 
