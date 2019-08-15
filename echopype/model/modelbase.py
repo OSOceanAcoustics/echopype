@@ -38,7 +38,7 @@ class ModelBase(object):
         pp = os.path.basename(p)
         _, ext = os.path.splitext(pp)
 
-        supported_ext_list = ['.raw', '.01A']
+        supported_ext_list = ['.raw', '.01A', '.ad2cp']
         if ext in supported_ext_list:
             print('Data file in manufacturer format, please convert to .nc first.')
         elif ext == '.nc':

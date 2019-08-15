@@ -6,6 +6,7 @@ Users will not need to know the names of the specific objects they need to creat
 import xarray as xr
 from echopype.model.azfp import ModelAZFP
 from echopype.model.ek60 import ModelEK60
+from echopype.model.adcp import ModelADCP
 
 
 class EchoData:
@@ -32,9 +33,11 @@ class EchoData:
                 raise ValueError("This file is incompatible with echopype functions.")
 
         # Returns specific EchoData object
-        if echo_type == "EK60":
+        if echo_type == 'EK60':
             return ModelEK60(nc_path)
-        elif echo_type == "AZFP":
+        elif echo_type == 'AZFP':
             return ModelAZFP(nc_path)
+        elif echo_type == 'ADCP, AD2CP, Nortek':
+            return ModelADCP(nc_path)
         else:
             raise ValueError("Unsupported file type")
