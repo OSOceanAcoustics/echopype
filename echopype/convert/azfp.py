@@ -463,9 +463,7 @@ class ConvertAZFP:
     def get_ping_time(self):
         """Returns the ping times"""
 
-        try:
-            self.unpacked_data
-        except AttributeError:
+        if not self.unpacked_data:
             self.parse_raw()
 
         ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
