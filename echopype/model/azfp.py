@@ -16,6 +16,8 @@ class ModelAZFP(ModelBase):
         ModelBase.__init__(self, file_path)
         self.salinity = 29.6       # Salinity in psu
         self.pressure = 60         # Pressure in dbars (~ equal to depth in meters)
+        self.bins_to_avg = 1
+        self.time_to_avg = 40
 
     # Retrieve sound_speed. Calculate if not stored
     @property
@@ -145,7 +147,12 @@ class ModelAZFP(ModelBase):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        self.sample_thickness = self.sound_speed * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+        # Average the sound speeds if it is an array as opposed to a single value
+        try:
+            self.sample_thickness = self.sound_speed.mean() * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+        except AttributeError:
+            self.sample_thickness = self.sound_speed * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+
         depth = self.calc_range()
         self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                    ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(depth) +
@@ -173,3 +180,6 @@ class ModelAZFP(ModelBase):
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
 
         ds_beam.close()
+
+    def get_MVBS(self):
+        super().get_MVBS('Sv', self.bins_to_avg, self.time_to_avg)
