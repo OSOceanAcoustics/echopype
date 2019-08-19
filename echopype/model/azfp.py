@@ -38,17 +38,17 @@ class ModelAZFP(ModelBase):
 
         # TODO Handle varying range
         # Calculate range from soundspeed for each frequency
-        depth = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
+        range_meter = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
                  (((2 * m - 1) * range_samples[0] * bins_to_avg - 1) / dig_rate[0] +
                  (pulse_length / np.timedelta64(1, 's')))).drop('ping_time')
         if tilt_corrected:
-            depth = ds_beam.cos_tilt_mag.mean() * depth
+            range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
 
         ds_beam.close()
         ds_vend.close()
         ds_env.close()
 
-        return depth
+        return range_meter
 
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
@@ -64,27 +64,22 @@ class ModelAZFP(ModelBase):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        # Derived params # -FC (should choose between 'depth' and 'calc_range' which are the same)
+        # Derived params # -FC (renamed 'depth' by 'calc_range' to be systematic)
         sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
-        depth = self.calc_range()
+        range_meter = self.calc_range()
 
         # From Ek60.py:
         # Calibration and echo integration 
         #Sv = ds_beam.backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         #Sv.name = 'Sv'
         self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(depth) +
-                   2 * ds_beam.sea_abs * depth -
+                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
+                   2 * ds_beam.sea_abs * range_meter -
                    10 * np.log10(0.5 * ds_env.sound_speed_indicative *
                                  ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
                                  ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
-        # -FC from ../model/Ek60.py:
-        # ---------
         # Get TVG and absorption
-        range_meter = self.calc_range()
-        ## range_meter = ds_beam.range_bin * sample_thickness - \
-        ##               self.tvg_correction_factor * sample_thickness  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
         ABS = 2 * ds_env.absorption_indicative * range_meter
@@ -93,7 +88,7 @@ class ModelAZFP(ModelBase):
         self.sample_thickness = sample_thickness
         self.TVG = TVG
         self.ABS = ABS
-        # ---------
+
 
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
