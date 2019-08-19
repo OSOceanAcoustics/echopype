@@ -178,7 +178,7 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            # -FC (added 'if' statement below):            
+            # -FC (added 'if' statement below):
             # Noise calculation
             if (self.ABS is None) & (self.TVG is None):
                 p_c_lin = 10 ** ((x) / 10)
@@ -194,7 +194,7 @@ class ModelBase(object):
             x = 10*np.log10(10**(x/10) - 10**(nn/10))
             # Return only where signal is 10db above noise (SNR>10) and at least -120db
             return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
-    
+
         # Groupby noise removal operation
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
