@@ -141,6 +141,23 @@ class ModelBase(object):
         else:
             return self.Sv.to_dataset(name='Sv')  # and point to results
 
+    # -FC (did not exist before)
+    def _get_proc_Sv_clean(self):
+        """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
+
+        This method is called by remove_noise(), noise_estimates() and get_MVBS().
+        """
+        if self.Sv_clean is None:  # if don't have Sv_clean as attribute
+            if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
+                return xr.open_dataset(self.Sv_clean_path)  # just load results
+            else:  # if also don't have _Sv_clean.nc file
+                self.calibrate()  # then calibrate
+                return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
+        else:
+            return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
+
+    
+            
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
@@ -313,7 +330,8 @@ class ModelBase(object):
             proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
             if self.Sv_clean is not None:              # if already have Sv_clean as attribute
-                proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
+                proc_data = self.Sv_clean #-FC
+                #proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
             elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
                 proc_data = xr.open_dataset(self.Sv_clean_path)
             else:
@@ -328,12 +346,18 @@ class ModelBase(object):
                                  r_tile_sz=self.MVBS_range_bin_size,
                                  p_tile_sz=self.MVBS_ping_size,
                                  sample_thickness=self.sample_thickness)
-
         # Calculate MVBS
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-            groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
-
+        # -FC (added if statement below)
+        if source == 'Sv':
+            MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+        elif source == 'Sv_clean':
+            MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+        else:
+            raise ValueError('Unknown source, cannot calculate MVBS')
+        
         # Set MVBS coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
