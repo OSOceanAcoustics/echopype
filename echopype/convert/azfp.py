@@ -31,10 +31,10 @@ class ConvertAZFP:
             'xml_file_name': "12022310.XML",
             'platform_name': "",    # Name of the platform. Fill in with actual value
             'platform_type': "subsurface mooring",   # Type of platform. Defaults to "subsurface mooring"
-            'salinity': 29.6,       # Salinity in psu
-            'pressure': 60,         # in dbars (~ depth of instument in meters)
+            'salinity': 32,       # Salinity in psu
+            'pressure': 80,         # in dbars (~ depth of instument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
-            'hourly_avg_temp': 18,  # Default value if no AZFP temperature is found.
+            'hourly_avg_temp': 5,  # Default value if no AZFP temperature is found.
                                     # Used to calculate sound-speed and range
             # PLOTTING
             'plot': 1,              # Show an echogram plot for each channel
@@ -45,7 +45,7 @@ class ConvertAZFP:
             'noise_floor': 10000,   # Default = 10000
             # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
             # This changes the ydir on the echogram plots only.
-            'orientation': 1,       # Default = 1
+            'orientation': 0,       # Default = 1
             # Use tilt corrected ranges for the echogram plots
             # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
             'use_tilt_corr': 0      # Default = 0
