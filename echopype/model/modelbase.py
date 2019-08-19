@@ -8,7 +8,6 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 
-
 class ModelBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
@@ -25,7 +24,9 @@ class ModelBase(object):
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
-
+        self.SNR = 10  # min signal-to-noise ratio -FC
+        self.Sv_threshold = -120 # min Sv threshold -FC
+        
     @property
     def file_path(self):
         return self._file_path
@@ -95,16 +96,19 @@ class ModelBase(object):
         r_tile_bin_edge : list of int
             bin edges along the range_bin dimension for :py:func:`xarray.DataArray.groupby_bins` operation
         """
+
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
         num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
         r_tile_sz = (num_r_per_tile * sample_thickness).values
 
         # Number of tiles along range_bin
-        if np.mod(r_data_sz, num_r_per_tile) == 0:
-            num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
-        else:
-            num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
-
+        ## if np.mod(r_data_sz, num_r_per_tile) == 0:
+        ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
+        ## else:
+        ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+        # -FC test
+        num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+            
         # Produce a new coordinate for groupby operation
         if np.mod(p_data_sz, p_tile_sz) == 0:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
@@ -156,7 +160,7 @@ class ModelBase(object):
 
         # Check params
         if (noise_est_range_bin_size is not None) and (self.noise_est_range_bin_size != noise_est_range_bin_size):
-            self.noise_est_range_bin_size = noise_est_range_bin_size
+            self.noise_est_range_bin_size = noise_est_range_bin_sizex
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
 
@@ -173,11 +177,51 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                               groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                 + self.ABS + self.TVG
-            return x.where(x > nn, other=np.nan)
+            # -FC:
+            if (self.ABS is None) & (self.TVG is None):
+                #TVG = 40*np.log10(x.range_bin)
+                ## ABS = x.frequency*0
+                ## ABS[0] = 0.009778
+                ## ABS[1] = 0.019828
+                ## ABS[2] = 0.030685
+                ## ABS[3] = 0.042934
+                #ABS=0
+                ## p_c_lin = 10 ** ((x - TVG - ABS) / 10)
+                ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+                ##                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))\
+                ##                 + ABS + TVG
+                ## p_c_lin = 10 ** ((x - .009778 - TVG) / 10)
+                ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+                ##                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+                ##                 + .009778 + TVG 
+
+                # Noise calculation
+                p_c_lin = 10 ** ((x) / 10)
+                nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+            else:
+                p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+                nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+                    + self.ABS + self.TVG
+                    
+            # ** Should be pass in parameters**
+            #Minimum signal to noise ratio and minimum threshold
+            #s2n = 10
+            #Sv_min = -120
+            #return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
+            # Subtract noise to Sv
+            #x = x-nn
+            x = 10*np.log10(10**(x/10) - 10**(nn/10))
+            # Return only where signal is 10db above ratio and at least -120db
+            return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
+    
+            # orig:
+            ## p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+            ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+            ##                    groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+            ##      + self.ABS + self.TVG
+            ## return x.where(x > nn, other=np.nan)
 
         # Groupby noise removal operation
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
@@ -285,6 +329,8 @@ class ModelBase(object):
             default to ``False``
         """
         # Check params
+        # -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
+        #if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
             self.MVBS_range_bin_size = MVBS_range_bin_size
         if (MVBS_ping_size is not None) and (self.MVBS_ping_size != MVBS_ping_size):
@@ -322,6 +368,8 @@ class ModelBase(object):
         MVBS.coords['ping_time'] = ('add_idx', ping_time)
         range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
                                                   groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
+        # USAGE EX:
+        # Dataset.groupby_bins(group, bins, right: bool = True, labels=None, precision: int = 3, include_lowest: bool = False, squeeze: bool = True, restore_coord_dims: Optional[bool] = None)
         MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
         MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
             drop({'add_idx', 'range_bin_bins'})
