@@ -106,7 +106,8 @@ class ModelBase(object):
         ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
         ## else:
         ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
-        # -FC test
+
+        # -FC: Removed +1 above
         num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
             
         # Produce a new coordinate for groupby operation
@@ -177,25 +178,9 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            # -FC:
+            # -FC (added 'if' statement below):            
+            # Noise calculation
             if (self.ABS is None) & (self.TVG is None):
-                #TVG = 40*np.log10(x.range_bin)
-                ## ABS = x.frequency*0
-                ## ABS[0] = 0.009778
-                ## ABS[1] = 0.019828
-                ## ABS[2] = 0.030685
-                ## ABS[3] = 0.042934
-                #ABS=0
-                ## p_c_lin = 10 ** ((x - TVG - ABS) / 10)
-                ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                ##                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))\
-                ##                 + ABS + TVG
-                ## p_c_lin = 10 ** ((x - .009778 - TVG) / 10)
-                ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                ##                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                ##                 + .009778 + TVG 
-
-                # Noise calculation
                 p_c_lin = 10 ** ((x) / 10)
                 nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
@@ -205,24 +190,11 @@ class ModelBase(object):
                                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
                     + self.ABS + self.TVG
                     
-            # ** Should be pass in parameters**
-            #Minimum signal to noise ratio and minimum threshold
-            #s2n = 10
-            #Sv_min = -120
-            #return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
-            # Subtract noise to Sv
-            #x = x-nn
+            # Remove noise from signal # -FC (noise was not removed before)
             x = 10*np.log10(10**(x/10) - 10**(nn/10))
-            # Return only where signal is 10db above ratio and at least -120db
+            # Return only where signal is 10db above noise (SNR>10) and at least -120db
             return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
     
-            # orig:
-            ## p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
-            ## nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-            ##                    groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-            ##      + self.ABS + self.TVG
-            ## return x.where(x > nn, other=np.nan)
-
         # Groupby noise removal operation
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
