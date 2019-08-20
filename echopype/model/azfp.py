@@ -182,5 +182,5 @@ class ModelAZFP(ModelBase):
 
         ds_beam.close()
 
-    def get_MVBS(self):
-        super().get_MVBS('Sv', self.bins_to_avg, self.time_to_avg)
+    # def get_MVBS(self):
+    #     super().get_MVBS('Sv', self.bins_to_avg, self.time_to_avg)
