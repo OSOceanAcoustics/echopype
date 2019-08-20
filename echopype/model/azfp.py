@@ -16,6 +16,8 @@ class ModelAZFP(ModelBase):
         ModelBase.__init__(self, file_path)
         self.salinity = 29.6       # Salinity in psu
         self.pressure = 60         # Pressure in dbars (~ equal to depth in meters)
+        self.bins_to_avg = 1
+        self.time_to_avg = 40
 
     # Retrieve sound_speed. Calculate if not stored
     @property
@@ -41,6 +43,19 @@ class ModelAZFP(ModelBase):
         except AttributeError:
             return self.calc_sea_abs()
 
+    @property
+    def temperature(self):
+        try:
+            return self._temperature
+        except AttributeError:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                self._temperature = ds_env.temperature
+                return self._temperature
+
+    @temperature.setter
+    def temperature(self, temperature):
+        self._temperature = temperature
+
     def calc_range(self, tilt_corrected=False):
         """Calculates the range in meters using sound speed and other measured values
 
@@ -58,13 +73,17 @@ class ModelAZFP(ModelBase):
         ds_vend = xr.open_dataset(self.file_path, group='Vendor')
 
         frequency = ds_beam.frequency
-        range_samples = ds_beam.number_of_samples_digitized_per_pings
+        range_samples = ds_vend.number_of_samples_per_average_bin
         pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
         bins_to_avg = 1   # set to 1 since we want to calculate from raw data
         range_bin = ds_beam.range_bin
         sound_speed = self.sound_speed
         dig_rate = ds_vend.digitization_rate
         lockout_index = ds_vend.lockout_index
+
+        # Converts sound speed to a single number. Otherwise depth will have dimension ping time
+        if len(sound_speed) != 1:
+            sound_speed = sound_speed.mean()
 
         m = []
         for jj in range(len(frequency)):
@@ -95,26 +114,29 @@ class ModelAZFP(ModelBase):
 
         Returns
         -------
-        The average sound speed
+        A sound speed for each temperature.
         """
-        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            ss = arlpy.uwa.soundspeed(temperature=ds_env.temperature, salinity=self.salinity, depth=self.pressure)
-            self._sound_speed = ss.mean()
-            return self._sound_speed
+        ss = arlpy.uwa.soundspeed(temperature=self.temperature, salinity=self.salinity, depth=self.pressure)
+        self._sound_speed = ss
+        return self._sound_speed
 
     def calc_sea_abs(self):
         """Calculate the sea absorption for each frequency with arlpy.
 
         Returns
         -------
-        An array containing absorption coefficients for each frequency
+        An array containing absorption coefficients for each frequency in dB/m
         """
-        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            temperature = ds_env.temperature
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             frequency = ds_beam.frequency
-        self._sea_abs = arlpy.uwa.absorption(frequency=frequency, temperature=temperature.mean(),
-                                             salinity=self.salinity, depth=self.pressure)
+        try:
+            temp = self.temperature.mean()    # Averages when temperature is a numpy array
+        except AttributeError:
+            temp = self.temperature
+        linear_abs = arlpy.uwa.absorption(frequency=frequency, temperature=temp,
+                                          salinity=self.salinity, depth=self.pressure)
+        # Convert linear absorption to dB/km. Convert to dB/m
+        self._sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
         return self._sea_abs
 
     def calibrate(self, save=False):
@@ -130,7 +152,12 @@ class ModelAZFP(ModelBase):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        self.sample_thickness = self.sound_speed * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+        # Average the sound speeds if it is an array as opposed to a single value
+        try:
+            self.sample_thickness = self.sound_speed.mean() * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+        except AttributeError:
+            self.sample_thickness = self.sound_speed * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+
         depth = self.calc_range()
         self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                    ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(depth) +
@@ -158,3 +185,6 @@ class ModelAZFP(ModelBase):
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
 
         ds_beam.close()
+
+    # def get_MVBS(self):
+    #     super().get_MVBS('Sv', self.bins_to_avg, self.time_to_avg)

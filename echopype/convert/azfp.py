@@ -463,9 +463,7 @@ class ConvertAZFP:
     def get_ping_time(self):
         """Returns the ping times"""
 
-        try:
-            self.unpacked_data
-        except AttributeError:
+        if not self.unpacked_data:
             self.parse_raw()
 
         ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
@@ -479,11 +477,11 @@ class ConvertAZFP:
 
         """Subfunctions to set various dictionaries"""
         def _set_toplevel_dict():
-            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                             keywords='AZFP',
                             sonar_convention_authority='ICES',
                             sonar_convention_name='SONAR-netCDF4',
-                            sonar_convention_version='1.7',
+                            sonar_convention_version='1.0',
                             summary='',
                             title='')
             return out_dict
@@ -572,14 +570,14 @@ class ConvertAZFP:
                 Sv_offset.append(calc_sv_offset(freq[jj], self.unpacked_data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
-            # range_samples = np.array(self.parameters['range_samples'])        # from xml file
-            range_samples = self.unpacked_data[0]['range_samples']                       # from data header
+            range_samples = np.array(self.parameters['range_samples'])        # from xml file
+            range_samples_head = self.unpacked_data[0]['range_samples']           # from data header
 
             # Check if dig_rate and range_samples is unique within each frequency
             if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
                 # sample interval for every ping for each channel
                 # sample_int = np.unique(range_samples, axis=0) / np.unique(dig_rate, axis=0)
-                sample_int = np.array(range_samples) / np.array(dig_rate)
+                sample_int = np.array(range_samples_head) / np.array(dig_rate)
             else:
                 raise ValueError("dig_rate and range_samples not unique across frequencies")
 
@@ -643,16 +641,16 @@ class ConvertAZFP:
             out_dict = {
                 'ping_time': ping_time,
                 'frequency': freq,
-                'profile_flag': self.unpacked_data[0]['profile_flag'],
+                'profile_flag': [d['profile_flag'] for d in self.unpacked_data],
                 'profile_number': [d['profile_number'] for d in self.unpacked_data],
                 'ping_status': [d['ping_status'] for d in self.unpacked_data],
                 'burst_interval': self.unpacked_data[0]['burst_int'],
                 'digitization_rate': self.unpacked_data[0]['dig_rate'],     # Dim: frequency
                 'lockout_index': self.unpacked_data[0]['lockout_index'],   # Dim: frequency
                 'num_bins': self.unpacked_data[0]['num_bins'],              # Dim: frequency
-                # 'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency  In beam dict
+                'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency  In beam dict
                 'ping_per_profile': self.unpacked_data[0]['ping_per_profile'],
-                'average_pings_flag': self.unpacked_data[0]['avg_pings'],
+                'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
                 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
                 'ping_period': self.unpacked_data[0]['ping_period'],
                 'first_ping': [d['first_ping'] for d in self.unpacked_data],
@@ -661,7 +659,7 @@ class ConvertAZFP:
                 'data_error': [d['data_error'] for d in self.unpacked_data],
                 'phase': self.unpacked_data[0]['phase'],
                 'number_of_channels': self.unpacked_data[0]['num_chan'],
-                'spare_channel': [d['spare_chan'] for d in self.unpacked_data],
+                'spare_channel': self.unpacked_data[0]['spare_chan'],
                 'board_number': self.unpacked_data[0]['board_num'],         # Dim: frequency
                 'sensor_flag': [d['sensor_flag'] for d in self.unpacked_data],
                 'ancillary': [d['ancillary'] for d in self.unpacked_data],            # 5 values
