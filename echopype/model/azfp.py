@@ -81,6 +81,10 @@ class ModelAZFP(ModelBase):
         dig_rate = ds_vend.digitization_rate
         lockout_index = ds_vend.lockout_index
 
+        # Converts sound speed to a single number. Otherwise depth will have dimension ping time
+        if len(sound_speed) != 1:
+            sound_speed = sound_speed.mean()
+
         m = []
         for jj in range(len(frequency)):
             m.append(np.arange(1, len(range_bin) - bins_to_avg + 2,
