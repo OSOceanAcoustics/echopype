@@ -121,7 +121,7 @@ class ModelAZFP(ModelBase):
 
         Returns
         -------
-        An array containing absorption coefficients for each frequency
+        An array containing absorption coefficients for each frequency in dB/m
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             frequency = ds_beam.frequency
@@ -129,9 +129,10 @@ class ModelAZFP(ModelBase):
             temp = self.temperature.mean()    # Averages when temperature is a numpy array
         except AttributeError:
             temp = self.temperature
-        self._sea_abs = arlpy.uwa.absorption(frequency=frequency, temperature=temp,
-                                             salinity=self.salinity, depth=self.pressure)
-        mag = -arlpy.utils.mag2db(self._sea_abs)
+        linear_abs = arlpy.uwa.absorption(frequency=frequency, temperature=temp,
+                                          salinity=self.salinity, depth=self.pressure)
+        # Convert linear absorption to dB/km. Convert to dB/m
+        self._sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
         return self._sea_abs
 
     def calibrate(self, save=False):
