@@ -189,14 +189,28 @@ class ConvertAZFP:
             if len(field) == 3:
                 arr = []
                 for _ in range(field[2]):
-                    arr.append(header_unpacked[i])
+                    arr.append(header_unpacked[i])                    
                     i += 1
+                #if self.parameters['num_freq'] == 3:
                 unpacked_data[ii][field[0]] = arr
             else:
                 unpacked_data[ii][field[0]] = header_unpacked[i]
                 i += 1
-        return True
-
+            
+        # -FC clean when num_freq = 3
+        if self.parameters['num_freq'] == 3:
+            del unpacked_data[ii]['dig_rate'][-1]
+            del unpacked_data[ii]['lockout_index'][-1]
+            del unpacked_data[ii]['num_bins'][-1]
+            del unpacked_data[ii]['range_samples'][-1]
+            del unpacked_data[ii]['data_type'][-1]
+            del unpacked_data[ii]['gain'][-1]
+            del unpacked_data[ii]['pulse_length'][-1]
+            del unpacked_data[ii]['board_num'][-1]
+            del unpacked_data[ii]['frequency'][-1]
+                    
+        return True        
+    
     def _add_counts(self, raw, ii, unpacked_data):
         """Unpacks the echosounder raw data. Modifies unpacked_data in place.
 
@@ -389,7 +403,8 @@ class ConvertAZFP:
                     # End of file
                     eof = True
                 ii += 1
-
+                
+                    
         # Compute hourly average temperature for sound speed calculation
         unpacked_data[0]['hourly_avg_temp'] = compute_avg_temp(unpacked_data, self.parameters['hourly_avg_temp'])
         unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
@@ -436,9 +451,10 @@ class ConvertAZFP:
         def _set_env_dict():
             temps = [d['temperature'] for d in self.unpacked_data]
             abs_val = self.unpacked_data[0]['sea_abs']
-            ss_val = [self.unpacked_data[0]['sound_speed']] * 4           # Sound speed independent of frequency
-            salinity = [self.parameters['salinity']] * 4    # Salinity independent of frequency
-            pressure = [self.parameters['pressure']] * 4    # Pressure independent of frequency
+            # -FC: added variable num_freq capabilities
+            ss_val = [self.unpacked_data[0]['sound_speed']] * self.parameters['num_freq']           # Sound speed independent of frequency
+            salinity = [self.parameters['salinity']] * self.parameters['num_freq']    # Salinity independent of frequency
+            pressure = [self.parameters['pressure']] * self.parameters['num_freq']    # Pressure independent of frequency
 
             attrs = ('frequency', 'absorption_coeff', 'sound_speed', 'salinity', 'temperature', 'pressure')
             vals = (freq, abs_val, ss_val, salinity, temps, pressure)
