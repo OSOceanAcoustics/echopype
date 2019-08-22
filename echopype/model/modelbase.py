@@ -24,8 +24,8 @@ class ModelBase(object):
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
-        self.SNR = 10  # min signal-to-noise ratio -FC
-        self.Sv_threshold = -120 # min Sv threshold -FC
+        self.SNR = 10  # min signal-to-noise ratio
+        self.Sv_threshold = -120 # min Sv threshold
         
     @property
     def file_path(self):
@@ -107,7 +107,7 @@ class ModelBase(object):
         ## else:
         ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
 
-        # -FC: Removed +1 above
+        # -FC: Removed +1 above, need to be tested!
         num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
             
         # Produce a new coordinate for groupby operation
@@ -141,7 +141,6 @@ class ModelBase(object):
         else:
             return self.Sv.to_dataset(name='Sv')  # and point to results
 
-    # -FC (did not exist before)
     def _get_proc_Sv_clean(self):
         """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
 
@@ -195,7 +194,6 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            # -FC (added 'if' statement below):
             # Noise calculation
             if (self.ABS is None) & (self.TVG is None):
                 p_c_lin = 10 ** ((x) / 10)
@@ -207,7 +205,7 @@ class ModelBase(object):
                                 groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
                     + self.ABS + self.TVG
                     
-            # Remove noise from signal # -FC (noise was not removed before)
+            # Remove noise from signal
             x = 10*np.log10(10**(x/10) - 10**(nn/10))
             # Return only where signal is 10db above noise (SNR>10) and at least -120db
             return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
@@ -330,8 +328,7 @@ class ModelBase(object):
             proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
             if self.Sv_clean is not None:              # if already have Sv_clean as attribute
-                proc_data = self.Sv_clean #-FC
-                #proc_data = self.Sv_clean.to_dataset(name='Sv_clean')   # and point to results
+                proc_data = self.Sv_clean 
             elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
                 proc_data = xr.open_dataset(self.Sv_clean_path)
             else:
@@ -348,7 +345,6 @@ class ModelBase(object):
                                  sample_thickness=self.sample_thickness)
         # Calculate MVBS
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        # -FC (added if statement below)
         if source == 'Sv':
             MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
                 groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
