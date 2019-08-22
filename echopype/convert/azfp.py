@@ -191,13 +191,12 @@ class ConvertAZFP:
                 for _ in range(field[2]):
                     arr.append(header_unpacked[i])                    
                     i += 1
-                #if self.parameters['num_freq'] == 3:
                 unpacked_data[ii][field[0]] = arr
             else:
                 unpacked_data[ii][field[0]] = header_unpacked[i]
                 i += 1
             
-        # -FC clean when num_freq = 3
+        # clean when num_freq = 3
         if self.parameters['num_freq'] == 3:
             del unpacked_data[ii]['dig_rate'][-1]
             del unpacked_data[ii]['lockout_index'][-1]
@@ -451,7 +450,7 @@ class ConvertAZFP:
         def _set_env_dict():
             temps = [d['temperature'] for d in self.unpacked_data]
             abs_val = self.unpacked_data[0]['sea_abs']
-            # -FC: added variable num_freq capabilities
+            # Take into account variable 'num_freq'
             ss_val = [self.unpacked_data[0]['sound_speed']] * self.parameters['num_freq']           # Sound speed independent of frequency
             salinity = [self.parameters['salinity']] * self.parameters['num_freq']    # Salinity independent of frequency
             pressure = [self.parameters['pressure']] * self.parameters['num_freq']    # Pressure independent of frequency
