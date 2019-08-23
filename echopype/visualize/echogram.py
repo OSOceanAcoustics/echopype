@@ -28,9 +28,6 @@ class EchoGram:
         **kwargs optional
             additional keyword arguments to matplotlib
         """
-        if self.echo_data.type == 'EK60':
-            raise ValueError("EK60 not supported")
-
         data = getattr(self.echo_data, form)
         depth = self.echo_data.calc_range()
 
