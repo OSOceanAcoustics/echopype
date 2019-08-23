@@ -165,6 +165,7 @@ class ModelAZFP(ModelBase):
                    10 * np.log10(0.5 * self.sound_speed *
                                  ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
                                  ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
+        self.Sv.name = "Sv"
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_dataset(name="Sv").to_netcdf(path=self.Sv_path, mode="w")
@@ -180,6 +181,7 @@ class ModelAZFP(ModelBase):
         self.TS = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                    ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 40 * np.log10(depth) +
                    2 * self.sea_abs * depth)
+        self.TS.name = "TS"
         if save:
             print("{} saving calibrated TS to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
