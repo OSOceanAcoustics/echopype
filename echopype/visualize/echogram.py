@@ -28,6 +28,9 @@ class EchoGram:
         **kwargs optional
             additional keyword arguments to matplotlib
         """
+        if self.echo_data.type == 'EK60':
+            raise ValueError("EK60 not supported")
+
         data = getattr(self.echo_data, form)
         depth = self.echo_data.calc_range()
 
@@ -89,10 +92,10 @@ class EchoGram:
         else:
             # Fill interval between bursts with white
             if not infer_burst:
-                if not plot_ping_number:
+                if plot_ping_number:
                     raise ValueError("Plotting with ping number cannot be done unless infer_burst = True")
 
-                with xr.open_dataset(tmp_convert.nc_path, group='Vendor') as ds_vend:
+                with xr.open_dataset(self.echo_data.file_path, group='Vendor') as ds_vend:
                     ping_per_profile = ds_vend.ping_per_profile  # 60 (pings) for test dataset
                     ping_period = ds_vend.ping_period  # 3 (seconds) for test dataset
                     # burst_int = ds_vend.burst_interval  # 900 (seconds) for test dataset
@@ -146,19 +149,33 @@ class EchoGram:
                               **kwargs).set_xlabels('Ping time').set_ylabels('Depth (m)')
                     return
 
-azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
-azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
+# azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
+# azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
 
-# Convert to .nc file
-tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
-tmp_convert.raw2nc()
+# # Convert to .nc file
+# tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
+# tmp_convert.raw2nc()
 
-tmp_echo = EchoData(tmp_convert.nc_path)
-tmp_echo.calibrate(save=False)
-tmp_echo.calibrate_ts(save=False)
-tmp_echo.get_MVBS()
+# tmp_echo = EchoData(tmp_convert.nc_path)
+# tmp_echo.calibrate(save=False)
+# tmp_echo.calibrate_ts(save=False)
+# tmp_echo.get_MVBS()
 
-tmp_plot = EchoGram(tmp_echo)
-tmp_plot.plot('Sv', frequency=38000, infer_burst=True, robust=True, cmap='jet')
-plt.show()
-pass
+# tmp_plot = EchoGram(tmp_echo)
+# tmp_plot.plot('Sv', frequency=38000, infer_burst=False, robust=True, cmap='jet')
+# plt.show()
+
+#EK60 TESTING
+# ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+# import os
+# nc_path = os.path.join(os.path.dirname(ek60_raw_path),
+#                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
+# tmp = Convert(ek60_raw_path)
+# tmp.raw2nc()
+
+# # Read .nc file into an EchoData object and calibrate
+# tmp_echo = EchoData(nc_path)
+# tmp_echo.calibrate(save=False)
+# tmp_plot = EchoGram(tmp_echo)
+# tmp_plot.plot('Sv', frequency=38000, infer_burst=True, robust=True, cmap='jet')
+# plt.show()
