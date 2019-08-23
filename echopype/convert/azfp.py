@@ -189,7 +189,7 @@ class ConvertAZFP:
             if len(field) == 3:
                 arr = []
                 for _ in range(field[2]):
-                    arr.append(header_unpacked[i])                    
+                    arr.append(header_unpacked[i])
                     i += 1
                 unpacked_data[ii][field[0]] = arr
             else:

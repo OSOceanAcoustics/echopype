@@ -177,7 +177,7 @@ class ModelBase(object):
 
         # Check params
         if (noise_est_range_bin_size is not None) and (self.noise_est_range_bin_size != noise_est_range_bin_size):
-            self.noise_est_range_bin_size = noise_est_range_bin_sizex
+            self.noise_est_range_bin_size = noise_est_range_bin_size
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
 
@@ -360,8 +360,6 @@ class ModelBase(object):
         MVBS.coords['ping_time'] = ('add_idx', ping_time)
         range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
                                                   groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
-        # USAGE EX:
-        # Dataset.groupby_bins(group, bins, right: bool = True, labels=None, precision: int = 3, include_lowest: bool = False, squeeze: bool = True, restore_coord_dims: Optional[bool] = None)
         MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
         MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
             drop({'add_idx', 'range_bin_bins'})
