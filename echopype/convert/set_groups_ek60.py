@@ -133,10 +133,10 @@ class SetGroupsEK60(SetGroupsBase):
             ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
             ds = xr.Dataset(
-                {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
-                                   {'long_name': 'Backscatter power',
-                                    'units': 'dB'}),
-                 'beamwidth_receive_major': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
+                # {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                #                    {'long_name': 'Backscatter power',
+                #                     'units': 'dB'}),
+                {'beamwidth_receive_major': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                              {'long_name': 'Half power one-way receive beam width along '
                                                            'major (horizontal) axis of beam',
                                               'units': 'arc_degree',
@@ -232,6 +232,25 @@ class SetGroupsEK60(SetGroupsBase):
                         'range_bin': (['range_bin'], beam_dict['range_bin'])},
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
+
+            for i in list(range(len(beam_dict['range_lengths']))):
+                ds = xr.merge([ds,
+                              xr.Dataset({f'backscatter_r_{i}':
+                                          (['frequency', f'ping_time_{i}', f'range_bin_{i}'],
+                                           np.array([beam_dict['power_dict'][i][x] for x in
+                                                     beam_dict['power_dict'][i].keys()]))},
+                                         coords={'frequency': (['frequency'], beam_dict['frequency']),
+                                                 f'ping_time_{i}': ([f'ping_time_{i}'],
+                                                                    beam_dict['ping_time_split'][i],
+                                                                    {'axis': 'T',
+                                                                     'calendar': 'gregorian',
+                                                                     'long_name': 'Timestamp of each ping',
+                                                                     'standard_name': 'time',
+                                                                     'units': 'seconds since 1900-01-01'}),
+                                                 f'range_bin_{i}': ([f'range_bin_{i}'],
+                                                                    np.arange(beam_dict['power_dict'][i][1].shape[1]))}
+                                         )]
+                              )
 
             # Below are specific to Simrad EK60 .raw files
             if 'channel_id' in beam_dict:
