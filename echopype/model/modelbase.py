@@ -63,7 +63,7 @@ class ModelBase(object):
     
     @property
     def sample_thickness(self):
-        if self._sample_thickness == None:
+        if self._sample_thickness is None:
             ds_env = xr.open_dataset(self.file_path, group="Environment")
             ds_beam = xr.open_dataset(self.file_path, group="Beam")
             self._sample_thickness = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
