@@ -504,23 +504,47 @@ class ConvertEK60:
             uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
             idx_unwanted = np.argwhere(lens != uni[np.argmax(uni_cnt)]).squeeze()
 
-            # Trim ping_data_dict
-            for c_seq, c in self.ping_data_dict.items():  # loop through all channels
-                for y_seq, y in c.items():
-                    if isinstance(y, list):  # if it's a list trim it
-                        [y.pop(x) for x in idx_unwanted[::-1]]
+            # # Trim ping_data_dict
+            # for c_seq, c in self.ping_data_dict.items():  # loop through all channels
+            #     for y_seq, y in c.items():
+            #         if isinstance(y, list):  # if it's a list trim it
+            #             [y.pop(x) for x in idx_unwanted[::-1]]
 
             # Trim ping_time
-            [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
+            # [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
+            self.ping_time_split = {}
+            self.power_dict_split = {}
+            for i, length in enumerate(uni):
+                self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
+                self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+
             self.ping_time = np.array(self.ping_time)
 
             # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
-                [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
+                for x in idx_unwanted[::-1]:
+                    self.power_dict_split[1][ch_num].append(self.power_dict[ch_num].pop(x))
+                # [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
+                self.power_dict_split[0][ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
+                self.power_dict_split[1][ch_num] = np.array(self.power_dict_split[1][ch_num]) * INDEX2POWER
+
+                # TODO DELETE THE FOLLOWING
                 self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
                 # TODO: need to convert angle data too
 
+        # import xarray as xr
+        self.range_lengths = uni
+        # freq = [int(i['frequency']) for x, i in self.ping_data_dict.items()]
+        # Loop to handle varying ranges
+        # ds = xr.Dataset()
+        # # for i in list(range(len(uni))):
+        #     ds = xr.merge([ds, xr.Dataset({f'backscatter_r_{i}': (['frequency', f'ping_time_{i}', f'range_bin_{i}'],
+        #                                   np.array([self.power_dict_split[i][x] for x in
+        #                                             self.power_dict_split[i].keys()]))},
+        #                   coords={'frequency': (['frequency'], freq),
+        #                           f'ping_time_{i}': ([f'ping_time_{i}'], self.ping_time_split[i]),
+        #                           f'range_bin_{i}': ([f'range_bin_{i}'],
+        #                                              np.arange(self.power_dict_split[i][1].shape[1]))})])
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
@@ -719,8 +743,10 @@ class ConvertEK60:
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
             beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
-
+            # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
+            beam_dict['range_lengths'] = self.range_lengths
+            beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
