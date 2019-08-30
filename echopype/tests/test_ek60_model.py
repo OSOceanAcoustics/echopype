@@ -4,8 +4,8 @@ import xarray as xr
 from echopype.convert.ek60 import ConvertEK60
 from echopype.model.ek60 import ModelEK60
 
-ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
-# ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
+# ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
+ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
 nc_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
 Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
