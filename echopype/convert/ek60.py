@@ -526,7 +526,11 @@ class ConvertEK60:
                     self.power_dict_split[1][ch_num].append(self.power_dict[ch_num].pop(x))
                 # [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
                 self.power_dict_split[0][ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                self.power_dict_split[1][ch_num] = np.array(self.power_dict_split[1][ch_num]) * INDEX2POWER
+                # TODO Handle datasets with rangebins of 1 length
+                try:
+                    self.power_dict_split[1][ch_num] = np.array(self.power_dict_split[1][ch_num]) * INDEX2POWER
+                except KeyError:
+                    pass
 
                 # TODO DELETE THE FOLLOWING
                 self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
