@@ -502,53 +502,29 @@ class ConvertEK60:
             # Find indices of unwanted pings
             lens = [len(l) for l in self.power_dict[1]]
             uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
-            idx_unwanted = np.argwhere(lens != uni[np.argmax(uni_cnt)]).squeeze()
 
-            # # Trim ping_data_dict
-            # for c_seq, c in self.ping_data_dict.items():  # loop through all channels
-            #     for y_seq, y in c.items():
-            #         if isinstance(y, list):  # if it's a list trim it
-            #             [y.pop(x) for x in idx_unwanted[::-1]]
+            # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
+            indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
 
-            # Trim ping_time
-            # [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
+            # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
             self.ping_time_split = {}
             self.power_dict_split = {}
             for i, length in enumerate(uni):
                 self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
                 self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
-            self.ping_time = np.array(self.ping_time)
-
-            # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
-                for x in idx_unwanted[::-1]:
-                    self.power_dict_split[1][ch_num].append(self.power_dict[ch_num].pop(x))
-                # [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
-                self.power_dict_split[0][ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                # TODO Handle datasets with rangebins of 1 length
-                try:
-                    self.power_dict_split[1][ch_num] = np.array(self.power_dict_split[1][ch_num]) * INDEX2POWER
-                except KeyError:
-                    pass
+                # r_b represents index for range_bin (how many different range_bins there are).
+                # r is the list of indexes that correspond to that range
+                for r_b, r in enumerate(indices.values()):
+                    for r_idx in r:
+                        self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                    self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
 
-                # TODO DELETE THE FOLLOWING
-                self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                # TODO: need to convert angle data too
-
-        # import xarray as xr
+        # TODO: need to convert angle data too
+        self.ping_time = np.array(self.ping_time)
         self.range_lengths = uni
-        # freq = [int(i['frequency']) for x, i in self.ping_data_dict.items()]
-        # Loop to handle varying ranges
-        # ds = xr.Dataset()
-        # # for i in list(range(len(uni))):
-        #     ds = xr.merge([ds, xr.Dataset({f'backscatter_r_{i}': (['frequency', f'ping_time_{i}', f'range_bin_{i}'],
-        #                                   np.array([self.power_dict_split[i][x] for x in
-        #                                             self.power_dict_split[i].keys()]))},
-        #                   coords={'frequency': (['frequency'], freq),
-        #                           f'ping_time_{i}': ([f'ping_time_{i}'], self.ping_time_split[i]),
-        #                           f'range_bin_{i}': ([f'range_bin_{i}'],
-        #                                              np.arange(self.power_dict_split[i][1].shape[1]))})])
+
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
