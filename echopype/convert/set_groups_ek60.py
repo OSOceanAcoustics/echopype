@@ -234,19 +234,21 @@ class SetGroupsEK60(SetGroupsBase):
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
 
-            num_ranges = len(beam_dict['range_lengths'])
-            if num_ranges > 1:
+            pieces = len(beam_dict['range_lengths'])
+            # If range varies in length over time, it will be split into range_bin_0, range_bin_1, etc.
+            # Same with backscatter_r and ping_time
+            # If not, they will be saved as range_bin, ping_time, and backscatte_r
+            if pieces > 1:
                 sep = "_"
             else:
-                 sep = ""
-                 
-            for i in list(range(num_ranges)):
-                if num_ranges == 1:
+                sep = ""
+
+            for i in list(range(pieces)):
+                if pieces == 1:
                     idx = ""
                 else:
-                    idx == i
-                # If range varies in length over time, it will be split into range_bin_0, range_bin_1, etc.
-                # Same with backscatter_r and ping_time
+                    idx = i
+
                 ds = xr.merge([ds,
                               xr.Dataset({f'backscatter_r{sep}{idx}':
                                           (['frequency', f'ping_time{sep}{idx}', f'range_bin{sep}{idx}'],
@@ -254,17 +256,19 @@ class SetGroupsEK60(SetGroupsBase):
                                                      beam_dict['power_dict'][i].keys()]))},
                                          coords={'frequency': (['frequency'], beam_dict['frequency']),
                                                  f'ping_time{sep}{idx}': ([f'ping_time{sep}{idx}'],
-                                                                    beam_dict['ping_time_split'][i],
-                                                                    {'axis': 'T',
-                                                                     'calendar': 'gregorian',
-                                                                     'long_name': 'Timestamp of each ping',
-                                                                     'standard_name': 'time',
-                                                                     'units': 'seconds since 1900-01-01'}
-                                                                    ),
+                                                                          beam_dict['ping_time_split'][i],
+                                                                          {'axis': 'T',
+                                                                        #    'calendar': 'gregorian',
+                                                                           'long_name': 'Timestamp of each ping',
+                                                                           'standard_name': 'time'}
+                                                                        #    'units': 'seconds since 1900-01-01'}
+                                                                          ),
                                                  f'range_bin{sep}{idx}': ([f'range_bin{sep}{idx}'],
-                                                                    np.arange(beam_dict['power_dict'][i][1].shape[1]))}
+                                                                          beam_dict['range_bin'][i])}
                                          )]
                               )
+            # Save the number of pieces of the data. 1 if ranges have the same length
+            ds['pieces'] = pieces
 
             # Below are specific to Simrad EK60 .raw files
             if 'channel_id' in beam_dict:
