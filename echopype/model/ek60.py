@@ -14,6 +14,73 @@ class ModelEK60(ModelBase):
     def __init__(self, file_path=""):
         ModelBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
+        self._piece = None   # If range changes during data collection, piece specifies which range_bin to select
+
+    @property
+    def piece(self):
+        return self._piece
+
+    @piece.setter
+    def piece(self, piece):
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            pieces = list(range(int(ds_beam.pieces)))
+            if len(pieces) == 1:
+                raise ValueError("Your data does not have changing ranges")
+            if piece in pieces:
+                self._piece = piece
+            else:
+                raise ValueError(f"\'piece\' must be one of: {pieces}")
+
+    def get_biggest_piece(self):
+        """Get the index of the biggest piece (which piece has the most pings)
+        Used if self.piece is not set by the user
+
+        Returns
+        -------
+        The index of the biggest piece. 0 if range_bin does not vary in time
+        """
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            times_list = []
+            for i in list(range(int(ds_beam.pieces))):
+                times_list.append(ds_beam[f'ping_time_{i}'])
+            # Get longest ping_time
+            piece = max(times_list, key=len)
+            # Get and save index of longest ping_time
+            self.piece = [i for i, j in enumerate(times_list) if np.array_equal(j, piece)].pop()
+            return self.piece
+
+    def get_piece(self, sel):
+        """Returns an element from the .nc file
+
+        Parameters
+        ----------
+        sel : str
+            Can be 'backscatter_r', 'ping_time', or 'range_bin'
+            Will raise an error if not one of these three
+
+        Returns
+        -------
+        The selected element specified in sel.
+        """
+        if self.piece is None:
+            self.get_biggest_piece()
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            try:
+                return ds_beam[sel]
+            except KeyError:
+                if sel == 'backscatter_r':
+                    # Return backscatter with coordinates without _x on the end
+                    return xr.DataArray(ds_beam[f'backscatter_r_{self.piece}'].values,
+                                        coords=[('frequency', ds_beam['frequency']),
+                                                ('ping_time', ds_beam[f'ping_time_{self.piece}']),
+                                                ('range_bin', ds_beam[f'range_bin_{self.piece}'])],
+                                        name='backscatter_r')
+                else:
+                    try:
+                        return ds_beam[f'{sel}_{self.piece}'].rename({
+                            f'{sel}_{self.piece}': sel})
+                    except KeyError:
+                        raise(f'{sel} is not a valid input')
 
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
@@ -32,9 +99,11 @@ class ModelEK60(ModelBase):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         # Derived params
-        sample_thickness = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
         wavelength = ds_env.sound_speed_indicative / ds_env.frequency  # wavelength
 
+        # Get backscatter_r and range_bin pieces
+        backscatter_r = self.get_piece('backscatter_r')
+        range_bin = self.get_piece('range_bin')
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
                              wavelength ** 2 * ds_env.sound_speed_indicative * ds_beam.transmit_duration_nominal *
@@ -42,24 +111,22 @@ class ModelEK60(ModelBase):
                             (32 * np.pi ** 2))
 
         # Get TVG and absorption
-        range_meter = ds_beam.range_bin * sample_thickness - \
-                      self.tvg_correction_factor * sample_thickness  # DataArray [frequency x range_bin]
+        range_meter = range_bin * self.sample_thickness - \
+            self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
         ABS = 2 * ds_env.absorption_indicative * range_meter
 
         # Save TVG and ABS for noise estimation use
-        self.sample_thickness = sample_thickness
         self.TVG = TVG
         self.ABS = ABS
 
         # Calibration and echo integration
-        Sv = ds_beam.backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
+        Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         Sv.name = 'Sv'
 
         # Save calibrated data into the calling instance and
-        # ... to a separate .nc file in the same directory as the data file
-        self.Sv = Sv
+        # ... to a separate .nc file in the same directory as the data filef.Sv = Sv
         if save:
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             Sv.to_netcdf(path=self.Sv_path, mode="w")
