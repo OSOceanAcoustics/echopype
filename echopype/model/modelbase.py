@@ -20,7 +20,7 @@ class ModelBase(object):
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
         self.TVG = None  # time varying gain along range
         self.ABS = None  # absorption along range
-        self.sample_thickness = None  # sample thickness for each frequency
+        self._sample_thickness = None  # sample thickness for each frequency
         self.Sv = None  # calibrated volume backscattering strength
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
