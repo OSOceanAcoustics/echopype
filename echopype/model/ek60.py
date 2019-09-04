@@ -41,13 +41,19 @@ class ModelEK60(ModelBase):
         """
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             times_list = []
-            for i in list(range(int(ds_beam.pieces))):
-                times_list.append(ds_beam[f'ping_time_{i}'])
-            # Get longest ping_time
-            piece = max(times_list, key=len)
-            # Get and save index of longest ping_time
-            self.piece = [i for i, j in enumerate(times_list) if np.array_equal(j, piece)].pop()
-            return self.piece
+            try:
+                for i in list(range(int(ds_beam.pieces))):
+                    times_list.append(ds_beam[f'ping_time_{i}'])
+            # Exception occurs when there is only one range. It is caught and the only piece is returned
+            except KeyError:
+                self.piece = 0
+            else:
+                # Get longest ping_time
+                piece = max(times_list, key=len)
+                # Get and save index of longest ping_time
+                self.piece = [i for i, j in enumerate(times_list) if np.array_equal(j, piece)].pop()
+            finally:
+                return self.piece
 
     def get_piece(self, sel):
         """Returns an element from the .nc file
