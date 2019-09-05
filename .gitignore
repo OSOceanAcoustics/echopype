@@ -23,4 +23,8 @@ toolbox
 *.nc
 201703/
 azfp_data/
+<<<<<<< HEAD
 2015843-D20151023-T190636.raw
+=======
+echopype/test_data/ek60/2015843-D20151023-T190636.raw
+>>>>>>> azfp-improve
