@@ -98,7 +98,7 @@ class SetGroupsAZFP(SetGroupsBase):
                          'equivalent_beam_angle': (['frequency'], beam_dict['EBA']),
                          'gain_correction': (['frequency'], beam_dict['gain_correction']),
                          'sample_interval': (['frequency'], beam_dict['sample_interval'],
-                                             {'units': 'seconds'}),
+                                             {'units': 's'}),
                          'transmit_duration_nominal': (['frequency'], beam_dict['transmit_duration_nominal'],
                                                        {'units': 'seconds'}),
                          'temperature_counts': (['ping_time'], beam_dict['temperature_counts']),
