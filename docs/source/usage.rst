@@ -8,7 +8,7 @@ Installation
 echopype is pip installable. You can install echopype by doing the following
 in your terminal:
 
-.. code-block:: console
+.. code-block:: consolen
 
     $ pip install echopype
 
@@ -151,7 +151,6 @@ Get Sv, Target Strength (TS), and MVBS by calling
     data.get_MVBS(save=True)
 
 
----------------
 
 .. [1] De Robertis and Higginbottoms (2007) A post-processing technique to
    estimate the signal-to-noise ratio and remove echosounder background noise.
