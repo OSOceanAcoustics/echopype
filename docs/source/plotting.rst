@@ -46,14 +46,14 @@ Now, make an `EchoGram` object for plotting
 Plotting a Single Channel
 ++++++++++++++++++++++++++++
 
-For plotting a single frequency, plot the data using ``.plot()`` on the ``EchoData`` object and specify the frequency to be plotted (in Hz). This example data set contains data collected in bursts. So times where the instrument did not take measurements are blank.
+For plotting a single frequency, plot the data using ``.plot()`` on the ``EchoGram`` object and specify the frequency to be plotted (in Hz). This example data set contains data collected in bursts. So times where the instrument did not take measurements are blank.
 
 .. code-block:: console
 
     tmp_plot.plot('Sv', frequency=38000, cmap='jet')
     plt.show()
 
-.. image:: images/single_no_infer.png
+.. image:: images/azfp_single_no_infer.png
 
 This data can also be represented without the white bars.
 
@@ -62,7 +62,7 @@ This data can also be represented without the white bars.
     tmp_plot.plot('Sv', frequency=38000, infer_burst=True, cmap='jet')
     plt.show()
 
-.. image:: images/single_infer.png
+.. image:: images/azfp_single_infer.png
 
 Or, by having the x-axis represent the ping number as opped to the ping time.
 
@@ -71,7 +71,7 @@ Or, by having the x-axis represent the ping number as opped to the ping time.
     tmp_plot.plot('Sv', frequency=38000, plot_ping_number=True, cmap='jet')
     plt.show()
 
-.. image:: images/single_number.png
+.. image:: images/azfp_single_number.png
 
 Plotting Multiple Channels
 +++++++++++++++++++++++++++++
@@ -83,7 +83,7 @@ In order to plot multiple frequencies, specify frequency as a ``set`` of frequen
     tmp_plot.plot('Sv', frequency={38000, 200000}, cmap='jet')
     plt.show()
 
-.. image:: images/multi_no_infer.png
+.. image:: images/azfp_multi_no_infer.png
 
 Or, simply leave out frequency to plot all channels.
 
@@ -92,20 +92,8 @@ Or, simply leave out frequency to plot all channels.
     tmp_plot.plot('Sv', cmap='jet')
     plt.show()
 
-.. image:: images/all_no_infer.png
+.. image:: images/azfp_all_no_infer.png
 
-Other Plotting Routines
-+++++++++++++++++++++++++++
-Having a data structure built off of xarray and numpy means that users are not limited to echopype's plotting methods. Users looking for additional features can use matplotlib's ``pcolormesh`` without wrappers, or other plotting packages such as `Bokeh <https://bokeh.pydata.org/en/latest/>`_ or `hvplot <https://hvplot.pyviz.org/>`_.
-
-Here is an example using hvplot which includes a nifty frequency slider using the `tmp_echo` defined earlier
-
-.. code-block:: console
-
-    import hvplot.xarray
-    tmp_echo.Sv.hvplot(y='range_bin', x='ping_time', cmap='jet',width=500, height=400)
-
-.. image:: images/hvplot.PNG
 
 EK60 Example
 ~~~~~~~~~~~~~~
@@ -135,7 +123,7 @@ Then calibrate the raw data to acquire xarray Datasets to plot
     tmp_echo.calibrate_ts(save=False)    # TS data
     tmp_echo.get_MVBS()                  # MVBS data
 
-Now, make an `EchoGram` object for plotting
+Now, make an ``EchoGram`` object for plotting
 
 .. code-block:: console
 
@@ -144,10 +132,47 @@ Now, make an `EchoGram` object for plotting
 Plotting a Single Channel
 ++++++++++++++++++++++++++++
 
-For plotting a single frequency, plot the data using ``.plot()`` on the ``EchoData`` object and specify the frequency to be plotted (in Hz). This example data set contains data collected in bursts. So times where the instrument did not take measurements are blank.
+To plot a single frequency, call ``.plot()`` on the ``EchoGram`` object and specify the frequency to be plotted (in Hz).
 
 .. code-block:: console
 
     tmp_plot.plot('Sv', frequency=38000, cmap='jet')
     plt.show()
 
+.. image:: images/ek60_single.png
+
+
+
+Plotting Multiple Channels
++++++++++++++++++++++++++++++
+
+As for AZFP, plot multiple channels by creating a ``set` of the desired frequencies
+
+.. code-block:: console
+
+    tmp_plot.plot('Sv', frequency={38000, 200000}, cmap='jet')
+    plt.show()
+
+.. image:: images/ek60_multi.png
+
+And to see all availible channels, simply leave out the ``frequency`` argument
+
+.. code-block:: console
+
+    tmp_plot.plot('Sv', cmap='jet')
+    plt.show()
+
+.. image:: images/ek60_all.png
+
+Other Plotting Routines
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Having a data structure built off of xarray and numpy means that users are not limited to echopype's plotting methods. Users looking for additional features can use matplotlib's ``pcolormesh`` without wrappers, or other plotting packages such as `Bokeh <https://bokeh.pydata.org/en/latest/>`_ or `hvplot <https://hvplot.pyviz.org/>`_.
+
+Here is an example using hvplot which includes a nifty frequency slider using the `tmp_echo` defined earlier
+
+.. code-block:: console
+
+    import hvplot.xarray
+    tmp_echo.Sv.hvplot(y='range_bin', x='ping_time', cmap='jet',width=500, height=400)
+
+.. image:: images/azfp_hvplot.PNG
