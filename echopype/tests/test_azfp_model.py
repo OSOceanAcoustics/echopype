@@ -26,11 +26,11 @@ def test_model_AZFP():
 
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
-        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-11)
+        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1)
 
     # Test TS data
     with xr.open_dataset(tmp_echo.TS_path) as ds_TS:
-        assert np.allclose(TS_test.TS, ds_TS.TS, atol=1e-11)
+        assert np.allclose(TS_test.TS, ds_TS.TS, atol=1)
 
     Sv_test.close()
     TS_test.close()
