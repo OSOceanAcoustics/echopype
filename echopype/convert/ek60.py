@@ -502,24 +502,28 @@ class ConvertEK60:
             # Find indices of unwanted pings
             lens = [len(l) for l in self.power_dict[1]]
             uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
-            idx_unwanted = np.argwhere(lens != uni[np.argmax(uni_cnt)]).squeeze()
 
-            # Trim ping_data_dict
-            for c_seq, c in self.ping_data_dict.items():  # loop through all channels
-                for y_seq, y in c.items():
-                    if isinstance(y, list):  # if it's a list trim it
-                        [y.pop(x) for x in idx_unwanted[::-1]]
+            # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
+            indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
 
-            # Trim ping_time
-            [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
-            self.ping_time = np.array(self.ping_time)
+            # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+            self.ping_time_split = {}
+            self.power_dict_split = {}
+            for i, length in enumerate(uni):
+                self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
+                self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
-            # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
-                [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
-                self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
-                # TODO: need to convert angle data too
+                # r_b represents index for range_bin (how many different range_bins there are).
+                # r is the list of indexes that correspond to that range
+                for r_b, r in enumerate(indices.values()):
+                    for r_idx in r:
+                        self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                    self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+
+        # TODO: need to convert angle data too
+        self.ping_time = np.array(self.ping_time)
+        self.range_lengths = uni
 
         # Trim excess data from NMEA object
         self.nmea_data.trim()
@@ -719,12 +723,18 @@ class ConvertEK60:
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
             beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
-
+            # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
+            beam_dict['range_lengths'] = self.range_lengths
+            beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
-            beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
+            # beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
+
+            beam_dict['range_bin'] = dict()
+            for ranges in self.ping_time_split.keys():
+                beam_dict['range_bin'][ranges] = np.arange(beam_dict['power_dict'][ranges][1].shape[1])
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
