@@ -19,7 +19,7 @@ class ModelBase(object):
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
         self.TVG = None  # time varying gain along range
         self.ABS = None  # absorption along range
-        self.sample_thickness = None  # sample thickness for each frequency
+        self._sample_thickness = None  # sample thickness for each frequency
         self.Sv = None  # calibrated volume backscattering strength
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
@@ -61,6 +61,23 @@ class ModelBase(object):
             self.toplevel.close()
         else:
             raise ValueError('Data file format not recognized.')
+    
+    @property
+    def sample_thickness(self):
+        if self._sample_thickness is None:
+            ds_env = xr.open_dataset(self.file_path, group="Environment")
+            ds_beam = xr.open_dataset(self.file_path, group="Beam")
+            self._sample_thickness = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
+            ds_env.close()
+            ds_beam.close()
+        return self._sample_thickness
+
+    def calc_range(self):
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            range_meter = ds_beam.range_bin * self.sample_thickness - \
+                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+            range_meter = range_meter.where(range_meter > 0, other=0)
+            return range_meter
 
     def calibrate(self):
         """Base method to be overridden for calibration and echo-integration for different sonar models.
