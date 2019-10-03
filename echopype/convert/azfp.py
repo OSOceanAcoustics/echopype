@@ -141,7 +141,7 @@ class ConvertAZFP:
             ('dig_rate', 'u2', 4),          # Digitalization rate for each channel
             ('lockout_index', 'u2', 4),     # Lockout index for each channel
             ('num_bins', 'u2', 4),          # Number of bins for each channel
-            ('range_samples', 'u2', 4),     # Range ramples per bin for each channel
+            ('range_samples_per_bin', 'u2', 4),     # Range samples per bin for each channel
             ('ping_per_profile', 'u2'),     # Number of pings per profile
             ('avg_pings', 'u2'),            # Flag indicating whether the pings average in time
             ('num_acq_pings', 'u2'),        # Pings acquired in the burst
@@ -216,7 +216,7 @@ class ConvertAZFP:
         fields = self.get_fields()
         header_byte_cnt = 0
         firmware_freq_len = 4   # fields with num_freq data still takes 4 bytes, the extra bytes contain random numbers
-        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples',  # fields with num_freq data
+        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
                         'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
         for field in fields:
             if field[0] in field_w_freq:  # fields with num_freq data
@@ -232,35 +232,36 @@ class ConvertAZFP:
                 header_byte_cnt += 1
         return True
 
-    def _add_counts(self, raw, ii, unpacked_data):
+    def _add_counts(self, raw, ping_num, unpacked_data):
         """Unpacks the echosounder raw data. Modifies unpacked_data in place.
 
         Parameters
         ----------
         raw
             open binary file
-        ii
+        ping_num
             ping number
         unpacked_data
-            current unpacked data.
+            current unpacked data
         """
-        for freq_ch in range(unpacked_data[ii]['num_chan']):
-            counts_byte_size = unpacked_data[ii]['num_bins'][freq_ch]
-            if unpacked_data[ii]['data_type'][freq_ch]:
-                if unpacked_data[ii]['avg_pings']:
-                    divisor = unpacked_data[ii]['ping_per_profile'] * unpacked_data[ii]['range_samples'][freq_ch]
+        for freq_ch in range(unpacked_data[ping_num]['num_chan']):
+            counts_byte_size = unpacked_data[ping_num]['num_bins'][freq_ch]
+            if unpacked_data[ping_num]['data_type'][freq_ch]:
+                if unpacked_data[ping_num]['avg_pings']:  # if pings are averaged over time
+                    divisor = unpacked_data[ping_num]['ping_per_profile'] * \
+                              unpacked_data[ping_num]['range_samples_per_bin'][freq_ch]
                 else:
-                    divisor = unpacked_data[ii]['range_samples'][freq_ch]
+                    divisor = unpacked_data[ping_num]['range_samples_per_bin'][freq_ch]
                 ls = unpack(">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4))     # Linear sum
                 lso = unpack(">" + "B" * counts_byte_size, raw.read(counts_byte_size * 1))    # linear sum overflow
                 v = (np.array(ls) + np.array(lso) * 4294967295) / divisor
                 v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters['DS'][freq_ch]
                 v[np.isinf(v)] = 0
-                unpacked_data[ii]['counts'].append(v)
+                unpacked_data[ping_num]['counts'].append(v)
             else:
                 counts_chunk = raw.read(counts_byte_size * 2)
                 counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
-                unpacked_data[ii]['counts'].append(counts_unpacked)
+                unpacked_data[ping_num]['counts'].append(counts_unpacked)
 
     def _print_status(self, path, unpacked_data):
         """Prints message to console giving information about the raw file being parsed
@@ -276,9 +277,10 @@ class ConvertAZFP:
         timestamp = dt(unpacked_data[0]['year'], unpacked_data[0]['month'], unpacked_data[0]['day'],
                        unpacked_data[0]['hour'], unpacked_data[0]['minute'],
                        int(unpacked_data[0]['second'] + unpacked_data[0]['hundredths'] / 100))
-        timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
+        timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         (pathstr, xml_name) = os.path.split(self.xml_path)
-        print(f"{timestr} converting file: {filename} with XML: {xml_name}")
+        print(f"{dt.now().strftime('%H:%M:%S')} converting file {filename} with {xml_name}, "
+              f"time of first ping {timestr}")
 
     def check_uniqueness(self):
         if not self.unpacked_data:
@@ -292,7 +294,7 @@ class ConvertAZFP:
             'digitization_rate': [d['dig_rate'] for d in self.unpacked_data],     # Dim: frequency
             'lockout_index': [d['lockout_index'] for d in self.unpacked_data],   # Dim: frequency
             'num_bins': [d['num_bins'] for d in self.unpacked_data],              # Dim: frequency
-            # 'range_samples': [d['range_samples'] for d in self.unpacked_data],    # Dim: frequency
+            # 'range_samples_per_bin': [d['range_samples_per_bin'] for d in self.unpacked_data],    # Dim: frequency
             'ping_per_profile': [d['ping_per_profile'] for d in self.unpacked_data],
             'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
             # 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
@@ -327,7 +329,7 @@ class ConvertAZFP:
             return T
 
         def compute_tilt(N, a, b, c, d):
-            return a + b * (N) + c * (N)**2 + d * (N)**3
+            return a + b * N + c * N**2 + d * N**3
 
         with open(self.path, 'rb') as raw:
             ping_num = 0
@@ -351,17 +353,16 @@ class ConvertAZFP:
                         unpacked_data[ping_num]['temperature'] = compute_temp(unpacked_data[ping_num]['ancillary'][4])
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         unpacked_data[ping_num]['tilt_x'] = compute_tilt(unpacked_data[ping_num]['ancillary'][0],
-                                                                   self.parameters['X_a'], self.parameters['X_b'],
-                                                                   self.parameters['X_c'], self.parameters['X_d'])
+                                                                         self.parameters['X_a'], self.parameters['X_b'],
+                                                                         self.parameters['X_c'], self.parameters['X_d'])
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         unpacked_data[ping_num]['tilt_y'] = compute_tilt(unpacked_data[ping_num]['ancillary'][1],
-                                                                   self.parameters['Y_a'], self.parameters['Y_b'],
-                                                                   self.parameters['Y_c'], self.parameters['Y_d'])
+                                                                         self.parameters['Y_a'], self.parameters['Y_b'],
+                                                                         self.parameters['Y_c'], self.parameters['Y_d'])
                         # Compute cos tilt magnitude from tilt x and y values
-                        unpacked_data[ping_num]['cos_tilt_mag'] = math.cos((math.sqrt(
-                                                                      unpacked_data[ping_num]['tilt_x'] ** 2 +
-                                                                      unpacked_data[ping_num]['tilt_y'] ** 2)) *
-                                                                     math.pi / 180)
+                        unpacked_data[ping_num]['cos_tilt_mag'] = \
+                            math.cos((math.sqrt(unpacked_data[ping_num]['tilt_x'] ** 2 +
+                                                unpacked_data[ping_num]['tilt_y'] ** 2)) * math.pi / 180)
                     else:
                         break
                 else:
@@ -457,11 +458,7 @@ class ConvertAZFP:
             cos_tilt_mag = [d['cos_tilt_mag'] for d in self.unpacked_data]
             tilt_x_counts = [d['ancillary'][0] for d in self.unpacked_data]
             tilt_y_counts = [d['ancillary'][1] for d in self.unpacked_data]
-            # range_samples taken from xml data
-            # range_samples = [d['range_samples'] for d in self.unpacked_data]
-            # dig_rate of 1st ping is used
-            # dig_rate = [d['dig_rate'] for d in self.unpacked_data]
-            dig_rate = np.array(self.unpacked_data[0]['dig_rate'])
+            dig_rate = np.array(self.unpacked_data[0]['dig_rate'])   # TODO: already did non-uniqueness check?
             temp_counts = [d['ancillary'][4] for d in self.unpacked_data]
             tilt_x = [d['tilt_x'] for d in self.unpacked_data]
             tilt_y = [d['tilt_y'] for d in self.unpacked_data]
@@ -477,14 +474,16 @@ class ConvertAZFP:
                 Sv_offset.append(calc_Sv_offset(freq[jj], self.unpacked_data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
-            range_samples = np.array(self.parameters['range_samples'])        # from xml file
-            range_samples_head = self.unpacked_data[0]['range_samples']           # from data header
+            range_samples_xml = np.array(self.parameters['range_samples'])            # from xml file
+            range_samples_per_bin = self.unpacked_data[0]['range_samples_per_bin']    # from data header
 
             # Check if dig_rate and range_samples is unique within each frequency
-            if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples, axis=0).shape[0] == 1:
+            # if np.unique(dig_rate, axis=0).shape[0] == 1 & np.unique(range_samples_xml, axis=0).shape[0] == 1:
+            if np.unique(dig_rate, axis=0).shape[0] == 1 & \
+                    np.unique(range_samples_per_bin, axis=0).shape[0] == 1:
                 # sample interval for every ping for each channel
                 # sample_int = np.unique(range_samples, axis=0) / np.unique(dig_rate, axis=0)
-                sample_int = np.array(range_samples_head) / np.array(dig_rate)
+                sample_int = np.array(range_samples_per_bin) / np.array(dig_rate)
             else:
                 raise ValueError("dig_rate and range_samples not unique across frequencies")
 
@@ -518,7 +517,7 @@ class ConvertAZFP:
             beam_dict['TVR'] = self.parameters['TVR']
             beam_dict['VTX'] = self.parameters['VTX']
             beam_dict['Sv_offset'] = Sv_offset
-            beam_dict['range_samples'] = range_samples
+            beam_dict['range_samples'] = range_samples_xml
             beam_dict['range_averaging_samples'] = range_averaging_samples
             beam_dict['frequency'] = freq
             beam_dict['ping_time'] = ping_time
@@ -555,7 +554,7 @@ class ConvertAZFP:
                 'digitization_rate': self.unpacked_data[0]['dig_rate'],     # Dim: frequency
                 'lockout_index': self.unpacked_data[0]['lockout_index'],   # Dim: frequency
                 'num_bins': self.unpacked_data[0]['num_bins'],              # Dim: frequency
-                'range_samples': self.unpacked_data[0]['range_samples'],    # Dim: frequency  In beam dict
+                'range_samples_per_bin': self.unpacked_data[0]['range_samples_per_bin'],    # Dim: frequency  In beam dict
                 'ping_per_profile': self.unpacked_data[0]['ping_per_profile'],
                 'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
                 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
@@ -589,9 +588,6 @@ class ConvertAZFP:
 
         freq = np.array(self.unpacked_data[0]['frequency']) * 1000    # Frequency in Hz
         ping_time = self.get_ping_time()
-
-        if os.path.exists(self.nc_path):    # USED FOR TESTING
-            os.remove(self.nc_path)
 
         if os.path.exists(self.nc_path):
             print('          ... this file has already been converted to .nc, conversion not executed.')
