@@ -21,37 +21,38 @@ class ConvertAZFP:
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
-        self.parameters = {
+        self.parameters = {   # a dict container for various params
             # FILE LOADING AND AVERAGING:
-            # TODO: choice of folder and file should be explicit in from Class Convert
-            'proc_dir': 1,          # 1 will prompt for an entire directory to process
+            # WJ: choice of folder and file should be explicit in from Class Convert, so comment out the below
+            # 'proc_dir': 1,          # 1 will prompt for an entire directory to process
                                     # 0 will prompt to load individual files in a directory
-            # TODO: remove the hard-coded filenames and require user to specify as inputs
-            'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
+            # WJ: remove the hard-coded filenames and require user to specify as inputs
+            # 'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
             # "" will prompt for XML filename if no XML file exists in the directory
-            'xml_file_name': "12022310.XML",
+            # 'xml_file_name': "12022310.XML",
             'platform_name': "",    # Name of the platform. Set with actual value
             'platform_type': "",    # Type of platform. Set with actual value
             'platform_code_ICES': "",   # Code for the platform. Set with actual value
-            # 'salinity': 29.6,       # Salinity in psu   TODO: UNUSED AT THE MOMENT
-            # 'pressure': 60,         # in dbars (~ depth of instrument in meters)     TODO: UNUSED AT THE MOMENT
+            # WJ: there's setter and getter for salinity and pressure, so comment out below for now
+            # 'salinity': 29.6,       # Salinity in psu
+            # 'pressure': 60,         # in dbars (~ depth of instrument in meters)
                                     # can be approximate. Used in soundspeed and absorption calc
             # 'hourly_avg_temp': 5,  # Default value if no AZFP temperature is found.
                                     # Used to calculate sound-speed and range
-                                    # TODO: can delete: not used when ss and range are calculated in model class
-            # PLOTTING   TODO: delete plot/channel/value_2_plot below since plotting is in viz module
+                                    # we require users to explicitly set temp for calculating ss and range in mode class
+            # PLOTTING   WJ: delete plot/channel/value_2_plot below since plotting is in viz module
             # 'plot': 1,              # Show an echogram plot for each channel
             # 'channel': 1,           # freq to plot #1-4, Default = 1
             # 'value_2_plot': 2,      # 1,2,3,4 = Counts, Sv, TS, Temperature/Tilts, default 2
             # for Sv and Ts plotting only, values with counts < NoiseFloor will set to -150,
             # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
-            # 'noise_floor': 10000,   # Default = 10000   TODO: this should be part of model methods
+            # 'noise_floor': 10000,   # Default = 10000   WJ: this should be in model module, have made a note there
             # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
             # This changes the y dir on the echogram plots only.
-            # 'orientation': 1,       # Default = 1     TODO: not used as echogram plotting is in viz module
+            # 'orientation': 1,       # Default = 1     WJ: not used as echogram plotting is in viz module
             # Use tilt corrected ranges for the echogram plots
             # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
-            # 'use_tilt_corr': 0      # Default = 0    TODO: mute for now, need to revive this to give warning to users
+            # 'use_tilt_corr': 0      # Default = 0    WJ: now an input flag for in AZFP model method calc_range
         }
 
         # Adds to self.parameters the contents of the xml file
@@ -68,6 +69,7 @@ class ConvertAZFP:
             """Returns the value in an XML tag given the tag name and the number of occurrences."""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
+        # TODO: consider writing a ParamAZFPxml class for storing parameters
         px = xml.dom.minidom.parse(self.xml_path)
         self.parameters['num_freq'] = int(get_value_by_tag_name('NumFreq'))
         self.parameters['serial_number'] = int(get_value_by_tag_name('SerialNumber'))
@@ -106,18 +108,18 @@ class ConvertAZFP:
         self.parameters['range_samples'] = []
         self.parameters['range_averaging_samples'] = []
         # Get parameters for each transducer frequency
-        for jj in range(self.parameters['num_freq']):
-            self.parameters['range_samples'].append(int(get_value_by_tag_name('RangeSamples', jj)))
-            self.parameters['range_averaging_samples'].append(int(get_value_by_tag_name('RangeAveragingSamples', jj)))
-            self.parameters['dig_rate'].append(float(get_value_by_tag_name('DigRate', jj)))
-            self.parameters['lock_out_index'].append(float(get_value_by_tag_name('LockOutIndex', jj)))
-            self.parameters['gain'].append(float(get_value_by_tag_name('Gain', jj)))
-            self.parameters['pulse_length'].append(float(get_value_by_tag_name('PulseLen', jj)))
-            self.parameters['DS'].append(float(get_value_by_tag_name('DS', jj)))
-            self.parameters['EL'].append(float(get_value_by_tag_name('EL', jj)))
-            self.parameters['TVR'].append(float(get_value_by_tag_name('TVR', jj)))
-            self.parameters['VTX'].append(float(get_value_by_tag_name('VTX0', jj)))
-            self.parameters['BP'].append(float(get_value_by_tag_name('BP', jj)))
+        for freq_ch in range(self.parameters['num_freq']):
+            self.parameters['range_samples'].append(int(get_value_by_tag_name('RangeSamples', freq_ch)))
+            self.parameters['range_averaging_samples'].append(int(get_value_by_tag_name('RangeAveragingSamples', freq_ch)))
+            self.parameters['dig_rate'].append(float(get_value_by_tag_name('DigRate', freq_ch)))
+            self.parameters['lock_out_index'].append(float(get_value_by_tag_name('LockOutIndex', freq_ch)))
+            self.parameters['gain'].append(float(get_value_by_tag_name('Gain', freq_ch)))
+            self.parameters['pulse_length'].append(float(get_value_by_tag_name('PulseLen', freq_ch)))
+            self.parameters['DS'].append(float(get_value_by_tag_name('DS', freq_ch)))
+            self.parameters['EL'].append(float(get_value_by_tag_name('EL', freq_ch)))
+            self.parameters['TVR'].append(float(get_value_by_tag_name('TVR', freq_ch)))
+            self.parameters['VTX'].append(float(get_value_by_tag_name('VTX0', freq_ch)))
+            self.parameters['BP'].append(float(get_value_by_tag_name('BP', freq_ch)))
         self.parameters['sensors_flag'] = float(get_value_by_tag_name('SensorsFlag'))
 
     @staticmethod
@@ -162,6 +164,7 @@ class ConvertAZFP:
         )
         return _fields
 
+    # TODO: move these setter and getter to the Convert class
     """Setters and getters for platform information"""
     @property
     def platform_name(self):
@@ -187,7 +190,7 @@ class ConvertAZFP:
     def platform_code_ICES(self, platform_code_ICES):
         self.parameters['platform_code_ICES'] = platform_code_ICES
 
-    def _split_header(self, raw, header_unpacked, ii, unpacked_data):
+    def _split_header(self, raw, header_unpacked, ping_num, unpacked_data):
         """Splits the header information into a dictionary.
 
         Parameters
@@ -196,47 +199,37 @@ class ConvertAZFP:
             open binary file
         header_unpacked
             output of struct unpack of raw file
-        ii
+        ping_num
             ping number
         unpacked_data
             current unpacked data
 
         Returns
         -------
-            True or False depending on whether the unpack succeeded
+            True or False depending on whether the unpacking was successful
         """
-        Flag = header_unpacked[0]
-        if Flag != self.FILE_TYPE:
+        if header_unpacked[0] != self.FILE_TYPE:  # first field should match hard-coded FILE_TYPE from manufacturer
             check_eof = raw.read(1)
             if check_eof:
                 print("Error: Unknown file type")
                 return False
         fields = self.get_fields()
-        i = 0
+        header_byte_cnt = 0
+        firmware_freq_len = 4   # fields with num_freq data still takes 4 bytes, the extra bytes contain random numbers
+        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples',  # fields with num_freq data
+                        'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
         for field in fields:
-            if len(field) == 3:
-                arr = []
-                for _ in range(field[2]):
-                    arr.append(header_unpacked[i])
-                    i += 1
-                unpacked_data[ii][field[0]] = arr
+            if field[0] in field_w_freq:  # fields with num_freq data
+                unpacked_data[ping_num][field[0]] = \
+                    header_unpacked[header_byte_cnt:header_byte_cnt + self.parameters['num_freq']]
+                header_byte_cnt += firmware_freq_len
+            elif len(field) == 3:  # other longer fields ('ancillary' and 'ad')
+                unpacked_data[ping_num][field[0]] = \
+                    header_unpacked[header_byte_cnt:header_byte_cnt + field[2]]
+                header_byte_cnt += field[2]
             else:
-                unpacked_data[ii][field[0]] = header_unpacked[i]
-                i += 1
-
-        # TODO: look into why num_freq!=3 would error out
-        # clean when num_freq = 3
-        if self.parameters['num_freq'] == 3:
-            del unpacked_data[ii]['dig_rate'][-1]
-            del unpacked_data[ii]['lockout_index'][-1]
-            del unpacked_data[ii]['num_bins'][-1]
-            del unpacked_data[ii]['range_samples'][-1]
-            del unpacked_data[ii]['data_type'][-1]
-            del unpacked_data[ii]['gain'][-1]
-            del unpacked_data[ii]['pulse_length'][-1]
-            del unpacked_data[ii]['board_num'][-1]
-            del unpacked_data[ii]['frequency'][-1]
-
+                unpacked_data[ping_num][field[0]] = header_unpacked[header_byte_cnt]
+                header_byte_cnt += 1
         return True
 
     def _add_counts(self, raw, ii, unpacked_data):
@@ -251,17 +244,17 @@ class ConvertAZFP:
         unpacked_data
             current unpacked data.
         """
-        for jj in range(unpacked_data[ii]['num_chan']):
-            counts_byte_size = unpacked_data[ii]['num_bins'][jj]
-            if unpacked_data[ii]['data_type'][jj]:
+        for freq_ch in range(unpacked_data[ii]['num_chan']):
+            counts_byte_size = unpacked_data[ii]['num_bins'][freq_ch]
+            if unpacked_data[ii]['data_type'][freq_ch]:
                 if unpacked_data[ii]['avg_pings']:
-                    divisor = unpacked_data[ii]['ping_per_profile'] * unpacked_data[ii]['range_samples'][jj]
+                    divisor = unpacked_data[ii]['ping_per_profile'] * unpacked_data[ii]['range_samples'][freq_ch]
                 else:
-                    divisor = unpacked_data[ii]['range_samples'][jj]
+                    divisor = unpacked_data[ii]['range_samples'][freq_ch]
                 ls = unpack(">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4))     # Linear sum
                 lso = unpack(">" + "B" * counts_byte_size, raw.read(counts_byte_size * 1))    # linear sum overflow
                 v = (np.array(ls) + np.array(lso) * 4294967295) / divisor
-                v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters['DS'][jj]
+                v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters['DS'][freq_ch]
                 v[np.isinf(v)] = 0
                 unpacked_data[ii]['counts'].append(v)
             else:
@@ -284,7 +277,7 @@ class ConvertAZFP:
                        unpacked_data[0]['hour'], unpacked_data[0]['minute'],
                        int(unpacked_data[0]['second'] + unpacked_data[0]['hundredths'] / 100))
         timestr = timestamp.strftime("%d-%b-%Y %H:%M:%S")
-        (pathstr, xml_name) = os.path.split(self.parameters['xml_file_name'])
+        (pathstr, xml_name) = os.path.split(self.xml_path)
         print(f"{timestr} converting file: {filename} with XML: {xml_name}")
 
     def check_uniqueness(self):
@@ -333,100 +326,11 @@ class ConvertAZFP:
                      self.parameters['C'] * (math.log(R) ** 3)) - 273
             return T
 
-        # TODO Delete the following:
-        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
-        #     """Input the data with temperature values and averages all the temperatures
-
-        #     Parameters
-        #     ----------
-        #     unpacked_data
-        #         current unpacked data
-        #     hourly_avg_temp
-        #         xml parameter
-
-        #     Returns
-        #     -------
-        #         the average temperature
-        #     """
-        #     sum = 0
-        #     total = 0
-        #     for ii in range(len(unpacked_data)):
-        #         val = unpacked_data[ii]['temperature']
-        #         if not math.isnan(val):
-        #             total += 1
-        #             sum += val
-        #     if total == 0:
-        #         print("**** No AZFP temperature found. Using default of {:.2f} "
-        #               "degC to calculate sound-speed and range\n"
-        #               .format(hourly_avg_temp))
-        #         return hourly_avg_temp    # default value
-        #     else:
-        #         return sum / total
-
         def compute_tilt(N, a, b, c, d):
             return a + b * (N) + c * (N)**2 + d * (N)**3
 
-        # TODO: move compute_ss and compute_sea_abs to model module
-        def compute_ss(T, P, S):
-            """Computes the sound speed
-
-            Parameters
-            ----------
-            T
-                Temperature
-            P
-                Pressure
-            S
-                Salinity
-
-            Returns
-            -------
-                The sound speed in m/s
-            """
-            z = T / 10
-            return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
-                    (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
-
-        def compute_sea_abs(T, F, P, S):
-            """Computes the absorption coefficient
-
-            Parameters
-            ----------
-            T : Float
-                Temperature
-            F : Numpy array
-                Frequency
-            P : Float
-                Pressure
-            S : Float
-                Salinity
-
-            Returns
-            -------
-                Numpy array containing the sea absorption for each frequency in dB/m
-            """
-
-            T_k = T + 273.0
-            f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
-            f2 = (1.55e7) * T_k * math.exp(-3052 / T_k)
-
-            # Coefficients for absorption calculations
-            k = 1 + P / 10.0
-            a = (8.95e-8) * (1 + T * ((2.29e-2) - (5.08e-4) * T))
-            b = (S / 35.0) * (4.88e-7) * (1 + 0.0134 * T) * (1 - 0.00103 * k + (3.7e-7) * (k * k))
-            c = ((4.86e-13) * (1 + T * ((-0.042) + T * ((8.53e-4) - T * 6.23e-6))) *
-                 (1 + k * (-(3.84e-4) + k * 7.57e-8)))
-            F_k = F * 1000
-            if S == 0:
-                return c * F_k ** 2
-            else:
-                return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
-                        (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
-
-        # End of computation subfunctions
-
         with open(self.path, 'rb') as raw:
-            ii = 0
+            ping_num = 0
             unpacked_data = []
             eof = False
             while not eof:
@@ -436,46 +340,34 @@ class ConvertAZFP:
                     test_dict = {}
                     unpacked_data.append(test_dict)
                     # Reading will stop if the file contains an unexpected flag
-                    if self._split_header(raw, header_unpacked, ii, unpacked_data):
-                        unpacked_data[ii]['counts'] = []
+                    if self._split_header(raw, header_unpacked, ping_num, unpacked_data):
+                        unpacked_data[ping_num]['counts'] = []
                         # Appends the actual 'data values' to unpacked_data
-                        self._add_counts(raw, ii, unpacked_data)
-                        if ii == 0:
+                        self._add_counts(raw, ping_num, unpacked_data)
+                        if ping_num == 0:
                             # Display information about the file that was loaded in
                             self._print_status(self.file_name, unpacked_data)
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
-                        unpacked_data[ii]['temperature'] = compute_temp(unpacked_data[ii]['ancillary'][4])
+                        unpacked_data[ping_num]['temperature'] = compute_temp(unpacked_data[ping_num]['ancillary'][4])
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
-                        unpacked_data[ii]['tilt_x'] = compute_tilt(unpacked_data[ii]['ancillary'][0],
+                        unpacked_data[ping_num]['tilt_x'] = compute_tilt(unpacked_data[ping_num]['ancillary'][0],
                                                                    self.parameters['X_a'], self.parameters['X_b'],
                                                                    self.parameters['X_c'], self.parameters['X_d'])
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
-                        unpacked_data[ii]['tilt_y'] = compute_tilt(unpacked_data[ii]['ancillary'][1],
+                        unpacked_data[ping_num]['tilt_y'] = compute_tilt(unpacked_data[ping_num]['ancillary'][1],
                                                                    self.parameters['Y_a'], self.parameters['Y_b'],
                                                                    self.parameters['Y_c'], self.parameters['Y_d'])
                         # Compute cos tilt magnitude from tilt x and y values
-                        unpacked_data[ii]['cos_tilt_mag'] = math.cos((math.sqrt(
-                                                                      unpacked_data[ii]['tilt_x'] ** 2 +
-                                                                      unpacked_data[ii]['tilt_y'] ** 2)) *
+                        unpacked_data[ping_num]['cos_tilt_mag'] = math.cos((math.sqrt(
+                                                                      unpacked_data[ping_num]['tilt_x'] ** 2 +
+                                                                      unpacked_data[ping_num]['tilt_y'] ** 2)) *
                                                                      math.pi / 180)
-
                     else:
                         break
                 else:
                     # End of file
                     eof = True
-                ii += 1
-
-        # TODO Delete the following:
-        # Compute hourly average temperature for sound speed calculation
-        # unpacked_data[0]['hourly_avg_temp'] = compute_avg_temp(unpacked_data, self.parameters['hourly_avg_temp'])
-        # unpacked_data[0]['sound_speed'] = compute_ss(unpacked_data[0]['hourly_avg_temp'], self.parameters['pressure'],
-        #                                              self.parameters['salinity'])
-
-        # frequency = np.array(unpacked_data[0]['frequency'], dtype=np.int64)
-        # Compute absorption for each frequency
-        # unpacked_data[0]['sea_abs'] = compute_sea_abs(unpacked_data[0]['hourly_avg_temp'], frequency,
-                                                    #   self.parameters['pressure'], self.parameters['salinity'])
+                ping_num += 1
 
         self.unpacked_data = unpacked_data
 
@@ -494,7 +386,38 @@ class ConvertAZFP:
         """Save data from raw 01A format to netCDF4 .nc format
         """
 
-        """Subfunctions to set various dictionaries"""
+        # Subfunctions to set various dictionaries
+        def calc_Sv_offset(f, pulse_length):
+            """Calculate a compensation for the effects of finite response
+            times of both the receiving and transmitting parts of the transducer.
+            The correction magnitude depends on the length of the transmitted pulse
+            and the response time (transmission and reception) of the transducer.
+            Called by ``_set_beam_dict()``
+
+            Parameters
+            ----------
+            f
+                frequency in Hz
+            pulse_length
+                pulse length in ms
+            """
+            if f > 38000:
+                if pulse_length == 300:
+                    return 1.1
+                elif pulse_length == 500:
+                    return 0.8
+                elif pulse_length == 700:
+                    return 0.5
+                elif pulse_length == 900:
+                    return 0.3
+                elif pulse_length == 1000:
+                    return 0.3
+            else:
+                if pulse_length == 500:
+                    return 1.1
+                elif pulse_length == 1000:
+                    return 0.7
+
         def _set_toplevel_dict():
             out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                             keywords='AZFP',
@@ -506,13 +429,7 @@ class ConvertAZFP:
             return out_dict
 
         def _set_env_dict():
-            temps = [d['temperature'] for d in self.unpacked_data]
-            # TODO: delete the following
-            # abs_val = self.unpacked_data[0]['sea_abs']
-            # ss_val = [self.unpacked_data[0]['sound_speed']] * 4           # Sound speed independent of frequency
-            # salinity = [self.parameters['salinity']] * 4    # Salinity independent of frequency
-            # pressure = [self.parameters['pressure']] * 4    # Pressure independent of frequency
-
+            temps = [d['temperature'] for d in self.unpacked_data]  # temperature measured at instrument
             out_dict = dict(temperature=temps,
                             ping_time=ping_time)
             return out_dict
@@ -537,36 +454,6 @@ class ConvertAZFP:
             return dict(zip(attrs, vals))
 
         def _set_beam_dict():
-            def calc_sv_offset(freq, pulse_length):
-                """Calculate a compensation for the effects of finite response
-                times of both the receiving and transmitting parts of the transducer.
-                The correction magnitude depends on the length of the transmitted pulse
-                and the response time (transmission and reception) of the transducer.
-
-                Parameters
-                ----------
-                freq
-                    frequency in Hz
-                pulse_length
-                    pulse length in ms
-                """
-                if freq > 38000:
-                    if pulse_length == 300:
-                        return 1.1
-                    elif pulse_length == 500:
-                        return 0.8
-                    elif pulse_length == 700:
-                        return 0.5
-                    elif pulse_length == 900:
-                        return 0.3
-                    elif pulse_length == 1000:
-                        return 0.3
-                else:
-                    if pulse_length == 500:
-                        return 1.1
-                    elif pulse_length == 1000:
-                        return 0.7
-
             cos_tilt_mag = [d['cos_tilt_mag'] for d in self.unpacked_data]
             tilt_x_counts = [d['ancillary'][0] for d in self.unpacked_data]
             tilt_y_counts = [d['ancillary'][1] for d in self.unpacked_data]
@@ -587,7 +474,7 @@ class ConvertAZFP:
                 # Loop over all pings for each frequency
                 N.append(np.array([d['counts'][jj] for d in self.unpacked_data]))
                 # Calculate correction to Sv due to a non square tramsit pulse
-                Sv_offset.append(calc_sv_offset(freq[jj], self.unpacked_data[0]['pulse_length'][jj]))
+                Sv_offset.append(calc_Sv_offset(freq[jj], self.unpacked_data[0]['pulse_length'][jj]))
 
             tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
             range_samples = np.array(self.parameters['range_samples'])        # from xml file
