@@ -283,37 +283,31 @@ class ConvertAZFP:
               f"time of first ping {timestr}")
 
     def check_uniqueness(self):
+        """Check for ping-by-ping consistency of sampling parameters.
+
+        Those included in this function should be identical throughout all pings.
+        Therefore raise error if not identical.
+        """
+
+        # TODO: need to redo the unpacked_data sequence structure and save reduced data (only the unique numbers)
         if not self.unpacked_data:
             self.parse_raw()
-        header = {
-            # TODO: clean up below and confirm that everything is captured elsewhere
-            'profile_flag': [d['profile_flag'] for d in self.unpacked_data],
-            # 'profile_number': [d['profile_number'] for d in self.unpacked_data],
-            # 'ping_status': [d['ping_status'] for d in self.unpacked_data],
-            'burst_interval': [d['burst_int'] for d in self.unpacked_data],
-            'digitization_rate': [d['dig_rate'] for d in self.unpacked_data],     # Dim: frequency
-            'lockout_index': [d['lockout_index'] for d in self.unpacked_data],   # Dim: frequency
-            'num_bins': [d['num_bins'] for d in self.unpacked_data],              # Dim: frequency
-            # 'range_samples_per_bin': [d['range_samples_per_bin'] for d in self.unpacked_data],    # Dim: frequency
-            'ping_per_profile': [d['ping_per_profile'] for d in self.unpacked_data],
-            'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
-            # 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
-            'ping_period': [d['ping_period'] for d in self.unpacked_data],
-            # 'first_ping': [d['first_ping'] for d in self.unpacked_data],
-            # 'last_ping': [d['last_ping'] for d in self.unpacked_data],
-            'data_type': [d['data_type'] for d in self.unpacked_data],
-            # 'data_error': [d['data_error'] for d in self.unpacked_data],
-            'phase': [d['phase'] for d in self.unpacked_data],
-            'number_of_channels': [d['num_chan'] for d in self.unpacked_data],
-            'spare_channel': [d['spare_chan'] for d in self.unpacked_data],
-            'board_number': [d['board_num'] for d in self.unpacked_data],         # Dim: frequency
-            # 'sensor_flag': [d['sensor_flag'] for d in self.unpacked_data],
-            # 'ancillary': [d['ancillary'] for d in self.unpacked_data],            # 5 values
-            # 'ad_channels': [d['ad'] for d in self.unpacked_data]
-        }
-
-        for key in header:
-            if np.unique(header[key], axis=0).shape[0] > 1:
+        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
+                        'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
+        field_include = ('profile_flag', 'serial_number',   # fields to reduce size if the same for all pings
+                         'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
+                         'phase', 'num_chan', 'spare_chan')
+        data_w_freq = {}
+        data_no_freq = {}
+        for field in field_w_freq:
+            data_w_freq[field] = [d[field] for d in self.unpacked_data]
+        for field in field_include:
+            data_no_freq[field] = [d[field] for d in self.unpacked_data]
+        for key in data_w_freq:
+            if np.unique(data_w_freq[key], axis=0).shape[0] > 1:
+                raise ValueError(f"Header value {key} is not constant for each ping")
+        for key in data_no_freq:
+            if np.unique(data_no_freq[key]).shape[0] > 1:
                 raise ValueError(f"Header value {key} is not constant for each ping")
 
     def parse_raw(self):
@@ -554,7 +548,7 @@ class ConvertAZFP:
                 'digitization_rate': self.unpacked_data[0]['dig_rate'],     # Dim: frequency
                 'lockout_index': self.unpacked_data[0]['lockout_index'],   # Dim: frequency
                 'num_bins': self.unpacked_data[0]['num_bins'],              # Dim: frequency
-                'range_samples_per_bin': self.unpacked_data[0]['range_samples_per_bin'],    # Dim: frequency  In beam dict
+                'range_samples_per_bin': self.unpacked_data[0]['range_samples_per_bin'],    # Dim: frequency
                 'ping_per_profile': self.unpacked_data[0]['ping_per_profile'],
                 'average_pings_flag': [d['avg_pings'] for d in self.unpacked_data],
                 'number_of_acquired_pings': [d['num_acq_pings'] for d in self.unpacked_data],
