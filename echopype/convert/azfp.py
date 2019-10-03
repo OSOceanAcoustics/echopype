@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 import numpy as np
 import xml.dom.minidom
 import math
@@ -190,7 +191,7 @@ class ConvertAZFP:
     def platform_code_ICES(self, platform_code_ICES):
         self.parameters['platform_code_ICES'] = platform_code_ICES
 
-    def _split_header(self, raw, header_unpacked, ping_num, unpacked_data):
+    def _split_header(self, raw, header_unpacked, ping_num, unpacked_data, fields):
         """Splits the header information into a dictionary.
 
         Parameters
@@ -203,6 +204,8 @@ class ConvertAZFP:
             ping number
         unpacked_data
             current unpacked data
+        fields
+            fields to be unpacked for each ping, defined in ``get_fields``
 
         Returns
         -------
@@ -213,22 +216,25 @@ class ConvertAZFP:
             if check_eof:
                 print("Error: Unknown file type")
                 return False
-        fields = self.get_fields()
         header_byte_cnt = 0
         firmware_freq_len = 4   # fields with num_freq data still takes 4 bytes, the extra bytes contain random numbers
         field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
                         'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
         for field in fields:
             if field[0] in field_w_freq:  # fields with num_freq data
-                unpacked_data[ping_num][field[0]] = \
-                    header_unpacked[header_byte_cnt:header_byte_cnt + self.parameters['num_freq']]
+                unpacked_data[field[0]].append(
+                    header_unpacked[header_byte_cnt:header_byte_cnt + self.parameters['num_freq']])
+                # unpacked_data[ping_num][field[0]] = \
+                #     header_unpacked[header_byte_cnt:header_byte_cnt + self.parameters['num_freq']]
                 header_byte_cnt += firmware_freq_len
             elif len(field) == 3:  # other longer fields ('ancillary' and 'ad')
-                unpacked_data[ping_num][field[0]] = \
-                    header_unpacked[header_byte_cnt:header_byte_cnt + field[2]]
+                unpacked_data[field[0]].append(header_unpacked[header_byte_cnt:header_byte_cnt + field[2]])
+                # unpacked_data[ping_num][field[0]] = \
+                #     header_unpacked[header_byte_cnt:header_byte_cnt + field[2]]
                 header_byte_cnt += field[2]
             else:
-                unpacked_data[ping_num][field[0]] = header_unpacked[header_byte_cnt]
+                unpacked_data[field[0]].append(header_unpacked[header_byte_cnt])
+                # unpacked_data[ping_num][field[0]] = header_unpacked[header_byte_cnt]
                 header_byte_cnt += 1
         return True
 
@@ -244,24 +250,26 @@ class ConvertAZFP:
         unpacked_data
             current unpacked data
         """
-        for freq_ch in range(unpacked_data[ping_num]['num_chan']):
-            counts_byte_size = unpacked_data[ping_num]['num_bins'][freq_ch]
-            if unpacked_data[ping_num]['data_type'][freq_ch]:
-                if unpacked_data[ping_num]['avg_pings']:  # if pings are averaged over time
-                    divisor = unpacked_data[ping_num]['ping_per_profile'] * \
-                              unpacked_data[ping_num]['range_samples_per_bin'][freq_ch]
+        vv_tmp = [[]] * unpacked_data['num_chan'][ping_num]
+        for freq_ch in range(unpacked_data['num_chan'][ping_num]):
+            counts_byte_size = unpacked_data['num_bins'][ping_num][freq_ch]
+            if unpacked_data['data_type'][ping_num][freq_ch]:
+                if unpacked_data['avg_pings'][ping_num]:  # if pings are averaged over time
+                    divisor = unpacked_data['ping_per_profile'][ping_num] * \
+                              unpacked_data['range_samples_per_bin'][ping_num][freq_ch]
                 else:
-                    divisor = unpacked_data[ping_num]['range_samples_per_bin'][freq_ch]
+                    divisor = unpacked_data['range_samples_per_bin'][ping_num][freq_ch]
                 ls = unpack(">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4))     # Linear sum
                 lso = unpack(">" + "B" * counts_byte_size, raw.read(counts_byte_size * 1))    # linear sum overflow
                 v = (np.array(ls) + np.array(lso) * 4294967295) / divisor
                 v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters['DS'][freq_ch]
                 v[np.isinf(v)] = 0
-                unpacked_data[ping_num]['counts'].append(v)
+                vv_tmp[freq_ch] = v
             else:
                 counts_chunk = raw.read(counts_byte_size * 2)
                 counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
-                unpacked_data[ping_num]['counts'].append(counts_unpacked)
+                vv_tmp[freq_ch] = counts_unpacked
+        unpacked_data['counts'].append(vv_tmp)
 
     def _print_status(self, path, unpacked_data):
         """Prints message to console giving information about the raw file being parsed
@@ -274,22 +282,20 @@ class ConvertAZFP:
             current unpacked data
         """
         filename = os.path.basename(path)
-        timestamp = dt(unpacked_data[0]['year'], unpacked_data[0]['month'], unpacked_data[0]['day'],
-                       unpacked_data[0]['hour'], unpacked_data[0]['minute'],
-                       int(unpacked_data[0]['second'] + unpacked_data[0]['hundredths'] / 100))
+        timestamp = dt(unpacked_data['year'][0], unpacked_data['month'][0], unpacked_data['day'][0],
+                       unpacked_data['hour'][0], unpacked_data['minute'][0],
+                       int(unpacked_data['second'][0] + unpacked_data['hundredths'][0] / 100))
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         (pathstr, xml_name) = os.path.split(self.xml_path)
         print(f"{dt.now().strftime('%H:%M:%S')} converting file {filename} with {xml_name}, "
               f"time of first ping {timestr}")
 
     def check_uniqueness(self):
-        """Check for ping-by-ping consistency of sampling parameters.
+        """Check for ping-by-ping consistency of sampling parameters and reduce if identical.
 
         Those included in this function should be identical throughout all pings.
         Therefore raise error if not identical.
         """
-
-        # TODO: need to redo the unpacked_data sequence structure and save reduced data (only the unique numbers)
         if not self.unpacked_data:
             self.parse_raw()
         field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
@@ -297,18 +303,18 @@ class ConvertAZFP:
         field_include = ('profile_flag', 'serial_number',   # fields to reduce size if the same for all pings
                          'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
                          'phase', 'num_chan', 'spare_chan')
-        data_w_freq = {}
-        data_no_freq = {}
         for field in field_w_freq:
-            data_w_freq[field] = [d[field] for d in self.unpacked_data]
+            uniq = np.unique(self.unpacked_data[field], axis=0)
+            if uniq.shape[0] == 1:
+                self.unpacked_data[field] = uniq
+            else:
+                raise ValueError(f"Header value {field} is not constant for each ping")
         for field in field_include:
-            data_no_freq[field] = [d[field] for d in self.unpacked_data]
-        for key in data_w_freq:
-            if np.unique(data_w_freq[key], axis=0).shape[0] > 1:
-                raise ValueError(f"Header value {key} is not constant for each ping")
-        for key in data_no_freq:
-            if np.unique(data_no_freq[key]).shape[0] > 1:
-                raise ValueError(f"Header value {key} is not constant for each ping")
+            uniq = np.unique(self.unpacked_data[field])
+            if uniq.shape[0] == 1:
+                self.unpacked_data[field] = uniq
+            else:
+                raise ValueError(f"Header value {field} is not constant for each ping")
 
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
@@ -327,36 +333,37 @@ class ConvertAZFP:
 
         with open(self.path, 'rb') as raw:
             ping_num = 0
-            unpacked_data = []
+            fields = self.get_fields()
+            unpacked_data = defaultdict(list)
             eof = False
             while not eof:
                 header_chunk = raw.read(self.HEADER_SIZE)
                 if header_chunk:
                     header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
-                    test_dict = {}
-                    unpacked_data.append(test_dict)
+
                     # Reading will stop if the file contains an unexpected flag
-                    if self._split_header(raw, header_unpacked, ping_num, unpacked_data):
-                        unpacked_data[ping_num]['counts'] = []
+                    if self._split_header(raw, header_unpacked, ping_num, unpacked_data, fields):
                         # Appends the actual 'data values' to unpacked_data
                         self._add_counts(raw, ping_num, unpacked_data)
                         if ping_num == 0:
                             # Display information about the file that was loaded in
                             self._print_status(self.file_name, unpacked_data)
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
-                        unpacked_data[ping_num]['temperature'] = compute_temp(unpacked_data[ping_num]['ancillary'][4])
+                        unpacked_data['temperature'].append(compute_temp(unpacked_data['ancillary'][ping_num][4]))
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
-                        unpacked_data[ping_num]['tilt_x'] = compute_tilt(unpacked_data[ping_num]['ancillary'][0],
-                                                                         self.parameters['X_a'], self.parameters['X_b'],
-                                                                         self.parameters['X_c'], self.parameters['X_d'])
+                        unpacked_data['tilt_x'].append(
+                            compute_tilt(unpacked_data['ancillary'][ping_num][0],
+                                         self.parameters['X_a'], self.parameters['X_b'],
+                                         self.parameters['X_c'], self.parameters['X_d']))
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
-                        unpacked_data[ping_num]['tilt_y'] = compute_tilt(unpacked_data[ping_num]['ancillary'][1],
-                                                                         self.parameters['Y_a'], self.parameters['Y_b'],
-                                                                         self.parameters['Y_c'], self.parameters['Y_d'])
+                        unpacked_data['tilt_y'].append(
+                            compute_tilt(unpacked_data['ancillary'][ping_num][1],
+                                         self.parameters['Y_a'], self.parameters['Y_b'],
+                                         self.parameters['Y_c'], self.parameters['Y_d']))
                         # Compute cos tilt magnitude from tilt x and y values
-                        unpacked_data[ping_num]['cos_tilt_mag'] = \
-                            math.cos((math.sqrt(unpacked_data[ping_num]['tilt_x'] ** 2 +
-                                                unpacked_data[ping_num]['tilt_y'] ** 2)) * math.pi / 180)
+                        unpacked_data['cos_tilt_mag'].append(
+                            math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
+                                                unpacked_data['tilt_y'][ping_num] ** 2)) * math.pi / 180))
                     else:
                         break
                 else:
@@ -372,9 +379,15 @@ class ConvertAZFP:
         if not self.unpacked_data:
             self.parse_raw()
 
-        ping_time = [dt(d['year'], d['month'], d['day'], d['hour'], d['minute'],
-                     int(d['second'] + d['hundredths'] / 100)).replace(tzinfo=timezone.utc).timestamp()
-                     for d in self.unpacked_data]
+        for ping_num, year in enumerate(self.unpacked_data['year']):
+            ping_time = dt(year,
+                           self.unpacked_data['month'][ping_num],
+                           self.unpacked_data['day'][ping_num],
+                           self.unpacked_data['hour'][ping_num],
+                           self.unpacked_data['minute'][ping_num],
+                           int(self.unpacked_data['second'][ping_num] + self.unpacked_data['hundredths'][
+                               ping_num] / 100)
+                           ).replace(tzinfo=timezone.utc).timestamp()
         return ping_time
 
     def raw2nc(self):
@@ -580,7 +593,7 @@ class ConvertAZFP:
         filename = os.path.splitext(os.path.basename(self.path))[0]
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
 
-        freq = np.array(self.unpacked_data[0]['frequency']) * 1000    # Frequency in Hz
+        freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = self.get_ping_time()
 
         if os.path.exists(self.nc_path):
