@@ -25,7 +25,7 @@ class ModelBase(object):
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
         self.SNR = 10  # min signal-to-noise ratio
-        self.Sv_threshold = -120 # min Sv threshold
+        self.Sv_threshold = -120  # min Sv threshold
         
     @property
     def file_path(self):
@@ -73,6 +73,7 @@ class ModelBase(object):
         return self._sample_thickness
 
     def calc_range(self):
+        # TODO: this should be specific for EK60, note tvg_correction_factor only exists for EK60
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             range_meter = ds_beam.range_bin * self.sample_thickness - \
                         self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
@@ -118,11 +119,12 @@ class ModelBase(object):
         num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
         r_tile_sz = (num_r_per_tile * sample_thickness).values
 
+        # TODO: resolve discrepency and potential bugs here
         # Number of tiles along range_bin
-        ## if np.mod(r_data_sz, num_r_per_tile) == 0:
-        ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
-        ## else:
-        ##     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+        # if np.mod(r_data_sz, num_r_per_tile) == 0:
+        #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
+        # else:
+        #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
 
         # -FC: Removed +1 above, need to be tested!
         num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
@@ -171,8 +173,6 @@ class ModelBase(object):
                 return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
         else:
             return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
-
-    
             
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
@@ -213,15 +213,15 @@ class ModelBase(object):
         def remove_n(x):
             # Noise calculation
             if (self.ABS is None) & (self.TVG is None):
-                p_c_lin = 10 ** ((x) / 10)
+                p_c_lin = 10 ** (x / 10)
                 nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+                                   groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
             else:
                 p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
                 nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                    + self.ABS + self.TVG
-                    
+                                   groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+                     + self.ABS + self.TVG
+
             # Remove noise from signal
             x = 10*np.log10(10**(x/10) - 10**(nn/10))
             # Return only where signal is 10db above noise (SNR>10) and at least -120db
@@ -333,8 +333,9 @@ class ModelBase(object):
             default to ``False``
         """
         # Check params
+        # TODO: resolve this; this is related to how to allow different params for data from different freq
         # -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
-        #if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
+        # if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
             self.MVBS_range_bin_size = MVBS_range_bin_size
         if (MVBS_ping_size is not None) and (self.MVBS_ping_size != MVBS_ping_size):
