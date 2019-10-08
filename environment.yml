@@ -15,3 +15,6 @@ dependencies:
   - requests
   - scipy
   - xarray
+  - pip:
+      - pynmea2
+      - arlpy
