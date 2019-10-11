@@ -19,6 +19,7 @@ class ModelAZFP(ModelBase):
         self.bins_to_avg = 1
         self.time_to_avg = 40
 
+    # TODO: move setter/getter for sound_speed, range, sea_abs, temperature, sample thickness into modelbase
     # Retrieve sound_speed. Calculate if not stored
     @property
     def sound_speed(self):
@@ -85,6 +86,8 @@ class ModelAZFP(ModelBase):
         -------
         An xarray DataArray containing the range with coordinate frequency
         """
+        # TODO: need to clean up this code for consistency and minimize 'quick fixes'
+        # TODO: shouldn't calc_range just use self.sample_thickness?
         ds_beam = xr.open_dataset(self.file_path, group='Beam')
         ds_vend = xr.open_dataset(self.file_path, group='Vendor')
 
@@ -110,17 +113,17 @@ class ModelAZFP(ModelBase):
         # Create DataArrays for broadcasting on dimension frequency
 
         # TODO Handle varying range
-        # Calculate range from soundspeed for each frequency
-        depth = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
-                 (((2 * m - 1) * range_samples[0] * bins_to_avg - 1) / dig_rate[0] +
-                 (pulse_length / np.timedelta64(1, 's'))))
+        # Calculate range from sound speed for each frequency
+        range_meter = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
+                       (((2 * m - 1) * range_samples[0] * bins_to_avg - 1) / dig_rate[0] +
+                        (pulse_length / np.timedelta64(1, 's'))))
         if tilt_corrected:
-            depth = ds_beam.cos_tilt_mag.mean() * depth
+            range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
 
         ds_beam.close()
         ds_vend.close()
 
-        self._range = depth
+        self._range = range_meter
         return self._range
 
     def calc_sound_speed(self):
@@ -165,16 +168,31 @@ class ModelAZFP(ModelBase):
                default to ``True``
         """
 
+        # Open data set for Environment and Beam groups
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
-        depth = self.calc_range()
+        # Derived params
+        # TODO: check if sample_thickness calculation should be/is done in a separate method
+        sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
+        range_meter = self.calc_range()
         self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(depth) +
-                   2 * self.sea_abs * depth -
-                   10 * np.log10(0.5 * self.sound_speed *
+                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
+                   2 * ds_beam.sea_abs * range_meter -
+                   10 * np.log10(0.5 * ds_env.sound_speed_indicative *
                                  ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
                                  ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
+
+        # Get TVG and absorption
+        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+        ABS = 2 * ds_env.absorption_indicative * range_meter
+
+        # Save TVG and ABS for noise estimation use
+        self.sample_thickness = sample_thickness
+        self.TVG = TVG   # TODO: check if TVG and ABS are necessary, even though adding them makes it similar to EK60
+        self.ABS = ABS
+
         self.Sv.name = "Sv"
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
