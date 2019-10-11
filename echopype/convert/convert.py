@@ -30,7 +30,7 @@ class Convert:
         ext = os.path.splitext(file_name)[1]
 
         if ext == '.raw':
-            echosounder_type = 'EK60'
+            echosounder_type = 'EK60'  # TODO: EK80 also produced .raw files so need something else later
         elif ext == '.01A':
             echosounder_type = 'AZFP'
         else:

@@ -1,17 +1,20 @@
 name: echopype
 channels:
   - conda-forge
+  - defaults
 dependencies:
+  - beautifulsoup4
+  - click
+  - dask
+  - ipykernel
+  - matplotlib
   - numpy
   - netCDF4
-  - matplotlib
-  - pytz
-  - dask
-  - xarray
   - pandas
-  - scipy
-  - ipykernel
-  - click
+  - pytz
   - requests
-  - beautifulsoup4
-
+  - scipy
+  - xarray
+  - pip:
+      - pynmea2
+      - arlpy
