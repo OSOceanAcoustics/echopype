@@ -135,9 +135,61 @@ class ModelAZFP(ModelBase):
         -------
         A sound speed for each temperature.
         """
+        # TODO: add flag to use AZFP-supplied ss formula (see below)
+        # TODO: add flag to choose temperature from user-supplied values or from file
         ss = arlpy.uwa.soundspeed(temperature=self.temperature, salinity=self.salinity, depth=self.pressure)
         self._sound_speed = ss
         return self._sound_speed
+
+        # def compute_ss(T, P, S):
+        #     """Computes the sound speed
+        #
+        #     Parameters
+        #     ----------
+        #     T
+        #         Temperature
+        #     P
+        #         Pressure
+        #     S
+        #         Salinity
+        #
+        #     Returns
+        #     -------
+        #         The sound speed in m/s
+        #     """
+        #     z = T / 10
+        #     return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
+        #             (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
+
+        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
+        #     """Input the data with temperature values and averages all the temperatures
+        #
+        #     Parameters
+        #     ----------
+        #     unpacked_data
+        #         current unpacked data
+        #     hourly_avg_temp
+        #         xml parameter
+        #
+        #     Returns
+        #     -------
+        #         the average temperature
+        #     """
+        #     sum = 0
+        #     total = 0
+        #     for ii in range(len(unpacked_data)):
+        #         val = unpacked_data[ii]['temperature']
+        #         if not math.isnan(val):
+        #             total += 1
+        #             sum += val
+        #     if total == 0:
+        #         print("**** No AZFP temperature found. Using default of {:.2f} "
+        #               "degC to calculate sound-speed and range\n"
+        #               .format(hourly_avg_temp))
+        #         return hourly_avg_temp    # default value
+        #     else:
+        #         return sum / total
+
 
     def calc_sea_abs(self):
         """Calculate the sea absorption for each frequency with arlpy.
@@ -146,6 +198,7 @@ class ModelAZFP(ModelBase):
         -------
         An array containing absorption coefficients for each frequency in dB/m
         """
+        # TODO: add flag to use AZFP-supplied absorption formula (see below)
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             frequency = ds_beam.frequency
         try:
@@ -157,6 +210,42 @@ class ModelAZFP(ModelBase):
         # Convert linear absorption to dB/km. Convert to dB/m
         self._sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
         return self._sea_abs
+
+        # def compute_sea_abs(T, F, P, S):
+        #     """Computes the absorption coefficient
+        #
+        #     Parameters
+        #     ----------
+        #     T : Float
+        #         Temperature
+        #     F : Numpy array
+        #         Frequency
+        #     P : Float
+        #         Pressure
+        #     S : Float
+        #         Salinity
+        #
+        #     Returns
+        #     -------
+        #         Numpy array containing the sea absorption for each frequency in dB/m
+        #     """
+        #
+        #     T_k = T + 273.0
+        #     f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
+        #     f2 = 1.55e7 * T_k * math.exp(-3052 / T_k)
+        #
+        #     # Coefficients for absorption calculations
+        #     k = 1 + P / 10.0
+        #     a = 8.95e-8 * (1 + T * (2.29e-2 - 5.08e-4 * T))
+        #     b = (S / 35.0) * 4.88e-7 * (1 + 0.0134 * T) * (1 - 0.00103 * k + 3.7e-7 * (k * k))
+        #     c = (4.86e-13 * (1 + T * ((-0.042) + T * (8.53e-4 - T * 6.23e-6))) *
+        #          (1 + k * (-3.84e-4 + k * 7.57e-8)))
+        #     F_k = F * 1000
+        #     if S == 0:
+        #         return c * F_k ** 2
+        #     else:
+        #         return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
+        #                 (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
 
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.

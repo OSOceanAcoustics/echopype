@@ -25,6 +25,7 @@ class ModelBase(object):
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
         self.SNR = 10  # min signal-to-noise ratio
+        # TODO: check how this differs from setting noise_floor in unpacking
         self.Sv_threshold = -120  # min Sv threshold
         
     @property
