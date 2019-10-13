@@ -58,11 +58,40 @@ class ModelAZFP(ModelBase):
     @temperature.setter
     def temperature(self, temperature):
         self._temperature = temperature
+    # TODO: default to use temperature from file but allow user to supply temperature as well
+    # def compute_avg_temp(unpacked_data, hourly_avg_temp):
+    #     """Input the data with temperature values and averages all the temperatures
+    #
+    #     Parameters
+    #     ----------
+    #     unpacked_data
+    #         current unpacked data
+    #     hourly_avg_temp
+    #         xml parameter
+    #
+    #     Returns
+    #     -------
+    #         the average temperature
+    #     """
+    #     sum = 0
+    #     total = 0
+    #     for ii in range(len(unpacked_data)):
+    #         val = unpacked_data[ii]['temperature']
+    #         if not math.isnan(val):
+    #             total += 1
+    #             sum += val
+    #     if total == 0:
+    #         print("**** No AZFP temperature found. Using default of {:.2f} "
+    #               "degC to calculate sound-speed and range\n"
+    #               .format(hourly_avg_temp))
+    #         return hourly_avg_temp    # default value
+    #     else:
+    #         return sum / total
 
     @property
     def sample_thickness(self):
         """Gets the sample thickness differently from how the parent class does it
-        beacause the sound speed is not saved in the .nc file for AZFP
+        because the sound speed is not saved in the .nc file for AZFP
         """
         if self._sample_thickness is None:
             with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
@@ -126,126 +155,82 @@ class ModelAZFP(ModelBase):
         self._range = range_meter
         return self._range
 
-    def calc_sound_speed(self):
+    def calc_sound_speed(self, formula_source='AZFP'):
         """Calculate the sound speed using arlpy. Uses the default salinity and pressure.
-        Temperature comes from measurements that varies with the ping.
-        A sound speed value is calculated with each temperature value.
+
+        Parameters
+        ----------
+        formula_source : str
+            Source of formula used for calculating sound speed.
+            Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
+            Another option is to use Mackenzie (1981) supplied by ``arlpy`` (``formula_source='Mackenzie'``).
 
         Returns
         -------
-        A sound speed for each temperature.
+        A sound speed [m/s] for each temperature.
         """
-        # TODO: add flag to use AZFP-supplied ss formula (see below)
-        # TODO: add flag to choose temperature from user-supplied values or from file
-        ss = arlpy.uwa.soundspeed(temperature=self.temperature, salinity=self.salinity, depth=self.pressure)
-        self._sound_speed = ss
+        # TODO: reconcile the original comments below from @ngkavin
+        # Temperature comes from measurements that varies with the ping.
+        # A sound speed value is calculated with each temperature value.
+
+        if formula_source == 'Mackenzie':  # Mackenzie (1981) supplied by arlpy
+            ss = arlpy.uwa.soundspeed(temperature=self.temperature,
+                                      salinity=self.salinity,
+                                      depth=self.pressure)
+        else:  # default to formula supplied by AZFP
+            z = self.temperature / 10
+            sal = self.salinity
+            pres = self.pressure
+            ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
+                  (sal - 35.0) + (pres / 1000) * (16.3 + 0.18 * (pres / 1000)))
+        self._sound_speed = ss   # TODO: fix this type of redundancy related to bad property implementation
         return self._sound_speed
 
-        # def compute_ss(T, P, S):
-        #     """Computes the sound speed
-        #
-        #     Parameters
-        #     ----------
-        #     T
-        #         Temperature
-        #     P
-        #         Pressure
-        #     S
-        #         Salinity
-        #
-        #     Returns
-        #     -------
-        #         The sound speed in m/s
-        #     """
-        #     z = T / 10
-        #     return (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
-        #             (S - 35.0) + (P / 1000) * (16.3 + 0.18 * (P / 1000)))
+    def calc_sea_abs(self, formula_source='AZFP'):
+        """Calculate the sea absorption for all frequencies.
 
-        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
-        #     """Input the data with temperature values and averages all the temperatures
-        #
-        #     Parameters
-        #     ----------
-        #     unpacked_data
-        #         current unpacked data
-        #     hourly_avg_temp
-        #         xml parameter
-        #
-        #     Returns
-        #     -------
-        #         the average temperature
-        #     """
-        #     sum = 0
-        #     total = 0
-        #     for ii in range(len(unpacked_data)):
-        #         val = unpacked_data[ii]['temperature']
-        #         if not math.isnan(val):
-        #             total += 1
-        #             sum += val
-        #     if total == 0:
-        #         print("**** No AZFP temperature found. Using default of {:.2f} "
-        #               "degC to calculate sound-speed and range\n"
-        #               .format(hourly_avg_temp))
-        #         return hourly_avg_temp    # default value
-        #     else:
-        #         return sum / total
-
-
-    def calc_sea_abs(self):
-        """Calculate the sea absorption for each frequency with arlpy.
+        Parameters
+        ----------
+        formula_source : str
+            Source of formula used for calculating sound speed.
+            Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
+            Another option is to use Francois and Garrison (1982) supplied by ``arlpy`` (``formula_source='FG'``).
 
         Returns
         -------
         An array containing absorption coefficients for each frequency in dB/m
         """
-        # TODO: add flag to use AZFP-supplied absorption formula (see below)
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
-            frequency = ds_beam.frequency
+            freq = ds_beam.frequency  # should already be in unit [Hz]
+        # TODO: This should already been set and won't error out
         try:
             temp = self.temperature.mean()    # Averages when temperature is a numpy array
         except AttributeError:
             temp = self.temperature
-        linear_abs = arlpy.uwa.absorption(frequency=frequency, temperature=temp,
+        linear_abs = arlpy.uwa.absorption(frequency=freq, temperature=temp,
                                           salinity=self.salinity, depth=self.pressure)
-        # Convert linear absorption to dB/km. Convert to dB/m
-        self._sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
-        return self._sea_abs
 
-        # def compute_sea_abs(T, F, P, S):
-        #     """Computes the absorption coefficient
-        #
-        #     Parameters
-        #     ----------
-        #     T : Float
-        #         Temperature
-        #     F : Numpy array
-        #         Frequency
-        #     P : Float
-        #         Pressure
-        #     S : Float
-        #         Salinity
-        #
-        #     Returns
-        #     -------
-        #         Numpy array containing the sea absorption for each frequency in dB/m
-        #     """
-        #
-        #     T_k = T + 273.0
-        #     f1 = 1320.0 * T_k * math.exp(-1700 / T_k)
-        #     f2 = 1.55e7 * T_k * math.exp(-3052 / T_k)
-        #
-        #     # Coefficients for absorption calculations
-        #     k = 1 + P / 10.0
-        #     a = 8.95e-8 * (1 + T * (2.29e-2 - 5.08e-4 * T))
-        #     b = (S / 35.0) * 4.88e-7 * (1 + 0.0134 * T) * (1 - 0.00103 * k + 3.7e-7 * (k * k))
-        #     c = (4.86e-13 * (1 + T * ((-0.042) + T * (8.53e-4 - T * 6.23e-6))) *
-        #          (1 + k * (-3.84e-4 + k * 7.57e-8)))
-        #     F_k = F * 1000
-        #     if S == 0:
-        #         return c * F_k ** 2
-        #     else:
-        #         return ((a * f1 * (F_k ** 2)) / ((f1 * f1) + (F_k ** 2)) +
-        #                 (b * f2 * (F_k ** 2)) / ((f2 * f2) + (F_k ** 2)) + c * (F_k ** 2))
+        if formula_source == 'FG':
+            # Convert linear absorption to dB/km. Convert to dB/m
+            sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
+        else:  # defaults to formula provided by AZFP
+            temp_k = temp + 273.0
+            f1 = 1320.0 * temp_k * math.exp(-1700 / temp_k)
+            f2 = 1.55e7 * temp_k * math.exp(-3052 / temp_k)
+
+            # Coefficients for absorption calculations
+            k = 1 + self.pressure / 10.0
+            a = 8.95e-8 * (1 + temp * (2.29e-2 - 5.08e-4 * temp))
+            b = (self.salinity / 35.0) * 4.88e-7 * (1 + 0.0134 * temp) * (1 - 0.00103 * k + 3.7e-7 * (k * k))
+            c = (4.86e-13 * (1 + temp * ((-0.042) + temp * (8.53e-4 - temp * 6.23e-6))) *
+                 (1 + k * (-3.84e-4 + k * 7.57e-8)))
+            if self.salinity == 0:
+                sea_abs = c * freq ** 2
+            else:
+                sea_abs = ((a * f1 * (freq ** 2)) / ((f1 * f1) + (freq ** 2)) +
+                           (b * f2 * (freq ** 2)) / ((f2 * f2) + (freq ** 2)) + c * (freq ** 2))
+        self._sea_abs = sea_abs  # TODO: fix this type of redundancy related to bad property implementation
+        return self._sea_abs
 
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
