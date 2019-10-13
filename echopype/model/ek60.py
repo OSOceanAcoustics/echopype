@@ -88,6 +88,15 @@ class ModelEK60(ModelBase):
                     except KeyError:
                         raise(f'{sel} is not a valid input')
 
+    def calc_range(self):
+        """Calculates range in meters using parameters stored in the .nc file.
+        """
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            range_meter = ds_beam.range_bin * self.sample_thickness - \
+                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+            range_meter = range_meter.where(range_meter > 0, other=0)
+            return range_meter
+
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
 
