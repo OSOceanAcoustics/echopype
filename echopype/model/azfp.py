@@ -5,6 +5,7 @@ echopype data model inherited from based class EchoData for AZFP data.
 import datetime as dt
 import numpy as np
 import xarray as xr
+import math
 import arlpy
 from .modelbase import ModelBase
 
@@ -12,29 +13,106 @@ from .modelbase import ModelBase
 class ModelAZFP(ModelBase):
     """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
-    def __init__(self, file_path=""):
+    def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None, sound_speed=None):
         ModelBase.__init__(self, file_path)
-        self.salinity = 29.6       # Salinity in psu
-        self.pressure = 60         # Pressure in dbars (~ equal to depth in meters)
-        self.bins_to_avg = 1
-        self.time_to_avg = 40
+        self.salinity = salinity           # salinity in [psu]
+        self.pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
+        self.temperature = temperature     # temperature in [Celsius]
+        self.sound_speed = sound_speed     # sound speed in [m/s]
+        self.sample_thickness = None
+        self.sample_thickness = self.calc_sample_thickness()   # calculate sample thickness at initialization
+        self.range = None
+        self.range = self.calc_range()     # calculate range at initialization
 
-    # TODO: move setter/getter for sound_speed, range, sea_abs, temperature, sample thickness into modelbase
-    # Retrieve sound_speed. Calculate if not stored
+    # TODO: consider moving some of these properties to the parent class,
+    #       since it is possible that EK60 users may want to set the
+    #       environmental parameters separately from those recorded in the
+    #       data files.
+
+    @property
+    def salinity(self):
+        return self._salinity
+
+    @salinity.setter
+    def salinity(self, sal):
+        self._salinity = sal
+        # TODO: need to update sound speed, sample_thickness, absorption, range
+
+    @property
+    def pressure(self):
+        return self._pressure
+
+    @pressure.setter
+    def pressure(self, pres):
+        self._pressure = pres
+        # TODO: need to update sound speed, sample_thickness, absorption, range
+
+    @property
+    def temperature(self):
+        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+            self._temperature = ds_env.temperature
+            return self._temperature
+
+    @temperature.setter
+    def temperature(self, t):
+        self._temperature = t
+        # TODO: need to update sound speed, sample_thickness, absorption, range
+
+        # TODO: add an option to allow using hourly averaged temperature,
+        #       this requires using groupby operation and align the calculation
+        #       properly when calculating sound speed (by ping_time)
+
+        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
+        #     """Input the data with temperature values and averages all the temperatures
+        #
+        #     Parameters
+        #     ----------
+        #     unpacked_data
+        #         current unpacked data
+        #     hourly_avg_temp
+        #         xml parameter
+        #
+        #     Returns
+        #     -------
+        #         the average temperature
+        #     """
+        #     sum = 0
+        #     total = 0
+        #     for ii in range(len(unpacked_data)):
+        #         val = unpacked_data[ii]['temperature']
+        #         if not math.isnan(val):
+        #             total += 1
+        #             sum += val
+        #     if total == 0:
+        #         print("**** No AZFP temperature found. Using default of {:.2f} "
+        #               "degC to calculate sound-speed and range\n"
+        #               .format(hourly_avg_temp))
+        #         return hourly_avg_temp    # default value
+        #     else:
+        #         return sum / total
+
     @property
     def sound_speed(self):
-        try:
-            return self._sound_speed
-        except AttributeError:
+        if not self._sound_speed:  # if this is empty
             return self.calc_sound_speed()
+        else:
+            return self._sound_speed
 
-    # Retrieve range. Calculate if not stored
+    @sound_speed.setter
+    def sound_speed(self, ss):
+        self._sound_speed = ss
+        # TODO: need to update sample_thickness, absorption, range
+
     @property
     def range(self):
-        try:
-            return self._range
-        except AttributeError:
+        if not self._range:  # if this is empty
             return self.calc_range()
+        else:
+            return self._range
+
+    @range.setter
+    def range(self, rr):
+        self._range = rr
 
     # Retrieve sea_abs. Calculate if not stored
     @property
@@ -43,120 +121,17 @@ class ModelAZFP(ModelBase):
             return self._sea_abs
         except AttributeError:
             return self.calc_sea_abs()
-    
-    # Retrieve temperature
-    @property
-    def temperature(self):
-        try:
-            return self._temperature
-        except AttributeError:
-            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-                self._temperature = ds_env.temperature
-                return self._temperature
 
-    # Allow user define temperature as AZFP measures device temperature
-    @temperature.setter
-    def temperature(self, temperature):
-        self._temperature = temperature
-    # TODO: default to use temperature from file but allow user to supply temperature as well
-    # def compute_avg_temp(unpacked_data, hourly_avg_temp):
-    #     """Input the data with temperature values and averages all the temperatures
-    #
-    #     Parameters
-    #     ----------
-    #     unpacked_data
-    #         current unpacked data
-    #     hourly_avg_temp
-    #         xml parameter
-    #
-    #     Returns
-    #     -------
-    #         the average temperature
-    #     """
-    #     sum = 0
-    #     total = 0
-    #     for ii in range(len(unpacked_data)):
-    #         val = unpacked_data[ii]['temperature']
-    #         if not math.isnan(val):
-    #             total += 1
-    #             sum += val
-    #     if total == 0:
-    #         print("**** No AZFP temperature found. Using default of {:.2f} "
-    #               "degC to calculate sound-speed and range\n"
-    #               .format(hourly_avg_temp))
-    #         return hourly_avg_temp    # default value
-    #     else:
-    #         return sum / total
+    def calc_sample_thickness(self):
+        """Gets ``sample_thickness`` for AZFP data.
 
-    @property
-    def sample_thickness(self):
-        """Gets the sample thickness differently from how the parent class does it
-        because the sound speed is not saved in the .nc file for AZFP
+        This will call ``calc_sound_speed`` since sound speed is `not` part of the raw AZFP .01A data file.
         """
-        if self._sample_thickness is None:
-            with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
-                # Average the sound speeds if it is an array as opposed to a single value
-                try:
-                    self._sample_thickness = self.sound_speed.mean() * ds_beam.sample_interval / 2
-                except AttributeError:
-                    self._sample_thickness = self.sound_speed * ds_beam.sample_interval / 2
-        return self._sample_thickness
-
-    def calc_range(self, tilt_corrected=False):
-        """Calculates the range in meters using sound speed and other measured values
-
-        Parameters
-        ----------
-        tilt_corrected : bool
-                         Modifies the range to take into account the tilt of the transducer.
-                         Defaults to `False`
-
-        Returns
-        -------
-        An xarray DataArray containing the range with coordinate frequency
-        """
-        # TODO: need to clean up this code for consistency and minimize 'quick fixes'
-        # TODO: shouldn't calc_range just use self.sample_thickness?
-        ds_beam = xr.open_dataset(self.file_path, group='Beam')
-        ds_vend = xr.open_dataset(self.file_path, group='Vendor')
-
-        frequency = ds_beam.frequency
-        range_samples = ds_vend.number_of_samples_per_average_bin
-        pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
-        bins_to_avg = 1   # set to 1 since we want to calculate from raw data
-        range_bin = ds_beam.range_bin
-        sound_speed = self.sound_speed
-        dig_rate = ds_vend.digitization_rate
-        lockout_index = ds_vend.lockout_index
-
-        # Converts sound speed to a single number. Otherwise depth will have dimension ping time
-        if len(sound_speed) != 1:
-            sound_speed = sound_speed.mean()
-
-        m = []
-        for jj in range(len(frequency)):
-            m.append(np.arange(1, len(range_bin) - bins_to_avg + 2,
-                     bins_to_avg))
-        m = xr.DataArray(m, coords=[('frequency', frequency), ('range_bin', range_bin)])
-        # m = xr.DataArray(m, coords=[('frequency', Data[0]['frequency'])])         # If range varies in frequency
-        # Create DataArrays for broadcasting on dimension frequency
-
-        # TODO Handle varying range
-        # Calculate range from sound speed for each frequency
-        range_meter = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
-                       (((2 * m - 1) * range_samples[0] * bins_to_avg - 1) / dig_rate[0] +
-                        (pulse_length / np.timedelta64(1, 's'))))
-        if tilt_corrected:
-            range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
-
-        ds_beam.close()
-        ds_vend.close()
-
-        self._range = range_meter
-        return self._range
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            return self.sound_speed * ds_beam.sample_interval / 2
 
     def calc_sound_speed(self, formula_source='AZFP'):
-        """Calculate the sound speed using arlpy. Uses the default salinity and pressure.
+        """Calculate sound speed in meters per second. Uses the default salinity and pressure.
 
         Parameters
         ----------
@@ -169,22 +144,73 @@ class ModelAZFP(ModelBase):
         -------
         A sound speed [m/s] for each temperature.
         """
-        # TODO: reconcile the original comments below from @ngkavin
-        # Temperature comes from measurements that varies with the ping.
-        # A sound speed value is calculated with each temperature value.
-
         if formula_source == 'Mackenzie':  # Mackenzie (1981) supplied by arlpy
             ss = arlpy.uwa.soundspeed(temperature=self.temperature,
                                       salinity=self.salinity,
                                       depth=self.pressure)
         else:  # default to formula supplied by AZFP
             z = self.temperature / 10
-            sal = self.salinity
-            pres = self.pressure
             ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
-                  (sal - 35.0) + (pres / 1000) * (16.3 + 0.18 * (pres / 1000)))
-        self._sound_speed = ss   # TODO: fix this type of redundancy related to bad property implementation
-        return self._sound_speed
+                  (self.salinity - 35.0) + (self.pressure / 1000) * (16.3 + 0.18 * (self.pressure / 1000)))
+        return ss
+
+    def calc_range(self, tilt_corrected=False):
+        """Calculates range in meters using AZFP-supplied formula, instead of from sample_interval directly.
+
+        Parameters
+        ----------
+        tilt_corrected : bool
+            Modifies the range to take into account the tilt of the transducer. Defaults to `False`.
+
+        Returns
+        -------
+        An xarray DataArray containing the range with coordinate frequency
+        """
+        ds_beam = xr.open_dataset(self.file_path, group='Beam')
+        ds_vend = xr.open_dataset(self.file_path, group='Vendor')
+
+        range_samples = ds_vend.number_of_samples_per_average_bin   # WJ: same as "range_samples_per_bin" used to calculate "sample_interval"
+        pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
+        bins_to_avg = 1   # set to 1 since we want to calculate from raw data
+        sound_speed = self.sound_speed
+        dig_rate = ds_vend.digitization_rate
+        lockout_index = ds_vend.lockout_index
+
+        # Converts sound speed to a single number. Otherwise depth will have dimension ping time
+        if len(sound_speed) != 1:
+            sound_speed = sound_speed.mean()
+            # TODO: print out a message showing percentage of variation of sound speed across pings
+            #       as the following:
+            #       "Use mean sound speed. Sound speed varied by XX% across pings."
+
+        # Below is from LoadAZFP.m, the output is effectively range_bin+1 when bins_to_avg=1
+        range_mod = xr.DataArray(np.arange(1, len(ds_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
+                                 coords=[('range_bin', ds_beam.range_bin)])
+
+        # Calculate range using parameters for each freq
+        range_meter = (sound_speed * lockout_index / (2 * dig_rate) + sound_speed / 4 *
+                       (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
+                        (pulse_length / np.timedelta64(1, 's'))))
+
+        # # Below from @ngkavin --> @leewujung simplified to the above
+        # m = []
+        # for jj in range(len(frequency)):
+        #     m.append(np.arange(1, len(range_bin) - bins_to_avg + 2,
+        #              bins_to_avg))
+        # m = xr.DataArray(m, coords=[('frequency', frequency), ('range_bin', range_bin)])
+        #
+        # # Calculate range from sound speed for each frequency
+        # range_meter = (sound_speed * lockout_index[0] / (2 * dig_rate[0]) + sound_speed / 4 *
+        #                (((2 * m - 1) * range_samples[0] * bins_to_avg - 1) / dig_rate[0] +
+        #                 (pulse_length / np.timedelta64(1, 's'))))
+
+        if tilt_corrected:
+            range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
+
+        ds_beam.close()
+        ds_vend.close()
+
+        return range_meter
 
     def calc_sea_abs(self, formula_source='AZFP'):
         """Calculate the sea absorption for all frequencies.
@@ -215,7 +241,7 @@ class ModelAZFP(ModelBase):
             sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
         else:  # defaults to formula provided by AZFP
             temp_k = temp + 273.0
-            f1 = 1320.0 * temp_k * math.exp(-1700 / temp_k)
+            f1 = 1320.0 * temp_k * math.exp(-1700 / temp_k)  # TODO: do we actually need math.exp here or just **?
             f2 = 1.55e7 * temp_k * math.exp(-3052 / temp_k)
 
             # Coefficients for absorption calculations
@@ -236,7 +262,7 @@ class ModelAZFP(ModelBase):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
         Parameters
-        -----------
+        ----------
         save : bool, optional
                whether to save calibrated Sv output
                default to ``True``
@@ -289,6 +315,3 @@ class ModelAZFP(ModelBase):
             self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
 
         ds_beam.close()
-
-    # def get_MVBS(self):
-    #     super().get_MVBS('Sv', self.bins_to_avg, self.time_to_avg)
