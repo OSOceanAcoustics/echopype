@@ -8,6 +8,7 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 
+
 class ModelBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
@@ -55,7 +56,7 @@ class ModelBase(object):
                                         os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.nc')
             self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
                                           os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.nc')
-
+            print('inside setter function')
             # Raise error if the file format convention does not match
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
@@ -74,12 +75,10 @@ class ModelBase(object):
         return self._sample_thickness
 
     def calc_range(self):
-        # TODO: this should be specific for EK60, note tvg_correction_factor only exists for EK60
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
-            range_meter = ds_beam.range_bin * self.sample_thickness - \
-                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
-            range_meter = range_meter.where(range_meter > 0, other=0)
-            return range_meter
+        """Base method to be overridden for calculating range for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Range calculation has not been implemented for this sonar model!')
 
     def calibrate(self):
         """Base method to be overridden for calibration and echo-integration for different sonar models.
