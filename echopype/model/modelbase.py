@@ -324,7 +324,7 @@ class ModelBase(object):
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
-                                  groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']).
+                                  groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                   min('range_bin_bins'))
 
         # Set noise estimates coordinates and other attributes
@@ -401,10 +401,10 @@ class ModelBase(object):
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         if source == 'Sv':
             MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         elif source == 'Sv_clean':
             MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
         
