@@ -5,7 +5,6 @@ echopype data model inherited from based class EchoData for AZFP data.
 import datetime as dt
 import numpy as np
 import xarray as xr
-import math
 import arlpy
 from .modelbase import ModelBase
 
@@ -19,15 +18,13 @@ class ModelAZFP(ModelBase):
         self.pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
         self.temperature = temperature     # temperature in [Celsius]
         self.sound_speed = sound_speed     # sound speed in [m/s]
-        self.sample_thickness = None
-        self.sample_thickness = self.calc_sample_thickness()   # calculate sample thickness at initialization
-        self.range = None
-        self.range = self.calc_range()     # calculate range at initialization
+        self._sample_thickness = None
+        self._range = None
+        self._seawater_absorption = None
 
     # TODO: consider moving some of these properties to the parent class,
-    #       since it is possible that EK60 users may want to set the
-    #       environmental parameters separately from those recorded in the
-    #       data files.
+    #  since it is possible that EK60 users may want to set the environmental
+    #  parameters separately from those recorded in the data files.
 
     @property
     def salinity(self):
@@ -58,9 +55,9 @@ class ModelAZFP(ModelBase):
         self._temperature = t
         # TODO: need to update sound speed, sample_thickness, absorption, range
 
-        # TODO: add an option to allow using hourly averaged temperature,
-        #       this requires using groupby operation and align the calculation
-        #       properly when calculating sound speed (by ping_time)
+        # TODO: add an option to allow using hourly averaged temperature, this
+        #  requires using groupby operation and align the calculation properly
+        #  when calculating sound speed (by ping_time).
 
         # def compute_avg_temp(unpacked_data, hourly_avg_temp):
         #     """Input the data with temperature values and averages all the temperatures
@@ -104,6 +101,17 @@ class ModelAZFP(ModelBase):
         # TODO: need to update sample_thickness, absorption, range
 
     @property
+    def sample_thickness(self):
+        if not self._sample_thickness:  # if this is empty
+            return self.calc_sample_thickness()
+        else:
+            return self._sample_thickness
+
+    @sample_thickness.setter
+    def sample_thickness(self, sth):
+        self._sample_thickness = sth
+
+    @property
     def range(self):
         if not self._range:  # if this is empty
             return self.calc_range()
@@ -114,13 +122,16 @@ class ModelAZFP(ModelBase):
     def range(self, rr):
         self._range = rr
 
-    # Retrieve sea_abs. Calculate if not stored
     @property
-    def sea_abs(self):
-        try:
-            return self._sea_abs
-        except AttributeError:
-            return self.calc_sea_abs()
+    def seawater_absorption(self):
+        if not self._seawater_absorption:  # if this is empty
+            return self.calc_seawater_absorption()
+        else:
+            return self._seawater_absorption
+
+    @seawater_absorption.setter
+    def seawater_absorption(self, abs):
+        self._seawater_absorption = abs
 
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
@@ -212,8 +223,8 @@ class ModelAZFP(ModelBase):
 
         return range_meter
 
-    def calc_sea_abs(self, formula_source='AZFP'):
-        """Calculate the sea absorption for all frequencies.
+    def calc_seawater_absorption(self, formula_source='AZFP'):
+        """Calculate the seawater absorption for all frequencies.
 
         Parameters
         ----------
@@ -228,21 +239,23 @@ class ModelAZFP(ModelBase):
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency  # should already be in unit [Hz]
-        # TODO: This should already been set and won't error out
-        try:
-            temp = self.temperature.mean()    # Averages when temperature is a numpy array
-        except AttributeError:
-            temp = self.temperature
-        linear_abs = arlpy.uwa.absorption(frequency=freq, temperature=temp,
-                                          salinity=self.salinity, depth=self.pressure)
-
         if formula_source == 'FG':
+            linear_abs = arlpy.uwa.absorption(frequency=freq,
+                                              temperature=self.temperature.mean(),
+                                              salinity=self.salinity,
+                                              depth=self.pressure)
+            print('Using averaged temperature for calculating seawater absorption.')
             # Convert linear absorption to dB/km. Convert to dB/m
             sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
-        else:  # defaults to formula provided by AZFP
-            temp_k = temp + 273.0
-            f1 = 1320.0 * temp_k * math.exp(-1700 / temp_k)  # TODO: do we actually need math.exp here or just **?
-            f2 = 1.55e7 * temp_k * math.exp(-3052 / temp_k)
+
+        # TODO: write a test function to compare AZFP formula output with outputs from Matlab code
+        #  in the same way as you compare the echo data. The comparison should be done for a vector
+        #  of frequencies np.logspace(0,6,500).
+        else:  # default to formula provided by AZFP
+            temp = self.temperature
+            temp_k = self.temperature + 273.0
+            f1 = 1320.0 * temp_k * np.exp(-1700 / temp_k)
+            f2 = 1.55e7 * temp_k * np.exp(-3052 / temp_k)
 
             # Coefficients for absorption calculations
             k = 1 + self.pressure / 10.0
@@ -255,8 +268,8 @@ class ModelAZFP(ModelBase):
             else:
                 sea_abs = ((a * f1 * (freq ** 2)) / ((f1 * f1) + (freq ** 2)) +
                            (b * f2 * (freq ** 2)) / ((f2 * f2) + (freq ** 2)) + c * (freq ** 2))
-        self._sea_abs = sea_abs  # TODO: fix this type of redundancy related to bad property implementation
-        return self._sea_abs
+
+        return sea_abs
 
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
