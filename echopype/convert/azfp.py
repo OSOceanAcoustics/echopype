@@ -486,6 +486,7 @@ class ConvertAZFP:
             # Largest number of counts along the range dimension among the different channels
             longest_range_bin = np.max(self.unpacked_data['num_bins'])
             range_bin = np.arange(longest_range_bin)
+            # TODO: replace the following with an explicit check of length of range across channels
             try:
                 np.array(N)
             # Exception occurs when N is not rectangular, so it must be padded with nan values to make it rectangular
