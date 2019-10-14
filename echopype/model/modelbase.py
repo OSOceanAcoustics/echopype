@@ -141,9 +141,8 @@ class ModelBase(object):
         #  or a list of numbers.
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        sth = sample_thickness.mean(dim='ping_time')  # use mean sample thickness from all pings [m]
-        num_r_per_tile = (np.round(r_tile_sz / sth).astype(int)).values.max()  # num of range_bin per tile
-        r_tile_sz = (num_r_per_tile * sth).values
+        num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
+        r_tile_sz = (num_r_per_tile * sample_thickness).values
 
         # TODO: double check this, but edits from @cyrf0006 seems correct
         num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
@@ -271,7 +270,7 @@ class ModelBase(object):
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-        Sv_clean['sample_thickness'] = ('frequency', self.sample_thickness.mean(dim='ping_time'))
+        Sv_clean['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
@@ -336,7 +335,7 @@ class ModelBase(object):
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-        noise_est['sample_thickness'] = ('frequency', self.sample_thickness.mean(dim='ping_time'))
+        noise_est['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Close opened resources
         proc_data.close()
@@ -370,8 +369,6 @@ class ModelBase(object):
         # TODO: Not sure what @cyrf0006 means below, but need to resolve the issues surrounding
         #  potentially having different sample_thickness for each frequency. This is the same
         #  issue that needs to be resolved in ``get_tile_params`` and all calling methods.
-        #  Another required fix alogn the same line is to revise calc_sample_thickness such that
-        #  there will be no need to do self.sample_thickness.mean(dim='ping_time')
         #  --- Below are comments from @cyfr0006 ---
         #  -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
         #  if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
@@ -426,7 +423,7 @@ class ModelBase(object):
         MVBS = MVBS.to_dataset()
         MVBS['noise_est_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['noise_est_ping_size'] = self.MVBS_ping_size
-        MVBS['sample_thickness'] = ('frequency', self.sample_thickness.mean(dim='ping_time'))
+        MVBS['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
