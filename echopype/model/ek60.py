@@ -21,15 +21,15 @@ class ModelEK60(ModelBase):
         return self._piece
 
     @piece.setter
-    def piece(self, piece):
+    def piece(self, p):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
-            pieces = list(range(int(ds_beam.pieces)))
-            if len(pieces) == 1:
-                raise ValueError("Your data does not have changing ranges")
-            if piece in pieces:
-                self._piece = piece
+            pp = list(range(int(ds_beam.pieces)))
+            if len(pp) == 1:
+                print('Your data does not have changing ranges')
+            if p in pp:
+                self._piece = p
             else:
-                raise ValueError(f"\'piece\' must be one of: {pieces}")
+                print(f"\'piece\' must be one of: {pp}")
 
     def get_biggest_piece(self):
         """Get the index of the biggest piece (which piece has the most pings)
@@ -88,10 +88,25 @@ class ModelEK60(ModelBase):
                     except KeyError:
                         raise(f'{sel} is not a valid input')
 
+    def calc_sample_thickness(self):
+        ds_env = xr.open_dataset(self.file_path, group="Environment")
+        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        sth = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
+        ds_env.close()
+        ds_beam.close()
+        return sth
+
+    def calc_range(self):
+        """Calculates range in meters using parameters stored in the .nc file.
+        """
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            range_meter = ds_beam.range_bin * self.sample_thickness - \
+                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+            range_meter = range_meter.where(range_meter > 0, other=0)
+            return range_meter
+
     def calibrate(self, save=False):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
-
-        TODO: need to write a separate method for calculating TS as have been done for AZFP data.
 
         Parameters
         -----------
@@ -117,9 +132,7 @@ class ModelEK60(ModelBase):
                             (32 * np.pi ** 2))
 
         # Get TVG and absorption
-        range_meter = range_bin * self.sample_thickness - \
-            self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
-        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
+        range_meter = self.range
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
         ABS = 2 * ds_env.absorption_indicative * range_meter
 
@@ -133,6 +146,7 @@ class ModelEK60(ModelBase):
 
         # Save calibrated data into the calling instance and
         # ... to a separate .nc file in the same directory as the data filef.Sv = Sv
+        self.Sv = Sv
         if save:
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             Sv.to_netcdf(path=self.Sv_path, mode="w")
@@ -140,3 +154,6 @@ class ModelEK60(ModelBase):
         # Close opened resources
         ds_env.close()
         ds_beam.close()
+
+    # TODO: Need to write a separate method for calculating TS as have been done for AZFP data.
+
