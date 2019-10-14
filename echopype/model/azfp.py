@@ -116,13 +116,9 @@ class ModelAZFP(ModelBase):
 
         This will call ``calc_sound_speed`` since sound speed is `not` part of the raw AZFP .01A data file.
         """
-        # TODO: Change this to return the mean across all ping_time:
-        #  sth = self.sound_speed * ds_beam.sample_interval / 2
-        #  return sth.mean(dim='ping_time')
-        #  Change all methods in modelbase.py that uses self.sample_thickness
-
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
-            return self.sound_speed * ds_beam.sample_interval / 2
+            sth = self.sound_speed * ds_beam.sample_interval / 2
+            return sth.mean(dim='ping_time')   # use mean over all ping_time
 
     def calc_sound_speed(self, formula_source='AZFP'):
         """Calculate sound speed in meters per second. Uses the default salinity and pressure.
@@ -222,12 +218,13 @@ class ModelAZFP(ModelBase):
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency  # should already be in unit [Hz]
+
+        print('Using averaged temperature for calculating seawater absorption.')
         if formula_source == 'FG':
             linear_abs = arlpy.uwa.absorption(frequency=freq,
                                               temperature=self.temperature.mean(),
                                               salinity=self.salinity,
                                               depth=self.pressure)
-            print('Using averaged temperature for calculating seawater absorption.')
             # Convert linear absorption to dB/km. Convert to dB/m
             sea_abs = -arlpy.utils.mag2db(linear_abs) / 1000
 
@@ -235,8 +232,8 @@ class ModelAZFP(ModelBase):
         #  in the same way as you compare the echo data. The comparison should be done for a vector
         #  of frequencies np.logspace(0,6,500).
         else:  # default to formula provided by AZFP
-            temp = self.temperature
-            temp_k = self.temperature + 273.0
+            temp = self.temperature.mean(dim='ping_time')
+            temp_k = temp + 273.0
             f1 = 1320.0 * temp_k * np.exp(-1700 / temp_k)
             f2 = 1.55e7 * temp_k * np.exp(-3052 / temp_k)
 
@@ -298,7 +295,7 @@ class ModelAZFP(ModelBase):
 
         # Save TVG and ABS for noise estimation use
         self.TVG = TVG
-        self.ABS = ABS.mean(dim='ping_time')
+        self.ABS = ABS
 
         self.Sv.name = "Sv"
         if save:
