@@ -18,8 +18,8 @@ class ModelAZFP(ModelBase):
         self.pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
         self.temperature = temperature     # temperature in [Celsius]
         self.sound_speed = sound_speed     # sound speed in [m/s]
-        self._sample_thickness = None
-        self._range = None
+        # self._sample_thickness = None
+        # self._range = None
         self._seawater_absorption = None
 
     # TODO: consider moving some of these properties to the parent class,
@@ -99,17 +99,6 @@ class ModelAZFP(ModelBase):
     def sound_speed(self, ss):
         self._sound_speed = ss
         # TODO: need to update sample_thickness, absorption, range
-
-    @property
-    def range(self):
-        if not self._range:  # if this is empty
-            return self.calc_range()
-        else:
-            return self._range
-
-    @range.setter
-    def range(self, rr):
-        self._range = rr
 
     @property
     def seawater_absorption(self):
@@ -314,7 +303,7 @@ class ModelAZFP(ModelBase):
         self.Sv.name = "Sv"
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-            self.Sv.to_dataset(name="Sv").to_netcdf(path=self.Sv_path, mode="w")
+            self.Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
         ds_env.close()
@@ -328,4 +317,4 @@ class ModelAZFP(ModelBase):
             self.TS.name = "TS"
             if save:
                 print("{} saving calibrated TS to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
-                self.TS.to_dataset(name="TS").to_netcdf(path=self.TS_path, mode="w")
+                self.TS.to_netcdf(path=self.TS_path, mode="w")
