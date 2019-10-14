@@ -24,11 +24,12 @@ class ModelBase(object):
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
-        self.SNR = 10  # min signal-to-noise ratio
-        # TODO: check how this differs from setting noise_floor in unpacking
-        self.Sv_threshold = -120  # min Sv threshold
-
         self._sample_thickness = None
+        self._range = None
+
+    # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
+    #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
+    #  and provide getter/setter
 
     @property
     def sample_thickness(self):
@@ -40,6 +41,17 @@ class ModelBase(object):
     @sample_thickness.setter
     def sample_thickness(self, sth):
         self._sample_thickness = sth
+
+    @property
+    def range(self):
+        if not self._range:  # if this is empty
+            return self.calc_range()
+        else:
+            return self._range
+
+    @range.setter
+    def range(self, rr):
+        self._range = rr
 
     @property
     def file_path(self):
