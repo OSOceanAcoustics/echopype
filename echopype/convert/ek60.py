@@ -17,7 +17,7 @@ import pynmea2
 
 from .ek60_raw_io import RawSimradFile, SimradEOF
 from .nmea_data import NMEAData
-from .ek60_set_groups import SetEK60Groups
+from .set_groups import SetGroups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
@@ -30,7 +30,7 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 INDEX2ELEC = 180.0 / 128.0
 
 
-class ConvertEK60(object):
+class ConvertEK60:
     """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
@@ -502,24 +502,28 @@ class ConvertEK60(object):
             # Find indices of unwanted pings
             lens = [len(l) for l in self.power_dict[1]]
             uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
-            idx_unwanted = np.argwhere(lens != uni[np.argmax(uni_cnt)]).squeeze()
 
-            # Trim ping_data_dict
-            for c_seq, c in self.ping_data_dict.items():  # loop through all channels
-                for y_seq, y in c.items():
-                    if isinstance(y, list):  # if it's a list trim it
-                        [y.pop(x) for x in idx_unwanted[::-1]]
+            # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
+            indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
 
-            # Trim ping_time
-            [self.ping_time.pop(x) for x in idx_unwanted[::-1]]
-            self.ping_time = np.array(self.ping_time)
+            # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+            self.ping_time_split = {}
+            self.power_dict_split = {}
+            for i, length in enumerate(uni):
+                self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
+                self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
-            # Trim unwanted pings, convert to numpy arrays and adjust units
             for ch_num in self.config_datagram['transceivers'].keys():
-                [self.power_dict[ch_num].pop(x) for x in idx_unwanted[::-1]]
-                self.power_dict[ch_num] = np.array(self.power_dict[ch_num]) * INDEX2POWER
-                # self.power_dict[ch_num] = np.array(self.power_dict[ch_num])*INDEX2POWER
-                # TODO: need to convert angle data too
+                # r_b represents index for range_bin (how many different range_bins there are).
+                # r is the list of indexes that correspond to that range
+                for r_b, r in enumerate(indices.values()):
+                    for r_idx in r:
+                        self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                    self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+
+        # TODO: need to convert angle data too
+        self.ping_time = np.array(self.ping_time)
+        self.range_lengths = uni
 
         # Trim excess data from NMEA object
         self.nmea_data.trim()
@@ -647,7 +651,7 @@ class ConvertEK60(object):
             self.tr_data_dict = tr_data_dict
 
     def raw2nc(self):
-        """Save data from `.raw` to netCDF format.
+        """Save data from EK60 `.raw` to netCDF format.
         """
 
         # Subfunctions to set various dictionaries
@@ -719,12 +723,18 @@ class ConvertEK60(object):
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
             beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
-
+            # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
+            beam_dict['range_lengths'] = self.range_lengths
+            beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
-            beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
+            # beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
+
+            beam_dict['range_bin'] = dict()
+            for ranges in self.ping_time_split.keys():
+                beam_dict['range_bin'][ranges] = np.arange(beam_dict['power_dict'][ranges][1].shape[1])
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -844,7 +854,7 @@ class ConvertEK60(object):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetEK60Groups(file_path=self.nc_path)
+            grp = SetGroups(file_path=self.nc_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(os.path.basename(self.filename),
@@ -852,4 +862,4 @@ class ConvertEK60(object):
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            grp.set_beam(_set_beam_dict())         # beam group
+            grp.set_beam(_set_beam_dict())          # beam group

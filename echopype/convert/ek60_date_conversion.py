@@ -2,14 +2,12 @@
 Code originally developed for pyEcholab
 (https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
 Contains functions to convert date info from EK60 data files.
-Called by class ConvertEK60 in ``echopype/convert/ek60.py``.
+Called by class _SimradDatagramParser in ``echopype/convert/ek60_raw_parsers.py``.
 
 | Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
 | National Oceanic and Atmospheric Administration (NOAA)
 | Alaska Fisheries Science Center (AFSC)
 | Midwater Assesment and Conservation Engineering Group (MACE)
-| Maintained by:
-|       Rick Towler   <rick.towler@noaa.gov>
 
 TODO: merge necessary function into ek60.py or group everything into a class
 TODO: fix docstring
@@ -17,19 +15,17 @@ TODO: fix docstring
 
 import datetime
 from pytz import utc as pytz_utc
-import logging
 
 
-#NT epoch is Jan 1st 1601
+# NT epoch is Jan 1st 1601
 UTC_NT_EPOCH = datetime.datetime(1601, 1, 1, 0, 0, 0, tzinfo=pytz_utc)
-#Unix epoch is Jan 1st 1970
+# Unix epoch is Jan 1st 1970
 UTC_UNIX_EPOCH = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=pytz_utc)
 
 EPOCH_DELTA_SECONDS = (UTC_UNIX_EPOCH - UTC_NT_EPOCH).total_seconds()
 
 __all__ = ['nt_to_unix', 'unix_to_nt']
 
-log = logging.getLogger(__name__)
 
 def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
     """

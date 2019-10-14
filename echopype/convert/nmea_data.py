@@ -1,17 +1,16 @@
-# coding=utf-8
+"""
+Code originally developed for pyEcholab
+(https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
+Contains class ``NMEAData`` for storing and manipulating NMEA data.
+Called by class ConvertEK60 in ``echopype/convert/ek60.py``.
 
-#     National Oceanic and Atmospheric Administration (NOAA)
-#     Alaskan Fisheries Science Center (AFSC)
-#     Resource Assessment and Conservation Engineering (RACE)
-#     Midwater Assessment and Conservation Engineering (MACE)
+| Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
+| National Oceanic and Atmospheric Administration (NOAA)
+| Alaska Fisheries Science Center (AFSC)
+| Midwater Assesment and Conservation Engineering Group (MACE)
 
-#  THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
-#  AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED "AS IS."
-#  THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS,
-#  EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
-#  OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE. THEY ASSUME NO RESPONSIBILITY
-#  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
-#  SUPPORT TO USERS.
+TODO: fix docstring
+"""
 
 
 import numpy as np
@@ -150,7 +149,6 @@ class NMEAData(object):
         self.talkers = np.resize(self.talkers,(new_size))
         self.messages = np.resize(self.messages,(new_size))
 
-
     def trim(self):
         """
         Trim arrays to proper size after all data are added.
@@ -160,7 +158,6 @@ class NMEAData(object):
         """
 
         self._resize_arrays(self.n_raw)
-
 
     def __str__(self):
         """
