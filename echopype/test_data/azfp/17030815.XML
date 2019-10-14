@@ -1,0 +1,193 @@
+<AZFP>
+<!-- Created by AZFP Firmware -->
+<AZFP_Version>
+<InstrumentType string="AZFP">5</InstrumentType>
+<Major>3</Major>
+<Minor>8</Minor>
+<Date>20160329</Date>
+<Program name="AzfpFirmware">0</Program>
+<CPU>9871</CPU>
+<SerialNumber>55030</SerialNumber>
+<BoardVersion>132</BoardVersion>
+<FileVersion>1</FileVersion>
+<ParameterVersion>2</ParameterVersion>
+<ConfigurationVersion>2</ConfigurationVersion>
+</AZFP_Version>
+<ULS5_LogConfiguration>
+<SerialNumber>55030</SerialNumber>
+<Eclock>2.500010000000e-07</Eclock>
+<DigitalBoardVersion>132</DigitalBoardVersion>
+<SensorsFlag PressureSensorInstalled="no" ParosInstalled="no">0</SensorsFlag>
+<InstrumentType string="AZFP">5</InstrumentType>
+<Paros>
+<Temperature>
+<U0>5.879949000000e+00</U0>
+<Y1>-3.915100000000e+03</Y1>
+<Y2>-1.068023000000e+04</Y2>
+<Y3>0.000000000000e+00</Y3>
+</Temperature>
+<Pressure>
+<C1>6.698565000000e+02</C1>
+<C2>2.008817900000e+00</C2>
+<C3>-9.136820000000e+02</C3>
+<D1>2.720000000000e-02</D1>
+<D2>0.000000000000e+00</D2>
+<T1>2.797524000000e+01</T1>
+<T2>3.775420000000e-01</T2>
+<T3>1.745743000000e+01</T3>
+<T4>3.090435000000e+01</T4>
+<T5>0.000000000000e+00</T5>
+</Pressure>
+</Paros>
+<AG_Tilt>
+<X_a>-5.177089533000e+01</X_a>
+<X_b>-5.254340000000e-05</X_b>
+<X_c>1.740980000000e-07</X_c>
+<X_d>-2.801530000000e-12</X_d>
+<Y_a>-5.321530261000e+01</Y_a>
+<Y_b>3.584040000000e-04</Y_b>
+<Y_c>1.544370000000e-07</Y_c>
+<Y_d>-2.544220000000e-12</Y_d>
+</AG_Tilt>
+<RTC>
+<Period>1.953088000000e-03</Period>
+<PpmOffset>1.894400000013e-05</PpmOffset>
+<Calibration>-9</Calibration>
+</RTC>
+<Analog_Pressure>
+<a0>-1.723690000000e+01</a0>
+<a1>4.309220000000e+01</a1>
+<a2>0.000000000000e+00</a2>
+<a3>0.000000000000e+00</a3>
+</Analog_Pressure>
+<Analog_Temperature>
+<ka>4.643636465000e+02</ka>
+<kb>3.000000000000e+03</kb>
+<kc>1.893215928000e+00</kc>
+<A>1.466000000000e-03</A>
+<B>2.388090000000e-04</B>
+<C>1.003350000000e-07</C>
+</Analog_Temperature>
+<LogAcousticCoefficients>
+<NumFreq>4</NumFreq>
+<Frequencies>
+<Frequency>
+<kHz units="kHz">125</kHz>
+<TVR>1.673000030518e+02</TVR>
+<NumVtx>1</NumVtx>
+<VTX0>1.290000000000e+02</VTX0>
+<VTX1>0.000000000000e+00</VTX1>
+<VTX2>0.000000000000e+00</VTX2>
+<VTX3>0.000000000000e+00</VTX3>
+<BP>1.071000006050e-02</BP>
+<EL>1.383999938965e+02</EL>
+<DS>2.300000004470e-02</DS>
+<MinPulseLen>300</MinPulseLen>
+</Frequency>
+<Frequency>
+<kHz units="kHz">200</kHz>
+<TVR>1.698999938965e+02</TVR>
+<NumVtx>1</NumVtx>
+<VTX0>1.200000000000e+02</VTX0>
+<VTX1>0.000000000000e+00</VTX1>
+<VTX2>0.000000000000e+00</VTX2>
+<VTX3>0.000000000000e+00</VTX3>
+<BP>1.355999987572e-02</BP>
+<EL>1.428999938965e+02</EL>
+<DS>2.260000072420e-02</DS>
+<MinPulseLen>200</MinPulseLen>
+</Frequency>
+<Frequency>
+<kHz units="kHz">455</kHz>
+<TVR>1.711000061035e+02</TVR>
+<NumVtx>1</NumVtx>
+<VTX0>1.240000000000e+02</VTX0>
+<VTX1>0.000000000000e+00</VTX1>
+<VTX2>0.000000000000e+00</VTX2>
+<VTX3>0.000000000000e+00</VTX3>
+<BP>6.029999814928e-03</BP>
+<EL>1.498999938965e+02</EL>
+<DS>2.329999953508e-02</DS>
+<MinPulseLen>150</MinPulseLen>
+</Frequency>
+<Frequency>
+<kHz units="kHz">769</kHz>
+<TVR>1.693000030518e+02</TVR>
+<NumVtx>1</NumVtx>
+<VTX0>1.170000000000e+02</VTX0>
+<VTX1>0.000000000000e+00</VTX1>
+<VTX2>0.000000000000e+00</VTX2>
+<VTX3>0.000000000000e+00</VTX3>
+<BP>8.200000040233e-03</BP>
+<EL>1.626000061035e+02</EL>
+<DS>2.229999937117e-02</DS>
+<MinPulseLen>150</MinPulseLen>
+</Frequency>
+</Frequencies>
+</LogAcousticCoefficients>
+</ULS5_LogConfiguration>
+<AZFP_Parameters>
+<Header>
+<SoundSpeed>1468.000000</SoundSpeed>
+<StartDate svalue="2017  3 10  1  0  0">1489107600</StartDate><NumFrequencies>4</NumFrequencies>
+<NumPhases>1</NumPhases>
+<DataOutput svalue="FLASH">0</DataOutput>
+<Boards>
+<Frequency units="hz">125</Frequency>
+<Frequency units="hz">200</Frequency>
+<Frequency units="hz">455</Frequency>
+<Frequency units="hz">769</Frequency>
+</Boards>
+</Header>
+<Phases>
+<Phase Number="1">
+<StartDate svalue="2017  3 10  1  0  0">1489107600</StartDate><PhaseType svalue="Normal">0</PhaseType><Duration svalue="60.0000     days">5184000</Duration><PingPeriod units="seconds">10</PingPeriod>
+<BurstInterval units="seconds">10</BurstInterval>
+<PingsPerBurst units="pings">1</PingsPerBurst>
+<AverageBurstPings units="bool">0</AverageBurstPings>
+<Frequencies>
+<Frequency Number="1">
+<AcquireFrequency units="bool">1</AcquireFrequency>
+<PulseLen units="us">300</PulseLen>
+<DigRate units="hz">20000</DigRate>
+<RangeSamples units="samples">1752</RangeSamples>
+<RangeAveragingSamples units="samples">4</RangeAveragingSamples>
+<LockOutIndex units="samples">0</LockOutIndex>
+<Gain units="gain">1</Gain>
+<StorageFormat units="bool">1</StorageFormat>
+</Frequency>
+<Frequency Number="2">
+<AcquireFrequency units="bool">1</AcquireFrequency>
+<PulseLen units="us">300</PulseLen>
+<DigRate units="hz">20000</DigRate>
+<RangeSamples units="samples">1752</RangeSamples>
+<RangeAveragingSamples units="samples">4</RangeAveragingSamples>
+<LockOutIndex units="samples">0</LockOutIndex>
+<Gain units="gain">1</Gain>
+<StorageFormat units="bool">1</StorageFormat>
+</Frequency>
+<Frequency Number="3">
+<AcquireFrequency units="bool">1</AcquireFrequency>
+<PulseLen units="us">300</PulseLen>
+<DigRate units="hz">20000</DigRate>
+<RangeSamples units="samples">1764</RangeSamples>
+<RangeAveragingSamples units="samples">4</RangeAveragingSamples>
+<LockOutIndex units="samples">0</LockOutIndex>
+<Gain units="gain">1</Gain>
+<StorageFormat units="bool">1</StorageFormat>
+</Frequency>
+<Frequency Number="4">
+<AcquireFrequency units="bool">1</AcquireFrequency>
+<PulseLen units="us">300</PulseLen>
+<DigRate units="hz">20000</DigRate>
+<RangeSamples units="samples">540</RangeSamples>
+<RangeAveragingSamples units="samples">4</RangeAveragingSamples>
+<LockOutIndex units="samples">0</LockOutIndex>
+<Gain units="gain">1</Gain>
+<StorageFormat units="bool">1</StorageFormat>
+</Frequency>
+</Frequencies>
+</Phase>
+</Phases>
+</AZFP_Parameters>
+</AZFP>

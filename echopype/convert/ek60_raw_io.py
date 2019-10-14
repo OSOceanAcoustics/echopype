@@ -8,8 +8,6 @@ Called by class ConvertEK60 in ``echopype/convert/ek60.py``.
 | National Oceanic and Atmospheric Administration (NOAA)
 | Alaska Fisheries Science Center (AFSC)
 | Midwater Assesment and Conservation Engineering Group (MACE)
-| Maintained by:
-|       Rick Towler   <rick.towler@noaa.gov>
 
 TODO: fix docstring
 """
