@@ -8,6 +8,7 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 
+
 class ModelBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
@@ -19,14 +20,39 @@ class ModelBase(object):
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
         self.TVG = None  # time varying gain along range
         self.ABS = None  # absorption along range
-        self._sample_thickness = None  # sample thickness for each frequency
         self.Sv = None  # calibrated volume backscattering strength
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
-        self.SNR = 10  # min signal-to-noise ratio
-        self.Sv_threshold = -120  # min Sv threshold
-        
+        self._sample_thickness = None
+        self._range = None
+
+    # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
+    #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
+    #  and provide getter/setter
+
+    @property
+    def sample_thickness(self):
+        if not self._sample_thickness:  # if this is empty
+            return self.calc_sample_thickness()
+        else:
+            return self._sample_thickness
+
+    @sample_thickness.setter
+    def sample_thickness(self, sth):
+        self._sample_thickness = sth
+
+    @property
+    def range(self):
+        if not self._range:  # if this is empty
+            return self.calc_range()
+        else:
+            return self._range
+
+    @range.setter
+    def range(self, rr):
+        self._range = rr
+
     @property
     def file_path(self):
         return self._file_path
@@ -54,31 +80,25 @@ class ModelBase(object):
                                         os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.nc')
             self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
                                           os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.nc')
-
+            print('inside setter function')
             # Raise error if the file format convention does not match
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
             self.toplevel.close()
         else:
             raise ValueError('Data file format not recognized.')
-    
-    @property
-    def sample_thickness(self):
-        if self._sample_thickness is None:
-            ds_env = xr.open_dataset(self.file_path, group="Environment")
-            ds_beam = xr.open_dataset(self.file_path, group="Beam")
-            self._sample_thickness = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
-            ds_env.close()
-            ds_beam.close()
-        return self._sample_thickness
+
+    def calc_sample_thickness(self):
+        """Base method to be overridden for calculating sample_thickness for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Sample thickness calculation has not been implemented for this sonar model!')
 
     def calc_range(self):
-        # TODO: this should be specific for EK60, note tvg_correction_factor only exists for EK60
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
-            range_meter = ds_beam.range_bin * self.sample_thickness - \
-                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
-            range_meter = range_meter.where(range_meter > 0, other=0)
-            return range_meter
+        """Base method to be overridden for calculating range for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Range calculation has not been implemented for this sonar model!')
 
     def calibrate(self):
         """Base method to be overridden for calibration and echo-integration for different sonar models.
@@ -114,21 +134,24 @@ class ModelBase(object):
         r_tile_bin_edge : list of int
             bin edges along the range_bin dimension for :py:func:`xarray.DataArray.groupby_bins` operation
         """
+        # TODO: Need to make this compatible with the possibly different sample_thickness
+        #  for each frequency channel. The difference will show up in num_r_per_tile and
+        #  propagates down to r_tile_sz, num_tile_range_bin, and r_tile_bin_edge; all of
+        #  these will also become a DataArray or a list of list instead of just a number
+        #  or a list of numbers.
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
         num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
         r_tile_sz = (num_r_per_tile * sample_thickness).values
 
-        # TODO: resolve discrepency and potential bugs here
-        # Number of tiles along range_bin
+        # TODO: double check this, but edits from @cyrf0006 seems correct
+        num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
+        # Number of tiles along range_bin <--- old routine
         # if np.mod(r_data_sz, num_r_per_tile) == 0:
         #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
         # else:
         #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
 
-        # -FC: Removed +1 above, need to be tested!
-        num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
-            
         # Produce a new coordinate for groupby operation
         if np.mod(p_data_sz, p_tile_sz) == 0:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
@@ -174,7 +197,8 @@ class ModelBase(object):
         else:
             return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
             
-    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None, save=False):
+    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
+                     SNR=0, Sv_threshold=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -184,12 +208,16 @@ class ModelBase(object):
         Parameters
         ----------
         noise_est_range_bin_size : float, optional
-            meters per tile for noise estimation [m]
+            Meters per tile for noise estimation [m]
         noise_est_ping_size : int, optional
-            number of pings per tile for noise estimation
+            Number of pings per tile for noise estimation
+        SNR : int, optional
+            Minimum signal-to-noise ratio (remove values below this after general noise removal).
+        Sv_threshold : int, optional
+            Minimum Sv threshold [dB] (remove values below this after general noise removal)
         save : bool, optional
-            whether to save the denoised Sv (``Sv_clean``) into a new .nc file
-            default to ``False``
+            Whether to save the denoised Sv (``Sv_clean``) into a new .nc file.
+            Default to ``False``.
         """
 
         # Check params
@@ -211,21 +239,26 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            # Noise calculation
-            if (self.ABS is None) & (self.TVG is None):
-                p_c_lin = 10 ** (x / 10)
-                nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                                   groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+            p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+                               groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+                 + self.ABS + self.TVG
+            # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
+            if not Sv_threshold:
+                return x.where(x > (nn + SNR), other=np.nan)
             else:
-                p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
-                nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                                   groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                     + self.ABS + self.TVG
+                return x.where((x > (nn + SNR)) & (x > Sv_threshold), other=np.nan)
 
-            # Remove noise from signal
-            x = 10*np.log10(10**(x/10) - 10**(nn/10))
-            # Return only where signal is 10db above noise (SNR>10) and at least -120db
-            return x.where((x > (nn+self.SNR)) & (x>self.Sv_threshold), other=np.nan)
+            # # Noise calculation
+            # if (self.ABS is None) & (self.TVG is None):
+            #     p_c_lin = 10 ** (x / 10)
+            #     nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+            #                        groupby('frequency').mean('ping_time').min(dim='range_bin_bins'))
+            # else:
+            #     p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+            #     nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
+            #                        groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
+            #          + self.ABS + self.TVG
 
         # Groupby noise removal operation
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
@@ -291,7 +324,7 @@ class ModelBase(object):
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
-                                  groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin']).
+                                  groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                   min('range_bin_bins'))
 
         # Set noise estimates coordinates and other attributes
@@ -333,9 +366,12 @@ class ModelBase(object):
             default to ``False``
         """
         # Check params
-        # TODO: resolve this; this is related to how to allow different params for data from different freq
-        # -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
-        # if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
+        # TODO: Not sure what @cyrf0006 means below, but need to resolve the issues surrounding
+        #  potentially having different sample_thickness for each frequency. This is the same
+        #  issue that needs to be resolved in ``get_tile_params`` and all calling methods.
+        #  --- Below are comments from @cyfr0006 ---
+        #  -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
+        #  if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
             self.MVBS_range_bin_size = MVBS_range_bin_size
         if (MVBS_ping_size is not None) and (self.MVBS_ping_size != MVBS_ping_size):
@@ -365,10 +401,10 @@ class ModelBase(object):
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         if source == 'Sv':
             MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         elif source == 'Sv_clean':
             MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean(['range_bin'])
+                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
         
