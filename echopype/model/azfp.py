@@ -101,17 +101,6 @@ class ModelAZFP(ModelBase):
         # TODO: need to update sample_thickness, absorption, range
 
     @property
-    def sample_thickness(self):
-        if not self._sample_thickness:  # if this is empty
-            return self.calc_sample_thickness()
-        else:
-            return self._sample_thickness
-
-    @sample_thickness.setter
-    def sample_thickness(self, sth):
-        self._sample_thickness = sth
-
-    @property
     def range(self):
         if not self._range:  # if this is empty
             return self.calc_range()
@@ -138,6 +127,11 @@ class ModelAZFP(ModelBase):
 
         This will call ``calc_sound_speed`` since sound speed is `not` part of the raw AZFP .01A data file.
         """
+        # TODO: Change this to return the mean across all ping_time:
+        #  sth = self.sound_speed * ds_beam.sample_interval / 2
+        #  return sth.mean(dim='ping_time')
+        #  Change all methods in modelbase.py that uses self.sample_thickness
+
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             return self.sound_speed * ds_beam.sample_interval / 2
 
@@ -315,7 +309,7 @@ class ModelAZFP(ModelBase):
 
         # Save TVG and ABS for noise estimation use
         self.TVG = TVG
-        self.ABS = ABS
+        self.ABS = ABS.mean(dim='ping_time')
 
         self.Sv.name = "Sv"
         if save:
