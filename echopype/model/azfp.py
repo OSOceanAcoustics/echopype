@@ -108,8 +108,8 @@ class ModelAZFP(ModelBase):
             return self._seawater_absorption
 
     @seawater_absorption.setter
-    def seawater_absorption(self, abs):
-        self._seawater_absorption = abs
+    def seawater_absorption(self, sea_abs):
+        self._seawater_absorption = sea_abs
 
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
