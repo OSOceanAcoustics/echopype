@@ -33,10 +33,9 @@ class ModelBase(object):
 
     @property
     def sample_thickness(self):
-        if not self._sample_thickness:  # if this is empty
-            return self.calc_sample_thickness()
-        else:
-            return self._sample_thickness
+        if self._sample_thickness is None:  # if this is empty
+            self._sample_thickness = self.calc_sample_thickness()
+        return self._sample_thickness
 
     @sample_thickness.setter
     def sample_thickness(self, sth):
@@ -44,10 +43,9 @@ class ModelBase(object):
 
     @property
     def range(self):
-        if not self._range:  # if this is empty
-            return self.calc_range()
-        else:
-            return self._range
+        if self._range is None:  # if this is empty
+            self._range = self.calc_range()
+        return self._range
 
     @range.setter
     def range(self, rr):
@@ -175,12 +173,11 @@ class ModelBase(object):
         """
         if self.Sv is None:  # if don't have Sv as attribute
             if os.path.exists(self.Sv_path):  # but have _Sv.nc file
-                return xr.open_dataset(self.Sv_path)  # just load results
+                self.Sv = xr.open_dataset(self.Sv_path)   # load file
             else:  # if also don't have _Sv.nc file
                 self.calibrate()  # then calibrate
-                return self.Sv  # and point to results
-        else:
-            return self.Sv
+                print('calculating Sv')
+        return self.Sv
 
     def _get_proc_Sv_clean(self):
         """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
@@ -191,13 +188,12 @@ class ModelBase(object):
         #  Need to close this loop in the next release.
         if self.Sv_clean is None:  # if don't have Sv_clean as attribute
             if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
-                return xr.open_dataset(self.Sv_clean_path)  # just load results
+                self.Sv_clean = xr.open_dataset(self.Sv_clean_path)  # load file
             else:  # if also don't have _Sv_clean.nc file
-                self.calibrate()  # then calibrate
-                return self.Sv_clean  # and point to results
-        else:
-            return self.Sv_clean
-            
+                self.calibrate()      # then calibrate
+                self.remove_noise()   # and remove noise
+        return self.Sv_clean  # and point to results
+
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
                      SNR=0, Sv_threshold=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
@@ -265,7 +261,7 @@ class ModelBase(object):
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
 
-        # Set up DataArray
+        # Set up DataSet
         Sv_clean.name = 'Sv_clean'
         Sv_clean = Sv_clean.drop('add_idx')
         Sv_clean = Sv_clean.to_dataset()
@@ -367,7 +363,7 @@ class ModelBase(object):
             default to ``False``
         """
         # Check params
-        # TODO: Not sure what @cyrf0006 means below, but need to resolve the issues surrounding
+        # TODO: Not sure what @cyrf0006 meant below, but need to resolve the issues surrounding
         #  potentially having different sample_thickness for each frequency. This is the same
         #  issue that needs to be resolved in ``get_tile_params`` and all calling methods.
         #  --- Below are comments from @cyfr0006 ---
@@ -422,9 +418,19 @@ class ModelBase(object):
         # Set MVBS attributes
         MVBS.name = 'MVBS'
         MVBS = MVBS.to_dataset()
-        MVBS['noise_est_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
+        MVBS['MVBS_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
         MVBS['sample_thickness'] = ('frequency', self.sample_thickness)
+
+        # TODO: need to save noise_est_range_bin_size and noise_est_ping_size if source='Sv_clean'
+        #  and also save an additional attribute that specifies the source
+        # MVBS.attrs['noise_est_range_bin_size'] = self.noise_est_range_bin_size
+        # MVBS.attrs['noise_est_ping_size'] = self.noise_est_ping_size
+
+        # Drop add_idx added to Sv
+        # TODO: somehow this still doesn't work and self.Sv or self.Sv_clean
+        #  will have this additional dimension attached
+        proc_data = proc_data.drop('add_idx')
 
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
