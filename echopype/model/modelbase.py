@@ -176,7 +176,6 @@ class ModelBase(object):
                 self.Sv = xr.open_dataset(self.Sv_path)   # load file
             else:  # if also don't have _Sv.nc file
                 self.calibrate()  # then calibrate
-                print('calculating Sv')
         return self.Sv
 
     def _get_proc_Sv_clean(self):
@@ -184,14 +183,15 @@ class ModelBase(object):
 
         This method is called by remove_noise(), noise_estimates() and get_MVBS().
         """
-        # TODO: this is not actually called by the above functions.
+        # TODO: this method is not actually called by the above functions right now.
         #  Need to close this loop in the next release.
         if self.Sv_clean is None:  # if don't have Sv_clean as attribute
             if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
                 self.Sv_clean = xr.open_dataset(self.Sv_clean_path)  # load file
             else:  # if also don't have _Sv_clean.nc file
-                self.calibrate()      # then calibrate
-                self.remove_noise()   # and remove noise
+                if self.Sv is None:   # if hasn't performed calibration yet
+                    self.calibrate()      # then calibrate
+                self.remove_noise()   # and then remove noise
         return self.Sv_clean  # and point to results
 
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
@@ -234,12 +234,18 @@ class ModelBase(object):
                                  p_tile_sz=self.noise_est_ping_size,
                                  sample_thickness=self.sample_thickness)
 
+        # TODO: this right now will break when _get_proc_Sv() gets self.Sv from file.
+        #  This is also why the calculation of ABS and TVG should be in the parent
+        #  class methods instead of being done under calibration() in the child class
+        ABS = self.ABS
+        TVG = self.TVG
+
         # Function for use with apply
         def remove_n(x):
-            p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
             nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                 + self.ABS + self.TVG
+                 + ABS + TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
                 return x.where(x > (nn + SNR), other=np.nan)
@@ -267,7 +273,6 @@ class ModelBase(object):
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-        Sv_clean['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
@@ -332,7 +337,6 @@ class ModelBase(object):
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-        noise_est['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Close opened resources
         proc_data.close()
@@ -379,7 +383,7 @@ class ModelBase(object):
             proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
             if self.Sv_clean is not None:              # if already have Sv_clean as attribute
-                proc_data = self.Sv_clean 
+                proc_data = self.Sv_clean
             elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
                 proc_data = xr.open_dataset(self.Sv_clean_path)
             else:
@@ -404,7 +408,7 @@ class ModelBase(object):
                 groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
-        
+
         # Set MVBS coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
@@ -420,7 +424,6 @@ class ModelBase(object):
         MVBS = MVBS.to_dataset()
         MVBS['MVBS_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
-        MVBS['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # TODO: need to save noise_est_range_bin_size and noise_est_ping_size if source='Sv_clean'
         #  and also save an additional attribute that specifies the source
