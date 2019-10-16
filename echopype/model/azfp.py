@@ -265,12 +265,12 @@ class ModelAZFP(ModelBase):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         range_meter = self.range
-        self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
-                   2 * self.seawater_absorption * range_meter -
-                   10 * np.log10(0.5 * self.sound_speed *
-                                 ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
-                                 ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
+        Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
+              ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
+              2 * self.seawater_absorption * range_meter -
+              10 * np.log10(0.5 * self.sound_speed *
+                            ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
+                            ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
         # # TODO: check if sample_thickness calculation should be/is done in a separate method
         # sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
@@ -296,7 +296,9 @@ class ModelAZFP(ModelBase):
         self.TVG = TVG
         self.ABS = ABS
 
-        self.Sv.name = "Sv"
+        Sv.name = 'Sv'
+        Sv = Sv.to_dataset()
+        self.Sv = Sv
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_netcdf(path=self.Sv_path, mode="w")
