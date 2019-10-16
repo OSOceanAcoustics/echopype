@@ -132,6 +132,8 @@ class ModelEK60(ModelBase):
                              10 ** (ds_beam.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
+        # TODO: move TVG and ABS calculation to the parent class, as also noted
+        #  correspondingly in model/azfp
         # Get TVG and absorption
         range_meter = self.range
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
@@ -145,10 +147,9 @@ class ModelEK60(ModelBase):
         Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
-        Sv['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save calibrated data into the calling instance and
-        # ... to a separate .nc file in the same directory as the data filef.Sv = Sv
+        #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
