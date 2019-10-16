@@ -80,7 +80,6 @@ class ModelBase(object):
                                         os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.nc')
             self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
                                           os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.nc')
-            print('inside setter function')
             # Raise error if the file format convention does not match
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
@@ -179,23 +178,25 @@ class ModelBase(object):
                 return xr.open_dataset(self.Sv_path)  # just load results
             else:  # if also don't have _Sv.nc file
                 self.calibrate()  # then calibrate
-                return self.Sv.to_dataset(name='Sv')  # and point to results
+                return self.Sv  # and point to results
         else:
-            return self.Sv.to_dataset(name='Sv')  # and point to results
+            return self.Sv
 
     def _get_proc_Sv_clean(self):
         """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
 
         This method is called by remove_noise(), noise_estimates() and get_MVBS().
         """
+        # TODO: this is not actually called by the above functions.
+        #  Need to close this loop in the next release.
         if self.Sv_clean is None:  # if don't have Sv_clean as attribute
             if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
                 return xr.open_dataset(self.Sv_clean_path)  # just load results
             else:  # if also don't have _Sv_clean.nc file
                 self.calibrate()  # then calibrate
-                return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
+                return self.Sv_clean  # and point to results
         else:
-            return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
+            return self.Sv_clean
             
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
                      SNR=0, Sv_threshold=None, save=False):
@@ -422,7 +423,7 @@ class ModelBase(object):
         MVBS.name = 'MVBS'
         MVBS = MVBS.to_dataset()
         MVBS['noise_est_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
-        MVBS.attrs['noise_est_ping_size'] = self.MVBS_ping_size
+        MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
         MVBS['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save results in object and as a netCDF file
