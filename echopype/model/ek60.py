@@ -25,7 +25,7 @@ class ModelEK60(ModelBase):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             pp = list(range(int(ds_beam.pieces)))
             if len(pp) == 1:
-                print('Your data does not have changing ranges')
+                print('Your data does not contain pings with different ranges.')
             if p in pp:
                 self._piece = p
             else:
@@ -143,6 +143,8 @@ class ModelEK60(ModelBase):
         # Calibration and echo integration
         Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         Sv.name = 'Sv'
+        Sv = Sv.to_dataset()
+        Sv['sample_thickness'] = ('frequency', self.sample_thickness)
 
         # Save calibrated data into the calling instance and
         # ... to a separate .nc file in the same directory as the data filef.Sv = Sv
