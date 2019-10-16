@@ -24,8 +24,9 @@ class ModelEK60(ModelBase):
     def piece(self, p):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             pp = list(range(int(ds_beam.pieces)))
-            if len(pp) == 1:
-                print('Your data does not contain pings with different ranges.')
+            # if len(pp) == 1:
+            #     # TODO: Mute this for now, will revise everything about 'piece' later.
+            #     print('Your data does not contain pings with different ranges.')
             if p in pp:
                 self._piece = p
             else:
