@@ -46,9 +46,10 @@ class ModelAZFP(ModelBase):
 
     @property
     def temperature(self):
-        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            self._temperature = ds_env.temperature
-            return self._temperature
+        if self._temperature is None:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                self._temperature = ds_env.temperature
+        return self._temperature
 
     @temperature.setter
     def temperature(self, t):
@@ -90,10 +91,9 @@ class ModelAZFP(ModelBase):
 
     @property
     def sound_speed(self):
-        if not self._sound_speed:  # if this is empty
-            return self.calc_sound_speed()
-        else:
-            return self._sound_speed
+        if self._sound_speed is None:  # if this is empty
+            self._sound_speed = self.calc_sound_speed()
+        return self._sound_speed
 
     @sound_speed.setter
     def sound_speed(self, ss):
@@ -102,10 +102,9 @@ class ModelAZFP(ModelBase):
 
     @property
     def seawater_absorption(self):
-        if not self._seawater_absorption:  # if this is empty
-            return self.calc_seawater_absorption()
-        else:
-            return self._seawater_absorption
+        if self._seawater_absorption is None:  # if this is empty
+            self._seawater_absorption = self.calc_seawater_absorption()
+        return self._seawater_absorption
 
     @seawater_absorption.setter
     def seawater_absorption(self, sea_abs):
