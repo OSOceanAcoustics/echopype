@@ -46,9 +46,10 @@ class ModelAZFP(ModelBase):
 
     @property
     def temperature(self):
-        with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            self._temperature = ds_env.temperature
-            return self._temperature
+        if self._temperature is None:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                self._temperature = ds_env.temperature
+        return self._temperature
 
     @temperature.setter
     def temperature(self, t):
@@ -90,10 +91,9 @@ class ModelAZFP(ModelBase):
 
     @property
     def sound_speed(self):
-        if not self._sound_speed:  # if this is empty
-            return self.calc_sound_speed()
-        else:
-            return self._sound_speed
+        if self._sound_speed is None:  # if this is empty
+            self._sound_speed = self.calc_sound_speed()
+        return self._sound_speed
 
     @sound_speed.setter
     def sound_speed(self, ss):
@@ -102,14 +102,13 @@ class ModelAZFP(ModelBase):
 
     @property
     def seawater_absorption(self):
-        if not self._seawater_absorption:  # if this is empty
-            return self.calc_seawater_absorption()
-        else:
-            return self._seawater_absorption
+        if self._seawater_absorption is None:  # if this is empty
+            self._seawater_absorption = self.calc_seawater_absorption()
+        return self._seawater_absorption
 
     @seawater_absorption.setter
-    def seawater_absorption(self, abs):
-        self._seawater_absorption = abs
+    def seawater_absorption(self, sea_abs):
+        self._seawater_absorption = sea_abs
 
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
@@ -266,12 +265,12 @@ class ModelAZFP(ModelBase):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         range_meter = self.range
-        self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-                   ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
-                   2 * self.seawater_absorption * range_meter -
-                   10 * np.log10(0.5 * self.sound_speed *
-                                 ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
-                                 ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
+        Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
+              ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
+              2 * self.seawater_absorption * range_meter -
+              10 * np.log10(0.5 * self.sound_speed *
+                            ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
+                            ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
         # # TODO: check if sample_thickness calculation should be/is done in a separate method
         # sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
@@ -297,7 +296,9 @@ class ModelAZFP(ModelBase):
         self.TVG = TVG
         self.ABS = ABS
 
-        self.Sv.name = "Sv"
+        Sv.name = 'Sv'
+        Sv = Sv.to_dataset()
+        self.Sv = Sv
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_netcdf(path=self.Sv_path, mode="w")

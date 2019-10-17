@@ -8,3 +8,5 @@ pytz
 pynmea2
 click
 arlpy
+sphinx-automodapi
+numpydoc
