@@ -15,9 +15,9 @@ from matplotlib.dates import date2num
 import pytz
 import pynmea2
 
-from .ek60_raw_io import RawSimradFile, SimradEOF
-from .nmea_data import NMEAData
-from .set_groups import SetGroups
+from echopype.convert.utils.ek60_raw_io import RawSimradFile, SimradEOF
+from echopype.convert.utils.nmea_data import NMEAData
+from echopype.convert.utils.set_groups import SetGroups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
@@ -108,6 +108,11 @@ class ConvertEK60:
         self.tr_data_dict = None
         self.nc_path = None
 
+        # Other params to be input by user
+        self.platform_name = ""
+        self.platform_type = ""
+        self.platform_code_ICES = ""
+
     @property
     def filename(self):
         return self._filename
@@ -122,6 +127,30 @@ class ConvertEK60:
             # print('To convert data, follow the steps below:')
         else:
             self._filename = p
+
+    @property
+    def platform_name(self):
+        return self._platform_name
+
+    @platform_name.setter
+    def platform_name(self, pname):
+        self._platform_name = pname
+
+    @property
+    def platform_type(self):
+        return self._platform_type
+
+    @platform_type.setter
+    def platform_type(self, ptype):
+        self._platform_type = ptype
+
+    @property
+    def platform_code_ICES(self):
+        return self._platform_code_ICES
+
+    @platform_code_ICES.setter
+    def platform_code_ICES(self, pcode):
+        self._platform_code_ICES = pcode
 
     @staticmethod
     def _read_config_header(chunk):
@@ -687,11 +716,12 @@ class ConvertEK60:
 
         def _set_platform_dict():
             out_dict = dict()
-            out_dict['platform_name'] = self.config_datagram['survey_name']
-            if re.search('OOI', out_dict['platform_name']):
-                out_dict['platform_type'] = 'subsurface mooring'  # if OOI
-            else:
-                out_dict['platform_type'] = 'ship'  # default to ship
+            # TODO: Need to reconcile the logic between using the unpacked "survey_name"
+            #  and the user-supplied platform_name
+            # self.platform_name = self.config_datagram['survey_name']
+            out_dict['platform_name'] = self.platform_name
+            out_dict['platform_type'] = self.platform_type
+            out_dict['platform_code_ICES'] = self.platform_code_ICES
 
             # Read pitch/roll/heave from ping data
             out_dict['ping_time'] = self.ping_time  # [seconds since 1900-01-01] for xarray.to_netcdf conversion

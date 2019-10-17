@@ -24,8 +24,9 @@ class ModelEK60(ModelBase):
     def piece(self, p):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             pp = list(range(int(ds_beam.pieces)))
-            if len(pp) == 1:
-                print('Your data does not have changing ranges')
+            # if len(pp) == 1:
+            #     # TODO: Mute this for now, will revise everything about 'piece' later.
+            #     print('Your data does not contain pings with different ranges.')
             if p in pp:
                 self._piece = p
             else:
@@ -131,6 +132,8 @@ class ModelEK60(ModelBase):
                              10 ** (ds_beam.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
+        # TODO: move TVG and ABS calculation to the parent class, as also noted
+        #  correspondingly in model/azfp
         # Get TVG and absorption
         range_meter = self.range
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
@@ -143,9 +146,10 @@ class ModelEK60(ModelBase):
         # Calibration and echo integration
         Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
         Sv.name = 'Sv'
+        Sv = Sv.to_dataset()
 
         # Save calibrated data into the calling instance and
-        # ... to a separate .nc file in the same directory as the data filef.Sv = Sv
+        #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
