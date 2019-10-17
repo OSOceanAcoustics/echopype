@@ -109,7 +109,7 @@ class SetGroupsEK60(SetGroupsBase):
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})
                         },
-                attrs={'platform_code_ICES': '',
+                attrs={'platform_code_ICES': platform_dict['platform_code_ICES'],
                        'platform_name': platform_dict['platform_name'],
                        'platform_type': platform_dict['platform_type']})
             # save to file
