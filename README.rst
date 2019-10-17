@@ -22,15 +22,15 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
-Installaion and Usage
----------------------
+Installation and Usage
+----------------------
 
 Echopype currently supports file conversion and computation of data produced by:
 
 - Simrad EK60 echosounder (``.raw`` files)
 - ASL Environmental Sciences AZFP echosounders (``.01A`` files)
 
-The file conversion functionality converts data stored in manufacturer-specific
+The file conversion functionality converts data from manufacturer-specific
 binary formats into a standardized netCDF files, based on which all subsequent
 computations are performed.
 The data processing routines include calibration (instrument-specific), noise
@@ -53,7 +53,7 @@ are the primary developers of this project.
 
 Other contributors include:
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
-`Frederic Cyr <https://github.com/cyfr0006>`_ (@cyfr0006),
+`Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
 `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
 `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
