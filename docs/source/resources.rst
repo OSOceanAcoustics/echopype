@@ -3,7 +3,7 @@ Other Resources
 
 Below is a list of software resources for processing ocean sonar data.
 When appropriate, we note whether the software is proprietary or open-source,
-as well as the programming language in which language it is written.
+as well as the programming language in which it is written.
 
 - `EchoView <https://www.echoview.com/>`_: GUI-based proprietary software,
   current go-to tool for echosounder data analysis
