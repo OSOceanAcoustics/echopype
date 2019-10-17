@@ -7,7 +7,7 @@
     :target: https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master
 
 Echopype
-===========
+========
 
 Echopype is a package built for enhancing the interoperability and scalability
 in ocean sonar data processing.
@@ -21,6 +21,10 @@ interoperable data format and scalable analysis workflows that adapt well
 with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
+
+Installaion and Usage
+---------------------
+
 Echopype currently supports file conversion and computation of data produced by:
 
 - Simrad EK60 echosounder (``.raw`` files)
@@ -32,20 +36,20 @@ computations are performed.
 The data processing routines include calibration (instrument-specific), noise
 removal, and mean volume backscattering strength (MVBS) calculation.
 
-See the `echopype documentation`_ for details on installation and usage.
+Check out the `echopype documentation`_ for details on installation and usage!
 
 .. _echopype documentation: https://echopype.readthedocs.io
 
 
 
 License
-----------
+-------
 
 Echopype is licensed under the open source Apache 2.0 license.
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
 and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are currently the primary developers for this project.
+are the primary developers of this project.
 
 Other contributors include:
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),

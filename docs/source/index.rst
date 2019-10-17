@@ -38,7 +38,7 @@ Echopype is licensed under the open source Apache 2.0 license.
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
 and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are currently the primary developers for this project.
+are the primary developers for this project.
 
 Other contributors include:
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
