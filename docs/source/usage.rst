@@ -25,8 +25,49 @@ the ``Convert`` object.
 The only difference is that data files from the AZFP echosounder require an
 ``.XML`` file that contains associated settings for unpacking the binary data.
 
-EK60
-~~~~
+For data files from the EK60 echosounder, you can do
+the following in an interactive Python session:
+
+.. code-block:: python
+
+    from echopype.convert import Convert
+    data_tmp = Convert('FILENAME.raw')
+    data_tmp.raw2nc()
+
+This will generate a  ``FILENAME.nc`` file in the same directory as
+the original ``FILENAME.raw`` file.
+
+For data files from the AZFP echosounder, the conversion requires an
+``.XML`` file along with the ``.01A`` data file.
+This can be done by:
+
+.. code-block:: python
+
+    from echopype.convert import Convert
+    data_tmp = Convert('FILENAME.01A', 'XMLFILENAME.xml')
+    data_tmp.raw2nc()
+
+However, note that before calling ``raw2nc()`` to create netCDF4 files,
+you should first set ``platform_name``, ``platform_type``, and
+``patform_code_ICES``, as these values are not recorded in the raw data
+files but need to be specified according to the netCDF4 convention.
+These parameters will be saved as empty strings unless you specify
+them following the example below:
+
+.. code-block:: python
+
+    data_tmp.platform_name = 'OOI'
+    data_tmp.platform_type = 'subsurface mooring'
+    data_tmp.platform_code_ICES = '3164'   # Platform code for Moorings
+
+The ``platform_code_ICES`` attribute can be chosen by referencing
+the platform code from the
+`ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_.
+
+The ``Convert`` instance contains all the data unpacked from the
+.raw file, so it is a good idea to clear it from memory once done with
+conversion.
+
 
 .. TODO: the below section related to command line conversion tools
    needs to be added back once convert/echopype_converter.py is revised.
@@ -41,59 +82,6 @@ EK60
    filename as the original ``.raw`` files in the same directory.
    See :ref:`data-format` for details about the converted file format.
 
-To convert data files from the Simrad EK60 echosounder, you can do
-the following in an interactive Python session:
-
-.. code-block:: python
-
-    from echopype.convert import Convert
-    data_tmp = Convert('FILENAME.raw')
-    data_tmp.raw2nc()
-
-This will generate a  ``FILENAME.nc`` file in the same directory as
-the original ``FILENAME.raw`` file.
-
-.. The same as in the command line case, this will generate a ``FILENAME.nc``
-   in the same directory as ``FILENAME.raw``.
-
-The ``Convert`` instance contains all the data unpacked from the
-.raw file, so it is a good idea to clear it from memory once done with
-conversion.
-
-AZFP
-~~~~
-AZFP conversion requires an ``.XML`` file along with the ``.01A`` data file
-to convert into an ``.nc`` file.
-This can be done by doing the following:
-
-.. code-block:: python
-
-    from echopype.convert import Convert
-    data_tmp = Convert('FILENAME.01A', 'XMLFILENAME.xml')
-    data_tmp.raw2nc()
-
-However, before calling ``data_tmp.raw2nc()`` to create netCDF4 files,
-you should first set ``platform_name``, ``platform_type``, and
-``patform_code_ICES``, as these values are not recorded in the raw data
-files but need to be specified according to the netCDF4 convention.
-These parameters will be saved as empty strings unless you specify
-them following the example below:
-
-.. code-block:: python
-
-    data_tmp.platform_name = 'OOI'
-    data_tmp.platform_type = 'subsurface mooring'
-    data_tmp.platform_code_ICES = '3164'   # Platform code for Moorings
-
-The ``platform_code_ICES`` attribute should reference the platform code
-from the `ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_
-
-Then simply do the following to save  a ``.nc`` file to the same
-directory as the ``.01A`` file.
-
-.. code-block:: python
-
-    data_tmp.raw2nc()
 
 
 
@@ -143,8 +131,8 @@ The results will be saved into different files with postfixes ``_Sv.nc``,
 Note that this default choice may be changed in the near future as
 we move on to parallelize these operations.
 
-AZFP
-~~~~
+AZFP specifics
+~~~~~~~~~~~~~~
 Here again there are some additional steps when performing these operations
 on AZFP data.
 Before calibration, the salinity and pressure values should be adjusted
