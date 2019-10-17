@@ -109,9 +109,9 @@ class ConvertEK60:
         self.nc_path = None
 
         # Other params to be input by user
-        self.platform_name = None
-        self.platform_type = None
-        self.platform_code_ICES = None
+        self.platform_name = ""
+        self.platform_type = ""
+        self.platform_code_ICES = ""
 
     @property
     def filename(self):
