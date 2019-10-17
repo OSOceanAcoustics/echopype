@@ -1,7 +1,7 @@
 .. _data-format:
 
 Data Format
-============
+===========
 
 The lack of interoperability among data collected by different sonar
 systems is currently a major obstacle toward integrative analysis of
@@ -35,7 +35,7 @@ in the future for cloud-optimized data storage and access.
 
 
 Supported file types
-----------------------
+--------------------
 
 echopype currently supports conversion from
 
@@ -52,7 +52,7 @@ We also consider support for multibeam sonar data in the future.
 
 
 Modifications to SONAR-netCDF4
----------------------------------
+------------------------------
 echopype is designed to handle multi-dimensional labelled data sets
 efficiently. Therefore, we store backscatter data (the echoes) from
 different frequency channels in a multi-dimensional array under a
