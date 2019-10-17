@@ -5,7 +5,7 @@ Using echopype
 Installation
 ------------
 
-echopype is pip installable. You can install echopype by doing the following
+Echopype is pip installable. You can install echopype by doing the following
 in your terminal:
 
 .. code-block:: console
@@ -16,54 +16,61 @@ in your terminal:
 
 File conversion
 ---------------
+
+Echopype currently supports conversion of data files produced by
+the Simrad EK60 echosounder (``.raw`` files) and the ASL Environmental Sciences
+AZFP echosounder (``.01A`` files).
+The conversion can be conducted using a single interface provided by
+the ``Convert`` object.
+The only difference is that data files from the AZFP echosounder require an
+``.XML`` file that contains associated settings for unpacking the binary data.
+
 EK60
 ~~~~
 
-echopype supports batch conversion of ``.raw`` files to netCDF ``.nc``
-format in the terminal:
+.. TODO: the below section related to command line conversion tools
+   needs to be added back once convert/echopype_converter.py is revised.
 
-.. code-block:: console
+.. echopype supports batch conversion of ``.raw`` files to netCDF ``.nc``
+   format in the terminal:
 
-    $ echopype_converter -s ek60 data/*.raw
+.. .. code-block:: console
+   $ echopype_converter -s ek60 data/*.raw
 
-This will generate corresponding ``.nc`` files with the same leading
-filename as the original ``.raw`` files in the same directory.
-See :ref:`data-format` for details about the converted file format.
+.. This will generate corresponding ``.nc`` files with the same leading
+   filename as the original ``.raw`` files in the same directory.
+   See :ref:`data-format` for details about the converted file format.
 
-To use the EK60 data converter in an interactive Python session,
-you can do:
-
-.. code-block:: python
-
-    # import as part of a submodule
-    from echopype.convert import ConvertEK60
-    data_tmp = ConvertEK60('FILENAME.raw')
-    data_tmp.raw2nc()
-
-Or:
+To convert data files from the Simrad EK60 echosounder, you can do
+the following in an interactive Python session:
 
 .. code-block:: python
 
-    # import the full module
-    import echopype as ep
-    data_tmp = ep.convert.ConvertEK60('FILENAME.raw')
+    from echopype.convert import Convert
+    data_tmp = Convert('FILENAME.raw')
     data_tmp.raw2nc()
 
-The same as in the command line case, this will generate a ``FILENAME.nc``
-in the same directory as ``FILENAME.raw``.
+This will generate a  ``FILENAME.nc`` file in the same directory as
+the original ``FILENAME.raw`` file.
 
-The ``ConvertEK60`` instance contains all the data unpacked from the
+.. The same as in the command line case, this will generate a ``FILENAME.nc``
+   in the same directory as ``FILENAME.raw``.
+
+The ``Convert`` instance contains all the data unpacked from the
 .raw file, so it is a good idea to clear it from memory once done with
 conversion.
 
 AZFP
 ~~~~
-AZFP conversion requires an ``.XML`` file along with the raw ``.01A`` file to convert into an ``.nc`` file. To do the conversion, simply use the ``convert.Convert`` method in the in an interactive session as follows:
+AZFP conversion requires an ``.XML`` file along with the ``.01A`` data file
+to convert into an ``.nc`` file.
+This can be done by doing the following:
 
 .. code-block:: python
 
-    import echopype as ep
-    data_tmp = ep.convert.Convert('FILENAME.01A', 'XMLFILE.xml')
+    from echopype.convert import Convert
+    data_tmp = Convert('FILENAME.01A', 'XMLFILENAME.xml')
+    data_tmp.raw2nc()
 
 However, before calling ``data_tmp.raw2nc()`` in order to create your netCDF4 file, you should first set ``platform_name``, ``platform_type``, and ``patform_code_ICES`` as these values are not recorded in the raw files but are used in the netCDF4 convention. Not setting these parameters will save them as empty strings, and you may set them thusly:
 
@@ -79,13 +86,16 @@ Then simply do the following to save  a ``.nc`` file to the same directory as th
 
     data_tmp.raw2nc()
 
-Data analysis
--------------
 
-The data analysis functionalities of echopype is being developed actively.
-Be sure to check back here often!
 
-echopype currently supports:
+
+Routine data processing
+-----------------------
+
+*The data processing functionalities of echopype is being developed actively.
+Be sure to check back here often!*
+
+Echopype currently supports:
 
 - calibration and echo-integration to obtain volume backscattering strength (Sv)
   from the power data collected by EK60 and AZFP.
@@ -98,63 +108,55 @@ echopype currently supports:
 
 The steps of performing these analysis for each echosounder are summarized below:
 
-EK60
-~~~~
-
 .. code-block:: python
 
     from echopype.model import EchoData
     data = EchoData('FILENAME.nc')
-    data.calibrate()  # Calibration and echo-integration
-    data.remove_noise(save=True)  # Save denoised Sv to FILENAME_Sv_clean.nc
-    data.get_MVBS(save=True)  # Save MVBS to FILENAME_MVBS.nc
+    data.calibrate()     # Calibration and echo-integration to obtain Sv
+    data.remove_noise()  # denoised Sv
+    data.get_MVBS()      # calculate MVBS
 
-Note that by default, method ``calibrate`` save the calibrated volume
-backscattering strength (Sv) to ``FILENAME_Sv.nc``, while method ``remove_noise``
-and ``get_MVBS`` by default do not generate new files. The computation results
-from these two methods can be accessed from ``data.Sv_clean`` and ``data.MVBS``
-as xarray DataSets. The outputs of these methods are are xarray DataSets with
-proper dimension labels.
+By default, these methods do not save the calculation results to disk.
+The computation results can be accessed from ``data.Sv``, ``data.Sv_clean`` and
+``data.MVBS`` as xarray DataSets with proper dimension labels.
+
+To save the results to disk, pass an optional flag as in:
+
+.. code-block:: python
+
+    data.calibrate(save=True)     # Save Sv to disk
+    data.remove_noise(save=True)  # Save Sv_clean to disk
+    data.get_MVBS(save=True)      # Save MVBS to disk
+
+The results will be saved into different files with postfixes ``_Sv.nc``,
+``_Sv_clean.nc``, ``_MVBS.nc``.
+
+Note that this default choice may be changed in the near future as
+we move on to parallelize these operations.
 
 AZFP
 ~~~~
-You can initialize the functions for AZFP data analysis in exactly the same way
-as with EK60.
-
-.. code-block:: python
-
-    from echopype.model import EchoData
-    data = EchoData('FILENAME.nc')
-
-
-Before calibration, the salinity and pressure of the water should be adjusted
+Here again there are some additional steps when performing these operations
+on AZFP data.
+Before calibration, the salinity and pressure values should be adjusted
 if the default values of 29.6 PSU, and 60 dbars do not apply to the environment
 where data collection took place. For example:
 
 .. code-block:: python
 
    data.salinity = 30     # Salinity in PSU
-   data.pressure = 50     # Pressure in dbars (~ equal to depth in meters)
+   data.pressure = 50     # Pressure in dbars
 
-
-These values are used in calculating the sea absorption coefficients for each
-frequency as well as the sound speed in the water.
+These values are used in calculating the sea absorption coefficients
+for data at each frequency and the sound speed in the water.
 The sound speed is used to calculate the range.
 These values can be retrieved with:
 
 .. code-block:: python
 
-    data.sea_abs
+    data.seawater_absorption
     data.sound_speed
     data.range
-
-Get Sv, Target Strength (TS), and MVBS by calling
-
-.. code-block:: python
-
-    data.calibrate()
-    data.calibrateTS()
-    data.get_MVBS(save=True)
 
 
 ---------------
