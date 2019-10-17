@@ -22,7 +22,7 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
-Installaion and Usage
+Installation and Usage
 ---------------------
 
 Echopype currently supports file conversion and computation of data produced by:
@@ -36,7 +36,17 @@ computations are performed.
 The data processing routines include calibration (instrument-specific), noise
 removal, and mean volume backscattering strength (MVBS) calculation.
 
-Check out the `echopype documentation`_ for details on installation and usage!
+Echopype can be installed from PyPI or from a conda package:
+
+.. code-block:: console
+
+    # PyPI
+    $ pip install echopype
+
+    # conda
+    $ conda install -c conda-forge echopype
+
+Check out the `echopype documentation`_ for more details on installation and usage!
 
 .. _echopype documentation: https://echopype.readthedocs.io
 
