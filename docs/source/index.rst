@@ -42,14 +42,10 @@ are the primary developers for this project.
 
 Other contributors include:
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
-`Frederic Cyr <https://github.com/cyfr0006>`_ (@cyfr0006),
+`Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
 `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
 `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
 `Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_ (@erinann),
 `Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_ (@emma-ozanich),
 `Aaron Marburg <http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron>`_ (@amarburg)
-
----------------
-
-Copyright (c) 2018--, echopype Developers.
