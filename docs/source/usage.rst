@@ -1,9 +1,9 @@
 Using echopype
-========================
+==============
 
 
 Installation
---------------
+------------
 
 echopype is pip installable. You can install echopype by doing the following
 in your terminal:
@@ -15,9 +15,9 @@ in your terminal:
 
 
 File conversion
------------------
+---------------
 EK60
-~~~~~~
+~~~~
 
 echopype supports batch conversion of ``.raw`` files to netCDF ``.nc``
 format in the terminal:
@@ -57,7 +57,7 @@ The ``ConvertEK60`` instance contains all the data unpacked from the
 conversion.
 
 AZFP
-~~~~~~
+~~~~
 AZFP conversion requires an ``.XML`` file along with the raw ``.01A`` file to convert into an ``.nc`` file. To do the conversion, simply use the ``convert.Convert`` method in the in an interactive session as follows:
 
 .. code-block:: python
@@ -80,7 +80,7 @@ Then simply do the following to save  a ``.nc`` file to the same directory as th
     data_tmp.raw2nc()
 
 Data analysis
----------------
+-------------
 
 The data analysis functionalities of echopype is being developed actively.
 Be sure to check back here often!
@@ -99,7 +99,7 @@ echopype currently supports:
 The steps of performing these analysis for each echosounder are summarized below:
 
 EK60
-~~~~~~
+~~~~
 
 .. code-block:: python
 
@@ -117,8 +117,9 @@ as xarray DataSets. The outputs of these methods are are xarray DataSets with
 proper dimension labels.
 
 AZFP
-~~~~~~
-You can initialize the functions for AZFP data analysis in exactly the same way as with EK60.
+~~~~
+You can initialize the functions for AZFP data analysis in exactly the same way
+as with EK60.
 
 .. code-block:: python
 
@@ -126,7 +127,9 @@ You can initialize the functions for AZFP data analysis in exactly the same way 
     data = EchoData('FILENAME.nc')
 
 
-Before calibration, the salinity and pressure of the water should be adjusted if the default values of 29.6 PSU, and 60 dbars do not apply to the environment where data collection took place. For example:
+Before calibration, the salinity and pressure of the water should be adjusted
+if the default values of 29.6 PSU, and 60 dbars do not apply to the environment
+where data collection took place. For example:
 
 .. code-block:: python
 
@@ -134,7 +137,10 @@ Before calibration, the salinity and pressure of the water should be adjusted if
    data.pressure = 50     # Pressure in dbars (~ equal to depth in meters)
 
 
-These values are used in calculating the sea absorption coefficients for each frequency as well as the sound speed in the water. The sound speed is used to calculate the range. These values can be retrieved with:
+These values are used in calculating the sea absorption coefficients for each
+frequency as well as the sound speed in the water.
+The sound speed is used to calculate the range.
+These values can be retrieved with:
 
 .. code-block:: python
 
@@ -156,3 +162,12 @@ Get Sv, Target Strength (TS), and MVBS by calling
 .. [1] De Robertis and Higginbottoms (2007) A post-processing technique to
    estimate the signal-to-noise ratio and remove echosounder background noise.
    `ICES J. Mar. Sci. 64(6): 1282–1291. <https://academic.oup.com/icesjms/article/64/6/1282/616894>`_
+
+.. TODO: Need to specify the changes we made from AZFP Matlab code to here:
+   In the Matlab code, users set temperature/salinity parameters in
+   AZFP_parameters.m and run that script first before doing unpacking.
+   Here we require users to unpack raw data first into netCDF, and then
+   set temperature/salinity in the model module if they want to perform
+   calibration. This is cleaner and less error prone, because the param
+   setting step is separated from the raw data unpacking, so user-defined
+   params are not in the unpacked files.
