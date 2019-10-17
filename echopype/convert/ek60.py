@@ -15,9 +15,9 @@ from matplotlib.dates import date2num
 import pytz
 import pynmea2
 
-from .ek60_raw_io import RawSimradFile, SimradEOF
-from .nmea_data import NMEAData
-from .set_groups import SetGroups
+from echopype.convert.utils.ek60_raw_io import RawSimradFile, SimradEOF
+from echopype.convert.utils.nmea_data import NMEAData
+from echopype.convert.utils.set_groups import SetGroups
 from echopype._version import get_versions
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
