@@ -72,15 +72,24 @@ This can be done by doing the following:
     data_tmp = Convert('FILENAME.01A', 'XMLFILENAME.xml')
     data_tmp.raw2nc()
 
-However, before calling ``data_tmp.raw2nc()`` in order to create your netCDF4 file, you should first set ``platform_name``, ``platform_type``, and ``patform_code_ICES`` as these values are not recorded in the raw files but are used in the netCDF4 convention. Not setting these parameters will save them as empty strings, and you may set them thusly:
+However, before calling ``data_tmp.raw2nc()`` to create netCDF4 files,
+you should first set ``platform_name``, ``platform_type``, and
+``patform_code_ICES``, as these values are not recorded in the raw data
+files but need to be specified according to the netCDF4 convention.
+These parameters will be saved as empty strings unless you specify
+them following the example below:
 
 .. code-block:: python
 
-    data_tmp.platform_name = 'Wilson'
+    data_tmp.platform_name = 'OOI'
     data_tmp.platform_type = 'subsurface mooring'
-    data_tmp.platform_code_ICES = '3164'
+    data_tmp.platform_code_ICES = '3164'   # Platform code for Moorings
 
-Then simply do the following to save  a ``.nc`` file to the same directory as the ``.01A`` file.
+The ``platform_code_ICES`` attribute should reference the platform code
+from the `ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_
+
+Then simply do the following to save  a ``.nc`` file to the same
+directory as the ``.01A`` file.
 
 .. code-block:: python
 
