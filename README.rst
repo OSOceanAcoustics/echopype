@@ -52,17 +52,16 @@ Check out the `echopype documentation`_ for more details on installation and usa
 
 
 
-License
--------
-
-Echopype is licensed under the open source Apache 2.0 license.
+Contributors
+------------
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
 and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are the primary developers of this project.
+are the primary developers for this project.
+`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
+provides consultation and also contributes to the development.
 
 Other contributors include:
-`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
 `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
@@ -70,6 +69,17 @@ Other contributors include:
 `Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_ (@erinann),
 `Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_ (@emma-ozanich),
 `Aaron Marburg <http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron>`_ (@amarburg)
+
+We thank Dave Billenness of ASL Environmental Sciences for
+providing the AZFP Matlab Toolbox as reference for our
+development of AZFP support in echopype.
+
+
+License
+-------
+
+Echopype is licensed under the open source Apache 2.0 license.
+
 
 ---------------
 
