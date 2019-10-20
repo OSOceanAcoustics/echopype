@@ -4,7 +4,9 @@ its connection to data files.
 """
 
 import os
+import warnings
 import datetime as dt
+
 import numpy as np
 import xarray as xr
 
@@ -175,22 +177,23 @@ class ModelBase(object):
             if os.path.exists(self.Sv_path):  # but have _Sv.nc file
                 self.Sv = xr.open_dataset(self.Sv_path)   # load file
             else:  # if also don't have _Sv.nc file
+                print('Data has not been calibrated. Performing calibration now.')
                 self.calibrate()  # then calibrate
         return self.Sv
 
     def _get_proc_Sv_clean(self):
         """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
 
-        This method is called by remove_noise(), noise_estimates() and get_MVBS().
+        This method is called get_MVBS().
         """
-        # TODO: this method is not actually called by the above functions right now.
-        #  Need to close this loop in the next release.
         if self.Sv_clean is None:  # if don't have Sv_clean as attribute
             if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
                 self.Sv_clean = xr.open_dataset(self.Sv_clean_path)  # load file
             else:  # if also don't have _Sv_clean.nc file
                 if self.Sv is None:   # if hasn't performed calibration yet
+                    print('Data has not been calibrated. Performing calibration now.')
                     self.calibrate()      # then calibrate
+                print('Noise removal has not been performed. Performing noise removal now.')
                 self.remove_noise()   # and then remove noise
         return self.Sv_clean  # and point to results
 
@@ -273,6 +276,9 @@ class ModelBase(object):
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
+
+        # Attach calculated range into data set
+        Sv_clean['range'] = (('frequency', 'range_bin'), self.range.T)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
@@ -382,12 +388,7 @@ class ModelBase(object):
         if source == 'Sv':
             proc_data = self._get_proc_Sv()
         elif source == 'Sv_clean':
-            if self.Sv_clean is not None:              # if already have Sv_clean as attribute
-                proc_data = self.Sv_clean
-            elif os.path.exists(self.Sv_clean_path):   # if _Sv_clean.nc file
-                proc_data = xr.open_dataset(self.Sv_clean_path)
-            else:
-                raise ValueError('Need to obtain Sv_clean first by calling remove_noise()')
+            proc_data = self._get_proc_Sv_clean()
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
 
@@ -404,8 +405,13 @@ class ModelBase(object):
             MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
                 groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         elif source == 'Sv_clean':
-            MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
+            # TODO: the calculation below issues warnings when encountering all NaN slices.
+            #  This is an open issue in dask: https://github.com/dask/dask/issues/3245
+            #  Suppress this warning for now.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
+                    groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
 
