@@ -298,6 +298,12 @@ class ModelAZFP(ModelBase):
 
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
+
+        # Attached calculated range into the dataset
+        Sv['range'] = (('frequency', 'range_bin'), self.range)
+
+        # Save calibrated data into the calling instance and
+        #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
