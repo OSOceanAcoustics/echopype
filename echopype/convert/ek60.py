@@ -19,6 +19,7 @@ from .ek60_raw_io import RawSimradFile, SimradEOF
 from .nmea_data import NMEAData
 from .set_groups import SetGroups
 from echopype._version import get_versions
+from .convertbase import ConvertBase
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
@@ -30,7 +31,7 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 INDEX2ELEC = 180.0 / 128.0
 
 
-class ConvertEK60:
+class ConvertEK60(ConvertBase):
     """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
