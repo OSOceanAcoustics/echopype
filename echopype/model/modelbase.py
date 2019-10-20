@@ -425,6 +425,9 @@ class ModelBase(object):
         MVBS['MVBS_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
 
+        # Attach calculated range to MVBS
+        MVBS['range'] = self.Sv.range.sel(range_bin=MVBS.range_bin)
+
         # TODO: need to save noise_est_range_bin_size and noise_est_ping_size if source='Sv_clean'
         #  and also save an additional attribute that specifies the source
         # MVBS.attrs['noise_est_range_bin_size'] = self.noise_est_range_bin_size
