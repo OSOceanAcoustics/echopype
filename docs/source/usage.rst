@@ -5,13 +5,15 @@ Using echopype
 Installation
 ------------
 
-Echopype is pip installable. You can install echopype by doing the following
-in your terminal:
+Echopype can be installed from PyPI or through conda:
 
 .. code-block:: console
 
+    # PyPI
     $ pip install echopype
 
+    # conda
+    $ conda install -c conda-forge echopype
 
 
 File conversion
