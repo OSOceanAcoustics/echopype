@@ -23,7 +23,7 @@ scientists to make discovery using these new data.
 
 
 Installation and Usage
----------------------
+----------------------
 
 Echopype currently supports file conversion and computation of data produced by:
 
@@ -36,7 +36,7 @@ computations are performed.
 The data processing routines include calibration (instrument-specific), noise
 removal, and mean volume backscattering strength (MVBS) calculation.
 
-Echopype can be installed from PyPI or from a conda package:
+Echopype can be installed from PyPI or through conda:
 
 .. code-block:: console
 
