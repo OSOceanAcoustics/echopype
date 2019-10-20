@@ -48,8 +48,10 @@ Echopype can be installed from PyPI or through conda:
 
 Check out the `echopype documentation`_ for more details on installation and usage!
 
-.. _echopype documentation: https://echopype.readthedocs.io
+Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
 
+.. _echopype documentation: https://echopype.readthedocs.io
+.. _echopype talk: https://www.youtube.com/watch?v=qboH7MyHrpU
 
 
 Contributors
@@ -57,7 +59,7 @@ Contributors
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
 and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are the primary developers for this project.
+are the primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
 provides consultation and also contributes to the development.
 
