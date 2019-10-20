@@ -148,6 +148,9 @@ class ModelEK60(ModelBase):
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
+        # Attach calculated range into data set
+        Sv['range'] = (('frequency', 'range_bin'), self.range.T)
+
         # Save calibrated data into the calling instance and
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv

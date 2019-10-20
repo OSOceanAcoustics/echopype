@@ -23,20 +23,20 @@ scientists to make discovery using these new data.
 
 
 Installation and Usage
----------------------
+----------------------
 
 Echopype currently supports file conversion and computation of data produced by:
 
 - Simrad EK60 echosounder (``.raw`` files)
 - ASL Environmental Sciences AZFP echosounders (``.01A`` files)
 
-The file conversion functionality converts data stored in manufacturer-specific
+The file conversion functionality converts data from manufacturer-specific
 binary formats into a standardized netCDF files, based on which all subsequent
 computations are performed.
 The data processing routines include calibration (instrument-specific), noise
 removal, and mean volume backscattering strength (MVBS) calculation.
 
-Echopype can be installed from PyPI or from a conda package:
+Echopype can be installed from PyPI or through conda:
 
 .. code-block:: console
 
@@ -48,8 +48,33 @@ Echopype can be installed from PyPI or from a conda package:
 
 Check out the `echopype documentation`_ for more details on installation and usage!
 
-.. _echopype documentation: https://echopype.readthedocs.io
+Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
 
+.. _echopype documentation: https://echopype.readthedocs.io
+.. _echopype talk: https://www.youtube.com/watch?v=qboH7MyHrpU
+
+
+Contributors
+------------
+
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
+and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+are the primary developers of this project.
+`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
+provides consultation and also contributes to the development.
+
+Other contributors include:
+`Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
+`Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
+`Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
+`Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
+`Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_ (@erinann),
+`Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_ (@emma-ozanich),
+`Aaron Marburg <http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron>`_ (@amarburg)
+
+We thank Dave Billenness of ASL Environmental Sciences for
+providing the AZFP Matlab Toolbox as reference for our
+development of AZFP support in echopype.
 
 
 License
@@ -57,19 +82,6 @@ License
 
 Echopype is licensed under the open source Apache 2.0 license.
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
-and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are the primary developers of this project.
-
-Other contributors include:
-`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
-`Frederic Cyr <https://github.com/cyfr0006>`_ (@cyfr0006),
-`Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
-`Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
-`Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
-`Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_ (@erinann),
-`Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_ (@emma-ozanich),
-`Aaron Marburg <http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron>`_ (@amarburg)
 
 ---------------
 
