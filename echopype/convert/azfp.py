@@ -8,11 +8,12 @@ from datetime import timezone
 from .set_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
+from .convertbase import ConvertBase
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
-class ConvertAZFP:
+class ConvertAZFP(ConvertBase):
     """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
@@ -31,9 +32,9 @@ class ConvertAZFP:
             # 'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
             # "" will prompt for XML filename if no XML file exists in the directory
             # 'xml_file_name': "12022310.XML",
-            'platform_name': "",    # Name of the platform. Set with actual value
-            'platform_type': "",    # Type of platform. Set with actual value
-            'platform_code_ICES': "",   # Code for the platform. Set with actual value
+            # 'platform_name': "",    # Name of the platform. Set with actual value
+            # 'platform_type': "",    # Type of platform. Set with actual value
+            # 'platform_code_ICES': "",   # Code for the platform. Set with actual value
             # WJ: there's setter and getter for salinity and pressure, so comment out below for now
             # 'salinity': 29.6,       # Salinity in psu
             # 'pressure': 60,         # in dbars (~ depth of instrument in meters)
@@ -164,32 +165,6 @@ class ConvertAZFP:
             ('ad', 'u2', 2)                 # AD channel 6 and 7
         )
         return _fields
-
-    # TODO: move these setter and getter to the Convert class
-    """Setters and getters for platform information"""
-    @property
-    def platform_name(self):
-        return self.parameters['platform_name']
-
-    @platform_name.setter
-    def platform_name(self, platform_name):
-        self.parameters['platform_name'] = platform_name
-
-    @property
-    def platform_type(self):
-        return self.parameters['platform_type']
-
-    @platform_type.setter
-    def platform_type(self, platform_type):
-        self.parameters['platform_type'] = platform_type
-
-    @property
-    def platform_code_ICES(self):
-        return self.parameters['platform_code_ICES']
-
-    @platform_code_ICES.setter
-    def platform_code_ICES(self, platform_code_ICES):
-        self.parameters['platform_code_ICES'] = platform_code_ICES
 
     def _split_header(self, raw, header_unpacked, ping_num, unpacked_data, fields):
         """Splits the header information into a dictionary.
