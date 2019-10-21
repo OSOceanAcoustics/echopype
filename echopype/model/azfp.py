@@ -21,6 +21,7 @@ class ModelAZFP(ModelBase):
         # self._sample_thickness = None
         # self._range = None
         self._seawater_absorption = None
+        self._temperature = None
 
     # TODO: consider moving some of these properties to the parent class,
     #  since it is possible that EK60 users may want to set the environmental
@@ -46,6 +47,8 @@ class ModelAZFP(ModelBase):
 
     @property
     def temperature(self):
+        if self._temperature is not None:
+            return self._temperature
         with xr.open_dataset(self.file_path, group='Environment') as ds_env:
             self._temperature = ds_env.temperature
             return self._temperature
@@ -90,8 +93,9 @@ class ModelAZFP(ModelBase):
 
     @property
     def sound_speed(self):
-        if not self._sound_speed:  # if this is empty
-            return self.calc_sound_speed()
+        if self._sound_speed is None:  # if this is empty
+            self._sound_speed = self.calc_sound_speed()
+            return self._sound_speed
         else:
             return self._sound_speed
 
@@ -118,7 +122,8 @@ class ModelAZFP(ModelBase):
         """
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2
-            return sth.mean(dim='ping_time')   # use mean over all ping_time
+            return sth
+            # return sth.mean(dim='ping_time')   # use mean over all ping_time
 
     def calc_sound_speed(self, formula_source='AZFP'):
         """Calculate sound speed in meters per second. Uses the default salinity and pressure.
@@ -139,7 +144,8 @@ class ModelAZFP(ModelBase):
                                       salinity=self.salinity,
                                       depth=self.pressure)
         else:  # default to formula supplied by AZFP
-            z = self.temperature / 10
+            z = np.mean(self.temperature.values) / 10
+            # z = self.temperature / 10
             ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
                   (self.salinity - 35.0) + (self.pressure / 1000) * (16.3 + 0.18 * (self.pressure / 1000)))
         return ss
@@ -167,11 +173,11 @@ class ModelAZFP(ModelBase):
         lockout_index = ds_vend.lockout_index
 
         # Converts sound speed to a single number. Otherwise depth will have dimension ping time
-        if len(sound_speed) != 1:
-            sound_speed = sound_speed.mean()
-            # TODO: print out a message showing percentage of variation of sound speed across pings
-            #       as the following:
-            #       "Use mean sound speed. Sound speed varied by XX% across pings."
+        # if len(sound_speed) != 1:
+        #     diff = ((max(sound_speed.values) - min(sound_speed.values)) /
+        #             ((max(sound_speed.values) + min(sound_speed.values)) / 2)) * 100
+        #     sound_speed = sound_speed.mean()
+        #     print(f"Using mean sound speed. Sound speed varied by {diff:.4}% across pings")
 
         # Below is from LoadAZFP.m, the output is effectively range_bin+1 when bins_to_avg=1
         range_mod = xr.DataArray(np.arange(1, len(ds_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
@@ -217,7 +223,7 @@ class ModelAZFP(ModelBase):
         An array containing absorption coefficients for each frequency in dB/m
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
-            freq = ds_beam.frequency  # should already be in unit [Hz]
+            freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
 
         print('Using averaged temperature for calculating seawater absorption.')
         if formula_source == 'FG':
