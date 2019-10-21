@@ -8,6 +8,7 @@ azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
 azfp_test_Sv_path = './echopype/test_data/azfp/from_matlab/17082117_Sv.nc'
 azfp_test_TS_path = './echopype/test_data/azfp/from_matlab/17082117_TS.nc'
+azfp_test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
 
 
 def test_model_AZFP():
@@ -28,11 +29,11 @@ def test_model_AZFP():
     #  of the calculation contributes to this large discrepancy.
     # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
-        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-3)
+        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
 
     # Test TS data
     with xr.open_dataset(tmp_echo.TS_path) as ds_TS:
-        assert np.allclose(TS_test.TS, ds_TS.TS, atol=1e-3)
+        assert np.allclose(TS_test.TS, ds_TS.TS, atol=1e-15)
 
     Sv_test.close()
     TS_test.close()
@@ -41,3 +42,5 @@ def test_model_AZFP():
     os.remove(tmp_convert.nc_path)
     del tmp_convert
     del tmp_echo
+
+test_model_AZFP()
