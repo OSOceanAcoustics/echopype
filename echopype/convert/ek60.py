@@ -35,7 +35,7 @@ class ConvertEK60(ConvertBase):
     """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
-
+        ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
         # Initialize file parsing storage variables
