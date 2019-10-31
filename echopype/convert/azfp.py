@@ -17,6 +17,7 @@ class ConvertAZFP(ConvertBase):
     """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
+        ConvertBase.__init__(self)
         self.path = _path
         self.xml_path = _xml_path
         self.file_name = os.path.basename(self.path)
@@ -418,9 +419,9 @@ class ConvertAZFP(ConvertBase):
             return out_dict
 
         def _set_platform_dict():
-            out_dict = dict(platform_name=self.parameters['platform_name'],
-                            platform_type=self.parameters['platform_type'],
-                            platform_code_ICES=self.parameters['platform_code_ICES'])
+            out_dict = dict(platform_name=self.platform['platform_name'],
+                            platform_type=self.platform['platform_type'],
+                            platform_code_ICES=self.platform['platform_code_ICES'])
             return out_dict
 
         def _set_prov_dict():
