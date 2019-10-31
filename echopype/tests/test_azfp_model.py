@@ -25,9 +25,6 @@ def test_model_AZFP():
     tmp_echo.calibrate_TS(save=True)
     tmp_echo.get_MVBS()
 
-    # TODO: atol=1e-3 is a large number, need to track down which part
-    #  of the calculation contributes to this large discrepancy.
-    # Test Sv data
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
 
@@ -42,5 +39,3 @@ def test_model_AZFP():
     os.remove(tmp_convert.nc_path)
     del tmp_convert
     del tmp_echo
-
-test_model_AZFP()
