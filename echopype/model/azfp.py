@@ -17,11 +17,11 @@ class ModelAZFP(ModelBase):
         self.salinity = salinity           # salinity in [psu]
         self.pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
         self.temperature = temperature     # temperature in [Celsius]
+        self.temperature                   # initiallize temperature if none
         self.sound_speed = sound_speed     # sound speed in [m/s]
         # self._sample_thickness = None
         # self._range = None
         self._seawater_absorption = None
-        self._temperature = None
 
     # TODO: consider moving some of these properties to the parent class,
     #  since it is possible that EK60 users may want to set the environmental
@@ -50,7 +50,7 @@ class ModelAZFP(ModelBase):
         if self._temperature is not None:
             return self._temperature
         with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-            self._temperature = ds_env.temperature
+            self._temperature = np.mean(ds_env.temperature)
             return self._temperature
 
     @temperature.setter
@@ -144,7 +144,7 @@ class ModelAZFP(ModelBase):
                                       salinity=self.salinity,
                                       depth=self.pressure)
         else:  # default to formula supplied by AZFP
-            z = np.mean(self.temperature.values) / 10
+            z = self.temperature / 10
             # z = self.temperature / 10
             ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
                   (self.salinity - 35.0) + (self.pressure / 1000) * (16.3 + 0.18 * (self.pressure / 1000)))
@@ -228,7 +228,7 @@ class ModelAZFP(ModelBase):
         print('Using averaged temperature for calculating seawater absorption.')
         if formula_source == 'FG':
             linear_abs = arlpy.uwa.absorption(frequency=freq,
-                                              temperature=self.temperature.mean(),
+                                              temperature=self.temperature,
                                               salinity=self.salinity,
                                               depth=self.pressure)
             # Convert linear absorption to dB/km. Convert to dB/m
@@ -238,7 +238,7 @@ class ModelAZFP(ModelBase):
         #  in the same way as you compare the echo data. The comparison should be done for a vector
         #  of frequencies np.logspace(0,6,500).
         else:  # default to formula provided by AZFP
-            temp = self.temperature.mean(dim='ping_time')
+            temp = self.temperature
             temp_k = temp + 273.0
             f1 = 1320.0 * temp_k * np.exp(-1700 / temp_k)
             f2 = 1.55e7 * temp_k * np.exp(-3052 / temp_k)
