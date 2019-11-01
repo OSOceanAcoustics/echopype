@@ -61,10 +61,11 @@ def calc_seawater_absorption(frequency, distance=1000, temperature=27,
         Source of formula used for calculating sound speed.
         Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
         Another option is to use Francois and Garrison (1982) supplied by ``arlpy`` (``formula_source='FG'``).
+        Another option is to use Ainlie and McColm (1998) (``formula_source='AM'``)
 
     Returns
     -------
-    Sea absorption [db/km]
+    Sea absorption [db/m]
     """
     if formula_source == 'FG':
         f = frequency / 1000.0
@@ -83,7 +84,17 @@ def calc_seawater_absorption(frequency, distance=1000, temperature=27,
         else:
             A3 = 3.964e-4 - 1.146e-5 * temperature + 1.45e-7 * temperature ** 2 - 6.5e-10 * temperature ** 3
         a = A1 * P1 * f1 * f * f / (f1 * f1 + f * f) + A2 * P2 * f2 * f * f / (f2 * f2 + f * f) + A3 * P3 * f * f
-        sea_abs = -20 * np.log10(10**(-a * d / 20.0)) * 1e3  # Convert db/m to db/km
+        sea_abs = -20 * np.log10(10**(-a * d / 20.0)) / 1000 # convert to db/m from db/km
+    elif formula_source == 'AM':
+        freq = frequency / 1000
+        D = pressure / 1000
+        f1 = 0.78 * np.sqrt(salinity / 35) * np.exp(temperature / 26)
+        f2 = 42 * np.exp(temperature / 17)
+        a1 = 0.106 * (f1 * (freq ** 2)) / ((f1 ** 2) + (freq ** 2)) * np.exp((pH - 8) / 0.56)
+        a2 = (0.52 * (1 + temperature / 43) * (salinity / 35) *
+              (f2 * (freq ** 2)) / ((f2 ** 2) + (freq ** 2)) * np.exp(-D / 6))
+        a3 = 0.00049 * (freq) ** 2 * np.exp(-(temperature / 27 + D))
+        sea_abs = (a1 + a2 + a3) / 1000 # convert to db/m from db/km
     elif formula_source == 'AZFP':
         temp_k = temperature + 273.0
         f1 = 1320.0 * temp_k * np.exp(-1700 / temp_k)
