@@ -5,7 +5,6 @@ echopype data model inherited from based class EchoData for AZFP data.
 import datetime as dt
 import numpy as np
 import xarray as xr
-import arlpy
 from .modelbase import ModelBase
 from echopype.utils import uwa
 
