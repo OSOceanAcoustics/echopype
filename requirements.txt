@@ -7,4 +7,3 @@ xarray
 pytz
 pynmea2
 click
-arlpy
