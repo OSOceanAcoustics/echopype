@@ -18,14 +18,16 @@ class ModelBase(object):
         self.noise_est_ping_size = 30  # number of pings per tile for noise estimation
         self.MVBS_range_bin_size = 5  # meters per tile for MVBS
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
-        self.TVG = None  # time varying gain along range
-        self.ABS = None  # absorption along range
+        # TVG and ABS are calculated whenever they are used
+        # self.TVG = None  # time varying gain along range
+        # self.ABS = None  # absorption along range
         self.Sv = None  # calibrated volume backscattering strength
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
         self._sample_thickness = None
         self._range = None
+        self._seawater_absorption = None
 
     # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
     #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
@@ -33,10 +35,9 @@ class ModelBase(object):
 
     @property
     def sample_thickness(self):
-        if not self._sample_thickness:  # if this is empty
-            return self.calc_sample_thickness()
-        else:
-            return self._sample_thickness
+        if self._sample_thickness is None:  # if this is empty
+            self._sample_thickness = self.calc_sample_thickness()
+        return self._sample_thickness
 
     @sample_thickness.setter
     def sample_thickness(self, sth):
@@ -44,14 +45,23 @@ class ModelBase(object):
 
     @property
     def range(self):
-        if not self._range:  # if this is empty
-            return self.calc_range()
-        else:
-            return self._range
+        if self._range is None:  # if this is empty
+            self._range = self.calc_range()
+        return self._range
 
     @range.setter
     def range(self, rr):
         self._range = rr
+
+    @property
+    def seawater_absorption(self):
+        if self._seawater_absorption is None:
+            self._seawater_absorption = self.calc_seawater_absorption()
+        return self._seawater_absorption
+
+    @seawater_absorption.setter
+    def seawater_absorption(self, abs):
+        self._seawater_absorption = abs
 
     @property
     def file_path(self):
@@ -196,7 +206,7 @@ class ModelBase(object):
                 return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
         else:
             return self.Sv_clean.to_dataset(name='Sv_clean')  # and point to results
-            
+
     def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
                      SNR=0, Sv_threshold=None, save=False):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
@@ -239,10 +249,14 @@ class ModelBase(object):
 
         # Function for use with apply
         def remove_n(x):
-            p_c_lin = 10 ** ((x - self.ABS - self.TVG) / 10)
+            range_meter = self.range
+            TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+            ABS = 2 * self.seawater_absorption * range_meter
+
+            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
             nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                 + self.ABS + self.TVG
+                + ABS + TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
                 return x.where(x > (nn + SNR), other=np.nan)
@@ -320,8 +334,13 @@ class ModelBase(object):
                                  p_tile_sz=self.noise_est_ping_size,
                                  sample_thickness=self.sample_thickness)
 
+        # Values for noise estimates
+        range_meter = self.range
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+        ABS = 2 * self.seawater_absorption * range_meter
+
         # Noise estimates
-        proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
+        proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
                                   groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
@@ -407,7 +426,7 @@ class ModelBase(object):
                 groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
         else:
             raise ValueError('Unknown source, cannot calculate MVBS')
-        
+
         # Set MVBS coordinates
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
