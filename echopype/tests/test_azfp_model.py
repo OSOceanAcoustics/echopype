@@ -25,6 +25,11 @@ def test_model_AZFP():
     tmp_echo.calibrate_TS(save=True)
     tmp_echo.get_MVBS()
 
+    # Check setters
+    tmp_echo.pressure = 10
+    tmp_echo.salinity = 20
+    tmp_echo.temperature = 12
+
     with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
 

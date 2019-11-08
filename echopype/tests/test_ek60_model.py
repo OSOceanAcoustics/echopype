@@ -38,7 +38,10 @@ def test_noise_estimates_removal():
                                p_tile_sz=e_data.noise_est_ping_size,
                                sample_thickness=e_data.sample_thickness)
 
-    power_cal_test = (10 ** ((proc_data.Sv - e_data.ABS - e_data.TVG) / 10)).values
+    range_meter = e_data.range
+    TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+    ABS = 2 * e_data.seawater_absorption * range_meter
+    power_cal_test = (10 ** ((proc_data.Sv - ABS - TVG) / 10)).values
 
     num_ping_bins = np.unique(add_idx).size
     num_range_bins = range_bin_tile_bin_edge.size - 1
@@ -78,7 +81,7 @@ def test_noise_estimates_removal():
                 pp_idx = np.arange(p_sz * p_seq, power_cal_test.shape[1])
             ss_tmp = proc_data.Sv.values[f_seq, pp_idx, :]
             nn_tmp = (noise_est_test[f_seq, p_seq] +
-                      e_data.ABS.isel(frequency=f_seq) + e_data.TVG.isel(frequency=f_seq)).values
+                      ABS.isel(frequency=f_seq) + TVG.isel(frequency=f_seq)).values
             Sv_clean_tmp = ss_tmp.copy()
             Sv_clean_tmp[Sv_clean_tmp < nn_tmp] = np.nan
             Sv_clean_test[f_seq, pp_idx, :] = Sv_clean_tmp

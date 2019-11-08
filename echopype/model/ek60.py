@@ -88,6 +88,11 @@ class ModelEK60(ModelBase):
                     except KeyError:
                         raise(f'{sel} is not a valid input')
 
+    def calc_seawater_absorption(self):
+        """Returns the seawater absorption values from the .nc file"""
+        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            return ds_env.absorption_indicative
+
     def calc_sample_thickness(self):
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
@@ -134,11 +139,7 @@ class ModelEK60(ModelBase):
         # Get TVG and absorption
         range_meter = self.range
         TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
-        ABS = 2 * ds_env.absorption_indicative * range_meter
-
-        # Save TVG and ABS for noise estimation use
-        self.TVG = TVG
-        self.ABS = ABS
+        ABS = 2 * self.seawater_absorption * range_meter
 
         # Calibration and echo integration
         Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
@@ -156,4 +157,3 @@ class ModelEK60(ModelBase):
         ds_beam.close()
 
     # TODO: Need to write a separate method for calculating TS as have been done for AZFP data.
-

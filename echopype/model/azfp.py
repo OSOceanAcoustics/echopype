@@ -14,14 +14,11 @@ class ModelAZFP(ModelBase):
 
     def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None, sound_speed=None):
         ModelBase.__init__(self, file_path)
-        self.salinity = salinity           # salinity in [psu]
-        self.pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
-        self.temperature = temperature     # temperature in [Celsius]
-        self.sound_speed = sound_speed     # sound speed in [m/s]
-        # self._sample_thickness = None
-        # self._range = None
-        self._seawater_absorption = None
-        self._tilt_angle = None
+        self._salinity = salinity           # salinity in [psu]
+        self._pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
+        self._temperature = temperature     # temperature in [Celsius]
+        self._sound_speed = sound_speed     # sound speed in [m/s]
+        self._tilt_angle = None             # instrument tilt angle in [degrees]
 
     # TODO: consider moving some of these properties to the parent class,
     #  since it is possible that EK60 users may want to set the environmental
@@ -35,7 +32,12 @@ class ModelAZFP(ModelBase):
     def salinity(self, sal):
         self._salinity = sal
         # Update sound speed, sample_thickness, absorption, range
-        self.reset_values(ss=True, st=True, sa=True, r=True)
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
 
     @property
     def pressure(self):
@@ -44,9 +46,13 @@ class ModelAZFP(ModelBase):
     @pressure.setter
     def pressure(self, pres):
         self._pressure = pres
-        self.reset_values()
         # Update sound speed, sample_thickness, absorption, range
-        self.reset_values(ss=True, st=True, sa=True, r=True)
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
 
     @property
     def temperature(self):
@@ -60,7 +66,12 @@ class ModelAZFP(ModelBase):
     def temperature(self, t):
         self._temperature = t
         # Update sound speed, sample_thickness, absorption, range
-        self.reset_values(ss=True, st=True, sa=True, r=True)
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
 
         # TODO: add an option to allow using hourly averaged temperature, this
         #  requires using groupby operation and align the calculation properly
@@ -96,7 +107,7 @@ class ModelAZFP(ModelBase):
         #         return sum / total
 
     @property
-    def sound_speed(self, recalc=False):
+    def sound_speed(self):
         if self._sound_speed is None:  # if this is empty
             self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
                                                      salinity=self.salinity,
@@ -106,44 +117,38 @@ class ModelAZFP(ModelBase):
     @sound_speed.setter
     def sound_speed(self, ss):
         self._sound_speed = ss
-        self.reset_values(st=True, sa=True, r=True)
         # TODO: need to update sample_thickness, absorption, range
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
 
     @property
-    def seawater_absorption(self):
-        if self._seawater_absorption is None:  # if this is empty
-            with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
-                freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
-            self._seawater_absorption = uwa.calc_seawater_absorption(freq,
-                                                                     temperature=self.temperature,
-                                                                     salinity=self.salinity,
-                                                                     pressure=self.pressure)
-        return self._seawater_absorption
-
-    @seawater_absorption.setter
-    def seawater_absorption(self, abs):
-        self._seawater_absorption = abs
-
-    @property
-    # Returns the tilt of the echosounder in degrees
     def tilt_angle(self):
+        """Gets the tilt of the echosounder from the .nc file
+
+        Returns
+        -------
+        Tilt of echosounder in degrees
+        """
         if self._tilt_angle is None:
             with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
                 self._tilt_angle = np.rad2deg(np.arccos(ds_beam.cos_tilt_mag.mean().data))
         return self._tilt_angle
 
-    def reset_values(self, ss=False, sa=False, st=False, r=False):
-        """Resets ``sound_speed``, ``seawater_absorption``, ``sample_thickness``,
-        and/or ``range`` when values used to derive them are changed.
+    def calc_seawater_absorption(self):
+        """Calculates seawater absorption in dB/km using AZFP-supplied formula.
+
+        Returns
+        -------
+        An xarray DataArray containing the sea absorption with coordinate frequency
         """
-        if(ss):
-            self._sound_speed = None
-        if(sa):
-            self._seawater_absorption = None
-        if(st):
-            self._sample_thickness = None
-        if(r):
-            self._range = None
+        with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+            freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
+        sea_abs = uwa.calc_seawater_absorption(freq,
+                                               temperature=self.temperature,
+                                               salinity=self.salinity,
+                                               pressure=self.pressure)
+        return sea_abs
 
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
