@@ -5,7 +5,7 @@ import xml.dom.minidom
 import math
 from datetime import datetime as dt
 from datetime import timezone
-from .set_groups import SetGroups
+from echopype.convert.utils.set_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
 from .convertbase import ConvertBase
