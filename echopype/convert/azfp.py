@@ -307,6 +307,10 @@ class ConvertAZFP(ConvertBase):
         def compute_tilt(N, a, b, c, d):
             return a + b * N + c * N**2 + d * N**3
 
+        def compute_battery(N):
+            USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+            return N * USL5_BAT_CONSTANT
+
         with open(self.path, 'rb') as raw:
             ping_num = 0
             fields = self.get_fields()
@@ -340,6 +344,12 @@ class ConvertAZFP(ConvertBase):
                         unpacked_data['cos_tilt_mag'].append(
                             math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
                                                 unpacked_data['tilt_y'][ping_num] ** 2)) * math.pi / 180))
+                        # Calculate voltage of main battery pack
+                        unpacked_data['battery_main'].append(
+                            compute_battery(unpacked_data['ancillary'][ping_num][2]))
+                        # If there is a Tx battery pack
+                        unpacked_data['battery_tx'].append(
+                            compute_battery(unpacked_data['ad'][ping_num][0]))
                     else:
                         break
                 else:
@@ -449,7 +459,7 @@ class ConvertAZFP(ConvertBase):
                 N.append(np.array([self.unpacked_data['counts'][p][ich]
                                    for p in range(len(self.unpacked_data['year']))]))
 
-            tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
+            tdn = self.unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
             range_samples_xml = np.array(self.parameters['range_samples'])         # from xml file
             range_samples_per_bin = self.unpacked_data['range_samples_per_bin']    # from data header
 
@@ -545,7 +555,9 @@ class ConvertAZFP(ConvertBase):
                 'board_number': self.unpacked_data['board_num'],     # dim: frequency
                 'sensor_flag': self.unpacked_data['sensor_flag'],    # dim: ping_time
                 'ancillary': self.unpacked_data['ancillary'],        # dim: ping_time x 5 values
-                'ad_channels': self.unpacked_data['ad']              # dim: ping_time x 2 values
+                'ad_channels': self.unpacked_data['ad'],             # dim: ping_time x 2 values
+                'battery_main': self.unpacked_data['battery_main'],
+                'battery_tx': self.unpacked_data['battery_tx']
             }
             out_dict['ancillary_len'] = list(range(len(out_dict['ancillary'][0])))
             out_dict['ad_len'] = list(range(len(out_dict['ad_channels'][0])))
