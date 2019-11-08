@@ -7,3 +7,5 @@ xarray
 pytz
 pynmea2
 click
+sphinx-automodapi
+numpydoc

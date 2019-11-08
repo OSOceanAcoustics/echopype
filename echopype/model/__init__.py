@@ -6,7 +6,11 @@ Currently the operations include:
 - noise removal
 - calculating mean volume backscattering strength (MVBS)
 
-The current version supports EK60 `.raw` data.
+The current version supports:
+
+- Simrad EK60 echosounder ``.raw`` data
+- ASL Environmental Sciences AZFP echosounder ``.01A`` data
+
 """
 from .echodata import EchoData
 from .ek60 import ModelEK60
