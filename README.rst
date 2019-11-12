@@ -61,7 +61,8 @@ Contributors
 and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
 are the primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-provides consultation and also contributes to the development.
+and `Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson)
+provide consultation and also contribute to development.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
