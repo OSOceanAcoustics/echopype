@@ -57,12 +57,12 @@ Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quic
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
-and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are the primary developers of this project.
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung),
+`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin) and
+`Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson)
+are primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-and `Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson)
-provide consultation and also contribute to development.
+provides consultation and also contributes to development.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
