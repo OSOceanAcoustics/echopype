@@ -6,12 +6,11 @@ from echopype.model import EchoData
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
-ek60_test_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025_Sv_TS.nc'
+ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025_Sv_TS.nc'
 nc_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
 Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '_Sv.nc')
-
 
 
 def test_noise_estimates_removal():
@@ -103,5 +102,3 @@ def test_noise_estimates_removal():
     del e_data
     os.remove(nc_path)
     os.remove(Sv_path)
-
-test_noise_estimates_removal()
