@@ -25,88 +25,6 @@ class ModelAZFP(ModelBase):
     #  parameters separately from those recorded in the data files.
 
     @property
-    def salinity(self):
-        return self._salinity
-
-    @salinity.setter
-    def salinity(self, sal):
-        self._salinity = sal
-        # Update sound speed, sample_thickness, absorption, range
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
-
-    @property
-    def pressure(self):
-        return self._pressure
-
-    @pressure.setter
-    def pressure(self, pres):
-        self._pressure = pres
-        # Update sound speed, sample_thickness, absorption, range
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
-
-    @property
-    def temperature(self):
-        if self._temperature is None:
-            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-                print("Using average temperature")
-                self._temperature = np.nanmean(ds_env.temperature)
-        return self._temperature
-
-    @temperature.setter
-    def temperature(self, t):
-        self._temperature = t
-        # Update sound speed, sample_thickness, absorption, range
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
-
-        # TODO: add an option to allow using hourly averaged temperature, this
-        #  requires using groupby operation and align the calculation properly
-        #  when calculating sound speed (by ping_time).
-
-        # def compute_avg_temp(unpacked_data, hourly_avg_temp):
-        #     """Input the data with temperature values and averages all the temperatures
-        #
-        #     Parameters
-        #     ----------
-        #     unpacked_data
-        #         current unpacked data
-        #     hourly_avg_temp
-        #         xml parameter
-        #
-        #     Returns
-        #     -------
-        #         the average temperature
-        #     """
-        #     sum = 0
-        #     total = 0
-        #     for ii in range(len(unpacked_data)):
-        #         val = unpacked_data[ii]['temperature']
-        #         if not math.isnan(val):
-        #             total += 1
-        #             sum += val
-        #     if total == 0:
-        #         print("**** No AZFP temperature found. Using default of {:.2f} "
-        #               "degC to calculate sound-speed and range\n"
-        #               .format(hourly_avg_temp))
-        #         return hourly_avg_temp    # default value
-        #     else:
-        #         return sum / total
-
-    @property
     def sound_speed(self):
         if self._sound_speed is None:  # if this is empty
             self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
@@ -134,6 +52,19 @@ class ModelAZFP(ModelBase):
             with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
                 self._tilt_angle = np.rad2deg(np.arccos(ds_beam.cos_tilt_mag.mean().data))
         return self._tilt_angle
+
+    def get_salinity(self):
+        return self._salinity
+
+    def get_pressure(self):
+        return self._pressure
+
+    def get_temperature(self):
+        if self._temperature is None:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                print("Using average temperature")
+                self._temperature = np.nanmean(ds_env.temperature)
+        return self._temperature
 
     def calc_seawater_absorption(self):
         """Calculates seawater absorption in dB/km using AZFP-supplied formula.
