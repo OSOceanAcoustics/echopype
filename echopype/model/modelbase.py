@@ -6,6 +6,7 @@ its connection to data files.
 import os
 import warnings
 import datetime as dt
+from echopype.utils import uwa
 
 import numpy as np
 import xarray as xr
@@ -30,10 +31,55 @@ class ModelBase(object):
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
+        # Flags whether sea absorption and sound speed should be calculated or taken from the parsed data
+        self.use_file = False
 
     # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
     #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
     #  and provide getter/setter
+
+    @property
+    def salinity(self):
+        return self.get_salinity()
+
+    @salinity.setter
+    def salinity(self, sal):
+        self._salinity = sal
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self._sample_thickness = self.calc_sample_thickness()
+        self._seawater_absorption = self.calc_seawater_absorption()    
+
+    @property
+    def pressure(self):
+        return self.get_pressure()
+
+    @pressure.setter
+    def pressure(self, pres):
+        self._pressure = pres
+        # Update sound speed, sample_thickness, absorption, range
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
+
+    @property
+    def temperature(self):
+        return self.get_temperature()
+
+    @temperature.setter
+    def temperature(self, t):
+        self._temperature = t
+        # Update sound speed, sample_thickness, absorption, range
+        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure)
+        self.sample_thickness = self.calc_sample_thickness()
+        self.seawater_absorption = self.calc_seawater_absorption()
+        self.range = self.calc_range()
 
     @property
     def sample_thickness(self):
