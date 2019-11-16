@@ -6,10 +6,8 @@ Functions to unpack Simrad EK60 .raw data file and save to .nc.
 import re
 import os
 from collections import defaultdict
-from struct import unpack_from, unpack
 import numpy as np
 from datetime import datetime as dt
-from matplotlib.dates import date2num
 import pytz
 import pynmea2
 
@@ -27,6 +25,10 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 # Create a constant to convert from indexed angles to electrical angles.
 INDEX2ELEC = 180.0 / 128.0
 
+# Regex matcher for parsing EK60 .raw filename
+FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
+FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
+
 
 class ConvertEK60:
     """Class for converting EK60 `.raw` files."""
@@ -43,9 +45,6 @@ class ConvertEK60:
         self.angle_dict = {}   # dictionary to store angle data
         self.ping_time = []    # list to store ping time
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
-
-        self.FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
-        self.FILENAME_MATCHER = re.compile(self.FILENAME_REGEX, re.DOTALL)
         self.nc_path = None
 
         # Other params to be input by user
@@ -126,7 +125,7 @@ class ConvertEK60:
         Parameters
         ----------
         fid
-            a RawSimradFile file object opened in ``self.load_ek60.raw()``
+            a RawSimradFile file object opened in ``self.load_ek60_raw()``
         """
         num_datagrams_parsed = 0
         tmp_num_ch_per_ping_parsed = 0  # number of channels of the same ping parsed
@@ -436,7 +435,7 @@ class ConvertEK60:
         # Get nc filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
         self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        fm = self.FILENAME_MATCHER.match(self.filename)
+        fm = FILENAME_MATCHER.match(self.filename)
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
