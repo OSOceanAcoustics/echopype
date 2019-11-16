@@ -23,37 +23,9 @@ class ConvertAZFP:
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
         self.parameters = {   # a dict container for various params
-            # FILE LOADING AND AVERAGING:
-            # WJ: choice of folder and file should be explicit in from Class Convert, so comment out the below
-            # 'proc_dir': 1,          # 1 will prompt for an entire directory to process
-                                    # 0 will prompt to load individual files in a directory
-            # WJ: remove the hard-coded filenames and require user to specify as inputs
-            # 'data_file_name': "12022316.01A",   # "" will prompt for hourly AZFP files to load
-            # "" will prompt for XML filename if no XML file exists in the directory
-            # 'xml_file_name': "12022310.XML",
             'platform_name': "",    # Name of the platform. Set with actual value
             'platform_type': "",    # Type of platform. Set with actual value
             'platform_code_ICES': "",   # Code for the platform. Set with actual value
-            # WJ: there's setter and getter for salinity and pressure, so comment out below for now
-            # 'salinity': 29.6,       # Salinity in psu
-            # 'pressure': 60,         # in dbars (~ depth of instrument in meters)
-                                    # can be approximate. Used in soundspeed and absorption calc
-            # 'hourly_avg_temp': 5,  # Default value if no AZFP temperature is found.
-                                    # Used to calculate sound-speed and range
-                                    # we require users to explicitly set temp for calculating ss and range in mode class
-            # PLOTTING   WJ: delete plot/channel/value_2_plot below since plotting is in viz module
-            # 'plot': 1,              # Show an echogram plot for each channel
-            # 'channel': 1,           # freq to plot #1-4, Default = 1
-            # 'value_2_plot': 2,      # 1,2,3,4 = Counts, Sv, TS, Temperature/Tilts, default 2
-            # for Sv and Ts plotting only, values with counts < NoiseFloor will set to -150,
-            # can use individual values for each frequency, ex. "noise_floor: [10000,11000,11000,11500]"
-            # 'noise_floor': 10000,   # Default = 10000   WJ: this should be in model module, have made a note there
-            # Instrument on the bottom looking up (range bins), 1 at surface looking down (depth bins).
-            # This changes the y dir on the echogram plots only.
-            # 'orientation': 1,       # Default = 1     WJ: not used as echogram plotting is in viz module
-            # Use tilt corrected ranges for the echogram plots
-            # Will give a warning if the tilt magnitudes are unreasonable (>20 deg)
-            # 'use_tilt_corr': 0      # Default = 0    WJ: now an input flag for in AZFP model method calc_range
         }
 
         # Adds to self.parameters the contents of the xml file
@@ -191,7 +163,7 @@ class ConvertAZFP:
     def platform_code_ICES(self, platform_code_ICES):
         self.parameters['platform_code_ICES'] = platform_code_ICES
 
-    def _split_header(self, raw, header_unpacked, ping_num, unpacked_data, fields):
+    def _split_header(self, raw, header_unpacked, unpacked_data, fields):
         """Splits the header information into a dictionary.
 
         Parameters
@@ -200,8 +172,6 @@ class ConvertAZFP:
             open binary file
         header_unpacked
             output of struct unpack of raw file
-        ping_num
-            ping number
         unpacked_data
             current unpacked data
         fields
@@ -281,6 +251,7 @@ class ConvertAZFP:
         unpacked_data
             current unpacked data
         """
+        # TODO: the path input can be replaced by self.path
         filename = os.path.basename(path)
         timestamp = dt(unpacked_data['year'][0], unpacked_data['month'][0], unpacked_data['day'][0],
                        unpacked_data['hour'][0], unpacked_data['minute'][0],
