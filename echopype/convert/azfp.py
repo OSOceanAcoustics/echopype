@@ -313,7 +313,7 @@ class ConvertAZFP:
                     header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
 
                     # Reading will stop if the file contains an unexpected flag
-                    if self._split_header(raw, header_unpacked, ping_num, unpacked_data, fields):
+                    if self._split_header(raw, header_unpacked, unpacked_data, fields):
                         # Appends the actual 'data values' to unpacked_data
                         self._add_counts(raw, ping_num, unpacked_data)
                         if ping_num == 0:
