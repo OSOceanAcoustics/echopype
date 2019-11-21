@@ -373,7 +373,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                             ready for writing to disk
     '''
 
-    nmea_head_re = re.compile('\$[A-Za-z]{5},')
+    nmea_head_re = re.compile(r'\$[A-Za-z]{5},')
 
     def __init__(self):
         headers = {0: [('type', '4s'),
@@ -918,13 +918,13 @@ class SimradRawParser(_SimradDatagramParser):
                 indx = self.header_size(version)
 
                 if int(data['mode']) & 0x1:
-                    data['power'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int16')
+                    data['power'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int16')
                     indx += block_size
                 else:
                     data['power'] = None
 
                 if int(data['mode']) & 0x2:
-                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='uint16')
+                    data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='uint16')
                 else:
                     data['angle'] = None
 
