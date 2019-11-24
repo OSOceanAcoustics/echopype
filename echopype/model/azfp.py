@@ -17,28 +17,11 @@ class ModelAZFP(ModelBase):
         self._salinity = salinity           # salinity in [psu]
         self._pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
         self._temperature = temperature     # temperature in [Celsius]
-        self._sound_speed = sound_speed     # sound speed in [m/s]
         self._tilt_angle = None             # instrument tilt angle in [degrees]
 
     # TODO: consider moving some of these properties to the parent class,
     #  since it is possible that EK60 users may want to set the environmental
     #  parameters separately from those recorded in the data files.
-
-    @property
-    def sound_speed(self):
-        if self._sound_speed is None:  # if this is empty
-            self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                     salinity=self.salinity,
-                                                     pressure=self.pressure)
-        return self._sound_speed
-
-    @sound_speed.setter
-    def sound_speed(self, ss):
-        self._sound_speed = ss
-        # TODO: need to update sample_thickness, absorption, range
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
 
     @property
     def tilt_angle(self):
@@ -65,6 +48,13 @@ class ModelAZFP(ModelBase):
                 print("Using average temperature")
                 self._temperature = np.nanmean(ds_env.temperature)
         return self._temperature
+
+    def get_sound_speed(self):
+        if self._sound_speed is None:  # if this is empty
+            self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
+                                                     salinity=self.salinity,
+                                                     pressure=self.pressure)
+        return self._sound_speed
 
     def calc_seawater_absorption(self):
         """Calculates seawater absorption in dB/km using AZFP-supplied formula.
