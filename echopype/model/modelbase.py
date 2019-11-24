@@ -31,8 +31,7 @@ class ModelBase(object):
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
-        # Flags whether sea absorption and sound speed should be calculated or taken from the parsed data
-        self.use_file = False
+        self._sound_speed = None
 
     # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
     #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
@@ -45,11 +44,6 @@ class ModelBase(object):
     @salinity.setter
     def salinity(self, sal):
         self._salinity = sal
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self._sample_thickness = self.calc_sample_thickness()
-        self._seawater_absorption = self.calc_seawater_absorption()    
 
     @property
     def pressure(self):
@@ -58,13 +52,6 @@ class ModelBase(object):
     @pressure.setter
     def pressure(self, pres):
         self._pressure = pres
-        # Update sound speed, sample_thickness, absorption, range
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
 
     @property
     def temperature(self):
@@ -73,13 +60,6 @@ class ModelBase(object):
     @temperature.setter
     def temperature(self, t):
         self._temperature = t
-        # Update sound speed, sample_thickness, absorption, range
-        self.sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                salinity=self.salinity,
-                                                pressure=self.pressure)
-        self.sample_thickness = self.calc_sample_thickness()
-        self.seawater_absorption = self.calc_seawater_absorption()
-        self.range = self.calc_range()
 
     @property
     def sample_thickness(self):
@@ -110,6 +90,16 @@ class ModelBase(object):
     @seawater_absorption.setter
     def seawater_absorption(self, abs):
         self._seawater_absorption = abs
+
+    @property
+    def sound_speed(self):
+        if self._sound_speed is None:
+            self._sound_speed = self.get_sound_speed()
+        return self._sound_speed
+
+    @sound_speed.setter
+    def sound_speed(self, ss):
+        self._sound_speed = ss
 
     @property
     def file_path(self):
@@ -144,6 +134,45 @@ class ModelBase(object):
             self.toplevel.close()
         else:
             raise ValueError('Data file format not recognized.')
+
+    def recalculate_environment(self, ss=True, sa=True, st=True, r=True):
+        """ Recalculates sound speed, seawater absorption, sample thickness, and range using
+        salinity, temperature, and pressure
+
+        Parameters
+        ----------
+        ss : bool
+            Whether to calcualte sound speed. Defaults to `True`
+        sa : bool
+            Whether to calcualte seawater absorption. Defaults to `True`
+        st : bool
+            Whether to calcualte sample thickness. Defaults to `True`
+        r : bool
+            Whether to calcualte range. Defaults to `True`
+        """
+        s, t, p = self.salinity, self.temperature, self.pressure
+        if s is not None and t is not None and p is not None:
+            if ss:
+                self.sound_speed = uwa.calc_sound_speed(salinity=s,
+                                                        temperature=t,
+                                                        pressure=p)
+            if sa:
+                self.seawater_absorption = self.calc_seawater_absorption()
+            if st:
+                self.sample_thickness = self.calc_sample_thickness()
+            if r:
+                self.range = self.calc_range()
+        elif s is None:
+            print("Salinity was not provided. Environment was not recalculated")
+        elif t is None:
+            print("Temperature was not provided. Environment was not recalculated")
+        else:
+            print("Pressure was not provided. Environment was not recalculated")
+
+    def calc_seawater_absorption(self):
+        """Base method to be overridden for calculating seawater_absorption for different sonar models
+        """
+        print("Seawater absorption calculation has not been implemented for this sonar model!")
 
     def calc_sample_thickness(self):
         """Base method to be overridden for calculating sample_thickness for different sonar models.
