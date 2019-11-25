@@ -510,9 +510,11 @@ class ConvertEK60(ConvertBase):
             # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
             self.ping_time_split = {}
             self.power_dict_split = {}
+            self.angle_dict_split = {}
             for i, length in enumerate(uni):
                 self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
                 self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+                self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
             for ch_num in self.config_datagram['transceivers'].keys():
                 # r_b represents index for range_bin (how many different range_bins there are).
@@ -520,7 +522,9 @@ class ConvertEK60(ConvertBase):
                 for r_b, r in enumerate(indices.values()):
                     for r_idx in r:
                         self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                        self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
                     self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+                    self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
 
         # TODO: need to convert angle data too
         self.ping_time = np.array(self.ping_time)
@@ -728,6 +732,7 @@ class ConvertEK60(ConvertBase):
             # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
             beam_dict['range_lengths'] = self.range_lengths
             beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['angle_dict'] = self.angle_dict_split
             beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
