@@ -253,8 +253,8 @@ class ModelBase(object):
         #  This is also why the calculation of ABS and TVG should be in the parent
         #  class methods instead of being done under calibration() in the child class
         range_meter = self.range
-        ABS = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
-        TVG = 2 * self.seawater_absorption * range_meter
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
+        ABS = 2 * self.seawater_absorption * range_meter
 
         # Function for use with apply
         def remove_n(x):
@@ -343,7 +343,7 @@ class ModelBase(object):
 
         # Values for noise estimates
         range_meter = self.range
-        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Noise estimates
