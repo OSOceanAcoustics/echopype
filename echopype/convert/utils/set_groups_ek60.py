@@ -261,7 +261,11 @@ class SetGroupsEK60(SetGroupsBase):
                               xr.Dataset({f'backscatter_r{sep}{idx}':
                                           (['frequency', f'ping_time{sep}{idx}', f'range_bin{sep}{idx}'],
                                            np.array([beam_dict['power_dict'][i][x] for x in
-                                                     beam_dict['power_dict'][i].keys()]))},
+                                                     beam_dict['power_dict'][i].keys()])),
+                                         f'angles{sep}{idx}':
+                                          (['frequency', f'ping_time{sep}{idx}', f'range_bin{sep}{idx}'],
+                                           np.array([beam_dict['angle_dict'][i][x] for x in
+                                                     beam_dict['angle_dict'][i].keys()]))},
                                          coords={'frequency': (['frequency'], beam_dict['frequency']),
                                                  f'ping_time{sep}{idx}': ([f'ping_time{sep}{idx}'],
                                                                           beam_dict['ping_time_split'][i],
