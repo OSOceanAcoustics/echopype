@@ -48,11 +48,6 @@ class ConvertEK60(ConvertBase):
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
         self.nc_path = None
 
-        # Other params to be input by user
-        self.platform_name = ""
-        self.platform_type = ""
-        self.platform_code_ICES = ""
-
     @property
     def filename(self):
         return self._filename
@@ -67,30 +62,6 @@ class ConvertEK60(ConvertBase):
             # print('To convert data, follow the steps below:')
         else:
             self._filename = p
-
-    @property
-    def platform_name(self):
-        return self._platform_name
-
-    @platform_name.setter
-    def platform_name(self, pname):
-        self._platform_name = pname
-
-    @property
-    def platform_type(self):
-        return self._platform_type
-
-    @platform_type.setter
-    def platform_type(self, ptype):
-        self._platform_type = ptype
-
-    @property
-    def platform_code_ICES(self):
-        return self._platform_code_ICES
-
-    @platform_code_ICES.setter
-    def platform_code_ICES(self, pcode):
-        self._platform_code_ICES = pcode
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -247,9 +218,11 @@ class ConvertEK60(ConvertBase):
             # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
             self.ping_time_split = {}
             self.power_dict_split = {}
+            self.angle_dict_split = {}
             for i, length in enumerate(uni):
                 self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
                 self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+                self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
             for ch_num in self.config_datagram['transceivers'].keys():
                 # r_b represents index for range_bin (how many different range_bins there are).
@@ -257,7 +230,9 @@ class ConvertEK60(ConvertBase):
                 for r_b, r in enumerate(indices.values()):
                     for r_idx in r:
                         self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                        self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
                     self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+                    self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
 
         # TODO: need to convert angle data too
         self.ping_time = np.array(self.ping_time)
@@ -343,6 +318,7 @@ class ConvertEK60(ConvertBase):
             # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
             beam_dict['range_lengths'] = self.range_lengths
             beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['angle_dict'] = self.angle_dict_split
             beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
@@ -356,6 +332,7 @@ class ConvertEK60(ConvertBase):
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             bm_dir = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+            bm_angle = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
@@ -371,6 +348,10 @@ class ConvertEK60(ConvertBase):
                 bm_dir['beam_direction_x'][c_seq] = c['dir_x']
                 bm_dir['beam_direction_y'][c_seq] = c['dir_y']
                 bm_dir['beam_direction_z'][c_seq] = c['dir_z']
+                bm_angle['angle_offset_alongship'][c_seq] = c['angle_offset_alongship']
+                bm_angle['angle_offset_athwartship'][c_seq] = c['angle_offset_athwartship']
+                bm_angle['angle_sensitivity_alongship'][c_seq] = c['angle_sensitivity_alongship']
+                bm_angle['angle_sensitivity_athwartship'][c_seq] = c['angle_sensitivity_athwartship']
                 tx_pos['transducer_offset_x'][c_seq] = c['pos_x']
                 tx_pos['transducer_offset_y'][c_seq] = c['pos_y']
                 tx_pos['transducer_offset_z'][c_seq] = c['pos_z'] + self.ping_data_dict[c_seq+1]['transducer_depth'][0]
@@ -381,6 +362,7 @@ class ConvertEK60(ConvertBase):
 
             beam_dict['beam_width'] = bm_width
             beam_dict['beam_direction'] = bm_dir
+            beam_dict['beam_angle'] = bm_angle
             beam_dict['transducer_position'] = tx_pos
 
             # Loop through each transducer for variables that may vary at each ping
