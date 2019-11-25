@@ -25,11 +25,6 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 # Create a constant to convert from indexed angles to electrical angles.
 INDEX2ELEC = 180.0 / 128.0
 
-# Regex matcher for parsing EK60 .raw filename
-FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
-FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
-
-
 class ConvertEK60:
     """Class for converting EK60 `.raw` files."""
 
@@ -278,8 +273,7 @@ class ConvertEK60:
                             sonar_convention_version='1.7',
                             summary='',
                             title='')
-            out_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
-                                                   '%Y%m%d-%H%M%S').isoformat() + 'Z'
+            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime,'%Y%m%d-%H%M%S').isoformat() + 'Z'
             return out_dict
 
         def _set_env_dict():
@@ -435,7 +429,11 @@ class ConvertEK60:
         # Get nc filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
         self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        fm = FILENAME_MATCHER.match(self.filename)
+        # filename must have "-" as the field separator for the last 2 fields
+        filename_tup = filename.split("-")
+        filedate = filename_tup[len(filename_tup)-2].replace("D","")
+        filetime = filename_tup[len(filename_tup)-1].replace("T","")        
+        
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
