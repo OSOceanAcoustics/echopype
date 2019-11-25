@@ -24,6 +24,7 @@ class ConvertAZFP(ConvertBase):
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
+        self.parameters = dict()
 
         # Adds to self.parameters the contents of the xml file
         self.loadAZFPxml()
@@ -134,7 +135,7 @@ class ConvertAZFP(ConvertBase):
         )
         return _fields
 
-    def _split_header(self, raw, header_unpacked, ping_num, unpacked_data, fields):
+    def _split_header(self, raw, header_unpacked, unpacked_data, fields):
         """Splits the header information into a dictionary.
 
         Parameters
