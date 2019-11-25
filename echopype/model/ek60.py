@@ -15,6 +15,9 @@ class ModelEK60(ModelBase):
         ModelBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
         self._piece = None   # If range changes during data collection, piece specifies which range_bin to select
+        self._salinity = None
+        self._temperature = None
+        self._pressure = None
 
     @property
     def piece(self):
@@ -89,16 +92,27 @@ class ModelEK60(ModelBase):
                     except KeyError:
                         raise(f'{sel} is not a valid input')
 
+    def get_salinity(self):
+        return self._salinity
+
+    def get_temperature(self):
+        return self._temperature
+
+    def get_pressure(self):
+        return self._pressure
+
+    def get_sound_speed(self):
+        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            return ds_env.sound_speed_indicative
+
     def calc_seawater_absorption(self):
         """Returns the seawater absorption values from the .nc file"""
         with xr.open_dataset(self.file_path, group="Environment") as ds_env:
             return ds_env.absorption_indicative
 
     def calc_sample_thickness(self):
-        ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
-        sth = ds_env.sound_speed_indicative * ds_beam.sample_interval / 2  # sample thickness
-        ds_env.close()
+        sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
         ds_beam.close()
         return sth
 
@@ -124,16 +138,15 @@ class ModelEK60(ModelBase):
         # Open data set for Environment and Beam groups
         ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
-
         # Derived params
-        wavelength = ds_env.sound_speed_indicative / ds_env.frequency  # wavelength
+        wavelength = self.sound_speed / ds_env.frequency  # wavelength
 
         # Get backscatter_r and range_bin pieces
         backscatter_r = self.get_piece('backscatter_r')
         range_bin = self.get_piece('range_bin')
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
-                             wavelength ** 2 * ds_env.sound_speed_indicative * ds_beam.transmit_duration_nominal *
+                             wavelength ** 2 * self.sound_speed * ds_beam.transmit_duration_nominal *
                              10 ** (ds_beam.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
