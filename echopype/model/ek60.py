@@ -141,7 +141,7 @@ class ModelEK60(ModelBase):
         #  correspondingly in model/azfp
         # Get TVG and absorption
         range_meter = self.range
-        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Calibration and echo integration
