@@ -741,6 +741,7 @@ class ConvertEK60(ConvertBase):
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             bm_dir = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+            bm_angle = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
             beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
@@ -756,6 +757,10 @@ class ConvertEK60(ConvertBase):
                 bm_dir['beam_direction_x'][c_seq] = c['dir_x']
                 bm_dir['beam_direction_y'][c_seq] = c['dir_y']
                 bm_dir['beam_direction_z'][c_seq] = c['dir_z']
+                bm_angle['angle_offset_alongship'][c_seq] = c['angle_offset_alongship']
+                bm_angle['angle_offset_athwartship'][c_seq] = c['angle_offset_athwartship']
+                bm_angle['angle_sensitivity_alongship'][c_seq] = c['angle_sensitivity_alongship']
+                bm_angle['angle_sensitivity_athwartship'][c_seq] = c['angle_sensitivity_athwartship']
                 tx_pos['transducer_offset_x'][c_seq] = c['pos_x']
                 tx_pos['transducer_offset_y'][c_seq] = c['pos_y']
                 tx_pos['transducer_offset_z'][c_seq] = c['pos_z'] + self.ping_data_dict[c_seq+1]['transducer_depth'][0]
@@ -766,6 +771,7 @@ class ConvertEK60(ConvertBase):
 
             beam_dict['beam_width'] = bm_width
             beam_dict['beam_direction'] = bm_dir
+            beam_dict['beam_angle'] = bm_angle
             beam_dict['transducer_position'] = tx_pos
 
             # Loop through each transducer for variables that may vary at each ping
