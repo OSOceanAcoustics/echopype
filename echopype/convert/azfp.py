@@ -395,9 +395,9 @@ class ConvertAZFP(ConvertBase):
             return out_dict
 
         def _set_platform_dict():
-            out_dict = dict(platform_name=self.platform['platform_name'],
-                            platform_type=self.platform['platform_type'],
-                            platform_code_ICES=self.platform['platform_code_ICES'])
+            out_dict = dict(platform_name=self.platform_name,
+                            platform_type=self.platform_type,
+                            platform_code_ICES=self.platform_code_ICES)
             return out_dict
 
         def _set_prov_dict():
