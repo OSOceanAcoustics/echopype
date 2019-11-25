@@ -30,10 +30,9 @@ def test_noise_estimates_removal():
 
     with xr.open_dataset(ek60_test_path) as ds_test:
         ds_Sv = ds_test.Sv
-        ds_TS = ds_test.TS
 
-    assert np.allclose(ds_Sv.values, e_data.Sv.Sv.values, atol=15)
-    # assert np.allclose(ds_TS.values, e_data.TS.TS.values, atol=15)
+    assert np.allclose(ds_Sv.values, e_data.Sv.Sv.values, atol=1e-10)
+    # assert np.allclose(ds_TS.values, e_data.TS.TS.values, atol=1e-10)
     # Noise estimation via numpy brute force =======
     # proc_data = xr.open_dataset(Sv_path)
 
