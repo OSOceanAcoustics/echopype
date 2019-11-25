@@ -109,11 +109,6 @@ class ConvertEK60(ConvertBase):
         self.tr_data_dict = None
         self.nc_path = None
 
-        # Other params to be input by user
-        self.platform_name = ""
-        self.platform_type = ""
-        self.platform_code_ICES = ""
-
     @property
     def filename(self):
         return self._filename
@@ -128,30 +123,6 @@ class ConvertEK60(ConvertBase):
             # print('To convert data, follow the steps below:')
         else:
             self._filename = p
-
-    @property
-    def platform_name(self):
-        return self._platform_name
-
-    @platform_name.setter
-    def platform_name(self, pname):
-        self._platform_name = pname
-
-    @property
-    def platform_type(self):
-        return self._platform_type
-
-    @platform_type.setter
-    def platform_type(self, ptype):
-        self._platform_type = ptype
-
-    @property
-    def platform_code_ICES(self):
-        return self._platform_code_ICES
-
-    @platform_code_ICES.setter
-    def platform_code_ICES(self, pcode):
-        self._platform_code_ICES = pcode
 
     @staticmethod
     def _read_config_header(chunk):
