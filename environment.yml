@@ -17,4 +17,3 @@ dependencies:
   - xarray
   - pip:
       - pynmea2
-      - arlpy
