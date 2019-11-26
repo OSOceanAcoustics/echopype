@@ -6,6 +6,7 @@ from echopype.model import EchoData
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
+ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025_Sv_TS.nc'
 nc_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
 Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
@@ -27,6 +28,11 @@ def test_noise_estimates_removal():
     noise_est = e_data.noise_estimates()
     e_data.remove_noise()
 
+    with xr.open_dataset(ek60_test_path) as ds_test:
+        ds_Sv = ds_test.Sv
+
+    assert np.allclose(ds_Sv.values, e_data.Sv.Sv.values, atol=1e-10)
+    # assert np.allclose(ds_TS.values, e_data.TS.TS.values, atol=1e-10)
     # Noise estimation via numpy brute force =======
     proc_data = xr.open_dataset(Sv_path)
 
@@ -38,7 +44,10 @@ def test_noise_estimates_removal():
                                p_tile_sz=e_data.noise_est_ping_size,
                                sample_thickness=e_data.sample_thickness)
 
-    power_cal_test = (10 ** ((proc_data.Sv - e_data.ABS - e_data.TVG) / 10)).values
+    range_meter = e_data.range
+    TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
+    ABS = 2 * e_data.seawater_absorption * range_meter
+    power_cal_test = (10 ** ((proc_data.Sv - ABS - TVG) / 10)).values
 
     num_ping_bins = np.unique(add_idx).size
     num_range_bins = range_bin_tile_bin_edge.size - 1
@@ -78,17 +87,19 @@ def test_noise_estimates_removal():
                 pp_idx = np.arange(p_sz * p_seq, power_cal_test.shape[1])
             ss_tmp = proc_data.Sv.values[f_seq, pp_idx, :]
             nn_tmp = (noise_est_test[f_seq, p_seq] +
-                      e_data.ABS.isel(frequency=f_seq) + e_data.TVG.isel(frequency=f_seq)).values
+                      ABS.isel(frequency=f_seq) + TVG.isel(frequency=f_seq)).values
             Sv_clean_tmp = ss_tmp.copy()
             Sv_clean_tmp[Sv_clean_tmp < nn_tmp] = np.nan
             Sv_clean_test[f_seq, pp_idx, :] = Sv_clean_tmp
 
     # Check xarray and numpy noise removal
     assert ~np.any(e_data.Sv_clean.Sv_clean.values[~np.isnan(e_data.Sv_clean.Sv_clean.values)]
-                   != Sv_clean_test[~np.isnan(Sv_clean_test)])  
+                   != Sv_clean_test[~np.isnan(Sv_clean_test)])
 
     proc_data.close()
     del tmp
     del e_data
     os.remove(nc_path)
     os.remove(Sv_path)
+
+test_noise_estimates_removal()
