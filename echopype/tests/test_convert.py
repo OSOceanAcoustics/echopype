@@ -72,6 +72,11 @@ def test_convert_AZFP():
         # Test sound speed. 1 value is used because sound speed is the same across frequencies
         # assert ds_test.sound_speed == ds_env.sound_speed_indicative.values[0]
 
+    # with xr.open_dataset(tmp.nc_path, group="Vendor") as ds_vend:
+    #     # Test battery values
+    #     assert np.array_equal(ds_test.battery_main, ds_vend.battery_main)
+    #     assert np.array_equal(ds_test.battery_tx, ds_vend.battery_tx)
+
     ds_test.close()
     os.remove(tmp.nc_path)
     del tmp
