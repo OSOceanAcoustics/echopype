@@ -48,7 +48,7 @@ def main(system, files):
                     tmp.raw2nc()
                     del tmp
         elif system == 'azfp':
-            if args.xml_file = None:
+            if args.xml_file == None:
                 print('An XML file is needed for converting AZFL echosounder data')
             else:
                 if args.xml_file.split('.')[1].lower() != 'xml':
