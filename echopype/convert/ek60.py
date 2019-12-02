@@ -26,7 +26,7 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 # Create a constant to convert from indexed angles to electrical angles.
 INDEX2ELEC = 180.0 / 128.0
 
-<<<<<<< HEAD
+
 class ConvertEK60:
 =======
 # Regex matcher for parsing EK60 .raw filename
@@ -35,7 +35,6 @@ FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
 
 
 class ConvertEK60(ConvertBase):
->>>>>>> upstream/master
     """Class for converting EK60 `.raw` files."""
 
     def __init__(self, _filename=""):
