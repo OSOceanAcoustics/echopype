@@ -138,7 +138,9 @@ class SetGroupsAZFP(SetGroupsBase):
             'data_error': (['ping_time'], vendor_dict['data_error']),
             'sensor_flag': (['ping_time'], vendor_dict['sensor_flag']),
             'ancillary': (['ping_time', 'ancillary_len'], vendor_dict['ancillary']),
-            'ad_channels': (['ping_time', 'ad_len'], vendor_dict['ad_channels'])},
+            'ad_channels': (['ping_time', 'ad_len'], vendor_dict['ad_channels']),
+            'battery_main': (['ping_time'], vendor_dict['battery_main']),
+            'battery_tx': (['ping_time'], vendor_dict['battery_tx'])},
             coords={
                 'frequency': (['frequency'], vendor_dict['frequency'],
                               {'units': 'Hz',

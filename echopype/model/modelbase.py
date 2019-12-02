@@ -6,6 +6,7 @@ its connection to data files.
 import os
 import warnings
 import datetime as dt
+from echopype.utils import uwa
 
 import numpy as np
 import xarray as xr
@@ -20,18 +21,45 @@ class ModelBase(object):
         self.noise_est_ping_size = 30  # number of pings per tile for noise estimation
         self.MVBS_range_bin_size = 5  # meters per tile for MVBS
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
-        self.TVG = None  # time varying gain along range
-        self.ABS = None  # absorption along range
+        # TVG and ABS are calculated whenever they are used
+        # self.TVG = None  # time varying gain along range
+        # self.ABS = None  # absorption along range
         self.Sv = None  # calibrated volume backscattering strength
         self.Sv_clean = None  # denoised volume backscattering strength
         self.TS = None  # calibrated target strength
         self.MVBS = None  # mean volume backscattering strength
         self._sample_thickness = None
         self._range = None
+        self._seawater_absorption = None
+        self._sound_speed = None
 
     # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
     #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
     #  and provide getter/setter
+
+    @property
+    def salinity(self):
+        return self.get_salinity()
+
+    @salinity.setter
+    def salinity(self, sal):
+        self._salinity = sal
+
+    @property
+    def pressure(self):
+        return self.get_pressure()
+
+    @pressure.setter
+    def pressure(self, pres):
+        self._pressure = pres
+
+    @property
+    def temperature(self):
+        return self.get_temperature()
+
+    @temperature.setter
+    def temperature(self, t):
+        self._temperature = t
 
     @property
     def sample_thickness(self):
@@ -52,6 +80,26 @@ class ModelBase(object):
     @range.setter
     def range(self, rr):
         self._range = rr
+
+    @property
+    def seawater_absorption(self):
+        if self._seawater_absorption is None:
+            self._seawater_absorption = self.calc_seawater_absorption()
+        return self._seawater_absorption
+
+    @seawater_absorption.setter
+    def seawater_absorption(self, abs):
+        self._seawater_absorption = abs
+
+    @property
+    def sound_speed(self):
+        if self._sound_speed is None:
+            self._sound_speed = self.get_sound_speed()
+        return self._sound_speed
+
+    @sound_speed.setter
+    def sound_speed(self, ss):
+        self._sound_speed = ss
 
     @property
     def file_path(self):
@@ -86,6 +134,45 @@ class ModelBase(object):
             self.toplevel.close()
         else:
             raise ValueError('Data file format not recognized.')
+
+    def recalculate_environment(self, ss=True, sa=True, st=True, r=True):
+        """ Recalculates sound speed, seawater absorption, sample thickness, and range using
+        salinity, temperature, and pressure
+
+        Parameters
+        ----------
+        ss : bool
+            Whether to calcualte sound speed. Defaults to `True`
+        sa : bool
+            Whether to calcualte seawater absorption. Defaults to `True`
+        st : bool
+            Whether to calcualte sample thickness. Defaults to `True`
+        r : bool
+            Whether to calcualte range. Defaults to `True`
+        """
+        s, t, p = self.salinity, self.temperature, self.pressure
+        if s is not None and t is not None and p is not None:
+            if ss:
+                self.sound_speed = uwa.calc_sound_speed(salinity=s,
+                                                        temperature=t,
+                                                        pressure=p)
+            if sa:
+                self.seawater_absorption = self.calc_seawater_absorption()
+            if st:
+                self.sample_thickness = self.calc_sample_thickness()
+            if r:
+                self.range = self.calc_range()
+        elif s is None:
+            print("Salinity was not provided. Environment was not recalculated")
+        elif t is None:
+            print("Temperature was not provided. Environment was not recalculated")
+        else:
+            print("Pressure was not provided. Environment was not recalculated")
+
+    def calc_seawater_absorption(self):
+        """Base method to be overridden for calculating seawater_absorption for different sonar models
+        """
+        print("Seawater absorption calculation has not been implemented for this sonar model!")
 
     def calc_sample_thickness(self):
         """Base method to be overridden for calculating sample_thickness for different sonar models.
@@ -240,15 +327,16 @@ class ModelBase(object):
         # TODO: this right now will break when _get_proc_Sv() gets self.Sv from file.
         #  This is also why the calculation of ABS and TVG should be in the parent
         #  class methods instead of being done under calibration() in the child class
-        ABS = self.ABS
-        TVG = self.TVG
+        range_meter = self.range
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
+        ABS = 2 * self.seawater_absorption * range_meter
 
         # Function for use with apply
         def remove_n(x):
             p_c_lin = 10 ** ((x - ABS - TVG) / 10)
             nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
                                groupby('frequency').mean('ping_time').min(dim='range_bin_bins')) \
-                 + ABS + TVG
+                + ABS + TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
                 return x.where(x > (nn + SNR), other=np.nan)
@@ -328,8 +416,13 @@ class ModelBase(object):
                                  p_tile_sz=self.noise_est_ping_size,
                                  sample_thickness=self.sample_thickness)
 
+        # Values for noise estimates
+        range_meter = self.range
+        TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
+        ABS = 2 * self.seawater_absorption * range_meter
+
         # Noise estimates
-        proc_data['power_cal'] = 10 ** ((proc_data.Sv - self.ABS - self.TVG) / 10)
+        proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
         proc_data.coords['add_idx'] = ('ping_time', add_idx)
         noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
                                   groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
