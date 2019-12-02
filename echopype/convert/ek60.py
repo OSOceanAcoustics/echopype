@@ -27,15 +27,8 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 INDEX2ELEC = 180.0 / 128.0
 
 
-class ConvertEK60:
-# Regex matcher for parsing EK60 .raw filename
-FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
-FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
-
-
 class ConvertEK60(ConvertBase):
-    """Class for converting EK60 `.raw` files."""
-
+    """Class for converting EK60 .raw files."""
     def __init__(self, _filename=""):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
@@ -442,11 +435,9 @@ class ConvertEK60(ConvertBase):
             # --- if identical for all pings, save only values from the first ping
             if np.all(np.array([abs_tmp, ss_tmp]) == 1):
                 abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient'][0]
-                                    for x in self.config_datagram['transceivers'].keys()],
-                                   dtype='float32')
+                                    for x in self.config_datagram['transceivers'].keys()], dtype='float32')
                 ss_val = np.array([self.ping_data_dict[x]['sound_velocity'][0]
-                                   for x in self.config_datagram['transceivers'].keys()],
-                                  dtype='float32')
+                                   for x in self.config_datagram['transceivers'].keys()], dtype='float32')
             # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
             else:
                 abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient']
@@ -460,8 +451,7 @@ class ConvertEK60(ConvertBase):
             grp = SetGroups(file_path=self.nc_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename),
-                               _set_prov_dict())    # provenance group
+            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
