@@ -28,7 +28,6 @@ INDEX2ELEC = 180.0 / 128.0
 
 
 class ConvertEK60:
-=======
 # Regex matcher for parsing EK60 .raw filename
 FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
 FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
