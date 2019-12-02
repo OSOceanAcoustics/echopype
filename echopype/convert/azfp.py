@@ -8,25 +8,23 @@ from datetime import timezone
 from echopype.convert.utils.set_groups import SetGroups
 from struct import unpack
 from echopype._version import get_versions
+from .convertbase import ConvertBase
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
-class ConvertAZFP:
+class ConvertAZFP(ConvertBase):
     """Class for converting AZFP `.01A` files """
 
     def __init__(self, _path='', _xml_path=''):
+        ConvertBase.__init__(self)
         self.path = _path
         self.xml_path = _xml_path
         self.file_name = os.path.basename(self.path)
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
-        self.parameters = {   # a dict container for various params
-            'platform_name': "",    # Name of the platform. Set with actual value
-            'platform_type': "",    # Type of platform. Set with actual value
-            'platform_code_ICES': "",   # Code for the platform. Set with actual value
-        }
+        self.parameters = dict()
 
         # Adds to self.parameters the contents of the xml file
         self.loadAZFPxml()
@@ -136,32 +134,6 @@ class ConvertAZFP:
             ('ad', 'u2', 2)                 # AD channel 6 and 7
         )
         return _fields
-
-    # TODO: move these setter and getter to the Convert class
-    """Setters and getters for platform information"""
-    @property
-    def platform_name(self):
-        return self.parameters['platform_name']
-
-    @platform_name.setter
-    def platform_name(self, platform_name):
-        self.parameters['platform_name'] = platform_name
-
-    @property
-    def platform_type(self):
-        return self.parameters['platform_type']
-
-    @platform_type.setter
-    def platform_type(self, platform_type):
-        self.parameters['platform_type'] = platform_type
-
-    @property
-    def platform_code_ICES(self):
-        return self.parameters['platform_code_ICES']
-
-    @platform_code_ICES.setter
-    def platform_code_ICES(self, platform_code_ICES):
-        self.parameters['platform_code_ICES'] = platform_code_ICES
 
     def _split_header(self, raw, header_unpacked, unpacked_data, fields):
         """Splits the header information into a dictionary.
@@ -302,6 +274,10 @@ class ConvertAZFP:
         def compute_tilt(N, a, b, c, d):
             return a + b * N + c * N**2 + d * N**3
 
+        def compute_battery(N):
+            USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+            return N * USL5_BAT_CONSTANT
+
         with open(self.path, 'rb') as raw:
             ping_num = 0
             fields = self.get_fields()
@@ -335,6 +311,12 @@ class ConvertAZFP:
                         unpacked_data['cos_tilt_mag'].append(
                             math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
                                                 unpacked_data['tilt_y'][ping_num] ** 2)) * math.pi / 180))
+                        # Calculate voltage of main battery pack
+                        unpacked_data['battery_main'].append(
+                            compute_battery(unpacked_data['ancillary'][ping_num][2]))
+                        # If there is a Tx battery pack
+                        unpacked_data['battery_tx'].append(
+                            compute_battery(unpacked_data['ad'][ping_num][0]))
                     else:
                         break
                 else:
@@ -414,9 +396,9 @@ class ConvertAZFP:
             return out_dict
 
         def _set_platform_dict():
-            out_dict = dict(platform_name=self.parameters['platform_name'],
-                            platform_type=self.parameters['platform_type'],
-                            platform_code_ICES=self.parameters['platform_code_ICES'])
+            out_dict = dict(platform_name=self.platform_name,
+                            platform_type=self.platform_type,
+                            platform_code_ICES=self.platform_code_ICES)
             return out_dict
 
         def _set_prov_dict():
@@ -444,7 +426,7 @@ class ConvertAZFP:
                 N.append(np.array([self.unpacked_data['counts'][p][ich]
                                    for p in range(len(self.unpacked_data['year']))]))
 
-            tdn = np.array(self.parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
+            tdn = self.unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
             range_samples_xml = np.array(self.parameters['range_samples'])         # from xml file
             range_samples_per_bin = self.unpacked_data['range_samples_per_bin']    # from data header
 
@@ -540,7 +522,9 @@ class ConvertAZFP:
                 'board_number': self.unpacked_data['board_num'],     # dim: frequency
                 'sensor_flag': self.unpacked_data['sensor_flag'],    # dim: ping_time
                 'ancillary': self.unpacked_data['ancillary'],        # dim: ping_time x 5 values
-                'ad_channels': self.unpacked_data['ad']              # dim: ping_time x 2 values
+                'ad_channels': self.unpacked_data['ad'],             # dim: ping_time x 2 values
+                'battery_main': self.unpacked_data['battery_main'],
+                'battery_tx': self.unpacked_data['battery_tx']
             }
             out_dict['ancillary_len'] = list(range(len(out_dict['ancillary'][0])))
             out_dict['ad_len'] = list(range(len(out_dict['ad_channels'][0])))
