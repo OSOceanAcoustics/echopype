@@ -108,7 +108,7 @@ class ConvertEK60(ConvertBase):
                 break
 
             # Convert the timestamp to a datetime64 object.
-            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'], '[ms]')
+            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'].replace(tzinfo=None), '[ms]')
 
             num_datagrams_parsed += 1
 
@@ -180,7 +180,8 @@ class ConvertEK60(ConvertBase):
 
             # Read the CON0 configuration datagram
             self.config_datagram = fid.read(1)
-            self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+            self.config_datagram['timestamp'] = np.datetime64(
+                self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
 
             # Check if reading an ME70 file with a CON1 datagram.
             next_datagram = fid.peek()
