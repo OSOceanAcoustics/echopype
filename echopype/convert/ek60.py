@@ -419,8 +419,8 @@ class ConvertEK60(ConvertBase):
         # Get exported filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
         self.save_path = os.path.join(os.path.split(self.filename)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(self.path)[0], filename + '.zarr')
+        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(self.filename)[0], filename + '.zarr')
 
         fm = FILENAME_MATCHER.match(self.filename)
 

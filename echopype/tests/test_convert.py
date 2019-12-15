@@ -32,7 +32,7 @@ def test_convert_ek60():
     tmp.raw2zarr()
     shutil.rmtree(tmp.zarr_path, ignore_errors=True)
 
-    # Test saving nc file and preform checks
+    # Test saving nc file and perform checks
     tmp.raw2nc()
 
     # Read .nc file into an xarray DataArray
@@ -61,7 +61,7 @@ def test_convert_AZFP():
     tmp.raw2zarr()
     shutil.rmtree(tmp.zarr_path, ignore_errors=True)
 
-    # Test saving nc file and preform checks
+    # Test saving nc file and perform checks
     tmp.raw2nc()
 
     # Test beam group
