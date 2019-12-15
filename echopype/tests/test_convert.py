@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import xarray as xr
 from echopype.convert import Convert
@@ -26,6 +27,12 @@ def test_convert_ek60():
     # # Convert to .nc file
     # tmp.raw2nc()
     tmp = Convert(ek60_raw_path)
+
+    # Test saving zarr file
+    tmp.raw2zarr()
+    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
+
+    # Test saving nc file and preform checks
     tmp.raw2nc()
 
     # Read .nc file into an xarray DataArray
@@ -49,6 +56,12 @@ def test_convert_AZFP():
     # tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
     # tmp.parse_raw()
     tmp = Convert(azfp_01a_path, azfp_xml_path)
+
+    # Test saving zarr file
+    tmp.raw2zarr()
+    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
+
+    # Test saving nc file and preform checks
     tmp.raw2nc()
 
     # Test beam group

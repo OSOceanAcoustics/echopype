@@ -31,6 +31,7 @@ class ConvertAZFP(ConvertBase):
 
         # Initialize variables that'll be filled later
         self.nc_path = None
+        self.zarr_path = None
         self.unpacked_data = None
 
     def loadAZFPxml(self):
@@ -344,8 +345,8 @@ class ConvertAZFP(ConvertBase):
                                 ).replace(tzinfo=timezone.utc).timestamp())
         return ping_time
 
-    def raw2nc(self):
-        """Save data from raw 01A format to netCDF4 .nc format
+    def save(self, file_format):
+        """Save data from raw 01A format to netCDF4 .nc or Zarr .zarr format
         """
 
         # Subfunctions to set various dictionaries
@@ -410,7 +411,7 @@ class ConvertAZFP(ConvertBase):
             attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
                      'sonar_software_name', 'sonar_software_version', 'sonar_type')
             vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                    self.unpacked_data['serial_number'],   # should have only 1 value (identical for all pings)
+                    int(self.unpacked_data['serial_number']),   # should have only 1 value (identical for all pings)
                     'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
             return dict(zip(attrs, vals))
 
@@ -539,15 +540,17 @@ class ConvertAZFP(ConvertBase):
         freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = self.get_ping_time()
 
-        # Construct nc_path to write to
+        # Construct export path to write to
         filename = os.path.splitext(os.path.basename(self.path))[0]
+        self.save_path = os.path.join(os.path.split(self.path)[0], filename + file_format)
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(self.path)[0], filename + '.zarr')
 
-        if os.path.exists(self.nc_path):
-            print('          ... this file has already been converted to .nc, conversion not executed.')
+        if os.path.exists(self.save_path):
+            print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetGroups(file_path=self.nc_path, echo_type='AZFP')
+            grp = SetGroups(file_path=self.save_path, echo_type='AZFP')
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
             grp.set_env(_set_env_dict())                # environment group
             grp.set_provenance(os.path.basename(self.file_name),
