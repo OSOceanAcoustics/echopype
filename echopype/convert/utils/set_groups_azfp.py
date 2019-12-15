@@ -1,6 +1,7 @@
 from .set_groups_base import SetGroupsBase
 import xarray as xr
 import netCDF4
+import zarr
 import os
 
 
@@ -35,7 +36,10 @@ class SetGroupsAZFP(SetGroupsBase):
                                    'units': "C"})
 
             # save to file
-            ds.to_netcdf(path=self.file_path, mode="a", group="Environment")
+            if self.format == '.nc':
+                ds.to_netcdf(path=self.file_path, mode='a', group='Environment')
+            elif self.format == '.zarr':
+                ds.to_zarr(store=self.file_path, mode='a', group='Environment')
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the AZFP nc file. AZFP does not record pitch, roll, and heave.
@@ -47,9 +51,13 @@ class SetGroupsAZFP(SetGroupsBase):
         """
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
-        else:
-            with netCDF4.Dataset(self.file_path, "a", format="NETCDF4") as ncfile:
+        elif self.format == '.nc':
+            with netCDF4.Dataset(self.file_path, 'a', format='NETCDF4') as ncfile:
                 [ncfile.setncattr(k, v) for k, v in platform_dict.items()]
+        elif self.format == '.zarr':
+            zarrfile = zarr.open(self.file_path, mode='a')
+            for k, v in platform_dict.items():
+                zarrfile.attrs[k] = v
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the AZFP nc file.
@@ -113,7 +121,10 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
                                'tilt_Y_d': beam_dict['tilt_Y_d']})
 
-        ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
+        if self.format == '.nc':
+            ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
+        elif self.format == '.zarr':
+            ds.to_zarr(store=self.file_path, mode='a', group='Beam')
 
     def set_vendor_specific(self, vendor_dict):
         """Set the Vendor-specific group in the AZFP nc file.
@@ -165,4 +176,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'number_of_channels': vendor_dict['number_of_channels']}
         )
 
-        ds.to_netcdf(path=self.file_path, mode="a", group="Vendor")
+        if self.format == '.nc':
+            ds.to_netcdf(path=self.file_path, mode='a', group='Vendor')
+        elif self.format == '.zarr':
+            ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
