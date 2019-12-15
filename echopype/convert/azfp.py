@@ -33,6 +33,7 @@ class ConvertAZFP(ConvertBase):
         self.nc_path = None
         self.zarr_path = None
         self.unpacked_data = None
+        self._checked_unique = False
 
     def loadAZFPxml(self):
         """Parses the AZFP  XML file.
@@ -242,23 +243,28 @@ class ConvertAZFP(ConvertBase):
         """
         if not self.unpacked_data:
             self.parse_raw()
-        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
-                        'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
-        field_include = ('profile_flag', 'serial_number',   # fields to reduce size if the same for all pings
-                         'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
-                         'phase', 'num_chan', 'spare_chan')
-        for field in field_w_freq:
-            uniq = np.unique(self.unpacked_data[field], axis=0)
-            if uniq.shape[0] == 1:
-                self.unpacked_data[field] = uniq.squeeze()
-            else:
-                raise ValueError(f"Header value {field} is not constant for each ping")
-        for field in field_include:
-            uniq = np.unique(self.unpacked_data[field])
-            if uniq.shape[0] == 1:
-                self.unpacked_data[field] = uniq.squeeze()
-            else:
-                raise ValueError(f"Header value {field} is not constant for each ping")
+
+        if not self._checked_unique:    # Only check uniqueness once. Will error if done twice
+            # fields with num_freq data
+            field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',
+                            'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
+            # fields to reduce size if the same for all pings
+            field_include = ('profile_flag', 'serial_number',
+                             'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
+                             'phase', 'num_chan', 'spare_chan')
+            for field in field_w_freq:
+                uniq = np.unique(self.unpacked_data[field], axis=0)
+                if uniq.shape[0] == 1:
+                    self.unpacked_data[field] = uniq.squeeze()
+                else:
+                    raise ValueError(f"Header value {field} is not constant for each ping")
+            for field in field_include:
+                uniq = np.unique(self.unpacked_data[field])
+                if uniq.shape[0] == 1:
+                    self.unpacked_data[field] = uniq.squeeze()
+                else:
+                    raise ValueError(f"Header value {field} is not constant for each ping")
+        self._checked_unique = True
 
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
