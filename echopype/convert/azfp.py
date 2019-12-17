@@ -31,7 +31,9 @@ class ConvertAZFP(ConvertBase):
 
         # Initialize variables that'll be filled later
         self.nc_path = None
+        self.zarr_path = None
         self.unpacked_data = None
+        self._checked_unique = False
 
     def loadAZFPxml(self):
         """Parses the AZFP  XML file.
@@ -241,23 +243,28 @@ class ConvertAZFP(ConvertBase):
         """
         if not self.unpacked_data:
             self.parse_raw()
-        field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',  # fields with num_freq data
-                        'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
-        field_include = ('profile_flag', 'serial_number',   # fields to reduce size if the same for all pings
-                         'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
-                         'phase', 'num_chan', 'spare_chan')
-        for field in field_w_freq:
-            uniq = np.unique(self.unpacked_data[field], axis=0)
-            if uniq.shape[0] == 1:
-                self.unpacked_data[field] = uniq.squeeze()
-            else:
-                raise ValueError(f"Header value {field} is not constant for each ping")
-        for field in field_include:
-            uniq = np.unique(self.unpacked_data[field])
-            if uniq.shape[0] == 1:
-                self.unpacked_data[field] = uniq.squeeze()
-            else:
-                raise ValueError(f"Header value {field} is not constant for each ping")
+
+        if not self._checked_unique:    # Only check uniqueness once. Will error if done twice
+            # fields with num_freq data
+            field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',
+                            'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
+            # fields to reduce size if the same for all pings
+            field_include = ('profile_flag', 'serial_number',
+                             'burst_int', 'ping_per_profile', 'avg_pings', 'ping_period',
+                             'phase', 'num_chan', 'spare_chan')
+            for field in field_w_freq:
+                uniq = np.unique(self.unpacked_data[field], axis=0)
+                if uniq.shape[0] == 1:
+                    self.unpacked_data[field] = uniq.squeeze()
+                else:
+                    raise ValueError(f"Header value {field} is not constant for each ping")
+            for field in field_include:
+                uniq = np.unique(self.unpacked_data[field])
+                if uniq.shape[0] == 1:
+                    self.unpacked_data[field] = uniq.squeeze()
+                else:
+                    raise ValueError(f"Header value {field} is not constant for each ping")
+        self._checked_unique = True
 
     def parse_raw(self):
         """Parses a raw AZFP file of the 01A file format"""
@@ -344,8 +351,8 @@ class ConvertAZFP(ConvertBase):
                                 ).replace(tzinfo=timezone.utc).timestamp())
         return ping_time
 
-    def raw2nc(self):
-        """Save data from raw 01A format to netCDF4 .nc format
+    def save(self, file_format):
+        """Save data from raw 01A format to netCDF4 .nc or Zarr .zarr format
         """
 
         # Subfunctions to set various dictionaries
@@ -410,7 +417,7 @@ class ConvertAZFP(ConvertBase):
             attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
                      'sonar_software_name', 'sonar_software_version', 'sonar_type')
             vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                    self.unpacked_data['serial_number'],   # should have only 1 value (identical for all pings)
+                    int(self.unpacked_data['serial_number']),   # should have only 1 value (identical for all pings)
                     'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
             return dict(zip(attrs, vals))
 
@@ -539,15 +546,17 @@ class ConvertAZFP(ConvertBase):
         freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = self.get_ping_time()
 
-        # Construct nc_path to write to
+        # Construct export path to write to
         filename = os.path.splitext(os.path.basename(self.path))[0]
+        self.save_path = os.path.join(os.path.split(self.path)[0], filename + file_format)
         self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(self.path)[0], filename + '.zarr')
 
-        if os.path.exists(self.nc_path):
-            print('          ... this file has already been converted to .nc, conversion not executed.')
+        if os.path.exists(self.save_path):
+            print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetGroups(file_path=self.nc_path, echo_type='AZFP')
+            grp = SetGroups(file_path=self.save_path, echo_type='AZFP')
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
             grp.set_env(_set_env_dict())                # environment group
             grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())        # provenance group

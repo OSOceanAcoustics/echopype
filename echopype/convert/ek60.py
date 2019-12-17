@@ -42,6 +42,7 @@ class ConvertEK60(ConvertBase):
         self.ping_time = []    # list to store ping time
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
         self.nc_path = None
+        self.zarr_path = None
 
     @property
     def filename(self):
@@ -235,7 +236,7 @@ class ConvertEK60(ConvertBase):
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
-    def raw2nc(self):
+    def save(self, file_format):
         """Save data from EK60 `.raw` to netCDF format.
         """
 
@@ -408,9 +409,11 @@ class ConvertEK60(ConvertBase):
         if not bool(self.power_dict):  # if haven't parsed .raw file
             self.load_ek60_raw()
 
-        # Get nc filename
+        # Get exported filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
+        self.save_path = os.path.join(os.path.split(self.filename)[0], filename + file_format)
         self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(self.filename)[0], filename + '.zarr')
         # filename must have "-" as the field separator for the last 2 fields
         filename_tup = filename.split("-")
         filedate = filename_tup[len(filename_tup)-2].replace("D","")
@@ -420,8 +423,8 @@ class ConvertEK60(ConvertBase):
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
         # ... if not, continue with conversion
-        if os.path.exists(self.nc_path):
-            print('          ... this file has already been converted to .nc, conversion not executed.')
+        if os.path.exists(self.save_path):
+            print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             # Retrieve variables
             tx_num = self.config_datagram['transceiver_count']
@@ -448,7 +451,7 @@ class ConvertEK60(ConvertBase):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetGroups(file_path=self.nc_path, echo_type='EK60')
+            grp = SetGroups(file_path=self.save_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
