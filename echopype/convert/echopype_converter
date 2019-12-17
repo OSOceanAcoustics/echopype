@@ -1,34 +1,75 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Command line tool for converting sonar data into an interoperable netCDF format.
 
+example usage: echopype_converter -s ek60 echopype/test_data/ek60/*.raw
+               echopype_converter -s azfp -x echopype/test_data/azfp/my_special.xml echopype/test_data/azfp/good_data.01A ...
 The tool currently supports converting EK60 .raw to .nc files.
 """
 
 import os
+import sys
 from datetime import datetime as dt
-import click
+### Can't get this to work
+#import click
+
+import argparse
+
 import echopype
 
+#@click.command(context_settings=dict(ignore_unknown_options=True,))
+#@click.option('--system', '-s', help='Sonar system specified: [ek60|azfp]', type=click.Choice(['ek60', 'azfp']))
+#@click.option('--xml-file', '-x', help='Path to xml file(s) if using azfp data.', type=click.Path("PATH"))
+#@click.argument('files', nargs=-1, type=click.Path())
 
-@click.command(context_settings={"ignore_unknown_options": True})
-@click.option('--system', '-s', help="Sonar system specified: 'ek60'")
-@click.argument('files', nargs=-1, type=click.Path())
+parser = argparse.ArgumentParser()
+parser.add_argument('--system', '-s', choices=['ek60', 'azfp'], required=True)
+parser.add_argument('--xml-file', '-x', help='The xml file you wish to use with your AZFP data.')
+
+
+parser.add_argument('args', nargs=argparse.REMAINDER)
+
+args = parser.parse_args()
+system = args.system
+files = args.args
+
 def main(system, files):
-    click.echo('echopype sonar data converter')
+    print('echopype sonar data converter')
     if system:
         print('Data to be converted were from: %s' % system)
     if files:
-        for filename in files:
-            if os.path.splitext(filename)[1] != '.raw':
-                print('%s  %s is not a .raw file' % (dt.now().strftime('%H:%M:%S'),
-                                                     os.path.basename(filename)))
+        if system == 'ek60':
+            for filename in files:
+                if filename.split('.')[1].lower() != 'raw':
+                    print('%s  %s is not a .raw file' % (dt.now().strftime('%H:%M:%S'), filename))
+                else:
+                    tmp = echopype.convert.ConvertEK60(filename)
+                    tmp.raw2nc()
+                    del tmp
+        elif system == 'azfp':
+            if args.xml_file == None:
+                print('An XML file is needed for converting AZFL echosounder data')
             else:
-                tmp = echopype.convert.ConvertEK60(filename)
-                tmp.raw2nc()
-                del tmp
+                if args.xml_file.split('.')[1].lower() != 'xml':
+                    print('%s  %s is not an .xml file' % (dt.now().strftime('%H:%M:%S'), args.xml_file))
+                else:    
+                    for datafile in files:
+                        tmp = echopype.convert.ConvertAZFP(datafile, args.xml_file)
+                        tmp.raw2nc()
+                        del tmp
+        #if system == 'ek80':
+        #    for filename in files:
+        #        if filename.split('.')[1].lower() != 'raw':
+        #            print('%s  %s is not a .raw file' % (dt.now().strftime('%H:%M:%S'), filename))
+        #        else:
+        #            tmp = echopype.convert.ConvertEK80(filename)
+        #            tmp.raw2nc()
+        #            del tmp
+    else:
+        print("Please specify files to be converted.")
+
 
 
 if __name__ == '__main__':
-    main()
+    main(system, files)

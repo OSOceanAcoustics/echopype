@@ -26,14 +26,9 @@ INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 # Create a constant to convert from indexed angles to electrical angles.
 INDEX2ELEC = 180.0 / 128.0
 
-# Regex matcher for parsing EK60 .raw filename
-FILENAME_REGEX = r'(?P<prefix>\S*)-D(?P<date>\d{1,})-T(?P<time>\d{1,})'
-FILENAME_MATCHER = re.compile(FILENAME_REGEX, re.DOTALL)
-
 
 class ConvertEK60(ConvertBase):
-    """Class for converting EK60 `.raw` files."""
-
+    """Class for converting EK60 .raw files."""
     def __init__(self, _filename=""):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
@@ -113,8 +108,7 @@ class ConvertEK60(ConvertBase):
                 break
 
             # Convert the timestamp to a datetime64 object.
-            new_datagram['timestamp'] = \
-                np.datetime64(new_datagram['timestamp'], '[ms]')
+            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'], '[ms]')
 
             num_datagrams_parsed += 1
 
@@ -254,8 +248,7 @@ class ConvertEK60(ConvertBase):
                             sonar_convention_version='1.7',
                             summary='',
                             title='')
-            out_dict['date_created'] = dt.strptime(fm.group('date') + '-' + fm.group('time'),
-                                                   '%Y%m%d-%H%M%S').isoformat() + 'Z'
+            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime,'%Y%m%d-%H%M%S').isoformat() + 'Z'
             return out_dict
 
         def _set_env_dict():
@@ -418,7 +411,11 @@ class ConvertEK60(ConvertBase):
         # Get nc filename
         filename = os.path.splitext(os.path.basename(self.filename))[0]
         self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        fm = FILENAME_MATCHER.match(self.filename)
+        # filename must have "-" as the field separator for the last 2 fields
+        filename_tup = filename.split("-")
+        filedate = filename_tup[len(filename_tup)-2].replace("D","")
+        filetime = filename_tup[len(filename_tup)-1].replace("T","")        
+        
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
@@ -438,11 +435,9 @@ class ConvertEK60(ConvertBase):
             # --- if identical for all pings, save only values from the first ping
             if np.all(np.array([abs_tmp, ss_tmp]) == 1):
                 abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient'][0]
-                                    for x in self.config_datagram['transceivers'].keys()],
-                                   dtype='float32')
+                                    for x in self.config_datagram['transceivers'].keys()], dtype='float32')
                 ss_val = np.array([self.ping_data_dict[x]['sound_velocity'][0]
-                                   for x in self.config_datagram['transceivers'].keys()],
-                                  dtype='float32')
+                                   for x in self.config_datagram['transceivers'].keys()], dtype='float32')
             # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
             else:
                 abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient']
@@ -456,8 +451,7 @@ class ConvertEK60(ConvertBase):
             grp = SetGroups(file_path=self.nc_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename),
-                               _set_prov_dict())    # provenance group
+            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
