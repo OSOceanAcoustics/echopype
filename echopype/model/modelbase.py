@@ -432,7 +432,7 @@ class ModelBase(object):
         ping_time = proc_data.ping_time[list(map(lambda x: x[0],
                                                  list(proc_data.ping_time.groupby('add_idx').groups.values())))]
         noise_est.coords['ping_time'] = ('add_idx', ping_time)
-        noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop({'add_idx'})
+        noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop('add_idx')
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
@@ -516,7 +516,7 @@ class ModelBase(object):
                                                   groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
         MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
         MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
-            drop({'add_idx', 'range_bin_bins'})
+            drop_vars({'add_idx', 'range_bin_bins'})
 
         # Set MVBS attributes
         MVBS.name = 'MVBS'

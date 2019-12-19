@@ -3,10 +3,11 @@ click
 numpy
 matplotlib
 netCDF4
+zarr
 pandas
 pynmea2
 pytz
 scipy
-xarray==0.13.0
+xarray
 numpydoc
 sphinx-automodapi

@@ -101,5 +101,3 @@ def test_noise_estimates_removal():
     del e_data
     os.remove(nc_path)
     os.remove(Sv_path)
-
-test_noise_estimates_removal()
