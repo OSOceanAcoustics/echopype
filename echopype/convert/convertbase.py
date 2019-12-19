@@ -33,3 +33,9 @@ class ConvertBase:
     @platform_code_ICES.setter
     def platform_code_ICES(self, platform_code_ICES):
         self._platform['platform_code_ICES'] = platform_code_ICES
+
+    def raw2nc(self):
+        self.save(".nc")
+
+    def raw2zarr(self):
+        self.save(".zarr")

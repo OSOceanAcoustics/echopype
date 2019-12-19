@@ -44,7 +44,10 @@ class SetGroupsEK60(SetGroupsBase):
             ds.frequency.attrs['valid_min'] = 0.0
 
             # save to file
-            ds.to_netcdf(path=self.file_path, mode="a", group="Environment")
+            if self.format == '.nc':
+                ds.to_netcdf(path=self.file_path, mode='a', group='Environment')
+            elif self.format == '.zarr':
+                ds.to_zarr(store=self.file_path, mode='a', group='Environment')
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the EK60 nc file.
@@ -113,7 +116,10 @@ class SetGroupsEK60(SetGroupsBase):
                        'platform_name': platform_dict['platform_name'],
                        'platform_type': platform_dict['platform_type']})
             # save to file
-            ds.to_netcdf(path=self.file_path, mode="a", group="Platform")
+            if self.format == '.nc':
+                ds.to_netcdf(path=self.file_path, mode='a', group='Platform')
+            elif self.format == '.zarr':
+                ds.to_zarr(store=self.file_path, mode='a', group='Platform')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK60 nc file.
@@ -291,5 +297,7 @@ class SetGroupsEK60(SetGroupsBase):
                 ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
             # save to file
-            ds.to_netcdf(path=self.file_path, mode="a", group="Beam")
-            pass
+            if self.format == '.nc':
+                ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
+            elif self.format == '.zarr':
+                ds.to_zarr(store=self.file_path, mode='a', group='Beam')
