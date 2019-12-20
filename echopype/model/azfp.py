@@ -146,30 +146,6 @@ class ModelAZFP(ModelBase):
                             ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
                             ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
-        # # TODO: check if sample_thickness calculation should be/is done in a separate method
-        # sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
-        # # range_meter = self.calc_range()
-        # self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-        #            ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
-        #            2 * ds_beam.sea_abs * range_meter -
-        #            10 * np.log10(0.5 * ds_env.sound_speed_indicative *
-        #                          ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
-        #                          ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
-
-        # TODO: should do TVG and ABS calculation when doing noise estimates, otherwise it is
-        #  difficult to trace errors since they are calculated when performing calibration
-        #  --> the current structure is brittle. This is true for EK60 too so the best is to
-        #  make self.range and self.seawater_absorption common methods (separately implemented
-        #  in EK60 and AZFP class) which can be called to calculate TVG and ABS.
-        # Get TVG and absorption
-        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
-        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
-        ABS = 2 * self.seawater_absorption * range_meter
-
-        # Save TVG and ABS for noise estimation use
-        self.TVG = TVG
-        self.ABS = ABS
-
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
