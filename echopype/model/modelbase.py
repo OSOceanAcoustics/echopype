@@ -157,7 +157,7 @@ class ModelBase(object):
                                                         temperature=t,
                                                         pressure=p)
             if sa:
-                self.seawater_absorption = self.calc_seawater_absorption()
+                self.seawater_absorption = self.calc_seawater_absorption(src='user')
             if st:
                 self.sample_thickness = self.calc_sample_thickness()
             if r:

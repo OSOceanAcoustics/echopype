@@ -30,7 +30,8 @@ def test_convert_ek60():
 
     # Test saving zarr file
     tmp.raw2zarr()
-    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
+    shutil.rmtree(tmp.zarr_path, ignore_errors=True)  # delete non-empty folder
+                                                      # consider alternative using os.walk() if have os-specific errors
 
     # Test saving nc file and perform checks
     tmp.raw2nc()

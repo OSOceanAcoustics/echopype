@@ -6,6 +6,7 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 from .modelbase import ModelBase
+from echopype.utils import uwa
 
 
 class ModelEK60(ModelBase):
@@ -105,10 +106,19 @@ class ModelEK60(ModelBase):
         with xr.open_dataset(self.file_path, group="Environment") as ds_env:
             return ds_env.sound_speed_indicative
 
-    def calc_seawater_absorption(self):
+    def calc_seawater_absorption(self, src='file'):
         """Returns the seawater absorption values from the .nc file"""
-        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
-            return ds_env.absorption_indicative
+        if src == 'file':
+            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+                return ds_env.absorption_indicative
+        elif src == 'user':
+            with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+                freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
+            sea_abs = uwa.calc_seawater_absorption(freq,
+                                                   temperature=self.temperature,
+                                                   salinity=self.salinity,
+                                                   pressure=self.pressure)
+            return sea_abs
 
     def calc_sample_thickness(self):
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
@@ -134,16 +144,16 @@ class ModelEK60(ModelBase):
             whether to save calibrated Sv output
             default to ``False``
         """
-
         # Open data set for Environment and Beam groups
-        ds_env = xr.open_dataset(self.file_path, group="Environment")
+        # ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
+
         # Derived params
-        wavelength = self.sound_speed / ds_env.frequency  # wavelength
+        wavelength = self.sound_speed / ds_beam.frequency  # wavelength
 
         # Get backscatter_r and range_bin pieces
         backscatter_r = self.get_piece('backscatter_r')
-        range_bin = self.get_piece('range_bin')
+
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
                              wavelength ** 2 * self.sound_speed * ds_beam.transmit_duration_nominal *
@@ -173,7 +183,7 @@ class ModelEK60(ModelBase):
             Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
-        ds_env.close()
+        # ds_env.close()
         ds_beam.close()
 
     # TODO: Need to write a separate method for calculating TS as have been done for AZFP data.
