@@ -56,7 +56,7 @@ class ModelAZFP(ModelBase):
                                                      pressure=self.pressure)
         return self._sound_speed
 
-    def calc_seawater_absorption(self):
+    def calc_seawater_absorption(self, src='user'):
         """Calculates seawater absorption in dB/km using AZFP-supplied formula.
 
         Returns
@@ -65,10 +65,14 @@ class ModelAZFP(ModelBase):
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
-        sea_abs = uwa.calc_seawater_absorption(freq,
+        if src == 'user':
+            sea_abs = uwa.calc_seawater_absorption(freq,
                                                temperature=self.temperature,
                                                salinity=self.salinity,
                                                pressure=self.pressure)
+        else:
+            ValueError('For AZFP seawater absorption needs to be calculated '
+                       'based on user-input environmental parameters.')
         return sea_abs
 
     def calc_sample_thickness(self):
