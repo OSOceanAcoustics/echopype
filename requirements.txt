@@ -1,13 +1,12 @@
-arlpy
 click
-numpy
 matplotlib
 netCDF4
-zarr
+numpy
 pandas
 pynmea2
 pytz
 scipy
 xarray
-numpydoc
+zarr
 sphinx-automodapi
+numpydoc
