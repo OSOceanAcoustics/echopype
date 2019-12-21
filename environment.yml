@@ -11,9 +11,12 @@ dependencies:
   - numpy
   - netCDF4
   - pandas
+  - pip
   - pytz
+  - python=3.7
   - requests
   - scipy
+  - tox
   - xarray
   - pip:
       - pynmea2
