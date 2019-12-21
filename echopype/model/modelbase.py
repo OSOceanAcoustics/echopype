@@ -465,6 +465,10 @@ class ModelBase(object):
             whether to save the denoised Sv (``Sv_clean``) into a new .nc file
             default to ``False``
         """
+        # TODO: Overall -- change to use coarsen and resample (+groupby_bins) for
+        #  MVBS calculation. Also right now the code uses mean in the log domain, it
+        #  should be mean in the linear domain.
+
         # Check params
         # TODO: Not sure what @cyrf0006 meant below, but need to resolve the issues surrounding
         #  potentially having different sample_thickness for each frequency. This is the same
@@ -535,7 +539,7 @@ class ModelBase(object):
         # Drop add_idx added to Sv
         # TODO: somehow this still doesn't work and self.Sv or self.Sv_clean
         #  will have this additional dimension attached
-        proc_data = proc_data.drop('add_idx')
+        proc_data = proc_data.drop_vars('add_idx')
 
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
