@@ -2,6 +2,7 @@
 echopype data model inherited from based class EchoData for AZFP data.
 """
 
+import os
 import datetime as dt
 import numpy as np
 import xarray as xr
@@ -124,7 +125,7 @@ class ModelAZFP(ModelBase):
 
         return range_meter
 
-    def calibrate(self, save=False):
+    def calibrate(self, save=False, save_postfix='_Sv'):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
         Parameters
@@ -132,10 +133,11 @@ class ModelAZFP(ModelBase):
         save : bool, optional
                whether to save calibrated Sv output
                default to ``True``
+        save_postfix : str
+            Filename postfix, default to '_Sv'
         """
 
         # Open data set for Environment and Beam groups
-        ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         range_meter = self.range
@@ -156,11 +158,14 @@ class ModelAZFP(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
+            if save_postfix is not '_Sv':
+                self.Sv_path = os.path.join(os.path.dirname(self.file_path),
+                                            os.path.splitext(os.path.basename(self.file_path))[0] +
+                                            save_postfix + '.nc')
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
-        ds_env.close()
         ds_beam.close()
 
     def calibrate_TS(self, save=False):
