@@ -3,13 +3,14 @@ import shutil
 import numpy as np
 import xarray as xr
 from echopype.convert import Convert
+from echopype.convert.ek80 import ConvertEK80
 
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
-
+ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'
 # azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
@@ -46,6 +47,12 @@ def test_convert_ek60():
     ds_beam.close()
     os.remove(tmp.nc_path)
     del tmp
+
+
+def test_convert_ek80():
+    tmp = ConvertEK80(ek80_raw_path)
+    # tmp.test()
+    tmp.raw2nc()
 
 
 def test_convert_AZFP():
