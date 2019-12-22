@@ -241,13 +241,10 @@ class ModelBase(object):
         # Produce a new coordinate for groupby operation
         if np.mod(p_data_sz, p_tile_sz) == 0:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
-            p_idx = np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel()
         else:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int)
             pad = np.ones(p_data_sz - (num_tile_ping - 1) * p_tile_sz, dtype=int) \
                   * (num_tile_ping - 1)
-            p_idx = np.hstack(
-                (np.array([np.arange(num_tile_ping - 1)] * p_tile_sz).squeeze().T.ravel(), pad))
 
         # Tile bin edges along range
         # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
@@ -350,7 +347,6 @@ class ModelBase(object):
         Sv_clean = proc_data.Sv.groupby_bins('ping_idx', ping_tile_bin_edge).map(remove_n)
 
         # Set up DataSet
-        Sv_clean.name = 'Sv_clean'
         Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
@@ -485,37 +481,43 @@ class ModelBase(object):
             raise ValueError('Unknown source, cannot calculate MVBS')
 
         # Get tile indexing parameters
-        self.MVBS_range_bin_size, add_idx, range_bin_tile_bin_edge = \
+        self.MVBS_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \
             self.get_tile_params(r_data_sz=proc_data.range_bin.size,
                                  p_data_sz=proc_data.ping_time.size,
                                  r_tile_sz=self.MVBS_range_bin_size,
                                  p_tile_sz=self.MVBS_ping_size,
                                  sample_thickness=self.sample_thickness)
         # Calculate MVBS
-        proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        if source == 'Sv':
-            MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-                groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
-        elif source == 'Sv_clean':
-            # TODO: the calculation below issues warnings when encountering all NaN slices.
-            #  This is an open issue in dask: https://github.com/dask/dask/issues/3245
-            #  Suppress this warning for now.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
-                    groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
-        else:
-            raise ValueError('Unknown source, cannot calculate MVBS')
+        Sv_linear = 10 ** (proc_data.Sv / 10)  # convert to linear domain before averaging
+        MVBS = 10 * np.log10(Sv_linear.coarsen(ping_time=self.MVBS_ping_size,
+                                               range_bin=int(np.unique(self.MVBS_range_bin_size/self.sample_thickness)),
+                                               boundary='pad').mean())
+        MVBS.coords['range_bin'] = ('range_bin', np.arange(MVBS['range_bin'].size))
+        #
+        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
+        # if source == 'Sv':
+        #     MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
+        #         groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
+        # elif source == 'Sv_clean':
+        #     # TODO: the calculation below issues warnings when encountering all NaN slices.
+        #     #  This is an open issue in dask: https://github.com/dask/dask/issues/3245
+        #     #  Suppress this warning for now.
+        #     with warnings.catch_warnings():
+        #         warnings.simplefilter("ignore")
+        #         MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
+        #             groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
+        # else:
+        #     raise ValueError('Unknown source, cannot calculate MVBS')
 
         # Set MVBS coordinates
-        ping_time = proc_data.ping_time[list(map(lambda x: x[0],
-                                                 list(proc_data.ping_time.groupby('add_idx').groups.values())))]
-        MVBS.coords['ping_time'] = ('add_idx', ping_time)
-        range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
-                                                  groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
-        MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
-        MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
-            drop_vars({'add_idx', 'range_bin_bins'})
+        # ping_time = proc_data.ping_time[list(map(lambda x: x[0],
+        #                                          list(proc_data.ping_time.groupby('add_idx').groups.values())))]
+        # MVBS.coords['ping_time'] = ('add_idx', ping_time)
+        # range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
+        #                                           groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
+        # MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
+        # MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
+        #     drop_vars({'add_idx', 'range_bin_bins'})
 
         # Set MVBS attributes
         MVBS.name = 'MVBS'
@@ -523,18 +525,18 @@ class ModelBase(object):
         MVBS['MVBS_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
 
-        # Attach calculated range to MVBS
-        MVBS['range'] = self.Sv.range.sel(range_bin=MVBS.range_bin)
+        # # Attach calculated range to MVBS
+        # MVBS['range'] = self.Sv.range.sel(range_bin=MVBS.range_bin)
 
         # TODO: need to save noise_est_range_bin_size and noise_est_ping_size if source='Sv_clean'
         #  and also save an additional attribute that specifies the source
         # MVBS.attrs['noise_est_range_bin_size'] = self.noise_est_range_bin_size
         # MVBS.attrs['noise_est_ping_size'] = self.noise_est_ping_size
 
-        # Drop add_idx added to Sv
-        # TODO: somehow this still doesn't work and self.Sv or self.Sv_clean
-        #  will have this additional dimension attached
-        proc_data = proc_data.drop_vars('add_idx')
+        # # Drop add_idx added to Sv
+        # # TODO: somehow this still doesn't work and self.Sv or self.Sv_clean
+        # #  will have this additional dimension attached
+        # proc_data = proc_data.drop_vars('add_idx')
 
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
