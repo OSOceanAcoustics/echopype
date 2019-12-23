@@ -4,7 +4,10 @@ import numpy as np
 import xarray as xr
 from echopype.convert import Convert
 
-ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
+# ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
+# ek60_raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
+#                  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60

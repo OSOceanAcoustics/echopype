@@ -29,7 +29,7 @@ INDEX2ELEC = 180.0 / 128.0
 
 class ConvertEK60(ConvertBase):
     """Class for converting EK60 .raw files."""
-    def __init__(self, _filename=""):
+    def __init__(self, _filename):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -50,14 +50,10 @@ class ConvertEK60(ConvertBase):
 
     @filename.setter
     def filename(self, p):
-        pp = os.path.basename(p)
-        _, ext = os.path.splitext(pp)
-        if ext != '.raw':
-            raise ValueError('Please specify a .raw file.')
-            # print('Data file in manufacturer format, please convert first.')
-            # print('To convert data, follow the steps below:')
-        else:
+        if isinstance(p, list):
             self._filename = p
+        else:
+            self._filename = [p]
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -175,59 +171,62 @@ class ConvertEK60(ConvertBase):
         This method parses the ``.raw`` file and saves the parsed data
         to the ConvertEK60 instance.
         """
-        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
+        for f in self.filename:
+            print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(f)))
 
-        with RawSimradFile(self.filename, 'r') as fid:
+            with RawSimradFile(f, 'r') as fid:
+                # Read the CON0 configuration datagram. Only keep 1 if multiple files
+                if self.config_datagram is None:
+                    self.config_datagram = fid.read(1)
+                    self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
 
-            # Read the CON0 configuration datagram
-            self.config_datagram = fid.read(1)
-            self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+                    for ch_num in self.config_datagram['transceivers'].keys():
+                        self.ping_data_dict[ch_num] = defaultdict(list)
+                        self.ping_data_dict[ch_num]['frequency'] = \
+                            self.config_datagram['transceivers'][ch_num]['frequency']
+                        self.power_dict[ch_num] = []
+                        self.angle_dict[ch_num] = []
+                else:
+                    tmp_config = fid.read(1)
 
-            # Check if reading an ME70 file with a CON1 datagram.
-            next_datagram = fid.peek()
-            if next_datagram == 'CON1':
-                self.CON1_datagram = fid.read(1)
-            else:
-                self.CON1_datagram = None
+                # Check if reading an ME70 file with a CON1 datagram.
+                next_datagram = fid.peek()
+                if next_datagram == 'CON1':
+                    self.CON1_datagram = fid.read(1)
+                else:
+                    self.CON1_datagram = None
 
-            for ch_num in self.config_datagram['transceivers'].keys():
-                self.ping_data_dict[ch_num] = defaultdict(list)
-                self.ping_data_dict[ch_num]['frequency'] = \
-                    self.config_datagram['transceivers'][ch_num]['frequency']
-                self.power_dict[ch_num] = []
-                self.angle_dict[ch_num] = []
-
-            # Read the rest of datagrams
-            self._read_datagrams(fid)
+                # Read the rest of datagrams
+                self._read_datagrams(fid)
 
             # Check lengths of power data and only store those with the majority sizes (for now)
             # TODO: figure out how to handle this better when there's a clear switch in the middle
 
-            # Find indices of unwanted pings
-            lens = [len(l) for l in self.power_dict[1]]
-            uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
+        # Find indices of unwanted pings
+        lens = [len(l) for l in self.power_dict[1]]
+        uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
 
-            # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
-            indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
+        # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
+        indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
 
-            # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
-            self.ping_time_split = {}
-            self.power_dict_split = {}
-            self.angle_dict_split = {}
-            for i, length in enumerate(uni):
-                self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
-                self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
-                self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+        self.ping_time_split = {}
+        self.power_dict_split = {}
+        self.angle_dict_split = {}
+        for i, length in enumerate(uni):
+            self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
+            self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+            self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
-            for ch_num in self.config_datagram['transceivers'].keys():
-                # r_b represents index for range_bin (how many different range_bins there are).
-                # r is the list of indexes that correspond to that range
-                for r_b, r in enumerate(indices.values()):
-                    for r_idx in r:
-                        self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
-                        self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
-                    self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
-                    self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
+        for ch_num in self.config_datagram['transceivers'].keys():
+            # r_b represents index for range_bin (how many different range_bins there are).
+            # r is the list of indexes that correspond to that range
+            for r_b, r in enumerate(indices.values()):
+                for r_idx in r:
+                    self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                    self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+                self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
 
         # TODO: need to convert angle data too
         self.ping_time = np.array(self.ping_time)
@@ -409,16 +408,16 @@ class ConvertEK60(ConvertBase):
         if not bool(self.power_dict):  # if haven't parsed .raw file
             self.load_ek60_raw()
 
-        # Get exported filename
-        filename = os.path.splitext(os.path.basename(self.filename))[0]
-        self.save_path = os.path.join(os.path.split(self.filename)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(self.filename)[0], filename + '.zarr')
+        # Get exported filename (Only the first if there is a list of filenames)
+        first_file = self.filename[0]
+        filename = os.path.splitext(os.path.basename(first_file))[0]
+        self.save_path = os.path.join(os.path.split(first_file)[0], filename + file_format)
+        self.nc_path = os.path.join(os.path.split(first_file)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(first_file)[0], filename + '.zarr')
         # filename must have "-" as the field separator for the last 2 fields
         filename_tup = filename.split("-")
         filedate = filename_tup[len(filename_tup)-2].replace("D","")
-        filetime = filename_tup[len(filename_tup)-1].replace("T","")        
-        
+        filetime = filename_tup[len(filename_tup)-1].replace("T","")
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
@@ -454,7 +453,7 @@ class ConvertEK60(ConvertBase):
             grp = SetGroups(file_path=self.save_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
+            grp.set_provenance(self.filename, _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
