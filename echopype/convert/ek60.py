@@ -29,7 +29,7 @@ INDEX2ELEC = 180.0 / 128.0
 
 class ConvertEK60(ConvertBase):
     """Class for converting EK60 .raw files."""
-    def __init__(self, _filename):
+    def __init__(self, _filename=''):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -43,17 +43,6 @@ class ConvertEK60(ConvertBase):
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
         self.nc_path = None
         self.zarr_path = None
-
-    @property
-    def filename(self):
-        return self._filename
-
-    @filename.setter
-    def filename(self, p):
-        if isinstance(p, list):
-            self._filename = p
-        else:
-            self._filename = [p]
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
