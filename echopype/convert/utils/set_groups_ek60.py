@@ -266,7 +266,7 @@ class SetGroupsEK60(SetGroupsBase):
                     if self.format == '.nc':
                         ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
                     elif self.format == '.zarr':
-                        ds.to_zarr(store=self.path, mode='a', group='Beam')
+                        ds.to_zarr(store=self.file_path, mode='a', group='Beam')
                 else:
                     split = os.path.splitext(self.file_path)
                     path = split[0] + f"_part_{i+1}" + split[1]
