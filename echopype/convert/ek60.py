@@ -292,24 +292,23 @@ class ConvertEK60(ConvertBase):
             out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
             return out_dict
 
-        def _set_beam_dict():
+        def _set_beam_dict(piece=0):
             beam_dict = dict()
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
-            beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+            beam_dict['ping_time'] = self.ping_time_split[piece]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
             # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
             beam_dict['range_lengths'] = self.range_lengths
-            beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['backscatter_r'] = self.power_dict_split
+            beam_dict['backscatter_r'] = np.array([beam_dict['backscatter_r'][piece][x] for x in
+                                                   beam_dict['backscatter_r'][piece].keys()])
             beam_dict['angle_dict'] = self.angle_dict_split
-            beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
             # beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
 
-            beam_dict['range_bin'] = dict()
-            for ranges in self.ping_time_split.keys():
-                beam_dict['range_bin'][ranges] = np.arange(beam_dict['power_dict'][ranges][1].shape[1])
+            beam_dict['range_bin'] = np.arange(beam_dict['backscatter_r'].shape[2])
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -391,6 +390,13 @@ class ConvertEK60(ConvertBase):
                 np.array([x['sa_correction_table'][y]
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
 
+            # New path created if the power data is broken up due to varying range bins
+            if piece > 0:
+                split = os.path.splitext(self.save_path)
+                path = split[0] + f"_part_{i+1}" + split[1]
+                beam_dict['path'] = path
+            else:
+                beam_dict['path'] = self.save_path
             return beam_dict
 
         # Load data from RAW file
@@ -411,6 +417,10 @@ class ConvertEK60(ConvertBase):
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
         # ... if not, continue with conversion
+        if os.path.exists(self.nc_path):
+            os.remove(self.nc_path)
+
+
         if os.path.exists(self.save_path):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
@@ -446,4 +456,5 @@ class ConvertEK60(ConvertBase):
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            grp.set_beam(_set_beam_dict())          # beam group
+            for i in range(len(self.range_lengths)):
+                grp.set_beam(_set_beam_dict(piece=i))          # beam group
