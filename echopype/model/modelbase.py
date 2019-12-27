@@ -332,7 +332,7 @@ class ModelBase(object):
         # Function for use with apply
         def remove_n(x):
             p_c_lin = 10 ** ((x - ABS - TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.groupby_bins('range_bin', range_bin_tile_bin_edge). \
+            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time').groupby_bins('range_bin', range_bin_tile_bin_edge). \
                                mean().min(dim='range_bin_bins')) + ABS + TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
