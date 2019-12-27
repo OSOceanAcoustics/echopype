@@ -400,7 +400,7 @@ class ModelBase(object):
         proc_data = self._get_proc_Sv()
 
         # Get tile indexing parameters
-        self.noise_est_range_bin_size, add_idx, range_bin_tile_bin_edge = \
+        self.noise_est_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \
             self.get_tile_params(r_data_sz=proc_data.range_bin.size,
                                  p_data_sz=proc_data.ping_time.size,
                                  r_tile_sz=self.noise_est_range_bin_size,
@@ -414,16 +414,12 @@ class ModelBase(object):
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
-        proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        noise_est = 10 * np.log10(proc_data.power_cal.groupby('add_idx').mean('ping_time').
-                                  groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin').
-                                  min('range_bin_bins'))
-
-        # Set noise estimates coordinates and other attributes
-        ping_time = proc_data.ping_time[list(map(lambda x: x[0],
-                                                 list(proc_data.ping_time.groupby('add_idx').groups.values())))]
-        noise_est.coords['ping_time'] = ('add_idx', ping_time)
-        noise_est = noise_est.swap_dims({'add_idx': 'ping_time'}).drop('add_idx')
+        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
+        noise_est = 10 * np.log10(
+            proc_data['power_cal'].coarsen(
+                ping_time=self.noise_est_ping_size,
+                range_bin=int(np.unique(self.noise_est_range_bin_size / self.sample_thickness)),
+                boundary='pad').mean().min(dim='range_bin'))
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
