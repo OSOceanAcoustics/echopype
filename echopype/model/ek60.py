@@ -108,7 +108,8 @@ class ModelEK60(ModelBase):
             return ds_env.sound_speed_indicative
 
     def calc_seawater_absorption(self, src='file'):
-        """Returns the seawater absorption values from the .nc file"""
+        """Returns the seawater absorption values from the .nc file.
+        """
         if src == 'file':
             with xr.open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.absorption_indicative
@@ -118,14 +119,14 @@ class ModelEK60(ModelBase):
             sea_abs = uwa.calc_seawater_absorption(freq,
                                                    temperature=self.temperature,
                                                    salinity=self.salinity,
-                                                   pressure=self.pressure)
+                                                   pressure=self.pressure,
+                                                   formula_source='AM')
             return sea_abs
 
     def calc_sample_thickness(self):
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
-        sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
-        ds_beam.close()
-        return sth
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
+            return sth
 
     def calc_range(self):
         """Calculates range in meters using parameters stored in the .nc file.
@@ -162,8 +163,6 @@ class ModelEK60(ModelBase):
                              10 ** (ds_beam.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
-        # TODO: move TVG and ABS calculation to the parent class, as also noted
-        #  correspondingly in model/azfp
         # Get TVG and absorption
         range_meter = self.range
         TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))

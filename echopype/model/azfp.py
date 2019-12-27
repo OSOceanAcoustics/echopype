@@ -54,7 +54,8 @@ class ModelAZFP(ModelBase):
         if self._sound_speed is None:  # if this is empty
             self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
                                                      salinity=self.salinity,
-                                                     pressure=self.pressure)
+                                                     pressure=self.pressure,
+                                                     formula_source='AZFP')
         return self._sound_speed
 
     def calc_seawater_absorption(self, src='user'):
@@ -68,9 +69,10 @@ class ModelAZFP(ModelBase):
             freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
         if src == 'user':
             sea_abs = uwa.calc_seawater_absorption(freq,
-                                               temperature=self.temperature,
-                                               salinity=self.salinity,
-                                               pressure=self.pressure)
+                                                   temperature=self.temperature,
+                                                   salinity=self.salinity,
+                                                   pressure=self.pressure,
+                                                   formula_source='AZFP')
         else:
             ValueError('For AZFP seawater absorption needs to be calculated '
                        'based on user-input environmental parameters.')
@@ -84,7 +86,6 @@ class ModelAZFP(ModelBase):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2
             return sth
-            # return sth.mean(dim='ping_time')   # use mean over all ping_time
 
     def calc_range(self, tilt_corrected=False):
         """Calculates range in meters using AZFP-supplied formula, instead of from sample_interval directly.
