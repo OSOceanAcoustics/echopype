@@ -31,6 +31,7 @@ class ConvertEK80(ConvertBase):
         self.environment = {}   # dictionary to store environment data
         self.parameters = defaultdict(dict)   # Dictionary to hold parameter data
         self.mru_data = defaultdict(list)     # dictionary to store MRU data (heading, pitch, roll, heave)
+        self.fil_dict = defaultdict(dict)
         self.ch_ids = []
         self.nc_path = None
         self.zarr_path = None
@@ -40,7 +41,7 @@ class ConvertEK80(ConvertBase):
         Read various datagrams until the end of a ``.raw`` file.
 
         Only includes code for storing RAW, NMEA, MRU, and XML datagrams and
-        ignoring the TAG and FIL datagrams.
+        ignoring the TAG datagram.
 
         Parameters
         ----------
@@ -131,6 +132,10 @@ class ConvertEK80(ConvertBase):
                 self.mru_data['heave'].append(new_datagram['heave'])
                 self.mru_data['timestamp'].append(new_datagram['timestamp'])
 
+            # FIL datagrams contain filters for proccessing bascatter data
+            elif new_datagram['type'].startswith("FIL"):
+                self.fil_dict[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
+
     def load_ek80_raw(self):
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
 
@@ -161,8 +166,6 @@ class ConvertEK80(ConvertBase):
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
-
-            pass
 
     def save(self, file_format):
         """Save data from EK60 `.raw` to netCDF format.
