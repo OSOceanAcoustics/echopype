@@ -6,7 +6,7 @@ from datetime import datetime as dt
 import pytz
 import pynmea2
 
-from echopype.convert.utils.ek80_raw_io import RawSimradFile, SimradEOF
+from echopype.convert.utils.ek_raw_io import RawSimradFile, SimradEOF
 from echopype.convert.utils.nmea_data import NMEAData
 from echopype.convert.utils.set_groups import SetGroups
 from echopype._version import get_versions
