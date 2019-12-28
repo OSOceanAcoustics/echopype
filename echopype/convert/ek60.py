@@ -29,7 +29,7 @@ INDEX2ELEC = 180.0 / 128.0
 
 class ConvertEK60(ConvertBase):
     """Class for converting EK60 .raw files."""
-    def __init__(self, _filename=""):
+    def __init__(self, _filename=''):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -43,21 +43,6 @@ class ConvertEK60(ConvertBase):
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
         self.nc_path = None
         self.zarr_path = None
-
-    @property
-    def filename(self):
-        return self._filename
-
-    @filename.setter
-    def filename(self, p):
-        pp = os.path.basename(p)
-        _, ext = os.path.splitext(pp)
-        if ext != '.raw':
-            raise ValueError('Please specify a .raw file.')
-            # print('Data file in manufacturer format, please convert first.')
-            # print('To convert data, follow the steps below:')
-        else:
-            self._filename = p
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -175,59 +160,62 @@ class ConvertEK60(ConvertBase):
         This method parses the ``.raw`` file and saves the parsed data
         to the ConvertEK60 instance.
         """
-        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
+        for f in self.filename:
+            print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(f)))
 
-        with RawSimradFile(self.filename, 'r') as fid:
+            with RawSimradFile(f, 'r') as fid:
+                # Read the CON0 configuration datagram. Only keep 1 if multiple files
+                if self.config_datagram is None:
+                    self.config_datagram = fid.read(1)
+                    self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
 
-            # Read the CON0 configuration datagram
-            self.config_datagram = fid.read(1)
-            self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+                    for ch_num in self.config_datagram['transceivers'].keys():
+                        self.ping_data_dict[ch_num] = defaultdict(list)
+                        self.ping_data_dict[ch_num]['frequency'] = \
+                            self.config_datagram['transceivers'][ch_num]['frequency']
+                        self.power_dict[ch_num] = []
+                        self.angle_dict[ch_num] = []
+                else:
+                    tmp_config = fid.read(1)
 
-            # Check if reading an ME70 file with a CON1 datagram.
-            next_datagram = fid.peek()
-            if next_datagram == 'CON1':
-                self.CON1_datagram = fid.read(1)
-            else:
-                self.CON1_datagram = None
+                # Check if reading an ME70 file with a CON1 datagram.
+                next_datagram = fid.peek()
+                if next_datagram == 'CON1':
+                    self.CON1_datagram = fid.read(1)
+                else:
+                    self.CON1_datagram = None
 
-            for ch_num in self.config_datagram['transceivers'].keys():
-                self.ping_data_dict[ch_num] = defaultdict(list)
-                self.ping_data_dict[ch_num]['frequency'] = \
-                    self.config_datagram['transceivers'][ch_num]['frequency']
-                self.power_dict[ch_num] = []
-                self.angle_dict[ch_num] = []
-
-            # Read the rest of datagrams
-            self._read_datagrams(fid)
+                # Read the rest of datagrams
+                self._read_datagrams(fid)
 
             # Check lengths of power data and only store those with the majority sizes (for now)
             # TODO: figure out how to handle this better when there's a clear switch in the middle
 
-            # Find indices of unwanted pings
-            lens = [len(l) for l in self.power_dict[1]]
-            uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
+        # Find indices of unwanted pings
+        lens = [len(l) for l in self.power_dict[1]]
+        uni, uni_inv, uni_cnt = np.unique(lens, return_inverse=True, return_counts=True)
 
-            # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
-            indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
+        # Dictionary with keys = length of range bin and value being the indexes for the pings with that range
+        indices = {num: [i for i, x in enumerate(lens) if x == num] for num in uni}
 
-            # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
-            self.ping_time_split = {}
-            self.power_dict_split = {}
-            self.angle_dict_split = {}
-            for i, length in enumerate(uni):
-                self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
-                self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
-                self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+        self.ping_time_split = {}
+        self.power_dict_split = {}
+        self.angle_dict_split = {}
+        for i, length in enumerate(uni):
+            self.ping_time_split[i] = self.ping_time[:uni_cnt[i]]
+            self.power_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+            self.angle_dict_split[i] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
 
-            for ch_num in self.config_datagram['transceivers'].keys():
-                # r_b represents index for range_bin (how many different range_bins there are).
-                # r is the list of indexes that correspond to that range
-                for r_b, r in enumerate(indices.values()):
-                    for r_idx in r:
-                        self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
-                        self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
-                    self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
-                    self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
+        for ch_num in self.config_datagram['transceivers'].keys():
+            # r_b represents index for range_bin (how many different range_bins there are).
+            # r is the list of indexes that correspond to that range
+            for r_b, r in enumerate(indices.values()):
+                for r_idx in r:
+                    self.power_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                    self.angle_dict_split[r_b][ch_num].append(self.power_dict[ch_num][r_idx])
+                self.power_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num]) * INDEX2POWER
+                self.angle_dict_split[r_b][ch_num] = np.array(self.power_dict_split[r_b][ch_num])
 
         # TODO: need to convert angle data too
         self.ping_time = np.array(self.ping_time)
@@ -304,24 +292,23 @@ class ConvertEK60(ConvertBase):
             out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
             return out_dict
 
-        def _set_beam_dict():
+        def _set_beam_dict(piece=0):
             beam_dict = dict()
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
-            beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+            beam_dict['ping_time'] = self.ping_time_split[piece]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
             # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
             beam_dict['range_lengths'] = self.range_lengths
-            beam_dict['power_dict'] = self.power_dict_split
+            beam_dict['backscatter_r'] = self.power_dict_split
+            beam_dict['backscatter_r'] = np.array([beam_dict['backscatter_r'][piece][x] for x in
+                                                   beam_dict['backscatter_r'][piece].keys()])
             beam_dict['angle_dict'] = self.angle_dict_split
-            beam_dict['ping_time_split'] = self.ping_time_split
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
             # beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
 
-            beam_dict['range_bin'] = dict()
-            for ranges in self.ping_time_split.keys():
-                beam_dict['range_bin'][ranges] = np.arange(beam_dict['power_dict'][ranges][1].shape[1])
+            beam_dict['range_bin'] = np.arange(beam_dict['backscatter_r'].shape[2])
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -403,26 +390,37 @@ class ConvertEK60(ConvertBase):
                 np.array([x['sa_correction_table'][y]
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
 
+            # New path created if the power data is broken up due to varying range bins
+            if piece > 0:
+                split = os.path.splitext(self.save_path)
+                path = split[0] + f"_part_{i+1}" + split[1]
+                beam_dict['path'] = path
+            else:
+                beam_dict['path'] = self.save_path
             return beam_dict
 
         # Load data from RAW file
         if not bool(self.power_dict):  # if haven't parsed .raw file
             self.load_ek60_raw()
 
-        # Get exported filename
-        filename = os.path.splitext(os.path.basename(self.filename))[0]
-        self.save_path = os.path.join(os.path.split(self.filename)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(self.filename)[0], filename + '.zarr')
+        # Get exported filename (Only the first if there is a list of filenames)
+        first_file = self.filename[0]
+        filename = os.path.splitext(os.path.basename(first_file))[0]
+        self.save_path = os.path.join(os.path.split(first_file)[0], filename + file_format)
+        self.nc_path = os.path.join(os.path.split(first_file)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(first_file)[0], filename + '.zarr')
         # filename must have "-" as the field separator for the last 2 fields
         filename_tup = filename.split("-")
         filedate = filename_tup[len(filename_tup)-2].replace("D","")
-        filetime = filename_tup[len(filename_tup)-1].replace("T","")        
-        
+        filetime = filename_tup[len(filename_tup)-1].replace("T","")
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
         # ... if not, continue with conversion
+        if os.path.exists(self.nc_path):
+            os.remove(self.nc_path)
+
+
         if os.path.exists(self.save_path):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
@@ -454,8 +452,9 @@ class ConvertEK60(ConvertBase):
             grp = SetGroups(file_path=self.save_path, echo_type='EK60')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
+            grp.set_provenance(self.filename, _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            grp.set_beam(_set_beam_dict())          # beam group
+            for i in range(len(self.range_lengths)):
+                grp.set_beam(_set_beam_dict(piece=i))          # beam group

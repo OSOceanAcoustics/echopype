@@ -34,6 +34,17 @@ class ConvertBase:
     def platform_code_ICES(self, platform_code_ICES):
         self._platform['platform_code_ICES'] = platform_code_ICES
 
+    @property
+    def filename(self):
+        return self._filename
+
+    @filename.setter
+    def filename(self, p):
+        if isinstance(p, list):
+            self._filename = p
+        else:
+            self._filename = [p]
+
     def raw2nc(self):
         self.save(".nc")
 
