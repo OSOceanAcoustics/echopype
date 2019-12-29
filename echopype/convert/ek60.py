@@ -327,42 +327,35 @@ class ConvertEK60(ConvertBase):
             beam_dict['range_bin'] = np.arange(self.power_dict_split[piece_seq].shape[2])
 
             # Loop through each transducer for channel-specific variables
-            bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-            bm_dir = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-            bm_angle = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-            tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-            beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
-            beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
-            beam_dict['gpt_software_version'] = []
-            beam_dict['channel_id'] = []  # transducer
-            beam_dict['beam_type'] = []   # whether single beam (0) or split-beam (1)
+            param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
+                               "beamwidth_receive_minor": "beamwidth_athwartship",
+                               "beamwidth_transmit_major": "beamwidth_alongship",
+                               "beamwidth_transmit_minor": "beamwidth_athwartship",
+                               "beam_direction_x": "dir_x",
+                               "beam_direction_y": "dir_y",
+                               "beam_direction_z": "dir_z",
+                               "angle_offset_alongship": "angle_offset_alongship",
+                               "angle_offset_athwartship": "angle_offset_athwartship",
+                               "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+                               "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
+                               "transducer_offset_x": "pos_x",
+                               "transducer_offset_y": "pos_y",
+                               "transducer_offset_z": "pos_z",
+                               "equivalent_beam_angle": "equivalent_beam_angle",
+                               "gain_correction": "gain"}
+            param_str = {"gpt_software_version": "gpt_software_version",
+                         "channel_id": "channel_id",
+                         "beam_type": "beam_type"}
 
-            for c_seq, c in self.config_datagram['transceivers'].items():
-                c_seq -= 1
-                bm_width['beamwidth_receive_major'][c_seq] = c['beamwidth_alongship']
-                bm_width['beamwidth_receive_minor'][c_seq] = c['beamwidth_athwartship']
-                bm_width['beamwidth_transmit_major'][c_seq] = c['beamwidth_alongship']
-                bm_width['beamwidth_transmit_minor'][c_seq] = c['beamwidth_athwartship']
-                bm_dir['beam_direction_x'][c_seq] = c['dir_x']
-                bm_dir['beam_direction_y'][c_seq] = c['dir_y']
-                bm_dir['beam_direction_z'][c_seq] = c['dir_z']
-                bm_angle['angle_offset_alongship'][c_seq] = c['angle_offset_alongship']
-                bm_angle['angle_offset_athwartship'][c_seq] = c['angle_offset_athwartship']
-                bm_angle['angle_sensitivity_alongship'][c_seq] = c['angle_sensitivity_alongship']
-                bm_angle['angle_sensitivity_athwartship'][c_seq] = c['angle_sensitivity_athwartship']
-                tx_pos['transducer_offset_x'][c_seq] = c['pos_x']
-                tx_pos['transducer_offset_y'][c_seq] = c['pos_y']
-                tx_pos['transducer_offset_z'][c_seq] = c['pos_z'] + self.ping_data_dict[c_seq+1]['transducer_depth'][0]
-                beam_dict['equivalent_beam_angle'][c_seq] = c['equivalent_beam_angle']
-                beam_dict['gain_correction'][c_seq] = c['gain']
-                beam_dict['gpt_software_version'].append(c['gpt_software_version'])
-                beam_dict['channel_id'].append(c['channel_id'])
-                beam_dict['beam_type'].append(c['beam_type'])
+            for encode_name, origin_name in param_numerical.items():
+                beam_dict[encode_name] = np.array(
+                    [val[origin_name] for key, val in self.config_datagram['transceivers'].items()]).astype('float32')
+            beam_dict['transducer_offset_z'] += [self.ping_data_dict[x]['transducer_depth'][0]
+                                                 for x in self.config_datagram['transceivers'].keys()]
 
-            beam_dict['beam_width'] = bm_width
-            beam_dict['beam_direction'] = bm_dir
-            beam_dict['beam_angle'] = bm_angle
-            beam_dict['transducer_position'] = tx_pos
+            for encode_name, origin_name in param_str.items():
+                beam_dict[encode_name] = [val[origin_name]
+                                          for key, val in self.config_datagram['transceivers'].items()]
 
             beam_dict['transmit_signal'] = self.tx_sig[piece_seq]  # only this range_bin group
 
