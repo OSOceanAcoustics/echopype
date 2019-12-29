@@ -224,8 +224,15 @@ class ConvertEK60(ConvertBase):
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
-    def save(self, file_format):
-        """Save data from EK60 `.raw` to netCDF format.
+    def save(self, file_format, compress=True):
+        """Save data from raw 01A format to a netCDF4 or Zarr file
+
+        Parameters
+        ----------
+        file_format : str
+            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        compress : bool
+            Whether or not to compress backscatter data. Defaults to `True`
         """
 
         # Subfunctions to set various dictionaries
@@ -449,7 +456,7 @@ class ConvertEK60(ConvertBase):
                                   dtype='float32')
 
             # Create SetGroups object
-            grp = SetGroups(file_path=self.save_path, echo_type='EK60')
+            grp = SetGroups(file_path=self.save_path, echo_type='EK60', compress=compress)
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(self.filename, _set_prov_dict())    # provenance group

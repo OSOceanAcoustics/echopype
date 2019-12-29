@@ -45,8 +45,8 @@ class ConvertBase:
         else:
             self._filename = [p]
 
-    def raw2nc(self):
-        self.save(".nc")
+    def raw2nc(self, compress=True):
+        self.save(".nc", compress)
 
-    def raw2zarr(self):
-        self.save(".zarr")
+    def raw2zarr(self, compress=True):
+        self.save(".zarr", compress)
