@@ -330,7 +330,8 @@ class ConvertEK60(ConvertBase):
             beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gpt_software_version'] = []
-            beam_dict['channel_id'] = []
+            beam_dict['channel_id'] = []  # transducer
+            beam_dict['beam_type'] = []   # whether single beam (0) or split-beam (1)
 
             for c_seq, c in self.config_datagram['transceivers'].items():
                 c_seq -= 1
@@ -352,6 +353,7 @@ class ConvertEK60(ConvertBase):
                 beam_dict['gain_correction'][c_seq] = c['gain']
                 beam_dict['gpt_software_version'].append(c['gpt_software_version'])
                 beam_dict['channel_id'].append(c['channel_id'])
+                beam_dict['beam_type'].append(c['beam_type'])
 
             beam_dict['beam_width'] = bm_width
             beam_dict['beam_direction'] = bm_dir
