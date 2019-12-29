@@ -1,14 +1,14 @@
 class ConvertBase:
     # Class for assigning attributes common to all echosounders
     def __init__(self):
-        # self.parameters['platform_name'] = ''
-        # self.parameters['platform_type'] = ''
-        # self.parameters['platform_code_ICES'] = ''
         self._platform = {
             'platform_name': '',
             'platform_code_ICES': '',
             'platform_type': ''
         }
+        self.nc_path = None
+        self.zarr_path = None
+        self.save_path = None
 
     @property
     def platform_name(self):
