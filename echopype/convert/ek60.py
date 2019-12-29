@@ -170,15 +170,19 @@ class ConvertEK60(ConvertBase):
 
         # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
         uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
+        beam_type = np.array([self.config_datagram['transceivers'][x]['beam_type']
+                              for x in self.config_datagram['transceivers'].keys()])
         for range_group in range(len(uni)):
             self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
                                                                          uni_cnt_insert[range_group+1]]
             self.power_dict_split[range_group] = np.array(
                 [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
                  for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
-            self.angle_dict_split[range_group] = np.array(
-                [self.angle_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
-                 for x in self.config_datagram['transceivers'].keys()])
+            self.angle_dict_split[range_group] = np.empty(shape=self.power_dict_split[range_group].shape)
+            self.angle_dict_split[range_group][:] = np.nan
+            for ch in np.argwhere(beam_type == 1):
+                self.angle_dict_split[range_group][ch, :, :] = np.array(
+                    self.angle_dict[ch[0]+1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
             self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
 
         pulse_length, transmit_power, bandwidth, sample_interval = [], [], [], []
