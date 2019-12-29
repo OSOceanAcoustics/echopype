@@ -204,7 +204,7 @@ class SetGroupsEK60(SetGroupsBase):
                                                   'long_name': 'Presence or not of non-quantitative '
                                                                'processing applied to the backscattering '
                                                                'data (sonar specific)'}),
-                 'sample_interval': (['frequency'], beam_dict['sample_interval'],
+                 'sample_interval': (['frequency'], beam_dict['transmit_signal']['sample_interval'],
                                      {'long_name': 'Interval between recorded raw data samples',
                                       'units': 's',
                                       'valid_min': 0.0}),
