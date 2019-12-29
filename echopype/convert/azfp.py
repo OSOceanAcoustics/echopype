@@ -351,8 +351,15 @@ class ConvertAZFP(ConvertBase):
                                 ).replace(tzinfo=timezone.utc).timestamp())
         return ping_time
 
-    def save(self, file_format):
-        """Save data from raw 01A format to netCDF4 .nc or Zarr .zarr format
+    def save(self, file_format, compress=True):
+        """Save data from raw 01A format to a netCDF4 or Zarr file
+
+        Parameters
+        ----------
+        file_format : str
+            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        compress : bool
+            Whether or not to compress backscatter data. Defaults to `True`
         """
 
         # Subfunctions to set various dictionaries
@@ -557,7 +564,7 @@ class ConvertAZFP(ConvertBase):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetGroups(file_path=self.save_path, echo_type='AZFP')
+            grp = SetGroups(file_path=self.save_path, echo_type='AZFP', compress=compress)
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
             grp.set_env(_set_env_dict())                # environment group
             grp.set_provenance(self.filename, _set_prov_dict())        # provenance group
