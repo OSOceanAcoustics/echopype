@@ -194,6 +194,7 @@ class ConvertEK60(ConvertBase):
         for range_group in range(len(uni)):
             for p, pname, pname_save in zip(param, param_name, param_name_save):
                 if np.unique(p[range_group], axis=1).size != tx_num:
+                    # TODO: right now set_groups_ek60/set_beam doens't deal with this case, need to add
                     ValueError('%s changed in the middle of range_bin group' % pname)
                 else:
                     self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
@@ -380,10 +381,6 @@ class ConvertEK60(ConvertBase):
                 beam_dict['path'] = self.save_path
             return beam_dict
 
-        # Load data from RAW file   # TODO: WJ: move this to below line 417
-        if not bool(self.power_dict):  # if haven't parsed .raw file
-            self.load_ek60_raw()
-
         # Get exported filename (Only the first if there is a list of filenames)
         first_file = self.filename[0]
         filename = os.path.splitext(os.path.basename(first_file))[0]
@@ -398,12 +395,13 @@ class ConvertEK60(ConvertBase):
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
         # ... if not, continue with conversion
-        if os.path.exists(self.nc_path):   # TODO: WJ: why do we need to remove the nc file here?
-            os.remove(self.nc_path)
-
         if os.path.exists(self.save_path):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
+            # Load data from RAW file
+            if not bool(self.power_dict):  # if haven't parsed .raw file
+                self.load_ek60_raw()
+
             # Retrieve variables
             tx_num = self.config_datagram['transceiver_count']
             freq = np.array([self.config_datagram['transceivers'][x]['frequency']
@@ -419,7 +417,7 @@ class ConvertEK60(ConvertBase):
                 ss_val = np.array([self.ping_data_dict[x]['sound_velocity'][0]
                                    for x in self.config_datagram['transceivers'].keys()], dtype='float32')
             # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
-            else:  # WJ: check if abs_val are the same for all pings when read from multiple files
+            else:  # TODO: right now set_groups_ek60/set_env doens't deal with this case, need to add
                 abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient']
                                     for x in self.config_datagram['transceivers'].keys()],
                                    dtype='float32')
