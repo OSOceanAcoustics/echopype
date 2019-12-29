@@ -46,6 +46,7 @@ class ConvertEK60(ConvertBase):
         self.ping_time_split = {}    # dictionaries to store variables of each range_bin groups (if there are multiple)
         self.power_dict_split = {}
         self.angle_dict_split = {}
+        self.tx_sig = {}   # dictionary to store trasmit signal parameters and sample interval
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -203,14 +204,54 @@ class ConvertEK60(ConvertBase):
                                                                          uni_cnt_insert[range_group+1]]
             self.power_dict_split[range_group] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
             self.angle_dict_split[range_group] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+            self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
         for ch_num in self.config_datagram['transceivers'].keys():
-            # r_b represents index for range_bin (how many different range_bins there are).
-            # r is the list of indexes that correspond to that range
             for range_group in range(len(uni)):
                 self.power_dict_split[range_group][ch_num] = np.array(
-                    self.power_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group+1]]) * INDEX2POWER
+                    self.power_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]) * INDEX2POWER
                 self.angle_dict_split[range_group][ch_num] = np.array(
-                    self.angle_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group+1]])
+                    self.angle_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+
+        pulse_length = []
+        transmit_power = []
+        bandwidth = []
+        sample_interval = []
+        for range_group in range(len(uni)):
+            pulse_length.append(np.array([np.array(
+                self.ping_data_dict[x]['pulse_length'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                for x in self.config_datagram['transceivers'].keys()]))
+            transmit_power.append(np.array([np.array(
+                self.ping_data_dict[x]['transmit_power'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                for x in self.config_datagram['transceivers'].keys()]))
+            bandwidth.append(np.array([np.array(
+                self.ping_data_dict[x]['bandwidth'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                for x in self.config_datagram['transceivers'].keys()]))
+            sample_interval.append(np.array([np.array(
+                self.ping_data_dict[x]['sample_interval'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                for x in self.config_datagram['transceivers'].keys()]))
+
+        tx_num = self.config_datagram['transceiver_count']  # number of transceivers
+        for range_group in range(len(uni)):
+            # Pulse length
+            if np.unique(pulse_length[range_group], axis=1).size != tx_num:
+                ValueError('Pulse length changed in the middle of range_bin group')
+            else:
+                self.tx_sig[range_group]['transmit_duration_nominal'] = np.unique(pulse_length[0], axis=1).squeeze()
+            # Transmit power
+            if np.unique(transmit_power[range_group], axis=1).size != tx_num:
+                ValueError('Transmit_power changed in the middle of range_bin group')
+            else:
+                self.tx_sig[range_group]['transmit_power'] = np.unique(transmit_power[0], axis=1).squeeze()
+            # Bandwidth
+            if np.unique(bandwidth[range_group], axis=1).size != tx_num:
+                ValueError('Bandwidth changed in the middle of range_bin group')
+            else:
+                self.tx_sig[range_group]['transmit_bandwidth'] = np.unique(bandwidth[0], axis=1).squeeze()
+            # Sample interval
+            if np.unique(sample_interval[range_group], axis=1).size != tx_num:
+                ValueError('Sample interval changed in the middle of range_bin group')
+            else:
+                self.tx_sig[range_group]['sample_interval'] = np.unique(sample_interval[0], axis=1).squeeze()
 
         self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
 
@@ -338,44 +379,14 @@ class ConvertEK60(ConvertBase):
             beam_dict['beam_angle'] = bm_angle
             beam_dict['transducer_position'] = tx_pos
 
-            # Loop through each transducer for variables that may vary at each ping
-            # -- this rarely is the case for EK60 so we check first before saving
-            pl_tmp = np.unique(self.ping_data_dict[1]['pulse_length']).size
-            pw_tmp = np.unique(self.ping_data_dict[1]['transmit_power']).size
-            bw_tmp = np.unique(self.ping_data_dict[1]['bandwidth']).size
-            si_tmp = np.unique(self.ping_data_dict[1]['sample_interval']).size
-            if np.all(np.array([pl_tmp, pw_tmp, bw_tmp, si_tmp]) == 1):
-                tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-                beam_dict['sample_interval'] = np.zeros(shape=(tx_num,), dtype='float32')
-                for t_seq in range(tx_num):
-                    tx_sig['transmit_duration_nominal'][t_seq] = \
-                        np.float32(self.ping_data_dict[t_seq + 1]['pulse_length'][0])
-                    tx_sig['transmit_power'][t_seq] = \
-                        np.float32(self.ping_data_dict[t_seq + 1]['transmit_power'][0])
-                    tx_sig['transmit_bandwidth'][t_seq] = \
-                        np.float32(self.ping_data_dict[t_seq + 1]['bandwidth'][0])
-                    beam_dict['sample_interval'][t_seq] = \
-                        np.float32(self.ping_data_dict[t_seq + 1]['sample_interval'][0])
-            else:
-                tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, ping_num), dtype='float32'))  # TODO: WJ: this should vary with range_group
-                beam_dict['sample_interval'] = np.zeros(shape=(tx_num, ping_num), dtype='float32')
-                for t_seq in range(tx_num):
-                    tx_sig['transmit_duration_nominal'][t_seq, :] = \
-                        np.array(self.ping_data_dict[t_seq + 1]['pulse_length'], dtype='float32')
-                    tx_sig['transmit_power'][t_seq, :] = \
-                        np.array(self.ping_data_dict[t_seq + 1]['transmit_power'], dtype='float32')
-                    tx_sig['transmit_bandwidth'][t_seq, :] = \
-                        np.array(self.ping_data_dict[t_seq + 1]['bandwidth'], dtype='float32')
-                    beam_dict['sample_interval'][t_seq, :] = \
-                        np.array(self.ping_data_dict[t_seq + 1]['sample_interval'], dtype='float32')
+            beam_dict['transmit_signal'] = self.tx_sig[piece_seq]  # only this range_bin group
 
-            beam_dict['transmit_signal'] = tx_sig
             # Build other parameters
             beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
             # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
             beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
-            idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][x - 1],
+            idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][x - 1],
                                           self.config_datagram['transceivers'][x]['pulse_length_table'])).squeeze()
                    for x in self.config_datagram['transceivers'].keys()]
             beam_dict['sa_correction'] = \
@@ -391,7 +402,7 @@ class ConvertEK60(ConvertBase):
                 beam_dict['path'] = self.save_path
             return beam_dict
 
-        # Load data from RAW file
+        # Load data from RAW file   # TODO: WJ: move this to below line 417
         if not bool(self.power_dict):  # if haven't parsed .raw file
             self.load_ek60_raw()
 
@@ -417,7 +428,6 @@ class ConvertEK60(ConvertBase):
         else:
             # Retrieve variables
             tx_num = self.config_datagram['transceiver_count']
-            ping_num = len(self.ping_time)  # TODO: WJ: this should vary with range_group
             freq = np.array([self.config_datagram['transceivers'][x]['frequency']
                              for x in self.config_datagram['transceivers'].keys()], dtype='float32')
 
