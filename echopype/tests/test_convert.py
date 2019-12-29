@@ -51,7 +51,6 @@ def test_convert_ek60():
 
 def test_convert_ek80():
     tmp = ConvertEK80(ek80_raw_path)
-    # tmp.test()
     tmp.raw2nc()
 
 

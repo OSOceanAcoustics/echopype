@@ -154,19 +154,22 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            # ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+            ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
-            # # TODO Implement backscatter and deal with multiple range bins
-            # range_bin_1 = np.arange(beam_dict['backscatter_i'][0].shape[1])
-            # range_bin_2 = np.arange(beam_dict['backscatter_i'][1].shape[1])
-
-            ds = xr.Dataset({
-                # {'backscatter_r': (['frequency', 'ping_time', 'range_bin_1'], beam_dict['backscatter_r'],
-                #                    {'long_name': 'Real part of backscatter power',
-                #                     'units': 'dB'}),
-                #  'backscatter_i': (['frequency', 'ping_time', 'range_bin_2'], beam_dict['backscatter_i'],
-                #                    {'long_name': 'Imaginary part of backscatter power',
-                #                     'units': 'dB'}),
+            ds = xr.Dataset(
+                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                                   {'long_name': 'Real part of backscatter power',
+                                    'units': 'dB'}),
+                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
+                                   {'long_name': 'Imaginary part of backscatter power',
+                                    'units': 'dB'}),
+                 'channel_id': (['frequency'], beam_dict['channel_id']),
+                 'frequency_start': (['frequency', 'ping_time'], np.array(beam_dict['frequency_start']),
+                                     {'long_name': 'Starting frequency of the transducer',
+                                      'units': 'Hz'}),
+                 'frequency_end': (['frequency', 'ping_time'], np.array(beam_dict['frequency_end']),
+                                   {'long_name': 'Ending frequency of the transducer',
+                                    'units': 'Hz'}),
                  'beamwidth_receive_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                                  {'long_name': 'Half power one-way receive beam width along '
                                                   'alongship axis of beam',
@@ -259,24 +262,21 @@ class SetGroupsEK80(SetGroupsBase):
                                                        'origin to the sonar transducer',
                                           'units': 'm'})
                  },
-                coords={'frequency': (['frequency'], beam_dict['frequency'],
-                                      {'units': 'Hz',
-                                       'valid_min': 0.0}),
-                        # 'ping_time': (['ping_time'], ping_time,
-                        #               {'axis': 'T',
+                coords={'frequency': (['frequency'], beam_dict['frequency']),
+                        'ping_time': (['ping_time'], ping_time,
+                                      {'axis': 'T',
                         #                'calendar': 'gregorian',
-                        #                'long_name': 'Timestamp of each ping',
-                        #                'standard_name': 'time',
+                                       'long_name': 'Timestamp of each ping',
+                                       'standard_name': 'time'}),
                         #                'units': 'seconds since 1900-01-01'}),
-                        # 'range_bin_1': (['range_bin_2'], range_bin_1),
+                        'quadrant': (['quadrant'], np.arange(4)),
+                        'range_bin': (['range_bin'], beam_dict['range_bin']),
                         # 'range_bin_2': (['range_bin_2'], range_bin_2)
                         },
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
 
-            # Below are specific to Simrad EK60 .raw files
-            if 'channel_id' in beam_dict:
-                ds['channel_id'] = ('frequency', beam_dict['channel_id'])
+            # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
                 ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
             if 'sa_correction' in beam_dict:
@@ -284,6 +284,11 @@ class SetGroupsEK80(SetGroupsBase):
 
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
+                ds.to_netcdf(path=self.file_path, mode='a', group='Beam',
+                             encoding={'backscatter_r': {'zlib': True, 'complevel': 4},
+                                       'backscatter_i': {'zlib': True, 'complevel': 4}})
+                pass
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Beam')
+                ds.to_zarr(store=self.file_path, mode='a', group='Beam',
+                           encoding={'backscatter_r': {'zlib': True, 'complevel': 4},
+                                     'backscatter_i': {'zlib': True, 'complevel': 4}})
