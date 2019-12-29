@@ -45,8 +45,8 @@ def test_convert_ek60():
 
     # Check if backscatter data from all channels are identical to those directly unpacked
     for idx in tmp.config_datagram['transceivers'].keys():
-        # idx is channel index starting from 0
-        assert np.any(tmp.power_dict_split[0][idx] ==
+        # idx is channel index assigned by instrument, starting from 1
+        assert np.any(tmp.power_dict_split[0][idx-1, :, :] ==  # idx-1 because power_dict_split[0] has a numpy array
                       ds_beam.backscatter_r.sel(frequency=tmp.config_datagram['transceivers'][idx]['frequency']).data)
     ds_beam.close()
     os.remove(tmp.nc_path)

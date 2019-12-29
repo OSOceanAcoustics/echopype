@@ -202,15 +202,13 @@ class ConvertEK60(ConvertBase):
         for range_group in range(len(uni)):
             self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
                                                                          uni_cnt_insert[range_group+1]]
-            self.power_dict_split[range_group] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
-            self.angle_dict_split[range_group] = {ch_num: [] for ch_num in self.config_datagram['transceivers'].keys()}
+            self.power_dict_split[range_group] = np.array(
+                [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                 for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
+            self.angle_dict_split[range_group] = np.array(
+                [self.angle_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                 for x in self.config_datagram['transceivers'].keys()])
             self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-        for ch_num in self.config_datagram['transceivers'].keys():
-            for range_group in range(len(uni)):
-                self.power_dict_split[range_group][ch_num] = np.array(
-                    self.power_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]) * INDEX2POWER
-                self.angle_dict_split[range_group][ch_num] = np.array(
-                    self.angle_dict[ch_num][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
 
         pulse_length = []
         transmit_power = []
@@ -230,7 +228,7 @@ class ConvertEK60(ConvertBase):
                 if np.unique(p[range_group], axis=1).size != tx_num:
                     ValueError('%s changed in the middle of range_bin group' % pname)
                 else:
-                    self.tx_sig[range_group][pname_save] = np.unique(p[0], axis=1).squeeze()
+                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
 
         self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
 
@@ -310,17 +308,13 @@ class ConvertEK60(ConvertBase):
             beam_dict['beam_mode'] = 'vertical'
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
             beam_dict['ping_time'] = self.ping_time_split[piece_seq]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
-            beam_dict['backscatter_r'] = np.array([self.power_dict_split[piece_seq][x] for x in
-                                                   self.power_dict_split[piece_seq].keys()])
-            beam_dict['angle_dict'] = np.array([self.angle_dict_split[piece_seq][x] for x in
-                                                self.angle_dict_split[piece_seq].keys()])
+            beam_dict['backscatter_r'] = self.power_dict_split[piece_seq]  # dimension [freq x ping_time x range_bin]
+            beam_dict['angle_dict'] = self.angle_dict_split[piece_seq]
+
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
-            # beam_dict['range_bin'] = np.arange(self.power_dict[1].shape[1])  # added by echopype, not in convention
-
-            beam_dict['range_bin'] = np.arange(beam_dict['backscatter_r'].shape[2])
+            beam_dict['range_bin'] = np.arange(self.power_dict_split[piece_seq].shape[2])
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
