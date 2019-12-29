@@ -51,6 +51,8 @@ def test_convert_ek60():
 
 def test_convert_ek80():
     tmp = ConvertEK80(ek80_raw_path)
+    tmp.raw2zarr()
+    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
     tmp.raw2nc()
 
 
@@ -99,3 +101,5 @@ def test_convert_AZFP():
     ds_test.close()
     os.remove(tmp.nc_path)
     del tmp
+
+test_convert_ek80()
