@@ -195,7 +195,7 @@ class ConvertEK60(ConvertBase):
 
         # Find out the number of range_bin groups in power data
         # since there are files with a clear switch of length of range_bin in the middle
-        range_bin_lens = [len(l) for l in self.power_dict[1]]  # WJ: change variable name for readability
+        range_bin_lens = [len(l) for l in self.power_dict[1]]
         uni, uni_inv, uni_cnt = np.unique(range_bin_lens, return_inverse=True, return_counts=True)
 
         # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
@@ -293,10 +293,10 @@ class ConvertEK60(ConvertBase):
             beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
             beam_dict['ping_time'] = self.ping_time_split[piece_seq]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
             # beam_dict['backscatter_r'] = np.array([self.power_dict[x] for x in self.power_dict.keys()])
-            beam_dict['backscatter_r'] = self.power_dict_split
-            beam_dict['backscatter_r'] = np.array([beam_dict['backscatter_r'][piece_seq][x] for x in
-                                                   beam_dict['backscatter_r'][piece_seq].keys()])  # WJ: check what's in this operation
-            beam_dict['angle_dict'] = self.angle_dict_split
+            beam_dict['backscatter_r'] = np.array([self.power_dict_split[piece_seq][x] for x in
+                                                   self.power_dict_split[piece_seq].keys()])
+            beam_dict['angle_dict'] = np.array([self.angle_dict_split[piece_seq][x] for x in
+                                                self.angle_dict_split[piece_seq].keys()])
             # Additional coordinate variables added by echopype for storing data as a cube with
             # dimensions [frequency x ping_time x range_bin]
             beam_dict['frequency'] = freq
@@ -387,7 +387,7 @@ class ConvertEK60(ConvertBase):
             # New path created if the power data is broken up due to varying range bins
             if piece_seq > 0:
                 split = os.path.splitext(self.save_path)
-                path = split[0] + f"_part_{piece_seq + 1}" + split[1]   # WJ: potential bug: change i to piece
+                path = split[0] + f"_part_{piece_seq + 1}" + split[1]
                 beam_dict['path'] = path
             else:
                 beam_dict['path'] = self.save_path
@@ -449,5 +449,5 @@ class ConvertEK60(ConvertBase):
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
-            for piece in range(len(self.range_lengths)):   # WJ: change i to piece to make the operation more explicit
+            for piece in range(len(self.range_lengths)):
                 grp.set_beam(_set_beam_dict(piece_seq=piece))          # beam group

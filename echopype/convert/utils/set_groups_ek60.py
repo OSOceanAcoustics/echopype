@@ -143,6 +143,8 @@ class SetGroupsEK60(SetGroupsBase):
                 {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                    {'long_name': 'Backscatter power',
                                     'units': 'dB'}),
+                 'split_beam_angle': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'],
+                                      {'long_name': 'electrical angle'}),
                  'beamwidth_receive_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                                  {'long_name': 'Half power one-way receive beam width along '
                                                   'alongship axis of beam',
