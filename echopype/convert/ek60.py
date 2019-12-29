@@ -158,6 +158,48 @@ class ConvertEK60(ConvertBase):
             else:
                 print("Unknown datagram type: " + str(new_datagram['type']))
 
+    def split_by_range_group(self):
+        """Split ping_time, power_dict, angle_dict, tx_sig by range_group.
+
+        This is to deal with cases when there is a switch of range_bin size in the middle of the file.
+        """
+        # Find out the number of range_bin groups in power data
+        # since there are files with a clear switch of length of range_bin in the middle
+        range_bin_lens = [len(l) for l in self.power_dict[1]]
+        uni, uni_inv, uni_cnt = np.unique(range_bin_lens, return_inverse=True, return_counts=True)
+
+        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+        uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
+        for range_group in range(len(uni)):
+            self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
+                                                                         uni_cnt_insert[range_group+1]]
+            self.power_dict_split[range_group] = np.array(
+                [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                 for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
+            self.angle_dict_split[range_group] = np.array(
+                [self.angle_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                 for x in self.config_datagram['transceivers'].keys()])
+            self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+
+        pulse_length, transmit_power, bandwidth, sample_interval = [], [], [], []
+        param = [pulse_length, transmit_power, bandwidth, sample_interval]
+        param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
+        param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
+        for range_group in range(len(uni)):
+            for p, pname in zip(param, param_name):
+                p.append(np.array([np.array(
+                    self.ping_data_dict[x][pname][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    for x in self.config_datagram['transceivers'].keys()]))
+        tx_num = self.config_datagram['transceiver_count']  # number of transceivers
+        for range_group in range(len(uni)):
+            for p, pname, pname_save in zip(param, param_name, param_name_save):
+                if np.unique(p[range_group], axis=1).size != tx_num:
+                    ValueError('%s changed in the middle of range_bin group' % pname)
+                else:
+                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
+
+        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
+
     def load_ek60_raw(self):
         """Method to parse the EK60 ``.raw`` data file.
 
@@ -192,45 +234,8 @@ class ConvertEK60(ConvertBase):
                 # Read the rest of datagrams
                 self._read_datagrams(fid)
 
-        # Find out the number of range_bin groups in power data
-        # since there are files with a clear switch of length of range_bin in the middle
-        range_bin_lens = [len(l) for l in self.power_dict[1]]
-        uni, uni_inv, uni_cnt = np.unique(range_bin_lens, return_inverse=True, return_counts=True)
-
-        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
-        uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
-        for range_group in range(len(uni)):
-            self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
-                                                                         uni_cnt_insert[range_group+1]]
-            self.power_dict_split[range_group] = np.array(
-                [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
-                 for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
-            self.angle_dict_split[range_group] = np.array(
-                [self.angle_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
-                 for x in self.config_datagram['transceivers'].keys()])
-            self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-
-        pulse_length = []
-        transmit_power = []
-        bandwidth = []
-        sample_interval = []
-        param = [pulse_length, transmit_power, bandwidth, sample_interval]
-        param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
-        param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
-        for range_group in range(len(uni)):
-            for p, pname in zip(param, param_name):
-                p.append(np.array([np.array(
-                    self.ping_data_dict[x][pname][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    for x in self.config_datagram['transceivers'].keys()]))
-        tx_num = self.config_datagram['transceiver_count']  # number of transceivers
-        for range_group in range(len(uni)):
-            for p, pname, pname_save in zip(param, param_name, param_name_save):
-                if np.unique(p[range_group], axis=1).size != tx_num:
-                    ValueError('%s changed in the middle of range_bin group' % pname)
-                else:
-                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
-
-        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
+        # Split data based on range_group (when there is a switch of range_bin in the middle of a file)
+        self.split_by_range_group()
 
         # Trim excess data from NMEA object
         self.nmea_data.trim()
