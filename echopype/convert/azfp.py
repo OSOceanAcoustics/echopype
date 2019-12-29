@@ -30,8 +30,6 @@ class ConvertAZFP(ConvertBase):
         self.loadAZFPxml()
 
         # Initialize variables that'll be filled later
-        self.nc_path = None
-        self.zarr_path = None
         self.unpacked_data = None
         self._checked_unique = False
 
