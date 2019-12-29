@@ -119,6 +119,7 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_dict
             dictionary containing sonar parameters for each sonar
         """
+        # TODO: This probably doesn't work for multiple channels
         # create group
         if self.format == '.nc':
             for ch_id, data in sonar_dict.items():
@@ -132,10 +133,9 @@ class SetGroupsEK80(SetGroupsBase):
             # close nc file
             ncfile.close()
         elif self.format == '.zarr':
+            zarrfile = zarr.open(self.file_path, mode='a')
+            snr = zarrfile.create_group('Sonar')
             for ch_id, data in sonar_dict.items():
-                zarrfile = zarr.open(self.file_path, mode='a')
-                snr = zarrfile.create_group('Sonar')
-
                 for k, v in data.items():
                     snr.attrs[k] = v
 
@@ -287,8 +287,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ds.to_netcdf(path=self.file_path, mode='a', group='Beam',
                              encoding={'backscatter_r': {'zlib': True, 'complevel': 4},
                                        'backscatter_i': {'zlib': True, 'complevel': 4}})
-                pass
             elif self.format == '.zarr':
                 ds.to_zarr(store=self.file_path, mode='a', group='Beam',
-                           encoding={'backscatter_r': {'zlib': True, 'complevel': 4},
-                                     'backscatter_i': {'zlib': True, 'complevel': 4}})
+                           encoding={'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)},
+                                     'backscatter_i': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}})
