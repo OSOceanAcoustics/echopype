@@ -40,8 +40,6 @@ class ConvertEK60(ConvertBase):
         self.angle_dict = {}   # dictionary to store angle data
         self.ping_time = []    # list to store ping time
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
-        self.nc_path = None
-        self.zarr_path = None
 
         # Variables only used in EK60 parsing
         self.range_lengths = None    # number of range_bin groups
@@ -405,8 +403,8 @@ class ConvertEK60(ConvertBase):
         self.zarr_path = os.path.join(os.path.split(first_file)[0], filename + '.zarr')
         # filename must have "-" as the field separator for the last 2 fields
         filename_tup = filename.split("-")
-        filedate = filename_tup[len(filename_tup)-2].replace("D","")
-        filetime = filename_tup[len(filename_tup)-1].replace("T","")
+        filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
+        filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
         # Check if nc file already exists
         # ... if yes, abort conversion and issue warning
