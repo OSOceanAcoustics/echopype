@@ -10,10 +10,11 @@ class SetGroupsBase:
     """Base class for setting groups in netCDF file.
     """
 
-    def __init__(self, file_path='test.nc'):
+    def __init__(self, file_path='test.nc', compress=True):
         self.file_path = file_path
         filename, ext = os.path.splitext(file_path)
         self.format = ext
+        self.compress = compress
 
     def set_toplevel(self, tl_dict):
         """Set attributes in the Top-level group."""

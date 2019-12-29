@@ -3,6 +3,7 @@ import xarray as xr
 import os
 import numpy as np
 import shutil
+import zarr
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -253,17 +254,24 @@ class SetGroupsEK60(SetGroupsBase):
                 ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
             if 'sa_correction' in beam_dict:
                 ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
+
+            n_settings = {}
+            z_settings = {}
+            if self.compress:
+                n_settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
+                z_settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
+
             if beam_dict['path'] == self.file_path:
                 # save to file
                 if self.format == '.nc':
-                    ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
+                    ds.to_netcdf(path=self.file_path, mode='a', group='Beam', encoding=n_settings)
                 elif self.format == '.zarr':
-                    ds.to_zarr(store=self.file_path, mode='a', group='Beam')
+                    ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=z_settings)
             else:
                 # If there are multiple range bins, copies the first file then overwrites with new power data
                 if self.format == '.nc':
                     shutil.copyfile(self.file_path, beam_dict['path'])
-                    ds.to_netcdf(path=beam_dict['path'], mode='w', group='Beam')
+                    ds.to_netcdf(path=beam_dict['path'], mode='w', group='Beam', encoding=n_settings)
                 elif self.format == '.zarr':
                     shutil.copytree(self.file_path, beam_dict['path'])
-                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam')
+                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=z_settings)
