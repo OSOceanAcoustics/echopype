@@ -216,42 +216,21 @@ class ConvertEK60(ConvertBase):
         transmit_power = []
         bandwidth = []
         sample_interval = []
+        param = [pulse_length, transmit_power, bandwidth, sample_interval]
+        param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
+        param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
         for range_group in range(len(uni)):
-            pulse_length.append(np.array([np.array(
-                self.ping_data_dict[x]['pulse_length'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                for x in self.config_datagram['transceivers'].keys()]))
-            transmit_power.append(np.array([np.array(
-                self.ping_data_dict[x]['transmit_power'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                for x in self.config_datagram['transceivers'].keys()]))
-            bandwidth.append(np.array([np.array(
-                self.ping_data_dict[x]['bandwidth'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                for x in self.config_datagram['transceivers'].keys()]))
-            sample_interval.append(np.array([np.array(
-                self.ping_data_dict[x]['sample_interval'][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                for x in self.config_datagram['transceivers'].keys()]))
-
+            for p, pname in zip(param, param_name):
+                p.append(np.array([np.array(
+                    self.ping_data_dict[x][pname][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    for x in self.config_datagram['transceivers'].keys()]))
         tx_num = self.config_datagram['transceiver_count']  # number of transceivers
         for range_group in range(len(uni)):
-            # Pulse length
-            if np.unique(pulse_length[range_group], axis=1).size != tx_num:
-                ValueError('Pulse length changed in the middle of range_bin group')
-            else:
-                self.tx_sig[range_group]['transmit_duration_nominal'] = np.unique(pulse_length[0], axis=1).squeeze()
-            # Transmit power
-            if np.unique(transmit_power[range_group], axis=1).size != tx_num:
-                ValueError('Transmit_power changed in the middle of range_bin group')
-            else:
-                self.tx_sig[range_group]['transmit_power'] = np.unique(transmit_power[0], axis=1).squeeze()
-            # Bandwidth
-            if np.unique(bandwidth[range_group], axis=1).size != tx_num:
-                ValueError('Bandwidth changed in the middle of range_bin group')
-            else:
-                self.tx_sig[range_group]['transmit_bandwidth'] = np.unique(bandwidth[0], axis=1).squeeze()
-            # Sample interval
-            if np.unique(sample_interval[range_group], axis=1).size != tx_num:
-                ValueError('Sample interval changed in the middle of range_bin group')
-            else:
-                self.tx_sig[range_group]['sample_interval'] = np.unique(sample_interval[0], axis=1).squeeze()
+            for p, pname, pname_save in zip(param, param_name, param_name_save):
+                if np.unique(p[range_group], axis=1).size != tx_num:
+                    ValueError('%s changed in the middle of range_bin group' % pname)
+                else:
+                    self.tx_sig[range_group][pname_save] = np.unique(p[0], axis=1).squeeze()
 
         self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
 
