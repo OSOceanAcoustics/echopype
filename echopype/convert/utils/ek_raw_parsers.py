@@ -1507,7 +1507,7 @@ class SimradRawParser(_SimradDatagramParser):
                 type_bytes = 2
                 if ((data['data_type'] & 0b1000)):
                      data['complex_dtype'] = np.float32
-                     type_bytes = 4
+                     type_bytes = 8
 
                 #  determine the number of complex samples
                 data['n_complex'] = data['data_type'] >> 8

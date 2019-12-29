@@ -1,4 +1,3 @@
-import re
 import os
 from collections import defaultdict
 import numpy as np
@@ -246,17 +245,16 @@ class ConvertEK80(ConvertBase):
             # beam_dict['range_lengths'] = self.range_lengths
             # beam_dict['power_dict'] = self.power_dict_split
             # beam_dict['angle_dict'] = self.angle_dict_split
-            # Additional coordinate variables added by echopype for storing data as a cube with
-            # dimensions [frequency x ping_time x range_bin]
-            # beam_dict['frequency'] = freq
 
             backscatter_r = []
             backscatter_i = []
-            for tx in range(tx_num):
-                backscatter_r.append(np.real(self.complex_dict[self.ch_ids[tx]]))
-                backscatter_i.append(np.imag(self.complex_dict[self.ch_ids[tx]]))
-            # beam_dict['backscatter_r'] = np.stack(backscatter_r)
-            # beam_dict['backscatter_i'] = np.stack(backscatter_i)
+            for tx in self.ch_ids:
+                reshaped = np.array(self.complex_dict[tx]).reshape((88, -1, 4))
+                backscatter_r.append(np.real(reshaped))
+                backscatter_i.append(np.imag(reshaped))
+
+            # Find index of channel with longest range
+            largest = max(enumerate(backscatter_r), key=lambda x: x[1].shape[1])[0]
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -267,6 +265,8 @@ class ConvertEK80(ConvertBase):
             beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gpt_software_version'] = []
             beam_dict['channel_id'] = []
+            beam_dict['frequency_start'] = []
+            beam_dict['frequency_end'] = []
 
             c_seq = 0
             for k, c in self.config_datagram['configuration'].items():
@@ -289,7 +289,22 @@ class ConvertEK80(ConvertBase):
                 beam_dict['gain_correction'][c_seq] = np.unique(c['gain'])
                 beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
                 beam_dict['channel_id'].append(c['channel_id'])
+                beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
+                beam_dict['frequency_end'].append(self.parameters[k]['frequency_end'])
+
+                # Pad each channel with nan so that they can be stacked
+                diff = backscatter_r[largest].shape[1] - backscatter_r[c_seq].shape[1]
+                if diff > 0:
+                    backscatter_r[c_seq] = np.pad(backscatter_r[c_seq], ((0, 0), (0, diff), (0, 0)),
+                                                  mode='constant', constant_values=np.nan)
+                    backscatter_i[c_seq] = np.pad(backscatter_i[c_seq], ((0, 0), (0, diff), (0, 0)),
+                                                  mode='constant', constant_values=np.nan)
                 c_seq += 1
+
+            # Stack channels and order axis as: channel, quadrant, ping, range
+            beam_dict['backscatter_r'] = np.moveaxis(np.stack(backscatter_r), 3, 1)
+            beam_dict['backscatter_i'] = np.moveaxis(np.stack(backscatter_i), 3, 1)
+            beam_dict['range_bin'] = np.arange(backscatter_r[largest].shape[1])
 
             beam_dict['beam_width'] = bm_width
             beam_dict['beam_direction'] = bm_dir
@@ -356,9 +371,6 @@ class ConvertEK80(ConvertBase):
         filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
         if os.path.exists(self.save_path):
-            os.remove(self.save_path)
-
-        if os.path.exists(self.save_path):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             tx_num = len(self.ch_ids)
@@ -374,4 +386,3 @@ class ConvertEK80(ConvertBase):
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
             grp.set_beam(_set_beam_dict())          # beam group
-            pass
