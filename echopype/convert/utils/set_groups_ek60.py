@@ -147,51 +147,51 @@ class SetGroupsEK60(SetGroupsBase):
                                       {'long_name': 'electrical angle'}),
                  'beam_type': ('frequency', beam_dict['beam_type'],
                                {'long_name': 'type of transducer (0-single, 1-split)'}),
-                 'beamwidth_receive_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
+                 'beamwidth_receive_alongship': (['frequency'], beam_dict['beamwidth_receive_major'],
                                                  {'long_name': 'Half power one-way receive beam width along '
                                                   'alongship axis of beam',
                                                   'units': 'arc_degree',
                                                   'valid_range': (0.0, 360.0)}),
-                 'beamwidth_receive_athwartship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_minor'],
+                 'beamwidth_receive_athwartship': (['frequency'], beam_dict['beamwidth_receive_minor'],
                                                    {'long_name': 'Half power one-way receive beam width along '
                                                     'athwartship axis of beam',
                                                     'units': 'arc_degree',
                                                     'valid_range': (0.0, 360.0)}),
-                 'beamwidth_transmit_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_transmit_major'],
+                 'beamwidth_transmit_alongship': (['frequency'], beam_dict['beamwidth_transmit_major'],
                                                   {'long_name': 'Half power one-way transmit beam width along '
                                                    'alongship axis of beam',
                                                    'units': 'arc_degree',
                                                    'valid_range': (0.0, 360.0)}),
-                 'beamwidth_transmit_athwartship': (['frequency'], beam_dict['beam_width']['beamwidth_transmit_minor'],
+                 'beamwidth_transmit_athwartship': (['frequency'], beam_dict['beamwidth_transmit_minor'],
                                                     {'long_name': 'Half power one-way transmit beam width along '
                                                         'athwartship axis of beam',
                                                      'units': 'arc_degree',
                                                      'valid_range': (0.0, 360.0)}),
-                 'beam_direction_x': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
+                 'beam_direction_x': (['frequency'], beam_dict['beam_direction_x'],
                                       {'long_name': 'x-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
                                                     'units': '1',
                                                     'valid_range': (-1.0, 1.0)}),
-                 'beam_direction_y': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
+                 'beam_direction_y': (['frequency'], beam_dict['beam_direction_x'],
                                       {'long_name': 'y-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
                                        'units': '1',
                                        'valid_range': (-1.0, 1.0)}),
-                 'beam_direction_z': (['frequency'], beam_dict['beam_direction']['beam_direction_x'],
+                 'beam_direction_z': (['frequency'], beam_dict['beam_direction_x'],
                                       {'long_name': 'z-component of the vector that gives the pointing '
                                                     'direction of the beam, in sonar beam coordinate '
                                                     'system',
                                        'units': '1',
                                        'valid_range': (-1.0, 1.0)}),
-                 'angle_offset_alongship': (['frequency'], beam_dict['beam_angle']['angle_offset_alongship'],
+                 'angle_offset_alongship': (['frequency'], beam_dict['angle_offset_alongship'],
                                             {'long_name': 'electrical alongship angle of the transducer'}),
-                 'angle_offset_athwartship': (['frequency'], beam_dict['beam_angle']['angle_offset_athwartship'],
+                 'angle_offset_athwartship': (['frequency'], beam_dict['angle_offset_athwartship'],
                                               {'long_name': 'electrical athwartship angle of the transducer'}),
-                 'angle_sensitivity_alongship': (['frequency'], beam_dict['beam_angle']['angle_sensitivity_alongship'],
+                 'angle_sensitivity_alongship': (['frequency'], beam_dict['angle_sensitivity_alongship'],
                                                  {'long_name': 'alongship sensitivity of the transducer'}),
-                 'angle_sensitivity_athwartship': (['frequency'], beam_dict['beam_angle']['angle_sensitivity_athwartship'],
+                 'angle_sensitivity_athwartship': (['frequency'], beam_dict['angle_sensitivity_athwartship'],
                                                    {'long_name': 'athwartship sensitivity of the transducer'}),
                  'equivalent_beam_angle': (['frequency'], beam_dict['equivalent_beam_angle'],
                                            {'long_name': 'Equivalent beam angle',
@@ -226,15 +226,15 @@ class SetGroupsEK60(SetGroupsBase):
                                     {'long_name': 'Nominal transmit power',
                                                   'units': 'W',
                                                   'valid_min': 0.0}),
-                 'transducer_offset_x': (['frequency'], beam_dict['transducer_position']['transducer_offset_x'],
+                 'transducer_offset_x': (['frequency'], beam_dict['transducer_offset_x'],
                                          {'long_name': 'x-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                                        'units': 'm'}),
-                 'transducer_offset_y': (['frequency'], beam_dict['transducer_position']['transducer_offset_y'],
+                 'transducer_offset_y': (['frequency'], beam_dict['transducer_offset_y'],
                                          {'long_name': 'y-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                                        'units': 'm'}),
-                 'transducer_offset_z': (['frequency'], beam_dict['transducer_position']['transducer_offset_z'],
+                 'transducer_offset_z': (['frequency'], beam_dict['transducer_offset_z'],
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                                        'units': 'm'})},
@@ -243,20 +243,19 @@ class SetGroupsEK60(SetGroupsBase):
                                        'valid_min': 0.0}),
                         'ping_time': (['ping_time'], ping_time,
                                       {'axis': 'T',
-                                #    'calendar': 'gregorian',
+                                       # 'calendar': 'gregorian',
+                                       # 'units': 'seconds since 1900-01-01'}),
                                        'long_name': 'Timestamp of each ping',
                                        'standard_name': 'time'}),
-                                #    'units': 'seconds since 1900-01-01'}),
                         'range_bin': (['range_bin'], beam_dict['range_bin'])},
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
+
             # Below are specific to Simrad EK60 .raw files
-            if 'channel_id' in beam_dict:
-                ds['channel_id'] = ('frequency', beam_dict['channel_id'])
-            if 'gpt_software_version' in beam_dict:
-                ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
-            if 'sa_correction' in beam_dict:
-                ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
+            ds['channel_id'] = ('frequency', beam_dict['channel_id'])
+            ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
+            ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
+
             if beam_dict['path'] == self.file_path:
                 # save to file
                 if self.format == '.nc':
