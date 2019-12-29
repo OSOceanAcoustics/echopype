@@ -379,12 +379,16 @@ class ConvertEK60(ConvertBase):
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
 
             # New path created if the power data is broken up due to varying range bins
-            if piece_seq > 0:
+            if len(self.range_lengths)>1:
                 split = os.path.splitext(self.save_path)
-                path = split[0] + f"_part_{piece_seq + 1}" + split[1]
+                if piece_seq > 0:
+                    path = split[0] + '_part%02d' % (piece_seq + 1) + split[1]
+                else:
+                    path = split[0] + '_part01' + split[1]
                 beam_dict['path'] = path
             else:
                 beam_dict['path'] = self.save_path
+
             return beam_dict
 
         # Get exported filename (Only the first if there is a list of filenames)
