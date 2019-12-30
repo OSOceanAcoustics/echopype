@@ -47,6 +47,8 @@ class ConvertEK60(ConvertBase):
         self.power_dict_split = {}
         self.angle_dict_split = {}
         self.tx_sig = {}   # dictionary to store trasmit signal parameters and sample interval
+        self.ping_slices = []
+        self.all_files = []
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -311,6 +313,10 @@ class ConvertEK60(ConvertBase):
             out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
             out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
             out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
+
+            if self.ping_slices:
+                out_dict['ping_slice'] = self.ping_slices.pop(0)
+            out_dict['file'] = file
             return out_dict
 
         def _set_nmea_dict():
@@ -381,13 +387,20 @@ class ConvertEK60(ConvertBase):
             # New path created if the power data is broken up due to varying range bins
             if len(self.range_lengths)>1:
                 split = os.path.splitext(self.save_path)
+                beam_dict['path_part_1'] = split[0] + '_part01' + split[1]
+                if not self.all_files:
+                    self.all_files.append(beam_dict['path_part_1'])
                 if piece_seq > 0:
                     path = split[0] + '_part%02d' % (piece_seq + 1) + split[1]
+                    self.all_files.append(path)
                 else:
-                    path = split[0] + '_part01' + split[1]
+                    path = self.save_path
                 beam_dict['path'] = path
+
+                self.ping_slices.append((beam_dict['ping_time'][0], beam_dict['ping_time'][-1]))
             else:
                 beam_dict['path'] = self.save_path
+                self.all_files.append(self.save_path)
 
             return beam_dict
 
@@ -440,8 +453,9 @@ class ConvertEK60(ConvertBase):
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
             grp.set_provenance(self.filename, _set_prov_dict())    # provenance group
-            grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
             for piece in range(len(self.range_lengths)):
                 grp.set_beam(_set_beam_dict(piece_seq=piece))          # beam group
+            for file in self.all_files:
+                grp.set_platform(_set_platform_dict())  # platform group
