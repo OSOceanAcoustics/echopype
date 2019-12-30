@@ -288,7 +288,7 @@ class ConvertEK60(ConvertBase):
                         sonar_software_version=self.config_datagram['version'],
                         sonar_type='echosounder')
 
-        def _set_platform_dict():
+        def _set_platform_dict(piece_seq=0):
             out_dict = dict()
             # TODO: Need to reconcile the logic between using the unpacked "survey_name"
             #  and the user-supplied platform_name
@@ -298,7 +298,8 @@ class ConvertEK60(ConvertBase):
             out_dict['platform_code_ICES'] = self.platform_code_ICES
 
             # Read pitch/roll/heave from ping data
-            out_dict['ping_time'] = self.ping_time  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+            # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+            out_dict['ping_time'] = self.ping_time
             out_dict['pitch'] = np.array(self.ping_data_dict[1]['pitch'], dtype='float32')
             out_dict['roll'] = np.array(self.ping_data_dict[1]['roll'], dtype='float32')
             out_dict['heave'] = np.array(self.ping_data_dict[1]['heave'], dtype='float32')
@@ -314,9 +315,11 @@ class ConvertEK60(ConvertBase):
             out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
             out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
 
-            if self.ping_slices:
-                out_dict['ping_slice'] = self.ping_slices.pop(0)
-            out_dict['file'] = file
+            if piece_seq == 0:
+                out_dict['file'] = self.save_path
+            else:
+                out_dict['file'] = self.all_files[piece_seq]
+            out_dict['ping_slice'] = self.ping_time_split[piece_seq]
             return out_dict
 
         def _set_nmea_dict():
@@ -397,7 +400,6 @@ class ConvertEK60(ConvertBase):
                     path = self.save_path
                 beam_dict['path'] = path
 
-                self.ping_slices.append((beam_dict['ping_time'][0], beam_dict['ping_time'][-1]))
             else:
                 beam_dict['path'] = self.save_path
                 self.all_files.append(self.save_path)
@@ -457,5 +459,4 @@ class ConvertEK60(ConvertBase):
             grp.set_sonar(_set_sonar_dict())        # sonar group
             for piece in range(len(self.range_lengths)):
                 grp.set_beam(_set_beam_dict(piece_seq=piece))          # beam group
-            for file in self.all_files:
-                grp.set_platform(_set_platform_dict())  # platform group
+                grp.set_platform(_set_platform_dict(piece_seq=piece))  # platform group
