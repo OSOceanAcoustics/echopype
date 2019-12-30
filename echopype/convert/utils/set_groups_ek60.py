@@ -60,7 +60,7 @@ class SetGroupsEK60(SetGroupsBase):
             dictionary containing platform parameters
         """
         # Only save platform group if file_path exists
-        if not os.path.exists(self.file_path):
+        if not os.path.exists(platform_dict['file']):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -117,11 +117,20 @@ class SetGroupsEK60(SetGroupsBase):
                 attrs={'platform_code_ICES': platform_dict['platform_code_ICES'],
                        'platform_name': platform_dict['platform_name'],
                        'platform_type': platform_dict['platform_type']})
+
+            if hasattr(platform_dict, 'ping_slice'):
+                lower = (platform_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                upper = (platform_dict['ping_slice'][1] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+
+                ds = ds.sel(location_time=slice(lower, upper))
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Platform')
+                ds.to_netcdf(path=platform_dict['file'], mode='a', group='Platform')
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Platform')
+                ds.to_zarr(store=platform_dict['file'], mode='a', group='Platform')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK60 nc file.
@@ -133,7 +142,7 @@ class SetGroupsEK60(SetGroupsBase):
         """
 
         # Only save beam group if file_path exists
-        if not os.path.exists(self.file_path):
+        if not os.path.exists(self.file_path) and not os.path.exists(beam_dict['path_part_1']):
             print('netCDF file does not exist, exiting without saving Beam group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -244,8 +253,8 @@ class SetGroupsEK60(SetGroupsBase):
                                        'valid_min': 0.0}),
                         'ping_time': (['ping_time'], ping_time,
                                       {'axis': 'T',
-                                       # 'calendar': 'gregorian',
-                                       # 'units': 'seconds since 1900-01-01'}),
+                                       'calendar': 'gregorian',
+                                       'units': 'seconds since 1900-01-01',
                                        'long_name': 'Timestamp of each ping',
                                        'standard_name': 'time'}),
                         'range_bin': (['range_bin'], beam_dict['range_bin'])},
@@ -270,10 +279,13 @@ class SetGroupsEK60(SetGroupsBase):
                 elif self.format == '.zarr':
                     ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=z_settings)
             else:
+                if os.path.exists(self.file_path):
+                    os.rename(self.file_path, beam_dict['path_part_1'])
+
                 # If there are multiple range bins, copies the first file then overwrites with new power data
                 if self.format == '.nc':
-                    shutil.copyfile(self.file_path, beam_dict['path'])
+                    shutil.copyfile(beam_dict['path_part_1'], beam_dict['path'])
                     ds.to_netcdf(path=beam_dict['path'], mode='w', group='Beam', encoding=n_settings)
                 elif self.format == '.zarr':
-                    shutil.copytree(self.file_path, beam_dict['path'])
+                    shutil.copytree(beam_dict['path_part_1'], beam_dict['path'])
                     ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=z_settings)
