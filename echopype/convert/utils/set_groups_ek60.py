@@ -60,7 +60,7 @@ class SetGroupsEK60(SetGroupsBase):
             dictionary containing platform parameters
         """
         # Only save platform group if file_path exists
-        if not os.path.exists(self.file_path) and not os.path.exists(platform_dict['file']):
+        if not os.path.exists(platform_dict['path']):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -68,12 +68,6 @@ class SetGroupsEK60(SetGroupsBase):
             ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
                         / np.timedelta64(1, 's')
             location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                            / np.timedelta64(1, 's')
-
-            if 'ping_slice' in platform_dict:
-                lower = (platform_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
-                            / np.timedelta64(1, 's')
-                upper = (platform_dict['ping_slice'][-1] - np.datetime64('1900-01-01T00:00:00')) \
                             / np.timedelta64(1, 's')
 
             ds = xr.Dataset(
@@ -122,12 +116,20 @@ class SetGroupsEK60(SetGroupsBase):
                         },
                 attrs={'platform_code_ICES': platform_dict['platform_code_ICES'],
                        'platform_name': platform_dict['platform_name'],
-                       'platform_type': platform_dict['platform_type']}).sel(ping_time=slice(lower, upper))
+                       'platform_type': platform_dict['platform_type']})
+
+            if 'ping_slice' in platform_dict:
+                lower = (platform_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                upper = (platform_dict['ping_slice'][-1] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                ds = ds.sel(ping_time=slice(lower, upper)).sel(location_time=slice(lower, upper))
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=platform_dict['file'], mode='a', group='Platform')
+                ds.to_netcdf(path=platform_dict['path'], mode='a', group='Platform')
             elif self.format == '.zarr':
-                ds.to_zarr(store=platform_dict['file'], mode='a', group='Platform')
+                ds.to_zarr(store=platform_dict['path'], mode='a', group='Platform')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK60 nc file.
@@ -139,7 +141,7 @@ class SetGroupsEK60(SetGroupsBase):
         """
 
         # Only save beam group if file_path exists
-        if not os.path.exists(self.file_path) and not os.path.exists(beam_dict['path_part_1']):
+        if not os.path.exists(beam_dict['path']):
             print('netCDF file does not exist, exiting without saving Beam group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -269,20 +271,8 @@ class SetGroupsEK60(SetGroupsBase):
                 n_settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
                 z_settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
 
-            if beam_dict['path'] == self.file_path:
-                # save to file
-                if self.format == '.nc':
-                    ds.to_netcdf(path=self.file_path, mode='a', group='Beam', encoding=n_settings)
-                elif self.format == '.zarr':
-                    ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=z_settings)
-            else:
-                if os.path.exists(self.file_path):
-                    os.rename(self.file_path, beam_dict['path_part_1'])
-
-                # If there are multiple range bins, copies the first file then overwrites with new power data
-                if self.format == '.nc':
-                    shutil.copyfile(beam_dict['path_part_1'], beam_dict['path'])
-                    ds.to_netcdf(path=beam_dict['path'], mode='w', group='Beam', encoding=n_settings)
-                elif self.format == '.zarr':
-                    shutil.copytree(beam_dict['path_part_1'], beam_dict['path'])
-                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=z_settings)
+            # save to file
+            if self.format == '.nc':
+                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam', encoding=n_settings)
+            elif self.format == '.zarr':
+                ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam', encoding=z_settings)
