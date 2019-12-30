@@ -4,6 +4,7 @@ Functions to unpack Simrad EK60 .raw data file and save to .nc.
 
 
 import os
+import shutil
 from collections import defaultdict
 import numpy as np
 from datetime import datetime as dt
@@ -48,7 +49,6 @@ class ConvertEK60(ConvertBase):
         self.angle_dict_split = {}
         self.tx_sig = {}   # dictionary to store trasmit signal parameters and sample interval
         self.ping_slices = []
-        self.all_files = []
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -315,11 +315,11 @@ class ConvertEK60(ConvertBase):
             out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
             out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
 
-            if piece_seq == 0:
-                out_dict['file'] = self.save_path
+            if len(self.range_lengths) > 1:
+                out_dict['path'] = self.all_files[piece_seq]
+                out_dict['ping_slice'] = self.ping_time_split[piece_seq]
             else:
-                out_dict['file'] = self.all_files[piece_seq]
-            out_dict['ping_slice'] = self.ping_time_split[piece_seq]
+                out_dict['path'] = self.save_path
             return out_dict
 
         def _set_nmea_dict():
@@ -388,23 +388,25 @@ class ConvertEK60(ConvertBase):
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
 
             # New path created if the power data is broken up due to varying range bins
-            if len(self.range_lengths)>1:
-                split = os.path.splitext(self.save_path)
-                beam_dict['path_part_1'] = split[0] + '_part01' + split[1]
-                if not self.all_files:
-                    self.all_files.append(beam_dict['path_part_1'])
-                if piece_seq > 0:
-                    path = split[0] + '_part%02d' % (piece_seq + 1) + split[1]
-                    self.all_files.append(path)
-                else:
-                    path = self.save_path
-                beam_dict['path'] = path
-
+            if len(self.range_lengths) > 1:
+                beam_dict['path'] = self.all_files[piece_seq]
             else:
                 beam_dict['path'] = self.save_path
-                self.all_files.append(self.save_path)
 
             return beam_dict
+
+        def copyfiles():
+            self.all_files = []
+            split = os.path.splitext(self.save_path)
+            for piece in range(len(self.range_lengths)):
+                new_path = split[0] + '_part%02d' % (piece + 1) + split[1]
+                self.all_files.append(new_path)
+                if piece > 0:
+                    if split[1] == '.zarr':
+                        shutil.copytree(self.save_path, new_path)
+                    elif split[1] == '.nc':
+                        shutil.copyfile(self.save_path, new_path)
+            os.rename(self.save_path, self.all_files[0])
 
         # Get exported filename (Only the first if there is a list of filenames)
         first_file = self.filename[0]
@@ -457,6 +459,8 @@ class ConvertEK60(ConvertBase):
             grp.set_provenance(self.filename, _set_prov_dict())    # provenance group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
+            if len(self.range_lengths) > 1:
+                copyfiles()
             for piece in range(len(self.range_lengths)):
                 grp.set_beam(_set_beam_dict(piece_seq=piece))          # beam group
                 grp.set_platform(_set_platform_dict(piece_seq=piece))  # platform group
