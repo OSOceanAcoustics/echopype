@@ -31,6 +31,7 @@ class ConvertEK80(ConvertBase):
         self.parameters = defaultdict(dict)   # Dictionary to hold parameter data
         self.mru_data = defaultdict(list)     # dictionary to store MRU data (heading, pitch, roll, heave)
         self.fil_dict = defaultdict(dict)
+        self.complex = True     # Flags whether or not backscatter is complex
         self.ch_ids = []
         self.nc_path = None
         self.zarr_path = None
@@ -73,10 +74,17 @@ class ConvertEK80(ConvertBase):
                     self.environment = new_datagram['environment']
                 elif new_datagram['subtype'] == 'parameter':
                     current_parameters = new_datagram['parameter']
-                    self.parameters[current_parameters['channel_id']]['frequency_start'].append(
-                        current_parameters['frequency_start'])
-                    self.parameters[current_parameters['channel_id']]['frequency_end'].append(
-                        current_parameters['frequency_end'])
+                    # If frequency_start/end is not found, fill values with frequency
+                    if 'frequency_start' not in current_parameters:
+                        self.parameters[current_parameters['channel_id']]['frequency_start'].append(
+                            current_parameters['frequency'])
+                        self.parameters[current_parameters['channel_id']]['frequency_end'].append(
+                            current_parameters['frequency'])
+                    else:
+                        self.parameters[current_parameters['channel_id']]['frequency_start'].append(
+                            current_parameters['frequency_start'])
+                        self.parameters[current_parameters['channel_id']]['frequency_end'].append(
+                            current_parameters['frequency_end'])
                     self.parameters[current_parameters['channel_id']]['pulse_duration'].append(
                         current_parameters['pulse_duration'])
                     self.parameters[current_parameters['channel_id']]['pulse_form'].append(
@@ -94,6 +102,9 @@ class ConvertEK80(ConvertBase):
                 curr_ch_id = new_datagram['channel_id']
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
+
+                if new_datagram['n_complex'] == 0:
+                    self.complex = False
 
                 # Reset counter and storage for parsed number of channels
                 # if encountering datagram from the first channel
@@ -156,6 +167,7 @@ class ConvertEK80(ConvertBase):
                 # Parameters recorded for each frequency for each ping
                 self.parameters[ch_id]['frequency_start'] = []
                 self.parameters[ch_id]['frequency_end'] = []
+                self.parameters[ch_id]['frequency'] = []
                 self.parameters[ch_id]['pulse_duration'] = []
                 self.parameters[ch_id]['pulse_form'] = []
                 self.parameters[ch_id]['sample_interval'] = []
@@ -249,9 +261,12 @@ class ConvertEK80(ConvertBase):
             backscatter_r = []
             backscatter_i = []
             for tx in self.ch_ids:
-                reshaped = np.array(self.complex_dict[tx]).reshape((88, -1, 4))
-                backscatter_r.append(np.real(reshaped))
-                backscatter_i.append(np.imag(reshaped))
+                if self.complex:
+                    reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, 4))
+                    backscatter_r.append(np.real(reshaped))
+                    backscatter_i.append(np.imag(reshaped))
+                else:
+                    backscatter_r.append(np.array(self.power_dict[tx], dtype='float32'))
 
             # Find index of channel with longest range
             largest = max(enumerate(backscatter_r), key=lambda x: x[1].shape[1])[0]
@@ -286,7 +301,7 @@ class ConvertEK80(ConvertBase):
                 tx_pos['transducer_offset_z'][c_seq] = c['transducer_offset_z']
                 beam_dict['equivalent_beam_angle'][c_seq] = c['equivalent_beam_angle']
                 # TODO: gain is 5 values in test dataset
-                beam_dict['gain_correction'][c_seq] = np.unique(c['gain'])
+                beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
                 beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
                 beam_dict['channel_id'].append(c['channel_id'])
                 beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
@@ -295,15 +310,24 @@ class ConvertEK80(ConvertBase):
                 # Pad each channel with nan so that they can be stacked
                 diff = backscatter_r[largest].shape[1] - backscatter_r[c_seq].shape[1]
                 if diff > 0:
-                    backscatter_r[c_seq] = np.pad(backscatter_r[c_seq], ((0, 0), (0, diff), (0, 0)),
-                                                  mode='constant', constant_values=np.nan)
-                    backscatter_i[c_seq] = np.pad(backscatter_i[c_seq], ((0, 0), (0, diff), (0, 0)),
-                                                  mode='constant', constant_values=np.nan)
+                    if self.complex:
+                        backscatter_r[c_seq] = np.pad(backscatter_r[c_seq], ((0, 0), (0, diff), (0, 0)),
+                                                      mode='constant', constant_values=np.nan)
+                        backscatter_i[c_seq] = np.pad(backscatter_i[c_seq], ((0, 0), (0, diff), (0, 0)),
+                                                      mode='constant', constant_values=np.nan)
+                    else:
+                        backscatter_r[c_seq] = np.pad(backscatter_r[c_seq], ((0, 0), (0, diff)),
+                                                      mode='constant', constant_values=np.nan)
                 c_seq += 1
 
             # Stack channels and order axis as: channel, quadrant, ping, range
-            beam_dict['backscatter_r'] = np.moveaxis(np.stack(backscatter_r), 3, 1)
-            beam_dict['backscatter_i'] = np.moveaxis(np.stack(backscatter_i), 3, 1)
+            if self.complex:
+                beam_dict['backscatter_r'] = np.moveaxis(np.stack(backscatter_r), 3, 1)
+                beam_dict['backscatter_i'] = np.moveaxis(np.stack(backscatter_i), 3, 1)
+                beam_dict['complex'] = True
+            else:
+                beam_dict['backscatter_r'] = np.stack(backscatter_r)
+                beam_dict['complex'] = False
             beam_dict['range_bin'] = np.arange(backscatter_r[largest].shape[1])
 
             beam_dict['beam_width'] = bm_width
