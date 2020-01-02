@@ -157,13 +157,7 @@ class SetGroupsEK80(SetGroupsBase):
             ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
             ds = xr.Dataset(
-                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
-                                   {'long_name': 'Real part of backscatter power',
-                                    'units': 'dB'}),
-                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
-                                   {'long_name': 'Imaginary part of backscatter power',
-                                    'units': 'dB'}),
-                 'channel_id': (['frequency'], beam_dict['channel_id']),
+                {'channel_id': (['frequency'], beam_dict['channel_id']),
                  'frequency_start': (['frequency', 'ping_time'], np.array(beam_dict['frequency_start']),
                                      {'long_name': 'Starting frequency of the transducer',
                                       'units': 'Hz'}),
@@ -269,12 +263,47 @@ class SetGroupsEK80(SetGroupsBase):
                                        'long_name': 'Timestamp of each ping',
                                        'standard_name': 'time'}),
                         #                'units': 'seconds since 1900-01-01'}),
-                        'quadrant': (['quadrant'], np.arange(4)),
-                        'range_bin': (['range_bin'], beam_dict['range_bin']),
-                        # 'range_bin_2': (['range_bin_2'], range_bin_2)
                         },
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
+            if beam_dict['complex']:
+                bs = xr.Dataset(
+                    {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                                       {'long_name': 'Real part of backscatter power',
+                                        'units': 'dB'}),
+                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                                       {'long_name': 'Imaginary part of backscatter power',
+                                        'units': 'dB'})},
+                    coords={'frequency': (['frequency'], beam_dict['frequency']),
+                            'ping_time': (['ping_time'], ping_time,
+                                          {'axis': 'T',
+                            #                'calendar': 'gregorian',
+                                           'long_name': 'Timestamp of each ping',
+                                           'standard_name': 'time'}),
+                            #                'units': 'seconds since 1900-01-01'}),
+                            'quadrant': (['quadrant'], np.arange(4)),
+                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            })
+
+            else:
+                bs = xr.Dataset(
+                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                                       {'long_name': 'Real part of backscatter power',
+                                        'units': 'dB'}),
+                     'backscatter_i': (['frequency', 'ping_time', 'range_bin'],
+                                       np.full_like(beam_dict['backscatter_r'], np.nan),
+                                       {'long_name': 'Imaginary part of backscatter power',
+                                        'units': 'dB'})},
+                    coords={'frequency': (['frequency'], beam_dict['frequency']),
+                            'ping_time': (['ping_time'], ping_time,
+                                          {'axis': 'T',
+                            #                'calendar': 'gregorian',
+                                           'long_name': 'Timestamp of each ping',
+                                           'standard_name': 'time'}),
+                            #                'units': 'seconds since 1900-01-01'}),
+                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            })
+            ds = xr.merge([ds, bs])
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
