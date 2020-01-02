@@ -185,7 +185,7 @@ class ConvertEK80(ConvertBase):
         # Subfunctions to set various dictionaries
         def _set_toplevel_dict():
             out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
-                            keywords='EK60',
+                            keywords='EK80',
                             sonar_convention_authority='ICES',
                             sonar_convention_name='SONAR-netCDF4',
                             sonar_convention_version='1.7',
@@ -198,6 +198,7 @@ class ConvertEK80(ConvertBase):
             return dict(temperature=self.environment['temperature'],
                         depth=self.environment['depth'],
                         acidity=self.environment['acidity'],
+                        salinity=self.environment['salinity'],
                         sound_speed=self.environment['sound_speed'])
 
         def _set_prov_dict():
