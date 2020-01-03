@@ -27,6 +27,10 @@ the ``Convert`` object.
 The only difference is that data files from the AZFP echosounder require an
 ``.XML`` file that contains associated settings for unpacking the binary data.
 
+
+Interactive python session
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 For data files from the EK60 echosounder, you can do
 the following in an interactive Python session:
 
@@ -71,21 +75,33 @@ The ``Convert`` instance contains all the data unpacked from the
 conversion.
 
 
-.. TODO: the below section related to command line conversion tools
-   needs to be added back once convert/echopype_converter.py is revised.
+Command line tools
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. echopype supports batch conversion of ``.raw`` files to netCDF ``.nc``
-   format in the terminal:
+Echopype also supports batch conversion of binary data files to netCDF
+files (``.nc``) in the terminal. As with before, an ``.XML`` file is
+needed to convert the data files from AZFP echosounder.
 
-.. .. code-block:: console
-   $ echopype_converter -s ek60 data/*.raw
+For converting ``.raw`` files from EK60:
 
-.. This will generate corresponding ``.nc`` files with the same leading
-   filename as the original ``.raw`` files in the same directory.
-   See :ref:`data-format` for details about the converted file format.
+.. code-block:: console
 
+   $ echopype_converter -s some_path/*.raw
 
+For converting ``.01A`` files from AZFP:
 
+.. code-block:: console
+
+   $ echopype_converter -s azfp -x some_path/deployment.xml some_path/*.01A
+
+These will generate corresponding ``.nc`` files with the same leading
+filename as the original ``.raw`` files in the same directory.
+See :ref:`data-format` for details about the converted file format.
+
+.. note::  Currently the ``.nc`` files generated using the command line
+   tool will have the fields
+   ``platform_name``, ``platform_type``, and ``patform_code_ICES``
+   in the `Platform` group all set to empty strings.
 
 
 Routine data processing
