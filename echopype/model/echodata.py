@@ -6,6 +6,7 @@ Users will not need to know the names of the specific objects they need to creat
 import xarray as xr
 from echopype.model.azfp import ModelAZFP
 from echopype.model.ek60 import ModelEK60
+from echopype.model.ek80 import ModelEK80
 
 
 def EchoData(nc_path):
@@ -33,6 +34,8 @@ def EchoData(nc_path):
     # Returns specific EchoData object
     if echo_type == "EK60":
         return ModelEK60(nc_path)
+    elif echo_type == "EK80":
+        return ModelEK80(nc_path)
     elif echo_type == "AZFP":
         return ModelAZFP(nc_path)
     else:

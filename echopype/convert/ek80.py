@@ -65,7 +65,7 @@ class ConvertEK80(ConvertBase):
             num_datagrams_parsed += 1
 
             # Convert the timestamp to a datetime64 object.
-            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'], '[ms]')
+            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'].replace(tzinfo=None), '[ms]')
 
             # The first XML datagram contains environment information
             # Subsequent XML datagrams preceed RAW datagrams and give parameter information
