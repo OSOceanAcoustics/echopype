@@ -2,6 +2,7 @@
 echopype data model inherited from based class EchoData for AZFP data.
 """
 
+import os
 import datetime as dt
 import numpy as np
 import xarray as xr
@@ -53,10 +54,11 @@ class ModelAZFP(ModelBase):
         if self._sound_speed is None:  # if this is empty
             self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
                                                      salinity=self.salinity,
-                                                     pressure=self.pressure)
+                                                     pressure=self.pressure,
+                                                     formula_source='AZFP')
         return self._sound_speed
 
-    def calc_seawater_absorption(self):
+    def calc_seawater_absorption(self, src='user'):
         """Calculates seawater absorption in dB/km using AZFP-supplied formula.
 
         Returns
@@ -65,10 +67,15 @@ class ModelAZFP(ModelBase):
         """
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
-        sea_abs = uwa.calc_seawater_absorption(freq,
-                                               temperature=self.temperature,
-                                               salinity=self.salinity,
-                                               pressure=self.pressure)
+        if src == 'user':
+            sea_abs = uwa.calc_seawater_absorption(freq,
+                                                   temperature=self.temperature,
+                                                   salinity=self.salinity,
+                                                   pressure=self.pressure,
+                                                   formula_source='AZFP')
+        else:
+            ValueError('For AZFP seawater absorption needs to be calculated '
+                       'based on user-input environmental parameters.')
         return sea_abs
 
     def calc_sample_thickness(self):
@@ -79,7 +86,6 @@ class ModelAZFP(ModelBase):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2
             return sth
-            # return sth.mean(dim='ping_time')   # use mean over all ping_time
 
     def calc_range(self, tilt_corrected=False):
         """Calculates range in meters using AZFP-supplied formula, instead of from sample_interval directly.
@@ -120,7 +126,7 @@ class ModelAZFP(ModelBase):
 
         return range_meter
 
-    def calibrate(self, save=False):
+    def calibrate(self, save=False, save_postfix='_Sv'):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
         Parameters
@@ -128,10 +134,11 @@ class ModelAZFP(ModelBase):
         save : bool, optional
                whether to save calibrated Sv output
                default to ``True``
+        save_postfix : str
+            Filename postfix, default to '_Sv'
         """
 
         # Open data set for Environment and Beam groups
-        ds_env = xr.open_dataset(self.file_path, group="Environment")
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
         range_meter = self.range
@@ -141,30 +148,6 @@ class ModelAZFP(ModelBase):
               10 * np.log10(0.5 * self.sound_speed *
                             ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
                             ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
-
-        # # TODO: check if sample_thickness calculation should be/is done in a separate method
-        # sample_thickness = ds_env.sound_speed_indicative * (ds_beam.sample_interval / np.timedelta64(1, 's')) / 2
-        # # range_meter = self.calc_range()
-        # self.Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-        #            ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
-        #            2 * ds_beam.sea_abs * range_meter -
-        #            10 * np.log10(0.5 * ds_env.sound_speed_indicative *
-        #                          ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
-        #                          ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
-
-        # TODO: should do TVG and ABS calculation when doing noise estimates, otherwise it is
-        #  difficult to trace errors since they are calculated when performing calibration
-        #  --> the current structure is brittle. This is true for EK60 too so the best is to
-        #  make self.range and self.seawater_absorption common methods (separately implemented
-        #  in EK60 and AZFP class) which can be called to calculate TVG and ABS.
-        # Get TVG and absorption
-        range_meter = range_meter.where(range_meter > 0, other=0)  # set all negative elements to 0
-        TVG = np.real(20 * np.log10(range_meter.where(range_meter != 0, other=1)))
-        ABS = 2 * self.seawater_absorption * range_meter
-
-        # Save TVG and ABS for noise estimation use
-        self.TVG = TVG
-        self.ABS = ABS
 
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
@@ -176,11 +159,14 @@ class ModelAZFP(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
+            if save_postfix is not '_Sv':
+                self.Sv_path = os.path.join(os.path.dirname(self.file_path),
+                                            os.path.splitext(os.path.basename(self.file_path))[0] +
+                                            save_postfix + '.nc')
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
-        ds_env.close()
         ds_beam.close()
 
     def calibrate_TS(self, save=False):
