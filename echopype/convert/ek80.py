@@ -77,14 +77,14 @@ class ConvertEK80(ConvertBase):
                     # If frequency_start/end is not found, fill values with frequency
                     if 'frequency_start' not in current_parameters:
                         self.parameters[current_parameters['channel_id']]['frequency_start'].append(
-                            current_parameters['frequency'])
+                            int(current_parameters['frequency']))
                         self.parameters[current_parameters['channel_id']]['frequency_end'].append(
-                            current_parameters['frequency'])
+                            int(current_parameters['frequency']))
                     else:
                         self.parameters[current_parameters['channel_id']]['frequency_start'].append(
-                            current_parameters['frequency_start'])
+                            int(current_parameters['frequency_start']))
                         self.parameters[current_parameters['channel_id']]['frequency_end'].append(
-                            current_parameters['frequency_end'])
+                            int(current_parameters['frequency_end']))
                     self.parameters[current_parameters['channel_id']]['pulse_duration'].append(
                         current_parameters['pulse_duration'])
                     self.parameters[current_parameters['channel_id']]['pulse_form'].append(
@@ -199,7 +199,7 @@ class ConvertEK80(ConvertBase):
                         depth=self.environment['depth'],
                         acidity=self.environment['acidity'],
                         salinity=self.environment['salinity'],
-                        sound_speed=self.environment['sound_speed'])
+                        sound_speed_indicative=self.environment['sound_speed'])
 
         def _set_prov_dict():
             return dict(conversion_software_name='echopype',
