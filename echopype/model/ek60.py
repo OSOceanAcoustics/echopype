@@ -102,4 +102,51 @@ class ModelEK60(ModelBase):
         ds_env.close()
         ds_beam.close()
 
-    # TODO: Need to write a separate method for calculating TS as have been done for AZFP data.
+    def calibrate_TS(self, save=False):
+        """Perform echo-integration to get Target Stregnth (TS / Sp) from EK60 power data.
+
+        Parameters
+        -----------
+        save : bool, optional
+            whether to save calibrated TS output
+            default to ``False``
+        """
+
+        # Open data set for Environment and Beam groups
+        ds_env = xr.open_dataset(self.file_path, group="Environment")
+        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        # Derived params
+        wavelength = self.sound_speed / ds_env.frequency  # wavelength
+
+        # Get backscatter_r and range_bin
+        backscatter_r = ds_beam['backscatter_r']
+        # Calc gain
+        CSp = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
+                             wavelength ** 2) /
+                            (16 * np.pi ** 2))
+
+        # TODO: move TVG and ABS calculation to the parent class, as also noted
+        #  correspondingly in model/azfp
+        # Get TVG and absorption
+        range_meter = self.range
+        TVG = np.real(40 * np.log10(range_meter.where(range_meter >= 1, other=1)))
+        ABS = 2 * self.seawater_absorption * range_meter
+
+        # Calibration and echo integration
+        TS = backscatter_r + TVG + ABS - CSp
+        TS.name = 'TS'
+        TS = TS.to_dataset()
+
+        # Attach calculated range into data set
+        TS['range'] = (('frequency', 'range_bin'), self.range.T)
+
+        # Save calibrated data into the calling instance and
+        #  to a separate .nc file in the same directory as the data filef.Sv = Sv
+        self.TS = TS
+        if save:
+            print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
+            TS.to_netcdf(path=self.TS_path, mode="w")
+
+        # Close opened resources
+        ds_env.close()
+        ds_beam.close()
