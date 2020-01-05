@@ -30,9 +30,9 @@ def Convert(path, xml_path=''):
             ext = os.path.splitext(file_name)[1]
             for p in path:
                 if not os.path.isfile(p):
-                    raise FileNotFoundError(f"There is no file named {os.path.basename(path)}")
+                    raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
                 if os.path.splitext(p)[1] != ext:
-                    raise ValueError("All files are not in the same format")
+                    raise ValueError("Not all files are in the same format.")
         else:
             file_name = os.path.basename(path)
             ext = os.path.splitext(file_name)[1]
