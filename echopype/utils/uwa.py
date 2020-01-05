@@ -4,7 +4,7 @@ echopype utilities for calculating underwater acoustic values
 import numpy as np
 
 
-def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="AZFP"):
+def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="Mackenzie"):
     """Calculate sound speed in meters per second. Uses the default salinity and pressure.
 
     Parameters
@@ -40,7 +40,7 @@ def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="A
 
 
 def calc_seawater_absorption(frequency, distance=1000, temperature=27,
-                             salinity=35, pressure=10, pH=8.1, formula_source='AZFP'):
+                             salinity=35, pressure=10, pH=8.1, formula_source='AM'):
     """Calculate sea absorption in dB/km
 
     Parameters
@@ -59,9 +59,9 @@ def calc_seawater_absorption(frequency, distance=1000, temperature=27,
         pH of water
     formula_source : str
         Source of formula used for calculating sound speed.
-        Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
+        Default is to use Ainlie and McColm (1998) (``formula_source='AM'``).
+        Another option is to the formula supplied by AZFP (``formula_source='AZFP'``).
         Another option is to use Francois and Garrison (1982) supplied by ``arlpy`` (``formula_source='FG'``).
-        Another option is to use Ainlie and McColm (1998) (``formula_source='AM'``)
 
     Returns
     -------
