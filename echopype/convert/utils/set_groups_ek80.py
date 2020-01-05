@@ -271,7 +271,7 @@ class SetGroupsEK80(SetGroupsBase):
                     {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Real part of backscatter power',
                                         'units': 'dB'}),
-                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
                                        {'long_name': 'Imaginary part of backscatter power',
                                         'units': 'dB'})},
                     coords={'frequency': (['frequency'], beam_dict['frequency']),
