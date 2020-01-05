@@ -248,7 +248,7 @@ class ConvertEK60(ConvertBase):
         self.nmea_data.trim()
 
     def save(self, file_format, compress=True):
-        """Save data from raw 01A format to a netCDF4 or Zarr file
+        """Save data from .RAW format to a netCDF4 or Zarr file
 
         Parameters
         ----------
@@ -398,10 +398,10 @@ class ConvertEK60(ConvertBase):
         def copyfiles():
             self.all_files = []
             split = os.path.splitext(self.save_path)
-            for piece in range(len(self.range_lengths)):
-                new_path = split[0] + '_part%02d' % (piece + 1) + split[1]
+            for n in range(len(self.range_lengths)):
+                new_path = split[0] + '_part%02d' % (n + 1) + split[1]
                 self.all_files.append(new_path)
-                if piece > 0:
+                if n > 0:
                     if split[1] == '.zarr':
                         shutil.copytree(self.save_path, new_path)
                     elif split[1] == '.nc':
