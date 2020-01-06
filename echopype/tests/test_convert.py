@@ -4,7 +4,10 @@ import numpy as np
 import xarray as xr
 from echopype.convert import Convert
 
-ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
+# ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
+# ek60_raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
+#                  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
@@ -14,8 +17,10 @@ ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
-
 azfp_test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
+# azfp_01a_path = ['./echopype/test_data/azfp/17033000.01A',     # Multiple files
+#                  './echopype/test_data/azfp/17033001.01A']
+# azfp_xml_path = './echopype/test_data/azfp/17033000.XML'       # Multiple files
 
 
 def test_convert_ek60():
@@ -41,8 +46,8 @@ def test_convert_ek60():
 
     # Check if backscatter data from all channels are identical to those directly unpacked
     for idx in tmp.config_datagram['transceivers'].keys():
-        # idx is channel index starting from 0
-        assert np.any(tmp.power_dict_split[0][idx] ==
+        # idx is channel index assigned by instrument, starting from 1
+        assert np.any(tmp.power_dict_split[0][idx-1, :, :] ==  # idx-1 because power_dict_split[0] has a numpy array
                       ds_beam.backscatter_r.sel(frequency=tmp.config_datagram['transceivers'][idx]['frequency']).data)
     ds_beam.close()
     os.remove(tmp.nc_path)

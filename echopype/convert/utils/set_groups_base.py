@@ -10,10 +10,11 @@ class SetGroupsBase:
     """Base class for setting groups in netCDF file.
     """
 
-    def __init__(self, file_path='test.nc'):
+    def __init__(self, file_path='test.nc', compress=True):
         self.file_path = file_path
         filename, ext = os.path.splitext(file_path)
         self.format = ext
+        self.compress = compress
 
     def set_toplevel(self, tl_dict):
         """Set attributes in the Top-level group."""
@@ -33,7 +34,7 @@ class SetGroupsBase:
         Parameters
         ----------
         src_file_names
-            source filenames
+            list of source filenames
         prov_dict
             dictionary containing file conversion parameters
                           prov_dict['conversion_software_name']
@@ -41,13 +42,14 @@ class SetGroupsBase:
                           prov_dict['conversion_time']
         """
         # create group
+        files = ", ".join([os.path.basename(file) for file in src_file_names])
         if self.format == '.nc':
             file = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
             pr = file.createGroup("Provenance")
             # dimensions
             pr.createDimension("filenames", None)
             # variables
-            pr_src_fnames = pr.createVariable(src_file_names, str, "filenames")
+            pr_src_fnames = pr.createVariable(files, str, "filenames")
             pr_src_fnames.long_name = "Source filenames"
 
             # set group attributes
@@ -59,7 +61,7 @@ class SetGroupsBase:
         elif self.format == '.zarr':
             file = zarr.open(self.file_path, 'a')
             pr = file.create_group('Provenance')
-            pr_src_fnames = pr.create_dataset('filenames', data=src_file_names)
+            pr_src_fnames = pr.create_dataset('filenames', data=files)
             pr_src_fnames.attrs['long_name'] = "Source filenames"
             for k, v in prov_dict.items():
                 pr[k] = v
