@@ -180,10 +180,11 @@ class ConvertEK60(ConvertBase):
             self.power_dict_split[range_group] = np.array(
                 [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
                  for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
-            self.angle_dict_split[range_group] = np.empty(shape=self.power_dict_split[range_group].shape)
+            self.angle_dict_split[range_group] = np.empty(np.hstack(
+                (np.array(self.power_dict_split[range_group].shape), 2)))
             self.angle_dict_split[range_group][:] = np.nan
-            for ch in np.argwhere(beam_type == 1):
-                self.angle_dict_split[range_group][ch, :, :] = np.array(
+            for ch in np.argwhere(beam_type == 1):   # if split-beam
+                self.angle_dict_split[range_group][ch, :, :, :] = np.array(
                     self.angle_dict[ch[0]+1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
             self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
 
@@ -220,7 +221,8 @@ class ConvertEK60(ConvertBase):
                 # Read the CON0 configuration datagram. Only keep 1 if multiple files
                 if self.config_datagram is None:
                     self.config_datagram = fid.read(1)
-                    self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+                    self.config_datagram['timestamp'] = np.datetime64(
+                        self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
 
                     for ch_num in self.config_datagram['transceivers'].keys():
                         self.ping_data_dict[ch_num] = defaultdict(list)
