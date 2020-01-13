@@ -924,13 +924,14 @@ class SimradRawParser(_SimradDatagramParser):
                     data['power'] = None
 
                 if int(data['mode']) & 0x2:
-                    data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='uint16')
+                    data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = data['angle'].reshape((-1, 2))
                 else:
                     data['angle'] = None
 
             else:
                 data['power'] = np.empty((0,), dtype='int16')
-                data['angle'] = np.empty((0,), dtype='uint16')
+                data['angle'] = np.empty((0,), dtype='int8')
 
         return data
 
