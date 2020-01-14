@@ -5,9 +5,10 @@ Users will not need to know the names of the specific objects they need to creat
 import os
 from echopype.convert.azfp import ConvertAZFP
 from echopype.convert.ek60 import ConvertEK60
+from echopype.convert.ek80 import ConvertEK80
 
 
-def Convert(path, xml_path=''):
+def Convert(path='', xml_path='', model='EK60'):
     """
     Gets the type of echosounder the raw file was generated with using the filename extension.
 
@@ -42,8 +43,11 @@ def Convert(path, xml_path=''):
         # Gets the type of echosounder from the extension of the raw file
         # return a Convert object depending on the type of echosounder used to create the raw file
         if ext == '.raw':
-            # TODO: EK80 also produced .raw files so need something else later
-            return ConvertEK60(path)
+            # TODO: Find something better to distinguish EK60 and EK80 raw files
+            if model == 'EK60':
+                return ConvertEK60(path)
+            elif model == 'EK80':
+                return ConvertEK80(path)
         elif ext == '.01A':
             if xml_path:
                 if '.XML' in xml_path.upper():
