@@ -1468,13 +1468,15 @@ class SimradRawParser(_SimradDatagramParser):
                     data['power'] = None
 
                 if int(data['mode']) & 0x2:
-                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = data['angle'].reshape((-1, 2))
+                    # TODO: need `indx += block_size` here?
                 else:
-                    data['angle'] = data['angle'].reshape((-1,2))
+                    data['angle'] = None
 
             else:
                 data['power'] = np.empty((0,), dtype='int16')
-                data['angle'] = np.empty((0,), dtype='uint16')
+                data['angle'] = np.empty((0,), dtype='int8')
 
         elif version == 3:
 
@@ -1496,6 +1498,7 @@ class SimradRawParser(_SimradDatagramParser):
                     data['power'] = None
 
                 if data['data_type'] & 0b10:
+                    # TODO: correct angle parsing below to the same as RAW0 parsing above
                     data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='uint16')
                     indx += block_size
                 else:
@@ -1524,7 +1527,7 @@ class SimradRawParser(_SimradDatagramParser):
 
             else:
                 data['power'] = np.empty((0,), dtype='int16')
-                data['angle'] = np.empty((0,), dtype='uint16')
+                data['angle'] = np.empty((0,), dtype='int8')
                 data['complex'] = np.empty((0,), dtype='complex64')
                 data['n_complex'] = 0
 

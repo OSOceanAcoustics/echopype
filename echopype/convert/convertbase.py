@@ -1,14 +1,14 @@
 class ConvertBase:
     # Class for assigning attributes common to all echosounders
     def __init__(self):
-        # self.parameters['platform_name'] = ''
-        # self.parameters['platform_type'] = ''
-        # self.parameters['platform_code_ICES'] = ''
         self._platform = {
             'platform_name': '',
             'platform_code_ICES': '',
             'platform_type': ''
         }
+        self.nc_path = None
+        self.zarr_path = None
+        self.save_path = None
 
     @property
     def platform_name(self):
@@ -34,8 +34,19 @@ class ConvertBase:
     def platform_code_ICES(self, platform_code_ICES):
         self._platform['platform_code_ICES'] = platform_code_ICES
 
-    def raw2nc(self):
-        self.save(".nc")
+    @property
+    def filename(self):
+        return self._filename
 
-    def raw2zarr(self):
-        self.save(".zarr")
+    @filename.setter
+    def filename(self, p):
+        if isinstance(p, list):
+            self._filename = p
+        else:
+            self._filename = [p]
+
+    def raw2nc(self, compress=True):
+        self.save(".nc", compress)
+
+    def raw2zarr(self, compress=True):
+        self.save(".zarr", compress)

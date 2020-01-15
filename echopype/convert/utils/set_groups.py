@@ -9,7 +9,7 @@ from .set_groups_azfp import SetGroupsAZFP
 
 
 class SetGroups:
-    def __new__(cls, file_path, echo_type):
+    def __new__(cls, file_path, echo_type, compress=True):
         """Wrapper class to use for setting groups in .nc files.
 
         Parameters
@@ -18,7 +18,8 @@ class SetGroups:
             Path to .nc file to be generated
         echo_type: str
             Type of echosounder from which data were generated
-
+        compress: bool
+            Whether or not to compress the backscatter data
         Returns
         -------
             Returns a specialized SetGroups object depending on
@@ -27,10 +28,10 @@ class SetGroups:
 
         # Returns specific EchoData object
         if echo_type == "EK60":
-            return SetGroupsEK60(file_path)
+            return SetGroupsEK60(file_path, compress)
         elif echo_type == "EK80":
             return SetGroupsEK80(file_path)
         elif echo_type == "AZFP":
-            return SetGroupsAZFP(file_path)
+            return SetGroupsAZFP(file_path, compress)
         else:
             raise ValueError("Unsupported file type")
