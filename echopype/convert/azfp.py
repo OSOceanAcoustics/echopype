@@ -16,11 +16,11 @@ del get_versions
 class ConvertAZFP(ConvertBase):
     """Class for converting AZFP `.01A` files """
 
-    def __init__(self, _path='', _xml_path=''):
+    def __init__(self, _filename='', _xml_path=''):
         ConvertBase.__init__(self)
-        self.path = _path
+        self.filename = _filename
         self.xml_path = _xml_path
-        self.file_name = os.path.basename(self.path)
+        # self.file_name = os.path.basename(self.filename)
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
@@ -30,8 +30,6 @@ class ConvertAZFP(ConvertBase):
         self.loadAZFPxml()
 
         # Initialize variables that'll be filled later
-        self.nc_path = None
-        self.zarr_path = None
         self.unpacked_data = None
         self._checked_unique = False
 
@@ -225,7 +223,6 @@ class ConvertAZFP(ConvertBase):
         unpacked_data
             current unpacked data
         """
-        # TODO: the path input can be replaced by self.path
         filename = os.path.basename(path)
         timestamp = dt(unpacked_data['year'][0], unpacked_data['month'][0], unpacked_data['day'][0],
                        unpacked_data['hour'][0], unpacked_data['minute'][0],
@@ -285,51 +282,52 @@ class ConvertAZFP(ConvertBase):
             USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
             return N * USL5_BAT_CONSTANT
 
-        with open(self.path, 'rb') as raw:
-            ping_num = 0
-            fields = self.get_fields()
-            unpacked_data = defaultdict(list)
-            eof = False
-            while not eof:
-                header_chunk = raw.read(self.HEADER_SIZE)
-                if header_chunk:
-                    header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
+        unpacked_data = defaultdict(list)
+        fields = self.get_fields()
+        for file in self.filename:
+            with open(file, 'rb') as raw:
+                ping_num = 0
+                eof = False
+                while not eof:
+                    header_chunk = raw.read(self.HEADER_SIZE)
+                    if header_chunk:
+                        header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
 
-                    # Reading will stop if the file contains an unexpected flag
-                    if self._split_header(raw, header_unpacked, unpacked_data, fields):
-                        # Appends the actual 'data values' to unpacked_data
-                        self._add_counts(raw, ping_num, unpacked_data)
-                        if ping_num == 0:
-                            # Display information about the file that was loaded in
-                            self._print_status(self.file_name, unpacked_data)
-                        # Compute temperature from unpacked_data[ii]['ancillary][4]
-                        unpacked_data['temperature'].append(compute_temp(unpacked_data['ancillary'][ping_num][4]))
-                        # compute x tilt from unpacked_data[ii]['ancillary][0]
-                        unpacked_data['tilt_x'].append(
-                            compute_tilt(unpacked_data['ancillary'][ping_num][0],
-                                         self.parameters['X_a'], self.parameters['X_b'],
-                                         self.parameters['X_c'], self.parameters['X_d']))
-                        # Compute y tilt from unpacked_data[ii]['ancillary][1]
-                        unpacked_data['tilt_y'].append(
-                            compute_tilt(unpacked_data['ancillary'][ping_num][1],
-                                         self.parameters['Y_a'], self.parameters['Y_b'],
-                                         self.parameters['Y_c'], self.parameters['Y_d']))
-                        # Compute cos tilt magnitude from tilt x and y values
-                        unpacked_data['cos_tilt_mag'].append(
-                            math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
-                                                unpacked_data['tilt_y'][ping_num] ** 2)) * math.pi / 180))
-                        # Calculate voltage of main battery pack
-                        unpacked_data['battery_main'].append(
-                            compute_battery(unpacked_data['ancillary'][ping_num][2]))
-                        # If there is a Tx battery pack
-                        unpacked_data['battery_tx'].append(
-                            compute_battery(unpacked_data['ad'][ping_num][0]))
+                        # Reading will stop if the file contains an unexpected flag
+                        if self._split_header(raw, header_unpacked, unpacked_data, fields):
+                            # Appends the actual 'data values' to unpacked_data
+                            self._add_counts(raw, ping_num, unpacked_data)
+                            if ping_num == 0:
+                                # Display information about the file that was loaded in
+                                self._print_status(file, unpacked_data)
+                            # Compute temperature from unpacked_data[ii]['ancillary][4]
+                            unpacked_data['temperature'].append(compute_temp(unpacked_data['ancillary'][ping_num][4]))
+                            # compute x tilt from unpacked_data[ii]['ancillary][0]
+                            unpacked_data['tilt_x'].append(
+                                compute_tilt(unpacked_data['ancillary'][ping_num][0],
+                                            self.parameters['X_a'], self.parameters['X_b'],
+                                            self.parameters['X_c'], self.parameters['X_d']))
+                            # Compute y tilt from unpacked_data[ii]['ancillary][1]
+                            unpacked_data['tilt_y'].append(
+                                compute_tilt(unpacked_data['ancillary'][ping_num][1],
+                                            self.parameters['Y_a'], self.parameters['Y_b'],
+                                            self.parameters['Y_c'], self.parameters['Y_d']))
+                            # Compute cos tilt magnitude from tilt x and y values
+                            unpacked_data['cos_tilt_mag'].append(
+                                math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
+                                                    unpacked_data['tilt_y'][ping_num] ** 2)) * math.pi / 180))
+                            # Calculate voltage of main battery pack
+                            unpacked_data['battery_main'].append(
+                                compute_battery(unpacked_data['ancillary'][ping_num][2]))
+                            # If there is a Tx battery pack
+                            unpacked_data['battery_tx'].append(
+                                compute_battery(unpacked_data['ad'][ping_num][0]))
+                        else:
+                            break
                     else:
-                        break
-                else:
-                    # End of file
-                    eof = True
-                ping_num += 1
+                        # End of file
+                        eof = True
+                    ping_num += 1
 
         self.unpacked_data = unpacked_data
 
@@ -351,8 +349,15 @@ class ConvertAZFP(ConvertBase):
                                 ).replace(tzinfo=timezone.utc).timestamp())
         return ping_time
 
-    def save(self, file_format):
-        """Save data from raw 01A format to netCDF4 .nc or Zarr .zarr format
+    def save(self, file_format, compress=True):
+        """Save data from raw 01A format to a netCDF4 or Zarr file
+
+        Parameters
+        ----------
+        file_format : str
+            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        compress : bool
+            Whether or not to compress backscatter data. Defaults to `True`
         """
 
         # Subfunctions to set various dictionaries
@@ -546,20 +551,21 @@ class ConvertAZFP(ConvertBase):
         freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = self.get_ping_time()
 
-        # Construct export path to write to
-        filename = os.path.splitext(os.path.basename(self.path))[0]
-        self.save_path = os.path.join(os.path.split(self.path)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(self.path)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(self.path)[0], filename + '.zarr')
+        # Construct export path to write to. Uses first file if there are multiple raw files
+        first_file = self.filename[0]
+        filename = os.path.splitext(os.path.basename(first_file))[0]
+        self.save_path = os.path.join(os.path.split(first_file)[0], filename + file_format)
+        self.nc_path = os.path.join(os.path.split(first_file)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(first_file)[0], filename + '.zarr')
 
         if os.path.exists(self.save_path):
             print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
         else:
             # Create SetGroups object
-            grp = SetGroups(file_path=self.save_path, echo_type='AZFP')
+            grp = SetGroups(file_path=self.save_path, echo_type='AZFP', compress=compress)
             grp.set_toplevel(_set_toplevel_dict())      # top-level group
             grp.set_env(_set_env_dict())                # environment group
-            grp.set_provenance(os.path.basename(self.file_name), _set_prov_dict())        # provenance group
+            grp.set_provenance(self.filename, _set_prov_dict())        # provenance group
             grp.set_platform(_set_platform_dict())      # platform group
             grp.set_sonar(_set_sonar_dict())            # sonar group
             grp.set_beam(_set_beam_dict())              # beam group
