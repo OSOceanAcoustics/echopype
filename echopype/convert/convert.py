@@ -14,7 +14,7 @@ def Convert(path='', xml_path='', model='EK60'):
 
     Parameters
     ----------
-    path : str
+    path : str or list of str
         the file that will be converted. Currently only `.raw` and `.01A` files are supported
         for the Simrad EK60 and ASL AZFP echosounders respectively
     xml_path : str, optional
@@ -25,17 +25,25 @@ def Convert(path='', xml_path='', model='EK60'):
         Specialized convert object that will be used to produce a .nc file
     """
 
-    file_name = os.path.basename(path)
-
     if path:
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"There is no file named {os.path.basename(path)}")
+        if isinstance(path, list):
+            file_name = os.path.basename(path[0])
+            ext = os.path.splitext(file_name)[1]
+            for p in path:
+                if not os.path.isfile(p):
+                    raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
+                if os.path.splitext(p)[1] != ext:
+                    raise ValueError("Not all files are in the same format.")
+        else:
+            file_name = os.path.basename(path)
+            ext = os.path.splitext(file_name)[1]
+            if not os.path.isfile(path):
+                raise FileNotFoundError(f"There is no file named {os.path.basename(path)}")
 
         # Gets the type of echosounder from the extension of the raw file
         # return a Convert object depending on the type of echosounder used to create the raw file
-        ext = os.path.splitext(file_name)[1]
         if ext == '.raw':
-            # TODO: Find something better
+            # TODO: Find something better to distinguish EK60 and EK80 raw files
             if model == 'EK60':
                 return ConvertEK60(path)
             elif model == 'EK80':

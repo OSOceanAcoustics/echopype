@@ -121,10 +121,15 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
                                'tilt_Y_d': beam_dict['tilt_Y_d']})
 
+        settings = {}
         if self.format == '.nc':
-            ds.to_netcdf(path=self.file_path, mode='a', group='Beam')
+            if self.compress:
+                settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
+            ds.to_netcdf(path=self.file_path, mode='a', group='Beam', encoding=settings)
         elif self.format == '.zarr':
-            ds.to_zarr(store=self.file_path, mode='a', group='Beam')
+            if self.compress:
+                settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
+            ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=settings)
 
     def set_vendor_specific(self, vendor_dict):
         """Set the Vendor-specific group in the AZFP nc file.
