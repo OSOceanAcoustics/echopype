@@ -172,39 +172,35 @@ class ConvertEK60(ConvertBase):
 
         # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
         uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
-        beam_type = np.array([self.config_datagram['transceivers'][x]['beam_type']
-                              for x in self.config_datagram['transceivers'].keys()])
+        beam_type = np.array([x['beam_type'] for x in self.config_datagram['transceivers'].values()])
         for range_group in range(len(uni)):
             self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
                                                                          uni_cnt_insert[range_group+1]]
             range_bin_freq_lens = np.unique(
-                [x_val[uni_cnt_insert[range_group]].shape for x_key,x_val in self.power_dict.items()])
+                [x_val[uni_cnt_insert[range_group]].shape for x_val in self.power_dict.values()])
+            self.angle_dict_split[range_group] = np.empty(
+                (len(self.power_dict), uni_cnt_insert[range_group + 1] - uni_cnt_insert[range_group],
+                 range_bin_freq_lens.max(), 2))
+            self.angle_dict_split[range_group][:] = np.nan
             if len(range_bin_freq_lens) != 1:  # different frequency channels have different range_bin lengths
-                tmp_power_pad = []
-                for x_key, x in self.power_dict.items():  # pad nan to shorter channels
-                    tmp_data = np.array(x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    tmp_power = np.pad(tmp_data.astype('float64'),
-                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_data.shape[1])),
+                tmp_power_pad, tmp_angle_pad = [], []
+                for x_p, x_a in zip(self.power_dict.values(), self.angle_dict.values()):  # pad nan to shorter channels
+                    tmp_p_data = np.array(x_p[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_a_data = np.array(x_a[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_power = np.pad(tmp_p_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_p_data.shape[1])),
+                                       mode='constant', constant_values=(np.nan,))
+                    tmp_angle = np.pad(tmp_a_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_a_data.shape[1]), (0, 0)),
                                        mode='constant', constant_values=(np.nan,))
                     tmp_power_pad.append(tmp_power)
+                    tmp_angle_pad.append(tmp_angle)
+                self.angle_dict_split[range_group] = np.array(tmp_angle_pad)
                 self.power_dict_split[range_group] = np.array(tmp_power_pad) * INDEX2POWER
             else:
                 self.power_dict_split[range_group] = np.array(
                     [x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
                      for x_key, x in self.power_dict.items()]) * INDEX2POWER
-            self.angle_dict_split[range_group] = np.empty(np.hstack(
-                (np.array(self.power_dict_split[range_group].shape), 2)))
-            self.angle_dict_split[range_group][:] = np.nan
-            if len(range_bin_freq_lens) != 1:  # also pad angle data if need to pad power data
-                tmp_angle_pad = []
-                for x_key, x in self.angle_dict.items():  # pad nan to shorter channels
-                    tmp_data = np.array(x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    tmp_angle = np.pad(tmp_data.astype('float64'),
-                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_data.shape[1]), (0, 0)),
-                                       mode='constant', constant_values=(np.nan,))
-                    tmp_angle_pad.append(tmp_angle)
-                self.angle_dict_split[range_group] = np.array(tmp_angle_pad)
-            else:
                 for ch in np.argwhere(beam_type == 1):   # if split-beam
                     self.angle_dict_split[range_group][ch, :, :, :] = np.array(
                         self.angle_dict[ch[0]+1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
