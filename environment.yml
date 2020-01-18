@@ -13,10 +13,11 @@ dependencies:
   - pandas
   - pip
   - pytz
-  - python=3.7
+  - python=3.8
   - requests
   - scipy
   - tox
   - xarray
+  - zarr
   - pip:
       - pynmea2

@@ -106,7 +106,7 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
-            if save_postfix is not '_Sv':
+            if save_postfix != '_Sv':
                 self.Sv_path = os.path.join(os.path.dirname(self.file_path),
                                             os.path.splitext(os.path.basename(self.file_path))[0] +
                                             save_postfix + '.nc')
