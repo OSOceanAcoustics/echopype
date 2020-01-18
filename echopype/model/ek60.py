@@ -82,7 +82,6 @@ class ModelEK60(ModelBase):
 
         # Get backscatter_r and range_bin
         backscatter_r = ds_beam['backscatter_r']
-        range_bin = ds_beam['range_bin']
 
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
