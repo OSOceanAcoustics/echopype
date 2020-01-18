@@ -4,7 +4,6 @@ import numpy as np
 from datetime import datetime as dt
 import pytz
 import pynmea2
-
 from echopype.convert.utils.ek_raw_io import RawSimradFile, SimradEOF
 from echopype.convert.utils.nmea_data import NMEAData
 from echopype.convert.utils.set_groups import SetGroups
@@ -147,38 +146,39 @@ class ConvertEK80(ConvertBase):
                 self.fil_dict[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
 
     def load_ek80_raw(self):
-        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.filename)))
+        for file in self.filename:
+            print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(file)))
 
-        with RawSimradFile(self.filename, 'r') as fid:
-            self.config_datagram = fid.read(1)
-            self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+            with RawSimradFile(file, 'r') as fid:
+                self.config_datagram = fid.read(1)
+                self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
 
-            # IDs of the channels found in the dataset
-            self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
+                # IDs of the channels found in the dataset
+                self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
 
-            for ch_id in self.ch_ids:
-                self.ping_data_dict[ch_id] = defaultdict(list)
-                self.ping_data_dict[ch_id]['frequency'] = \
-                    self.config_datagram['configuration'][ch_id]['transducer_frequency']
-                self.power_dict[ch_id] = []
-                self.angle_dict[ch_id] = []
-                self.complex_dict[ch_id] = []
+                for ch_id in self.ch_ids:
+                    self.ping_data_dict[ch_id] = defaultdict(list)
+                    self.ping_data_dict[ch_id]['frequency'] = \
+                        self.config_datagram['configuration'][ch_id]['transducer_frequency']
+                    self.power_dict[ch_id] = []
+                    self.angle_dict[ch_id] = []
+                    self.complex_dict[ch_id] = []
 
-                # Parameters recorded for each frequency for each ping
-                self.parameters[ch_id]['frequency_start'] = []
-                self.parameters[ch_id]['frequency_end'] = []
-                self.parameters[ch_id]['frequency'] = []
-                self.parameters[ch_id]['pulse_duration'] = []
-                self.parameters[ch_id]['pulse_form'] = []
-                self.parameters[ch_id]['sample_interval'] = []
-                self.parameters[ch_id]['slope'] = []
-                self.parameters[ch_id]['transmit_power'] = []
-                self.parameters[ch_id]['timestamp'] = []
+                    # Parameters recorded for each frequency for each ping
+                    self.parameters[ch_id]['frequency_start'] = []
+                    self.parameters[ch_id]['frequency_end'] = []
+                    self.parameters[ch_id]['frequency'] = []
+                    self.parameters[ch_id]['pulse_duration'] = []
+                    self.parameters[ch_id]['pulse_form'] = []
+                    self.parameters[ch_id]['sample_interval'] = []
+                    self.parameters[ch_id]['slope'] = []
+                    self.parameters[ch_id]['transmit_power'] = []
+                    self.parameters[ch_id]['timestamp'] = []
 
-            # Read the rest of datagrams
-            self._read_datagrams(fid)
+                # Read the rest of datagrams
+                self._read_datagrams(fid)
 
-    def save(self, file_format):
+    def save(self, file_format, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
         """
 
@@ -383,13 +383,27 @@ class ConvertEK80(ConvertBase):
 
             return beam_dict
 
+        def _set_vendor_dict():
+            out_dict = dict()
+            out_dict['ch_ids'] = self.ch_ids
+            coeffs = dict()
+            for ch in self.ch_ids:
+                # Coefficients for wide band transceiver
+                coeffs[f'{ch}_WBT_filter'] = self.fil_dict[ch][1]
+                # Coefficients for pulse compression
+                coeffs[f'{ch}_PC_filter'] = self.fil_dict[ch][2]
+            out_dict['filter_coefficients'] = coeffs
+
+            return out_dict
+
         if not bool(self.power_dict):  # if haven't parsed .raw file
             self.load_ek80_raw()
 
-        filename = os.path.splitext(os.path.basename(self.filename))[0]
-        self.save_path = os.path.join(os.path.split(self.filename)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(self.filename)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(self.filename)[0], filename + '.zarr')
+        raw_file = self.filename[0]
+        filename = os.path.splitext(os.path.basename(raw_file))[0]
+        self.save_path = os.path.join(os.path.split(raw_file)[0], filename + file_format)
+        self.nc_path = os.path.join(os.path.split(raw_file)[0], filename + '.nc')
+        self.zarr_path = os.path.join(os.path.split(raw_file)[0], filename + '.zarr')
         # filename must have "-" as the field separator for the last 2 fields
         filename_tup = filename.split('-')
         filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
@@ -406,8 +420,9 @@ class ConvertEK80(ConvertBase):
             grp = SetGroups(file_path=self.save_path, echo_type='EK80')
             grp.set_toplevel(_set_toplevel_dict())  # top-level group
             grp.set_env(_set_env_dict())            # environment group
-            grp.set_provenance(os.path.basename(self.filename), _set_prov_dict())    # provenance group
+            grp.set_provenance(self.filename, _set_prov_dict())    # provenance group
             grp.set_platform(_set_platform_dict())  # platform group
             grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
             grp.set_sonar(_set_sonar_dict())        # sonar group
             grp.set_beam(_set_beam_dict())          # beam group
+            grp.set_vendor(_set_vendor_dict())

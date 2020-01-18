@@ -7,11 +7,11 @@ import zarr
 
 
 class SetGroupsEK80(SetGroupsBase):
-    """Class for setting groups in netCDF file for EK60 data.
+    """Class for setting groups in netCDF file for EK80 data.
     """
 
     def set_env(self, env_dict):
-        """Set the Environment group in the EK60 netCDF file.
+        """Set the Environment group in the EK80 netCDF file.
 
         Parameters
         ----------
@@ -140,7 +140,7 @@ class SetGroupsEK80(SetGroupsBase):
                     snr.attrs[k] = v
 
     def set_beam(self, beam_dict):
-        """Set the Beam group in the EK60 nc file.
+        """Set the Beam group in the EK80 nc file.
 
         Parameters
         ----------
@@ -320,3 +320,33 @@ class SetGroupsEK80(SetGroupsBase):
                 ds.to_zarr(store=self.file_path, mode='a', group='Beam',
                            encoding={'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)},
                                      'backscatter_i': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}})
+
+    def set_vendor(self, vendor_dict):
+        """Set the Vendor group in the EK80 nc file.
+
+        Parameters
+        ----------
+        vendor_dict
+            dictionary containing Simrad EK80 specific parameters
+        """
+
+        # Only save beam group if file_path exists
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Vendor group...')
+        else:
+            if self.format == '.nc':
+                ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
+                vdr = ncfile.createGroup("Vendor")
+                # Create compound datatype. (2 f32 values to make a c64 value)
+                complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
+                complex64_t = vdr.createCompoundType(complex64, "complex64")
+                for k, v in vendor_dict['filter_coefficients'].items():
+                    data = np.empty(len(v), complex64)
+                    data['real'] = v.real
+                    data['imag'] = v.imag
+                    vdr.createDimension(k + '_dim', None)
+                    var = vdr.createVariable(k, complex64_t, k + '_dim')
+                    var[:] = data
+            elif self.format == '.zarr':
+                ds = xr.Dataset(vendor_dict['filter_coefficients'])
+                ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
