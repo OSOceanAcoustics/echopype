@@ -254,7 +254,8 @@ class SetGroupsEK80(SetGroupsBase):
                  'transducer_offset_z': (['frequency'], beam_dict['transducer_position']['transducer_offset_z'],
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
-                                          'units': 'm'})
+                                          'units': 'm'}),
+                 'slope': (['frequency', 'ping_time'], np.array(beam_dict['slope'])),
                  },
                 coords={'frequency': (['frequency'], beam_dict['frequency']),
                         'ping_time': (['ping_time'], ping_time,
@@ -347,6 +348,10 @@ class SetGroupsEK80(SetGroupsBase):
                     vdr.createDimension(k + '_dim', None)
                     var = vdr.createVariable(k, complex64_t, k + '_dim')
                     var[:] = data
+                for k, v in vendor_dict['decimation_factors'].items():
+                    vdr.setncattr(k, v)
             elif self.format == '.zarr':
                 ds = xr.Dataset(vendor_dict['filter_coefficients'])
+                for k, v in vendor_dict['decimation_factors'].items():
+                    ds.attrs[k] = v
                 ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
