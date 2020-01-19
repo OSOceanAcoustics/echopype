@@ -28,8 +28,9 @@ class ConvertEK80(ConvertBase):
         self.ping_time = []     # list to store ping time
         self.environment = {}   # dictionary to store environment data
         self.parameters = defaultdict(dict)   # Dictionary to hold parameter data
-        self.mru_data = defaultdict(list)     # dictionary to store MRU data (heading, pitch, roll, heave)
-        self.fil_dict = defaultdict(dict)
+        self.mru_data = defaultdict(list)     # Dictionary to store MRU data (heading, pitch, roll, heave)
+        self.fil_coeffs = defaultdict(dict)   # Dictionary to store PC and WBT coefficients
+        self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
         self.complex = True     # Flags whether or not backscatter is complex
         self.ch_ids = []
         self.nc_path = None
@@ -143,7 +144,8 @@ class ConvertEK80(ConvertBase):
 
             # FIL datagrams contain filters for proccessing bascatter data
             elif new_datagram['type'].startswith("FIL"):
-                self.fil_dict[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
+                self.fil_coeffs[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
+                self.fil_df[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['decimation_factor']
 
     def load_ek80_raw(self):
         for file in self.filename:
@@ -283,6 +285,7 @@ class ConvertEK80(ConvertBase):
             beam_dict['channel_id'] = []
             beam_dict['frequency_start'] = []
             beam_dict['frequency_end'] = []
+            beam_dict['slope'] = []
 
             c_seq = 0
             for k, c in self.config_datagram['configuration'].items():
@@ -307,6 +310,7 @@ class ConvertEK80(ConvertBase):
                 beam_dict['channel_id'].append(c['channel_id'])
                 beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
                 beam_dict['frequency_end'].append(self.parameters[k]['frequency_end'])
+                beam_dict['slope'].append(self.parameters[k]['slope'])
 
                 # Pad each channel with nan so that they can be stacked
                 diff = backscatter_r[largest].shape[1] - backscatter_r[c_seq].shape[1]
@@ -387,12 +391,16 @@ class ConvertEK80(ConvertBase):
             out_dict = dict()
             out_dict['ch_ids'] = self.ch_ids
             coeffs = dict()
+            decimation_factors = dict()
             for ch in self.ch_ids:
                 # Coefficients for wide band transceiver
-                coeffs[f'{ch}_WBT_filter'] = self.fil_dict[ch][1]
+                coeffs[f'{ch}_WBT_filter'] = self.fil_coeffs[ch][1]
                 # Coefficients for pulse compression
-                coeffs[f'{ch}_PC_filter'] = self.fil_dict[ch][2]
+                coeffs[f'{ch}_PC_filter'] = self.fil_coeffs[ch][2]
+                decimation_factors[f'{ch}_WBT_decimation'] = self.fil_df[ch][1]
+                decimation_factors[f'{ch}_PC_decimation'] = self.fil_df[ch][2]
             out_dict['filter_coefficients'] = coeffs
+            out_dict['decimation_factors'] = decimation_factors
 
             return out_dict
 
