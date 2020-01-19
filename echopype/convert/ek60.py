@@ -47,7 +47,7 @@ class ConvertEK60(ConvertBase):
         self.ping_time_split = {}    # dictionaries to store variables of each range_bin groups (if there are multiple)
         self.power_dict_split = {}
         self.angle_dict_split = {}
-        self.tx_sig = {}   # dictionary to store trasmit signal parameters and sample interval
+        self.tx_sig = {}   # dictionary to store transmit signal parameters and sample interval
         self.ping_slices = []
 
     def _append_channel_ping_data(self, ch_num, datagram):
@@ -222,7 +222,7 @@ class ConvertEK60(ConvertBase):
                     # TODO: right now set_groups_ek60/set_beam doens't deal with this case, need to add
                     ValueError('%s changed in the middle of range_bin group' % pname)
                 else:
-                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
+                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze(axis=1)
 
         self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
 
@@ -329,6 +329,7 @@ class ConvertEK60(ConvertBase):
 
             # Read lat/long from NMEA datagram
             idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+            # TODO: use NaN when nmea_msg is empty
             nmea_msg = []
             [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
             out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
@@ -400,9 +401,14 @@ class ConvertEK60(ConvertBase):
             # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
             beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
-            idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][x - 1],
-                                          self.config_datagram['transceivers'][x]['pulse_length_table'])).squeeze()
-                   for x in self.config_datagram['transceivers'].keys()]
+            if len(self.config_datagram['transceivers']) == 1:   # only 1 channel
+                idx = np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'],
+                                             self.config_datagram['transceivers'][1]['pulse_length_table'])).squeeze()
+                idx = np.expand_dims(np.array(idx), axis=0)
+            else:
+                idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][key - 1],
+                                              val['pulse_length_table'])).squeeze()
+                       for key, val in self.config_datagram['transceivers'].items()]
             beam_dict['sa_correction'] = \
                 np.array([x['sa_correction_table'][y]
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
