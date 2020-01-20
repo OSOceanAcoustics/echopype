@@ -424,13 +424,13 @@ class ModelBase(object):
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
-        if len(self.noise_est_range_bin_size) == 1:  # if number of range_bin per tile the same for all freq channels
+        if np.unique(self.noise_est_range_bin_size).shape[0] == 1:  # if number of range_bin per tile the same for all freq channels
             noise_est = 10 * np.log10(proc_data['power_cal'].coarsen(
                 ping_time=self.noise_est_ping_size,
                 range_bin=int(np.unique(self.noise_est_range_bin_size / self.sample_thickness)),
                 boundary='pad').mean().min(dim='range_bin'))
         else:
-            range_bin_coarsen_idx = (self.MVBS_range_bin_size / self.sample_thickness).astype(int)
+            range_bin_coarsen_idx = (self.noise_est_range_bin_size / self.sample_thickness).astype(int)
             tmp_noise = []
             for r_bin in range_bin_coarsen_idx:
                 freq = r_bin.frequency.values
