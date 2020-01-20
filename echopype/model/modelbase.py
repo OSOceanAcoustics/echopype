@@ -491,7 +491,7 @@ class ModelBase(object):
                                 coords={'frequency': Sv_linear['frequency'].values,
                                         'ping_time': tmp_MVBS[0]['ping_time'].values,
                                         'range_bin': np.arange(MVBS_val.shape[2])},
-                                dims=['frequency', 'ping_time', 'range_bin'])
+                                dims=['frequency', 'ping_time', 'range_bin']).dropna(dim='range_bin', how='all')
 
         # Set MVBS attributes
         MVBS.name = 'MVBS'
