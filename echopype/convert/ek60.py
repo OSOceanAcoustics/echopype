@@ -287,7 +287,7 @@ class ConvertEK60(ConvertBase):
                             sonar_convention_version='1.7',
                             summary='',
                             title='')
-            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime,'%Y%m%d-%H%M%S').isoformat() + 'Z'
+            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
             return out_dict
 
         def _set_env_dict():
