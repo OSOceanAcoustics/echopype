@@ -95,7 +95,7 @@ def test_noise_estimates_removal():
             Sv_clean_test[ff, pp_idx, :] = Sv_clean_tmp
 
     # Check xarray and numpy noise removal
-    assert ~np.any(e_data.Sv_clean['Sv_clean'].values[~np.isnan(e_data.Sv_clean['Sv_clean'].values)]
+    assert ~np.any(e_data.Sv_clean['Sv'].values[~np.isnan(e_data.Sv_clean['Sv'].values)]
                    != Sv_clean_test[~np.isnan(Sv_clean_test)])
 
     proc_data.close()
