@@ -321,24 +321,43 @@ class ModelBase(object):
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Function for use with apply
-        def remove_n(x):
-            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time').groupby_bins('range_bin', range_bin_tile_bin_edge). \
-                               mean().min(dim='range_bin_bins')) + ABS + TVG
+        def remove_n(x, rr):
+            p_c_lin = 10 ** ((x.Sv - x.ABS - x.TVG) / 10)
+            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time')).groupby_bins('range_bin', rr).mean().min(
+                dim='range_bin_bins') + x.ABS + x.TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
-                return x.where(x > (nn + SNR), other=np.nan)
+                return x.Sv.where(x.Sv > (nn + SNR), other=np.nan)
             else:
-                return x.where((x > (nn + SNR)) & (x > Sv_threshold), other=np.nan)
+                return x.Sv.where((x.Sv > (nn + SNR)) & (x > Sv_threshold), other=np.nan)
 
         # Groupby noise removal operation
-        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        # Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
         proc_data.coords['ping_idx'] = ('ping_time', np.arange(proc_data.Sv['ping_time'].size))
-        Sv_clean = proc_data.Sv.groupby_bins('ping_idx', ping_tile_bin_edge).map(remove_n)
+        ABS.name = 'ABS'
+        TVG.name = 'TVG'
+        pp = xr.merge([proc_data, ABS])
+        pp = xr.merge([pp, TVG])
+        if np.unique(range_bin_tile_bin_edge, axis=0).shape[0] == 1:
+            Sv_clean = pp.groupby_bins('ping_idx', ping_tile_bin_edge).\
+                            map(remove_n, rr=range_bin_tile_bin_edge[0])
+            Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
+        else:
+            tmp_clean = []
+            cnt = 0
+            for key, val in pp.groupby('frequency'):  # iterate over different frequency channel
+                tmp = val.groupby_bins('ping_idx', ping_tile_bin_edge). \
+                    map(remove_n, rr=range_bin_tile_bin_edge[cnt])
+                cnt += 1
+                tmp_clean.append(tmp)
+            clean_val = np.array([zz.values for zz in xr.align(*tmp_clean, join='outer')])
+            Sv_clean = xr.DataArray(clean_val,
+                                    coords={'frequency': proc_data['frequency'].values,
+                                            'ping_time': tmp_clean[0]['ping_time'].values,
+                                            'range_bin': tmp_clean[0]['range_bin'].values},
+                                    dims=['frequency', 'ping_time', 'range_bin'])
 
         # Set up DataSet
-        Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
+        Sv_clean.name = 'Sv'
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
@@ -405,12 +424,29 @@ class ModelBase(object):
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
-        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        noise_est = 10 * np.log10(
-            proc_data['power_cal'].coarsen(
+        if len(self.noise_est_range_bin_size) == 1:  # if number of range_bin per tile the same for all freq channels
+            noise_est = 10 * np.log10(proc_data['power_cal'].coarsen(
                 ping_time=self.noise_est_ping_size,
                 range_bin=int(np.unique(self.noise_est_range_bin_size / self.sample_thickness)),
                 boundary='pad').mean().min(dim='range_bin'))
+        else:
+            range_bin_coarsen_idx = (self.MVBS_range_bin_size / self.sample_thickness).astype(int)
+            tmp_noise = []
+            for r_bin in range_bin_coarsen_idx:
+                freq = r_bin.frequency.values
+                tmp_da = 10 * np.log10(proc_data['power_cal'].sel(frequency=freq).coarsen(
+                    ping_time=self.noise_est_ping_size,
+                    range_bin=r_bin.values,
+                    boundary='pad').mean().min(dim='range_bin'))
+                tmp_da.name = 'noise_est'
+                tmp_noise.append(tmp_da)
+
+            # Construct a dataArray  TODO: this can probably be done smarter using xarray native functions
+            noise_val = np.array([zz.values for zz in xr.align(*tmp_noise, join='outer')])
+            noise_est = xr.DataArray(noise_val,
+                                coords={'frequency': proc_data['frequency'].values,
+                                        'ping_time': tmp_noise[0]['ping_time'].values},
+                                dims=['frequency', 'ping_time'])
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
