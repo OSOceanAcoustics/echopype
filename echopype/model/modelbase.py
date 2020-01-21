@@ -337,7 +337,7 @@ class ModelBase(object):
         TVG.name = 'TVG'
         pp = xr.merge([proc_data, ABS])
         pp = xr.merge([pp, TVG])
-        if np.unique(range_bin_tile_bin_edge, axis=0).shape[0] == 1:
+        if np.unique(self.noise_est_range_bin_size).shape[0] == 1:
             Sv_clean = pp.groupby_bins('ping_idx', ping_tile_bin_edge).\
                             map(remove_n, rr=range_bin_tile_bin_edge[0])
             Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
