@@ -227,28 +227,19 @@ class ModelBase(object):
         #  or a list of numbers.
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
-        num_r_per_tile = (np.round(r_tile_sz / sample_thickness).astype(int)).values.max()  # num of range_bin per tile
-        r_tile_sz = (num_r_per_tile * sample_thickness).values
+        num_r_per_tile = np.round(r_tile_sz / sample_thickness).astype(int)  # num of range_bin per tile
+        r_tile_sz = num_r_per_tile * sample_thickness
 
-        # TODO: double check this, but edits from @cyrf0006 seems correct
+        # Total number of range_bin and ping tiles
         num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
-        # Number of tiles along range_bin <--- old routine
-        # if np.mod(r_data_sz, num_r_per_tile) == 0:
-        #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int) + 1
-        # else:
-        #     num_tile_range_bin = np.ceil(r_data_sz / num_r_per_tile).astype(int)
-
-        # Produce a new coordinate for groupby operation
         if np.mod(p_data_sz, p_tile_sz) == 0:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int) + 1
         else:
             num_tile_ping = np.ceil(p_data_sz / p_tile_sz).astype(int)
-            pad = np.ones(p_data_sz - (num_tile_ping - 1) * p_tile_sz, dtype=int) \
-                  * (num_tile_ping - 1)
 
         # Tile bin edges along range
         # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        r_tile_bin_edge = np.arange(num_tile_range_bin+1) * num_r_per_tile - 1
+        r_tile_bin_edge = [np.arange(x.values + 1) * y.values - 1 for x, y in zip(num_tile_range_bin, num_r_per_tile)]
         p_tile_bin_edge = np.arange(num_tile_ping + 1) * p_tile_sz - 1
 
         return r_tile_sz, r_tile_bin_edge, p_tile_bin_edge
@@ -330,24 +321,44 @@ class ModelBase(object):
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Function for use with apply
-        def remove_n(x):
-            p_c_lin = 10 ** ((x - ABS - TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time').groupby_bins('range_bin', range_bin_tile_bin_edge). \
-                               mean().min(dim='range_bin_bins')) + ABS + TVG
+        def remove_n(x, rr):
+            p_c_lin = 10 ** ((x.Sv - x.ABS - x.TVG) / 10)
+            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time').groupby_bins('range_bin', rr).mean().min(
+                dim='range_bin_bins')) + x.ABS + x.TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
-                return x.where(x > (nn + SNR), other=np.nan)
+                return x.Sv.where(x.Sv > (nn + SNR), other=np.nan)
             else:
-                return x.where((x > (nn + SNR)) & (x > Sv_threshold), other=np.nan)
+                return x.Sv.where((x.Sv > (nn + SNR)) & (x > Sv_threshold), other=np.nan)
 
         # Groupby noise removal operation
-        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        # Sv_clean = proc_data.Sv.groupby('add_idx').apply(remove_n)
         proc_data.coords['ping_idx'] = ('ping_time', np.arange(proc_data.Sv['ping_time'].size))
-        Sv_clean = proc_data.Sv.groupby_bins('ping_idx', ping_tile_bin_edge).map(remove_n)
+        ABS.name = 'ABS'
+        TVG.name = 'TVG'
+        pp = xr.merge([proc_data, ABS])
+        pp = xr.merge([pp, TVG])
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
+            Sv_clean = pp.groupby_bins('ping_idx', ping_tile_bin_edge).\
+                            map(remove_n, rr=range_bin_tile_bin_edge[0])
+            Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
+        else:
+            tmp_clean = []
+            cnt = 0
+            for key, val in pp.groupby('frequency'):  # iterate over different frequency channel
+                tmp = val.groupby_bins('ping_idx', ping_tile_bin_edge). \
+                    map(remove_n, rr=range_bin_tile_bin_edge[cnt])
+                cnt += 1
+                tmp_clean.append(tmp)
+            clean_val = np.array([zz.values for zz in xr.align(*tmp_clean, join='outer')])
+            Sv_clean = xr.DataArray(clean_val,
+                                    coords={'frequency': proc_data['frequency'].values,
+                                            'ping_time': tmp_clean[0]['ping_time'].values,
+                                            'range_bin': tmp_clean[0]['range_bin'].values},
+                                    dims=['frequency', 'ping_time', 'range_bin'])
 
         # Set up DataSet
-        Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
+        Sv_clean.name = 'Sv'
         Sv_clean = Sv_clean.to_dataset()
         Sv_clean['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
@@ -358,7 +369,7 @@ class ModelBase(object):
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
         if save:
-            if save_postfix is not '_Sv_clean':
+            if save_postfix != '_Sv_clean':
                 self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
                                                   os.path.splitext(os.path.basename(self.file_path))[0] +
                                                   save_postfix + '.nc')
@@ -414,12 +425,30 @@ class ModelBase(object):
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
-        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        noise_est = 10 * np.log10(
-            proc_data['power_cal'].coarsen(
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
+            noise_est = 10 * np.log10(proc_data['power_cal'].coarsen(
                 ping_time=self.noise_est_ping_size,
                 range_bin=int(np.unique(self.noise_est_range_bin_size / self.sample_thickness)),
                 boundary='pad').mean().min(dim='range_bin'))
+        else:
+            range_bin_coarsen_idx = (self.noise_est_range_bin_size / self.sample_thickness).astype(int)
+            tmp_noise = []
+            for r_bin in range_bin_coarsen_idx:
+                freq = r_bin.frequency.values
+                tmp_da = 10 * np.log10(proc_data['power_cal'].sel(frequency=freq).coarsen(
+                    ping_time=self.noise_est_ping_size,
+                    range_bin=r_bin.values,
+                    boundary='pad').mean().min(dim='range_bin'))
+                tmp_da.name = 'noise_est'
+                tmp_noise.append(tmp_da)
+
+            # Construct a dataArray  TODO: this can probably be done smarter using xarray native functions
+            noise_val = np.array([zz.values for zz in xr.align(*tmp_noise, join='outer')])
+            noise_est = xr.DataArray(noise_val,
+                                coords={'frequency': proc_data['frequency'].values,
+                                        'ping_time': tmp_noise[0]['ping_time'].values},
+                                dims=['frequency', 'ping_time'])
         noise_est = noise_est.to_dataset(name='noise_est')
         noise_est['noise_est_range_bin_size'] = ('frequency', self.noise_est_range_bin_size)
         noise_est.attrs['noise_est_ping_size'] = self.noise_est_ping_size
@@ -452,17 +481,7 @@ class ModelBase(object):
             whether to save the denoised Sv (``Sv_clean``) into a new .nc file
             default to ``False``
         """
-        # TODO: Overall -- change to use coarsen and resample (+groupby_bins) for
-        #  MVBS calculation. Also right now the code uses mean in the log domain, it
-        #  should be mean in the linear domain.
-
         # Check params
-        # TODO: Not sure what @cyrf0006 meant below, but need to resolve the issues surrounding
-        #  potentially having different sample_thickness for each frequency. This is the same
-        #  issue that needs to be resolved in ``get_tile_params`` and all calling methods.
-        #  --- Below are comments from @cyfr0006 ---
-        #  -FC here problem because self.MVBS_range_bin_size is size 4 while MVBS_range_bin_size is size 1
-        #  if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
             self.MVBS_range_bin_size = MVBS_range_bin_size
         if (MVBS_ping_size is not None) and (self.MVBS_ping_size != MVBS_ping_size):
@@ -485,35 +504,33 @@ class ModelBase(object):
                                  sample_thickness=self.sample_thickness)
         # Calculate MVBS
         Sv_linear = 10 ** (proc_data.Sv / 10)  # convert to linear domain before averaging
-        MVBS = 10 * np.log10(Sv_linear.coarsen(ping_time=self.MVBS_ping_size,
-                                               range_bin=int(np.unique(self.MVBS_range_bin_size/self.sample_thickness)),
-                                               boundary='pad').mean())
-        MVBS.coords['range_bin'] = ('range_bin', np.arange(MVBS['range_bin'].size))
-        #
-        # proc_data.coords['add_idx'] = ('ping_time', add_idx)
-        # if source == 'Sv':
-        #     MVBS = proc_data.Sv.groupby('add_idx').mean('ping_time').\
-        #         groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
-        # elif source == 'Sv_clean':
-        #     # TODO: the calculation below issues warnings when encountering all NaN slices.
-        #     #  This is an open issue in dask: https://github.com/dask/dask/issues/3245
-        #     #  Suppress this warning for now.
-        #     with warnings.catch_warnings():
-        #         warnings.simplefilter("ignore")
-        #         MVBS = proc_data.Sv_clean.groupby('add_idx').mean('ping_time').\
-        #             groupby_bins('range_bin', range_bin_tile_bin_edge).mean('range_bin')
-        # else:
-        #     raise ValueError('Unknown source, cannot calculate MVBS')
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
+            MVBS = 10 * np.log10(Sv_linear.coarsen(
+                ping_time=self.MVBS_ping_size,
+                range_bin=int(np.unique(self.MVBS_range_bin_size / self.sample_thickness)),
+                boundary='pad').mean())
+            MVBS.coords['range_bin'] = ('range_bin', np.arange(MVBS['range_bin'].size))
+        else:
+            range_bin_coarsen_idx = (self.MVBS_range_bin_size / self.sample_thickness).astype(int)
+            tmp_MVBS = []
+            for r_bin in range_bin_coarsen_idx:
+                freq = r_bin.frequency.values
+                tmp_da = 10 * np.log10(Sv_linear.sel(frequency=freq).coarsen(
+                        ping_time=self.MVBS_ping_size,
+                        range_bin=r_bin.values,
+                        boundary='pad').mean())
+                tmp_da.coords['range_bin'] = ('range_bin', np.arange(tmp_da['range_bin'].size))
+                tmp_da.name = 'MVBS'
+                tmp_MVBS.append(tmp_da)
 
-        # Set MVBS coordinates
-        # ping_time = proc_data.ping_time[list(map(lambda x: x[0],
-        #                                          list(proc_data.ping_time.groupby('add_idx').groups.values())))]
-        # MVBS.coords['ping_time'] = ('add_idx', ping_time)
-        # range_bin = list(map(lambda x: x[0], list(proc_data.range_bin.
-        #                                           groupby_bins('range_bin', range_bin_tile_bin_edge).groups.values())))
-        # MVBS.coords['range_bin'] = ('range_bin_bins', range_bin)
-        # MVBS = MVBS.swap_dims({'range_bin_bins': 'range_bin', 'add_idx': 'ping_time'}).\
-        #     drop_vars({'add_idx', 'range_bin_bins'})
+            # Construct a dataArray  TODO: this can probably be done smarter using xarray native functions
+            MVBS_val = np.array([zz.values for zz in xr.align(*tmp_MVBS, join='outer')])
+            MVBS = xr.DataArray(MVBS_val,
+                                coords={'frequency': Sv_linear['frequency'].values,
+                                        'ping_time': tmp_MVBS[0]['ping_time'].values,
+                                        'range_bin': np.arange(MVBS_val.shape[2])},
+                                dims=['frequency', 'ping_time', 'range_bin']).dropna(dim='range_bin', how='all')
 
         # Set MVBS attributes
         MVBS.name = 'MVBS'
@@ -528,11 +545,6 @@ class ModelBase(object):
         #  and also save an additional attribute that specifies the source
         # MVBS.attrs['noise_est_range_bin_size'] = self.noise_est_range_bin_size
         # MVBS.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-
-        # # Drop add_idx added to Sv
-        # # TODO: somehow this still doesn't work and self.Sv or self.Sv_clean
-        # #  will have this additional dimension attached
-        # proc_data = proc_data.drop_vars('add_idx')
 
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
