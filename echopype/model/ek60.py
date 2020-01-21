@@ -82,7 +82,6 @@ class ModelEK60(ModelBase):
 
         # Get backscatter_r and range_bin
         backscatter_r = ds_beam['backscatter_r']
-        range_bin = ds_beam['range_bin']
 
         # Calc gain
         CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
@@ -107,7 +106,7 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
-            if save_postfix is not '_Sv':
+            if save_postfix != '_Sv':
                 self.Sv_path = os.path.join(os.path.dirname(self.file_path),
                                             os.path.splitext(os.path.basename(self.file_path))[0] +
                                             save_postfix + '.nc')

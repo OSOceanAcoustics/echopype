@@ -47,7 +47,7 @@ class ConvertEK60(ConvertBase):
         self.ping_time_split = {}    # dictionaries to store variables of each range_bin groups (if there are multiple)
         self.power_dict_split = {}
         self.angle_dict_split = {}
-        self.tx_sig = {}   # dictionary to store trasmit signal parameters and sample interval
+        self.tx_sig = {}   # dictionary to store transmit signal parameters and sample interval
         self.ping_slices = []
 
     def _append_channel_ping_data(self, ch_num, datagram):
@@ -172,20 +172,38 @@ class ConvertEK60(ConvertBase):
 
         # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
         uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
-        beam_type = np.array([self.config_datagram['transceivers'][x]['beam_type']
-                              for x in self.config_datagram['transceivers'].keys()])
+        beam_type = np.array([x['beam_type'] for x in self.config_datagram['transceivers'].values()])
         for range_group in range(len(uni)):
             self.ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
                                                                          uni_cnt_insert[range_group+1]]
-            self.power_dict_split[range_group] = np.array(
-                [self.power_dict[x][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
-                 for x in self.config_datagram['transceivers'].keys()]) * INDEX2POWER
-            self.angle_dict_split[range_group] = np.empty(np.hstack(
-                (np.array(self.power_dict_split[range_group].shape), 2)))
+            range_bin_freq_lens = np.unique(
+                [x_val[uni_cnt_insert[range_group]].shape for x_val in self.power_dict.values()])
+            self.angle_dict_split[range_group] = np.empty(
+                (len(self.power_dict), uni_cnt_insert[range_group + 1] - uni_cnt_insert[range_group],
+                 range_bin_freq_lens.max(), 2))
             self.angle_dict_split[range_group][:] = np.nan
-            for ch in np.argwhere(beam_type == 1):   # if split-beam
-                self.angle_dict_split[range_group][ch, :, :, :] = np.array(
-                    self.angle_dict[ch[0]+1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+            if len(range_bin_freq_lens) != 1:  # different frequency channels have different range_bin lengths
+                tmp_power_pad, tmp_angle_pad = [], []
+                for x_p, x_a in zip(self.power_dict.values(), self.angle_dict.values()):  # pad nan to shorter channels
+                    tmp_p_data = np.array(x_p[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_a_data = np.array(x_a[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_power = np.pad(tmp_p_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_p_data.shape[1])),
+                                       mode='constant', constant_values=(np.nan,))
+                    tmp_angle = np.pad(tmp_a_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max()-tmp_a_data.shape[1]), (0, 0)),
+                                       mode='constant', constant_values=(np.nan,))
+                    tmp_power_pad.append(tmp_power)
+                    tmp_angle_pad.append(tmp_angle)
+                self.angle_dict_split[range_group] = np.array(tmp_angle_pad)
+                self.power_dict_split[range_group] = np.array(tmp_power_pad) * INDEX2POWER
+            else:
+                self.power_dict_split[range_group] = np.array(
+                    [x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                     for x_key, x in self.power_dict.items()]) * INDEX2POWER
+                for ch in np.argwhere(beam_type == 1):   # if split-beam
+                    self.angle_dict_split[range_group][ch, :, :, :] = np.array(
+                        self.angle_dict[ch[0]+1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
             self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
 
         pulse_length, transmit_power, bandwidth, sample_interval = [], [], [], []
@@ -204,7 +222,7 @@ class ConvertEK60(ConvertBase):
                     # TODO: right now set_groups_ek60/set_beam doens't deal with this case, need to add
                     ValueError('%s changed in the middle of range_bin group' % pname)
                 else:
-                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze()
+                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze(axis=1)
 
         self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
 
@@ -269,7 +287,7 @@ class ConvertEK60(ConvertBase):
                             sonar_convention_version='1.7',
                             summary='',
                             title='')
-            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime,'%Y%m%d-%H%M%S').isoformat() + 'Z'
+            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
             return out_dict
 
         def _set_env_dict():
@@ -311,6 +329,7 @@ class ConvertEK60(ConvertBase):
 
             # Read lat/long from NMEA datagram
             idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+            # TODO: use NaN when nmea_msg is empty
             nmea_msg = []
             [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
             out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
@@ -382,9 +401,14 @@ class ConvertEK60(ConvertBase):
             # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
             beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
-            idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][x - 1],
-                                          self.config_datagram['transceivers'][x]['pulse_length_table'])).squeeze()
-                   for x in self.config_datagram['transceivers'].keys()]
+            if len(self.config_datagram['transceivers']) == 1:   # only 1 channel
+                idx = np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'],
+                                             self.config_datagram['transceivers'][1]['pulse_length_table'])).squeeze()
+                idx = np.expand_dims(np.array(idx), axis=0)
+            else:
+                idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][key - 1],
+                                              val['pulse_length_table'])).squeeze()
+                       for key, val in self.config_datagram['transceivers'].items()]
             beam_dict['sa_correction'] = \
                 np.array([x['sa_correction_table'][y]
                           for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
