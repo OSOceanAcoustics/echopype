@@ -239,7 +239,7 @@ class ModelBase(object):
 
         # Tile bin edges along range
         # ... -1 to make sure each bin has the same size because of the right-inclusive and left-exclusive bins
-        r_tile_bin_edge = [np.arange(x.values) * y.values - 1 for x, y in zip(num_tile_range_bin, num_r_per_tile)]
+        r_tile_bin_edge = [np.arange(x.values + 1) * y.values - 1 for x, y in zip(num_tile_range_bin, num_r_per_tile)]
         p_tile_bin_edge = np.arange(num_tile_ping + 1) * p_tile_sz - 1
 
         return r_tile_sz, r_tile_bin_edge, p_tile_bin_edge
@@ -323,8 +323,8 @@ class ModelBase(object):
         # Function for use with apply
         def remove_n(x, rr):
             p_c_lin = 10 ** ((x.Sv - x.ABS - x.TVG) / 10)
-            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time')).groupby_bins('range_bin', rr).mean().min(
-                dim='range_bin_bins') + x.ABS + x.TVG
+            nn = 10 * np.log10(p_c_lin.mean(dim='ping_time').groupby_bins('range_bin', rr).mean().min(
+                dim='range_bin_bins')) + x.ABS + x.TVG
             # Return values where signal is [SNR] dB above noise and at least [Sv_threshold] dB
             if not Sv_threshold:
                 return x.Sv.where(x.Sv > (nn + SNR), other=np.nan)
