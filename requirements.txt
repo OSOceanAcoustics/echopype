@@ -1,8 +1,12 @@
-numpy
-pandas
-scipy
+click
 matplotlib
 netCDF4
-xarray
+numpy
+pandas
+pynmea2
 pytz
-click
+scipy
+xarray
+zarr
+sphinx-automodapi
+numpydoc

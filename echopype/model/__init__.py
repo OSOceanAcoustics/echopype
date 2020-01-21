@@ -1,12 +1,18 @@
 """
-Base echo data model.
+Include methods to manipulate echo data that is already converted to netCDF.
+Currently the operations include:
 
-Include methods to do the following:
 - calibration
 - noise removal
-- calculate MVBS
+- calculating mean volume backscattering strength (MVBS)
 
-The current version supports EK60 .raw data.
+The current version supports:
+
+- Simrad EK60 echosounder ``.raw`` data
+- ASL Environmental Sciences AZFP echosounder ``.01A`` data
+
 """
-
-from .ek60 import EchoData
+from .echodata import EchoData
+from .ek60 import ModelEK60
+from .azfp import ModelAZFP
+from .ek80 import ModelEK80

@@ -3,7 +3,7 @@ Other Resources
 
 Below is a list of software resources for processing ocean sonar data.
 When appropriate, we note whether the software is proprietary or open-source,
-as well as the programming language in which language it is written.
+as well as the programming language in which it is written.
 
 - `EchoView <https://www.echoview.com/>`_: GUI-based proprietary software,
   current go-to tool for echosounder data analysis
@@ -28,8 +28,7 @@ as well as the programming language in which language it is written.
 - `MATECHO <https://usermanual.wiki/Pdf/MatechoUserManual18052017.963673607.pdf>`_:
   requires MATLAB and Movies3D
 
-  - `Movies3D <http://flotte.ifremer.fr/content/download/6032/129677/file/
-    MOVIES3D_general.pdf>`_:
+  - `Movies3D <https://forge.ifremer.fr/plugins/mediawiki/wiki/movies3d/index.php/Accueil>`_:
     reads and writes HAC files and is capable of joining EK60 and ME70 data
 
 - `Sonar4 and Sonar5-Pro <http://folk.uio.no/hbalk/sonar4_5/index.htm>`_
