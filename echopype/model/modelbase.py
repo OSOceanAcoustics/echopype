@@ -337,7 +337,8 @@ class ModelBase(object):
         TVG.name = 'TVG'
         pp = xr.merge([proc_data, ABS])
         pp = xr.merge([pp, TVG])
-        if np.unique(self.noise_est_range_bin_size).shape[0] == 1:
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
             Sv_clean = pp.groupby_bins('ping_idx', ping_tile_bin_edge).\
                             map(remove_n, rr=range_bin_tile_bin_edge[0])
             Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
@@ -424,7 +425,8 @@ class ModelBase(object):
 
         # Noise estimates
         proc_data['power_cal'] = 10 ** ((proc_data.Sv - ABS - TVG) / 10)
-        if np.unique(self.noise_est_range_bin_size).shape[0] == 1:  # if number of range_bin per tile the same for all freq channels
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
             noise_est = 10 * np.log10(proc_data['power_cal'].coarsen(
                 ping_time=self.noise_est_ping_size,
                 range_bin=int(np.unique(self.noise_est_range_bin_size / self.sample_thickness)),
@@ -502,7 +504,8 @@ class ModelBase(object):
                                  sample_thickness=self.sample_thickness)
         # Calculate MVBS
         Sv_linear = 10 ** (proc_data.Sv / 10)  # convert to linear domain before averaging
-        if len(self.MVBS_range_bin_size) == 1:  # if number of range_bin per tile the same for all freq channels
+        # check if number of range_bin per tile the same for all freq channels
+        if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
             MVBS = 10 * np.log10(Sv_linear.coarsen(
                 ping_time=self.MVBS_ping_size,
                 range_bin=int(np.unique(self.MVBS_range_bin_size / self.sample_thickness)),
