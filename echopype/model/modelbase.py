@@ -187,10 +187,16 @@ class ModelBase(object):
         print('Range calculation has not been implemented for this sonar model!')
 
     def calibrate(self):
-        """Base method to be overridden for calibration and echo-integration for different sonar models.
+        """Base method to be overridden for volume backscatter calibration and echo-integration for different sonar models.
         """
         # issue warning when subclass methods not available
         print('Calibration has not been implemented for this sonar model!')
+
+    def calibrate_TS(self):
+        """Base method to be overridden for target strength calibration and echo-integration for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Target strength calibration has not been implemented for this sonar model!')
 
     @staticmethod
     def get_tile_params(r_data_sz, p_data_sz, r_tile_sz, p_tile_sz, sample_thickness):
