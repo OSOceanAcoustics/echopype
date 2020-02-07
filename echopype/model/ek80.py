@@ -125,14 +125,27 @@ class ModelEK80(ModelBase):
         f0 = ds_beam.frequency_start[:, 0].data     # Use start frequency of first ping
         f1 = ds_beam.frequency_end[:, 0].data       # Use end frequency of first ping
         slope = ds_beam.slope[:, 0]                 # Use slope frequency of first ping
-        ytx = calc_sent_signal()
-
+        sample_interval = ds_beam.sample_interval
         f_center = (f0 + f1) / 2
         f_nominal = ds_beam.frequency
         c = self.sound_speed
 
+        ytx = calc_sent_signal()
         backscatter_r = ds_beam.backscatter_r
         backscatter_i = ds_beam.backscatter_i
+
+        # FM
+        if np.all(f1 - f0 > 1):
+            if backscatter_r.ndim == 4:
+                nq = 4 # Number of quadrants
+                compressed = np.flipud(np.conj(ytx)) / np.square(np.norm(ytx))
+            else:
+                nq = 1
+        # CW
+        else:
+            ptxa = np.square(np.abs(ytx))
+            fs_dec = 1 / sample_interval
+
         # Average accross quadrants and take the absolute value of complex backscatter
         prx = np.sqrt(np.mean(backscatter_r, 1) ** 2 + np.mean(backscatter_i, 1) ** 2)
         prx = prx * prx / 2 * (np.abs(Rwbtrx + Ztrd) / Rwbtrx) ** 2 / np.abs(Ztrd)
