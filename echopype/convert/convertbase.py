@@ -1,3 +1,5 @@
+import os
+
 class ConvertBase:
     # Class for assigning attributes common to all echosounders
     def __init__(self):
@@ -45,8 +47,73 @@ class ConvertBase:
         else:
             self._filename = [p]
 
-    def raw2nc(self, compress=True):
-        self.save(".nc", compress)
+    def validate_path(self, save_path, file_format, combine_opt):
+        """ Takes in either a path for a file or directory for either a .nc or .zarr output file.
+        If the directory does not exist, create it. Raises an error if the directory cannot
+        be created or if the filename does not match the file_format given.
+        If combine_opt is true, then save_path must be a filename. If false then save_path must be a directory.
 
-    def raw2zarr(self, compress=True):
-        self.save(".zarr", compress)
+        Parameters
+        ----------
+        save_path : str
+            Either a directory or a file. If none then the save path is the same as the raw file.
+        file_format : str
+            .nc or .zarr
+        combine_opt : bool
+            Whether or not multiple files will be combined into one file.
+        """
+        n_files = len(self.filename)
+
+        # Raise error if output format is not .nc or .zarr
+        if file_format != '.nc' and file_format != '.zarr':
+            raise ValueError("File format is not .nc or .zarr")
+
+        # Raise error if there is only 1 raw file, but combine_opt is True
+        if combine_opt and n_files == 1:
+            raise ValueError("Cannot combine raw files if there is only one.")
+
+        filenames = self.filename
+        if save_path is not None:
+            ext = os.path.splitext(save_path)[1]
+            # Check if save_path is a file or a directory
+            if ext == '':
+                if combine_opt:
+                    raise ValueError("Save_path must be a valid file path when combining files")
+                self.out_dir = save_path
+            else:
+                self.out_dir, filenames = os.path.split(save_path)
+                filenames = [filenames]
+                if ext != file_format:
+                    raise ValueError(f'The path must have the extension "{file_format}"')
+                # Raise error if input path is a file and there are multiple file not being combined
+                if not combine_opt and n_files > 1:
+                    raise ValueError(f"Output path must be a directory when not combining files")
+            # Create folder if save_path does not exist.
+            if not os.path.exists(self.out_dir):
+                try:
+                    os.mkdir(self.out_dir)
+                # Raise error if save_path is not a folder.
+                except FileNotFoundError:
+                    raise ValueError("A valid save directory was not given")
+        # Save in the same directory as raw file if save_path is not specified
+        else:
+            if combine_opt:
+                raise ValueError("Specify a save path when combining raw files")
+            self.out_dir = os.path.dirname(self.filename[0])
+
+        # Store output filenames
+        files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
+        self.save_path = [os.path.join(self.out_dir, f + file_format) for f in files]
+        self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
+        self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
+        # Convert to string if only 1 output file
+        if len(self.save_path) == 1:
+            self.save_path = self.save_path[0]
+            self.nc_path = self.nc_path[0]
+            self.zarr_path = self.zarr_path[0]
+
+    def raw2nc(self, save_path=None, combine_opt=False, compress=True,):
+        self.save(".nc", save_path, combine_opt, compress)
+
+    def raw2zarr(self, save_path=None, combine_opt=False, compress=True):
+        self.save(".zarr", save_path, combine_opt, compress)
