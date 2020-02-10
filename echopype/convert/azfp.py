@@ -263,8 +263,14 @@ class ConvertAZFP(ConvertBase):
                     raise ValueError(f"Header value {field} is not constant for each ping")
         self._checked_unique = True
 
-    def parse_raw(self):
-        """Parses a raw AZFP file of the 01A file format"""
+    def parse_raw(self, raw):
+        """Parses a raw AZFP file of the 01A file format
+
+        Parameters
+        ----------
+        raw : list
+            raw filenames
+        """
 
         # Start of computation subfunctions
         def compute_temp(counts):
@@ -284,7 +290,7 @@ class ConvertAZFP(ConvertBase):
 
         unpacked_data = defaultdict(list)
         fields = self.get_fields()
-        for file in self.filename:
+        for file in raw:
             with open(file, 'rb') as raw:
                 ping_num = 0
                 eof = False
@@ -349,7 +355,7 @@ class ConvertAZFP(ConvertBase):
                                 ).replace(tzinfo=timezone.utc).timestamp())
         return ping_time
 
-    def save(self, file_format, compress=True):
+    def save(self, file_format, save_path=None, combine_opt=False, compress=True):
         """Save data from raw 01A format to a netCDF4 or Zarr file
 
         Parameters
@@ -361,212 +367,224 @@ class ConvertAZFP(ConvertBase):
         """
 
         # Subfunctions to set various dictionaries
-        def calc_Sv_offset(f, pulse_length):
-            """Calculate a compensation for the effects of finite response
-            times of both the receiving and transmitting parts of the transducer.
-            The correction magnitude depends on the length of the transmitted pulse
-            and the response time (transmission and reception) of the transducer.
-            Called by ``_set_beam_dict()``
+        def export(file_idx=None):
+            def calc_Sv_offset(f, pulse_length):
+                """Calculate a compensation for the effects of finite response
+                times of both the receiving and transmitting parts of the transducer.
+                The correction magnitude depends on the length of the transmitted pulse
+                and the response time (transmission and reception) of the transducer.
+                Called by ``_set_beam_dict()``
 
-            Parameters
-            ----------
-            f
-                frequency in Hz
-            pulse_length
-                pulse length in ms
-            """
-            if f > 38000:
-                if pulse_length == 300:
-                    return 1.1
-                elif pulse_length == 500:
-                    return 0.8
-                elif pulse_length == 700:
-                    return 0.5
-                elif pulse_length == 900:
-                    return 0.3
-                elif pulse_length == 1000:
-                    return 0.3
+                Parameters
+                ----------
+                f
+                    frequency in Hz
+                pulse_length
+                    pulse length in ms
+                """
+                if f > 38000:
+                    if pulse_length == 300:
+                        return 1.1
+                    elif pulse_length == 500:
+                        return 0.8
+                    elif pulse_length == 700:
+                        return 0.5
+                    elif pulse_length == 900:
+                        return 0.3
+                    elif pulse_length == 1000:
+                        return 0.3
+                else:
+                    if pulse_length == 500:
+                        return 1.1
+                    elif pulse_length == 1000:
+                        return 0.7
+
+            def _set_toplevel_dict():
+                out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
+                                keywords='AZFP',
+                                sonar_convention_authority='ICES',
+                                sonar_convention_name='SONAR-netCDF4',
+                                sonar_convention_version='1.0',
+                                summary='',
+                                title='')
+                return out_dict
+
+            def _set_env_dict():
+                out_dict = dict(temperature=self.unpacked_data['temperature'],  # temperature measured at instrument
+                                ping_time=ping_time)
+                return out_dict
+
+            def _set_platform_dict():
+                out_dict = dict(platform_name=self.platform_name,
+                                platform_type=self.platform_type,
+                                platform_code_ICES=self.platform_code_ICES)
+                return out_dict
+
+            def _set_prov_dict():
+                attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
+                vals = ('echopype', ECHOPYPE_VERSION, dt.utcnow().isoformat(timespec='seconds') + 'Z')  # use UTC time
+                return dict(zip(attrs, vals))
+
+            def _set_sonar_dict():
+                attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
+                         'sonar_software_name', 'sonar_software_version', 'sonar_type')
+                vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
+                        int(self.unpacked_data['serial_number']),   # should have only 1 value (identical for all pings)
+                        'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
+                return dict(zip(attrs, vals))
+
+            def _set_beam_dict():
+                anc = np.array(self.unpacked_data['ancillary'])   # convert to np array for easy slicing
+                dig_rate = self.unpacked_data['dig_rate']         # dim: freq
+
+                # Build variables in the output xarray Dataset
+                N = []   # for storing backscatter_r values for each frequency
+                Sv_offset = np.zeros(freq.shape)
+                for ich in range(len(freq)):
+                    Sv_offset[ich] = calc_Sv_offset(freq[ich], self.unpacked_data['pulse_length'][ich])
+                    N.append(np.array([self.unpacked_data['counts'][p][ich]
+                                    for p in range(len(self.unpacked_data['year']))]))
+
+                tdn = self.unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
+                range_samples_xml = np.array(self.parameters['range_samples'])         # from xml file
+                range_samples_per_bin = self.unpacked_data['range_samples_per_bin']    # from data header
+
+                # Calculate sample interval in seconds
+                if len(dig_rate) == len(range_samples_per_bin):
+                    sample_int = range_samples_per_bin / dig_rate
+                else:
+                    raise ValueError("dig_rate and range_samples not unique across frequencies")
+
+                # Largest number of counts along the range dimension among the different channels
+                longest_range_bin = np.max(self.unpacked_data['num_bins'])
+                range_bin = np.arange(longest_range_bin)
+                # TODO: replace the following with an explicit check of length of range across channels
+                try:
+                    np.array(N)
+                # Exception occurs when N is not rectangular, so it must be padded with nan values to make it rectangular
+                except ValueError:
+                    N = [np.pad(n, ((0, 0), (0, longest_range_bin - n.shape[1])), mode='constant', constant_values=np.nan)
+                        for n in N]
+
+                beam_dict = dict()
+
+                # Dimensions
+                beam_dict['frequency'] = freq
+                beam_dict['ping_time'] = ping_time
+                beam_dict['range_bin'] = range_bin
+
+                beam_dict['backscatter_r'] = N                                   # dim: freq x ping_time x range_bin
+                beam_dict['gain_correction'] = self.parameters['gain']           # dim: freq
+                beam_dict['sample_interval'] = sample_int                        # dim: freq
+                beam_dict['transmit_duration_nominal'] = tdn                     # dim: freq
+                beam_dict['temperature_counts'] = anc[:, 4]                      # dim: ping_time
+                beam_dict['tilt_x_count'] = anc[:, 0]                            # dim: ping_time
+                beam_dict['tilt_y_count'] = anc[:, 1]                            # dim: ping_time
+                beam_dict['tilt_x'] = self.unpacked_data['tilt_x']               # dim: ping_time
+                beam_dict['tilt_y'] = self.unpacked_data['tilt_y']               # dim: ping_time
+                beam_dict['cos_tilt_mag'] = self.unpacked_data['cos_tilt_mag']   # dim: ping_time
+                beam_dict['EBA'] = self.parameters['BP']          # dim: freq
+                beam_dict['DS'] = self.parameters['DS']           # dim: freq
+                beam_dict['EL'] = self.parameters['EL']           # dim: freq
+                beam_dict['TVR'] = self.parameters['TVR']         # dim: freq
+                beam_dict['VTX'] = self.parameters['VTX']         # dim: freq
+                beam_dict['Sv_offset'] = Sv_offset                # dim: freq
+                beam_dict['range_samples'] = range_samples_xml    # dim: freq
+                beam_dict['range_averaging_samples'] = self.parameters['range_averaging_samples']   # dim: freq
+                beam_dict['number_of_frequency'] = self.parameters['num_freq']
+                beam_dict['number_of_pings_per_burst'] = self.parameters['pings_per_burst']
+                beam_dict['average_burst_pings_flag'] = self.parameters['average_burst_pings']
+
+                # Temperature coefficients
+                beam_dict['temperature_ka'] = self.parameters['ka']
+                beam_dict['temperature_kb'] = self.parameters['kb']
+                beam_dict['temperature_kc'] = self.parameters['kc']
+                beam_dict['temperature_A'] = self.parameters['A']
+                beam_dict['temperature_B'] = self.parameters['B']
+                beam_dict['temperature_C'] = self.parameters['C']
+
+                # Tilt coefficients
+                beam_dict['tilt_X_a'] = self.parameters['X_a']
+                beam_dict['tilt_X_b'] = self.parameters['X_b']
+                beam_dict['tilt_X_c'] = self.parameters['X_c']
+                beam_dict['tilt_X_d'] = self.parameters['X_d']
+                beam_dict['tilt_Y_a'] = self.parameters['Y_a']
+                beam_dict['tilt_Y_b'] = self.parameters['Y_b']
+                beam_dict['tilt_Y_c'] = self.parameters['Y_c']
+                beam_dict['tilt_Y_d'] = self.parameters['Y_d']
+
+                return beam_dict
+
+            def _set_vendor_specific_dict():
+                out_dict = {
+                    'ping_time': ping_time,
+                    'frequency': freq,
+                    'profile_flag': self.unpacked_data['profile_flag'],
+                    'profile_number': self.unpacked_data['profile_number'],
+                    'ping_status': self.unpacked_data['ping_status'],
+                    'burst_interval': self.unpacked_data['burst_int'],
+                    'digitization_rate': self.unpacked_data['dig_rate'],    # dim: frequency
+                    'lockout_index': self.unpacked_data['lockout_index'],   # dim: frequency
+                    'num_bins': self.unpacked_data['num_bins'],             # dim: frequency
+                    'range_samples_per_bin': self.unpacked_data['range_samples_per_bin'],   # dim: frequency
+                    'ping_per_profile': self.unpacked_data['ping_per_profile'],
+                    'average_pings_flag': self.unpacked_data['avg_pings'],
+                    'number_of_acquired_pings': self.unpacked_data['num_acq_pings'],   # dim: ping_time
+                    'ping_period': self.unpacked_data['ping_period'],
+                    'first_ping': self.unpacked_data['first_ping'],      # dim: ping_time
+                    'last_ping': self.unpacked_data['last_ping'],        # dim: ping_time
+                    'data_type': self.unpacked_data['data_type'],        # dim: frequency
+                    'data_error': self.unpacked_data['data_error'],      # dim: frequency
+                    'phase': self.unpacked_data['phase'],
+                    'number_of_channels': self.unpacked_data['num_chan'],
+                    'spare_channel': self.unpacked_data['spare_chan'],
+                    'board_number': self.unpacked_data['board_num'],     # dim: frequency
+                    'sensor_flag': self.unpacked_data['sensor_flag'],    # dim: ping_time
+                    'ancillary': self.unpacked_data['ancillary'],        # dim: ping_time x 5 values
+                    'ad_channels': self.unpacked_data['ad'],             # dim: ping_time x 2 values
+                    'battery_main': self.unpacked_data['battery_main'],
+                    'battery_tx': self.unpacked_data['battery_tx']
+                }
+                out_dict['ancillary_len'] = list(range(len(out_dict['ancillary'][0])))
+                out_dict['ad_len'] = list(range(len(out_dict['ad_channels'][0])))
+                return out_dict
+
+            # Parse raw data if haven't already
+            if self.unpacked_data is None:
+                self.parse_raw()
+            # Check variables that should not vary with ping time
+            self.check_uniqueness()
+
+            freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
+            ping_time = self.get_ping_time()
+
+            if file_idx is None:
+                out_file = self.save_path
+                raw_file = self.filename
             else:
-                if pulse_length == 500:
-                    return 1.1
-                elif pulse_length == 1000:
-                    return 0.7
+                out_file = self.save_path[file_idx]
+                raw_file = [self.filename[file_idx]]
 
-        def _set_toplevel_dict():
-            out_dict = dict(conventions='CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
-                            keywords='AZFP',
-                            sonar_convention_authority='ICES',
-                            sonar_convention_name='SONAR-netCDF4',
-                            sonar_convention_version='1.0',
-                            summary='',
-                            title='')
-            return out_dict
-
-        def _set_env_dict():
-            out_dict = dict(temperature=self.unpacked_data['temperature'],  # temperature measured at instrument
-                            ping_time=ping_time)
-            return out_dict
-
-        def _set_platform_dict():
-            out_dict = dict(platform_name=self.platform_name,
-                            platform_type=self.platform_type,
-                            platform_code_ICES=self.platform_code_ICES)
-            return out_dict
-
-        def _set_prov_dict():
-            attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
-            vals = ('echopype', ECHOPYPE_VERSION, dt.utcnow().isoformat(timespec='seconds') + 'Z')  # use UTC time
-            return dict(zip(attrs, vals))
-
-        def _set_sonar_dict():
-            attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
-                     'sonar_software_name', 'sonar_software_version', 'sonar_type')
-            vals = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                    int(self.unpacked_data['serial_number']),   # should have only 1 value (identical for all pings)
-                    'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
-            return dict(zip(attrs, vals))
-
-        def _set_beam_dict():
-            anc = np.array(self.unpacked_data['ancillary'])   # convert to np array for easy slicing
-            dig_rate = self.unpacked_data['dig_rate']         # dim: freq
-
-            # Build variables in the output xarray Dataset
-            N = []   # for storing backscatter_r values for each frequency
-            Sv_offset = np.zeros(freq.shape)
-            for ich in range(len(freq)):
-                Sv_offset[ich] = calc_Sv_offset(freq[ich], self.unpacked_data['pulse_length'][ich])
-                N.append(np.array([self.unpacked_data['counts'][p][ich]
-                                   for p in range(len(self.unpacked_data['year']))]))
-
-            tdn = self.unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
-            range_samples_xml = np.array(self.parameters['range_samples'])         # from xml file
-            range_samples_per_bin = self.unpacked_data['range_samples_per_bin']    # from data header
-
-            # Calculate sample interval in seconds
-            if len(dig_rate) == len(range_samples_per_bin):
-                sample_int = range_samples_per_bin / dig_rate
+            if os.path.exists(out_file):
+                print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
-                raise ValueError("dig_rate and range_samples not unique across frequencies")
+                # Create SetGroups object
+                grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress)
+                grp.set_toplevel(_set_toplevel_dict())      # top-level group
+                grp.set_env(_set_env_dict())                # environment group
+                grp.set_provenance(raw_file, _set_prov_dict())        # provenance group
+                grp.set_platform(_set_platform_dict())      # platform group
+                grp.set_sonar(_set_sonar_dict())            # sonar group
+                grp.set_beam(_set_beam_dict())              # beam group
+                grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group
 
-            # Largest number of counts along the range dimension among the different channels
-            longest_range_bin = np.max(self.unpacked_data['num_bins'])
-            range_bin = np.arange(longest_range_bin)
-            # TODO: replace the following with an explicit check of length of range across channels
-            try:
-                np.array(N)
-            # Exception occurs when N is not rectangular, so it must be padded with nan values to make it rectangular
-            except ValueError:
-                N = [np.pad(n, ((0, 0), (0, longest_range_bin - n.shape[1])), mode='constant', constant_values=np.nan)
-                     for n in N]
-
-            beam_dict = dict()
-
-            # Dimensions
-            beam_dict['frequency'] = freq
-            beam_dict['ping_time'] = ping_time
-            beam_dict['range_bin'] = range_bin
-
-            beam_dict['backscatter_r'] = N                                   # dim: freq x ping_time x range_bin
-            beam_dict['gain_correction'] = self.parameters['gain']           # dim: freq
-            beam_dict['sample_interval'] = sample_int                        # dim: freq
-            beam_dict['transmit_duration_nominal'] = tdn                     # dim: freq
-            beam_dict['temperature_counts'] = anc[:, 4]                      # dim: ping_time
-            beam_dict['tilt_x_count'] = anc[:, 0]                            # dim: ping_time
-            beam_dict['tilt_y_count'] = anc[:, 1]                            # dim: ping_time
-            beam_dict['tilt_x'] = self.unpacked_data['tilt_x']               # dim: ping_time
-            beam_dict['tilt_y'] = self.unpacked_data['tilt_y']               # dim: ping_time
-            beam_dict['cos_tilt_mag'] = self.unpacked_data['cos_tilt_mag']   # dim: ping_time
-            beam_dict['EBA'] = self.parameters['BP']          # dim: freq
-            beam_dict['DS'] = self.parameters['DS']           # dim: freq
-            beam_dict['EL'] = self.parameters['EL']           # dim: freq
-            beam_dict['TVR'] = self.parameters['TVR']         # dim: freq
-            beam_dict['VTX'] = self.parameters['VTX']         # dim: freq
-            beam_dict['Sv_offset'] = Sv_offset                # dim: freq
-            beam_dict['range_samples'] = range_samples_xml    # dim: freq
-            beam_dict['range_averaging_samples'] = self.parameters['range_averaging_samples']   # dim: freq
-            beam_dict['number_of_frequency'] = self.parameters['num_freq']
-            beam_dict['number_of_pings_per_burst'] = self.parameters['pings_per_burst']
-            beam_dict['average_burst_pings_flag'] = self.parameters['average_burst_pings']
-
-            # Temperature coefficients
-            beam_dict['temperature_ka'] = self.parameters['ka']
-            beam_dict['temperature_kb'] = self.parameters['kb']
-            beam_dict['temperature_kc'] = self.parameters['kc']
-            beam_dict['temperature_A'] = self.parameters['A']
-            beam_dict['temperature_B'] = self.parameters['B']
-            beam_dict['temperature_C'] = self.parameters['C']
-
-            # Tilt coefficients
-            beam_dict['tilt_X_a'] = self.parameters['X_a']
-            beam_dict['tilt_X_b'] = self.parameters['X_b']
-            beam_dict['tilt_X_c'] = self.parameters['X_c']
-            beam_dict['tilt_X_d'] = self.parameters['X_d']
-            beam_dict['tilt_Y_a'] = self.parameters['Y_a']
-            beam_dict['tilt_Y_b'] = self.parameters['Y_b']
-            beam_dict['tilt_Y_c'] = self.parameters['Y_c']
-            beam_dict['tilt_Y_d'] = self.parameters['Y_d']
-
-            return beam_dict
-
-        def _set_vendor_specific_dict():
-            out_dict = {
-                'ping_time': ping_time,
-                'frequency': freq,
-                'profile_flag': self.unpacked_data['profile_flag'],
-                'profile_number': self.unpacked_data['profile_number'],
-                'ping_status': self.unpacked_data['ping_status'],
-                'burst_interval': self.unpacked_data['burst_int'],
-                'digitization_rate': self.unpacked_data['dig_rate'],    # dim: frequency
-                'lockout_index': self.unpacked_data['lockout_index'],   # dim: frequency
-                'num_bins': self.unpacked_data['num_bins'],             # dim: frequency
-                'range_samples_per_bin': self.unpacked_data['range_samples_per_bin'],   # dim: frequency
-                'ping_per_profile': self.unpacked_data['ping_per_profile'],
-                'average_pings_flag': self.unpacked_data['avg_pings'],
-                'number_of_acquired_pings': self.unpacked_data['num_acq_pings'],   # dim: ping_time
-                'ping_period': self.unpacked_data['ping_period'],
-                'first_ping': self.unpacked_data['first_ping'],      # dim: ping_time
-                'last_ping': self.unpacked_data['last_ping'],        # dim: ping_time
-                'data_type': self.unpacked_data['data_type'],        # dim: frequency
-                'data_error': self.unpacked_data['data_error'],      # dim: frequency
-                'phase': self.unpacked_data['phase'],
-                'number_of_channels': self.unpacked_data['num_chan'],
-                'spare_channel': self.unpacked_data['spare_chan'],
-                'board_number': self.unpacked_data['board_num'],     # dim: frequency
-                'sensor_flag': self.unpacked_data['sensor_flag'],    # dim: ping_time
-                'ancillary': self.unpacked_data['ancillary'],        # dim: ping_time x 5 values
-                'ad_channels': self.unpacked_data['ad'],             # dim: ping_time x 2 values
-                'battery_main': self.unpacked_data['battery_main'],
-                'battery_tx': self.unpacked_data['battery_tx']
-            }
-            out_dict['ancillary_len'] = list(range(len(out_dict['ancillary'][0])))
-            out_dict['ad_len'] = list(range(len(out_dict['ad_channels'][0])))
-            return out_dict
-
-        if not self.unpacked_data:
-            self.parse_raw()
-
-        # Check variables that should not vary with ping time
-        self.check_uniqueness()
-
-        freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
-        ping_time = self.get_ping_time()
-
-        # Construct export path to write to. Uses first file if there are multiple raw files
-        first_file = self.filename[0]
-        filename = os.path.splitext(os.path.basename(first_file))[0]
-        self.save_path = os.path.join(os.path.split(first_file)[0], filename + file_format)
-        self.nc_path = os.path.join(os.path.split(first_file)[0], filename + '.nc')
-        self.zarr_path = os.path.join(os.path.split(first_file)[0], filename + '.zarr')
-
-        if os.path.exists(self.save_path):
-            print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
+        self.validate_path(save_path, file_format, combine_opt)
+        if len(self.filename) == 1 or combine_opt:
+            export()
         else:
-            # Create SetGroups object
-            grp = SetGroups(file_path=self.save_path, echo_type='AZFP', compress=compress)
-            grp.set_toplevel(_set_toplevel_dict())      # top-level group
-            grp.set_env(_set_env_dict())                # environment group
-            grp.set_provenance(self.filename, _set_prov_dict())        # provenance group
-            grp.set_platform(_set_platform_dict())      # platform group
-            grp.set_sonar(_set_sonar_dict())            # sonar group
-            grp.set_beam(_set_beam_dict())              # beam group
-            grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group
+            for i, file in enumerate(self.filename):
+                if i > 0:
+                    self._checked_unique = False
+                    self.unpacked_data = None
+                self.parse_raw([file])
+                export(i)
