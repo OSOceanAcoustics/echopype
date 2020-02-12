@@ -63,7 +63,7 @@ class ModelEK60(ModelBase):
             range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
-    def calibrate(self, save=False, save_postfix='_Sv'):
+    def calibrate(self, save=False, save_postfix='_Sv', save_path=None):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
 
         Parameters
@@ -106,17 +106,15 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
-            if save_postfix != '_Sv':
-                self.Sv_path = os.path.join(os.path.dirname(self.file_path),
-                                            os.path.splitext(os.path.basename(self.file_path))[0] +
-                                            save_postfix + '.nc')
+            if save_path is not None:
+                self.Sv_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
 
-    def calibrate_TS(self, save=False):
+    def calibrate_TS(self, save=False, save_path=None):
         """Perform echo-integration to get Target Stregnth (TS / Sp) from EK60 power data.
 
         Parameters
@@ -158,6 +156,8 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.TS = TS
         if save:
+            if save_path is not None:
+                self.TS_path = self.validate_path(save_path, "_TS")
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
             TS.to_netcdf(path=self.TS_path, mode="w")
 
