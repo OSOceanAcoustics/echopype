@@ -198,6 +198,23 @@ class ModelBase(object):
         # issue warning when subclass methods not available
         print('Target strength calibration has not been implemented for this sonar model!')
 
+    def validate_path(self, save_path, save_postfix):
+        """Creates a directory if it doesnt exist. Returns a valid save path"""
+        path_ext = os.path.splitext(save_path)[1]
+        # If given save_path is file, split into directory and file
+        if path_ext != '':
+            save_dir, file_out = os.path.split(save_path)
+        # If given save_path is a directory, get a filename from input .nc file
+        else:
+            save_dir = save_path
+            file_in = os.path.basename(self.file_path)
+            file_name, file_ext = os.path.splitext(file_in)[0]
+            file_out = file_name + save_postfix + file_ext
+        if not os.path.isdir(save_dir):
+            os.mkdir(save_dir)
+
+        return os.path.join(save_dir, file_out)
+
     @staticmethod
     def get_tile_params(r_data_sz, p_data_sz, r_tile_sz, p_tile_sz, sample_thickness):
         """Obtain ping_time and range_bin parameters associated with groupby and groupby_bins operations.
@@ -464,7 +481,7 @@ class ModelBase(object):
 
         return noise_est
 
-    def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None, save=False):
+    def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None, save=False, save_path=None):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
@@ -555,6 +572,8 @@ class ModelBase(object):
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
         if save:
+            if save_path is not None:
+                self.MVBS_path = self.validate_path(save_path, "_MVBS")
             print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
             MVBS.to_netcdf(self.MVBS_path)
 

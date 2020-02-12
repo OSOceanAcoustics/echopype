@@ -126,7 +126,7 @@ class ModelAZFP(ModelBase):
 
         return range_meter
 
-    def calibrate(self, save=False, save_postfix='_Sv'):
+    def calibrate(self, save=False, save_postfix='_Sv', save_path=None):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
         Parameters
@@ -159,22 +159,22 @@ class ModelAZFP(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
-            if save_postfix is not '_Sv':
-                self.Sv_path = os.path.join(os.path.dirname(self.file_path),
-                                            os.path.splitext(os.path.basename(self.file_path))[0] +
-                                            save_postfix + '.nc')
+            if save_path is not None:
+                self.Sv_path = self.validate_path(save_path, save_postfix)
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self.Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
 
-    def calibrate_TS(self, save=False):
+    def calibrate_TS(self, save=False, save_path=None):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             self.TS = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                        ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 40 * np.log10(self.range) +
                        2 * self.seawater_absorption * self.range)
             self.TS.name = "TS"
             if save:
+                if save_path is not None:
+                    self.TS_path = self.validate_path(save_path, "_TS")
                 print("{} saving calibrated TS to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
                 self.TS.to_netcdf(path=self.TS_path, mode="w")
