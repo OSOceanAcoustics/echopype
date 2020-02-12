@@ -112,8 +112,44 @@ class ConvertBase:
             self.nc_path = self.nc_path[0]
             self.zarr_path = self.zarr_path[0]
 
-    def raw2nc(self, save_path=None, combine_opt=False, compress=True,):
-        self.save(".nc", save_path, combine_opt, compress)
+    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
+        """Wrapper for save function
 
-    def raw2zarr(self, save_path=None, combine_opt=False, compress=True):
-        self.save(".zarr", save_path, combine_opt, compress)
+        Parameters
+        ----------
+        file_format : str
+            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        save_path : str
+            Path to save output to. Must be a directory if converting multiple files.
+            Must be a filename if combining multiple files.
+            If `False`, outputs in the same location as the input raw file.
+        combine_opt : bool
+            Whether or not to combine a list of input raw files.
+            Raises error if combine_opt is true and there is only one file being converted.
+        overwrite : bool
+            Whether or not to overwrite the file if the output path already exists.
+        compress : bool
+            Whether or not to compress backscatter data. Defaults to `True`
+        """
+        self.save(".nc", save_path, combine_opt, overwrite, compress)
+
+    def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
+        """Wrapper for save function
+
+        Parameters
+        ----------
+        file_format : str
+            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        save_path : str
+            Path to save output to. Must be a directory if converting multiple files.
+            Must be a filename if combining multiple files.
+            If `False`, outputs in the same location as the input raw file.
+        combine_opt : bool
+            Whether or not to combine a list of input raw files.
+            Raises error if combine_opt is true and there is only one file being converted.
+        overwrite : bool
+            Whether or not to overwrite the file if the output path already exists.
+        compress : bool
+            Whether or not to compress backscatter data. Defaults to `True`
+        """
+        self.save(".zarr", save_path, combine_opt, overwrite, compress)
