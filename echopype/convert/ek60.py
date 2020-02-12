@@ -272,13 +272,22 @@ class ConvertEK60(ConvertBase):
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
-    def save(self, file_format, save_path=None, combine_opt=False, compress=True):
-        """Save data from .RAW format to a netCDF4 or Zarr file
+    def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
+        """Save data from raw 01A format to a netCDF4 or Zarr file
 
         Parameters
         ----------
         file_format : str
             format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
+        save_path : str
+            Path to save output to. Must be a directory if converting multiple files.
+            Must be a filename if combining multiple files.
+            If `False`, outputs in the same location as the input raw file.
+        combine_opt : bool
+            Whether or not to combine a list of input raw files.
+            Raises error if combine_opt is true and there is only one file being converted.
+        overwrite : bool
+            Whether or not to overwrite the file if the output path already exists.
         compress : bool
             Whether or not to compress backscatter data. Defaults to `True`
         """
@@ -451,6 +460,10 @@ class ConvertEK60(ConvertBase):
             filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
             filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
+            # Check if nc file already exists and deletes it if overwrite is true
+            if os.path.exists(out_file) and overwrite:
+                print("Overwriting: " + out_file)
+                os.remove(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
