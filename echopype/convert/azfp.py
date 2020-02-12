@@ -311,13 +311,13 @@ class ConvertAZFP(ConvertBase):
                             # compute x tilt from unpacked_data[ii]['ancillary][0]
                             unpacked_data['tilt_x'].append(
                                 compute_tilt(unpacked_data['ancillary'][ping_num][0],
-                                            self.parameters['X_a'], self.parameters['X_b'],
-                                            self.parameters['X_c'], self.parameters['X_d']))
+                                             self.parameters['X_a'], self.parameters['X_b'],
+                                             self.parameters['X_c'], self.parameters['X_d']))
                             # Compute y tilt from unpacked_data[ii]['ancillary][1]
                             unpacked_data['tilt_y'].append(
                                 compute_tilt(unpacked_data['ancillary'][ping_num][1],
-                                            self.parameters['Y_a'], self.parameters['Y_b'],
-                                            self.parameters['Y_c'], self.parameters['Y_d']))
+                                             self.parameters['Y_a'], self.parameters['Y_b'],
+                                             self.parameters['Y_c'], self.parameters['Y_d']))
                             # Compute cos tilt magnitude from tilt x and y values
                             unpacked_data['cos_tilt_mag'].append(
                                 math.cos((math.sqrt(unpacked_data['tilt_x'][ping_num] ** 2 +
@@ -452,7 +452,7 @@ class ConvertAZFP(ConvertBase):
                 for ich in range(len(freq)):
                     Sv_offset[ich] = calc_Sv_offset(freq[ich], self.unpacked_data['pulse_length'][ich])
                     N.append(np.array([self.unpacked_data['counts'][p][ich]
-                                    for p in range(len(self.unpacked_data['year']))]))
+                                       for p in range(len(self.unpacked_data['year']))]))
 
                 tdn = self.unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
                 range_samples_xml = np.array(self.parameters['range_samples'])         # from xml file
@@ -470,10 +470,12 @@ class ConvertAZFP(ConvertBase):
                 # TODO: replace the following with an explicit check of length of range across channels
                 try:
                     np.array(N)
-                # Exception occurs when N is not rectangular, so it must be padded with nan values to make it rectangular
+                # Exception occurs when N is not rectangular,
+                #  so it must be padded with nan values to make it rectangular
                 except ValueError:
-                    N = [np.pad(n, ((0, 0), (0, longest_range_bin - n.shape[1])), mode='constant', constant_values=np.nan)
-                        for n in N]
+                    N = [np.pad(n, ((0, 0), (0, longest_range_bin - n.shape[1])),
+                                mode='constant', constant_values=np.nan)
+                         for n in N]
 
                 beam_dict = dict()
 
@@ -576,7 +578,7 @@ class ConvertAZFP(ConvertBase):
 
             # Check if nc file already exists and deletes it if overwrite is true
             if os.path.exists(out_file) and overwrite:
-                print("Overwriting: " + out_file)
+                print("          overwriting: " + out_file)
                 os.remove(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
@@ -598,9 +600,9 @@ class ConvertAZFP(ConvertBase):
         if len(self.filename) == 1 or combine_opt:
             export()
         else:
-            for i, file in enumerate(self.filename):
-                if i > 0:
+            for file_seq, file in enumerate(self.filename):
+                if file_seq > 0:
                     self._checked_unique = False
                     self.unpacked_data = None
                 self.parse_raw([file])
-                export(i)
+                export(file_seq)

@@ -273,7 +273,7 @@ class ConvertEK60(ConvertBase):
         self.nmea_data.trim()
 
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        """Save data from raw 01A format to a netCDF4 or Zarr file
+        """Save data from .raw format to a netCDF4 or Zarr file
 
         Parameters
         ----------
@@ -462,7 +462,7 @@ class ConvertEK60(ConvertBase):
 
             # Check if nc file already exists and deletes it if overwrite is true
             if os.path.exists(out_file) and overwrite:
-                print("Overwriting: " + out_file)
+                print("          overwriting: " + out_file)
                 os.remove(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
@@ -514,9 +514,9 @@ class ConvertEK60(ConvertBase):
         if len(self.filename) == 1 or combine_opt:
             export()
         else:
-            for i, file in enumerate(self.filename):
-                if i > 0:
+            for freq_seq, file in enumerate(self.filename):
+                if freq_seq > 0:
                     self.__init__(self.filename)        # Clear previous parse
                     self.validate_path(save_path, file_format, combine_opt)
                 self.load_ek60_raw([file])
-                export(i)
+                export(freq_seq)
