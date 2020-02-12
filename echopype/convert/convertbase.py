@@ -1,5 +1,6 @@
 import os
 
+
 class ConvertBase:
     # Class for assigning attributes common to all echosounders
     def __init__(self):
@@ -8,6 +9,7 @@ class ConvertBase:
             'platform_code_ICES': '',
             'platform_type': ''
         }
+        self.out_dir = None
         self.nc_path = None
         self.zarr_path = None
         self.save_path = None
@@ -69,36 +71,42 @@ class ConvertBase:
             raise ValueError("File format is not .nc or .zarr")
 
         # Raise error if there is only 1 raw file, but combine_opt is True
+        # TODO: this should just default to convert the single input file
         if combine_opt and n_files == 1:
-            raise ValueError("Cannot combine raw files if there is only one.")
+            raise ValueError("Cannot combine raw files if there is only one input file.")
 
         filenames = self.filename
-        if save_path is not None:
-            ext = os.path.splitext(save_path)[1]
+        if save_path is not None:   # if save_path is specified
             # Check if save_path is a file or a directory
-            if ext == '':
-                if combine_opt:
-                    raise ValueError("Save_path must be a valid file path when combining files")
-                self.out_dir = save_path
-            else:
-                self.out_dir, filenames = os.path.split(save_path)
+            if os.path.isdir(save_path):   # if a directory
+                if combine_opt:   # but want to combine multiple files
+                    raise ValueError("Please set save_path to path to a file if combine_opt=True.")
+                else:   # if not combining multiple files, save_path is the directory to store converted files
+                    self.out_dir = save_path
+
+            else:  # if a file
+                self.out_dir, filenames = os.path.split(save_path)  # overwrite filenames as output path
                 filenames = [filenames]
+                ext = os.path.splitext(os.path.basename(save_path))[1]  # get extension of the specified path
                 if ext != file_format:
                     raise ValueError(f'The path must have the extension "{file_format}"')
                 # Raise error if input path is a file and there are multiple file not being combined
                 if not combine_opt and n_files > 1:
-                    raise ValueError(f"Output path must be a directory when not combining files")
+                    raise ValueError(f"Output path must be either "
+                                     f"a directory when not combining files (combine_opt=False) or "
+                                     f"a path to a file when combining multiple files (combine_opt=True).")
             # Create folder if save_path does not exist.
-            if not os.path.exists(self.out_dir):
+            if (self.out_dir is not None) and (not os.path.exists(self.out_dir)):
                 try:
                     os.mkdir(self.out_dir)
                 # Raise error if save_path is not a folder.
                 except FileNotFoundError:
-                    raise ValueError("A valid save directory was not given")
-        # Save in the same directory as raw file if save_path is not specified
-        else:
+                    raise ValueError("A valid save directory was not given.")
+
+        else:  # Save in the same directory as raw file if save_path is not specified
             if combine_opt:
-                raise ValueError("Specify a save path when combining raw files")
+                raise ValueError("Specify a output file path when combining multiple raw files by"
+                                 "setting save_path=PATH_TO_COMBINED_FILENAME")
             self.out_dir = os.path.dirname(self.filename[0])
 
         # Store output filenames
@@ -106,6 +114,7 @@ class ConvertBase:
         self.save_path = [os.path.join(self.out_dir, f + file_format) for f in files]
         self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
+
         # Convert to string if only 1 output file
         if len(self.save_path) == 1:
             self.save_path = self.save_path[0]
@@ -113,12 +122,10 @@ class ConvertBase:
             self.zarr_path = self.zarr_path[0]
 
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        """Wrapper for save function
+        """Wrapper for saving to netCDF.
 
         Parameters
         ----------
-        file_format : str
-            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
         save_path : str
             Path to save output to. Must be a directory if converting multiple files.
             Must be a filename if combining multiple files.
@@ -134,12 +141,10 @@ class ConvertBase:
         self.save(".nc", save_path, combine_opt, overwrite, compress)
 
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        """Wrapper for save function
+        """Wrapper for saving to zarr.
 
         Parameters
         ----------
-        file_format : str
-            format of output file. ".nc" for netCDF4 or ".zarr" for Zarr
         save_path : str
             Path to save output to. Must be a directory if converting multiple files.
             Must be a filename if combining multiple files.
@@ -153,3 +158,8 @@ class ConvertBase:
             Whether or not to compress backscatter data. Defaults to `True`
         """
         self.save(".zarr", save_path, combine_opt, overwrite, compress)
+
+    def save(self, param, save_path, combine_opt, overwrite, compress):
+        """Wrapper for saving functions.
+        """
+        pass
