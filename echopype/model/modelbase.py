@@ -21,13 +21,12 @@ class ModelBase(object):
         self.noise_est_ping_size = 30  # number of pings per tile for noise estimation
         self.MVBS_range_bin_size = 5  # meters per tile for MVBS
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
-        # TVG and ABS are calculated whenever they are used
-        # self.TVG = None  # time varying gain along range
-        # self.ABS = None  # absorption along range
-        self.Sv = None  # calibrated volume backscattering strength
-        self.Sv_clean = None  # denoised volume backscattering strength
-        self.TS = None  # calibrated target strength
-        self.MVBS = None  # mean volume backscattering strength
+        self.Sv = None            # calibrated volume backscattering strength
+        self.Sv_path = None       # path to save calibrated results
+        self.Sv_clean = None      # denoised volume backscattering strength
+        self.TS = None            # calibrated target strength
+        self.TS_path = None       # path to save TS calculation results
+        self.MVBS = None          # mean volume backscattering strength
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
@@ -199,18 +198,30 @@ class ModelBase(object):
         print('Target strength calibration has not been implemented for this sonar model!')
 
     def validate_path(self, save_path, save_postfix):
-        """Creates a directory if it doesnt exist. Returns a valid save path"""
-        path_ext = os.path.splitext(save_path)[1]
-        # If given save_path is file, split into directory and file
-        if path_ext != '':
-            save_dir, file_out = os.path.split(save_path)
-        # If given save_path is a directory, get a filename from input .nc file
-        else:
-            save_dir = save_path
+        """Creates a directory if it doesnt exist. Returns a valid save path.
+        """
+        def _assemble_path():
             file_in = os.path.basename(self.file_path)
-            file_name, file_ext = os.path.splitext(file_in)[0]
-            file_out = file_name + save_postfix + file_ext
-        if not os.path.isdir(save_dir):
+            file_name, file_ext = os.path.splitext(file_in)
+            return file_name + save_postfix + file_ext
+
+        if save_path is None:
+            save_dir = os.path.dirname(self.file_path)
+            file_out = _assemble_path()
+        else:
+            path_ext = os.path.splitext(save_path)[1]
+            # If given save_path is file, split into directory and file
+            if path_ext != '':
+                save_dir, file_out = os.path.split(save_path)
+                if save_dir == '':  # save_path is only a filename without directory
+                    save_dir = os.path.dirname(self.file_path)  # use directory from input file
+            # If given save_path is a directory, get a filename from input .nc file
+            else:
+                save_dir = save_path
+                file_out = _assemble_path()
+
+        # Create folder if not already exists
+        if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
         return os.path.join(save_dir, file_out)
