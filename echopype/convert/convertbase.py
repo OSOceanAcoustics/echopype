@@ -77,13 +77,13 @@ class ConvertBase:
 
         filenames = self.filename
         if save_path is not None:   # if save_path is specified
+            path_ext = os.path.splitext(save_path)[1]
             # Check if save_path is a file or a directory
-            if os.path.isdir(save_path):   # if a directory
+            if path_ext == '':   # if a directory
                 if combine_opt:   # but want to combine multiple files
                     raise ValueError("Please set save_path to path to a file if combine_opt=True.")
                 else:   # if not combining multiple files, save_path is the directory to store converted files
                     self.out_dir = save_path
-
             else:  # if a file
                 self.out_dir, filenames = os.path.split(save_path)  # overwrite filenames as output path
                 filenames = [filenames]
@@ -95,11 +95,16 @@ class ConvertBase:
                     raise ValueError(f"Output path must be either "
                                      f"a directory when not combining files (combine_opt=False) or "
                                      f"a path to a file when combining multiple files (combine_opt=True).")
-            # Create folder if save_path does not exist.
+
+            # Use directory of input file is self.out_dir is empty
+            if self.out_dir == '':
+                self.out_dir = os.path.dirname(self.filename[0])
+
+            # Create folder if save_path does not exist already
             if (self.out_dir is not None) and (not os.path.exists(self.out_dir)):
                 try:
                     os.mkdir(self.out_dir)
-                # Raise error if save_path is not a folder.
+                # Raise error if save_path is not a folder
                 except FileNotFoundError:
                     raise ValueError("A valid save directory was not given.")
 
