@@ -63,7 +63,7 @@ class ModelEK60(ModelBase):
             range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
-    def calibrate(self, save=False, save_postfix='_Sv'):
+    def calibrate(self, save=False, save_postfix='_Sv', save_path=None):
         """Perform echo-integration to get volume backscattering strength (Sv) from EK60 power data.
 
         Parameters
@@ -73,6 +73,8 @@ class ModelEK60(ModelBase):
             default to ``False``
         save_postfix : str
             Filename postfix, default to '_Sv'
+        save_path : str
+            Full filename to save to, overwriting the RAWFILENAME_Sv.nc default
         """
         # Open data set for Environment and Beam groups
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
@@ -106,24 +108,25 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.Sv = Sv
         if save:
-            if save_postfix != '_Sv':
-                self.Sv_path = os.path.join(os.path.dirname(self.file_path),
-                                            os.path.splitext(os.path.basename(self.file_path))[0] +
-                                            save_postfix + '.nc')
+            self.Sv_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             Sv.to_netcdf(path=self.Sv_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
 
-    def calibrate_TS(self, save=False):
-        """Perform echo-integration to get Target Stregnth (TS / Sp) from EK60 power data.
+    def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None):
+        """Perform echo-integration to get Target Strength (TS) from EK60 power data.
 
         Parameters
         -----------
         save : bool, optional
             whether to save calibrated TS output
             default to ``False``
+        save_postfix : str, optional
+            Filename postfix, default to '_TS'
+        save_path : str, optional
+            Full filename to save the TS calculation results, overwritting the RAWFILE_TS.nc default
         """
 
         # Open data set for Environment and Beam groups
@@ -158,6 +161,7 @@ class ModelEK60(ModelBase):
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
         self.TS = TS
         if save:
+            self.TS_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
             TS.to_netcdf(path=self.TS_path, mode="w")
 
