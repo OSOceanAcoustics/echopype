@@ -70,10 +70,9 @@ class ConvertBase:
         if file_format != '.nc' and file_format != '.zarr':
             raise ValueError("File format is not .nc or .zarr")
 
-        # Raise error if there is only 1 raw file, but combine_opt is True
-        # TODO: this should just default to convert the single input file
+        # Cannot combine if there is only 1 file. Changes combine_opt to False
         if combine_opt and n_files == 1:
-            raise ValueError("Cannot combine raw files if there is only one input file.")
+            combine_opt = False
 
         filenames = self.filename
         if save_path is not None:   # if save_path is specified
