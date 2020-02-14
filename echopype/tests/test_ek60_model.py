@@ -44,18 +44,20 @@ def test_noise_estimates_removal():
                                p_tile_sz=e_data.noise_est_ping_size,
                                sample_thickness=e_data.sample_thickness)
 
+    range_bin_tile_bin_edge = np.unique(range_bin_tile_bin_edge)
+
     range_meter = e_data.range
     TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
     ABS = 2 * e_data.seawater_absorption * range_meter
     power_cal_test = (10 ** ((proc_data.Sv - ABS - TVG) / 10)).values
 
-    num_ping_bins = ping_tile_bin_edge.size -1 #np.unique(add_idx).size
+    num_ping_bins = ping_tile_bin_edge.size - 1
     num_range_bins = range_bin_tile_bin_edge.size - 1
     noise_est_tmp = np.empty((proc_data.frequency.size, num_range_bins, num_ping_bins))  # all tiles
     noise_est_test = np.empty((proc_data.frequency.size, num_ping_bins))  # all columns
     p_sz = e_data.noise_est_ping_size
     p_idx = np.arange(p_sz, dtype=int)
-    r_sz = (e_data.noise_est_range_bin_size.max() / e_data.sample_thickness[0].values).astype(int)
+    r_sz = (e_data.noise_est_range_bin_size.max() / e_data.sample_thickness[0].values).astype(int).values
     r_idx = np.arange(r_sz, dtype=int)
 
     # Get noise estimates manually
