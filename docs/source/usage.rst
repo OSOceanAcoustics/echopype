@@ -124,9 +124,10 @@ that may come in handy.
   .. code-block:: python
 
      raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
-                      './raw_data_files/file_02.raw', ...]
-     dc = Convert(raw_file_path)                 # create a Convert object
-     dc.raw2nc(save_path='./unpacked_files')    # set the output directory
+                      './raw_data_files/file_02.raw',
+                      ...]
+     dc = Convert(raw_file_path)                        # create a Convert object
+     dc.raw2nc(save_path='./unpacked_files')            # set the output directory
 
   Each input file will be converted to individual ``.nc`` files and
   stored in the specified directory.
@@ -136,9 +137,10 @@ that may come in handy.
   .. code-block:: python
 
      raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
-                      './raw_data_files/file_02.raw', ...]
-     dc = Convert(raw_file_path)   # create a Convert object
-     dc.raw2nc(combine_opt=True,   # combine all input files when unpacking
+                      './raw_data_files/file_02.raw',
+                      ...]
+     dc = Convert(raw_file_path)                        # create a Convert object
+     dc.raw2nc(combine_opt=True,                        # combine all input files when unpacking
                save_path='./unpacked_files/combined_file.nc')
 
   ``save_path`` has to be given explicitly when combining multiple files.
@@ -235,8 +237,8 @@ The steps of performing these analysis for each echosounder are summarized below
    from echopype.model import EchoData
    nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
    ed = EchoData(nc_path)   # create an echo data processing object
-   ed.calibrate()           # Calibration and echo-integration to obtain Sv
-   ed.remove_noise()        # denoised Sv
+   ed.calibrate()           # Sv
+   ed.remove_noise()        # denoise
    ed.get_MVBS()            # calculate MVBS
 
 By default, these methods do not save the calculation results to disk.
