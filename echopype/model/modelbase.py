@@ -32,9 +32,8 @@ class ModelBase(object):
         self._seawater_absorption = None
         self._sound_speed = None
 
-    # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
-    #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
-    #  and provide getter/setter
+    # TODO: self._pressure, self._temperature, self._salinity
+    #  should be initialize in init()
 
     @property
     def salinity(self):
