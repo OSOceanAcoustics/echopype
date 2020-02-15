@@ -126,7 +126,7 @@ that may come in handy.
      raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
                       './raw_data_files/file_02.raw', ...]
      dc = Convert(raw_file_path)                 # create a Convert object
-     dc.raw2nc(save_path='./unpcaked_folder')    # set the output directory
+     dc.raw2nc(save_path='./unpacked_files')    # set the output directory
 
   Each input file will be converted to individual ``.nc`` files and
   stored in the specified directory.
@@ -139,7 +139,7 @@ that may come in handy.
                       './raw_data_files/file_02.raw', ...]
      dc = Convert(raw_file_path)   # create a Convert object
      dc.raw2nc(combine_opt=True,   # combine all input files when unpacking
-                     save_path='./unpcaked_files/combined_file.nc')
+               save_path='./unpacked_files/combined_file.nc')
 
   ``save_path`` has to be given explicitly when combining multiple files.
   If ``save_path`` is only a filename instead of a full path,
@@ -210,11 +210,12 @@ Echopype accommodates these cases in the following two ways:
       in the `Platform` group all set to empty strings.
 
 
-Routine data processing
------------------------
+Data processing
+---------------
 
-.. note:: Echopype's data processing functionalities are being developed actively.
-   Be sure to check back here often!
+
+Functionality
+~~~~~~~~~~~~~
 
 Echopype currently supports:
 
@@ -240,7 +241,7 @@ The steps of performing these analysis for each echosounder are summarized below
 
 By default, these methods do not save the calculation results to disk.
 The computation results can be accessed from ``data.Sv``, ``data.Sv_clean`` and
-``data.MVBS`` as xarray DataSets with proper dimension labels.
+``data.MVBS`` as xarray Datasets with proper dimension labels.
 
 To save results to disk:
 
@@ -255,38 +256,63 @@ There are various options to save the results:
 
 .. code-block:: python
 
-   # Overwrite the output postfix
-   ed.calibrate(save=True, save_postfix='_Cal')  # output: convertedfile_Cal.nc
+   # Overwrite the output postfix from _Sv to_Cal: convertedfile_Cal.nc
+   ed.calibrate(save=True, save_postfix='_Cal')
 
-   # Save output in another directory
-   ed.calibrate(save=True, save_path='./cal_results')  # output: ./cal_results/convertedfile_Sv.nc
+   # Save output to another directory: ./cal_results/convertedfile_Sv.nc
+   ed.calibrate(save=True, save_path='./cal_results')
 
    # Save output to another directory with an arbitrary name
    ed.calibrate(save=True, save_path='./cal_results/somethingnew.nc')
 
 
-AZFP specifics
-~~~~~~~~~~~~~~
-There are some additional steps when performing these operations on AZFP data.
-Before calibration, the salinity and pressure values should be adjusted
-if the default values of 29.6 PSU, and 60 dbars do not apply to the environment
-where data collection took place. For example:
+.. note:: Echopype's data processing functionality is being developed actively.
+   Be sure to check back here often!
+
+
+Environmental parameters
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Environmental parameters, including temperature, salinity and pressure, are
+critical in biological interpretation of ocean sonar data. They influence
+
+- Transducer calibration, through seawater absorption. This influence is
+  frequency-dependent, and the higher the frequency the more sensitive the
+  calibration is to the environmental parameters.
+
+- Sound speed, which impacts the conversion from temporal resolution of
+  (of each data sample) to spatial resolution, i.e. the sonar observation
+  range would change.
+
+By default, echopype uses the following for calibration:
+
+- EK60: Environmental parameters saved with the data files
+
+- AZFP: salinity = 29.6 PSU, pressure = 60 dbar,
+  and temperature recorded at the instrument
+
+These parameters should be overwritten when they differ from the actual
+environmental condition during data collection.
+To update these parameters, simply do the following *before*
+calling ``ed.calibrate()``:
 
 .. code-block:: python
 
-   data.salinity = 30     # Salinity in PSU
-   data.pressure = 50     # Pressure in dbars
+   ed.temperature = 8   # temperature in degree Celsius
+   ed.salinity = 30     # salinity in PSU
+   ed.pressure = 50     # pressure in dbar
+   ed.recalculate_environment()  # recalculate related parameters
 
-These values are used in calculating the sea absorption coefficients
-for data at each frequency and the sound speed in the water.
-The sound speed is used to calculate the range.
-These values can be retrieved with:
+This will trigger recalculation of all related parameters,
+including sound speed, seawater absorption, thickness of each sonar
+sample, and range. The updated values can be retrieved with:
 
 .. code-block:: python
 
-    data.seawater_absorption
-    data.sound_speed
-    data.range
+   ed.seawater_absorption  # absorption in [dB/m]
+   ed.sound_speed          # sound speed in [m/s]
+   ed.sample_thickness     # sample spatial resolution in [m]
+   ed.range                # range for each sonar sample in [m]
 
 
 ---------------
