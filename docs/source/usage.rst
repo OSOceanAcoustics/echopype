@@ -5,22 +5,26 @@ Using echopype
 Installation
 ------------
 
-Echopype can be installed from PyPI or through conda:
+Echopype can be installed from PyPI:
 
 .. code-block:: console
 
-    # PyPI
-    $ pip install echopype
+   $ pip install echopype
 
-    # conda
-    $ conda install -c conda-forge echopype
+
+or through conda:
+
+.. code-block:: console
+
+   $ conda install -c conda-forge echopype
+
 
 When creating an conda environment to work with echopype,
 use the supplied ``environment.yml`` or do
 
 .. code-block:: console
 
-    $ conda create -c conda-forge -n echopype python=3.8  --file requirements.txt
+   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
 
 
 .. note::  Echopype currently uses python 3.8 due to an
@@ -64,8 +68,8 @@ the following in an interactive Python session:
 .. code-block:: python
 
     from echopype.convert import Convert
-    data_tmp = Convert('FILENAME.raw')
-    data_tmp.raw2nc()
+    dc = Convert('FILENAME.raw')
+    dc.raw2nc()
 
 This will generate a  ``FILENAME.nc`` file in the same directory as
 the original ``FILENAME.raw`` file.
@@ -77,8 +81,8 @@ This can be done by:
 .. code-block:: python
 
     from echopype.convert import Convert
-    data_tmp = Convert('FILENAME.01A', 'XMLFILENAME.xml')
-    data_tmp.raw2nc()
+    dc = Convert('FILENAME.01A', 'XMLFILENAME.xml')
+    dc.raw2nc()
 
 Note that before calling ``raw2nc()`` to create netCDF4 files,
 you should first set ``platform_name``, ``platform_type``, and
@@ -89,25 +93,96 @@ them following the example below:
 
 .. code-block:: python
 
-    data_tmp.platform_name = 'OOI'
-    data_tmp.platform_type = 'subsurface mooring'
-    data_tmp.platform_code_ICES = '3164'   # Platform code for Moorings
+    dc.platform_name = 'OOI'
+    dc.platform_type = 'subsurface mooring'
+    dc.platform_code_ICES = '3164'   # Platform code for Moorings
 
 The ``platform_code_ICES`` attribute can be chosen by referencing
 the platform code from the
 `ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_.
 
-The ``Convert`` instance contains all the data unpacked from the
-raw file, so it is a good idea to clear it from memory once done with
-conversion.
-
 For conversion to zarr files, call method ``.raw2zarr()`` from
 the same ``Convert`` object as shown above.
+
+.. note:: The ``Convert`` instance contains all the data unpacked from the
+   raw file, so it is a good idea to clear it from memory once done with
+   conversion.
+
+
+More conversion options
+~~~~~~~~~~~~~~~~~~~~~~~
+
+There are optional arguments that you can pass into ``Convert.raw2nc()``
+that may come in handy.
+
+- Save converted files into another folder:
+
+  By default the converted ``.nc`` files are saved into the same folder as
+  the input files. This can be changed by setting ``save_path`` to path to
+  a directory.
+
+  .. code-block:: python
+
+     raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
+                      './raw_data_files/file_02.raw', ...]
+     dc = Convert(raw_file_path)                 # create a Convert object
+     dc.raw2nc(save_path='./unpcaked_folder')    # set the output directory
+
+  Each input file will be converted to individual ``.nc`` files and
+  stored in the specified directory.
+
+- Combine multiple raw data files into one ``.nc`` file when unpacking:
+
+  .. code-block:: python
+
+     raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
+                      './raw_data_files/file_02.raw', ...]
+     dc = Convert(raw_file_path)   # create a Convert object
+     dc.raw2nc(combine_opt=True,   # combine all input files when unpacking
+                     save_path='./unpcaked_files/combined_file.nc')
+
+  ``save_path`` has to be given explicitly when combining multiple files.
+  If ``save_path`` is only a filename instead of a full path,
+  the combined output file will be saved in the same folder as the raw data files.
+
+
+Non-uniform data
+~~~~~~~~~~~~~~~~
+
+Due to flexibility in echosounder settings, some dimensional parameters can
+change in the middle of the file. For example:
+
+- The maximum depth range to which data are collected can change in the middle
+  of a data file in EK60. This happens often when the bottom depth changes.
+- The sampling interval, which translates to temporal resolution, and thus range
+  resolution, can also change in the middle of the file.
+- Data from different frequency channels can also be collected with
+  different sampling intervals.
+
+These changes produce different number of samples along range (the ``range_bin``
+dimension in the converted ``.nc`` file), which are incompatible with the goal
+to save the data as a multi-dimensional array that can be easily indexed using xarray.
+
+Echopype accommodates these cases in the following two ways:
+
+1. When there are changes in the ``range_bin`` dimension in the middle of
+   a data file, echopype creates separate files for each consecutive chunk of
+   data with the same number of samples along range and append ``_partXX`` to
+   the converted filename to indicate the existence of such changes.
+   For example, if ``datafile.raw`` contains changes in the number of
+   samples along range, the converted output will be ``datafile_part01.nc``,
+   ``datafile_part02.nc``, etc.
+
+2. When the number of samples along the ``range_bin`` dimensions are different
+   for different frequency channels, echopype pads the shorter channels with
+   ``NaN`` to form a multi-dimensional array. We use the data compression option
+   in ``xarray.to_netcdf()`` and ``xarray.to_zarr()`` to avoid dramatically
+   increasing the output file size due to padding.
 
 
 ..
    Command line tools
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~
+   ~~~~~~~~~~~~~~~~~~
 
    Echopype also supports batch conversion of binary data files to netCDF
    files (``.nc``) in the terminal. As with before, an ``.XML`` file is
@@ -156,29 +231,39 @@ The steps of performing these analysis for each echosounder are summarized below
 
 .. code-block:: python
 
-    from echopype.model import EchoData
-    data = EchoData('FILENAME.nc')
-    data.calibrate()     # Calibration and echo-integration to obtain Sv
-    data.remove_noise()  # denoised Sv
-    data.get_MVBS()      # calculate MVBS
+   from echopype.model import EchoData
+   nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
+   ed = EchoData(nc_path)   # create an echo data processing object
+   ed.calibrate()           # Calibration and echo-integration to obtain Sv
+   ed.remove_noise()        # denoised Sv
+   ed.get_MVBS()            # calculate MVBS
 
 By default, these methods do not save the calculation results to disk.
 The computation results can be accessed from ``data.Sv``, ``data.Sv_clean`` and
 ``data.MVBS`` as xarray DataSets with proper dimension labels.
 
-To save the results to disk, pass an optional flag as in:
+To save results to disk:
 
 .. code-block:: python
 
-    data.calibrate(save=True)     # Save Sv to disk
-    data.remove_noise(save=True)  # Save Sv_clean to disk
-    data.get_MVBS(save=True)      # Save MVBS to disk
+   ed.calibrate(save=True)     # output: convertedfile_Sv.nc
+   ed.remove_noise(save=True)  # output: convertedfile_Sv_clean.nc
+   ed.get_MVBS(save=True)      # output: convertedfile_MVBS.nc
 
-The results will be saved into different files with postfixes ``_Sv.nc``,
-``_Sv_clean.nc``, ``_MVBS.nc``.
 
-Note that this default choice may be changed in the near future as
-we move on to parallelize these operations.
+There are various options to save the results:
+
+.. code-block:: python
+
+   # Overwrite the output postfix
+   ed.calibrate(save=True, save_postfix='_Cal')  # output: convertedfile_Cal.nc
+
+   # Save output in another directory
+   ed.calibrate(save=True, save_path='./cal_results')  # output: ./cal_results/convertedfile_Sv.nc
+
+   # Save output to another directory with an arbitrary name
+   ed.calibrate(save=True, save_path='./cal_results/somethingnew.nc')
+
 
 AZFP specifics
 ~~~~~~~~~~~~~~
