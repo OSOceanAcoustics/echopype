@@ -142,8 +142,6 @@ class ModelEK60(ModelBase):
                              wavelength ** 2) /
                             (16 * np.pi ** 2))
 
-        # TODO: move TVG and ABS calculation to the parent class, as also noted
-        #  correspondingly in model/azfp
         # Get TVG and absorption
         range_meter = self.range
         TVG = np.real(40 * np.log10(range_meter.where(range_meter >= 1, other=1)))
