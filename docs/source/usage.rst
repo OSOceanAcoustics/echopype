@@ -59,8 +59,6 @@ Conversion operation
 
 File conversion for different types of echosounders is achieved by
 using a single interface through the ``Convert`` module.
-The only difference is that data files from the AZFP echosounder require an
-extra ``.XML`` file that contains associated settings for unpacking the binary data.
 
 For data files from the EK60 echosounder, you can do
 the following in an interactive Python session:
@@ -75,7 +73,11 @@ This will generate a  ``FILENAME.nc`` file in the same directory as
 the original ``FILENAME.raw`` file.
 
 For data files from the AZFP echosounder, the conversion requires an
-``.XML`` file along with the ``.01A`` data file.
+extra ``.XML`` file along with the ``.01A`` data file. The ``.XML`` file
+contains a lot of metadata needed for unpacking the binary data files.
+Typically one single ``.XML`` file is associated with all files from the
+same deployment.
+
 This can be done by:
 
 .. code-block:: python
@@ -84,7 +86,7 @@ This can be done by:
     dc = Convert('FILENAME.01A', 'XMLFILENAME.xml')
     dc.raw2nc()
 
-Note that before calling ``raw2nc()`` to create netCDF4 files,
+Before calling ``raw2nc()`` to create netCDF4 files,
 you should first set ``platform_name``, ``platform_type``, and
 ``patform_code_ICES``, as these values are not recorded in the raw data
 files but need to be specified according to the netCDF4 convention.
@@ -101,12 +103,14 @@ The ``platform_code_ICES`` attribute can be chosen by referencing
 the platform code from the
 `ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_.
 
-For conversion to zarr files, call method ``.raw2zarr()`` from
-the same ``Convert`` object as shown above.
+.. note::
 
-.. note:: The ``Convert`` instance contains all the data unpacked from the
-   raw file, so it is a good idea to clear it from memory once done with
-   conversion.
+   1. For conversion to zarr files, call method ``.raw2zarr()`` from
+      the same ``Convert`` object as shown above.
+
+   2. The ``Convert`` instance contains all the data unpacked from the
+      raw file, so it is a good idea to clear it from memory once done with
+      conversion.
 
 
 More conversion options
