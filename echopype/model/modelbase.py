@@ -278,16 +278,19 @@ class ModelBase(object):
         This method is called by remove_noise(), noise_estimates() and get_MVBS().
         """
         if self.Sv is None:  # calibration not yet performed
-            self.Sv_path = self.validate_path(save_path=source_path,  # wrangle _Sv path
+            Sv_path = self.validate_path(save_path=source_path,  # wrangle _Sv path
                                               save_postfix=source_postfix)
-            if os.path.exists(self.Sv_path):  # _Sv exists
-                self.Sv = xr.open_dataset(self.Sv_path)  # load _Sv file
+            if os.path.exists(Sv_path):  # _Sv exists
+                self.Sv = xr.open_dataset(Sv_path)  # load _Sv file
             else:
-                print('Data has not been calibrated. Performing calibration now.')
-                if (source_path is None) and (source_postfix is None):  # no path specification given, don't save
-                    self.calibrate()  # calibrate, have Sv in memory
-                else:  # source path given, save calibration results into that path
-                    self.calibrate(save=True, save_path=source_path, save_postfix=source_postfix)
+                # if path specification given but file do not exist:
+                if (source_path is not None) or (source_postfix != '_Sv'):
+                    print('%s  no calibrated data found in specified path: %s' %
+                          (dt.datetime.now().strftime('%H:%M:%S'), Sv_path))
+                else:
+                    print('%s  data has not been calibrated. ' % dt.datetime.now().strftime('%H:%M:%S'))
+                print('          performing calibration now and operate from Sv in memory.')
+                self.calibrate()  # calibrate, have Sv in memory
         return self.Sv
 
     def remove_noise(self, source_postfix='_Sv', source_path=None,
@@ -562,8 +565,12 @@ class ModelBase(object):
         proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
 
         if print_src:
-            print('%s  Sv source used to calculate MVBS: %s' %
-                  (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
+            if self.Sv_path is not None:
+                print('%s  Sv source used to calculate MVBS: %s' %
+                      (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
+            else:
+                print('%s  Sv source used to calculate MVBS: memory' %
+                      dt.datetime.now().strftime('%H:%M:%S'))
 
         # Get tile indexing parameters
         self.MVBS_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \

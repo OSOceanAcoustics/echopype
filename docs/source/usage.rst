@@ -271,6 +271,32 @@ There are various options to save the results:
    # Save output to another directory with an arbitrary name
    ed.calibrate(save=True, save_path='./cal_results/somethingnew.nc')
 
+By default, for noise removal and MVBS calculation, echopype tries to load Sv
+already stored in memory (``ed.Sv``), or tries to calibrate the raw data to
+obtain Sv. If ``ed.Sv`` is empty (i.e., whe calibration operation has not been
+performed on the object), echopype will try to load Sv from ``*_Sv.nc`` from
+the directory containing the converted ``.nc`` file or from the user-specified
+path. For example:
+
+1. Try to do MVBS calculation without having previously calibrated data
+
+   .. code-block:: python
+
+      from echopype.model import EchoData
+      nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
+      ed = EchoData(nc_path)   # create an echo data processing object
+      ed.get_MVBS()  # echopype will call .calibrate() automatically
+
+2. Try to do MVBS calculation with _Sv_clean.nc file previously created in
+   folder 'another_directory'
+
+   .. code-block:: python
+
+      from echopype.model import EchoData
+      nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
+      ed = EchoData(nc_path)   # create an echo data processing object
+      ed.get_MVBS(source_path='another_directory', source_postfix='_Sv_clean')
+
 
 .. note:: Echopype's data processing functionality is being developed actively.
    Be sure to check back here often!
