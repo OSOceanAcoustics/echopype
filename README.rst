@@ -30,6 +30,8 @@ Echopype currently supports file conversion and computation of data produced by:
 - Simrad EK60 echosounder (``.raw`` files)
 - ASL Environmental Sciences AZFP echosounders (``.01A`` files)
 
+
+
 The file conversion functionality converts data from manufacturer-specific
 binary formats into a standardized netCDF files, based on which all subsequent
 computations are performed.
@@ -46,6 +48,15 @@ Echopype can be installed from PyPI or through conda:
     # conda
     $ conda install -c conda-forge echopype
 
+
+When creating an conda environment to work with echopype,
+use the supplied ``environment.yml`` or do
+
+.. code-block:: console
+
+    $ conda create -c conda-forge -n echopype python=3.8  --file requirements.txt
+
+
 Check out the `echopype documentation`_ for more details on installation and usage!
 
 Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
@@ -57,15 +68,15 @@ Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quic
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung),
-`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin) and
-`Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson)
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) and
+`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
 are primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
 provides consultation and also contributes to development.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
+`Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
 `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
 `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
@@ -76,6 +87,10 @@ Other contributors include:
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
+We also thank `Rick Towler <https://github.com/rhtowler>`_
+of the Alaska Fisheries Science Center
+for providing low-level file parsing routines for
+Simrad EK60 and EK80 echosounders.
 
 
 License
