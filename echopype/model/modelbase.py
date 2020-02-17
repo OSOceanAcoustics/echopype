@@ -32,9 +32,8 @@ class ModelBase(object):
         self._seawater_absorption = None
         self._sound_speed = None
 
-    # TODO: Set noise_est_range_bin_size, noise_est_ping_size,
-    #  MVBS_range_bin_size, and MVBS_ping_size all to be properties
-    #  and provide getter/setter
+    # TODO: self._pressure, self._temperature, self._salinity
+    #  should be initialize in init()
 
     @property
     def salinity(self):
@@ -254,11 +253,6 @@ class ModelBase(object):
         p_tile_bin_edge : list of int
             bin edges along the ping_time dimension for :py:func:`xarray.DataArray.groupby_bins` operation
         """
-        # TODO: Need to make this compatible with the possibly different sample_thickness
-        #  for each frequency channel. The difference will show up in num_r_per_tile and
-        #  propagates down to r_tile_sz, num_tile_range_bin, and r_tile_bin_edge; all of
-        #  these will also become a DataArray or a list of list instead of just a number
-        #  or a list of numbers.
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
         num_r_per_tile = np.round(r_tile_sz / sample_thickness).astype(int)  # num of range_bin per tile
@@ -278,37 +272,31 @@ class ModelBase(object):
 
         return r_tile_sz, r_tile_bin_edge, p_tile_bin_edge
 
-    def _get_proc_Sv(self):
+    def _get_proc_Sv(self, source_path=None, source_postfix='_Sv'):
         """Private method to return calibrated Sv either from memory or _Sv.nc file.
 
         This method is called by remove_noise(), noise_estimates() and get_MVBS().
         """
-        if self.Sv is None:  # if don't have Sv as attribute
-            if os.path.exists(self.Sv_path):  # but have _Sv.nc file
-                self.Sv = xr.open_dataset(self.Sv_path)   # load file
-            else:  # if also don't have _Sv.nc file
-                print('Data has not been calibrated. Performing calibration now.')
-                self.calibrate()  # then calibrate
+        if self.Sv is None:  # calibration not yet performed
+            Sv_path = self.validate_path(save_path=source_path,  # wrangle _Sv path
+                                              save_postfix=source_postfix)
+            if os.path.exists(Sv_path):  # _Sv exists
+                self.Sv = xr.open_dataset(Sv_path)  # load _Sv file
+            else:
+                # if path specification given but file do not exist:
+                if (source_path is not None) or (source_postfix != '_Sv'):
+                    print('%s  no calibrated data found in specified path: %s' %
+                          (dt.datetime.now().strftime('%H:%M:%S'), Sv_path))
+                else:
+                    print('%s  data has not been calibrated. ' % dt.datetime.now().strftime('%H:%M:%S'))
+                print('          performing calibration now and operate from Sv in memory.')
+                self.calibrate()  # calibrate, have Sv in memory
         return self.Sv
 
-    def _get_proc_Sv_clean(self):
-        """Private method to return calibrated Sv_clean either from memory or _Sv_clean.nc file.
-
-        This method is called get_MVBS().
-        """
-        if self.Sv_clean is None:  # if don't have Sv_clean as attribute
-            if os.path.exists(self.Sv_clean_path):  # but have _Sv_clean.nc file
-                self.Sv_clean = xr.open_dataset(self.Sv_clean_path)  # load file
-            else:  # if also don't have _Sv_clean.nc file
-                if self.Sv is None:   # if hasn't performed calibration yet
-                    print('Data has not been calibrated. Performing calibration now.')
-                    self.calibrate()      # then calibrate
-                print('Noise removal has not been performed. Performing noise removal now.')
-                self.remove_noise()   # and then remove noise
-        return self.Sv_clean  # and point to results
-
-    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
-                     SNR=0, Sv_threshold=None, save=False, save_postfix='_Sv_clean'):
+    def remove_noise(self, source_postfix='_Sv', source_path=None,
+                     noise_est_range_bin_size=None, noise_est_ping_size=None,
+                     SNR=0, Sv_threshold=None,
+                     save=False, save_postfix='_Sv_clean', save_path=None):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -317,6 +305,15 @@ class ModelBase(object):
 
         Parameters
         ----------
+        source_postfix : str
+            postfix of the Sv file used to remove noise from, default to '_Sv'
+        source_path : str
+            path of Sv file used to remove noise from, can be one of the following:
+            - None (default):
+                    use Sv in RAWFILENAME_Sv.nc in the same folder as the raw data file,
+                    or when RAWFILENAME_Sv.nc doesn't exist, perform self.calibrate() and use the resulted self.Sv
+            - path to a directory: RAWFILENAME_Sv.nc in the specified directory
+            - path to a specific file: the specified file, e.g., ./another_directory/some_other_filename.nc
         noise_est_range_bin_size : float, optional
             Meters per tile for noise estimation [m]
         noise_est_ping_size : int, optional
@@ -330,6 +327,8 @@ class ModelBase(object):
             Default to ``False``.
         save_postfix : str
             Filename postfix, default to '_Sv_clean'
+        save_path : str
+            Full filename to save to, overwriting the RAWFILENAME_Sv_clean.nc default
         """
 
         # Check params
@@ -338,8 +337,18 @@ class ModelBase(object):
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
 
-        # Get calibrated power
-        proc_data = self._get_proc_Sv()
+        # Get calibrated Sv
+        if self.Sv is not None:
+            print('%s  Remove noise from Sv stored in memory.' % dt.datetime.now().strftime('%H:%M:%S'))
+            print_src = False
+        else:
+            print_src = True
+
+        proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
+
+        if print_src:
+            print('%s  Remove noise from Sv stored in: %s' %
+                  (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \
@@ -402,18 +411,24 @@ class ModelBase(object):
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
+
+        # TODO: now adding the below so that MVBS can be calculated directly
+        #  from the cleaned Sv without saving and loading Sv_clean from disk.
+        #  However this is not explicit to the user. A better way to do this
+        #  is to change get_MVBS() to first check existence of self.Sv_clean
+        #  when `_Sv_clean` is specified as the source_postfix.
+        if not print_src:  # remove noise from Sv stored in memory
+            self.Sv = Sv_clean.copy()
         if save:
-            if save_postfix != '_Sv_clean':
-                self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
-                                                  os.path.splitext(os.path.basename(self.file_path))[0] +
-                                                  save_postfix + '.nc')
+            self.Sv_clean_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
             Sv_clean.to_netcdf(self.Sv_clean_path)
 
         # Close opened resources
         proc_data.close()
 
-    def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
+    def noise_estimates(self, source_postfix='_Sv', source_path=None,
+                        noise_est_range_bin_size=None, noise_est_ping_size=None):
         """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
 
         The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
@@ -423,6 +438,15 @@ class ModelBase(object):
 
         Parameters
         ----------
+        source_postfix : str
+            postfix of the Sv file used to calculate noise estimates from, default to '_Sv'
+        source_path : str
+            path of Sv file used to calculate noise estimates from, can be one of the following:
+            - None (default):
+                    use Sv in RAWFILENAME_Sv.nc in the same folder as the raw data file,
+                    or when RAWFILENAME_Sv.nc doesn't exist, perform self.calibrate() and use the resulted self.Sv
+            - path to a directory: RAWFILENAME_Sv.nc in the specified directory
+            - path to a specific file: the specified file, e.g., ./another_directory/some_other_filename.nc
         noise_est_range_bin_size : float
             meters per tile for noise estimation [m]
         noise_est_ping_size : int
@@ -492,7 +516,9 @@ class ModelBase(object):
 
         return noise_est
 
-    def get_MVBS(self, source='Sv', MVBS_range_bin_size=None, MVBS_ping_size=None, save=False, save_path=None):
+    def get_MVBS(self, source_postfix='_Sv', source_path=None,
+                 MVBS_range_bin_size=None, MVBS_ping_size=None,
+                 save=False, save_postfix='_MVBS', save_path=None):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
@@ -503,17 +529,25 @@ class ModelBase(object):
 
         Parameters
         ----------
-        source : str
-            source used to calculate MVBS, can be ``Sv`` or ``Sv_clean``,
-            where ``Sv`` and ``Sv_clean`` are the original and denoised volume
-            backscattering strengths, respectively. Both are calibrated.
+        source_postfix : str
+            postfix of the Sv file used to calculate MVBS, default to '_Sv'
+        source_path : str
+            path of Sv file used to calculate MVBS, can be one of the following:
+            - None (default):
+                    use Sv in RAWFILENAME_Sv.nc in the same folder as the raw data file,
+                    or when RAWFILENAME_Sv.nc doesn't exist, perform self.calibrate() and use the resulted self.Sv
+            - path to a directory: RAWFILENAME_Sv.nc in the specified directory
+            - path to a specific file: the specified file, e.g., ./another_directory/some_other_filename.nc
         MVBS_range_bin_size : float, optional
             meters per tile for calculating MVBS [m]
         MVBS_ping_size : int, optional
             number of pings per tile for calculating MVBS
         save : bool, optional
-            whether to save the denoised Sv (``Sv_clean``) into a new .nc file
-            default to ``False``
+            whether to save the calculated MVBS into a new .nc file, default to ``False``
+        save_postfix : str
+            Filename postfix, default to '_MVBS'
+        save_path : str
+            Full filename to save to, overwriting the RAWFILENAME_MVBS.nc default
         """
         # Check params
         if (MVBS_range_bin_size is not None) and (self.MVBS_range_bin_size != MVBS_range_bin_size):
@@ -521,13 +555,22 @@ class ModelBase(object):
         if (MVBS_ping_size is not None) and (self.MVBS_ping_size != MVBS_ping_size):
             self.MVBS_ping_size = MVBS_ping_size
 
-        # Use calibrated data to calculate noise removal
-        if source == 'Sv':
-            proc_data = self._get_proc_Sv()
-        elif source == 'Sv_clean':
-            proc_data = self._get_proc_Sv_clean()
+        # Get Sv by validating path and calibrate if not already done
+        if self.Sv is not None:
+            print('%s  Use Sv stored in memory to calculate MVBS.' % dt.datetime.now().strftime('%H:%M:%S'))
+            print_src = False
         else:
-            raise ValueError('Unknown source, cannot calculate MVBS')
+            print_src = True
+
+        proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
+
+        if print_src:
+            if self.Sv_path is not None:
+                print('%s  Sv source used to calculate MVBS: %s' %
+                      (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
+            else:
+                print('%s  Sv source used to calculate MVBS: memory' %
+                      dt.datetime.now().strftime('%H:%M:%S'))
 
         # Get tile indexing parameters
         self.MVBS_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \
@@ -572,19 +615,10 @@ class ModelBase(object):
         MVBS['MVBS_range_bin_size'] = ('frequency', self.MVBS_range_bin_size)
         MVBS.attrs['MVBS_ping_size'] = self.MVBS_ping_size
 
-        # # Attach calculated range to MVBS
-        # MVBS['range'] = self.Sv.range.sel(range_bin=MVBS.range_bin)
-
-        # TODO: need to save noise_est_range_bin_size and noise_est_ping_size if source='Sv_clean'
-        #  and also save an additional attribute that specifies the source
-        # MVBS.attrs['noise_est_range_bin_size'] = self.noise_est_range_bin_size
-        # MVBS.attrs['noise_est_ping_size'] = self.noise_est_ping_size
-
         # Save results in object and as a netCDF file
         self.MVBS = MVBS
         if save:
-            if save_path is not None:
-                self.MVBS_path = self.validate_path(save_path, "_MVBS")
+            self.MVBS_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
             MVBS.to_netcdf(self.MVBS_path)
 
