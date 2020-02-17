@@ -291,8 +291,10 @@ class ModelBase(object):
                     self.calibrate(save=True, save_path=source_path, save_postfix=source_postfix)
         return self.Sv
 
-    def remove_noise(self, noise_est_range_bin_size=None, noise_est_ping_size=None,
-                     SNR=0, Sv_threshold=None, save=False, save_postfix='_Sv_clean'):
+    def remove_noise(self, source_postfix='_Sv', source_path=None,
+                     noise_est_range_bin_size=None, noise_est_ping_size=None,
+                     SNR=0, Sv_threshold=None,
+                     save=False, save_postfix='_Sv_clean', save_path=None):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -301,6 +303,15 @@ class ModelBase(object):
 
         Parameters
         ----------
+        source_postfix : str
+            postfix of the Sv file used to remove noise from, default to '_Sv'
+        source_path : str
+            path of Sv file used to remove noise from, can be one of the following:
+            - None (default):
+                    use Sv in RAWFILENAME_Sv.nc in the same folder as the raw data file,
+                    or when RAWFILENAME_Sv.nc doesn't exist, perform self.calibrate() and use the resulted self.Sv
+            - path to a directory: RAWFILENAME_Sv.nc in the specified directory
+            - path to a specific file: the specified file, e.g., ./another_directory/some_other_filename.nc
         noise_est_range_bin_size : float, optional
             Meters per tile for noise estimation [m]
         noise_est_ping_size : int, optional
@@ -314,6 +325,8 @@ class ModelBase(object):
             Default to ``False``.
         save_postfix : str
             Filename postfix, default to '_Sv_clean'
+        save_path : str
+            Full filename to save to, overwriting the RAWFILENAME_Sv_clean.nc default
         """
 
         # Check params
@@ -322,8 +335,18 @@ class ModelBase(object):
         if (noise_est_ping_size is not None) and (self.noise_est_ping_size != noise_est_ping_size):
             self.noise_est_ping_size = noise_est_ping_size
 
-        # Get calibrated power
-        proc_data = self._get_proc_Sv()
+        # Get calibrated Sv
+        if self.Sv is not None:
+            print('%s  Remove noise from Sv stored in memory.' % dt.datetime.now().strftime('%H:%M:%S'))
+            print_src = False
+        else:
+            print_src = True
+
+        proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
+
+        if print_src:
+            print('%s  Remove noise from Sv stored in: %s' %
+                  (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
 
         # Get tile indexing parameters
         self.noise_est_range_bin_size, range_bin_tile_bin_edge, ping_tile_bin_edge = \
@@ -386,18 +409,24 @@ class ModelBase(object):
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
+
+        # TODO: now adding the below so that MVBS can be calculated directly
+        #  from the cleaned Sv without saving and loading Sv_clean from disk.
+        #  However this is not explicit to the user. A better way to do this
+        #  is to change get_MVBS() to first check existence of self.Sv_clean
+        #  when `_Sv_clean` is specified as the source_postfix.
+        if not print_src:  # remove noise from Sv stored in memory
+            self.Sv = Sv_clean.copy()
         if save:
-            if save_postfix != '_Sv_clean':
-                self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
-                                                  os.path.splitext(os.path.basename(self.file_path))[0] +
-                                                  save_postfix + '.nc')
+            self.Sv_clean_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
             Sv_clean.to_netcdf(self.Sv_clean_path)
 
         # Close opened resources
         proc_data.close()
 
-    def noise_estimates(self, noise_est_range_bin_size=None, noise_est_ping_size=None):
+    def noise_estimates(self, source_postfix='_Sv', source_path=None,
+                        noise_est_range_bin_size=None, noise_est_ping_size=None):
         """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
 
         The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
@@ -407,6 +436,15 @@ class ModelBase(object):
 
         Parameters
         ----------
+        source_postfix : str
+            postfix of the Sv file used to calculate noise estimates from, default to '_Sv'
+        source_path : str
+            path of Sv file used to calculate noise estimates from, can be one of the following:
+            - None (default):
+                    use Sv in RAWFILENAME_Sv.nc in the same folder as the raw data file,
+                    or when RAWFILENAME_Sv.nc doesn't exist, perform self.calibrate() and use the resulted self.Sv
+            - path to a directory: RAWFILENAME_Sv.nc in the specified directory
+            - path to a specific file: the specified file, e.g., ./another_directory/some_other_filename.nc
         noise_est_range_bin_size : float
             meters per tile for noise estimation [m]
         noise_est_ping_size : int
