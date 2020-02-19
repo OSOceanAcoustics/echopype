@@ -158,12 +158,6 @@ class SetGroupsEK80(SetGroupsBase):
 
             ds = xr.Dataset(
                 {'channel_id': (['frequency'], beam_dict['channel_id']),
-                 'frequency_start': (['frequency', 'ping_time'], np.array(beam_dict['frequency_start']),
-                                     {'long_name': 'Starting frequency of the transducer',
-                                      'units': 'Hz'}),
-                 'frequency_end': (['frequency', 'ping_time'], np.array(beam_dict['frequency_end']),
-                                   {'long_name': 'Ending frequency of the transducer',
-                                    'units': 'Hz'}),
                  'beamwidth_receive_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                                  {'long_name': 'Half power one-way receive beam width along '
                                                   'alongship axis of beam',
@@ -267,15 +261,24 @@ class SetGroupsEK80(SetGroupsBase):
                         },
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
-            if beam_dict['complex']:
-                bs = xr.Dataset(
-                    {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+            # Save broadband backscatter if present
+            if len(beam_dict['backscatter_r']) != 0:
+                bb = xr.Dataset(
+                    {'backscatter_r': (['frequency_center', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Real part of backscatter power',
                                         'units': 'dB'}),
-                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
+                     'backscatter_i': (['frequency_center', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
                                        {'long_name': 'Imaginary part of backscatter power',
                                         'units': 'dB'})},
-                    coords={'frequency': (['frequency'], beam_dict['frequency']),
+                    coords={'frequency_center': (['frequency_center'], beam_dict['frequency_center'],
+                                                 {'long_name': 'Center frequency of the transducer',
+                                                  'units': 'Hz'}),
+                            'frequency_start': (['frequency_center'], beam_dict['frequency_start'],
+                                                {'long_name': 'Starting frequency of the transducer',
+                                                 'units': 'Hz'}),
+                            'frequency_end': (['frequency_center'], beam_dict['frequency_end'],
+                                              {'long_name': 'Ending frequency of the transducer',
+                                               'units': 'Hz'}),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
                             #                'calendar': 'gregorian',
@@ -283,28 +286,26 @@ class SetGroupsEK80(SetGroupsBase):
                                            'standard_name': 'time'}),
                             #                'units': 'seconds since 1900-01-01'}),
                             'quadrant': (['quadrant'], np.arange(4)),
-                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
+            ds = xr.merge([ds, bb])
 
-            else:
-                bs = xr.Dataset(
-                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
-                                       {'long_name': 'Real part of backscatter power',
-                                        'units': 'dB'}),
-                     'backscatter_i': (['frequency', 'ping_time', 'range_bin'],
-                                       np.full_like(beam_dict['backscatter_r'], np.nan),
-                                       {'long_name': 'Imaginary part of backscatter power',
-                                        'units': 'dB'})},
-                    coords={'frequency': (['frequency'], beam_dict['frequency']),
+            # Save continuous wave backscatter if present
+            if len(beam_dict['backscatter_r_cw']) != 0:
+                cw = xr.Dataset(
+                    {'backscatter_r_cw': (['frequency_cw', 'ping_time', 'range_bin_cw'], beam_dict['backscatter_r_cw'],
+                                          {'long_name': 'Backscattering power',
+                                           'units': 'dB'})},
+                    coords={'frequency_cw': (['frequency_cw'], beam_dict['frequency_cw']),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
                             #                'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time'}),
                             #                'units': 'seconds since 1900-01-01'}),
-                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            'range_bin_cw': (['range_bin_cw'], beam_dict['range_bin_cw'])
                             })
-            ds = xr.merge([ds, bs])
+            ds = xr.merge([ds, cw])
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
