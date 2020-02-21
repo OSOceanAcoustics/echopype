@@ -560,7 +560,7 @@ class ModelBase(object):
 
         # Get Sv by validating path and calibrate if not already done
         if self.Sv is not None:
-            print('%s  use Sv stored in memory to calculate MVBS.' % dt.datetime.now().strftime('%H:%M:%S'))
+            print('%s  use Sv stored in memory to calculate MVBS' % dt.datetime.now().strftime('%H:%M:%S'))
             print_src = False
         else:
             print_src = True
