@@ -57,7 +57,7 @@ class SetGroupsBase:
         if self.format == '.nc':
             ds.to_netcdf(path=self.file_path, mode='a', group='Provenance')
         elif self.format == '.zarr':
-            ds.to_zarr(path=self.file_path, mode='a', group='Provenance')
+            ds.to_zarr(store=self.file_path, mode='a', group='Provenance')
 
     def set_sonar(self, sonar_dict):
         """Set the Sonar group in the nc file.
