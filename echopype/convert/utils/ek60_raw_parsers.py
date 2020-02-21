@@ -3,6 +3,7 @@ Code originally developed for pyEcholab
 (https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
 Contains class ``_SimradDatagramParser`` for low-level parsing of EK60 data files.
 Called by class RawSimradFile in ``echopype/convert/ek60_raw_io.py``.
+Correction done for parsing splitbeam angle data.
 
 | Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
 | National Oceanic and Atmospheric Administration (NOAA)

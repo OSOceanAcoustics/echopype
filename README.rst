@@ -22,8 +22,8 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
-Installation and Usage
-----------------------
+Installation
+------------
 
 Echopype currently supports file conversion and computation of data produced by:
 
@@ -36,17 +36,32 @@ computations are performed.
 The data processing routines include calibration (instrument-specific), noise
 removal, and mean volume backscattering strength (MVBS) calculation.
 
-Echopype can be installed from PyPI or through conda:
+Echopype can be installed from PyPI:
 
 .. code-block:: console
 
-    # PyPI
-    $ pip install echopype
+   $ pip install echopype
 
-    # conda
-    $ conda install -c conda-forge echopype
 
-Check out the `echopype documentation`_ for more details on installation and usage!
+or through conda:
+
+.. code-block:: console
+
+   $ conda install -c conda-forge echopype
+
+
+When creating an conda environment to work with echopype,
+use the supplied ``environment.yml`` or do
+
+.. code-block:: console
+
+   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+
+
+Usage
+-----
+
+Check out the `echopype documentation`_ for more details on installation and usage.
 
 Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
 
@@ -57,25 +72,19 @@ Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quic
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung),
-`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin) and
-`Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson)
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) and
+`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
 are primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-provides consultation and also contributes to development.
-
-Other contributors include:
-`Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
-`Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
-`Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
-`Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
-`Erin LaBrecque <https://www.linkedin.com/in/erin-labrecque/>`_ (@erinann),
-`Emma Ozanich <https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/>`_ (@emma-ozanich),
-`Aaron Marburg <http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron>`_ (@amarburg)
+provides consultation and also contributes to development. Other contributors are listed `here <echopype documentation>`_.
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
+We also thank `Rick Towler <https://github.com/rhtowler>`_
+of the Alaska Fisheries Science Center
+for providing low-level file parsing routines for
+Simrad EK60 and EK80 echosounders.
 
 
 License
