@@ -220,6 +220,9 @@ class ModelBase(object):
                 file_out = _assemble_path()
 
         # Create folder if not already exists
+        if save_dir == '':
+            # TODO: should we use '.' instead of os.getcwd()?
+            save_dir = os.getcwd()  # explicit about path to current directory
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
@@ -557,7 +560,7 @@ class ModelBase(object):
 
         # Get Sv by validating path and calibrate if not already done
         if self.Sv is not None:
-            print('%s  Use Sv stored in memory to calculate MVBS.' % dt.datetime.now().strftime('%H:%M:%S'))
+            print('%s  use Sv stored in memory to calculate MVBS.' % dt.datetime.now().strftime('%H:%M:%S'))
             print_src = False
         else:
             print_src = True
