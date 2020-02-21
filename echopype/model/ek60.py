@@ -76,6 +76,9 @@ class ModelEK60(ModelBase):
         save_path : str
             Full filename to save to, overwriting the RAWFILENAME_Sv.nc default
         """
+        # Print raw data nc file
+        print('%s  calibrating data in %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.file_path))
+
         # Open data set for Environment and Beam groups
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
