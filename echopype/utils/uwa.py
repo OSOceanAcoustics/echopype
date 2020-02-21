@@ -41,7 +41,7 @@ def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="M
 
 def calc_seawater_absorption(frequency, distance=1000, temperature=27,
                              salinity=35, pressure=10, pH=8.1, formula_source='AM'):
-    """Calculate sea absorption in dB/km
+    """Calculate sea absorption in dB/m
 
     Parameters
     ----------
