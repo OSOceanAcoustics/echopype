@@ -88,7 +88,7 @@ This can be done by:
 
 Before calling ``raw2nc()`` to create netCDF4 files,
 you should first set ``platform_name``, ``platform_type``, and
-``patform_code_ICES``, as these values are not recorded in the raw data
+``platform_code_ICES``, as these values are not recorded in the raw data
 files but need to be specified according to the netCDF4 convention.
 These parameters will be saved as empty strings unless you specify
 them following the example below:
@@ -212,7 +212,7 @@ Echopype accommodates these cases in the following two ways:
 
    .. note::  Currently the ``.nc`` files generated using the command line
       tool will have the fields
-      ``platform_name``, ``platform_type``, and ``patform_code_ICES``
+      ``platform_name``, ``platform_type``, and ``platform_code_ICES``
       in the `Platform` group all set to empty strings.
 
 
