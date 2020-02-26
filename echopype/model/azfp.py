@@ -116,7 +116,7 @@ class ModelAZFP(ModelBase):
         # Calculate range using parameters for each freq
         range_meter = (sound_speed * lockout_index / (2 * dig_rate) + sound_speed / 4 *
                        (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
-                        (pulse_length / np.timedelta64(1, 's'))))
+                        pulse_length))
 
         if tilt_corrected:
             range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
@@ -150,7 +150,7 @@ class ModelAZFP(ModelBase):
               ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
               2 * self.seawater_absorption * range_meter -
               10 * np.log10(0.5 * self.sound_speed *
-                            ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
+                            ds_beam.transmit_duration_nominal *
                             ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
         Sv.name = 'Sv'
