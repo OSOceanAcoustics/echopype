@@ -16,9 +16,14 @@ class ModelEK60(ModelBase):
     def __init__(self, file_path=""):
         ModelBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
-        self._salinity = None
-        self._temperature = None
-        self._pressure = None
+
+        # Initialize environment-related parameters
+        self._sound_speed = self.calc_sound_speed()
+        self._sample_thickness = self.calc_sample_thickness()
+        self._range = self.calc_range()
+        self._seawater_absorption = self.calc_seawater_absorption()
+
+        # Initialize calibration-related parameters
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
             self._gain_correction = ds_beam.gain_correction
             self._equivalent_beam_angle = ds_beam.equivalent_beam_angle
@@ -49,20 +54,18 @@ class ModelEK60(ModelBase):
     def sa_correction(self, sac):
         self._sa_correction.values = sac
 
-    # Environmental parameters
-    def get_salinity(self):
-        return self._salinity
-
-    def get_temperature(self):
-        return self._temperature
-
-    def get_pressure(self):
-        return self._pressure
-
-    def get_sound_speed(self):
-        # TODO: change this to also allow user updates, like for AZFP
-        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
-            return ds_env.sound_speed_indicative
+    # Environmental and derived parameters
+    def calc_sound_speed(self, src='file'):
+        if src == 'file':
+            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+                return ds_env.sound_speed_indicative
+        elif src == 'user':
+            ss = uwa.calc_sound_speed(salinity=self.salinity,
+                                      temperature=self.temperature,
+                                      pressure=self.pressure)
+            return ss * np.ones(self.sound_speed.size)
+        else:
+            ValueError('Not sure how to update sound speed!')
 
     def calc_seawater_absorption(self, src='file'):
         """Returns the seawater absorption values from the .nc file.
@@ -73,12 +76,13 @@ class ModelEK60(ModelBase):
         elif src == 'user':
             with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
                 freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
-            sea_abs = uwa.calc_seawater_absorption(freq,
-                                                   temperature=self.temperature,
-                                                   salinity=self.salinity,
-                                                   pressure=self.pressure,
-                                                   formula_source='AM')
-            return sea_abs
+            return uwa.calc_seawater_absorption(freq,
+                                                temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure,
+                                                formula_source='AM')
+        else:
+            ValueError('Not sure how to update seawater absorption!')
 
     def calc_sample_thickness(self):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
