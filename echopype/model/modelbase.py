@@ -27,17 +27,17 @@ class ModelBase(object):
         self.TS = None            # calibrated target strength
         self.TS_path = None       # path to save TS calculation results
         self.MVBS = None          # mean volume backscattering strength
+        self._salinity = None
+        self._temperature = None
+        self._pressure = None
+        self._sound_speed = None
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
-        self._sound_speed = None
-
-    # TODO: self._pressure, self._temperature, self._salinity
-    #  should be initialize in init()
 
     @property
     def salinity(self):
-        return self.get_salinity()
+        return self._salinity
 
     @salinity.setter
     def salinity(self, sal):
@@ -45,7 +45,7 @@ class ModelBase(object):
 
     @property
     def pressure(self):
-        return self.get_pressure()
+        return self._pressure
 
     @pressure.setter
     def pressure(self, pres):
@@ -53,7 +53,7 @@ class ModelBase(object):
 
     @property
     def temperature(self):
-        return self.get_temperature()
+        return self._temperature
 
     @temperature.setter
     def temperature(self, t):
@@ -61,8 +61,6 @@ class ModelBase(object):
 
     @property
     def sample_thickness(self):
-        if self._sample_thickness is None:  # if this is empty
-            self._sample_thickness = self.calc_sample_thickness()
         return self._sample_thickness
 
     @sample_thickness.setter
@@ -71,8 +69,6 @@ class ModelBase(object):
 
     @property
     def range(self):
-        if self._range is None:  # if this is empty
-            self._range = self.calc_range()
         return self._range
 
     @range.setter
@@ -81,23 +77,22 @@ class ModelBase(object):
 
     @property
     def seawater_absorption(self):
-        if self._seawater_absorption is None:
-            self._seawater_absorption = self.calc_seawater_absorption()
         return self._seawater_absorption
 
     @seawater_absorption.setter
-    def seawater_absorption(self, abs):
-        self._seawater_absorption = abs
+    def seawater_absorption(self, absorption):
+        self._seawater_absorption.values = absorption
 
     @property
     def sound_speed(self):
-        if self._sound_speed is None:
-            self._sound_speed = self.get_sound_speed()
         return self._sound_speed
 
     @sound_speed.setter
     def sound_speed(self, ss):
-        self._sound_speed = ss
+        if isinstance(self._sound_speed, xr.DataArray):
+            self._sound_speed.values = ss
+        else:
+            self._sound_speed = ss
 
     @property
     def file_path(self):
@@ -133,6 +128,30 @@ class ModelBase(object):
         else:
             raise ValueError('Data file format not recognized.')
 
+    def calc_sound_speed(self, src='file'):
+        """Base method to be overridden for calculating sound_speed for different sonar models
+        """
+        # issue warning when subclass methods not available
+        print("Sound speed calculation has not been implemented for this sonar model!")
+
+    def calc_seawater_absorption(self, src='file'):
+        """Base method to be overridden for calculating seawater_absorption for different sonar models
+        """
+        # issue warning when subclass methods not available
+        print("Seawater absorption calculation has not been implemented for this sonar model!")
+
+    def calc_sample_thickness(self):
+        """Base method to be overridden for calculating sample_thickness for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Sample thickness calculation has not been implemented for this sonar model!')
+
+    def calc_range(self):
+        """Base method to be overridden for calculating range for different sonar models.
+        """
+        # issue warning when subclass methods not available
+        print('Range calculation has not been implemented for this sonar model!')
+
     def recalculate_environment(self, ss=True, sa=True, st=True, r=True):
         """ Recalculates sound speed, seawater absorption, sample thickness, and range using
         salinity, temperature, and pressure
@@ -151,12 +170,7 @@ class ModelBase(object):
         s, t, p = self.salinity, self.temperature, self.pressure
         if s is not None and t is not None and p is not None:
             if ss:
-                # TODO: change this to use self.get_sound_speed()
-                #  so that corresponding methods from each child
-                #  class will be called
-                self.sound_speed = uwa.calc_sound_speed(salinity=s,
-                                                        temperature=t,
-                                                        pressure=p)
+                self.sound_speed = self.calc_sound_speed(src='user')
             if sa:
                 self.seawater_absorption = self.calc_seawater_absorption(src='user')
             if st:
@@ -169,23 +183,6 @@ class ModelBase(object):
             print("Temperature was not provided. Environment was not recalculated")
         else:
             print("Pressure was not provided. Environment was not recalculated")
-
-    def calc_seawater_absorption(self):
-        """Base method to be overridden for calculating seawater_absorption for different sonar models
-        """
-        print("Seawater absorption calculation has not been implemented for this sonar model!")
-
-    def calc_sample_thickness(self):
-        """Base method to be overridden for calculating sample_thickness for different sonar models.
-        """
-        # issue warning when subclass methods not available
-        print('Sample thickness calculation has not been implemented for this sonar model!')
-
-    def calc_range(self):
-        """Base method to be overridden for calculating range for different sonar models.
-        """
-        # issue warning when subclass methods not available
-        print('Range calculation has not been implemented for this sonar model!')
 
     def calibrate(self):
         """Base method to be overridden for volume backscatter calibration and echo-integration for different sonar models.
