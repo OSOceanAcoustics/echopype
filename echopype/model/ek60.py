@@ -19,7 +19,37 @@ class ModelEK60(ModelBase):
         self._salinity = None
         self._temperature = None
         self._pressure = None
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            self._gain_correction = ds_beam.gain_correction
+            self._equivalent_beam_angle = ds_beam.equivalent_beam_angle
+            self._sa_correction = ds_beam.sa_correction
 
+    # EK60 calibration parameters
+    @property
+    def gain_correction(self):
+        return self._gain_correction
+
+    @gain_correction.setter
+    def gain_correction(self, gc):
+        self._gain_correction.values = gc
+
+    @property
+    def equivalent_beam_angle(self):
+        return self._equivalent_beam_angle
+
+    @equivalent_beam_angle.setter
+    def equivalent_beam_angle(self, eba):
+        self._equivalent_beam_angle.values = eba
+
+    @property
+    def sa_correction(self):
+        return self._sa_correction
+
+    @sa_correction.setter
+    def sa_correction(self, sac):
+        self._sa_correction.values = sac
+
+    # Environmental parameters
     def get_salinity(self):
         return self._salinity
 
@@ -30,6 +60,7 @@ class ModelEK60(ModelBase):
         return self._pressure
 
     def get_sound_speed(self):
+        # TODO: change this to also allow user updates, like for AZFP
         with xr.open_dataset(self.file_path, group="Environment") as ds_env:
             return ds_env.sound_speed_indicative
 
@@ -89,9 +120,9 @@ class ModelEK60(ModelBase):
         backscatter_r = ds_beam['backscatter_r']
 
         # Calc gain
-        CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
+        CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (self.gain_correction / 10)) ** 2 *
                              wavelength ** 2 * self.sound_speed * ds_beam.transmit_duration_nominal *
-                             10 ** (ds_beam.equivalent_beam_angle / 10)) /
+                             10 ** (self.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
         # Get TVG and absorption
@@ -100,7 +131,7 @@ class ModelEK60(ModelBase):
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Calibration and echo integration
-        Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
+        Sv = backscatter_r + TVG + ABS - CSv - 2 * self.sa_correction
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
