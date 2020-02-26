@@ -86,16 +86,6 @@ class SetGroupsEK60(SetGroupsBase):
                             'standard_name': 'platform_heave_angle',
                             'units': 'arc_degree',
                             'valid_range': (-90.0, 90.0)}),
-                 'latitude': (['location_time'], platform_dict['lat'],
-                              {'long_name': 'Platform latitude',
-                               'standard_name': 'latitude',
-                               'units': 'degrees_north',
-                               'valid_range': (-90.0, 90.0)}),
-                 'longitude': (['location_time'], platform_dict['lon'],
-                               {'long_name': 'Platform longitude',
-                                'standard_name': 'longitude',
-                                'units': 'degrees_east',
-                                'valid_range': (-180.0, 180.0)}),
                  'water_level': ([], platform_dict['water_level'],
                                  {'long_name': 'z-axis distance from the platform coordinate system '
                                                'origin to the sonar transducer',
@@ -106,17 +96,30 @@ class SetGroupsEK60(SetGroupsBase):
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamps for position datagrams',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'}),
-                        'location_time': (['location_time'], location_time,
-                                          {'axis': 'T',
-                                           'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for NMEA position datagrams',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})
+                                       'units': 'seconds since 1900-01-01'})
                         },
                 attrs={'platform_code_ICES': platform_dict['platform_code_ICES'],
                        'platform_name': platform_dict['platform_name'],
                        'platform_type': platform_dict['platform_type']})
+            if len(location_time) > 0:
+                ds_loc = xr.Dataset(
+                    {'latitude': (['location_time'], platform_dict['lat'],
+                                  {'long_name': 'Platform latitude',
+                                   'standard_name': 'latitude',
+                                   'units': 'degrees_north',
+                                   'valid_range': (-90.0, 90.0)}),
+                     'longitude': (['location_time'], platform_dict['lon'],
+                                   {'long_name': 'Platform longitude',
+                                    'standard_name': 'longitude',
+                                    'units': 'degrees_east',
+                                    'valid_range': (-180.0, 180.0)})},
+                    coords={'location_time': (['location_time'], location_time,
+                                              {'axis': 'T',
+                                               'calendar': 'gregorian',
+                                               'long_name': 'Timestamps for NMEA position datagrams',
+                                               'standard_name': 'time',
+                                               'units': 'seconds since 1900-01-01'})})
+                ds = xr.merge([ds, ds_loc])
 
             if 'ping_slice' in platform_dict:
                 lower = (platform_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
@@ -130,6 +133,7 @@ class SetGroupsEK60(SetGroupsBase):
                 ds.to_netcdf(path=platform_dict['path'], mode='a', group='Platform')
             elif self.format == '.zarr':
                 ds.to_zarr(store=platform_dict['path'], mode='a', group='Platform')
+            pass
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK60 nc file.
