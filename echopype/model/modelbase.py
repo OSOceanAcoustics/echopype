@@ -151,6 +151,9 @@ class ModelBase(object):
         s, t, p = self.salinity, self.temperature, self.pressure
         if s is not None and t is not None and p is not None:
             if ss:
+                # TODO: change this to use self.get_sound_speed()
+                #  so that corresponding methods from each child
+                #  class will be called
                 self.sound_speed = uwa.calc_sound_speed(salinity=s,
                                                         temperature=t,
                                                         pressure=p)
