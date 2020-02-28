@@ -76,7 +76,8 @@ Contributors
 `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
 are primary developers of this project.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-provides consultation and also contributes to development. Other contributors are listed `here <echopype documentation>`_.
+provides consultation and also contributes to development.
+Other contributors are listed `here <echopype documentation>`_.
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
