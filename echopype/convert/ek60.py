@@ -291,7 +291,7 @@ class ConvertEK60(ConvertBase):
         compress : bool
             Whether or not to compress backscatter data. Defaults to `True`
         """
-        def export(file_idx=None):
+        def export(file_idx=0):
             # Subfunctions to set various dictionaries
             def _set_toplevel_dict():
                 out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
@@ -310,9 +310,12 @@ class ConvertEK60(ConvertBase):
                             sound_speed=ss_val)
 
             def _set_prov_dict():
-                return dict(conversion_software_name='echopype',
-                            conversion_software_version=ECHOPYPE_VERSION,
-                            conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+                out_dict = dict(conversion_software_name='echopype',
+                                conversion_software_version=ECHOPYPE_VERSION,
+                                conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+                # Send a list of all filenames if combining raw files. Else, send the one file to be converted
+                out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
+                return out_dict
 
             def _set_sonar_dict():
                 return dict(sonar_manufacturer='Simrad',
@@ -448,15 +451,16 @@ class ConvertEK60(ConvertBase):
                             shutil.copyfile(self.save_path, new_path)
                 os.rename(self.save_path, self.all_files[0])
 
-            if file_idx is None:
+            # If only converting 1 file, out_file is the same as self.save_path
+            if len(self.filename) == 1:
                 out_file = self.save_path
-                raw_file = self.filename
             else:
-                out_file = self.save_path[file_idx]
-                raw_file = [self.filename[file_idx]]
+                # Save to temporary path if combining raw files into 1 .nc file. Save in specified path otherwise
+                out_file = self._temp_path[file_idx] if hasattr(self, '_temp_path') else self.save_path[file_idx]
+            raw_file = self.filename[file_idx]
 
             # filename must have "-" as the field separator for the last 2 fields. Uses first file
-            filename_tup = os.path.splitext(os.path.basename(raw_file[0]))[0].split("-")
+            filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
             filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
             filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
@@ -464,6 +468,11 @@ class ConvertEK60(ConvertBase):
             if os.path.exists(out_file) and overwrite:
                 print("          overwriting: " + out_file)  # TODO: this should be printed after 'converting...'
                 os.remove(out_file)
+            # Check if a combined nc file already exists and overwrite is false
+            # ... if yes, abort conversion and issue warning
+            # ... if not, continue with conversion
+            elif combine_opt and os.path.exists(self.save_path[0]) and not overwrite:
+                print(f'          ... this file has already been converted to .nc, conversion not executed.')
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
@@ -501,7 +510,7 @@ class ConvertEK60(ConvertBase):
                 grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress)
                 grp.set_toplevel(_set_toplevel_dict())  # top-level group
                 grp.set_env(_set_env_dict())            # environment group
-                grp.set_provenance(raw_file, _set_prov_dict())    # provenance group
+                grp.set_provenance(_set_prov_dict())    # provenance group
                 grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
                 grp.set_sonar(_set_sonar_dict())        # sonar group
                 if len(self.range_lengths) > 1:
@@ -511,12 +520,11 @@ class ConvertEK60(ConvertBase):
                     grp.set_platform(_set_platform_dict(piece_seq=piece))  # platform group
 
         self.validate_path(save_path, file_format, combine_opt)
-        if len(self.filename) == 1 or combine_opt:
-            export()
-        else:
-            for freq_seq, file in enumerate(self.filename):
-                if freq_seq > 0:
-                    self.__init__(self.filename)        # Clear previous parse
-                    self.validate_path(save_path, file_format, combine_opt)
-                self.load_ek60_raw([file])
-                export(freq_seq)
+        for file_idx, file in enumerate(self.filename):
+            if file_idx > 0:
+                self.__init__(self.filename)        # Clear previous parse
+                self.validate_path(save_path, file_format, combine_opt)
+            self.load_ek60_raw([file])
+            export(file_idx)
+        if combine_opt:
+            self.combine_files('ek60')
