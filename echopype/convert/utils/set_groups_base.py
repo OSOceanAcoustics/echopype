@@ -28,25 +28,24 @@ class SetGroupsBase:
         else:
             raise ValueError("Unsupported file format")
 
-    def set_provenance(self, src_file_names, prov_dict):
+    def set_provenance(self, prov_dict):
         """Set the Provenance group in the nc file.
 
         Parameters
         ----------
-        src_file_names
-            list of source filenames
         prov_dict
             dictionary containing file conversion parameters
                           prov_dict['conversion_software_name']
                           prov_dict['conversion_software_version']
                           prov_dict['conversion_time']
         """
+        src_filenames = prov_dict.pop('src_filenames')
         # Save the source filenames as a data variable
         ds = xr.Dataset(
             {
-                'filenames': ('file_num', src_file_names, {'long_name': 'Source filenames'})
+                'filenames': ('file_num', src_filenames, {'long_name': 'Source filenames'})
             },
-            coords={'file_num': np.arange(len(src_file_names))},
+            coords={'file_num': np.arange(len(src_filenames))},
         )
 
         # Save all attributes
