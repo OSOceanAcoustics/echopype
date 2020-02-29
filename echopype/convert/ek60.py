@@ -467,12 +467,10 @@ class ConvertEK60(ConvertBase):
             # Check if nc file already exists and deletes it if overwrite is true
             if os.path.exists(out_file) and overwrite:
                 print("          overwriting: " + out_file)  # TODO: this should be printed after 'converting...'
-                os.remove(out_file)
-            # Check if a combined nc file already exists and overwrite is false
-            # ... if yes, abort conversion and issue warning
-            # ... if not, continue with conversion
-            elif combine_opt and os.path.exists(self.save_path[0]) and not overwrite:
-                print(f'          ... this file has already been converted to .nc, conversion not executed.')
+                if file_format == '.nc':
+                    os.remove(out_file)
+                else:
+                    shutil.rmtree(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
