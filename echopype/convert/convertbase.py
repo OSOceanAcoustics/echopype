@@ -1,4 +1,6 @@
 import os
+import xarray as xr
+import shutil
 
 
 class ConvertBase:
@@ -119,11 +121,52 @@ class ConvertBase:
         self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
 
-        # Convert to string if only 1 output file
+        # Convert to sting if only 1 output file
         if len(self.save_path) == 1:
             self.save_path = self.save_path[0]
             self.nc_path = self.nc_path[0]
             self.zarr_path = self.zarr_path[0]
+
+        # If combining, create temp folder for files
+        if combine_opt and ext == '.nc':
+            orig_files = [os.path.splitext(os.path.basename(f))[0] for f in self.filename]
+            self._temp_dir = os.path.join(self.out_dir, '.echopype_tmp')
+            if not os.path.exists(self._temp_dir):
+                os.mkdir(self._temp_dir)
+            self._temp_path = [os.path.join(self._temp_dir, f + file_format) for f in orig_files]
+
+    def combine_files(self, echo_type):
+        # Do nothing if combine_opt is true even if there was nothing to combine
+        if not hasattr(self, '_temp_path'):
+            return
+        # Open multiple files as one dataset of each group and save them into a single file
+        with xr.open_dataset(self._temp_path[0], group='Environment') as ds_env:
+            ds_env.to_netcdf(path=self.save_path, mode='w', group='Environment')
+        with xr.open_dataset(self._temp_path[0], group='Provenance') as ds_prov:
+            ds_prov.to_netcdf(path=self.save_path, mode='a', group='Provenance')
+        with xr.open_dataset(self._temp_path[0], group='Sonar') as ds_sonar:
+            ds_sonar.to_netcdf(path=self.save_path, mode='a', group='Sonar')
+        with xr.open_mfdataset(self._temp_path, group='Beam', combine='by_coords') as ds_beam:
+            ds_beam.to_netcdf(path=self.save_path, mode='a', group='Beam')
+        # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+        try:
+            ds_plat = xr.open_mfdataset(self._temp_path, group='Platform', combine='by_coords')
+        except ValueError:
+            ds_plat = xr.open_dataset(self._temp_path[0], group='Platform')
+        ds_plat.to_netcdf(path=self.save_path, mode='a', group='Platform')
+        ds_plat.close()
+        # AZFP does not record NMEA data
+        if echo_type == 'ek60':
+            with xr.open_mfdataset(self._temp_path, group='Platform/NMEA',
+                                   combine='nested', concat_dim='time') as ds_nmea:
+                ds_nmea.to_netcdf(path=self.save_path, mode='a', group='Platform/NMEA')
+        # EK60 does not have the "vendor specific" group
+        if echo_type == 'azfp':
+            with xr.open_mfdataset(self._temp_path, group='Vendor', combine='by_coords') as ds_vend:
+                ds_vend.to_netcdf(path=self.save_path, mode='a', group='Vendor')
+
+        # Delete temporary folder:
+        shutil.rmtree(self._temp_dir)
 
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Wrapper for saving to netCDF.

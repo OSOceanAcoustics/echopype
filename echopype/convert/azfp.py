@@ -376,7 +376,7 @@ class ConvertAZFP(ConvertBase):
         """
 
         # Subfunctions to set various dictionaries
-        def export(file_idx=None):
+        def export(file_idx=0):
             def calc_Sv_offset(f, pulse_length):
                 """Calculate a compensation for the effects of finite response
                 times of both the receiving and transmitting parts of the transducer.
@@ -430,9 +430,12 @@ class ConvertAZFP(ConvertBase):
                 return out_dict
 
             def _set_prov_dict():
-                attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
-                vals = ('echopype', ECHOPYPE_VERSION, dt.utcnow().isoformat(timespec='seconds') + 'Z')  # use UTC time
-                return dict(zip(attrs, vals))
+                out_dict = dict(
+                    conversion_software_name='echopype',
+                    conversion_software_version=ECHOPYPE_VERSION,
+                    conversion_time=dt.utcnow().isoformat(timespec='seconds') + 'Z',   # use UTC time
+                    src_filenames=self.filename if combine_opt else [raw_file])
+                return out_dict
 
             def _set_sonar_dict():
                 attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
@@ -569,12 +572,12 @@ class ConvertAZFP(ConvertBase):
             freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
             ping_time = self.get_ping_time()
 
-            if file_idx is None:
+            # If only converting 1 file, out_file is the same as self.save_path
+            if isinstance(self.save_path, str):
                 out_file = self.save_path
-                raw_file = self.filename
             else:
-                out_file = self.save_path[file_idx]
-                raw_file = [self.filename[file_idx]]
+                out_file = self._temp_path[file_idx] if hasattr(self, '_temp_path') else self.save_path[file_idx]
+            raw_file = self.filename[file_idx]
 
             # Check if nc file already exists and deletes it if overwrite is true
             if os.path.exists(out_file) and overwrite:
@@ -590,19 +593,18 @@ class ConvertAZFP(ConvertBase):
                 grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress)
                 grp.set_toplevel(_set_toplevel_dict())      # top-level group
                 grp.set_env(_set_env_dict())                # environment group
-                grp.set_provenance(raw_file, _set_prov_dict())        # provenance group
+                grp.set_provenance(_set_prov_dict())        # provenance group
                 grp.set_platform(_set_platform_dict())      # platform group
                 grp.set_sonar(_set_sonar_dict())            # sonar group
                 grp.set_beam(_set_beam_dict())              # beam group
                 grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group
 
         self.validate_path(save_path, file_format, combine_opt)
-        if len(self.filename) == 1 or combine_opt:
-            export()
-        else:
-            for file_seq, file in enumerate(self.filename):
-                if file_seq > 0:
-                    self._checked_unique = False
-                    self.unpacked_data = None
-                self.parse_raw([file])
-                export(file_seq)
+        for file_idx, file in enumerate(self.filename):
+            if file_idx > 0:
+                self._checked_unique = False
+                self.unpacked_data = None
+            self.parse_raw([file])
+            export(file_idx)
+        if combine_opt:
+            self.combine_files('azfp')
