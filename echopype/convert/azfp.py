@@ -1,4 +1,5 @@
 import os
+import shutil
 from collections import defaultdict
 import numpy as np
 import xml.dom.minidom
@@ -582,7 +583,10 @@ class ConvertAZFP(ConvertBase):
             # Check if nc file already exists and deletes it if overwrite is true
             if os.path.exists(out_file) and overwrite:
                 print("          overwriting: " + out_file)
-                os.remove(out_file)
+                if file_format == '.nc':
+                    os.remove(out_file)
+                else:
+                    shutil.rmtree(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
