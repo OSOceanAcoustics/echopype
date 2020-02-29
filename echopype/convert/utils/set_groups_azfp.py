@@ -50,14 +50,17 @@ class SetGroupsAZFP(SetGroupsBase):
             dictionary containing platform parameters
         """
         if not os.path.exists(self.file_path):
-            print('netCDF file does not exist, exiting without saving Platform group...')
+            print("netCDF file does not exist, exiting without saving Platform group...")
         elif self.format == '.nc':
+            ncfile = netCDF4.Dataset(self.file_path, 'a', format='NETCDF4')
+            plat = ncfile.createGroup('Platform')
             with netCDF4.Dataset(self.file_path, 'a', format='NETCDF4') as ncfile:
-                [ncfile.setncattr(k, v) for k, v in platform_dict.items()]
+                [plat.setncattr(k, v) for k, v in platform_dict.items()]
         elif self.format == '.zarr':
             zarrfile = zarr.open(self.file_path, mode='a')
+            plat = zarrfile.create_group('Platform')
             for k, v in platform_dict.items():
-                zarrfile.attrs[k] = v
+                plat.attrs[k] = v
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the AZFP nc file.
