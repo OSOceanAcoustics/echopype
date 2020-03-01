@@ -451,21 +451,29 @@ class ConvertEK60(ConvertBase):
                             shutil.copyfile(self.save_path, new_path)
                 os.rename(self.save_path, self.all_files[0])
 
-            # If only converting 1 file, out_file is the same as self.save_path
-            if len(self.filename) == 1:
+            # self._temp_path exists if combining multiple files into 1 .nc file
+            if hasattr(self, '_temp_path'):
+                out_file = self._temp_path[file_idx]
+            # If only converting 1 file into a .nc file, out_file is the same as self.save_path
+            # Also if converting multiple files into a .zarr file
+            elif len(self.filename) == 1 or (len(self.filename) != 1 and combine_opt and file_format == ".zarr"):
                 out_file = self.save_path
+            # Converting multiple raw files into multiple .nc or .zarr files
             else:
-                # Save to temporary path if combining raw files into 1 .nc file. Save in specified path otherwise
-                out_file = self._temp_path[file_idx] if hasattr(self, '_temp_path') else self.save_path[file_idx]
+                out_file = self.save_path[file_idx]
             raw_file = self.filename[file_idx]
+
+            # Flag to append .zarr files if combining multiple files into 1 .zarr file
+            self._append_zarr = True if file_idx > 0 and file_format == '.zarr' and combine_opt else False
 
             # filename must have "-" as the field separator for the last 2 fields. Uses first file
             filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
             filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
             filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
-            # Check if nc file already exists and deletes it if overwrite is true
-            if os.path.exists(out_file) and overwrite:
+            # Check if out_file file already exists
+            # Deletes it if overwrite is true ...unless appending to .zarr
+            if os.path.exists(out_file) and overwrite and not self._append_zarr:
                 print("          overwriting: " + out_file)  # TODO: this should be printed after 'converting...'
                 if file_format == '.nc':
                     os.remove(out_file)
@@ -474,7 +482,7 @@ class ConvertEK60(ConvertBase):
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
-            if os.path.exists(out_file):
+            if os.path.exists(out_file) and file_format == '.nc' or (file_idx > 0 and not self._append_zarr):
                 print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
                 # Load data from RAW file
@@ -505,7 +513,7 @@ class ConvertEK60(ConvertBase):
                                       dtype='float32')
 
                 # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress)
+                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress, append_zarr=self._append_zarr)
                 grp.set_toplevel(_set_toplevel_dict())  # top-level group
                 grp.set_env(_set_env_dict())            # environment group
                 grp.set_provenance(_set_prov_dict())    # provenance group
