@@ -49,7 +49,9 @@ class SetGroupsEK60(SetGroupsBase):
             if self.format == '.nc':
                 ds.to_netcdf(path=self.file_path, mode='a', group='Environment')
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Environment')
+                # Only save environment group if not appending to an existing .zarr file
+                if not self.append_zarr:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Environment')
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the EK60 nc file.
