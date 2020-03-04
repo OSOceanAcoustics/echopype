@@ -183,6 +183,12 @@ class ConvertEK80(ConvertBase):
 
                 # Read the rest of datagrams
                 self._read_datagrams(fid)
+                # Remove empty lists
+                for ch_id in self.ch_ids:
+                    if all(x is None for x in self.power_dict[ch_id]):
+                        self.power_dict[ch_id] = None
+                    if all(x is None for x in self.complex_dict[ch_id]):
+                        self.complex_dict[ch_id] = None
 
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
@@ -274,7 +280,7 @@ class ConvertEK80(ConvertBase):
                 max_bb = 0
                 max_cw = 0
                 for tx in self.ch_ids:
-                    if self.complex_dict[tx][0] is not None:
+                    if self.complex_dict[tx] is not None:
                         reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, 4))
                         b_r_tmp[tx] = np.real(reshaped)
                         b_i_tmp[tx] = np.imag(reshaped)
@@ -324,7 +330,7 @@ class ConvertEK80(ConvertBase):
 
                     # Pad each channel with nan so that they can be stacked
                     # Broadband
-                    if c['transducer_frequency_maximum'] != c['transducer_frequency_minimum']:
+                    if self.complex_dict[k] is not None:
                         diff = max_bb - b_r_tmp[k].shape[1]
                         beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff), (0, 0)),
                                                           mode='constant', constant_values=np.nan))
