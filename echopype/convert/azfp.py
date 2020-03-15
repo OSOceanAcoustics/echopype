@@ -608,7 +608,8 @@ class ConvertAZFP(ConvertBase):
             if file_idx > 0:
                 self._checked_unique = False
                 self.unpacked_data = None
-            self.parse_raw([file])
+            if self.unpacked_data is None:
+                self.parse_raw([file])
             export(file_idx)
         if combine_opt:
             self.combine_files('azfp')
