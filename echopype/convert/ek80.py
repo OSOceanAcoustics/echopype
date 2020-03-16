@@ -1,4 +1,5 @@
 import os
+import shutil
 from collections import defaultdict
 import numpy as np
 from datetime import datetime as dt
@@ -31,7 +32,7 @@ class ConvertEK80(ConvertBase):
         self.mru_data = defaultdict(list)     # Dictionary to store MRU data (heading, pitch, roll, heave)
         self.fil_coeffs = defaultdict(dict)   # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
-        self.ch_ids = []
+        self.ch_ids = []                      # List of all channel ids
         self.nc_path = None
         self.zarr_path = None
 
@@ -190,6 +191,23 @@ class ConvertEK80(ConvertBase):
                     if all(x is None for x in self.complex_dict[ch_id]):
                         self.complex_dict[ch_id] = None
 
+    """ Sorts the channel ids into broadband and continuous wave channel ids
+
+        Returns
+        -------
+        2 lists containing the bb channel ids and the cw channel ids
+    """
+    def sort_ch_ids(self):
+        if self.complex_dict:
+            bb_ch_ids = []
+            cw_ch_ids = []
+            for k, v in self.complex_dict.items():
+                if v is not None:
+                    bb_ch_ids.append(k)
+                else:
+                    cw_ch_ids.append(k)
+        return bb_ch_ids, cw_ch_ids
+
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
         """
@@ -262,32 +280,45 @@ class ConvertEK80(ConvertBase):
                 out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
                 return out_dict
 
-            def _set_beam_dict():
+            '''Sets the dictionary used to save the beam group.
+            
+            Parameters
+            ----------
+            ch_ids : list of str
+                lists of all channels to be saved. Either all bb or all cw channels
+            bb : bool
+                flags whether the data is broadband or not
+            path : str
+                save path
+            
+            Returns
+            -------
+            Dictionary containing data for saving the beam group
+            '''
+            def _set_beam_dict(ch_ids, bb, path):
                 beam_dict = dict()
+                beam_dict['path'] = path        # Path to save file to
                 beam_dict['beam_mode'] = 'vertical'
                 beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
                 beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-                beam_dict['frequency'] = freq
-                # beam_dict['range_lengths'] = self.range_lengths
-                # beam_dict['power_dict'] = self.power_dict_split
-                # beam_dict['angle_dict'] = self.angle_dict_split
+                beam_dict['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
+                                                   for x in ch_ids], dtype='float32')
+                tx_num = len(ch_ids)
 
                 b_r_tmp = {}      # Real part of broadband backscatter
                 b_i_tmp = {}      # Imaginary part of b 99-6 raodband backscatter
-                b_r_cw_tmp = {}   # Continuous wave backscatter
 
                 # Find largest array in order to pad and stack smaller arrays
-                max_bb = 0
-                max_cw = 0
-                for tx in self.ch_ids:
-                    if self.complex_dict[tx] is not None:
+                max_len = 0
+                for tx in ch_ids:
+                    if bb:
                         reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, 4))
                         b_r_tmp[tx] = np.real(reshaped)
                         b_i_tmp[tx] = np.imag(reshaped)
-                        max_bb = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_bb else max_bb
+                        max_len = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_len else max_len
                     else:
-                        b_r_cw_tmp[tx] = np.array(self.power_dict[tx], dtype='float32')
-                        max_cw = b_r_cw_tmp[tx].shape[1] if b_r_cw_tmp[tx].shape[1] > max_cw else max_cw
+                        b_r_tmp[tx] = np.array(self.power_dict[tx], dtype='float32')
+                        max_len = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_len else max_len
 
                 # Loop through each transducer for channel-specific variables
                 bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -300,13 +331,13 @@ class ConvertEK80(ConvertBase):
                 beam_dict['channel_id'] = []
                 beam_dict['frequency_start'] = []
                 beam_dict['frequency_end'] = []
-                beam_dict['frequency_cw'] = []
                 beam_dict['slope'] = []
                 beam_dict['backscatter_r'] = []
                 beam_dict['backscatter_i'] = []
-                beam_dict['backscatter_r_cw'] = []
                 c_seq = 0
                 for k, c in self.config_datagram['configuration'].items():
+                    if k not in ch_ids:
+                        continue
                     bm_width['beamwidth_receive_major'][c_seq] = c['beam_width_alongship']
                     bm_width['beamwidth_receive_minor'][c_seq] = c['beam_width_athwartship']
                     bm_width['beamwidth_transmit_major'][c_seq] = c['beam_width_alongship']
@@ -330,33 +361,31 @@ class ConvertEK80(ConvertBase):
 
                     # Pad each channel with nan so that they can be stacked
                     # Broadband
-                    if self.complex_dict[k] is not None:
-                        diff = max_bb - b_r_tmp[k].shape[1]
+                    if bb:
+                        diff = max_len - b_r_tmp[k].shape[1]
                         beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff), (0, 0)),
                                                           mode='constant', constant_values=np.nan))
                         beam_dict['backscatter_i'].append(np.pad(b_i_tmp[k], ((0, 0), (0, diff), (0, 0)),
                                                           mode='constant', constant_values=np.nan))
                         beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
                         beam_dict['frequency_end'].append(self.parameters[k]['frequency_end'])
+                    # Continuous wave
                     else:
-                        diff = max_cw - b_r_cw_tmp[k].shape[1]
-                        beam_dict['backscatter_r_cw'].append(np.pad(b_r_cw_tmp[k], ((0, 0), (0, diff)),
-                                                             mode='constant', constant_values=np.nan))
-                        beam_dict['frequency_cw'].append(self.parameters[k]['frequency'])
+                        diff = max_len - b_r_tmp[k].shape[1]
+                        beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff)),
+                                                                 mode='constant', constant_values=np.nan))
                     c_seq += 1
 
                 # Stack channels and order axis as: channel, quadrant, ping, range
-                if beam_dict['backscatter_r']:
+                if bb:
                     beam_dict['backscatter_r'] = np.moveaxis(np.stack(beam_dict['backscatter_r']), 3, 1)
                     beam_dict['backscatter_i'] = np.moveaxis(np.stack(beam_dict['backscatter_i']), 3, 1)
-                    beam_dict['range_bin'] = np.arange(max_bb)
                     beam_dict['frequency_start'] = np.unique(beam_dict['frequency_start'])
                     beam_dict['frequency_end'] = np.unique(beam_dict['frequency_end'])
                     beam_dict['frequency_center'] = (beam_dict['frequency_start'] + beam_dict['frequency_end']) / 2
-                if beam_dict['backscatter_r_cw']:
-                    beam_dict['backscatter_r_cw'] = np.stack(beam_dict['backscatter_r_cw'])
-                    beam_dict['range_bin_cw'] = np.arange(max_cw)
-                    beam_dict['frequency_cw'] = np.unique(beam_dict['frequency_cw'])
+                else:
+                    beam_dict['backscatter_r'] = np.stack(beam_dict['backscatter_r'])
+                beam_dict['range_bin'] = np.arange(max_len)
                 beam_dict['beam_width'] = bm_width
                 beam_dict['beam_direction'] = bm_dir
                 beam_dict['beam_angle'] = bm_angle
@@ -364,48 +393,49 @@ class ConvertEK80(ConvertBase):
 
                 # Loop through each transducer for variables that may vary at each ping
                 # -- this rarely is the case for EK60 so we check first before saving
-                pl_tmp = np.unique(self.parameters[self.ch_ids[0]]['pulse_duration']).size
-                pw_tmp = np.unique(self.parameters[self.ch_ids[0]]['transmit_power']).size
+                pl_tmp = np.unique(self.parameters[ch_ids[0]]['pulse_duration']).size
+                pw_tmp = np.unique(self.parameters[ch_ids[0]]['transmit_power']).size
                 # bw_tmp = np.unique(self.ping_data_dict[1]['bandwidth']).size      # Not in EK80
-                si_tmp = np.unique(self.parameters[self.ch_ids[0]]['sample_interval']).size
+                si_tmp = np.unique(self.parameters[ch_ids[0]]['sample_interval']).size
                 if np.all(np.array([pl_tmp, pw_tmp, si_tmp]) == 1):
                     tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
                     beam_dict['sample_interval'] = np.zeros(shape=(tx_num,), dtype='float32')
                     for t_seq in range(tx_num):
                         tx_sig['transmit_duration_nominal'][t_seq] = \
-                            np.float32(self.parameters[self.ch_ids[t_seq]]['pulse_duration'][0])
+                            np.float32(self.parameters[ch_ids[t_seq]]['pulse_duration'][0])
                         tx_sig['transmit_power'][t_seq] = \
-                            np.float32(self.parameters[self.ch_ids[t_seq]]['transmit_power'][0])
+                            np.float32(self.parameters[ch_ids[t_seq]]['transmit_power'][0])
                         # tx_sig['transmit_bandwidth'][t_seq] = \
                         #     np.float32((self.parameters[self.ch_ids[t_seq]]['bandwidth'][0])
                         beam_dict['sample_interval'][t_seq] = \
-                            np.float32(self.parameters[self.ch_ids[t_seq]]['sample_interval'][0])
+                            np.float32(self.parameters[ch_ids[t_seq]]['sample_interval'][0])
                 else:
                     tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, ping_num), dtype='float32'))
                     beam_dict['sample_interval'] = np.zeros(shape=(tx_num, ping_num), dtype='float32')
                     for t_seq in range(tx_num):
                         tx_sig['transmit_duration_nominal'][t_seq, :] = \
-                            np.array(self.parameters[self.ch_ids[t_seq]]['pulse_duration'], dtype='float32')
+                            np.array(self.parameters[ch_ids[t_seq]]['pulse_duration'], dtype='float32')
                         tx_sig['transmit_power'][t_seq, :] = \
-                            np.array(self.parameters[self.ch_ids[t_seq]]['transmit_power'], dtype='float32')
+                            np.array(self.parameters[ch_ids[t_seq]]['transmit_power'], dtype='float32')
                         # tx_sig['transmit_bandwidth'][t_seq, :] = \
                         #     np.array(self.parameters[self.ch_ids[t_seq]]['bandwidth'], dtype='float32')
                         beam_dict['sample_interval'][t_seq, :] = \
-                            np.array(self.parameters[self.ch_ids[t_seq]]['sample_interval'], dtype='float32')
+                            np.array(self.parameters[ch_ids[t_seq]]['sample_interval'], dtype='float32')
 
                 beam_dict['transmit_signal'] = tx_sig
                 # Build other parameters
                 # beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
                 # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
                 # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
-
-                # TODO: Make the following work
-                # idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][x - 1],
-                #                               self.config_datagram['transceivers'][x]['pulse_length_table'])).squeeze()
-                #        for x in self.config_datagram['transceivers'].keys()]
-                # beam_dict['sa_correction'] = \
-                #     np.array([x['sa_correction'][y]
-                #               for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
+                pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
+                # Gets indices from pulse length table using the transmit_duration_nominal values selected
+                idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
+                                              self.config_datagram['configuration'][ch][pulse_length])).squeeze()
+                       for i, ch in enumerate(ch_ids)]
+                # Use the indices to select sa_correction values from the sa correction table
+                beam_dict['sa_correction'] = \
+                    np.array([x['sa_correction'][y]
+                              for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
 
                 return beam_dict
 
@@ -425,6 +455,27 @@ class ConvertEK80(ConvertBase):
                 out_dict['decimation_factors'] = decimation_factors
 
                 return out_dict
+
+            '''Handles saving the beam group.
+            Splits up broadband and continuous wave data into separate files'''
+            def save_beam():
+                # If there is both bb and cw data
+                if bb_ch_ids and cw_ch_ids:
+                    # Copy the current file into a new file with _cw appended to filename
+                    split = os.path.splitext(out_file)
+                    new_path = split[0] + '_cw' + split[1]
+                    if split[1] == '.zarr':
+                        shutil.copytree(out_file, new_path)
+                    elif split[1] == '.nc':
+                        shutil.copyfile(out_file, new_path)
+                    grp.set_beam(_set_beam_dict(bb_ch_ids, bb=True, path=out_file))
+                    grp.set_beam(_set_beam_dict(cw_ch_ids, bb=False, path=new_path))
+                # If there is only bb data
+                elif bb_ch_ids:
+                    grp.set_beam(_set_beam_dict(bb_ch_ids, bb=True))
+                # If there is only cw data
+                else:
+                    grp.set_beam(_set_beam_dict(cw_ch_ids, bb=False))
 
             if file_idx is None:
                 out_file = self.save_path
@@ -449,10 +500,8 @@ class ConvertEK80(ConvertBase):
                 if not bool(self.power_dict):  # if haven't parsed .raw file
                     self.load_ek80_raw(self.filename)
 
-                tx_num = len(self.ch_ids)
+                bb_ch_ids, cw_ch_ids = self.sort_ch_ids()
                 ping_num = len(self.ping_time)
-                freq = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
-                                for x in self.config_datagram['configuration'].keys()], dtype='float32')
 
                 grp = SetGroups(file_path=out_file, echo_type='EK80')
                 grp.set_toplevel(_set_toplevel_dict())  # top-level group
@@ -461,8 +510,8 @@ class ConvertEK80(ConvertBase):
                 grp.set_platform(_set_platform_dict())  # platform group
                 grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
                 grp.set_sonar(_set_sonar_dict())        # sonar group
-                grp.set_beam(_set_beam_dict())          # beam group
                 grp.set_vendor(_set_vendor_dict())      # vendor group
+                save_beam()                             # beam Group
 
         self.validate_path(save_path, file_format, combine_opt)
         if len(self.filename) == 1 or combine_opt:
