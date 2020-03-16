@@ -152,9 +152,9 @@ class SetGroupsEK80(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Beam group...')
         else:
-            # Flag indicating whether or not cw or bb data will be saved.
-            cw_flag = False
-            bb_flag = False
+            # Define compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -265,7 +265,7 @@ class SetGroupsEK80(SetGroupsBase):
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
             # Save broadband backscatter if present
-            if len(beam_dict['backscatter_r']) != 0:
+            if len(beam_dict['backscatter_i']) != 0:
                 bb = xr.Dataset(
                     {'backscatter_r': (['frequency_center', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Real part of backscatter power',
@@ -292,25 +292,24 @@ class SetGroupsEK80(SetGroupsBase):
                             'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
                 ds = xr.merge([ds, bb])
-                bb_flag = True
-
-            # Save continuous wave backscatter if present
-            if len(beam_dict['backscatter_r_cw']) != 0:
+                nc_encoding['backscatter_i'] = {'zlib': True, 'complevel': 4}
+                zarr_encoding['backscatter_i'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+            # Save continuous wave backscatter
+            else:
                 cw = xr.Dataset(
-                    {'backscatter_r_cw': (['frequency_cw', 'ping_time', 'range_bin_cw'], beam_dict['backscatter_r_cw'],
-                                          {'long_name': 'Backscattering power',
+                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                                       {'long_name': 'Backscattering power',
                                            'units': 'dB'})},
-                    coords={'frequency_cw': (['frequency_cw'], beam_dict['frequency_cw']),
+                    coords={'frequency': (['frequency'], beam_dict['frequency']),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
                             #                'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time'}),
                             #                'units': 'seconds since 1900-01-01'}),
-                            'range_bin_cw': (['range_bin_cw'], beam_dict['range_bin_cw'])
+                            'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
-            ds = xr.merge([ds, cw])
-            cw_flag = True
+                ds = xr.merge([ds, cw])
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
@@ -318,24 +317,14 @@ class SetGroupsEK80(SetGroupsBase):
             if 'sa_correction' in beam_dict:
                 ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
-            # Define compression settings
-            nc_encoding = {}
-            zarr_encoding = {}
-            if cw_flag:
-                nc_encoding['backscatter_r_cw'] = {'zlib': True, 'complevel': 4}
-                zarr_encoding['backscatter_r_cw'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
-            if bb_flag:
-                nc_encoding['backscatter_r'] = {'zlib': True, 'complevel': 4}
-                nc_encoding['backscatter_i'] = {'zlib': True, 'complevel': 4}
-                zarr_encoding['backscatter_r'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
-                zarr_encoding['backscatter_i'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
-
+            nc_encoding['backscatter_r'] = {'zlib': True, 'complevel': 4}
+            zarr_encoding['backscatter_r'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Beam',
+                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam',
                              encoding=nc_encoding)
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Beam',
+                ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam',
                            encoding=zarr_encoding)
 
     def set_vendor(self, vendor_dict):
