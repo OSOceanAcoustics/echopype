@@ -482,7 +482,8 @@ class ConvertEK60(ConvertBase):
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
-            if os.path.exists(out_file) and file_format == '.nc' or (file_idx > 0 and not self._append_zarr):
+            if file_format == '.nc' and os.path.exists(out_file) or (file_format == '.zarr' and
+                                                                     file_idx > 0 and not self._append_zarr):
                 print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
                 # Load data from RAW file
