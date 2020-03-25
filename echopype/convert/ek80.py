@@ -281,7 +281,7 @@ class ConvertEK80(ConvertBase):
                 return out_dict
 
             '''Sets the dictionary used to save the beam group.
-            
+
             Parameters
             ----------
             ch_ids : list of str
@@ -290,7 +290,7 @@ class ConvertEK80(ConvertBase):
                 flags whether the data is broadband or not
             path : str
                 save path
-            
+
             Returns
             -------
             Dictionary containing data for saving the beam group
@@ -472,10 +472,10 @@ class ConvertEK80(ConvertBase):
                     grp.set_beam(_set_beam_dict(cw_ch_ids, bb=False, path=new_path))
                 # If there is only bb data
                 elif bb_ch_ids:
-                    grp.set_beam(_set_beam_dict(bb_ch_ids, bb=True))
+                    grp.set_beam(_set_beam_dict(bb_ch_ids, bb=True, path=out_file))
                 # If there is only cw data
                 else:
-                    grp.set_beam(_set_beam_dict(cw_ch_ids, bb=False))
+                    grp.set_beam(_set_beam_dict(cw_ch_ids, bb=False, path=out_file))
 
             if file_idx is None:
                 out_file = self.save_path

@@ -2,6 +2,7 @@ import os
 import shutil
 import numpy as np
 import xarray as xr
+import pandas as pd
 from echopype.convert import Convert
 from echopype.convert.ek80 import ConvertEK80
 
@@ -14,7 +15,14 @@ ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'   
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
 # ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'     # Large file
-ek80_raw_path = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file
+ek80_raw_path = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (Standard test)
+ek80_test_path = ['./echopype/test_data/ek80/power_direct_export/18kHz.power.csv',
+                  './echopype/test_data/ek80/power_direct_export/38kHz.power.csv',
+                  './echopype/test_data/ek80/power_direct_export/70kHz.power.csv',
+                  './echopype/test_data/ek80/power_direct_export/120kHz.power.csv',
+                  './echopype/test_data/ek80/power_direct_export/200kHz.power.csv']
+# ek80_raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
+#                  './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files
 # azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
@@ -58,10 +66,19 @@ def test_convert_ek60():
 
 def test_convert_ek80():
     tmp = ConvertEK80(ek80_raw_path)
+    tmp.raw2nc()
+    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+        test_factor = 0.011758984205624266  # 10*log10(2)/256
+        power = ds_beam.backscatter_r * test_factor
+        power[3][4][13174] = -999           # single point error in original raw data
+        for i, f in enumerate(ek80_test_path):
+            test_power = pd.read_csv(f, delimiter=';').iloc[:, 13:].values
+            assert np.allclose(test_power, power[i].dropna('range_bin'))
+    os.remove(tmp.nc_path)
+
+    # Test saving zarr file
     tmp.raw2zarr()
     shutil.rmtree(tmp.zarr_path, ignore_errors=True)
-    tmp.raw2nc()
-    # os.remove(tmp.nc_path)
     del tmp
 
 
