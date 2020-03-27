@@ -39,7 +39,10 @@ class SetGroupsAZFP(SetGroupsBase):
             if self.format == '.nc':
                 ds.to_netcdf(path=self.file_path, mode='a', group='Environment')
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Environment')
+                if not self.append_zarr:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Environment')
+                else:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Environment', append_dim='ping_time')
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the AZFP nc file. AZFP does not record pitch, roll, and heave.
@@ -56,7 +59,7 @@ class SetGroupsAZFP(SetGroupsBase):
             plat = ncfile.createGroup('Platform')
             with netCDF4.Dataset(self.file_path, 'a', format='NETCDF4') as ncfile:
                 [plat.setncattr(k, v) for k, v in platform_dict.items()]
-        elif self.format == '.zarr':
+        elif self.format == '.zarr' and not self.append_zarr:    # Do not save platform if appending
             zarrfile = zarr.open(self.file_path, mode='a')
             plat = zarrfile.create_group('Platform')
             for k, v in platform_dict.items():
@@ -123,16 +126,19 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_b': beam_dict['tilt_Y_b'],
                                'tilt_Y_c': beam_dict['tilt_Y_c'],
                                'tilt_Y_d': beam_dict['tilt_Y_d']})
+        n_settings = {}
+        z_settings = {}
+        if self.compress:
+            n_settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
+            z_settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
 
-        settings = {}
         if self.format == '.nc':
-            if self.compress:
-                settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
-            ds.to_netcdf(path=self.file_path, mode='a', group='Beam', encoding=settings)
+            ds.to_netcdf(path=self.file_path, mode='a', group='Beam', encoding=n_settings)
         elif self.format == '.zarr':
-            if self.compress:
-                settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
-            ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=settings)
+            if not self.append_zarr:
+                ds.to_zarr(store=self.file_path, mode='a', group='Beam', encoding=z_settings)
+            else:
+                ds.to_zarr(store=self.file_path, mode='a', group='Beam', append_dim='ping_time')
 
     def set_vendor_specific(self, vendor_dict):
         """Set the Vendor-specific group in the AZFP nc file.
@@ -187,4 +193,7 @@ class SetGroupsAZFP(SetGroupsBase):
         if self.format == '.nc':
             ds.to_netcdf(path=self.file_path, mode='a', group='Vendor')
         elif self.format == '.zarr':
-            ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
+            if not self.append_zarr:
+                ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
+            else:
+                ds.to_zarr(store=self.file_path, mode='a', group='Vendor', append_dim='ping_time')
