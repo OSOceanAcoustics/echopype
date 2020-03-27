@@ -32,7 +32,6 @@ class ConvertAZFP(ConvertBase):
 
         # Initialize variables that'll be filled later
         self.unpacked_data = None
-        self._checked_unique = False
 
     def loadAZFPxml(self):
         """Parses the AZFP  XML file.
@@ -242,7 +241,7 @@ class ConvertAZFP(ConvertBase):
         if not self.unpacked_data:
             self.parse_raw()
 
-        if not self._checked_unique:    # Only check uniqueness once. Will error if done twice
+        if np.array(self.unpacked_data['profile_flag']).size != 1:    # Only check uniqueness once. Will error if done twice
             # fields with num_freq data
             field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',
                             'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
@@ -262,7 +261,6 @@ class ConvertAZFP(ConvertBase):
                     self.unpacked_data[field] = uniq.squeeze()
                 else:
                     raise ValueError(f"Header value {field} is not constant for each ping")
-        self._checked_unique = True
 
     def parse_raw(self, raw):
         """Parses a raw AZFP file of the 01A file format
@@ -573,15 +571,23 @@ class ConvertAZFP(ConvertBase):
             freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
             ping_time = self.get_ping_time()
 
-            # If only converting 1 file, out_file is the same as self.save_path
-            if isinstance(self.save_path, str):
+            # self._temp_path exists if combining multiple files into 1 .nc file
+            if hasattr(self, '_temp_path'):
+                out_file = self._temp_path[file_idx]
+            # If only converting 1 file into a .nc file, out_file is the same as self.save_path
+            # Also if converting multiple files into a .zarr file
+            elif len(self.filename) == 1 or (len(self.filename) != 1 and combine_opt and file_format == ".zarr"):
                 out_file = self.save_path
+            # Converting multiple raw files into multiple .nc or .zarr files
             else:
-                out_file = self._temp_path[file_idx] if hasattr(self, '_temp_path') else self.save_path[file_idx]
+                out_file = self.save_path[file_idx]
             raw_file = self.filename[file_idx]
 
+            # Flag to append .zarr files if combining multiple files into 1 .zarr file
+            self._append_zarr = True if file_idx > 0 and file_format == '.zarr' and combine_opt else False
+
             # Check if nc file already exists and deletes it if overwrite is true
-            if os.path.exists(out_file) and overwrite:
+            if os.path.exists(out_file) and overwrite and not self._append_zarr:
                 print("          overwriting: " + out_file)
                 if file_format == '.nc':
                     os.remove(out_file)
@@ -590,11 +596,12 @@ class ConvertAZFP(ConvertBase):
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
-            if os.path.exists(out_file):
+            if ((file_format == '.nc' and os.path.exists(out_file)) or
+               (file_format == '.zarr' and os.path.exists(out_file) and file_idx > 0 and not self._append_zarr)):
                 print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
                 # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress)
+                grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress, append_zarr=self._append_zarr)
                 grp.set_toplevel(_set_toplevel_dict())      # top-level group
                 grp.set_env(_set_env_dict())                # environment group
                 grp.set_provenance(_set_prov_dict())        # provenance group
@@ -605,8 +612,7 @@ class ConvertAZFP(ConvertBase):
 
         self.validate_path(save_path, file_format, combine_opt)
         for file_idx, file in enumerate(self.filename):
-            if file_idx > 0:
-                self._checked_unique = False
+            if file_idx > 0 or (file_idx == 0 and len(self.filename) > 1):
                 self.unpacked_data = None
             if self.unpacked_data is None:
                 self.parse_raw([file])
