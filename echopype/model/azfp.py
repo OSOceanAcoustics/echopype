@@ -124,6 +124,12 @@ class ModelAZFP(ModelBase):
     def calibrate(self, save=False, save_postfix='_Sv', save_path=None):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
 
+        The calibration formula used here is documented in eq.(9) on p.85
+        of GU-100-AZFP-01-R50 Operator's Manual.
+        Note a Sv_offset factor that varies depending on frequency is used
+        in the calibration as documented on p.90.
+        See calc_Sv_offset() in convert/azfp.py
+
         Parameters
         ----------
         save : bool, optional
@@ -167,6 +173,9 @@ class ModelAZFP(ModelBase):
 
     def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None):
         """Perform echo-integration to get Target Strength (TS) from AZFP power data.
+
+        The calibration formula used here is documented in eq.(10) on p.85
+        of GU-100-AZFP-01-R50 Operator's Manual.
 
         Parameters
         ----------
