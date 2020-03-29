@@ -387,7 +387,7 @@ class ModelBase(object):
         if np.unique([np.array(x).size for x in range_bin_tile_bin_edge]).size == 1:
             Sv_clean = pp.groupby_bins('ping_idx', ping_tile_bin_edge).\
                             map(remove_n, rr=range_bin_tile_bin_edge[0])
-            Sv_clean = Sv_clean.drop_vars(['ping_idx', 'ping_idx_bins'])
+            Sv_clean = Sv_clean.drop_vars(['ping_idx'])
         else:
             tmp_clean = []
             cnt = 0
