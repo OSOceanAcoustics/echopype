@@ -334,6 +334,7 @@ class ConvertEK80(ConvertBase):
                 beam_dict['slope'] = []
                 beam_dict['backscatter_r'] = []
                 beam_dict['backscatter_i'] = []
+                beam_dict['angle_dict'] = []
                 c_seq = 0
                 for k, c in self.config_datagram['configuration'].items():
                     if k not in ch_ids:
@@ -374,6 +375,9 @@ class ConvertEK80(ConvertBase):
                         diff = max_len - b_r_tmp[k].shape[1]
                         beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff)),
                                                                  mode='constant', constant_values=np.nan))
+                        beam_dict['angle_dict'].append(np.pad(np.array(self.angle_dict[k], dtype='float32'),
+                                                              ((0, 0), (0, diff), (0, 0)),
+                                                              mode='constant', constant_values=np.nan))
                     c_seq += 1
 
                 # Stack channels and order axis as: channel, quadrant, ping, range
@@ -385,6 +389,7 @@ class ConvertEK80(ConvertBase):
                     beam_dict['frequency_center'] = (beam_dict['frequency_start'] + beam_dict['frequency_end']) / 2
                 else:
                     beam_dict['backscatter_r'] = np.stack(beam_dict['backscatter_r'])
+                    beam_dict['angle_dict'] = np.stack(beam_dict['angle_dict'])
                 beam_dict['range_bin'] = np.arange(max_len)
                 beam_dict['beam_width'] = bm_width
                 beam_dict['beam_direction'] = bm_dir
