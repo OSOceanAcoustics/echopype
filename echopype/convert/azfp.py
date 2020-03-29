@@ -382,7 +382,8 @@ class ConvertAZFP(ConvertBase):
                 times of both the receiving and transmitting parts of the transducer.
                 The correction magnitude depends on the length of the transmitted pulse
                 and the response time (transmission and reception) of the transducer.
-                Called by ``_set_beam_dict()``
+                The numbers used below are documented on p.91 in GU-100-AZFP-01-R50 Operator's Manual.
+                This subfunction is called by ``_set_beam_dict()``.
 
                 Parameters
                 ----------

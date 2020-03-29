@@ -16,22 +16,56 @@ class ModelEK60(ModelBase):
     def __init__(self, file_path=""):
         ModelBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
-        self._salinity = None
-        self._temperature = None
-        self._pressure = None
 
-    def get_salinity(self):
-        return self._salinity
+        # Initialize environment-related parameters
+        self._sound_speed = self.calc_sound_speed()
+        self._sample_thickness = self.calc_sample_thickness()
+        self._range = self.calc_range()
+        self._seawater_absorption = self.calc_seawater_absorption()
 
-    def get_temperature(self):
-        return self._temperature
+        # Initialize calibration-related parameters
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            self._gain_correction = ds_beam.gain_correction
+            self._equivalent_beam_angle = ds_beam.equivalent_beam_angle
+            self._sa_correction = ds_beam.sa_correction
 
-    def get_pressure(self):
-        return self._pressure
+    # EK60 calibration parameters
+    @property
+    def gain_correction(self):
+        return self._gain_correction
 
-    def get_sound_speed(self):
-        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
-            return ds_env.sound_speed_indicative
+    @gain_correction.setter
+    def gain_correction(self, gc):
+        self._gain_correction.values = gc
+
+    @property
+    def equivalent_beam_angle(self):
+        return self._equivalent_beam_angle
+
+    @equivalent_beam_angle.setter
+    def equivalent_beam_angle(self, eba):
+        self._equivalent_beam_angle.values = eba
+
+    @property
+    def sa_correction(self):
+        return self._sa_correction
+
+    @sa_correction.setter
+    def sa_correction(self, sac):
+        self._sa_correction.values = sac
+
+    # Environmental and derived parameters
+    def calc_sound_speed(self, src='file'):
+        if src == 'file':
+            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+                return ds_env.sound_speed_indicative
+        elif src == 'user':
+            ss = uwa.calc_sound_speed(salinity=self.salinity,
+                                      temperature=self.temperature,
+                                      pressure=self.pressure)
+            return ss * np.ones(self.sound_speed.size)
+        else:
+            ValueError('Not sure how to update sound speed!')
 
     def calc_seawater_absorption(self, src='file'):
         """Returns the seawater absorption values from the .nc file.
@@ -42,12 +76,13 @@ class ModelEK60(ModelBase):
         elif src == 'user':
             with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
                 freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
-            sea_abs = uwa.calc_seawater_absorption(freq,
-                                                   temperature=self.temperature,
-                                                   salinity=self.salinity,
-                                                   pressure=self.pressure,
-                                                   formula_source='AM')
-            return sea_abs
+            return uwa.calc_seawater_absorption(freq,
+                                                temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure,
+                                                formula_source='AM')
+        else:
+            ValueError('Not sure how to update seawater absorption!')
 
     def calc_sample_thickness(self):
         with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
@@ -89,9 +124,9 @@ class ModelEK60(ModelBase):
         backscatter_r = ds_beam['backscatter_r']
 
         # Calc gain
-        CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
+        CSv = 10 * np.log10((ds_beam.transmit_power * (10 ** (self.gain_correction / 10)) ** 2 *
                              wavelength ** 2 * self.sound_speed * ds_beam.transmit_duration_nominal *
-                             10 ** (ds_beam.equivalent_beam_angle / 10)) /
+                             10 ** (self.equivalent_beam_angle / 10)) /
                             (32 * np.pi ** 2))
 
         # Get TVG and absorption
@@ -100,7 +135,7 @@ class ModelEK60(ModelBase):
         ABS = 2 * self.seawater_absorption * range_meter
 
         # Calibration and echo integration
-        Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
+        Sv = backscatter_r + TVG + ABS - CSv - 2 * self.sa_correction
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
