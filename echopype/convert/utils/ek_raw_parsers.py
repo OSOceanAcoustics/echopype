@@ -1498,8 +1498,8 @@ class SimradRawParser(_SimradDatagramParser):
                     data['power'] = None
 
                 if data['data_type'] & 0b10:
-                    # TODO: correct angle parsing below to the same as RAW0 parsing above
-                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='uint16')
+                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = data['angle'].reshape((-1, 2))
                     indx += block_size
                 else:
                     data['angle'] = None

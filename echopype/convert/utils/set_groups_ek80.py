@@ -299,7 +299,11 @@ class SetGroupsEK80(SetGroupsBase):
                 cw = xr.Dataset(
                     {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Backscattering power',
-                                           'units': 'dB'})},
+                                           'units': 'dB'}),
+                     'angle_athwartship': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'][:, :, :, 0],
+                                           {'long_name': 'electrical athwartship angle'}),
+                     'angle_alongship': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'][:, :, :, 1],
+                                         {'long_name': 'electrical alongship angle'})},
                     coords={'frequency': (['frequency'], beam_dict['frequency']),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
