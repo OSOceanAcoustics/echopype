@@ -1470,7 +1470,6 @@ class SimradRawParser(_SimradDatagramParser):
                 if int(data['mode']) & 0x2:
                     data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int8')
                     data['angle'] = data['angle'].reshape((-1, 2))
-                    # TODO: need `indx += block_size` here?
                 else:
                     data['angle'] = None
 
