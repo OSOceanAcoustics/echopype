@@ -7,6 +7,7 @@ from echopype.convert import Convert
 from echopype.convert.ek80 import ConvertEK80
 
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
+ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.nc'
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
 # ek60_raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
 #                  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
@@ -50,15 +51,25 @@ def test_convert_ek60():
                                                       # consider alternative using os.walk() if have os-specific errors
 
     # Test saving nc file and perform checks
-    tmp.raw2nc()
+    tmp.raw2nc(overwrite=True)
 
     # Read .nc file into an xarray DataArray
     ds_beam = xr.open_dataset(tmp.nc_path, group='Beam')
 
+    # Test dataset was created by exporting values from MATLAB EK60 parsing code
+    with xr.open_dataset(ek60_test_path) as ds_test:
+        assert np.allclose(ds_test.power, ds_beam.backscatter_r)    # Identical to MATLAB output to 1e-6
+        athwartship = (ds_beam['angle_athwartship'] * 1.40625 / ds_beam['angle_sensitivity_athwartship'] -
+                       ds_beam['angle_offset_athwartship'])
+        alongship = (ds_beam['angle_alongship'] * 1.40625 / ds_beam['angle_sensitivity_alongship'] -
+                     ds_beam['angle_offset_alongship'])
+        assert np.allclose(ds_test.athwartship, athwartship)    # Identical to MATLAB output to 1e-7
+        assert np.allclose(ds_test.alongship, alongship)        # Identical to MATLAB output to 1e-7
+
     # Check if backscatter data from all channels are identical to those directly unpacked
     for idx in tmp.config_datagram['transceivers'].keys():
         # idx is channel index assigned by instrument, starting from 1
-        assert np.any(tmp.power_dict_split[0][idx-1, :, :] ==  # idx-1 because power_dict_split[0] has a numpy array
+        assert np.any(tmp.power_dict_split[0][idx - 1, :, :] ==  # idx-1 because power_dict_split[0] has a numpy array
                       ds_beam.backscatter_r.sel(frequency=tmp.config_datagram['transceivers'][idx]['frequency']).data)
     ds_beam.close()
     os.remove(tmp.nc_path)
