@@ -7,7 +7,7 @@ Installation
 
 Echopype can be installed from PyPI:
 
-.. code-block:: console
+.. code-block:: consolen
 
    $ pip install echopype
 
@@ -347,7 +347,6 @@ sample, and range. The updated values can be retrieved with:
    ed.range                # range for each sonar sample in [m]
 
 
----------------
 
 .. [1] De Robertis and Higginbottoms (2007) A post-processing technique to
    estimate the signal-to-noise ratio and remove echosounder background noise.
