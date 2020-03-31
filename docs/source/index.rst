@@ -25,6 +25,7 @@ scientists to make discovery using these new data.
 
    why
    usage
+   plotting
    data-format
    resources
    api
