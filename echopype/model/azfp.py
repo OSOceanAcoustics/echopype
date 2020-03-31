@@ -13,16 +13,24 @@ from echopype.utils import uwa
 class ModelAZFP(ModelBase):
     """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
-    def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None, sound_speed=None):
+    def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None):
         ModelBase.__init__(self, file_path)
-        self._salinity = salinity           # salinity in [psu]
-        self._pressure = pressure           # pressure in [dbars] (approximately equal to depth in meters)
-        self._temperature = temperature     # temperature in [Celsius]
-        self._tilt_angle = None             # instrument tilt angle in [degrees]
+        self._salinity = salinity    # salinity in [psu]
+        self._pressure = pressure    # pressure in [dbars] (approximately equal to depth in meters)
+        if temperature is None:
+            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+                print("Initialize using average temperature recorded by instrument")
+                self._temperature = np.nanmean(ds_env.temperature)   # temperature in [Celsius]
+        else:
+            self._temperature = temperature
 
-    # TODO: consider moving some of these properties to the parent class,
-    #  since it is possible that EK60 users may want to set the environmental
-    #  parameters separately from those recorded in the data files.
+        # Initialize environment-related parameters
+        self._sound_speed = self.calc_sound_speed()
+        self._sample_thickness = self.calc_sample_thickness()
+        self._range = self.calc_range()
+        self._seawater_absorption = self.calc_seawater_absorption()
+
+        self._tilt_angle = None      # instrument tilt angle in [degrees]
 
     @property
     def tilt_angle(self):
@@ -37,26 +45,14 @@ class ModelAZFP(ModelBase):
                 self._tilt_angle = np.rad2deg(np.arccos(ds_beam.cos_tilt_mag.mean().data))
         return self._tilt_angle
 
-    def get_salinity(self):
-        return self._salinity
-
-    def get_pressure(self):
-        return self._pressure
-
-    def get_temperature(self):
-        if self._temperature is None:
-            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
-                print("Using average temperature")
-                self._temperature = np.nanmean(ds_env.temperature)
-        return self._temperature
-
-    def get_sound_speed(self):
-        if self._sound_speed is None:  # if this is empty
-            self._sound_speed = uwa.calc_sound_speed(temperature=self.temperature,
-                                                     salinity=self.salinity,
-                                                     pressure=self.pressure,
-                                                     formula_source='AZFP')
-        return self._sound_speed
+    def calc_sound_speed(self, src='user'):
+        if src == 'user':
+            return uwa.calc_sound_speed(temperature=self.temperature,
+                                        salinity=self.salinity,
+                                        pressure=self.pressure,
+                                        formula_source='AZFP')
+        else:
+            ValueError('Not sure how to calculate sound speed for AZFP!')
 
     def calc_seawater_absorption(self, src='user'):
         """Calculates seawater absorption in dB/km using AZFP-supplied formula.
@@ -68,15 +64,14 @@ class ModelAZFP(ModelBase):
         with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
         if src == 'user':
-            sea_abs = uwa.calc_seawater_absorption(freq,
-                                                   temperature=self.temperature,
-                                                   salinity=self.salinity,
-                                                   pressure=self.pressure,
-                                                   formula_source='AZFP')
+            return uwa.calc_seawater_absorption(freq,
+                                                temperature=self.temperature,
+                                                salinity=self.salinity,
+                                                pressure=self.pressure,
+                                                formula_source='AZFP')
         else:
             ValueError('For AZFP seawater absorption needs to be calculated '
                        'based on user-input environmental parameters.')
-        return sea_abs
 
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
@@ -116,7 +111,7 @@ class ModelAZFP(ModelBase):
         # Calculate range using parameters for each freq
         range_meter = (sound_speed * lockout_index / (2 * dig_rate) + sound_speed / 4 *
                        (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
-                        (pulse_length / np.timedelta64(1, 's'))))
+                        pulse_length))
 
         if tilt_corrected:
             range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
@@ -128,6 +123,12 @@ class ModelAZFP(ModelBase):
 
     def calibrate(self, save=False, save_postfix='_Sv', save_path=None):
         """Perform echo-integration to get volume backscattering strength (Sv) from AZFP power data.
+
+        The calibration formula used here is documented in eq.(9) on p.85
+        of GU-100-AZFP-01-R50 Operator's Manual.
+        Note a Sv_offset factor that varies depending on frequency is used
+        in the calibration as documented on p.90.
+        See calc_Sv_offset() in convert/azfp.py
 
         Parameters
         ----------
@@ -150,7 +151,7 @@ class ModelAZFP(ModelBase):
               ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 20 * np.log10(range_meter) +
               2 * self.seawater_absorption * range_meter -
               10 * np.log10(0.5 * self.sound_speed *
-                            ds_beam.transmit_duration_nominal.astype('float64') / 1e9 *
+                            ds_beam.transmit_duration_nominal *
                             ds_beam.equivalent_beam_angle) + ds_beam.Sv_offset)
 
         Sv.name = 'Sv'
@@ -172,6 +173,9 @@ class ModelAZFP(ModelBase):
 
     def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None):
         """Perform echo-integration to get Target Strength (TS) from AZFP power data.
+
+        The calibration formula used here is documented in eq.(10) on p.85
+        of GU-100-AZFP-01-R50 Operator's Manual.
 
         Parameters
         ----------
