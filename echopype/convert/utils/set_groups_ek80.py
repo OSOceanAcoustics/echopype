@@ -7,11 +7,11 @@ import zarr
 
 
 class SetGroupsEK80(SetGroupsBase):
-    """Class for setting groups in netCDF file for EK60 data.
+    """Class for setting groups in netCDF file for EK80 data.
     """
 
     def set_env(self, env_dict):
-        """Set the Environment group in the EK60 netCDF file.
+        """Set the Environment group in the EK80 netCDF file.
 
         Parameters
         ----------
@@ -140,7 +140,7 @@ class SetGroupsEK80(SetGroupsBase):
                     snr.attrs[k] = v
 
     def set_beam(self, beam_dict):
-        """Set the Beam group in the EK60 nc file.
+        """Set the Beam group in the EK80 nc file.
 
         Parameters
         ----------
@@ -152,18 +152,15 @@ class SetGroupsEK80(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Beam group...')
         else:
+            # Define compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
             ds = xr.Dataset(
                 {'channel_id': (['frequency'], beam_dict['channel_id']),
-                 'frequency_start': (['frequency', 'ping_time'], np.array(beam_dict['frequency_start']),
-                                     {'long_name': 'Starting frequency of the transducer',
-                                      'units': 'Hz'}),
-                 'frequency_end': (['frequency', 'ping_time'], np.array(beam_dict['frequency_end']),
-                                   {'long_name': 'Ending frequency of the transducer',
-                                    'units': 'Hz'}),
                  'beamwidth_receive_alongship': (['frequency'], beam_dict['beam_width']['beamwidth_receive_major'],
                                                  {'long_name': 'Half power one-way receive beam width along '
                                                   'alongship axis of beam',
@@ -254,7 +251,8 @@ class SetGroupsEK80(SetGroupsBase):
                  'transducer_offset_z': (['frequency'], beam_dict['transducer_position']['transducer_offset_z'],
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
-                                          'units': 'm'})
+                                          'units': 'm'}),
+                 'slope': (['frequency', 'ping_time'], np.array(beam_dict['slope'])),
                  },
                 coords={'frequency': (['frequency'], beam_dict['frequency']),
                         'ping_time': (['ping_time'], ping_time,
@@ -266,15 +264,24 @@ class SetGroupsEK80(SetGroupsBase):
                         },
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
-            if beam_dict['complex']:
-                bs = xr.Dataset(
+            # Save broadband backscatter if present
+            if len(beam_dict['backscatter_i']) != 0:
+                bb = xr.Dataset(
                     {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Real part of backscatter power',
                                         'units': 'dB'}),
                      'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
                                        {'long_name': 'Imaginary part of backscatter power',
                                         'units': 'dB'})},
-                    coords={'frequency': (['frequency'], beam_dict['frequency']),
+                    coords={'frequency': (['frequency'], beam_dict['frequency'],
+                                                 {'long_name': 'Center frequency of the transducer',
+                                                  'units': 'Hz'}),
+                            'frequency_start': (['frequency'], beam_dict['frequency_start'],
+                                                {'long_name': 'Starting frequency of the transducer',
+                                                 'units': 'Hz'}),
+                            'frequency_end': (['frequency'], beam_dict['frequency_end'],
+                                              {'long_name': 'Ending frequency of the transducer',
+                                               'units': 'Hz'}),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
                             #                'calendar': 'gregorian',
@@ -282,18 +289,21 @@ class SetGroupsEK80(SetGroupsBase):
                                            'standard_name': 'time'}),
                             #                'units': 'seconds since 1900-01-01'}),
                             'quadrant': (['quadrant'], np.arange(4)),
-                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
-
+                ds = xr.merge([ds, bb])
+                nc_encoding['backscatter_i'] = {'zlib': True, 'complevel': 4}
+                zarr_encoding['backscatter_i'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+            # Save continuous wave backscatter
             else:
-                bs = xr.Dataset(
+                cw = xr.Dataset(
                     {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
-                                       {'long_name': 'Real part of backscatter power',
-                                        'units': 'dB'}),
-                     'backscatter_i': (['frequency', 'ping_time', 'range_bin'],
-                                       np.full_like(beam_dict['backscatter_r'], np.nan),
-                                       {'long_name': 'Imaginary part of backscatter power',
-                                        'units': 'dB'})},
+                                       {'long_name': 'Backscattering power',
+                                           'units': 'dB'}),
+                     'angle_athwartship': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'][:, :, :, 0],
+                                           {'long_name': 'electrical athwartship angle'}),
+                     'angle_alongship': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'][:, :, :, 1],
+                                         {'long_name': 'electrical alongship angle'})},
                     coords={'frequency': (['frequency'], beam_dict['frequency']),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
@@ -301,9 +311,9 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time'}),
                             #                'units': 'seconds since 1900-01-01'}),
-                            'range_bin': (['range_bin'], beam_dict['range_bin']),
+                            'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
-            ds = xr.merge([ds, bs])
+                ds = xr.merge([ds, cw])
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
@@ -311,12 +321,46 @@ class SetGroupsEK80(SetGroupsBase):
             if 'sa_correction' in beam_dict:
                 ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
+            nc_encoding['backscatter_r'] = {'zlib': True, 'complevel': 4}
+            zarr_encoding['backscatter_r'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Beam',
-                             encoding={'backscatter_r': {'zlib': True, 'complevel': 4},
-                                       'backscatter_i': {'zlib': True, 'complevel': 4}})
+                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam',
+                             encoding=nc_encoding)
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Beam',
-                           encoding={'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)},
-                                     'backscatter_i': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}})
+                ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam',
+                           encoding=zarr_encoding)
+
+    def set_vendor(self, vendor_dict):
+        """Set the Vendor group in the EK80 nc file.
+
+        Parameters
+        ----------
+        vendor_dict
+            dictionary containing Simrad EK80 specific parameters
+        """
+
+        # Only save beam group if file_path exists
+        if not os.path.exists(self.file_path):
+            print('netCDF file does not exist, exiting without saving Vendor group...')
+        else:
+            if self.format == '.nc':
+                ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
+                vdr = ncfile.createGroup("Vendor")
+                # Create compound datatype. (2 f32 values to make a c64 value)
+                complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
+                complex64_t = vdr.createCompoundType(complex64, "complex64")
+                for k, v in vendor_dict['filter_coefficients'].items():
+                    data = np.empty(len(v), complex64)
+                    data['real'] = v.real
+                    data['imag'] = v.imag
+                    vdr.createDimension(k + '_dim', None)
+                    var = vdr.createVariable(k, complex64_t, k + '_dim')
+                    var[:] = data
+                for k, v in vendor_dict['decimation_factors'].items():
+                    vdr.setncattr(k, v)
+            elif self.format == '.zarr':
+                ds = xr.Dataset(vendor_dict['filter_coefficients'])
+                for k, v in vendor_dict['decimation_factors'].items():
+                    ds.attrs[k] = v
+                ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
