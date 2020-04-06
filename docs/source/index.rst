@@ -33,11 +33,12 @@ scientists to make discovery using these new data.
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) and
-`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are primary developers of this project.
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) leads this project
+and along with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+are primary developers of this package.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-provides consultation and also contributes to development.
+and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
+provide consultation and also contribute to the development.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),

@@ -48,7 +48,7 @@ into netCDF (stable) or zarr (beta) files.
 
 In the `ek80 <https://github.com/OSOceanAcoustics/echopype/tree/ek80>`_ development branch
 we are actively developing file conversion and processing routines
-such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` file.
+such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` files.
 
 We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
@@ -346,12 +346,73 @@ sample, and range. The updated values can be retrieved with:
    ed.sample_thickness     # sample spatial resolution in [m]
    ed.range                # range for each sonar sample in [m]
 
+For EK60 data, echopype updates the sound speed and seawater absorption
+using the formulae from Mackenzie (1981) [2]_ and
+Ainslie and McColm (1981) [3]_, respectively.
+
+For AZFP data, echopype updates the sound speed and seawater absorption
+using the formulae provided by the manufacturer ASL Environmental Sci.
+
+
+
+
+
+Calibration parameters
+~~~~~~~~~~~~~~~~~~~~~~
+
+*Calibration* here refers to the calibration of transducers on an
+echosounder, which finds the mapping between the voltage signal
+recorded by the echosounder and the actual (physical) acoustic pressure
+received at the transducer. This mapping is critical in deriving biological
+quantities from acoustic measurements, such as estimating biomass.
+More detail about the calibration procedure can be found in [4]_.
+
+Echopype by default uses calibration parameters stored in the converted
+files along with the backscatter measurements and other metadata parsed
+from the raw data file.
+However, since careful calibration is often done separately from the
+data collection phase of the field work, accurate calibration parameters
+are often supplied in the post-processing stage.
+Currently echopypy allows users to overwrite calibration parameters for
+EK60 data, including ``sa_correction``, ``equivalent_beam_angle``,
+and ``gain_correction``.
+
+As an example, to reset the equivalent beam angle for 18 kHz only,
+one can do:
+
+.. code-block:: python
+
+   ed.equivalent_beam_angle.loc[dict(frequency=18000)] = -18.02  # set value for 18 kHz only
+
+To set the equivalent beam angle for all channels at once, do:
+
+.. code-block:: python
+
+   ed.equivalent_beam_angle = [-17.47, -20.77, -21.13, -20.4 , -30]  # set all channels at once
+
+Make sure you use ``ed.equivalent_beam_angle.frequency`` to check
+the sequence of the frequency channels first, and always double
+check after setting these parameters!
+
+
+
 
 ---------------
 
-.. [1] De Robertis and Higginbottoms (2007) A post-processing technique to
+.. [1] De Robertis A, Higginbottoms I. (2007) A post-processing technique to
    estimate the signal-to-noise ratio and remove echosounder background noise.
    `ICES J. Mar. Sci. 64(6): 1282–1291. <https://academic.oup.com/icesjms/article/64/6/1282/616894>`_
+
+.. [2] Mackenzie K. (1981) Nine‐term equation for sound speed in the oceans.
+   `J. Acoust. Soc. Am. 70(3): 806-812 <https://asa.scitation.org/doi/10.1121/1.386920>`_
+
+.. [3] Ainslie MA, McColm JG. (1998) A simplified formula for viscous and
+   chemical absorption in sea water.
+   `J. Acoust. Soc. Am. 103(3): 1671-1672 <https://asa.scitation.org/doi/10.1121/1.421258>`_
+
+.. [4] Demer DA, Berger L, Bernasconi M, Bethke E, Boswell K, Chu D, Domokos R,
+   et al. (2015) Calibration of acoustic instruments. `ICES Cooperative Research Report No.
+   326. 133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
 
 .. TODO: Need to specify the changes we made from AZFP Matlab code to here:
    In the Matlab code, users set temperature/salinity parameters in

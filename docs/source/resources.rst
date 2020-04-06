@@ -1,6 +1,9 @@
 Other Resources
 ================
 
+Software
+--------
+
 Below is a list of software resources for processing ocean sonar data.
 When appropriate, we note whether the software is proprietary or open-source,
 as well as the programming language in which it is written.
@@ -30,3 +33,11 @@ as well as the programming language in which it is written.
   an open-source Python package based solely on the NumPy library
 
 - `Sonar4 and Sonar5-Pro <http://folk.uio.no/hbalk/sonar4_5/index.htm>`_
+
+
+Echosounder information
+-----------------------
+
+- `ASL Environemntal Sciences Acoustic Zooplankton Fish Profiler (AZFP) <https://aslenv.com/azfp.html>`_
+- `Kongsberg Simrad EK60 <https://www.simrad.net/ek60_ref_english/default.htm>`_
+- `Kongsberg Simrad EK80 <https://www.kongsberg.com/maritime/products/mapping-systems/fishery-research/scientific-echo-sounders/ek80/>`_
