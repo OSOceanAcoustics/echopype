@@ -48,7 +48,7 @@ into netCDF (stable) or zarr (beta) files.
 
 In the `ek80 <https://github.com/OSOceanAcoustics/echopype/tree/ek80>`_ development branch
 we are actively developing file conversion and processing routines
-such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` file.
+such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` files.
 
 We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
