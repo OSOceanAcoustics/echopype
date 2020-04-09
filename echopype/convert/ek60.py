@@ -291,7 +291,7 @@ class ConvertEK60(ConvertBase):
         compress : bool
             Whether or not to compress backscatter data. Defaults to `True`
         """
-        def export(file_idx=None):
+        def export(file_idx=0):
             # Subfunctions to set various dictionaries
             def _set_toplevel_dict():
                 out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
@@ -310,9 +310,12 @@ class ConvertEK60(ConvertBase):
                             sound_speed=ss_val)
 
             def _set_prov_dict():
-                return dict(conversion_software_name='echopype',
-                            conversion_software_version=ECHOPYPE_VERSION,
-                            conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+                out_dict = dict(conversion_software_name='echopype',
+                                conversion_software_version=ECHOPYPE_VERSION,
+                                conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+                # Send a list of all filenames if combining raw files. Else, send the one file to be converted
+                out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
+                return out_dict
 
             def _set_sonar_dict():
                 return dict(sonar_manufacturer='Simrad',
@@ -448,26 +451,39 @@ class ConvertEK60(ConvertBase):
                             shutil.copyfile(self.save_path, new_path)
                 os.rename(self.save_path, self.all_files[0])
 
-            if file_idx is None:
+            # self._temp_path exists if combining multiple files into 1 .nc file
+            if hasattr(self, '_temp_path'):
+                out_file = self._temp_path[file_idx]
+            # If only converting 1 file into a .nc file, out_file is the same as self.save_path
+            # Also if converting multiple files into a .zarr file
+            elif len(self.filename) == 1 or (len(self.filename) != 1 and combine_opt and file_format == ".zarr"):
                 out_file = self.save_path
-                raw_file = self.filename
+            # Converting multiple raw files into multiple .nc or .zarr files
             else:
                 out_file = self.save_path[file_idx]
-                raw_file = [self.filename[file_idx]]
+            raw_file = self.filename[file_idx]
+
+            # Flag to append .zarr files if combining multiple files into 1 .zarr file
+            self._append_zarr = True if file_idx > 0 and file_format == '.zarr' and combine_opt else False
 
             # filename must have "-" as the field separator for the last 2 fields. Uses first file
-            filename_tup = os.path.splitext(os.path.basename(raw_file[0]))[0].split("-")
+            filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
             filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
             filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
 
-            # Check if nc file already exists and deletes it if overwrite is true
-            if os.path.exists(out_file) and overwrite:
+            # Check if out_file file already exists
+            # Deletes it if overwrite is true ...unless appending to .zarr
+            if os.path.exists(out_file) and overwrite and not self._append_zarr:
                 print("          overwriting: " + out_file)  # TODO: this should be printed after 'converting...'
-                os.remove(out_file)
+                if file_format == '.nc':
+                    os.remove(out_file)
+                else:
+                    shutil.rmtree(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
-            if os.path.exists(out_file):
+            if ((file_format == '.nc' and os.path.exists(out_file)) or
+               (file_format == '.zarr' and os.path.exists(out_file) and file_idx > 0 and not self._append_zarr)):
                 print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
                 # Load data from RAW file
@@ -498,10 +514,10 @@ class ConvertEK60(ConvertBase):
                                       dtype='float32')
 
                 # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress)
+                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress, append_zarr=self._append_zarr)
                 grp.set_toplevel(_set_toplevel_dict())  # top-level group
                 grp.set_env(_set_env_dict())            # environment group
-                grp.set_provenance(raw_file, _set_prov_dict())    # provenance group
+                grp.set_provenance(_set_prov_dict())    # provenance group
                 grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
                 grp.set_sonar(_set_sonar_dict())        # sonar group
                 if len(self.range_lengths) > 1:
@@ -511,12 +527,11 @@ class ConvertEK60(ConvertBase):
                     grp.set_platform(_set_platform_dict(piece_seq=piece))  # platform group
 
         self.validate_path(save_path, file_format, combine_opt)
-        if len(self.filename) == 1 or combine_opt:
-            export()
-        else:
-            for freq_seq, file in enumerate(self.filename):
-                if freq_seq > 0:
-                    self.__init__(self.filename)        # Clear previous parse
-                    self.validate_path(save_path, file_format, combine_opt)
-                self.load_ek60_raw([file])
-                export(freq_seq)
+        for file_idx, file in enumerate(self.filename):
+            if file_idx > 0:
+                self.__init__(self.filename)        # Clear previous parse
+                self.validate_path(save_path, file_format, combine_opt)
+            self.load_ek60_raw([file])
+            export(file_idx)
+        if combine_opt:
+            self.combine_files('ek60')
