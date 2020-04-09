@@ -10,11 +10,12 @@ class SetGroupsBase:
     """Base class for setting groups in netCDF file.
     """
 
-    def __init__(self, file_path='test.nc', compress=True):
+    def __init__(self, file_path='test.nc', compress=True, append_zarr=False):
         self.file_path = file_path
         filename, ext = os.path.splitext(file_path)
         self.format = ext
         self.compress = compress
+        self.append_zarr = append_zarr
 
     def set_toplevel(self, tl_dict):
         """Set attributes in the Top-level group."""
@@ -22,31 +23,32 @@ class SetGroupsBase:
             with netCDF4.Dataset(self.file_path, "w", format="NETCDF4") as ncfile:
                 [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
         elif self.format == '.zarr':
-            zarrfile = zarr.open(self.file_path, mode="w")
-            for k, v in tl_dict.items():
-                zarrfile.attrs[k] = v
+            # Do not save toplevel if appending
+            if not self.append_zarr:
+                zarrfile = zarr.open(self.file_path, mode="w")
+                for k, v in tl_dict.items():
+                    zarrfile.attrs[k] = v
         else:
             raise ValueError("Unsupported file format")
 
-    def set_provenance(self, src_file_names, prov_dict):
+    def set_provenance(self, prov_dict):
         """Set the Provenance group in the nc file.
 
         Parameters
         ----------
-        src_file_names
-            list of source filenames
         prov_dict
             dictionary containing file conversion parameters
                           prov_dict['conversion_software_name']
                           prov_dict['conversion_software_version']
                           prov_dict['conversion_time']
         """
+        src_filenames = prov_dict.pop('src_filenames')
         # Save the source filenames as a data variable
         ds = xr.Dataset(
             {
-                'filenames': ('file_num', src_file_names, {'long_name': 'Source filenames'})
+                'filenames': ('file_num', src_filenames, {'long_name': 'Source filenames'})
             },
-            coords={'file_num': np.arange(len(src_file_names))},
+            coords={'file_num': np.arange(len(src_filenames))},
         )
 
         # Save all attributes
@@ -57,7 +59,9 @@ class SetGroupsBase:
         if self.format == '.nc':
             ds.to_netcdf(path=self.file_path, mode='a', group='Provenance')
         elif self.format == '.zarr':
-            ds.to_zarr(store=self.file_path, mode='a', group='Provenance')
+            # Do not save provenance group if appending
+            if not self.append_zarr:
+                ds.to_zarr(store=self.file_path, mode='a', group='Provenance')
 
     def set_sonar(self, sonar_dict):
         """Set the Sonar group in the nc file.
@@ -79,11 +83,13 @@ class SetGroupsBase:
             # close nc file
             ncfile.close()
         elif self.format == '.zarr':
-            zarrfile = zarr.open(self.file_path, mode='a')
-            snr = zarrfile.create_group('Sonar')
+            # Do not save sonar group if appending
+            if not self.append_zarr:
+                zarrfile = zarr.open(self.file_path, mode='a')
+                snr = zarrfile.create_group('Sonar')
 
-            for k, v in sonar_dict.items():
-                snr.attrs[k] = v
+                for k, v in sonar_dict.items():
+                    snr.attrs[k] = v
 
     def set_nmea(self, nmea_dict):
         """Set the Platform/NMEA group in the nc file.
@@ -116,4 +122,7 @@ class SetGroupsBase:
             if self.format == '.nc':
                 ds.to_netcdf(path=self.file_path, mode='a', group='Platform/NMEA')
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Platform/NMEA')
+                if not self.append_zarr:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Platform/NMEA')
+                else:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Platform/NMEA', append_dim='time')
