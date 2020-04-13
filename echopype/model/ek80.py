@@ -131,7 +131,6 @@ class ModelEK80(ModelBase):
             f0 = ds_beam.frequency_start.data
             f1 = ds_beam.frequency_end.data
             slope = ds_beam.slope[:, 0].data  # Use slope of first ping
-            num_ch = ds_beam.frequency.size
             amp = np.sqrt((txpower / 4) * (2 * Ztrd))
 
             # Create transmit signal
@@ -165,6 +164,8 @@ class ModelEK80(ModelBase):
                 ytx.append(ytx_tmp)
                 del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
 
+            # TODO: rename ytx into something like 'transmit_signal' and
+            #  also package the sampling interval together with the signal
             self.ytx = ytx
 
     def pulse_compression(self):
@@ -175,7 +176,6 @@ class ModelEK80(ModelBase):
             backscatter = ds_beam.backscatter_r + ds_beam.backscatter_i * 1j  # Construct complex backscatter
 
             backscatter_compressed = []
-            self._tau_effective = []
             # Loop over channels
             for ch in range(ds_beam.frequency.size):
                 # tmp_x = np.fft.fft(backscatter[i].dropna('range_bin'))
@@ -199,6 +199,8 @@ class ModelEK80(ModelBase):
                                         np.linalg.norm(self.ytx[ch]) ** 2))
                 self._tau_effective.append(np.sum(ptxa) / (np.max(ptxa) / sample_interval.values[ch]))
 
+            # TODO: package backscatter_compressed into a nice DataArray
+            #  with dimensions so that can be used directly for analysis
             self.backscatter_compressed = backscatter_compressed
 
     def calibrate(self, mode='Sv', save=False, save_path=None, save_postfix=None):
@@ -245,6 +247,10 @@ class ModelEK80(ModelBase):
             Sv = []
             TS = []
             ranges = []
+
+            # TODO: below can be done without a loop directly using xarray’s dimension
+            #  matching capability if we package self.backscatter_compressed as a DataArray
+            #  with proper dimensions attached
             for ch in range(ds_beam.frequency.size):
                 # Average accross quadrants and take the absolute value of complex backscatter
                 prx = np.abs(np.mean(self.backscatter_compressed[ch], axis=0))
