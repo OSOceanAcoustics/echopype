@@ -8,7 +8,7 @@ from .set_groups_ek80 import SetGroupsEK80
 from .set_groups_azfp import SetGroupsAZFP
 
 
-def SetGroups(file_path, echo_type, compress=True):
+def SetGroups(file_path, echo_type, compress=True, append_zarr=False):
     """Wrapper function to set groups in converted files.
 
     Parameters
@@ -28,10 +28,10 @@ def SetGroups(file_path, echo_type, compress=True):
 
     # Returns specific EchoData object
     if echo_type == "EK60":
-        return SetGroupsEK60(file_path, compress)
+        return SetGroupsEK60(file_path, compress, append_zarr)
     elif echo_type == "EK80":
-        return SetGroupsEK80(file_path)
+        return SetGroupsEK80(file_path, compress, append_zarr)
     elif echo_type == "AZFP":
-        return SetGroupsAZFP(file_path, compress)
+        return SetGroupsAZFP(file_path, compress, append_zarr)
     else:
         raise ValueError("Unsupported file type")
