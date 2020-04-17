@@ -163,7 +163,7 @@ class ConvertBase:
 
     def combine_files(self, echo_type):
         # Do nothing if combine_opt is true even if there was nothing to combine
-        if not hasattr(self, '_temp_path'):
+        if not self._temp_path:
             return
         save_path = self.save_path
         split = os.path.splitext(self.save_path)

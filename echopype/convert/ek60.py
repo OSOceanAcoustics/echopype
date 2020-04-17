@@ -271,6 +271,258 @@ class ConvertEK60(ConvertBase):
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
+    # Functions to set various dictionaries
+    def _set_toplevel_dict(self, raw_file):
+        # filename must have "-" as the field separator for the last 2 fields. Uses first file
+        filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
+        filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
+        filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
+        out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
+                        keywords='EK60',
+                        sonar_convention_authority='ICES',
+                        sonar_convention_name='SONAR-netCDF4',
+                        sonar_convention_version='1.7',
+                        summary='',
+                        title='')
+        out_dict['date_created'] = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
+        return out_dict
+
+    def _set_env_dict(self):
+        freq = np.array([self.config_datagram['transceivers'][x]['frequency']
+                            for x in self.config_datagram['transceivers'].keys()], dtype='float32')
+        # Extract absorption and sound speed depending on if the values are identical for all pings
+        abs_tmp = np.unique(self.ping_data_dict[1]['absorption_coefficient']).size
+        ss_tmp = np.unique(self.ping_data_dict[1]['sound_velocity']).size
+        # --- if identical for all pings, save only values from the first ping
+        if np.all(np.array([abs_tmp, ss_tmp]) == 1):
+            abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient'][0]
+                                for x in self.config_datagram['transceivers'].keys()], dtype='float32')
+            ss_val = np.array([self.ping_data_dict[x]['sound_velocity'][0]
+                                for x in self.config_datagram['transceivers'].keys()], dtype='float32')
+        # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
+        else:  # TODO: right now set_groups_ek60/set_env doens't deal with this case, need to add
+            abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient']
+                                for x in self.config_datagram['transceivers'].keys()],
+                                dtype='float32')
+            ss_val = np.array([self.ping_data_dict[x]['sound_velocity']
+                                for x in self.config_datagram['transceivers'].keys()],
+                                dtype='float32')
+
+        return dict(frequency=freq,
+                    absorption_coeff=abs_val,
+                    sound_speed=ss_val)
+
+    def _set_prov_dict(self, raw_file, combine_opt):
+        out_dict = dict(conversion_software_name='echopype',
+                        conversion_software_version=ECHOPYPE_VERSION,
+                        conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+        # Send a list of all filenames if combining raw files. Else, send the one file to be converted
+        out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
+        return out_dict
+
+    def _set_sonar_dict(self):
+        return dict(sonar_manufacturer='Simrad',
+                    sonar_model=self.config_datagram['sounder_name'],
+                    sonar_serial_number='',
+                    sonar_software_name='',
+                    sonar_software_version=self.config_datagram['version'],
+                    sonar_type='echosounder')
+
+    def _set_platform_dict(self, out_file=None, piece_seq=0):
+        out_dict = dict()
+        # TODO: Need to reconcile the logic between using the unpacked "survey_name"
+        #  and the user-supplied platform_name
+        # self.platform_name = self.config_datagram['survey_name']
+        out_dict['platform_name'] = self.platform_name
+        out_dict['platform_type'] = self.platform_type
+        out_dict['platform_code_ICES'] = self.platform_code_ICES
+
+        # Read pitch/roll/heave from ping data
+        # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        out_dict['ping_time'] = self.ping_time
+        out_dict['pitch'] = np.array(self.ping_data_dict[1]['pitch'], dtype='float32')
+        out_dict['roll'] = np.array(self.ping_data_dict[1]['roll'], dtype='float32')
+        out_dict['heave'] = np.array(self.ping_data_dict[1]['heave'], dtype='float32')
+        # water_level is set to 0 for EK60 since this is not separately recorded
+        # and is part of transducer_depth
+        out_dict['water_level'] = np.int32(0)
+
+        # Read lat/long from NMEA datagram
+        idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+        # TODO: use NaN when nmea_msg is empty
+        nmea_msg = []
+        [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
+        out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
+        out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
+        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
+
+        if len(self.range_lengths) > 1:
+            out_dict['path'] = self.all_files[piece_seq]
+            out_dict['ping_slice'] = self.ping_time_split[piece_seq]
+        else:
+            out_dict['path'] = out_file
+        return out_dict
+
+    def _set_nmea_dict(self):
+        # Assemble dict for saving to groups
+        out_dict = dict()
+        out_dict['nmea_time'] = self.nmea_data.nmea_times
+        out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
+        return out_dict
+
+    def _set_beam_dict(self, out_file=None, piece_seq=0):
+        beam_dict = dict()
+        beam_dict['beam_mode'] = 'vertical'
+        beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
+        beam_dict['ping_time'] = self.ping_time_split[piece_seq]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        beam_dict['backscatter_r'] = self.power_dict_split[piece_seq]  # dimension [freq x ping_time x range_bin]
+        beam_dict['angle_dict'] = self.angle_dict_split[piece_seq]
+
+        # Additional coordinate variables added by echopype for storing data as a cube with
+        # dimensions [frequency x ping_time x range_bin]
+        freq = np.array([self.config_datagram['transceivers'][x]['frequency']
+                            for x in self.config_datagram['transceivers'].keys()], dtype='float32')
+        beam_dict['frequency'] = freq
+        beam_dict['range_bin'] = np.arange(self.power_dict_split[piece_seq].shape[2])
+
+        # Loop through each transducer for channel-specific variables
+        param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
+                        "beamwidth_receive_minor": "beamwidth_athwartship",
+                        "beamwidth_transmit_major": "beamwidth_alongship",
+                        "beamwidth_transmit_minor": "beamwidth_athwartship",
+                        "beam_direction_x": "dir_x",
+                        "beam_direction_y": "dir_y",
+                        "beam_direction_z": "dir_z",
+                        "angle_offset_alongship": "angle_offset_alongship",
+                        "angle_offset_athwartship": "angle_offset_athwartship",
+                        "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+                        "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
+                        "transducer_offset_x": "pos_x",
+                        "transducer_offset_y": "pos_y",
+                        "transducer_offset_z": "pos_z",
+                        "equivalent_beam_angle": "equivalent_beam_angle",
+                        "gain_correction": "gain"}
+        param_str = {"gpt_software_version": "gpt_software_version",
+                    "channel_id": "channel_id",
+                    "beam_type": "beam_type"}
+
+        for encode_name, origin_name in param_numerical.items():
+            beam_dict[encode_name] = np.array(
+                [val[origin_name] for key, val in self.config_datagram['transceivers'].items()]).astype('float32')
+        beam_dict['transducer_offset_z'] += [self.ping_data_dict[x]['transducer_depth'][0]
+                                            for x in self.config_datagram['transceivers'].keys()]
+
+        for encode_name, origin_name in param_str.items():
+            beam_dict[encode_name] = [val[origin_name]
+                                    for key, val in self.config_datagram['transceivers'].items()]
+
+        beam_dict['transmit_signal'] = self.tx_sig[piece_seq]  # only this range_bin group
+
+        # Build other parameters
+        beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
+        # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
+        beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
+
+        if len(self.config_datagram['transceivers']) == 1:   # only 1 channel
+            idx = np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'],
+                                        self.config_datagram['transceivers'][1]['pulse_length_table'])).squeeze()
+            idx = np.expand_dims(np.array(idx), axis=0)
+        else:
+            idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][key - 1],
+                                        val['pulse_length_table'])).squeeze()
+                for key, val in self.config_datagram['transceivers'].items()]
+        beam_dict['sa_correction'] = \
+            np.array([x['sa_correction_table'][y]
+                    for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
+
+        # New path created if the power data is broken up due to varying range bins
+        if len(self.range_lengths) > 1:
+            beam_dict['path'] = self.all_files[piece_seq]
+        else:
+            beam_dict['path'] = out_file
+
+        return beam_dict
+
+    def copyfiles(self, out_file):
+        """
+        Creates a duplicate file so that parsed data can be split into multiple files
+        Used for when the length of range changes over time
+        """
+        split = os.path.splitext(out_file)
+        print("          splitting into: ")
+        for n in range(len(self.range_lengths)):
+            new_path = split[0] + '_part%02d' % (n + 1) + split[1]
+            self.all_files.append(new_path)
+            if n > 0:
+                if split[1] == '.zarr':
+                    shutil.copytree(out_file, new_path)
+                elif split[1] == '.nc':
+                    shutil.copyfile(out_file, new_path)
+            print("                " + new_path)
+        os.rename(out_file, self.all_files[0])
+
+    def _set_groups(self, raw_file, out_file, save_settings, append_zarr=False):
+        # Create SetGroups object
+        grp = SetGroups(file_path=out_file, echo_type='EK60',
+                        compress=save_settings['compress'], append_zarr=append_zarr)
+        grp.set_toplevel(self._set_toplevel_dict(raw_file))  # top-level group
+        grp.set_env(self._set_env_dict())            # environment group
+        grp.set_provenance(self._set_prov_dict(raw_file, save_settings['combine_opt']))    # provenance group
+        grp.set_nmea(self._set_nmea_dict())          # platform/NMEA group
+        grp.set_sonar(self._set_sonar_dict())        # sonar group
+        if len(self.range_lengths) > 1:
+            self.copyfiles(out_file)
+        for piece in range(len(self.range_lengths)):
+            grp.set_beam(self._set_beam_dict(out_file, piece_seq=piece))          # beam group
+            grp.set_platform(self._set_platform_dict(out_file, piece_seq=piece))  # platform group
+
+    def _export_nc(self, save_settings, file_idx=0):
+        """
+        Saves parsed raw files to a NetCDF file.
+        NetCDF files created by combining multiple raw files are saved to a temporary folder and
+        merged after all raw file conversion has been completed due to limitations to appending
+        to a NetCDF file with xarray.
+        """
+        # self._temp_path exists if combining multiple files into 1 .nc file
+        if self._temp_path:
+            out_file = self._temp_path[file_idx]
+        else:
+            # If there are multiple files, self.save_path is a list otherwise it is a string
+            out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
+        raw_file = self.filename[file_idx]
+
+        # Check if out_file file already exists
+        # Deletes it if overwrite is true
+        if os.path.exists(out_file) and save_settings['overwrite']:
+            print("          overwriting: " + out_file)
+            os.remove(out_file)
+        # Check if nc file already exists
+        # ... if yes, abort conversion and issue warning
+        # ... if not, continue with conversion
+        if os.path.exists(out_file):
+            print(f'          ... this file has already been converted to .nc, conversion not executed.')
+        else:
+            self._set_groups(raw_file, out_file, save_settings=save_settings)
+
+    def _export_zarr(self, save_settings, file_idx=0):
+        """
+        Save parsed raw files to Zarr.
+        Zarr files can be appened to so combining multiple raw files into 1 Zarr file can be done
+        without creating temporary files
+        """
+        out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
+        raw_file = self.filename[file_idx]
+        if os.path.exists(out_file) and save_settings['overwrite'] and not self._append_zarr:
+            print("          overwriting: " + out_file)
+            shutil.rmtree(out_file)
+        # Check if zarr file already exists
+        # ... if yes, abort conversion and issue warning
+        # ... if not, continue with conversion
+        if os.path.exists(out_file) and not self._append_zarr:
+            print(f'          ... this file has already been converted to .zarr, conversion not executed.')
+        else:
+            self._set_groups(raw_file, out_file, save_settings=save_settings)
+
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from .raw format to a netCDF4 or Zarr file
 
@@ -289,259 +541,8 @@ class ConvertEK60(ConvertBase):
             Whether or not to overwrite the file if the output path already exists.
         compress : bool
             Whether or not to compress backscatter data. Defaults to `True`
-        """
-        
-        # Subfunctions to set various dictionaries
-        def _set_toplevel_dict(raw_file):
-            # filename must have "-" as the field separator for the last 2 fields. Uses first file
-            filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
-            filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
-            filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
-            out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
-                            keywords='EK60',
-                            sonar_convention_authority='ICES',
-                            sonar_convention_name='SONAR-netCDF4',
-                            sonar_convention_version='1.7',
-                            summary='',
-                            title='')
-            out_dict['date_created'] = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
-            return out_dict
-
-        def _set_env_dict():
-            freq = np.array([self.config_datagram['transceivers'][x]['frequency']
-                             for x in self.config_datagram['transceivers'].keys()], dtype='float32')
-            # Extract absorption and sound speed depending on if the values are identical for all pings
-            abs_tmp = np.unique(self.ping_data_dict[1]['absorption_coefficient']).size
-            ss_tmp = np.unique(self.ping_data_dict[1]['sound_velocity']).size
-            # --- if identical for all pings, save only values from the first ping
-            if np.all(np.array([abs_tmp, ss_tmp]) == 1):
-                abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient'][0]
-                                    for x in self.config_datagram['transceivers'].keys()], dtype='float32')
-                ss_val = np.array([self.ping_data_dict[x]['sound_velocity'][0]
-                                    for x in self.config_datagram['transceivers'].keys()], dtype='float32')
-            # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
-            else:  # TODO: right now set_groups_ek60/set_env doens't deal with this case, need to add
-                abs_val = np.array([self.ping_data_dict[x]['absorption_coefficient']
-                                    for x in self.config_datagram['transceivers'].keys()],
-                                    dtype='float32')
-                ss_val = np.array([self.ping_data_dict[x]['sound_velocity']
-                                    for x in self.config_datagram['transceivers'].keys()],
-                                    dtype='float32')
-
-            return dict(frequency=freq,
-                        absorption_coeff=abs_val,
-                        sound_speed=ss_val)
-
-        def _set_prov_dict(raw_file):
-            out_dict = dict(conversion_software_name='echopype',
-                            conversion_software_version=ECHOPYPE_VERSION,
-                            conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
-            # Send a list of all filenames if combining raw files. Else, send the one file to be converted
-            out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
-            return out_dict
-
-        def _set_sonar_dict():
-            return dict(sonar_manufacturer='Simrad',
-                        sonar_model=self.config_datagram['sounder_name'],
-                        sonar_serial_number='',
-                        sonar_software_name='',
-                        sonar_software_version=self.config_datagram['version'],
-                        sonar_type='echosounder')
-
-        def _set_platform_dict(out_file=None, piece_seq=0):
-            out_dict = dict()
-            # TODO: Need to reconcile the logic between using the unpacked "survey_name"
-            #  and the user-supplied platform_name
-            # self.platform_name = self.config_datagram['survey_name']
-            out_dict['platform_name'] = self.platform_name
-            out_dict['platform_type'] = self.platform_type
-            out_dict['platform_code_ICES'] = self.platform_code_ICES
-
-            # Read pitch/roll/heave from ping data
-            # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            out_dict['ping_time'] = self.ping_time
-            out_dict['pitch'] = np.array(self.ping_data_dict[1]['pitch'], dtype='float32')
-            out_dict['roll'] = np.array(self.ping_data_dict[1]['roll'], dtype='float32')
-            out_dict['heave'] = np.array(self.ping_data_dict[1]['heave'], dtype='float32')
-            # water_level is set to 0 for EK60 since this is not separately recorded
-            # and is part of transducer_depth
-            out_dict['water_level'] = np.int32(0)
-
-            # Read lat/long from NMEA datagram
-            idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
-            # TODO: use NaN when nmea_msg is empty
-            nmea_msg = []
-            [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
-            out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
-            out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
-            out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
-
-            if len(self.range_lengths) > 1:
-                out_dict['path'] = self.all_files[piece_seq]
-                out_dict['ping_slice'] = self.ping_time_split[piece_seq]
-            else:
-                out_dict['path'] = out_file
-            return out_dict
-
-        def _set_nmea_dict():
-            # Assemble dict for saving to groups
-            out_dict = dict()
-            out_dict['nmea_time'] = self.nmea_data.nmea_times
-            out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
-            return out_dict
-
-        def _set_beam_dict(out_file=None, piece_seq=0):
-            beam_dict = dict()
-            beam_dict['beam_mode'] = 'vertical'
-            beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
-            beam_dict['ping_time'] = self.ping_time_split[piece_seq]   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-            beam_dict['backscatter_r'] = self.power_dict_split[piece_seq]  # dimension [freq x ping_time x range_bin]
-            beam_dict['angle_dict'] = self.angle_dict_split[piece_seq]
-
-            # Additional coordinate variables added by echopype for storing data as a cube with
-            # dimensions [frequency x ping_time x range_bin]
-            freq = np.array([self.config_datagram['transceivers'][x]['frequency']
-                             for x in self.config_datagram['transceivers'].keys()], dtype='float32')
-            beam_dict['frequency'] = freq
-            beam_dict['range_bin'] = np.arange(self.power_dict_split[piece_seq].shape[2])
-
-            # Loop through each transducer for channel-specific variables
-            param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
-                            "beamwidth_receive_minor": "beamwidth_athwartship",
-                            "beamwidth_transmit_major": "beamwidth_alongship",
-                            "beamwidth_transmit_minor": "beamwidth_athwartship",
-                            "beam_direction_x": "dir_x",
-                            "beam_direction_y": "dir_y",
-                            "beam_direction_z": "dir_z",
-                            "angle_offset_alongship": "angle_offset_alongship",
-                            "angle_offset_athwartship": "angle_offset_athwartship",
-                            "angle_sensitivity_alongship": "angle_sensitivity_alongship",
-                            "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
-                            "transducer_offset_x": "pos_x",
-                            "transducer_offset_y": "pos_y",
-                            "transducer_offset_z": "pos_z",
-                            "equivalent_beam_angle": "equivalent_beam_angle",
-                            "gain_correction": "gain"}
-            param_str = {"gpt_software_version": "gpt_software_version",
-                        "channel_id": "channel_id",
-                        "beam_type": "beam_type"}
-
-            for encode_name, origin_name in param_numerical.items():
-                beam_dict[encode_name] = np.array(
-                    [val[origin_name] for key, val in self.config_datagram['transceivers'].items()]).astype('float32')
-            beam_dict['transducer_offset_z'] += [self.ping_data_dict[x]['transducer_depth'][0]
-                                                for x in self.config_datagram['transceivers'].keys()]
-
-            for encode_name, origin_name in param_str.items():
-                beam_dict[encode_name] = [val[origin_name]
-                                        for key, val in self.config_datagram['transceivers'].items()]
-
-            beam_dict['transmit_signal'] = self.tx_sig[piece_seq]  # only this range_bin group
-
-            # Build other parameters
-            beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
-            # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
-            beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
-
-            if len(self.config_datagram['transceivers']) == 1:   # only 1 channel
-                idx = np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'],
-                                            self.config_datagram['transceivers'][1]['pulse_length_table'])).squeeze()
-                idx = np.expand_dims(np.array(idx), axis=0)
-            else:
-                idx = [np.argwhere(np.isclose(self.tx_sig[piece_seq]['transmit_duration_nominal'][key - 1],
-                                            val['pulse_length_table'])).squeeze()
-                    for key, val in self.config_datagram['transceivers'].items()]
-            beam_dict['sa_correction'] = \
-                np.array([x['sa_correction_table'][y]
-                        for x, y in zip(self.config_datagram['transceivers'].values(), np.array(idx))])
-
-            # New path created if the power data is broken up due to varying range bins
-            if len(self.range_lengths) > 1:
-                beam_dict['path'] = self.all_files[piece_seq]
-            else:
-                beam_dict['path'] = out_file
-
-            return beam_dict
-
-        def copyfiles(out_file):
-                split = os.path.splitext(out_file)
-                print("          splitting into: ")
-                for n in range(len(self.range_lengths)):
-                    new_path = split[0] + '_part%02d' % (n + 1) + split[1]
-                    self.all_files.append(new_path)
-                    if n > 0:
-                        if split[1] == '.zarr':
-                            shutil.copytree(out_file, new_path)
-                        elif split[1] == '.nc':
-                            shutil.copyfile(out_file, new_path)
-                    print("                " + new_path)
-                os.rename(out_file, self.all_files[0])
-        """
-        Saves parsed raw files to a NetCDF file.
-        NetCDF files created by combining multiple raw files are saved to a temporary folder and
-        merged after all raw file conversion has been completed due to limitations to appending
-        to a NetCDF file with xarray.
-        """
-        def export_nc(file_idx=0):
-            # self._temp_path exists if combining multiple files into 1 .nc file
-            if self._temp_path:
-                out_file = self._temp_path[file_idx]
-            else:
-                # If there are multiple files, self.save_path is a list otherwise it is a string
-                out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
-            raw_file = self.filename[file_idx]
-
-            # Check if out_file file already exists
-            # Deletes it if overwrite is true
-            if os.path.exists(out_file) and overwrite:
-                print("          overwriting: " + out_file)
-                os.remove(out_file)
-            # Check if nc file already exists
-            # ... if yes, abort conversion and issue warning
-            # ... if not, continue with conversion
-            if file_format == '.nc' and os.path.exists(out_file):
-                print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
-            else:
-                # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress)
-                grp.set_toplevel(_set_toplevel_dict(raw_file))  # top-level group
-                grp.set_env(_set_env_dict())            # environment group
-                grp.set_provenance(_set_prov_dict(raw_file))    # provenance group
-                grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
-                grp.set_sonar(_set_sonar_dict())        # sonar group
-                if len(self.range_lengths) > 1:
-                    copyfiles(out_file)
-                for piece in range(len(self.range_lengths)):
-                    grp.set_beam(_set_beam_dict(out_file, piece_seq=piece))          # beam group
-                    grp.set_platform(_set_platform_dict(out_file, piece_seq=piece))  # platform group
-
-        """
-        Save parsed raw files to Zarr.
-        Zarr files can be appened to so combining multiple raw files into 1 Zarr file can be done
-        without creating temporary files
-        """
-        def export_zarr():
-            out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
-            raw_file = self.filename[file_idx]
-            if os.path.exists(out_file) and overwrite and not self._append_zarr:
-                print("          overwriting: " + out_file)
-                shutil.rmtree(out_file)
-            if os.path.exists(out_file):
-                print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
-            else:
-                # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='EK60', compress=compress, append_zarr=self._append_zarr)
-                grp.set_toplevel(_set_toplevel_dict(raw_file))  # top-level group
-                grp.set_env(_set_env_dict())            # environment group
-                grp.set_provenance(_set_prov_dict(raw_file))    # provenance group
-                grp.set_nmea(_set_nmea_dict())          # platform/NMEA group
-                grp.set_sonar(_set_sonar_dict())        # sonar group
-                if len(self.range_lengths) > 1:
-                    copyfiles()
-                for piece in range(len(self.range_lengths)):
-                    grp.set_beam(_set_beam_dict(out_file, piece_seq=piece))          # beam group
-                    grp.set_platform(_set_platform_dict(out_file, piece_seq=piece))  # platform group
-
+            """
+        save_settings = dict(combine_opt=combine_opt, overwrite=overwrite, compress=compress)
         self.validate_path(save_path, file_format, combine_opt)
         # Loop over all files being parsed
         for file_idx, file in enumerate(self.filename):
@@ -553,10 +554,10 @@ class ConvertEK60(ConvertBase):
                 self.load_ek60_raw(file)
             # multiple raw files are saved differently between the .nc and .zarr formats
             if file_format == '.nc':
-                export_nc(file_idx)
+                self._export_nc(save_settings, file_idx)
             elif file_format == '.zarr':
                 # Sets flag for combining raw files into 1 zarr file
                 self._append_zarr = True if file_idx and combine_opt else False
-                export_zarr(file_idx)
+                self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
             self.combine_files('EK60')
