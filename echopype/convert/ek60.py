@@ -359,8 +359,10 @@ class ConvertEK60(ConvertBase):
         if len(self.range_lengths) > 1:
             out_dict['path'] = self.all_files[piece_seq]
             out_dict['ping_slice'] = self.ping_time_split[piece_seq]
+            out_dict['overwrite_plat'] = True if piece_seq == 1 else False
         else:
             out_dict['path'] = out_file
+            out_dict['overwrite_plat'] = False
         return out_dict
 
     def _set_nmea_dict(self):
@@ -438,8 +440,10 @@ class ConvertEK60(ConvertBase):
         # New path created if the power data is broken up due to varying range bins
         if len(self.range_lengths) > 1:
             beam_dict['path'] = self.all_files[piece_seq]
+            beam_dict['overwrite_beam'] = True if piece_seq == 1 else False
         else:
             beam_dict['path'] = out_file
+            beam_dict['overwrite_beam'] = False
 
         return beam_dict
 
@@ -448,23 +452,37 @@ class ConvertEK60(ConvertBase):
         Creates a duplicate file so that parsed data can be split into multiple files
         Used for when the length of range changes over time
         """
+        # Avoid output filenames with _part02_part01 by using original filename
+        out_file = self.save_path if self._use_original else out_file
         split = os.path.splitext(out_file)
         print("          splitting into: ")
+        # Offsets the _part## depending on the number of parts already created
+        n_offset = len(self._zarr_split) if self._zarr_split and self._use_original else 0
         for n in range(len(self.range_lengths)):
+            n += n_offset
             new_path = split[0] + '_part%02d' % (n + 1) + split[1]
-            self.all_files.append(new_path)
+            self.all_files.append(new_path)     # Resets for every file
+            self._zarr_split.append(new_path)   # Persists across files
             if n > 0:
                 if split[1] == '.zarr':
-                    shutil.copytree(out_file, new_path)
+                    # Handle splitting combined zarr files into more than 2 parts
+                    if len(self._zarr_split) > 2 and self._use_original:
+                        # Add previous file path to self.all_files in order to complete saving the beam and platform
+                        self.all_files.insert(0, self._zarr_split[-2])
+                        shutil.copytree(self._zarr_split[-2], new_path)
+                        print("                " + new_path)
+                        return
+                    else:
+                        shutil.copytree(out_file, new_path)
                 elif split[1] == '.nc':
                     shutil.copyfile(out_file, new_path)
             print("                " + new_path)
         os.rename(out_file, self.all_files[0])
 
-    def _set_groups(self, raw_file, out_file, save_settings, append_zarr=False):
+    def _set_groups(self, raw_file, out_file, save_settings):
         # Create SetGroups object
         grp = SetGroups(file_path=out_file, echo_type='EK60',
-                        compress=save_settings['compress'], append_zarr=append_zarr)
+                        compress=save_settings['compress'], append_zarr=self._append_zarr)
         grp.set_toplevel(self._set_toplevel_dict(raw_file))  # top-level group
         grp.set_env(self._set_env_dict())            # environment group
         grp.set_provenance(self._set_prov_dict(raw_file, save_settings['combine_opt']))    # provenance group
@@ -510,7 +528,14 @@ class ConvertEK60(ConvertBase):
         Zarr files can be appened to so combining multiple raw files into 1 Zarr file can be done
         without creating temporary files
         """
-        out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
+        self._use_original = False
+        if save_settings['combine_opt'] and self._zarr_split:
+            out_file = self._zarr_split[-1]
+            self._use_original = True
+        elif type(self.save_path) == list:
+            out_file = self.save_path[file_idx]
+        else:
+            out_file = self.save_path
         raw_file = self.filename[file_idx]
         if os.path.exists(out_file) and save_settings['overwrite'] and not self._append_zarr:
             print("          overwriting: " + out_file)

@@ -17,7 +17,11 @@ class ConvertBase:
         self.zarr_path = None          # path to .zarr file for reference
         self.save_path = None          # path to the file saved
         self.all_files = []            # Used for splitting up a file with multiple range bins
+        # Variables used for storing zarr files
+        self._zarr_split = []          # Used for when zarr files need to be split due to different range lengths
         self._append_zarr = False      # flag to determine if combining raw files into 1 zarr file
+        self._use_original = False
+        # Variables used for storing nc files
         self._temp_dir = None          # path of temporary folder for storing .nc files before combination
         self._temp_path = []           # paths of temporary files for storing .nc files before combination
 

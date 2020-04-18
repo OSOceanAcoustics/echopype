@@ -134,8 +134,8 @@ class SetGroupsEK60(SetGroupsBase):
             if self.format == '.nc':
                 ds.to_netcdf(path=platform_dict['path'], mode='a', group='Platform')
             elif self.format == '.zarr':
-                if not self.append_zarr:
-                    ds.to_zarr(store=platform_dict['path'], mode='a', group='Platform')
+                if not self.append_zarr or platform_dict['overwrite_plat']:
+                    ds.to_zarr(store=platform_dict['path'], mode='w', group='Platform')
                 else:
                     ds.to_zarr(store=platform_dict['path'], mode='a', group='Platform', append_dim='ping_time')
 
@@ -285,7 +285,7 @@ class SetGroupsEK60(SetGroupsBase):
             if self.format == '.nc':
                 ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam', encoding=n_settings)
             elif self.format == '.zarr':
-                if not self.append_zarr:
-                    ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam', encoding=z_settings)
+                if not self.append_zarr or beam_dict['overwrite_beam']:
+                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=z_settings)
                 else:
                     ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam', append_dim='ping_time')
