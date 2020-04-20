@@ -130,12 +130,21 @@ class SetGroupsEK60(SetGroupsBase):
                             / np.timedelta64(1, 's')
                 ds = ds.sel(ping_time=slice(lower, upper)).sel(location_time=slice(lower, upper))
 
+            # Configure compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
+            if self.compress:
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars}
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=platform_dict['path'], mode='a', group='Platform')
+                ds.to_netcdf(path=platform_dict['path'], mode='a', group='Platform', encoding=nc_encoding)
             elif self.format == '.zarr':
                 if not self.append_zarr or platform_dict['overwrite_plat']:
-                    ds.to_zarr(store=platform_dict['path'], mode='w', group='Platform')
+                    ds.to_zarr(store=platform_dict['path'], mode='w', group='Platform', encoding=zarr_encoding)
                 else:
                     ds.to_zarr(store=platform_dict['path'], mode='a', group='Platform', append_dim='ping_time')
 
@@ -275,17 +284,20 @@ class SetGroupsEK60(SetGroupsBase):
             ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
             ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
-            n_settings = {}
-            z_settings = {}
+            # Configure compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
             if self.compress:
-                n_settings = {'backscatter_r': {'zlib': True, 'complevel': 4}}
-                z_settings = {'backscatter_r': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}}
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars}
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
 
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam', encoding=n_settings)
+                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam', encoding=nc_encoding)
             elif self.format == '.zarr':
                 if not self.append_zarr or beam_dict['overwrite_beam']:
-                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=z_settings)
+                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=zarr_encoding)
                 else:
                     ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam', append_dim='ping_time')
