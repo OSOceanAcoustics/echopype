@@ -15,3 +15,4 @@ The current version supports:
 from .echodata import EchoData
 from .ek60 import ModelEK60
 from .azfp import ModelAZFP
+from .ek80 import ModelEK80
