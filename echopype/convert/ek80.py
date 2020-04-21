@@ -239,7 +239,10 @@ class ConvertEK80(ConvertBase):
 
     def _set_sonar_dict(self):
         channels = defaultdict(dict)
+        # channels['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
+        #                                   for x in self.ch_ids], dtype='float32')
         for ch_id in self.ch_ids:
+            channels[ch_id]['frequency'] = self.config_datagram['configuration'][ch_id]['transducer_frequency']
             channels[ch_id]['sonar_manufacturer'] = 'Simrad'
             channels[ch_id]['sonar_model'] = self.config_datagram['configuration'][ch_id]['transducer_name']
             channels[ch_id]['sonar_serial_number'] = self.config_datagram['configuration'][ch_id]['serial_number']

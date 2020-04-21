@@ -134,25 +134,37 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_dict
             dictionary containing sonar parameters for each sonar
         """
-        # TODO: This probably doesn't work for multiple channels
-        # create group
-        if self.format == '.nc':
-            ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
-            snr = ncfile.createGroup("Sonar")
-            for ch_id, data in sonar_dict.items():
-                # set group attributes
-                for k, v in data.items():
-                    snr.setncattr(ch_id + "_" + k, v)
-            ncfile.close()
+        # The following variables should be non-unique
+        sonar = list(sonar_dict)[0]
+        sonar_manufacturer = sonar_dict[sonar]['sonar_manufacturer']
+        sonar_software_name = sonar_dict[sonar]['sonar_software_name']
+        sonar_software_version = sonar_dict[sonar]['sonar_software_version']
+        sonar_type = sonar_dict[sonar]['sonar_type']
+        # Collect unique variables
+        frequency = []
+        serial_number = []
+        model = []
+        for ch_id, data in sonar_dict.items():
+            frequency.append(data['frequency'])
+            serial_number.append(data['sonar_serial_number'])
+            model.append(data['sonar_model'])
+        # Create dataset
+        ds = xr.Dataset(
+            {'serial_number': (['frequency'], serial_number),
+             'sonar_model': (['frequency'], model)},
+             coords={'frequency': frequency},
+             attrs={'sonar_manufacturer': sonar_manufacturer,
+                    'sonar_software_name': sonar_software_name,
+                    'sonar_software_version': sonar_software_version,
+                    'sonar_type': sonar_type})
 
+        # save to file
+        if self.format == '.nc':
+            ds.to_netcdf(path=self.file_path, mode='a', group='Sonar')
         elif self.format == '.zarr':
-            # Do not save sonar group if appending
+            # Don't save sonar if appending
             if not self.append_zarr:
-                zarrfile = zarr.open(self.file_path, mode='a')
-                snr = zarrfile.create_group('Sonar')
-                for ch_id, data in sonar_dict.items():
-                    for k, v in data.items():
-                        snr.attrs[k] = v
+                ds.to_zarr(store=self.file_path, mode='a', group='Sonar')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK80 nc file.
