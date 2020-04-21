@@ -22,7 +22,11 @@ dask-worker-space/
 toolbox
 *.nc
 azfp_data/
+ek60/
+azfp/
 notebooks/*.raw
 OOI-D20170821-T063618.raw
 OOI-D20170821-T081522.raw
 2015843-D20151023-T190636.raw
+D20170912-T234910.raw
+echopype/test_data/ek80/*.raw
