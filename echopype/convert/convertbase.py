@@ -1,6 +1,7 @@
 import os
 import xarray as xr
 import shutil
+from collections import defaultdict
 
 
 class ConvertBase:
@@ -76,7 +77,18 @@ class ConvertBase:
             self.ping_slices = []
             self.all_files = []
         elif echo_type == 'EK80':
-            pass
+            self.config_datagram = None
+            self.ping_data_dict = {}
+            self.power_dict = {}
+            self.angle_dict = {}
+            self.complex_dict = {}
+            self.ping_time = []
+            self.environment = {}
+            self.parameters = defaultdict(dict)
+            self.mru_data = defaultdict(list)
+            self.fil_coeffs = defaultdict(dict)
+            self.fil_df = defaultdict(dict)
+            self.ch_ids = []
         elif echo_type == 'AZFP':
             pass
 
@@ -166,27 +178,42 @@ class ConvertBase:
             self._temp_path = [os.path.join(self._temp_dir, f + file_format) for f in orig_files]
 
     def combine_files(self, echo_type):
-        # Do nothing if combine_opt is true even if there was nothing to combine
+        # Do nothing if combine_opt is true if there is nothing to combine
         if not self._temp_path:
             return
         save_path = self.save_path
         split = os.path.splitext(self.save_path)
         all_temp = os.listdir(self._temp_dir)
-        file_groups = [[]]
         start_idx = 0
         i = 0
-        # Split the files in the temp directory into range_bin groups
-        while i < len(all_temp):
-            file_groups[-1].append(os.path.join(self._temp_dir, all_temp[i]))
-            if "_part" in all_temp[i]:
+        file_groups = [[]]
+        if echo_type == 'EK60':
+            # Split the files in the temp directory into range_bin groups
+            while i < len(all_temp):
+                file_groups[-1].append(os.path.join(self._temp_dir, all_temp[i]))
+                if "_part" in all_temp[i]:
+                    i += 1
+                    file_groups.append([os.path.join(self._temp_dir, all_temp[i])])
                 i += 1
-                file_groups.append([os.path.join(self._temp_dir, all_temp[i])])
-            i += 1
+        elif echo_type == 'EK80':
+            # Groups for cw and bb. Index 0 is cw, index 1 is bb
+            file_groups = [[], []]
+            for f in all_temp:
+                if "_cw" in f:
+                    file_groups[0].append(os.path.join(self._temp_dir, f))
+                else:
+                    file_groups[1].append(os.path.join(self._temp_dir, f))
 
         for n, file_group in enumerate(file_groups):
             if len(file_groups) > 1:
-                # Construct a new path with _part[n] if there are multiple range_bin lengths 
-                save_path = split[0] + '_part%02d' % (n + 1) + split[1]
+                if echo_type == 'EK60':
+                    # Construct a new path with _part[n] if there are multiple range_bin lengths (EK60 only)
+                    save_path = split[0] + '_part%02d' % (n + 1) + split[1]
+                elif echo_type == 'EK80':
+                    if not file_groups[n]:
+                        # Skip saving either bb or cw if only one or the other is present
+                        continue
+                    save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
             # Open multiple files as one dataset of each group and save them into a single file
             with xr.open_dataset(file_group[0], group='Environment') as ds_env:
                 ds_env.to_netcdf(path=save_path, mode='w', group='Environment')
@@ -195,12 +222,14 @@ class ConvertBase:
             with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
             with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+                compression_settings = dict(zlib=True, complevel=4)
+                encoding = {var: compression_settings for var in ds_beam.data_vars}
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
             if echo_type == 'EK60' or echo_type == 'EK80':
                 with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
                     ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
                 with xr.open_mfdataset(file_group, group='Platform/NMEA',
-                                    combine='nested', concat_dim='time') as ds_nmea:
+                                    combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
                     ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
             if echo_type == 'AZFP':
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
