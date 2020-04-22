@@ -30,9 +30,10 @@ Echopype currently supports file conversion and computation of data produced by:
 - Simrad EK60 echosounder (``.raw`` files)
 - ASL Environmental Sciences AZFP echosounders (``.01A`` files)
 
-In the `ek80 <https://github.com/OSOceanAcoustics/echopype/tree/ek80>`_ development branch
-we are actively developing file conversion and processing routines
-such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` files.
+Support for ``.raw`` files from the broadband Simrad EK80 echosounder is currently
+in the development branch
+`combine-refactor <https://github.com/OSOceanAcoustics/echopype/tree/convert-refactor>`_
+and we will merge it to the master branch once it's ready for alpha testing.
 
 The file conversion functionality converts data from manufacturer-specific
 binary formats into a standardized netCDF files, based on which all subsequent
