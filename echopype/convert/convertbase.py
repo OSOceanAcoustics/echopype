@@ -90,7 +90,7 @@ class ConvertBase:
             self.fil_df = defaultdict(dict)
             self.ch_ids = []
         elif echo_type == 'AZFP':
-            pass
+            self.unpacked_data = None
 
     def validate_path(self, save_path, file_format, combine_opt):
         """ Takes in either a path for a file or directory for either a .nc or .zarr output file.
@@ -184,7 +184,6 @@ class ConvertBase:
         save_path = self.save_path
         split = os.path.splitext(self.save_path)
         all_temp = os.listdir(self._temp_dir)
-        start_idx = 0
         i = 0
         file_groups = [[]]
         if echo_type == 'EK60':
@@ -203,7 +202,8 @@ class ConvertBase:
                     file_groups[0].append(os.path.join(self._temp_dir, f))
                 else:
                     file_groups[1].append(os.path.join(self._temp_dir, f))
-
+        elif echo_type == 'AZFP':
+            file_groups[0] = [os.path.join(self._temp_dir, file) for file in all_temp]
         for n, file_group in enumerate(file_groups):
             if len(file_groups) > 1:
                 if echo_type == 'EK60':
@@ -215,10 +215,8 @@ class ConvertBase:
                         continue
                     save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
             # Open multiple files as one dataset of each group and save them into a single file
-            with xr.open_dataset(file_group[0], group='Environment') as ds_env:
-                ds_env.to_netcdf(path=save_path, mode='w', group='Environment')
             with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
-                ds_prov.to_netcdf(path=save_path, mode='a', group='Provenance')
+                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
             with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
             with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
@@ -226,16 +224,23 @@ class ConvertBase:
                 encoding = {var: compression_settings for var in ds_beam.data_vars}
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
             if echo_type == 'EK60' or echo_type == 'EK80':
+                # Environment does not have dimension ping time for EK60 and Ek80
+                with xr.open_dataset(file_group[0], group='Environment') as ds_env:
+                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+                # Platform group contains unique data in each file unlike with AZFP
                 with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
                     ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+                # AZFP does not have NMEA data
                 with xr.open_mfdataset(file_group, group='Platform/NMEA',
                                     combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
                     ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
             if echo_type == 'AZFP':
-            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+                with xr.open_mfdataset(file_group, group='Environment', combine='by_coords') as ds_env:
+                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+                # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
                 with xr.open_dataset(file_group[0], group='Platform') as ds_plat:
                     ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
-            # EK60 does not have the "vendor specific" group
+                # EK60 does not have the "vendor specific" group
                 with xr.open_mfdataset(file_group, group='Vendor', combine='by_coords') as ds_vend:
                     ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
 
