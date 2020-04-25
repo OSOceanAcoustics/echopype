@@ -33,11 +33,13 @@ class SetGroupsEK80(SetGroupsBase):
             # close nc file
             ncfile.close()
         elif self.format == '.zarr':
-            zarrfile = zarr.open(self.file_path, mode='a')
-            env = zarrfile.create_group('Environment')
+            # Only save environment group if not appending to an existing .zarr file
+            if not self.append_zarr:
+                zarrfile = zarr.open(self.file_path, mode='a')
+                env = zarrfile.create_group('Environment')
 
-            for k, v in env_dict.items():
-                env.attrs[k] = v
+                for k, v in env_dict.items():
+                    env.attrs[k] = v
 
     def set_platform(self, platform_dict):
         """Set the Platform group in the EK60 nc file.
@@ -105,11 +107,24 @@ class SetGroupsEK80(SetGroupsBase):
                 attrs={'platform_code_ICES': platform_dict['platform_code_ICES'],
                        'platform_name': platform_dict['platform_name'],
                        'platform_type': platform_dict['platform_type']})
+
+            # Configure compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
+            if self.compress:
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars}
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Platform')
+                ds.to_netcdf(path=self.file_path, mode='a', group='Platform', encoding=nc_encoding)
             elif self.format == '.zarr':
-                ds.to_zarr(store=self.file_path, mode='a', group='Platform')
+                if not self.append_zarr:
+                    ds.to_zarr(store=self.file_path, mode='w', group='Platform', encoding=zarr_encoding)
+                else:
+                    ds.to_zarr(store=self.file_path, mode='a', group='Platform', append_dim='ping_time')
 
     def set_sonar(self, sonar_dict):
         """Set the Sonar group in the nc file.
@@ -119,25 +134,37 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_dict
             dictionary containing sonar parameters for each sonar
         """
-        # TODO: This probably doesn't work for multiple channels
-        # create group
+        # The following variables should be non-unique
+        sonar = list(sonar_dict)[0]
+        sonar_manufacturer = sonar_dict[sonar]['sonar_manufacturer']
+        sonar_software_name = sonar_dict[sonar]['sonar_software_name']
+        sonar_software_version = sonar_dict[sonar]['sonar_software_version']
+        sonar_type = sonar_dict[sonar]['sonar_type']
+        # Collect unique variables
+        frequency = []
+        serial_number = []
+        model = []
+        for ch_id, data in sonar_dict.items():
+            frequency.append(data['frequency'])
+            serial_number.append(data['sonar_serial_number'])
+            model.append(data['sonar_model'])
+        # Create dataset
+        ds = xr.Dataset(
+            {'serial_number': (['frequency'], serial_number),
+             'sonar_model': (['frequency'], model)},
+             coords={'frequency': frequency},
+             attrs={'sonar_manufacturer': sonar_manufacturer,
+                    'sonar_software_name': sonar_software_name,
+                    'sonar_software_version': sonar_software_version,
+                    'sonar_type': sonar_type})
+
+        # save to file
         if self.format == '.nc':
-            for ch_id, data in sonar_dict.items():
-                ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
-                snr = ncfile.createGroup("Sonar")
-
-                # set group attributes
-                for k, v in data.items():
-                    snr.setncattr(k, v)
-
-            # close nc file
-            ncfile.close()
+            ds.to_netcdf(path=self.file_path, mode='a', group='Sonar')
         elif self.format == '.zarr':
-            zarrfile = zarr.open(self.file_path, mode='a')
-            snr = zarrfile.create_group('Sonar')
-            for ch_id, data in sonar_dict.items():
-                for k, v in data.items():
-                    snr.attrs[k] = v
+            # Don't save sonar if appending
+            if not self.append_zarr:
+                ds.to_zarr(store=self.file_path, mode='a', group='Sonar')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK80 nc file.
@@ -152,9 +179,6 @@ class SetGroupsEK80(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print('netCDF file does not exist, exiting without saving Beam group...')
         else:
-            # Define compression settings
-            nc_encoding = {}
-            zarr_encoding = {}
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ping_time = (beam_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -292,8 +316,6 @@ class SetGroupsEK80(SetGroupsBase):
                             'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
                 ds = xr.merge([ds, bb])
-                nc_encoding['backscatter_i'] = {'zlib': True, 'complevel': 4}
-                zarr_encoding['backscatter_i'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
             # Save continuous wave backscatter
             else:
                 cw = xr.Dataset(
@@ -321,15 +343,23 @@ class SetGroupsEK80(SetGroupsBase):
             if 'sa_correction' in beam_dict:
                 ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
-            nc_encoding['backscatter_r'] = {'zlib': True, 'complevel': 4}
-            zarr_encoding['backscatter_r'] = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+            # Configure compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
+            if self.compress:
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars}
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam',
-                             encoding=nc_encoding)
+                ds.to_netcdf(path=beam_dict['path'], mode='a', group='Beam', encoding=nc_encoding)
             elif self.format == '.zarr':
-                ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam',
-                           encoding=zarr_encoding)
+                if not self.append_zarr:
+                    ds.to_zarr(store=beam_dict['path'], mode='w', group='Beam', encoding=zarr_encoding)
+                else:
+                    ds.to_zarr(store=beam_dict['path'], mode='a', group='Beam', append_dim='ping_time')
 
     def set_vendor(self, vendor_dict):
         """Set the Vendor group in the EK80 nc file.

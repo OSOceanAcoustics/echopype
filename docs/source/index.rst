@@ -33,14 +33,16 @@ scientists to make discovery using these new data.
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung)
-and `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are the primary developers of this project.
+`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) leads this project
+and along with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+are primary developers of this package.
 `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-provides consultation and also contributes to the development.
+and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
+provide consultation and also contribute to the development.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
+`Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
 `Marian Peña <https://www.researchgate.net/profile/Marian_Pena2>`_ (@marianpena),
 `Mark Langhirt <https://www.linkedin.com/in/mark-langhirt-7b33ba80>`_ (@bnwkeys),
@@ -51,6 +53,10 @@ Other contributors include:
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
+We also thank `Rick Towler <https://github.com/rhtowler>`_
+of the Alaska Fisheries Science Center
+for providing low-level file parsing routines for
+Simrad EK60 and EK80 echosounders.
 
 
 License

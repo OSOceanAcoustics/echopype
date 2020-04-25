@@ -24,6 +24,10 @@ class ModelEK80(ModelBase):
         self._tau_effective = []
         self.ytx = []
         self.backscatter_compressed = []
+        self._sound_speed = self.get_sound_speed()
+        self._sample_thickness = self.calc_sample_thickness()
+        self._range = self.calc_range()
+        self._seawater_absorption = self.calc_seawater_absorption()
 
     @property
     def ch_ids(self):
@@ -228,8 +232,9 @@ class ModelEK80(ModelBase):
         cw_path = split[0] + '_cw' + split[1]
         if save_postfix is None:
             save_postfix = '_' + mode
-
-        if 'backscatter_i' not in ds_beam or os.path.exists(cw_path):
+        if os.path.exists(cw_path):
+            self.calibrate_cw(mode, cw_path, save, save_path, save_postfix)
+        elif 'backscatter_i' not in ds_beam:
             self.calibrate_cw(mode, self.file_path, save, save_path, save_postfix)
 
         # Calibrate bb data
@@ -348,7 +353,7 @@ class ModelEK80(ModelBase):
 
             # Get TVG and absorption
             TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
-            ABS = 2 * self.seawater_absorption * range_meter
+            ABS = 2 * self.calc_seawater_absorption(path=file_path) * range_meter
 
             # Calibration and echo integration
             Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
@@ -364,7 +369,7 @@ class ModelEK80(ModelBase):
             if save:
                 if save_postfix is None:
                     save_postfix = '_' + mode
-                self.Sv_path = self.validate_path(save_path, save_postfix)
+                self.Sv_path = self.validate_path(save_path, save_postfix, file_path)
                 print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
                 Sv.to_netcdf(path=self.Sv_path, mode="w")
         elif mode == 'TS':

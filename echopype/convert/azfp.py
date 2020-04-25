@@ -1,4 +1,5 @@
 import os
+import shutil
 from collections import defaultdict
 import numpy as np
 import xml.dom.minidom
@@ -31,7 +32,6 @@ class ConvertAZFP(ConvertBase):
 
         # Initialize variables that'll be filled later
         self.unpacked_data = None
-        self._checked_unique = False
 
     def loadAZFPxml(self):
         """Parses the AZFP  XML file.
@@ -241,7 +241,7 @@ class ConvertAZFP(ConvertBase):
         if not self.unpacked_data:
             self.parse_raw()
 
-        if not self._checked_unique:    # Only check uniqueness once. Will error if done twice
+        if np.array(self.unpacked_data['profile_flag']).size != 1:    # Only check uniqueness once. Will error if done twice
             # fields with num_freq data
             field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',
                             'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
@@ -261,7 +261,6 @@ class ConvertAZFP(ConvertBase):
                     self.unpacked_data[field] = uniq.squeeze()
                 else:
                     raise ValueError(f"Header value {field} is not constant for each ping")
-        self._checked_unique = True
 
     def parse_raw(self, raw):
         """Parses a raw AZFP file of the 01A file format
@@ -376,13 +375,14 @@ class ConvertAZFP(ConvertBase):
         """
 
         # Subfunctions to set various dictionaries
-        def export(file_idx=None):
+        def export(file_idx=0):
             def calc_Sv_offset(f, pulse_length):
                 """Calculate a compensation for the effects of finite response
                 times of both the receiving and transmitting parts of the transducer.
                 The correction magnitude depends on the length of the transmitted pulse
                 and the response time (transmission and reception) of the transducer.
-                Called by ``_set_beam_dict()``
+                The numbers used below are documented on p.91 in GU-100-AZFP-01-R50 Operator's Manual.
+                This subfunction is called by ``_set_beam_dict()``.
 
                 Parameters
                 ----------
@@ -430,9 +430,12 @@ class ConvertAZFP(ConvertBase):
                 return out_dict
 
             def _set_prov_dict():
-                attrs = ('conversion_software_name', 'conversion_software_version', 'conversion_time')
-                vals = ('echopype', ECHOPYPE_VERSION, dt.utcnow().isoformat(timespec='seconds') + 'Z')  # use UTC time
-                return dict(zip(attrs, vals))
+                out_dict = dict(
+                    conversion_software_name='echopype',
+                    conversion_software_version=ECHOPYPE_VERSION,
+                    conversion_time=dt.utcnow().isoformat(timespec='seconds') + 'Z',   # use UTC time
+                    src_filenames=self.filename if combine_opt else [raw_file])
+                return out_dict
 
             def _set_sonar_dict():
                 attrs = ('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
@@ -569,40 +572,51 @@ class ConvertAZFP(ConvertBase):
             freq = np.array(self.unpacked_data['frequency']) * 1000    # Frequency in Hz
             ping_time = self.get_ping_time()
 
-            if file_idx is None:
+            # self._temp_path exists if combining multiple files into 1 .nc file
+            if hasattr(self, '_temp_path'):
+                out_file = self._temp_path[file_idx]
+            # If only converting 1 file into a .nc file, out_file is the same as self.save_path
+            # Also if converting multiple files into a .zarr file
+            elif len(self.filename) == 1 or (len(self.filename) != 1 and combine_opt and file_format == ".zarr"):
                 out_file = self.save_path
-                raw_file = self.filename
+            # Converting multiple raw files into multiple .nc or .zarr files
             else:
                 out_file = self.save_path[file_idx]
-                raw_file = [self.filename[file_idx]]
+            raw_file = self.filename[file_idx]
+
+            # Flag to append .zarr files if combining multiple files into 1 .zarr file
+            self._append_zarr = True if file_idx > 0 and file_format == '.zarr' and combine_opt else False
 
             # Check if nc file already exists and deletes it if overwrite is true
-            if os.path.exists(out_file) and overwrite:
+            if os.path.exists(out_file) and overwrite and not self._append_zarr:
                 print("          overwriting: " + out_file)
-                os.remove(out_file)
+                if file_format == '.nc':
+                    os.remove(out_file)
+                else:
+                    shutil.rmtree(out_file)
             # Check if nc file already exists
             # ... if yes, abort conversion and issue warning
             # ... if not, continue with conversion
-            if os.path.exists(out_file):
+            if ((file_format == '.nc' and os.path.exists(out_file)) or
+               (file_format == '.zarr' and os.path.exists(out_file) and file_idx > 0 and not self._append_zarr)):
                 print(f'          ... this file has already been converted to {file_format}, conversion not executed.')
             else:
                 # Create SetGroups object
-                grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress)
+                grp = SetGroups(file_path=out_file, echo_type='AZFP', compress=compress, append_zarr=self._append_zarr)
                 grp.set_toplevel(_set_toplevel_dict())      # top-level group
                 grp.set_env(_set_env_dict())                # environment group
-                grp.set_provenance(raw_file, _set_prov_dict())        # provenance group
+                grp.set_provenance(_set_prov_dict())        # provenance group
                 grp.set_platform(_set_platform_dict())      # platform group
                 grp.set_sonar(_set_sonar_dict())            # sonar group
                 grp.set_beam(_set_beam_dict())              # beam group
                 grp.set_vendor_specific(_set_vendor_specific_dict())    # AZFP Vendor specific group
 
         self.validate_path(save_path, file_format, combine_opt)
-        if len(self.filename) == 1 or combine_opt:
-            export()
-        else:
-            for file_seq, file in enumerate(self.filename):
-                if file_seq > 0:
-                    self._checked_unique = False
-                    self.unpacked_data = None
+        for file_idx, file in enumerate(self.filename):
+            if file_idx > 0 or (file_idx == 0 and len(self.filename) > 1):
+                self.unpacked_data = None
+            if self.unpacked_data is None:
                 self.parse_raw([file])
-                export(file_seq)
+            export(file_idx)
+        if combine_opt:
+            self.combine_files('azfp')
