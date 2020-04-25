@@ -26,7 +26,6 @@ def test_noise_estimates_removal():
     e_data = EchoData(nc_path)
     e_data.calibrate(save=True)
     noise_est = e_data.noise_estimates()
-    e_data.remove_noise()
 
     with xr.open_dataset(ek60_test_path) as ds_test:
         ds_Sv = ds_test.Sv
@@ -78,6 +77,9 @@ def test_noise_estimates_removal():
 
     # Check xarray and numpy noise estimates
     assert np.all(np.isclose(noise_est_test, noise_est.noise_est.values))
+
+    # Remove noise using .remove_noise()
+    e_data.remove_noise()
 
     # Remove noise manually
     Sv_clean_test = np.empty(proc_data.Sv.shape)
