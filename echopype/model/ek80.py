@@ -22,6 +22,8 @@ class ModelEK80(ModelBase):
         self._pressure = None
         self._ch_ids = None
         self._tau_effective = []
+        self.ytx = []
+        self.backscatter_compressed = []
         self._sound_speed = self.get_sound_speed()
         self._sample_thickness = self.calc_sample_thickness()
         self._range = self.calc_range()
@@ -114,6 +116,97 @@ class ModelEK80(ModelBase):
             range_meter = range_meter.where(range_meter > 0, other=0).transpose()
             return range_meter
 
+    def calc_transmit_signal(self):
+        """Generate transmit signal as replica for pulse compression.
+        """
+        def chirp_linear(t, f0, f1, tau):
+            beta = (f1 - f0) * (tau ** -1)
+            return np.cos(2 * np.pi * (beta / 2 * (t ** 2) + f0 * t))
+
+        # Retrieve filter coefficients
+        with xr.open_dataset(self.file_path, group="Vendor") as ds_fil, \
+            xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+
+            # Get various parameters
+            Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
+            delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
+            tau = ds_beam.transmit_duration_nominal.data
+            txpower = ds_beam.transmit_power.data
+            f0 = ds_beam.frequency_start.data
+            f1 = ds_beam.frequency_end.data
+            slope = ds_beam.slope[:, 0].data  # Use slope of first ping
+            amp = np.sqrt((txpower / 4) * (2 * Ztrd))
+
+            # Create transmit signal
+            ytx = []
+            for ch in range(ds_beam.frequency.size):
+                t = np.arange(0, tau[ch], delta)
+                nt = len(t)
+                nwtx = (int(2 * np.floor(slope[ch] * nt)))
+                wtx_tmp = np.hanning(nwtx)
+                nwtxh = (int(np.round(nwtx / 2)))
+                wtx = np.concatenate([wtx_tmp[0:nwtxh], np.ones((nt - nwtx)), wtx_tmp[nwtxh:]])
+                y_tmp = amp[ch] * chirp_linear(t, f0[ch], f1[ch], tau[ch]) * wtx
+                # The transmit signal must have a max amplitude of 1
+                y = (y_tmp / np.max(np.abs(y_tmp)))
+
+                # filter and decimation
+                wbt_fil = ds_fil[self.ch_ids[ch] + "_WBT_filter"].data
+                pc_fil = ds_fil[self.ch_ids[ch] + "_PC_filter"].data
+                # if saved as netCDF4, convert compound complex datatype to complex64
+                if wbt_fil.ndim == 1:
+                    wbt_fil = np.array([complex(n[0], n[1]) for n in wbt_fil], dtype='complex64')
+                    pc_fil = np.array([complex(n[0], n[1]) for n in pc_fil], dtype='complex64')
+
+                # Apply WBT filter and downsample
+                ytx_tmp = np.convolve(y, wbt_fil)
+                ytx_tmp = ytx_tmp[0::ds_fil.attrs[self.ch_ids[ch] + "_WBT_decimation"]]
+
+                # Apply PC filter and downsample
+                ytx_tmp = np.convolve(ytx_tmp, pc_fil)
+                ytx_tmp = ytx_tmp[0::ds_fil.attrs[self.ch_ids[ch] + "_PC_decimation"]]
+                ytx.append(ytx_tmp)
+                del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
+
+            # TODO: rename ytx into something like 'transmit_signal' and
+            #  also package the sampling interval together with the signal
+            self.ytx = ytx
+
+    def pulse_compression(self):
+        """Pulse compression using transmit signal as replica.
+        """
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            sample_interval = ds_beam.sample_interval
+            backscatter = ds_beam.backscatter_r + ds_beam.backscatter_i * 1j  # Construct complex backscatter
+
+            backscatter_compressed = []
+            # Loop over channels
+            for ch in range(ds_beam.frequency.size):
+                # tmp_x = np.fft.fft(backscatter[i].dropna('range_bin'))
+                # tmp_y = np.fft.fft(np.flipud(np.conj(ytx[i])))
+                tmp_b = backscatter[ch].dropna('range_bin')
+                # tmp_b = tmp_b[:, 0, :]        # 1 ping
+                tmp_y = np.flipud(np.conj(self.ytx[ch]))
+
+                # Convolve tx signal with backscatter. atol=1e-7 between fft and direct convolution
+                compressed = xr.apply_ufunc(lambda m: np.apply_along_axis(
+                                            lambda m: signal.convolve(m, tmp_y), axis=2, arr=m),
+                                            tmp_b,
+                                            input_core_dims=[['range_bin']],
+                                            output_core_dims=[['range_bin']],
+                                            exclude_dims={'range_bin'}) / np.linalg.norm(self.ytx[ch]) ** 2
+                # Average across quadrants
+                backscatter_compressed.append(compressed)
+
+                # Effective pulse length
+                ptxa = np.square(np.abs(signal.convolve(self.ytx[ch], tmp_y, method='direct') /
+                                        np.linalg.norm(self.ytx[ch]) ** 2))
+                self._tau_effective.append(np.sum(ptxa) / (np.max(ptxa) / sample_interval.values[ch]))
+
+            # TODO: package backscatter_compressed into a nice DataArray
+            #  with dimensions so that can be used directly for analysis
+            self.backscatter_compressed = backscatter_compressed
+
     def calibrate(self, mode='Sv', save=False, save_path=None, save_postfix=None):
         """Perform echo-integration to get volume backscattering strength (Sv)
         or target strength (TS) from EK80 power data.
@@ -131,71 +224,6 @@ class ModelEK80(ModelBase):
         save_postfix : str
             Filename postfix, default to '_Sv' or '_TS'
         """
-        def calc_sent_signal():
-            def chirp_linear(t, f0, f1, tau):
-                beta = (f1 - f0) * (tau ** -1)
-                return np.cos(2 * np.pi * (beta / 2 * (t ** 2) + f0 * t))
-            # Retrieve filter coefficients
-            ds_fil = xr.open_dataset(self.file_path, group="Vendor")
-            # WBT signal generator
-            delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
-            a = np.sqrt((txpower / 4) * (2 * Ztrd))
-
-            # Create transmit signal
-            ytx = []
-            for i in range(num_ch):
-                t = np.arange(0, tau[i], delta)
-                nt = len(t)
-                nwtx = (int(2 * np.floor(slope[i] * nt)))
-                wtx_tmp = np.hanning(nwtx)
-                nwtxh = (int(np.round(nwtx / 2)))
-                wtx = np.concatenate([wtx_tmp[0:nwtxh], np.ones((nt - nwtx)), wtx_tmp[nwtxh:]])
-                y_tmp = a[i] * chirp_linear(t, f0[i], f1[i], tau[i]) * wtx
-                # The transmit signal must have a max amplitude of 1
-                y = (y_tmp / np.max(np.abs(y_tmp)))
-
-                # filter and decimation
-                wbt_fil = ds_fil[self.ch_ids[i] + "_WBT_filter"].data
-                pc_fil = ds_fil[self.ch_ids[i] + "_PC_filter"].data
-                # if saved as netCDF4, convert compound complex datatype to complex64
-                if wbt_fil.ndim == 1:
-                    wbt_fil = np.array([complex(n[0], n[1]) for n in wbt_fil], dtype='complex64')
-                    pc_fil = np.array([complex(n[0], n[1]) for n in pc_fil], dtype='complex64')
-                # Apply WBT filter and downsample
-                ytx_tmp = np.convolve(y, wbt_fil)
-                ytx_tmp = ytx_tmp[0::ds_fil.attrs[self.ch_ids[i] + "_WBT_decimation"]]
-                # Apply PC filter and downsample
-                ytx_tmp = np.convolve(ytx_tmp, pc_fil)
-                ytx_tmp = ytx_tmp[0::ds_fil.attrs[self.ch_ids[i] + "_PC_decimation"]]
-                ytx.append(ytx_tmp)
-                del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
-            ds_fil.close()
-            return np.array(ytx)
-
-        def pulse_compress():
-            backscatter_compressed = []
-            self._tau_effective = []
-            # Loop over channels
-            for i in range(num_ch):
-                # tmp_x = np.fft.fft(backscatter[i].dropna('range_bin'))
-                # tmp_y = np.fft.fft(np.flipud(np.conj(ytx[i])))
-                tmp_b = backscatter[i].dropna('range_bin')
-                # tmp_b = tmp_b[:, 0, :]        # 1 ping
-                tmp_y = np.flipud(np.conj(ytx[i]))
-                # Convolve tx signal with backscatter. atol=1e-7 between fft and direct convolution
-                compressed = xr.apply_ufunc(lambda m: np.apply_along_axis(
-                                            lambda m: signal.convolve(m, tmp_y), axis=2, arr=m),
-                                            tmp_b,
-                                            input_core_dims=[['range_bin']],
-                                            output_core_dims=[['range_bin']],
-                                            exclude_dims={'range_bin'}) / np.linalg.norm(ytx[i]) ** 2
-                # Average across quadrants
-                backscatter_compressed.append(compressed)
-                # Effective pulse length
-                ptxa = np.square(np.abs(signal.convolve(ytx[i], tmp_y, method='direct') /
-                                        np.linalg.norm(ytx[i]) ** 2))
-                self._tau_effective.append(np.sum(ptxa) / (np.max(ptxa) / sample_interval.values[i]))
-            return backscatter_compressed
 
         ds_beam = xr.open_dataset(self.file_path, group="Beam")
 
@@ -213,51 +241,47 @@ class ModelEK80(ModelBase):
         if 'backscatter_i' in ds_beam:
             Ztrd = 75       # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
             Rwbtrx = 1000   # Wideband transceiver impedance [Ohms] (Supplied by Simrad)
-            # Unpack data
-            tau = ds_beam.transmit_duration_nominal.data
-            txpower = ds_beam.transmit_power.data
-            f0 = ds_beam.frequency_start.data
-            f1 = ds_beam.frequency_end.data
-            slope = ds_beam.slope[:, 0].data        # Use slope of first ping
-            sample_interval = ds_beam.sample_interval
-            num_ch = len(f0)
-            backscatter = ds_beam.backscatter_r + ds_beam.backscatter_i * 1j    # Construct complex backscatter
-
-            ytx = calc_sent_signal()                    # Get transmitted signal
-            backscatter_compressed = pulse_compress()   # Perform pulse compression
+            self.calc_transmit_signal()  # Get transmit signal
+            self.pulse_compression()    # Perform pulse compression
 
             c = self.sound_speed
             f_nominal = ds_beam.frequency
-            f_center = (f0 + f1) / 2
+            f_center = (ds_beam.frequency_start.data + ds_beam.frequency_end.data) / 2
             psifc = ds_beam.equivalent_beam_angle + 20 * np.log10(f_nominal / f_center)
             la2 = (c / f_center) ** 2
             Sv = []
             TS = []
             ranges = []
-            for i in range(num_ch):
+
+            # TODO: below can be done without a loop directly using xarray’s dimension
+            #  matching capability if we package self.backscatter_compressed as a DataArray
+            #  with proper dimensions attached
+            for ch in range(ds_beam.frequency.size):
                 # Average accross quadrants and take the absolute value of complex backscatter
-                prx = np.abs(np.mean(backscatter_compressed[i], axis=0))
+                prx = np.abs(np.mean(self.backscatter_compressed[ch], axis=0))
                 prx = prx * prx / 2 * (np.abs(Rwbtrx + Ztrd) / Rwbtrx) ** 2 / np.abs(Ztrd)
+
                 # f = np.moveaxis(np.array((ds_beam.frequency_start, ds_beam.frequency_end)), 0, 1)
                 # TODO Gfc should be gain interpolated at the center frequency
                 # Only 1 gain value is given provided per channel
-                Gfc = ds_beam.gain_correction[i]
+
+                Gfc = ds_beam.gain_correction[ch]
                 # Get range for channel i. Cut off range to match range_bin length
-                r = self.calc_range(range_bins=prx.shape[1])[i]
+                r = self.calc_range(range_bins=prx.shape[1])[ch]
                 r = r.where(r >= 1, other=1)
                 ranges.append(r)
                 if mode == "Sv":
                     Sv.append(
                         10 * np.log10(prx) + 20 * np.log10(r) +
-                        2 * self.seawater_absorption[i] * r -
-                        10 * np.log10(ds_beam.transmit_power[i] * la2[i] * c / (32 * np.pi * np.pi)) -
-                        2 * Gfc - 10 * np.log10(self.tau_effective[i]) - psifc[i]
+                        2 * self.seawater_absorption[ch] * r -
+                        10 * np.log10(ds_beam.transmit_power[ch] * la2[ch] * c / (32 * np.pi * np.pi)) -
+                        2 * Gfc - 10 * np.log10(self.tau_effective[ch]) - psifc[ch]
                     )
                 if mode == "TS":
                     TS.append(
                         10 * np.log10(prx) + 40 * np.log10(r) +
-                        2 * self.seawater_absorption[i] * r -
-                        10 * np.log10(ds_beam.transmit_power[i] * la2[i] / (16 * np.pi * np.pi)) -
+                        2 * self.seawater_absorption[ch] * r -
+                        10 * np.log10(ds_beam.transmit_power[ch] * la2[ch] / (16 * np.pi * np.pi)) -
                         2 * Gfc
                     )
             ds_beam.close()     # Close opened dataset
