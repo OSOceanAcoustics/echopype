@@ -237,11 +237,12 @@ class ConvertEK80(ConvertBase):
         out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
         return out_dict
 
-    def _set_sonar_dict(self):
+    def _set_sonar_dict(self, ch_ids, path):
         channels = defaultdict(dict)
+        channels['path'] = path
         # channels['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
         #                                   for x in self.ch_ids], dtype='float32')
-        for ch_id in self.ch_ids:
+        for ch_id in ch_ids:
             channels[ch_id]['frequency'] = self.config_datagram['configuration'][ch_id]['transducer_frequency']
             channels[ch_id]['sonar_manufacturer'] = 'Simrad'
             channels[ch_id]['sonar_model'] = self.config_datagram['configuration'][ch_id]['transducer_name']
@@ -472,9 +473,8 @@ class ConvertEK80(ConvertBase):
         grp.set_provenance(self._set_prov_dict(raw_file, save_settings['combine_opt']))    # provenance group
         grp.set_platform(self._set_platform_dict())  # platform group
         grp.set_nmea(self._set_nmea_dict())          # platform/NMEA group
-        grp.set_sonar(self._set_sonar_dict())        # sonar group
         grp.set_vendor(self._set_vendor_dict())      # vendor group
-        """Handles saving the beam group.
+        """Handles saving the beam and sonar group. These groups a frequency dimension
         Splits up broadband and continuous wave data into separate files"""
         bb_ch_ids, cw_ch_ids = self.sort_ch_ids()
         # If there is both bb and cw data
@@ -489,13 +489,17 @@ class ConvertEK80(ConvertBase):
                 elif split[1] == '.nc':
                     shutil.copyfile(out_file, new_path)
             grp.set_beam(self._set_beam_dict(bb_ch_ids, bb=True, path=out_file))
+            grp.set_sonar(self._set_sonar_dict(bb_ch_ids, path=out_file))
             grp.set_beam(self._set_beam_dict(cw_ch_ids, bb=False, path=new_path))
+            grp.set_sonar(self._set_sonar_dict(cw_ch_ids, path=new_path))
         # If there is only bb data
         elif bb_ch_ids:
             grp.set_beam(self._set_beam_dict(bb_ch_ids, bb=True, path=out_file))
+            grp.set_sonar(self._set_sonar_dict(bb_ch_ids, path=out_file))
         # If there is only cw data
         else:
             grp.set_beam(self._set_beam_dict(cw_ch_ids, bb=False, path=out_file))
+            grp.set_sonar(self._set_sonar_dict(cw_ch_ids, path=out_file))
 
     def _export_nc(self, save_settings, file_idx=0):
         if self._temp_path:
