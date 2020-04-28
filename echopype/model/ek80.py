@@ -25,9 +25,12 @@ class ModelEK80(ModelBase):
         self.ytx = []
         self.backscatter_compressed = []
         self._sound_speed = self.get_sound_speed()
+        self._salinity = self.get_salinity()
+        self._temperature = self.get_temperature()
+        self._pressure = self.get_pressure()
         self._sample_thickness = self.calc_sample_thickness()
-        self._range = self.calc_range()
         self._seawater_absorption = self.calc_seawater_absorption()
+        self._range = self.calc_range()
 
     @property
     def ch_ids(self):
@@ -40,41 +43,31 @@ class ModelEK80(ModelBase):
     def tau_effective(self):
         return np.array(self._tau_effective)
 
-    def get_salinity(self, path=''):
-        path = path if path else self.file_path
+    def get_salinity(self):
         if self._salinity is None:
             with xr.open_dataset(self.file_path, group="Environment") as ds_env:
-                self._salinity = ds_env.salinity
-        return self._salinity
+                return ds_env.salinity
 
     def get_temperature(self, path=''):
         path = path if path else self.file_path
         if self._temperature is None:
             with xr.open_dataset(path, group="Environment") as ds_env:
-                self._temperature = ds_env.temperature
-        return self._temperature
+                return ds_env.temperature
 
-    def get_pressure(self, path=''):
-        path = path if path else self.file_path
+    def get_pressure(self):
         if self._pressure is None:
-            with xr.open_dataset(path, group="Environment") as ds_env:
-                self._pressure = ds_env.depth
-        return self._pressure
+            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+                return ds_env.depth
 
-    def get_sound_speed(self, path=''):
+    def get_sound_speed(self):
         """gets sound speed [m/s] using parameters stored in the .nc file.
         Will use a custom path if one is provided
         """
-        path = path if path else self.file_path
-        with xr.open_dataset(path, group="Environment") as ds_env:
+        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
             return ds_env.sound_speed_indicative
 
-    def calc_seawater_absorption(self, src='FG', path=''):
-        path = path if path else self.file_path
-        s = self.get_salinity(path) if path else self.salinity
-        t = self.get_temperature(path) if path else self.temperature
-        p = self.get_pressure(path) if path else self.pressure
-        with xr.open_dataset(path, group='Beam') as ds_beam:
+    def calc_seawater_absorption(self, src='FG'):
+        with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
             try:
                 f0 = ds_beam.frequency_start
                 f1 = ds_beam.frequency_end
@@ -82,9 +75,9 @@ class ModelEK80(ModelBase):
             except AttributeError:
                 f = ds_beam.frequency
         sea_abs = uwa.calc_seawater_absorption(f,
-                                               salinity=s,
-                                               temperature=t,
-                                               pressure=p,
+                                               salinity=self.salinity,
+                                               temperature=self.temperature,
+                                               pressure=self.pressure,
                                                formula_source='FG')
         return sea_abs
 
@@ -92,10 +85,9 @@ class ModelEK80(ModelBase):
         """gets sample thickness using parameters stored in the .nc file.
         Will use a custom path if one is provided
         """
-        ss = self.get_sound_speed(path) if path else self.sound_speed
         path = path if path else self.file_path
         with xr.open_dataset(path, group="Beam") as ds_beam:
-            sth = ss * ds_beam.sample_interval / 2  # sample thickness
+            sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
             return sth
 
     def calc_range(self, path='', range_bins=None):
@@ -103,7 +95,6 @@ class ModelEK80(ModelBase):
         Will use a custom path if one is provided
         """
         st = self.calc_sample_thickness(path) if path else self.sample_thickness
-        ss = self.get_sound_speed(path) if path else self.sound_speed
         path = path if path else self.file_path
         with xr.open_dataset(path, group="Beam") as ds_beam:
             if range_bins:
@@ -112,7 +103,7 @@ class ModelEK80(ModelBase):
             else:
                 range_bin = ds_beam.range_bin
             range_meter = range_bin * st - \
-                ds_beam.transmit_duration_nominal * ss / 2  # DataArray [frequency x range_bin]
+                ds_beam.transmit_duration_nominal * self.sound_speed / 2  # DataArray [frequency x range_bin]
             range_meter = range_meter.where(range_meter > 0, other=0).transpose()
             return range_meter
 
@@ -203,9 +194,18 @@ class ModelEK80(ModelBase):
                                         np.linalg.norm(self.ytx[ch]) ** 2))
                 self._tau_effective.append(np.sum(ptxa) / (np.max(ptxa) / sample_interval.values[ch]))
 
-            # TODO: package backscatter_compressed into a nice DataArray
-            #  with dimensions so that can be used directly for analysis
-            self.backscatter_compressed = backscatter_compressed
+            # Pad nans so that each channel has the same range_bin length
+            largest_range_bin = max(bc.shape for bc in backscatter_compressed)[2]
+            for i, ds in enumerate(backscatter_compressed):
+                pad_width = largest_range_bin - ds.shape[2]
+                backscatter_compressed[i] = xr.apply_ufunc(lambda x: np.pad(x, ((0,0), (0,0), (0,pad_width)),
+                                                                            constant_values=np.nan),
+                                                           ds,
+                                                           input_core_dims=[['range_bin']],
+                                                           output_core_dims=[['range_bin']],
+                                                           exclude_dims={'range_bin'})
+            self.backscatter_compressed = xr.concat(backscatter_compressed, dim='frequency')
+
 
     def calibrate(self, mode='Sv', save=False, save_path=None, save_postfix=None):
         """Perform echo-integration to get volume backscattering strength (Sv)
@@ -353,7 +353,7 @@ class ModelEK80(ModelBase):
 
             # Get TVG and absorption
             TVG = np.real(20 * np.log10(range_meter.where(range_meter >= 1, other=1)))
-            ABS = 2 * self.calc_seawater_absorption(path=file_path) * range_meter
+            ABS = 2 * self.seawater_absorption * range_meter
 
             # Calibration and echo integration
             Sv = backscatter_r + TVG + ABS - CSv - 2 * ds_beam.sa_correction
