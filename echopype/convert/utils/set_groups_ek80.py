@@ -135,7 +135,8 @@ class SetGroupsEK80(SetGroupsBase):
             dictionary containing sonar parameters for each sonar
         """
         # The following variables should be non-unique
-        sonar = list(sonar_dict)[0]
+        save_path = sonar_dict.pop('path')
+        sonar = list(sonar_dict)[1]
         sonar_manufacturer = sonar_dict[sonar]['sonar_manufacturer']
         sonar_software_name = sonar_dict[sonar]['sonar_software_name']
         sonar_software_version = sonar_dict[sonar]['sonar_software_version']
@@ -160,11 +161,11 @@ class SetGroupsEK80(SetGroupsBase):
 
         # save to file
         if self.format == '.nc':
-            ds.to_netcdf(path=self.file_path, mode='a', group='Sonar')
+            ds.to_netcdf(path=save_path, mode='a', group='Sonar')
         elif self.format == '.zarr':
             # Don't save sonar if appending
             if not self.append_zarr:
-                ds.to_zarr(store=self.file_path, mode='a', group='Sonar')
+                ds.to_zarr(store=save_path, mode='a', group='Sonar')
 
     def set_beam(self, beam_dict):
         """Set the Beam group in the EK80 nc file.
@@ -281,10 +282,10 @@ class SetGroupsEK80(SetGroupsBase):
                 coords={'frequency': (['frequency'], beam_dict['frequency']),
                         'ping_time': (['ping_time'], ping_time,
                                       {'axis': 'T',
-                        #                'calendar': 'gregorian',
+                                       'calendar': 'gregorian',
                                        'long_name': 'Timestamp of each ping',
-                                       'standard_name': 'time'}),
-                        #                'units': 'seconds since 1900-01-01'}),
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'}),
                         },
                 attrs={'beam_mode': beam_dict['beam_mode'],
                        'conversion_equation_t': beam_dict['conversion_equation_t']})
@@ -308,10 +309,10 @@ class SetGroupsEK80(SetGroupsBase):
                                                'units': 'Hz'}),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
-                            #                'calendar': 'gregorian',
+                                           'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time'}),
-                            #                'units': 'seconds since 1900-01-01'}),
+                                           'units': 'seconds since 1900-01-01',
                             'quadrant': (['quadrant'], np.arange(4)),
                             'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
@@ -329,10 +330,10 @@ class SetGroupsEK80(SetGroupsBase):
                     coords={'frequency': (['frequency'], beam_dict['frequency']),
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
-                            #                'calendar': 'gregorian',
+                                           'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
-                                           'standard_name': 'time'}),
-                            #                'units': 'seconds since 1900-01-01'}),
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'}),
                             'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
                 ds = xr.merge([ds, cw])
