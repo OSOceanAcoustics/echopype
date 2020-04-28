@@ -10,29 +10,36 @@ ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'   
 ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.nc'
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
 # ek60_raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
-#                  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
+                #  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
+# ek60_raw_path = ['./echopype/test_data/ek60/set1' + file
+#                  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
+# ek60_raw_path = ['./echopype/test_data/ek60/set2' + file
+#                  for file in os.listdir('./echopype/test_data/ek60/set2')]    # 3 range lengths
 # Other data files
 # raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
 # raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
-# ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'     # Large file (BB and CW)
-ek80_raw_path = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (Standard test) (CW)
+ek80_raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
+ek80_raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)
 ek80_power_test_path = ['./echopype/test_data/ek80/from_echoview/18kHz.power.csv',
                         './echopype/test_data/ek80/from_echoview/38kHz.power.csv',
                         './echopype/test_data/ek80/from_echoview/70kHz.power.csv',
                         './echopype/test_data/ek80/from_echoview/120kHz.power.csv',
                         './echopype/test_data/ek80/from_echoview/200kHz.power.csv']
 ek80_angle_test_path = './echopype/test_data/ek80/from_echoview/EK80_test_angles.csv'
+ek80_bb_power_test_path = './echopype/test_data/ek80/from_echoview/70 kHz raw power.complex.csv'
 # ek80_raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
-#                  './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files
+#                  './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 # azfp_01a_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # azfp_xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
 azfp_test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
-# azfp_01a_path = ['./echopype/test_data/azfp/17033000.01A',     # Multiple files
-#                  './echopype/test_data/azfp/17033001.01A']
-# azfp_xml_path = './echopype/test_data/azfp/17033000.XML'       # Multiple files
+# azfp_01a_path = ['./echopype/test_data/azfp/set1/17033000.01A',     # Multiple files
+#                  './echopype/test_data/azfp/set1/17033001.01A',
+#                  './echopype/test_data/azfp/set1/17033002.01A',
+#                  './echopype/test_data/azfp/set1/17033003.01A']
+# azfp_xml_path = './echopype/test_data/azfp/set1/17033000.XML'       # Multiple files
 
 
 def test_convert_ek60():
@@ -77,8 +84,8 @@ def test_convert_ek60():
 
 
 def test_convert_ek80():
-    tmp = ConvertEK80(ek80_raw_path)
-    tmp.raw2nc()
+    tmp = ConvertEK80(ek80_raw_path_cw)
+    tmp.raw2nc(overwrite=True)
 
     # Perform angle and power tests. Only 3 pings are tested in order to reduce the size of test datasets
     with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
@@ -113,14 +120,27 @@ def test_convert_ek80():
         for i, f in enumerate(ek80_power_test_path):
             test_power = pd.read_csv(f, delimiter=';').iloc[:, 13:].values
             assert np.allclose(test_power, power[i].dropna('range_bin'))
-    # Test saving zarr file
+    # Test saving zarr cw file
     tmp.raw2zarr()
-    np_path = tmp.nc_path
-    zarr_path = tmp.zarr_path
-    del tmp
+
+    # Test saving broadband data
+    tmp_bb = ConvertEK80(ek80_raw_path_bb)
+    tmp_bb.raw2nc()
+
+    bb_test_df = pd.read_csv(ek80_bb_power_test_path, header=None, skiprows=[0])
+    bb_test_df_r = bb_test_df.iloc[::2,14:]
+    bb_test_df_i = bb_test_df.iloc[1::2,14:]
+    with xr.open_dataset(tmp_bb.nc_path, group='Beam') as ds_beam:
+        # Select 70 kHz channel and averaged across the quadrants
+        backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean(axis=0)
+        backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean(axis=0)
+        assert np.allclose(backscatter_r, bb_test_df_r)
+        assert np.allclose(backscatter_i, bb_test_df_i)
+
     # Remove generated files
-    os.remove(np_path)
-    shutil.rmtree(zarr_path, ignore_errors=True)
+    os.remove(tmp.nc_path)
+    os.remove(tmp_bb.nc_path)
+    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
 
 
 def test_convert_AZFP():
@@ -128,8 +148,6 @@ def test_convert_AZFP():
     ds_test = xr.open_dataset(azfp_test_path)
 
     # Unpacking data
-    # tmp = ConvertAZFP(azfp_01a_path, azfp_xml_path)
-    # tmp.parse_raw()
     tmp = Convert(azfp_01a_path, azfp_xml_path)
 
     # Test saving zarr file
