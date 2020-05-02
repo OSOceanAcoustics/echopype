@@ -411,7 +411,7 @@ class ModelBase(object):
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
 
         # Attach calculated range into data set
-        Sv_clean['range'] = (('frequency', 'range_bin'), self.range.T)
+        Sv_clean['range'] = (('frequency', 'range_bin'), self.range)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
