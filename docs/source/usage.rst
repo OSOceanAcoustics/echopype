@@ -12,22 +12,28 @@ Echopype can be installed from PyPI:
    $ pip install echopype
 
 
-or through conda:
-
-.. code-block:: console
-
-   $ conda install -c conda-forge echopype
-
-
-When creating an conda environment to work with echopype,
-use the supplied ``environment.yml`` or do
-
-.. code-block:: console
-
-   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+.. note::
+   What about conda?
+   We are currently working to resolve some build issues with echopype on conda-forge,
+   so please use pip to install the latest version (0.3.1).
 
 
-.. note::  Echopype currently uses python 3.8 due to an
+.. or through conda:
+
+   .. code-block:: console
+
+      $ conda install -c conda-forge echopype
+
+
+   When creating an conda environment to work with echopype,
+   use the supplied ``environment.yml`` or do
+
+   .. code-block:: console
+
+      $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+
+
+.. note::  Echopype uses python 3.8 due to an
    `issue <https://github.com/OSOceanAcoustics/echopype/issues/83>`_
    with numcodecs wheels.
 
@@ -46,9 +52,10 @@ Echopype currently supports conversion from
 
 into netCDF (stable) or zarr (beta) files.
 
-In the `ek80 <https://github.com/OSOceanAcoustics/echopype/tree/ek80>`_ development branch
-we are actively developing file conversion and processing routines
-such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` files.
+Support for ``.raw`` files from the broadband Simrad EK80 echosounder is currently
+in the development branch
+`combine-refactor <https://github.com/OSOceanAcoustics/echopype/tree/convert-refactor>`_
+and we will merge it to the master branch once it's ready for alpha testing.
 
 We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
