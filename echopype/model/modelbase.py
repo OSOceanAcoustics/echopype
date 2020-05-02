@@ -196,16 +196,17 @@ class ModelBase(object):
         # issue warning when subclass methods not available
         print('Target strength calibration has not been implemented for this sonar model!')
 
-    def validate_path(self, save_path, save_postfix):
+    def validate_path(self, save_path, save_postfix, file_path=''):
         """Creates a directory if it doesnt exist. Returns a valid save path.
         """
         def _assemble_path():
-            file_in = os.path.basename(self.file_path)
+            file_in = os.path.basename(file_path)
             file_name, file_ext = os.path.splitext(file_in)
             return file_name + save_postfix + file_ext
 
+        file_path = file_path if file_path else self.file_path
         if save_path is None:
-            save_dir = os.path.dirname(self.file_path)
+            save_dir = os.path.dirname(file_path)
             file_out = _assemble_path()
         else:
             path_ext = os.path.splitext(save_path)[1]
@@ -213,7 +214,7 @@ class ModelBase(object):
             if path_ext != '':
                 save_dir, file_out = os.path.split(save_path)
                 if save_dir == '':  # save_path is only a filename without directory
-                    save_dir = os.path.dirname(self.file_path)  # use directory from input file
+                    save_dir = os.path.dirname(file_path)  # use directory from input file
             # If given save_path is a directory, get a filename from input .nc file
             else:
                 save_dir = save_path
@@ -410,7 +411,7 @@ class ModelBase(object):
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
 
         # Attach calculated range into data set
-        Sv_clean['range'] = (('frequency', 'range_bin'), self.range.T)
+        Sv_clean['range'] = (('frequency', 'range_bin'), self.range)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
