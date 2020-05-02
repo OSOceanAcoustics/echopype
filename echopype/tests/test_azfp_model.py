@@ -23,6 +23,7 @@ def test_model_AZFP():
     tmp_echo = EchoData(tmp_convert.nc_path)
     tmp_echo.calibrate(save=True)
     tmp_echo.calibrate_TS(save=True)
+    tmp_echo.remove_noise()
     tmp_echo.get_MVBS()
 
     # Check setters
