@@ -38,13 +38,25 @@ Echopype can be installed from PyPI:
    with numcodecs wheels.
 
 
-Data Files and Test Files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test files
+~~~~~~~~~~
 
-Echopype uses Git Large File Storage `(Git LFS) <https://git-lfs.github.com/>`_ 
+Echopype uses Git Large File Storage `(Git LFS) <https://git-lfs.github.com/>`_
 to store the binary data and test files used. Git LFS enables the Github
 repository to remain small while still being able to access
 the large test files needed for testing.
+These files are only needed if you plan to work on the code and run the
+tests locally.
+
+To access the test files, first
+`install Git LFS. <https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage>`_
+
+Cloning echopype after installing Git LFS will automatically pull the test data, but
+if echopype was cloned first, then pull the files from Git LFS by running:
+
+.. code-block:: console
+
+   $ git lfs fetch
 
 .. note::
    Echopype has recently migrated to using Git LFS which required removing the large
@@ -52,16 +64,6 @@ the large test files needed for testing.
    echopype delete their fork and fork a new one. Otherwise, pulling form the original
    repository will result in twice the number of commits due to the re-written history.
 
-
-To access the test files, first
-`install Git LFS. <https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage>`_
-
-Cloning echopype after installing Git LFS will automatically pull the test data, but
-if echopype was cloned first, pull the files from Git LFS by running:
-
-.. code-block:: console
-
-   $ git lfs fetch
 
 
 File conversion
