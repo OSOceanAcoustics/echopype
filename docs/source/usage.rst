@@ -25,17 +25,15 @@ Echopype can be installed from PyPI:
       $ conda install -c conda-forge echopype
 
 
-   When creating an conda environment to work with echopype,
-   use the supplied ``environment.yml`` or do
+When creating an conda environment to work with echopype,
+use the supplied ``environment.yml`` or do
 
-   .. code-block:: console
+.. code-block:: console
 
-      $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
 
+Echopype works for python>=3.7.
 
-.. note::  Echopype uses python 3.8 due to an
-   `issue <https://github.com/OSOceanAcoustics/echopype/issues/83>`_
-   with numcodecs wheels.
 
 
 Test files
