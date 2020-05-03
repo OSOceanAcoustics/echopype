@@ -365,11 +365,20 @@ class ConvertEK60(ConvertBase):
             out_dict['overwrite_plat'] = False
         return out_dict
 
-    def _set_nmea_dict(self):
+    def _set_nmea_dict(self, out_file=None, piece_seq=0):
         # Assemble dict for saving to groups
         out_dict = dict()
+        out_dict['ping_time'] = self.ping_time
         out_dict['nmea_time'] = self.nmea_data.nmea_times
         out_dict['nmea_datagram'] = self.nmea_data.raw_datagrams
+
+        if len(self.range_lengths) > 1:
+            out_dict['path'] = self.all_files[piece_seq]
+            out_dict['ping_slice'] = self.ping_time_split[piece_seq]
+            out_dict['overwrite_plat'] = True if piece_seq == 1 else False
+        else:
+            out_dict['path'] = out_file
+            out_dict['overwrite_plat'] = False
         return out_dict
 
     def _set_beam_dict(self, out_file=None, piece_seq=0):
@@ -447,7 +456,7 @@ class ConvertEK60(ConvertBase):
 
         return beam_dict
 
-    def copyfiles(self, out_file):
+    def copyfiles(self, out_file, overwrite=False):
         """
         Creates a duplicate file so that parsed data can be split into multiple files
         Used for when the length of range changes over time
@@ -463,6 +472,8 @@ class ConvertEK60(ConvertBase):
             new_path = split[0] + '_part%02d' % (n + 1) + split[1]
             self.all_files.append(new_path)     # Resets for every file
             self._zarr_split.append(new_path)   # Persists across files
+            if os.path.exists(new_path) and overwrite:
+                os.remove(new_path) 
             if n > 0:
                 if split[1] == '.zarr':
                     # Handle splitting combined zarr files into more than 2 parts
@@ -477,6 +488,8 @@ class ConvertEK60(ConvertBase):
                 elif split[1] == '.nc':
                     shutil.copyfile(out_file, new_path)
             print("                " + new_path)
+        if os.path.exists(self.all_files[0]) and overwrite:
+            os.remove(self.all_files[0]) 
         os.rename(out_file, self.all_files[0])
 
     def _set_groups(self, raw_file, out_file, save_settings):
@@ -486,13 +499,13 @@ class ConvertEK60(ConvertBase):
         grp.set_toplevel(self._set_toplevel_dict(raw_file))  # top-level group
         grp.set_env(self._set_env_dict())            # environment group
         grp.set_provenance(self._set_prov_dict(raw_file, save_settings['combine_opt']))    # provenance group
-        grp.set_nmea(self._set_nmea_dict())          # platform/NMEA group
         grp.set_sonar(self._set_sonar_dict())        # sonar group
         if len(self.range_lengths) > 1:
-            self.copyfiles(out_file)
+            self.copyfiles(out_file, save_settings['overwrite'])
         for piece in range(len(self.range_lengths)):
             grp.set_beam(self._set_beam_dict(out_file, piece_seq=piece))          # beam group
             grp.set_platform(self._set_platform_dict(out_file, piece_seq=piece))  # platform group
+            grp.set_nmea(self._set_nmea_dict(out_file, piece_seq=piece))          # platform/NMEA group
 
     def _export_nc(self, save_settings, file_idx=0):
         """

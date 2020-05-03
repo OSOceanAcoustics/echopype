@@ -100,7 +100,8 @@ class SetGroupsBase:
             dictionary containing platform parameters
         """
         # Only save platform group if file_path exists
-        if not os.path.exists(self.file_path):
+        save_path = nmea_dict['path'] if 'path' in nmea_dict else self.file_path
+        if not os.path.exists(save_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -118,11 +119,33 @@ class SetGroupsBase:
                                   'standard_name': 'time',
                                   'units': 'seconds since 1900-01-01'})},
                 attrs={'description': 'All NMEA sensor datagrams'})
+
+            # Splits up the time dimension. Used for when range bin length varies with time
+            if 'ping_slice' in nmea_dict:
+                # Slice using ping_time which does not map perfectly with nmea_time.
+                # Rounds ping_time slice values to nmea_time
+                lower = (nmea_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                lower =  time[(np.abs(time - lower)).argmin()]
+                upper = (nmea_dict['ping_slice'][-1] - np.datetime64('1900-01-01T00:00:00')) \
+                            / np.timedelta64(1, 's')
+                upper =  time[(np.abs(time - upper)).argmin()]
+                ds = ds.sel(time=slice(lower, upper))
+
+            # Configure compression settings
+            nc_encoding = {}
+            zarr_encoding = {}
+            if self.compress:
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars}
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
+
             # save to file
             if self.format == '.nc':
-                ds.to_netcdf(path=self.file_path, mode='a', group='Platform/NMEA')
+                ds.to_netcdf(path=save_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
             elif self.format == '.zarr':
                 if not self.append_zarr:
-                    ds.to_zarr(store=self.file_path, mode='a', group='Platform/NMEA')
+                    ds.to_zarr(store=save_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
                 else:
-                    ds.to_zarr(store=self.file_path, mode='a', group='Platform/NMEA', append_dim='time')
+                    ds.to_zarr(store=save_path, mode='a', group='Platform/NMEA', append_dim='time')
