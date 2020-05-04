@@ -1,4 +1,4 @@
-﻿"""
+"""
 Code originally developed for pyEcholab
 (https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
 Contains functions to convert date info from EK60 data files.
