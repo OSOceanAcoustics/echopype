@@ -12,17 +12,11 @@ Echopype can be installed from PyPI:
    $ pip install echopype
 
 
-.. note::
-   What about conda?
-   We are currently working to resolve some build issues with echopype on conda-forge,
-   so please use pip to install the latest version (0.3.1).
+or through conda:
 
+.. code-block:: console
 
-.. or through conda:
-
-   .. code-block:: console
-
-      $ conda install -c conda-forge echopype
+   $ conda install -c conda-forge echopype
 
 
 When creating an conda environment to work with echopype,
