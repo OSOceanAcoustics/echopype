@@ -6,7 +6,12 @@ import pandas as pd
 from echopype.convert import Convert
 
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
-ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.nc'
+ek60_test_path = './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025.nc'
+ek60_csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power18.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power38.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power70.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power120.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power200.csv']
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
 # ek60_raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
                 #  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
@@ -59,3 +64,17 @@ def test_convert_ek60():
     ds_beam.close()
     os.remove(tmp.nc_path)
     del tmp
+
+
+def test_convert_power_echoview():
+    tmp = Convert(ek60_raw_path)
+    tmp.raw2nc()
+
+    channels = []
+    for file in ek60_csv_paths:
+        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
+    test_power = np.stack(channels)
+    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+        assert np.allclose(test_power, ds_beam.backscatter_r[:, :10, 1:], atol=1e-10)
+
+    os.remove(tmp.nc_path)
