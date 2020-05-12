@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import xarray as xr
 from echopype.convert import Convert
 from echopype.model import EchoData
@@ -7,6 +8,12 @@ from echopype.model import EchoData
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
 ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025_Sv_TS.nc'
+# Volume backscattering strength aqcuired from EchoView
+ek60_csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv18.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv38.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv70.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv120.csv',
+                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv200.csv']
 nc_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '.nc')
 Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
@@ -105,3 +112,18 @@ def test_noise_estimates_removal():
     del e_data
     os.remove(nc_path)
     os.remove(Sv_path)
+
+
+# def test_calibration_ek60_echoview():
+#     tmp = Convert(ek60_raw_path)
+#     tmp.raw2nc()
+
+#     # Read .nc file into an EchoData object and calibrate
+#     e_data = EchoData(nc_path)
+#     e_data.calibrate(save=True)
+
+#     channels = []
+#     for file in ek60_csv_paths:
+#         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
+#     test_Sv = np.stack(channels)
+#     assert np.allclose(test_Sv, e_data.Sv.Sv[:, :10, 1:], atol=1e-2)
