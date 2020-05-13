@@ -35,7 +35,7 @@ class ModelEK80(ModelBase):
     @property
     def ch_ids(self):
         if self._ch_ids is None:
-            with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            with self._open_dataset(self.file_path, group="Beam") as ds_beam:
                 self._ch_ids = ds_beam.channel_id.data
         return self._ch_ids
 
@@ -45,30 +45,30 @@ class ModelEK80(ModelBase):
 
     def get_salinity(self):
         if self._salinity is None:
-            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            with self._open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.salinity
 
     def get_temperature(self, path=''):
         path = path if path else self.file_path
         if self._temperature is None:
-            with xr.open_dataset(path, group="Environment") as ds_env:
+            with self._open_dataset(path, group="Environment") as ds_env:
                 return ds_env.temperature
 
     def get_pressure(self):
         if self._pressure is None:
-            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            with self._open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.depth
 
     def get_sound_speed(self):
         """gets sound speed [m/s] using parameters stored in the .nc file.
         Will use a custom path if one is provided
         """
-        with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+        with self._open_dataset(self.file_path, group="Environment") as ds_env:
             return ds_env.sound_speed_indicative
 
     def calc_seawater_absorption(self, src='FG', path=''):
         path = path if path else self.file_path
-        with xr.open_dataset(path, group='Beam') as ds_beam:
+        with self._open_dataset(path, group='Beam') as ds_beam:
             try:
                 f0 = ds_beam.frequency_start
                 f1 = ds_beam.frequency_end
@@ -87,7 +87,7 @@ class ModelEK80(ModelBase):
         Will use a custom path if one is provided
         """
         path = path if path else self.file_path
-        with xr.open_dataset(path, group="Beam") as ds_beam:
+        with self._open_dataset(path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
             return sth
 
@@ -97,7 +97,7 @@ class ModelEK80(ModelBase):
         """
         st = self.calc_sample_thickness(path) if path else self.sample_thickness
         path = path if path else self.file_path
-        with xr.open_dataset(path, group="Beam") as ds_beam:
+        with self._open_dataset(path, group="Beam") as ds_beam:
             if range_bins:
                 range_bin = np.arange(range_bins)
                 range_bin = xr.DataArray(range_bin, coords=[('range_bin', range_bin)])
@@ -116,8 +116,8 @@ class ModelEK80(ModelBase):
             return np.cos(2 * np.pi * (beta / 2 * (t ** 2) + f0 * t))
 
         # Retrieve filter coefficients
-        with xr.open_dataset(self.file_path, group="Vendor") as ds_fil, \
-            xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Vendor") as ds_fil, \
+            self._open_dataset(self.file_path, group="Beam") as ds_beam:
 
             # Get various parameters
             Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
@@ -167,7 +167,7 @@ class ModelEK80(ModelBase):
     def pulse_compression(self):
         """Pulse compression using transmit signal as replica.
         """
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             sample_interval = ds_beam.sample_interval
             backscatter = ds_beam.backscatter_r + ds_beam.backscatter_i * 1j  # Construct complex backscatter
 
@@ -227,7 +227,7 @@ class ModelEK80(ModelBase):
             Filename postfix, default to '_Sv' or '_TS'
         """
 
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        ds_beam = self._open_dataset(self.file_path, group="Beam")
 
         # Check for cw data file
         split = os.path.splitext(self.file_path)
@@ -286,7 +286,7 @@ class ModelEK80(ModelBase):
                 if save:
                     self.Sv_path = self.validate_path(save_path, save_postfix)
                     print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-                    Sv.to_netcdf(path=self.Sv_path, mode="w")
+                    self._save_dataset(Sv, self.Sv_path, mode="w")
             # Save TS calibrated data
             elif mode == 'TS':
                 TS.name = 'TS'
@@ -296,7 +296,7 @@ class ModelEK80(ModelBase):
                 if save:
                     self.TS_path = self.validate_path(save_path, save_postfix)
                     print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
-                    Sv.to_netcdf(path=self.TS_path, mode="w")
+                    self._save_dataset(self.TS, self.TS_path, mode="w")
 
     def calibrate_TS(self, save=False, save_path=None, save_postfix=None):
         self.calibrate(mode='TS', save=save, save_path=save_path, save_postfix=save_postfix)
@@ -321,10 +321,10 @@ class ModelEK80(ModelBase):
         """
         # Open data set for and Beam groups
         if file_path and os.path.exists(file_path):
-            ds_beam = xr.open_dataset(file_path, group="Beam")
+            ds_beam = self._open_dataset(file_path, group="Beam")
         else:
             file_path = self.file_path
-            ds_beam = xr.open_dataset(self.file_path, group="Beam")
+            ds_beam = self._open_dataset(self.file_path, group="Beam")
 
         # Derived params
         wavelength = self.sound_speed / ds_beam.frequency  # wavelength
@@ -361,7 +361,7 @@ class ModelEK80(ModelBase):
                     save_postfix = '_' + mode
                 self.Sv_path = self.validate_path(save_path, save_postfix, file_path)
                 print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-                Sv.to_netcdf(path=self.Sv_path, mode="w")
+                self._save_dataset(Sv, self.Sv_path, mode="w")
         elif mode == 'TS':
             CSp = 10 * np.log10((ds_beam.transmit_power * (10 ** (ds_beam.gain_correction / 10)) ** 2 *
                                 wavelength ** 2) / (16 * np.pi ** 2))
@@ -382,7 +382,7 @@ class ModelEK80(ModelBase):
             if save:
                 self.TS_path = self.validate_path(save_path, save_postfix)
                 print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
-                TS.to_netcdf(path=self.TS_path, mode="w")
+                self._save_dataset(TS, self.TS_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
