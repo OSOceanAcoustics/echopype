@@ -18,7 +18,7 @@ class ModelAZFP(ModelBase):
         self._salinity = salinity    # salinity in [psu]
         self._pressure = pressure    # pressure in [dbars] (approximately equal to depth in meters)
         if temperature is None:
-            with xr.open_dataset(self.file_path, group='Environment') as ds_env:
+            with self._open_dataset(self.file_path, group='Environment') as ds_env:
                 print("Initialize using average temperature recorded by instrument")
                 self._temperature = np.nanmean(ds_env.temperature)   # temperature in [Celsius]
         else:
@@ -41,7 +41,7 @@ class ModelAZFP(ModelBase):
         Tilt of echosounder in degrees
         """
         if self._tilt_angle is None:
-            with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+            with self._open_dataset(self.file_path, group='Beam') as ds_beam:
                 self._tilt_angle = np.rad2deg(np.arccos(ds_beam.cos_tilt_mag.mean().data))
         return self._tilt_angle
 
@@ -61,7 +61,7 @@ class ModelAZFP(ModelBase):
         -------
         An xarray DataArray containing the sea absorption with coordinate frequency
         """
-        with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+        with self._open_dataset(self.file_path, group='Beam') as ds_beam:
             freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
         if src == 'user':
             return uwa.calc_seawater_absorption(freq,
@@ -78,7 +78,7 @@ class ModelAZFP(ModelBase):
 
         This will call ``calc_sound_speed`` since sound speed is `not` part of the raw AZFP .01A data file.
         """
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2
             return sth
 
@@ -94,8 +94,8 @@ class ModelAZFP(ModelBase):
         -------
         An xarray DataArray containing the range with coordinate frequency
         """
-        ds_beam = xr.open_dataset(self.file_path, group='Beam')
-        ds_vend = xr.open_dataset(self.file_path, group='Vendor')
+        ds_beam = self._open_dataset(self.file_path, group='Beam')
+        ds_vend = self._open_dataset(self.file_path, group='Vendor')
 
         range_samples = ds_vend.number_of_samples_per_average_bin   # WJ: same as "range_samples_per_bin" used to calculate "sample_interval"
         pulse_length = ds_beam.transmit_duration_nominal   # units: seconds
@@ -144,7 +144,7 @@ class ModelAZFP(ModelBase):
         print('%s  calibrating data in %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.file_path))
 
         # Open data set for Environment and Beam groups
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        ds_beam = self._open_dataset(self.file_path, group="Beam")
 
         range_meter = self.range
         Sv = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
@@ -166,7 +166,7 @@ class ModelAZFP(ModelBase):
         if save:
             self.Sv_path = self.validate_path(save_path, save_postfix)
             print("{} saving calibrated Sv to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-            self.Sv.to_netcdf(path=self.Sv_path, mode="w")
+            self._save_dataset(self.Sv, self.Sv_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
@@ -187,7 +187,7 @@ class ModelAZFP(ModelBase):
         save_path : str, optional
             Full filename to save the TS calculation results, overwritting the RAWFILE_TS.nc default
         """
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             self.TS = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
                        ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 40 * np.log10(self.range) +
                        2 * self.seawater_absorption * self.range)
@@ -195,4 +195,4 @@ class ModelAZFP(ModelBase):
             if save:
                 self.TS_path = self.validate_path(save_path, save_postfix)
                 print("{} saving calibrated TS to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
-                self.TS.to_netcdf(path=self.TS_path, mode="w")
+                self._save_dataset(self.TS, self.TS_path, mode="w")
