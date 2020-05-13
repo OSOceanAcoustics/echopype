@@ -92,9 +92,15 @@ class ModelEK60(ModelBase):
     def calc_range(self):
         """Calculates range in meters using parameters stored in the .nc file.
         """
+<<<<<<< HEAD
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             range_meter = self.sample_thickness * ds_beam.range_bin - \
                 self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+=======
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            range_meter = self.sample_thickness * ds_beam.range_bin - \
+                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+>>>>>>> ded80de870e13273f48630a47cde6eb9cb7809f8
             range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
