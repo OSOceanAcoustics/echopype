@@ -24,7 +24,7 @@ class ModelEK60(ModelBase):
         self._seawater_absorption = self.calc_seawater_absorption()
 
         # Initialize calibration-related parameters
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             self._gain_correction = ds_beam.gain_correction
             self._equivalent_beam_angle = ds_beam.equivalent_beam_angle
             self._sa_correction = ds_beam.sa_correction
@@ -57,7 +57,7 @@ class ModelEK60(ModelBase):
     # Environmental and derived parameters
     def calc_sound_speed(self, src='file'):
         if src == 'file':
-            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            with self._open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.sound_speed_indicative
         elif src == 'user':
             ss = uwa.calc_sound_speed(salinity=self.salinity,
@@ -71,10 +71,10 @@ class ModelEK60(ModelBase):
         """Returns the seawater absorption values from the .nc file.
         """
         if src == 'file':
-            with xr.open_dataset(self.file_path, group="Environment") as ds_env:
+            with self._open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.absorption_indicative
         elif src == 'user':
-            with xr.open_dataset(self.file_path, group='Beam') as ds_beam:
+            with self._open_dataset(self.file_path, group='Beam') as ds_beam:
                 freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
             return uwa.calc_seawater_absorption(freq,
                                                 temperature=self.temperature,
@@ -85,14 +85,14 @@ class ModelEK60(ModelBase):
             ValueError('Not sure how to update seawater absorption!')
 
     def calc_sample_thickness(self):
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
             return sth
 
     def calc_range(self):
         """Calculates range in meters using parameters stored in the .nc file.
         """
-        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             range_meter = ds_beam.range_bin * self.sample_thickness - \
                         self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
             range_meter = range_meter.where(range_meter > 0, other=0)
@@ -115,7 +115,7 @@ class ModelEK60(ModelBase):
         print('%s  calibrating data in %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.file_path))
 
         # Open data set for Environment and Beam groups
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        ds_beam = self._open_dataset(self.file_path, group="Beam")
 
         # Derived params
         wavelength = self.sound_speed / ds_beam.frequency  # wavelength
@@ -148,7 +148,7 @@ class ModelEK60(ModelBase):
         if save:
             self.Sv_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
-            Sv.to_netcdf(path=self.Sv_path, mode="w")
+            self._save_dataset(Sv, self.Sv_path, mode="w")
 
         # Close opened resources
         ds_beam.close()
@@ -168,8 +168,8 @@ class ModelEK60(ModelBase):
         """
 
         # Open data set for Environment and Beam groups
-        ds_env = xr.open_dataset(self.file_path, group="Environment")
-        ds_beam = xr.open_dataset(self.file_path, group="Beam")
+        ds_env = self._open_dataset(self.file_path, group="Environment")
+        ds_beam = self._open_dataset(self.file_path, group="Beam")
         # Derived params
         wavelength = self.sound_speed / ds_env.frequency  # wavelength
 
@@ -199,7 +199,7 @@ class ModelEK60(ModelBase):
         if save:
             self.TS_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
-            TS.to_netcdf(path=self.TS_path, mode="w")
+            self._save_dataset(TS, self.TS_path, mode="w")
 
         # Close opened resources
         ds_env.close()
