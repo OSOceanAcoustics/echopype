@@ -12,30 +12,49 @@ Echopype can be installed from PyPI:
    $ pip install echopype
 
 
+or through conda:
+
+.. code-block:: console
+
+   $ conda install -c conda-forge echopype
+
+
+When creating an conda environment to work with echopype,
+use the supplied ``environment.yml`` or do
+
+.. code-block:: console
+
+   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+
+Echopype works for python>=3.7.
+
+
+
+Test files
+~~~~~~~~~~
+
+Echopype uses Git Large File Storage `(Git LFS) <https://git-lfs.github.com/>`_
+to store the binary data and test files used. Git LFS enables the Github
+repository to remain small while still being able to access
+the large test files needed for testing.
+These files are only needed if you plan to work on the code and run the
+tests locally.
+
+To access the test files, first
+`install Git LFS. <https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage>`_
+
+Cloning echopype after installing Git LFS will automatically pull the test data, but
+if echopype was cloned first, then pull the files from Git LFS by running:
+
+.. code-block:: console
+
+   $ git lfs fetch
+
 .. note::
-   What about conda?
-   We are currently working to resolve some build issues with echopype on conda-forge,
-   so please use pip to install the latest version (0.3.1).
-
-
-.. or through conda:
-
-   .. code-block:: console
-
-      $ conda install -c conda-forge echopype
-
-
-   When creating an conda environment to work with echopype,
-   use the supplied ``environment.yml`` or do
-
-   .. code-block:: console
-
-      $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
-
-
-.. note::  Echopype uses python 3.8 due to an
-   `issue <https://github.com/OSOceanAcoustics/echopype/issues/83>`_
-   with numcodecs wheels.
+   Echopype has recently migrated to using Git LFS which required removing the large
+   datasets from the history. It is recommended that those who have previously forked
+   echopype delete their fork and fork a new one. Otherwise, pulling form the original
+   repository will result in twice the number of commits due to the re-written history.
 
 
 
