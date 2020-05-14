@@ -10,3 +10,4 @@ xarray
 zarr
 sphinx-automodapi
 numpydoc
+dask[array]
