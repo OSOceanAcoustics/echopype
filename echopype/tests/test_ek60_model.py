@@ -114,16 +114,17 @@ def test_noise_estimates_removal():
     os.remove(Sv_path)
 
 
-# def test_calibration_ek60_echoview():
-#     tmp = Convert(ek60_raw_path)
-#     tmp.raw2nc()
+def test_calibration_ek60_echoview():
+    tmp = Convert(ek60_raw_path)
+    tmp.raw2nc()
 
-#     # Read .nc file into an EchoData object and calibrate
-#     e_data = EchoData(nc_path)
-#     e_data.calibrate(save=True)
+    # Read .nc file into an EchoData object and calibrate
+    e_data = EchoData(nc_path)
+    e_data.calibrate(save=True)
 
-#     channels = []
-#     for file in ek60_csv_paths:
-#         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
-#     test_Sv = np.stack(channels)
-#     assert np.allclose(test_Sv, e_data.Sv.Sv[:, :10, 1:], atol=1e-2)
+    channels = []
+    for file in ek60_csv_paths:
+        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
+    test_Sv = np.stack(channels)
+    # Echoview data is missing 1 range. Also the first few ranges are handled diffrently
+    assert np.allclose(test_Sv[:, :, 7:], e_data.Sv.Sv[:, :10, 8:], atol=1e-8)
