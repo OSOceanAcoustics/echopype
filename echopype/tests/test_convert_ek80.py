@@ -17,6 +17,7 @@ bb_power_test_path = './echopype/test_data/ek80/from_echoview/70 kHz raw power.c
 # raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
             # './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'
+raw_path_2_f = './echopype/test_data/ek80/2019118 group2survey-D20191214-T081342.raw'
 
 
 def test_cw():
@@ -113,3 +114,14 @@ def test_cw_bb():
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
     os.remove(cw_path)
     os.remove(nc_path)
+
+
+def test_freq_subset():
+    # Test converting file with multiple frequencies that do not record power data
+
+    tmp = ConvertEK80(raw_path_2_f)
+    tmp.raw2nc(overwrite=True)
+    # Check if parsed output has the correct shape
+    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+        assert ds_beam.backscatter_r.shape == (2, 4, 1, 191327)
+    os.remove(tmp.nc_path)
