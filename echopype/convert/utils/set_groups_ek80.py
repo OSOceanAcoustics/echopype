@@ -295,10 +295,10 @@ class SetGroupsEK80(SetGroupsBase):
                 bb = xr.Dataset(
                     {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
                                        {'long_name': 'Real part of backscatter power',
-                                        'units': 'Hz'}),
+                                        'units': 'V'}),
                      'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
                                        {'long_name': 'Imaginary part of backscatter power',
-                                        'units': 'dB'})},
+                                        'units': 'V'})},
                     coords={'frequency': (['frequency'], beam_dict['frequency'],
                                                  {'long_name': 'Center frequency of the transducer',
                                                   'units': 'Hz'}),
