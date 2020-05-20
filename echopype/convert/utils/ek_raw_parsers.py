@@ -795,6 +795,9 @@ class SimradXMLParser(_SimradDatagramParser):
                     #  parse the Transceiver section
                     transceiver_xml = t.attrib
 
+                    # Check to see if there is a 2-in-1 transducer attached to a receiver
+                    contains_2in1 = len([1 for _ in root.iter('Transducers')]) < len([1 for _ in t.iter('Transducer')])
+
                     #  parse the Channel section
                     for c in t.iter('Channel'):
                         channel_xml = c.attrib
@@ -815,19 +818,34 @@ class SimradXMLParser(_SimradDatagramParser):
                         #  parse the Transducer section
                         for td in t.iter('Transducer'):
                             xducer_xml = td.attrib
-
-                            #  add the transducer data to the config dict
-                            dict_to_dict(xducer_xml, data['configuration'][channel_id],
-                                    self.transducer_parsing_options)
-
-                            #  now look thru the Transducers for transducer install data for this channel/transducer combo
-                            for t in root.iter('Transducers'):
-                                for c in t.iter('Transducer'):
-                                    if (td.attrib['SerialNumber'] == c.attrib['TransducerSerialNumber']):
-                                        xducer_xml = c.attrib
-                                        #  add the transducer mounting details
-                                        dict_to_dict(xducer_xml, data['configuration'][channel_id],
-                                                self.transducer_parsing_options)
+                            if contains_2in1:
+                                channel_id_short = c.attrib['ChannelIdShort']
+                                transducer_name = xducer_xml['TransducerName']
+                                transducer_frequency = int(int(xducer_xml['Frequency']) / 1000)
+                                channel_frequency = channel_id_short.split(transducer_name)[1]
+                                channel_frequency = \
+                                channel_frequency.split("Serial No: {} -".format(xducer_xml['SerialNumber']))[1].rstrip()
+                                p = re.compile('(\d+)-')
+                                channel_frequency = int(p.findall(channel_frequency)[0])
+                                if channel_frequency == transducer_frequency:
+                                    #  add the transducer data to the config dict
+                                    dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                                 self.transducer_parsing_options)
+                                    xducer_xml = c.attrib
+                                    dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                                 self.transducer_parsing_options)
+                            else:
+                                #  add the transducer data to the config dict
+                                dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                             self.transducer_parsing_options)
+                                #  now look thru the Transducers for transducer install data for this channel/transducer combo
+                                for t in root.iter('Transducers'):
+                                    for c in t.iter('Transducer'):
+                                        if (td.attrib['SerialNumber'] == c.attrib['TransducerSerialNumber']):
+                                            xducer_xml = c.attrib
+                                            #  add the transducer mounting details
+                                            dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                                    self.transducer_parsing_options)
 
                         #  add the header data to the config dict
                         for h in root.iter('Header'):
