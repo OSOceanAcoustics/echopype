@@ -26,6 +26,7 @@ class ConvertEK80(ConvertBase):
         self.power_dict = {}    # dictionary to store power data
         self.angle_dict = {}    # dictionary to store angle data
         self.complex_dict = {}  # dictionary to store complex data
+        self.n_complex_dict = {}  # dictionary to store the number of beams in split-beam complex data
         self.ping_time = []     # list to store ping time
         self.environment = {}   # dictionary to store environment data
         self.parameters = defaultdict(dict)   # Dictionary to hold parameter data
@@ -120,6 +121,8 @@ class ConvertEK80(ConvertBase):
                         self.power_dict[ch_id].append(tmp_datagram_dict[i]['power'])  # append power data
                         self.angle_dict[ch_id].append(tmp_datagram_dict[i]['angle'])  # append angle data
                         self.complex_dict[ch_id].append(tmp_datagram_dict[i]['complex'])  # append complex data
+                        if self.n_complex_dict[ch_id] < 0:
+                            self.n_complex_dict[ch_id] = tmp_datagram_dict[i]['n_complex']  # update n_complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith("NME"):
@@ -167,6 +170,7 @@ class ConvertEK80(ConvertBase):
                 self.power_dict[ch_id] = []
                 self.angle_dict[ch_id] = []
                 self.complex_dict[ch_id] = []
+                self.n_complex_dict[ch_id] = -1
 
                 # Parameters recorded for each frequency for each ping
                 self.parameters[ch_id]['frequency_start'] = []
@@ -312,17 +316,18 @@ class ConvertEK80(ConvertBase):
         b_r_tmp = {}      # Real part of broadband backscatter
         b_i_tmp = {}      # Imaginary part of b 99-6 raodband backscatter
 
-        # Find largest array in order to pad and stack smaller arrays
-        max_len = 0
+        # Find largest dimensions of array in order to pad and stack smaller arrays
+        max_samples = 0
+        max_splits = max([n_c for n_c in self.n_complex_dict.values()])
         for tx in ch_ids:
             if bb:
-                reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, 4))
+                reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, self.n_complex_dict[tx]))
                 b_r_tmp[tx] = np.real(reshaped)
                 b_i_tmp[tx] = np.imag(reshaped)
-                max_len = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_len else max_len
+                max_samples = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_samples else max_samples
             else:
                 b_r_tmp[tx] = np.array(self.power_dict[tx], dtype='float32')
-                max_len = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_len else max_len
+                max_samples = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_samples else max_samples
 
         # Loop through each transducer for channel-specific variables
         bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -343,21 +348,21 @@ class ConvertEK80(ConvertBase):
         for k, c in self.config_datagram['configuration'].items():
             if k not in ch_ids:
                 continue
-            bm_width['beamwidth_receive_major'][c_seq] = c['beam_width_alongship']
-            bm_width['beamwidth_receive_minor'][c_seq] = c['beam_width_athwartship']
-            bm_width['beamwidth_transmit_major'][c_seq] = c['beam_width_alongship']
-            bm_width['beamwidth_transmit_minor'][c_seq] = c['beam_width_athwartship']
-            bm_dir['beam_direction_x'][c_seq] = c['transducer_alpha_x']
-            bm_dir['beam_direction_y'][c_seq] = c['transducer_alpha_y']
-            bm_dir['beam_direction_z'][c_seq] = c['transducer_alpha_z']
-            bm_angle['angle_offset_alongship'][c_seq] = c['angle_offset_alongship']
-            bm_angle['angle_offset_athwartship'][c_seq] = c['angle_offset_athwartship']
-            bm_angle['angle_sensitivity_alongship'][c_seq] = c['angle_sensitivity_alongship']
-            bm_angle['angle_sensitivity_athwartship'][c_seq] = c['angle_sensitivity_athwartship']
-            tx_pos['transducer_offset_x'][c_seq] = c['transducer_offset_x']
-            tx_pos['transducer_offset_y'][c_seq] = c['transducer_offset_y']
-            tx_pos['transducer_offset_z'][c_seq] = c['transducer_offset_z']
-            beam_dict['equivalent_beam_angle'][c_seq] = c['equivalent_beam_angle']
+            bm_width['beamwidth_receive_major'][c_seq] = c.get('beam_width_alongship', np.nan)
+            bm_width['beamwidth_receive_minor'][c_seq] = c.get('beam_width_athwartship', np.nan)
+            bm_width['beamwidth_transmit_major'][c_seq] = c.get('beam_width_alongship', np.nan)
+            bm_width['beamwidth_transmit_minor'][c_seq] = c.get('beam_width_athwartship', np.nan)
+            bm_dir['beam_direction_x'][c_seq] = c.get('transducer_alpha_x', np.nan)
+            bm_dir['beam_direction_y'][c_seq] = c.get('transducer_alpha_y', np.nan)
+            bm_dir['beam_direction_z'][c_seq] = c.get('transducer_alpha_z', np.nan)
+            bm_angle['angle_offset_alongship'][c_seq] = c.get('angle_offset_alongship', np.nan)
+            bm_angle['angle_offset_athwartship'][c_seq] = c.get('angle_offset_athwartship', np.nan)
+            bm_angle['angle_sensitivity_alongship'][c_seq] = c.get('angle_sensitivity_alongship', np.nan)
+            bm_angle['angle_sensitivity_athwartship'][c_seq] = c.get('angle_sensitivity_athwartship', np.nan)
+            tx_pos['transducer_offset_x'][c_seq] = c.get('transducer_offset_x', np.nan)
+            tx_pos['transducer_offset_y'][c_seq] = c.get('transducer_offset_y', np.nan)
+            tx_pos['transducer_offset_z'][c_seq] = c.get('transducer_offset_z', np.nan)
+            beam_dict['equivalent_beam_angle'][c_seq] = c.get('equivalent_beam_angle', np.nan)
             # TODO: gain is 5 values in test dataset
             beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
             beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
@@ -367,20 +372,22 @@ class ConvertEK80(ConvertBase):
             # Pad each channel with nan so that they can be stacked
             # Broadband
             if bb:
-                diff = max_len - b_r_tmp[k].shape[1]
-                beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff), (0, 0)),
+                diff_samples = max_samples - b_r_tmp[k].shape[1]
+                diff_splits = max_splits - b_r_tmp[k].shape[2] if b_r_tmp[k].ndim > 2 else max_splits - 1
+                beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff_samples), (0, diff_splits)),
                                                     mode='constant', constant_values=np.nan))
-                beam_dict['backscatter_i'].append(np.pad(b_i_tmp[k], ((0, 0), (0, diff), (0, 0)),
+                beam_dict['backscatter_i'].append(np.pad(b_i_tmp[k], ((0, 0), (0, diff_samples), (0, diff_splits)),
                                                     mode='constant', constant_values=np.nan))
                 beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
                 beam_dict['frequency_end'].append(self.parameters[k]['frequency_end'])
             # Continuous wave
             else:
-                diff = max_len - b_r_tmp[k].shape[1]
-                beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff)),
+                diff_samples = max_samples - b_r_tmp[k].shape[1]
+                diff_splits = max_splits - b_r_tmp[k].shape[2] if b_r_tmp[k].ndim > 2 else max_splits - 1
+                beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff_samples)),
                                                             mode='constant', constant_values=np.nan))
                 beam_dict['angle_dict'].append(np.pad(np.array(self.angle_dict[k], dtype='float32'),
-                                                        ((0, 0), (0, diff), (0, 0)),
+                                                        ((0, 0), (0, diff_samples), (0, diff_splits)),
                                                         mode='constant', constant_values=np.nan))
             c_seq += 1
 
@@ -394,7 +401,7 @@ class ConvertEK80(ConvertBase):
         else:
             beam_dict['backscatter_r'] = np.stack(beam_dict['backscatter_r'])
             beam_dict['angle_dict'] = np.stack(beam_dict['angle_dict'])
-        beam_dict['range_bin'] = np.arange(max_len)
+        beam_dict['range_bin'] = np.arange(max_samples)
         beam_dict['beam_width'] = bm_width
         beam_dict['beam_direction'] = bm_dir
         beam_dict['beam_angle'] = bm_angle
