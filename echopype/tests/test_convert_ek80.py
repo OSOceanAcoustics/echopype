@@ -73,6 +73,7 @@ def test_bb():
     tmp = ConvertEK80(raw_path_bb)
     tmp.raw2nc()
 
+    # Compare with EchoView exported data
     bb_test_df = pd.read_csv(bb_power_test_path, header=None, skiprows=[0])
     bb_test_df_r = bb_test_df.iloc[::2,14:]
     bb_test_df_i = bb_test_df.iloc[1::2,14:]
@@ -111,5 +112,7 @@ def test_cw_bb():
 
     cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
+    assert os.path.exists(cw_path)
+    assert os.path.exists(nc_path)
     os.remove(cw_path)
     os.remove(nc_path)
