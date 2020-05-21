@@ -318,7 +318,8 @@ class ConvertEK80(ConvertBase):
 
         # Find largest dimensions of array in order to pad and stack smaller arrays
         max_samples = 0
-        max_splits = max([n_c for n_c in self.n_complex_dict.values()])
+        # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
+        max_splits = max([n_c for n_c in self.n_complex_dict.values()]) if bb else 4
         for tx in ch_ids:
             if bb:
                 reshaped = np.array(self.complex_dict[tx]).reshape((ping_num, -1, self.n_complex_dict[tx]))
