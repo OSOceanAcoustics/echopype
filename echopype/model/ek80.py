@@ -177,7 +177,10 @@ class ModelEK80(ModelBase):
             for ch in range(ds_beam.frequency.size):
                 # tmp_x = np.fft.fft(backscatter[i].dropna('range_bin'))
                 # tmp_y = np.fft.fft(np.flipud(np.conj(ytx[i])))
-                tmp_b = backscatter[ch].dropna('range_bin')
+                # remove quadrants that are nans across all samples
+                tmp_b = backscatter[ch].dropna('range_bin', how='all')
+                # remove samples that are nans across all quadrants
+                tmp_b = tmp_b.dropna('quadrant', how='all')
                 # tmp_b = tmp_b[:, 0, :]        # 1 ping
                 tmp_y = np.flipud(np.conj(self.ytx[ch]))
 
@@ -197,7 +200,7 @@ class ModelEK80(ModelBase):
                 tau_constants.append(np.sum(ptxa) / (np.max(ptxa)))
             self._tau_effective = np.array(tau_constants) * sample_interval
             # Pad nans so that each channel has the same range_bin length
-            largest_range_bin = max(bc.shape for bc in backscatter_compressed)[2]
+            largest_range_bin = max([bc.shape[2] for bc in backscatter_compressed])
             for i, ds in enumerate(backscatter_compressed):
                 pad_width = largest_range_bin - ds.shape[2]
                 backscatter_compressed[i] = xr.apply_ufunc(lambda x: np.pad(x, ((0,0), (0,0), (0,pad_width)),
