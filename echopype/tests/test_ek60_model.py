@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from echopype.convert import Convert
+from echopype.model import ModelEK60
 from echopype.model import EchoData
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
@@ -87,7 +88,6 @@ def test_noise_estimates_removal():
 
     # Remove noise using .remove_noise()
     e_data.remove_noise()
-
     # Remove noise manually
     Sv_clean_test = np.empty(proc_data.Sv.shape)
     for ff, freq in enumerate(proc_data.frequency.values):
@@ -128,3 +128,30 @@ def test_calibration_ek60_echoview():
     test_Sv = np.stack(channels)
     # Echoview data is missing 1 range. Also the first few ranges are handled diffrently
     assert np.allclose(test_Sv[:, :, 7:], e_data.Sv.Sv[:, :10, 8:], atol=1e-8)
+
+
+def test_calibrate():
+    # General calibration test
+
+    # Use raw files for environment parameters
+    tmp = Convert(ek60_raw_path)
+    tmp.raw2nc(overwrite=True)
+    # Overwrite beam group with array of 1
+    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+        backscatter_r = np.full_like(ds_beam.backscatter_r, 1)
+        freq = ds_beam.backscatter_r.frequency
+        ping_time = ds_beam.ping_time
+        range_bin = ds_beam.range_bin
+
+    data = xr.DataArray(backscatter_r, coords=[('frequency', freq),
+                                               ('ping_time', ping_time),
+                                               ('range_bin', range_bin)])
+    data.name = 'backscatter_r'
+    ds = data.to_dataset()
+    ds.to_netcdf(tmp.nc_path, mode='a', group='Beam')
+
+    # Run Sv calibration on array of 1
+    e_data = ModelEK60(tmp.nc_path)
+    e_data.calibrate()
+    # Check if Sv is strictly increasing by differentiating along range
+    assert np.all(np.diff(e_data.Sv.Sv) >= 0)
