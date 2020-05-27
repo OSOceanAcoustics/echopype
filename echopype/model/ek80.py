@@ -284,7 +284,7 @@ class ModelEK80(ModelBase):
             if mode == 'Sv':
                 Sv.name = 'Sv'
                 Sv = Sv.to_dataset()
-                Sv['range'] = (('frequency', 'range_bin'), ranges)
+                Sv['ranges'] = (('frequency', 'range_bin'), ranges)
                 self.Sv = Sv
                 if save:
                     self.Sv_path = self.validate_path(save_path, save_postfix)
