@@ -99,18 +99,20 @@ def test_remove_noise():
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
     e_data = EchoData(tmp.nc_path)
-    freq, npings, nrange = [100000], 1, 100
+    freq, npings, nrange = [100000], 2, 100
     ping_index = np.arange(npings)
     range_bin = np.arange(nrange)
     # Test noise rsemoval on upside-down parabola
-    data = - np.linspace(-5, 5, nrange) ** 2
+    data = np.ones(nrange)
     # Insert noise points
-    np.put(data, 50, -30)
-    np.put(data, 90, -30)
+    np.put(data, 30, -30)
+    np.put(data, 60, -30)
+    # Add more pings
+    data = np.array([data] * npings)
     # Make DataArray
-    Sv = xr.DataArray([[data]], coords=[('frequency', freq),
-                                        ('ping_time', ping_index),
-                                        ('range_bin', range_bin)])
+    Sv = xr.DataArray([data], coords=[('frequency', freq),
+                                      ('ping_time', ping_index),
+                                      ('range_bin', range_bin)])
     Sv.name = "Sv"
     ds = Sv.to_dataset()
     e_data.Sv = ds
@@ -121,12 +123,11 @@ def test_remove_noise():
                                                   ('range_bin', np.arange(nrange))])
 
     e_data._seawater_absorption = xr.DataArray([0.1], coords=[('frequency', freq)])
-    e_data.noise_est_range_bin_size = 1
     # Run noise removal
     e_data.remove_noise()
     # Test if noise points are are nan
-    assert np.isnan(e_data.Sv_clean.Sv[0][0][50])
-    assert np.isnan(e_data.Sv_clean.Sv[0][0][90])
+    assert np.isnan(e_data.Sv_clean.Sv[0][0][30])
+    assert np.isnan(e_data.Sv_clean.Sv[0][0][60])
 
     # delete created nc file
     os.remove(tmp.nc_path)
@@ -137,7 +138,6 @@ def test_get_MVBS():
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
     e_data = EchoData(tmp.nc_path)
-    np.random.seed(1)
     nfreq, npings, nrange = 2, 10, 100
     data = np.ones((nfreq, npings, nrange))
     freq_index = np.arange(nfreq)
@@ -157,6 +157,7 @@ def test_get_MVBS():
     # pings = npings / MVBS_ping_size, ranges = nrange / MVBS_range_bin_size
     shape = (nfreq, npings / MVBS_ping_size, nrange / MVBS_range_bin_size)
     assert e_data.MVBS.MVBS.shape == shape
+    assert np.all(e_data.MVBS.MVBS.round() == 1)
 
     # Try new ping and range_bin tile size
     # reset the necessary variables
@@ -169,5 +170,19 @@ def test_get_MVBS():
     # Test if indivisible tile sizes are rounded up property
     shape = (nfreq, np.ceil(npings / MVBS_ping_size), np.ceil(nrange / MVBS_range_bin_size))
     assert e_data.MVBS.MVBS.shape == shape
+    assert np.all(e_data.MVBS.MVBS.round() == 1)
+
+    # Test averaging on random data
+    np.random.seed(1)
+    e_data.Sv = (Sv[:1, :1, :nrange] * np.random.random(nrange)).to_dataset()
+    e_data.sample_thickness = xr.DataArray([1], coords=[('frequency', [0])])
+    e_data.MVBS = None
+    e_data.MVBS_range_bin_size = None
+    # Output will be a single tile
+    MVBS_ping_size, MVBS_range_bin_size = 1, nrange
+    e_data.get_MVBS(MVBS_ping_size=MVBS_ping_size, MVBS_range_bin_size=MVBS_range_bin_size)
+    # Tests averaging. Sv is avearged in linear domain then converted back
+    assert e_data.MVBS.MVBS == (10 * np.log10((10 ** (e_data.Sv.Sv / 10)).mean('range_bin')))
+
     # delete created nc file
     os.remove(tmp.nc_path)
