@@ -26,10 +26,35 @@ use the supplied ``environment.yml`` or do
 
    $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
 
+Echopype works for python>=3.7.
 
-.. note::  Echopype currently uses python 3.8 due to an
-   `issue <https://github.com/OSOceanAcoustics/echopype/issues/83>`_
-   with numcodecs wheels.
+
+
+Test files
+~~~~~~~~~~
+
+Echopype uses Git Large File Storage `(Git LFS) <https://git-lfs.github.com/>`_
+to store the binary data and test files used. Git LFS enables the Github
+repository to remain small while still being able to access
+the large test files needed for testing.
+These files are only needed if you plan to work on the code and run the
+tests locally.
+
+To access the test files, first
+`install Git LFS. <https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage>`_
+
+Cloning echopype after installing Git LFS will automatically pull the test data, but
+if echopype was cloned first, then pull the files from Git LFS by running:
+
+.. code-block:: console
+
+   $ git lfs fetch
+
+.. note::
+   Echopype has recently migrated to using Git LFS which required removing the large
+   datasets from the history. It is recommended that those who have previously forked
+   echopype delete their fork and fork a new one. Otherwise, pulling form the original
+   repository will result in twice the number of commits due to the re-written history.
 
 
 
@@ -46,9 +71,10 @@ Echopype currently supports conversion from
 
 into netCDF (stable) or zarr (beta) files.
 
-In the `ek80 <https://github.com/OSOceanAcoustics/echopype/tree/ek80>`_ development branch
-we are actively developing file conversion and processing routines
-such as pulse compression and calibration for the broadband Simrad EK80 ``.raw`` files.
+Support for ``.raw`` files from the broadband Simrad EK80 echosounder is currently
+in the development branch
+`combine-refactor <https://github.com/OSOceanAcoustics/echopype/tree/convert-refactor>`_
+and we will merge it to the master branch once it's ready for alpha testing.
 
 We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).

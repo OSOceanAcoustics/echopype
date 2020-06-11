@@ -2,6 +2,7 @@ import os
 import shutil
 from collections import defaultdict
 import numpy as np
+import xarray as xr
 from datetime import datetime as dt
 import pytz
 import pynmea2
@@ -188,24 +189,23 @@ class ConvertEK80(ConvertBase):
                 if all(x is None for x in self.complex_dict[ch_id]):
                     self.complex_dict[ch_id] = None
 
-    """ Sorts the channel ids into broadband and continuous wave channel ids
-
-        Returns
-        -------
-        2 lists containing the bb channel ids and the cw channel ids
-    """
     def sort_ch_ids(self):
-        if self.complex_dict:
-            bb_ch_ids = []
-            cw_ch_ids = []
-            for k, v in self.complex_dict.items():
-                if v is not None:
-                    bb_ch_ids.append(k)
-                else:
-                    cw_ch_ids.append(k)
+        """ Sorts the channel ids into broadband and continuous wave channel ids
+
+            Returns
+            -------
+            2 lists containing the bb channel ids and the cw channel ids
+        """
+        bb_ch_ids = []
+        cw_ch_ids = []
+        for k, v in self.complex_dict.items():
+            if v is not None:
+                bb_ch_ids.append(k)
+            else:
+                cw_ch_ids.append(k)
         return bb_ch_ids, cw_ch_ids
 
-        # Functions to set various dictionaries
+    # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
         # filename must have "-" as the field separator for the last 2 fields. Uses first file
         filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
@@ -551,6 +551,45 @@ class ConvertEK80(ConvertBase):
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
 
+    def _combine_files(self):
+        # Do nothing if combine_opt is true if there is nothing to combine
+        if not self._temp_path:
+            return
+        save_path = self.save_path
+        split = os.path.splitext(self.save_path)
+        all_temp = os.listdir(self._temp_dir)
+        # Group files into cw (index 0) and broadband files (index 1)
+        file_groups = [[], []]
+        for f in all_temp:
+            if "_cw" in f:
+                file_groups[0].append(os.path.join(self._temp_dir, f))
+            else:
+                file_groups[1].append(os.path.join(self._temp_dir, f))
+
+        for n, file_group in enumerate(file_groups):
+            if len(file_groups) > 1:
+                if not file_groups[n]:
+                    # Skip saving either bb or cw if only one or the other is present
+                    continue
+                save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
+            # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
+                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
+                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+            with xr.open_dataset(file_group[0], group='Environment') as ds_env:
+                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
+                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            with xr.open_mfdataset(file_group, group='Platform/NMEA',
+                                   combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
+                ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
+
+        # Delete temporary folder:
+        shutil.rmtree(self._temp_dir)
+
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
         """
@@ -572,4 +611,4 @@ class ConvertEK80(ConvertBase):
                 self._append_zarr = True if file_idx and combine_opt else False
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
-            self.combine_files('EK80')
+            self._combine_files()

@@ -7,6 +7,7 @@ import os
 import shutil
 from collections import defaultdict
 import numpy as np
+import xarray as xr
 from datetime import datetime as dt
 import pytz
 import pynmea2
@@ -561,6 +562,44 @@ class ConvertEK60(ConvertBase):
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
 
+    def _combine_files(self):
+        # Do nothing if combine_opt is true if there is nothing to combine
+        if not self._temp_path:
+            return
+        save_path = self.save_path
+        split = os.path.splitext(self.save_path)
+        all_temp = os.listdir(self._temp_dir)
+        file_groups = [[]]
+        # Split the files in the temp directory into range_bin groups
+        i = 0
+        while i < len(all_temp):
+            file_groups[-1].append(os.path.join(self._temp_dir, all_temp[i]))
+            if "_part" in all_temp[i]:
+                i += 1
+                file_groups.append([os.path.join(self._temp_dir, all_temp[i])])
+            i += 1
+        for n, file_group in enumerate(file_groups):
+            if len(file_groups) > 1:
+                # Construct a new path with _part[n] if there are multiple range_bin lengths
+                save_path = split[0] + '_part%02d' % (n + 1) + split[1]
+            # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
+                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
+                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+            with xr.open_dataset(file_group[0], group='Environment') as ds_env:
+                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
+                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            with xr.open_mfdataset(file_group, group='Platform/NMEA',
+                                   combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
+                ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
+
+        # Delete temporary folder:
+        shutil.rmtree(self._temp_dir)
+
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from .raw format to a netCDF4 or Zarr file
 
@@ -598,4 +637,4 @@ class ConvertEK60(ConvertBase):
                 self._append_zarr = True if file_idx and combine_opt else False
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
-            self.combine_files('EK60')
+            self._combine_files()

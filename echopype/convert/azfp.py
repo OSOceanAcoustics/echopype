@@ -2,6 +2,7 @@ import os
 import shutil
 from collections import defaultdict
 import numpy as np
+import xarray as xr
 import xml.dom.minidom
 import math
 from datetime import datetime as dt
@@ -592,7 +593,7 @@ class ConvertAZFP(ConvertBase):
         """
         out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
         raw_file = self.filename[file_idx]
-        
+
         if os.path.exists(out_file) and save_settings['overwrite'] and not self._append_zarr:
             print("          overwriting: " + out_file)
             shutil.rmtree(out_file)
@@ -603,6 +604,34 @@ class ConvertAZFP(ConvertBase):
             print(f'          ... this file has already been converted to .zarr, conversion not executed.')
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
+
+    def _combine_files(self):
+        # Do nothing if combine_opt is true if there is nothing to combine
+        if not self._temp_path:
+            return
+        save_path = self.save_path
+        all_temp = os.listdir(self._temp_dir)
+        file_groups = [[]]
+        file_groups[0] = [os.path.join(self._temp_dir, file) for file in all_temp]
+        for file_group in file_groups:
+            # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
+                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
+                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+            with xr.open_mfdataset(file_group, group='Environment', combine='by_coords') as ds_env:
+                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+            with xr.open_dataset(file_group[0], group='Platform') as ds_plat:
+                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            # EK60 does not have the "vendor specific" group
+            with xr.open_mfdataset(file_group, group='Vendor', combine='by_coords') as ds_vend:
+                ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
+
+        # Delete temporary folder:
+        shutil.rmtree(self._temp_dir)
 
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from raw 01A format to a netCDF4 or Zarr file
@@ -642,4 +671,4 @@ class ConvertAZFP(ConvertBase):
                 self._append_zarr = True if file_idx and combine_opt else False
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
-            self.combine_files('AZFP')
+            self._combine_files()
