@@ -1,11 +1,10 @@
 matplotlib
 netCDF4
 numpy
-pandas
 pynmea2
 pytz
-scipy
 xarray
 zarr
+# build docs
 sphinx-automodapi
 numpydoc
