@@ -224,7 +224,7 @@ class ModelBase(object):
         # issue warning when subclass methods not available
         print('Target strength calibration has not been implemented for this sonar model!')
 
-    def validate_path(self, save_path, save_postfix, file_path=''):
+    def validate_path(self, save_path=None, save_postfix='_Sv', file_path=''):
         """Creates a directory if it doesnt exist. Returns a valid save path.
         """
         def _assemble_path():
@@ -333,7 +333,7 @@ class ModelBase(object):
         along each column of tiles.
 
         See method noise_estimates() for details of noise estimation.
-        Reference: De Robertis & Higginbottom, 2017, ICES Journal of Marine Sciences
+        Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
 
         Parameters
         ----------
@@ -444,13 +444,6 @@ class ModelBase(object):
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
 
-        # TODO: now adding the below so that MVBS can be calculated directly
-        #  from the cleaned Sv without saving and loading Sv_clean from disk.
-        #  However this is not explicit to the user. A better way to do this
-        #  is to change get_MVBS() to first check existence of self.Sv_clean
-        #  when `_Sv_clean` is specified as the source_postfix.
-        if not print_src:  # remove noise from Sv stored in memory
-            self.Sv = Sv_clean.copy()
         if save:
             self.Sv_clean_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
@@ -562,7 +555,7 @@ class ModelBase(object):
         Parameters
         ----------
         source_postfix : str
-            postfix of the Sv file used to calculate MVBS, default to '_Sv'
+            postfix of the Sv file used to calculate MVBS, can be '_Sv' or '_Sv_clean'. Default to '_Sv'
         source_path : str
             path of Sv file used to calculate MVBS, can be one of the following:
             - None (default):
@@ -594,7 +587,12 @@ class ModelBase(object):
         else:
             print_src = True
 
-        proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
+        if source_postfix == '_Sv_clean':
+            if self.Sv_clean is None:
+                self.remove_noise()
+            proc_data = self.Sv_clean
+        else:
+            proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
 
         if print_src:
             if self.Sv_path is not None:
