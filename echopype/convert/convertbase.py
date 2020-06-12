@@ -178,74 +178,8 @@ class ConvertBase:
             self._temp_path = [os.path.join(self._temp_dir, f + file_format) for f in orig_files]
 
     def combine_files(self, echo_type):
-        # Do nothing if combine_opt is true if there is nothing to combine
-        if not self._temp_path:
-            return
-        save_path = self.save_path
-        split = os.path.splitext(self.save_path)
-        all_temp = os.listdir(self._temp_dir)
-        i = 0
-        file_groups = [[]]
-        if echo_type == 'EK60':
-            # Split the files in the temp directory into range_bin groups
-            while i < len(all_temp):
-                file_groups[-1].append(os.path.join(self._temp_dir, all_temp[i]))
-                if "_part" in all_temp[i]:
-                    i += 1
-                    file_groups.append([os.path.join(self._temp_dir, all_temp[i])])
-                i += 1
-        elif echo_type == 'EK80':
-            # Groups for cw and bb. Index 0 is cw, index 1 is bb
-            file_groups = [[], []]
-            for f in all_temp:
-                if "_cw" in f:
-                    file_groups[0].append(os.path.join(self._temp_dir, f))
-                else:
-                    file_groups[1].append(os.path.join(self._temp_dir, f))
-        elif echo_type == 'AZFP':
-            file_groups[0] = [os.path.join(self._temp_dir, file) for file in all_temp]
-        for n, file_group in enumerate(file_groups):
-            if len(file_groups) > 1:
-                if echo_type == 'EK60':
-                    # Construct a new path with _part[n] if there are multiple range_bin lengths (EK60 only)
-                    save_path = split[0] + '_part%02d' % (n + 1) + split[1]
-                elif echo_type == 'EK80':
-                    if not file_groups[n]:
-                        # Skip saving either bb or cw if only one or the other is present
-                        continue
-                    save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
-            # Open multiple files as one dataset of each group and save them into a single file
-            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
-                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
-            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
-                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
-            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
-                compression_settings = dict(zlib=True, complevel=4)
-                encoding = {var: compression_settings for var in ds_beam.data_vars}
-                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
-            if echo_type == 'EK60' or echo_type == 'EK80':
-                # Environment does not have dimension ping time for EK60 and Ek80
-                with xr.open_dataset(file_group[0], group='Environment') as ds_env:
-                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
-                # Platform group contains unique data in each file unlike with AZFP
-                with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
-                    ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
-                # AZFP does not have NMEA data
-                with xr.open_mfdataset(file_group, group='Platform/NMEA',
-                                    combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
-                    ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
-            if echo_type == 'AZFP':
-                with xr.open_mfdataset(file_group, group='Environment', combine='by_coords') as ds_env:
-                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
-                # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-                with xr.open_dataset(file_group[0], group='Platform') as ds_plat:
-                    ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
-                # EK60 does not have the "vendor specific" group
-                with xr.open_mfdataset(file_group, group='Vendor', combine='by_coords') as ds_vend:
-                    ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
-
-        # Delete temporary folder:
-        shutil.rmtree(self._temp_dir)
+        # Combines NetCDF files
+        print("Combining is not supported for this echosounder model")
 
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Wrapper for saving to netCDF.
