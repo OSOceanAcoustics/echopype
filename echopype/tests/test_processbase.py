@@ -2,15 +2,15 @@ import os
 import numpy as np
 import xarray as xr
 from echopype.convert.ek60 import ConvertEK60
-from echopype.model import EchoData
+from echopype.process import Process
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 
 
 def test_validate_path():
-    # Create model object
+    # Create process object
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc(overwrite=True)
-    e_data = EchoData(tmp.nc_path)
+    e_data = Process(tmp.nc_path)
 
     # Create save folder
     orig_dir = './echopype/test_data/ek60'
@@ -34,10 +34,10 @@ def test_validate_path():
 
 
 def test_get_tile_params():
-    # Create model object
+    # Create process object
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
-    e_data = EchoData(tmp.nc_path)
+    e_data = Process(tmp.nc_path)
 
     # Create sample DataArray
     nfreq, npings, nrange = 2, 10, 50
@@ -69,10 +69,10 @@ def test_get_tile_params():
 
 
 def test_get_proc_Sv():
-    # Create model object
+    # Create process object
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
-    e_data = EchoData(tmp.nc_path)
+    e_data = Process(tmp.nc_path)
 
     e_data.calibrate(save=True)
     ds = xr.open_dataset(e_data.Sv_path)
@@ -95,10 +95,10 @@ def test_get_proc_Sv():
 
 
 def test_remove_noise():
-    # Create model object
+    # Create process object
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
-    e_data = EchoData(tmp.nc_path)
+    e_data = Process(tmp.nc_path)
     freq, npings, nrange = [100000], 2, 100
     ping_index = np.arange(npings)
     range_bin = np.arange(nrange)
@@ -134,10 +134,10 @@ def test_remove_noise():
 
 
 def test_get_MVBS():
-    # Create model object
+    # Create process object
     tmp = ConvertEK60(ek60_raw_path)
     tmp.raw2nc()
-    e_data = EchoData(tmp.nc_path)
+    e_data = Process(tmp.nc_path)
     nfreq, npings, nrange = 2, 10, 100
     data = np.ones((nfreq, npings, nrange))
     freq_index = np.arange(nfreq)
