@@ -10,6 +10,7 @@ from echopype.utils import uwa
 
 import numpy as np
 import xarray as xr
+import zarr
 
 
 class ModelBase(object):
@@ -27,6 +28,8 @@ class ModelBase(object):
         self.TS = None            # calibrated target strength
         self.TS_path = None       # path to save TS calculation results
         self.MVBS = None          # mean volume backscattering strength
+        self._file_format = None
+        self._open_dataset = None
         self._salinity = None
         self._temperature = None
         self._pressure = None
@@ -34,6 +37,9 @@ class ModelBase(object):
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
+
+        self._set_file_format()
+        self._set_open_dataset()
 
     @property
     def salinity(self):
@@ -125,8 +131,30 @@ class ModelBase(object):
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
             self.toplevel.close()
+        elif ext == '.zarr':
+            self.toplevel = zarr.open(self._file_path)
+
+            # Get .zarr filenames for storing processed data if computation is performed
+            self.Sv_path = os.path.join(os.path.dirname(self.file_path),
+                                        os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv.zarr')
+            self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
+                                              os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv_clean.zarr')
+            self.TS_path = os.path.join(os.path.dirname(self.file_path),
+                                        os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.zarr')
+            self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
+                                          os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.zarr')
+
+            # Raise error if the file format convention does not match
+            if self.toplevel.attrs['sonar_convention_name'] != 'SONAR-netCDF4':
+                raise ValueError('netCDF file convention not recognized.')
         else:
             raise ValueError('Data file format not recognized.')
+    
+    def _set_file_format(self):
+        if self.file_path.endswith('.nc'):
+            self._file_format = 'netcdf'
+        elif self.file_path.endswith('.zarr'):
+            self._file_format = 'zarr'
 
     def calc_sound_speed(self, src='file'):
         """Base method to be overridden for calculating sound_speed for different sonar models
@@ -285,7 +313,7 @@ class ModelBase(object):
             Sv_path = self.validate_path(save_path=source_path,  # wrangle _Sv path
                                               save_postfix=source_postfix)
             if os.path.exists(Sv_path):  # _Sv exists
-                self.Sv = xr.open_dataset(Sv_path)  # load _Sv file
+                self.Sv = self._open_dataset(Sv_path)  # load _Sv file
             else:
                 # if path specification given but file do not exist:
                 if (source_path is not None) or (source_postfix != '_Sv'):
@@ -419,7 +447,7 @@ class ModelBase(object):
         if save:
             self.Sv_clean_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
-            Sv_clean.to_netcdf(self.Sv_clean_path)
+            self._save_dataset(Sv_clean, self.Sv_clean_path)
 
         # Close opened resources
         proc_data.close()
@@ -622,7 +650,31 @@ class ModelBase(object):
         if save:
             self.MVBS_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
-            MVBS.to_netcdf(self.MVBS_path)
+            self._save_dataset(MVBS, self.MVBS_path)
 
         # Close opened resources
         proc_data.close()
+    
+    def _save_dataset(self, ds, path, mode="w"):
+        """Save dataset to the appropriate formats.
+
+        A utility method to use the correct function to save the dataset,
+        based on the input file format.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            xarray dataset object
+        path : str
+            output file
+        """
+        if self._file_format == 'netcdf':
+            ds.to_netcdf(path, mode=mode)
+        elif self._file_format == 'zarr':
+            ds.to_zarr(path, mode=mode)
+
+    def _set_open_dataset(self):
+        if self._file_format == 'netcdf':
+            self._open_dataset = xr.open_dataset
+        elif self._file_format == 'zarr':
+            self._open_dataset = xr.open_zarr
