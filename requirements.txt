@@ -8,3 +8,4 @@ zarr
 # build docs
 sphinx-automodapi
 numpydoc
+dask[array]
