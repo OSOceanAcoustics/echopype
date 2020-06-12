@@ -89,6 +89,7 @@ class ConvertBase:
             self.fil_coeffs = defaultdict(dict)
             self.fil_df = defaultdict(dict)
             self.ch_ids = []
+            self.recorded_ch_ids = []
         elif echo_type == 'AZFP':
             self.unpacked_data = None
 

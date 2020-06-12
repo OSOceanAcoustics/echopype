@@ -34,6 +34,7 @@ class ConvertEK80(ConvertBase):
         self.fil_coeffs = defaultdict(dict)   # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
         self.ch_ids = []                      # List of all channel ids
+        self.recorded_ch_ids = []
 
     def _read_datagrams(self, fid):
         """
@@ -49,11 +50,6 @@ class ConvertEK80(ConvertBase):
         """
 
         num_datagrams_parsed = 0
-        tmp_num_ch_per_ping_parsed = 0   # number of channels of the same ping parsed
-                                         # this is used to control saving only pings
-                                         # that have all freq channels present
-        tmp_datagram_dict = []  # tmp list of datagrams, only saved to actual output
-                                # structure if data from all freq channels are present
 
         while True:
             try:
@@ -76,6 +72,10 @@ class ConvertEK80(ConvertBase):
                     # If frequency_start/end is not found, fill values with frequency
                     if 'frequency_start' not in current_parameters:
                         self.parameters[current_parameters['channel_id']]['frequency'].append(
+                            int(current_parameters['frequency']))
+                        self.parameters[current_parameters['channel_id']]['frequency_start'].append(
+                            int(current_parameters['frequency']))
+                        self.parameters[current_parameters['channel_id']]['frequency_end'].append(
                             int(current_parameters['frequency']))
                     else:
                         self.parameters[current_parameters['channel_id']]['frequency_start'].append(
@@ -100,27 +100,17 @@ class ConvertEK80(ConvertBase):
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # Reset counter and storage for parsed number of channels
-                # if encountering datagram from the first channel
-                if curr_ch_id == self.ch_ids[0]:
-                    tmp_num_ch_per_ping_parsed = -1
-                    tmp_datagram_dict = []
+                # tmp_num_ch_per_ping_parsed += 1
+                if curr_ch_id not in self.recorded_ch_ids:
+                    self.recorded_ch_ids.append(curr_ch_id)
 
-                # Save datagram temporarily before knowing if all freq channels are present
-                tmp_num_ch_per_ping_parsed += 1
-                tmp_datagram_dict.append(new_datagram)
-                # Actually save datagram when all freq channels are present
-                if np.all(np.array([curr_ch_id, self.ch_ids[tmp_num_ch_per_ping_parsed]]) ==
-                          self.ch_ids[-1]):
+                # append ping time from first channel
+                if curr_ch_id == self.recorded_ch_ids[0]:
+                    self.ping_time.append(new_datagram['timestamp'])
 
-                    # append ping time from first channel
-                    self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
-
-                    for i, ch_id in enumerate(self.ch_ids):
-                        # self._append_channel_ping_data(ch_id, tmp_datagram_dict[ch_id])  # ping-by-ping metadata
-                        self.power_dict[ch_id].append(tmp_datagram_dict[i]['power'])  # append power data
-                        self.angle_dict[ch_id].append(tmp_datagram_dict[i]['angle'])  # append angle data
-                        self.complex_dict[ch_id].append(tmp_datagram_dict[i]['complex'])  # append complex data
+                self.power_dict[curr_ch_id].append(new_datagram['power'])  # append power data
+                self.angle_dict[curr_ch_id].append(new_datagram['angle'])  # append angle data
+                self.complex_dict[curr_ch_id].append(new_datagram['complex'])  # append complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith("NME"):
@@ -189,6 +179,9 @@ class ConvertEK80(ConvertBase):
                 if all(x is None for x in self.complex_dict[ch_id]):
                     self.complex_dict[ch_id] = None
 
+        if len(self.ch_ids) != len(self.recorded_ch_ids):
+            self.ch_ids = self.recorded_ch_ids
+
     def sort_ch_ids(self):
         """ Sorts the channel ids into broadband and continuous wave channel ids
 
@@ -202,7 +195,8 @@ class ConvertEK80(ConvertBase):
             if v is not None:
                 bb_ch_ids.append(k)
             else:
-                cw_ch_ids.append(k)
+                if self.power_dict[k] is not None:
+                    cw_ch_ids.append(k)
         return bb_ch_ids, cw_ch_ids
 
     # Functions to set various dictionaries
@@ -230,9 +224,9 @@ class ConvertEK80(ConvertBase):
                     sound_speed_indicative=self.environment['sound_speed'])
 
     def _set_prov_dict(self, raw_file, combine_opt):
-        out_dict =  dict(conversion_software_name='echopype',
-                    conversion_software_version=ECHOPYPE_VERSION,
-                    conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+        out_dict = dict(conversion_software_name='echopype',
+                        conversion_software_version=ECHOPYPE_VERSION,
+                        conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
         # Send a list of all filenames if combining raw files. Else, send the one file to be converted
         out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
         return out_dict
@@ -306,7 +300,7 @@ class ConvertEK80(ConvertBase):
         beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
         beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
         beam_dict['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
-                                            for x in ch_ids], dtype='float32')
+                                          for x in ch_ids], dtype='float32')
         tx_num = len(ch_ids)
         ping_num = len(self.ping_time)
         b_r_tmp = {}      # Real part of broadband backscatter
@@ -369,19 +363,19 @@ class ConvertEK80(ConvertBase):
             if bb:
                 diff = max_len - b_r_tmp[k].shape[1]
                 beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff), (0, 0)),
-                                                    mode='constant', constant_values=np.nan))
+                                                  mode='constant', constant_values=np.nan))
                 beam_dict['backscatter_i'].append(np.pad(b_i_tmp[k], ((0, 0), (0, diff), (0, 0)),
-                                                    mode='constant', constant_values=np.nan))
+                                                  mode='constant', constant_values=np.nan))
                 beam_dict['frequency_start'].append(self.parameters[k]['frequency_start'])
                 beam_dict['frequency_end'].append(self.parameters[k]['frequency_end'])
             # Continuous wave
             else:
                 diff = max_len - b_r_tmp[k].shape[1]
                 beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff)),
-                                                            mode='constant', constant_values=np.nan))
+                                                         mode='constant', constant_values=np.nan))
                 beam_dict['angle_dict'].append(np.pad(np.array(self.angle_dict[k], dtype='float32'),
-                                                        ((0, 0), (0, diff), (0, 0)),
-                                                        mode='constant', constant_values=np.nan))
+                                                      ((0, 0), (0, diff), (0, 0)),
+                                                      mode='constant', constant_values=np.nan))
             c_seq += 1
 
         # Stack channels and order axis as: channel, quadrant, ping, range
@@ -439,12 +433,12 @@ class ConvertEK80(ConvertBase):
         pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
         # Gets indices from pulse length table using the transmit_duration_nominal values selected
         idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
-                                        self.config_datagram['configuration'][ch][pulse_length])).squeeze()
-                for i, ch in enumerate(ch_ids)]
+                                      self.config_datagram['configuration'][ch][pulse_length])).squeeze()
+               for i, ch in enumerate(ch_ids)]
         # Use the indices to select sa_correction values from the sa correction table
         beam_dict['sa_correction'] = \
             np.array([x['sa_correction'][y]
-                        for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
+                     for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
 
         return beam_dict
 
@@ -533,7 +527,7 @@ class ConvertEK80(ConvertBase):
         """
         out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
         raw_file = self.filename[file_idx]
-        
+
         if os.path.exists(out_file) and save_settings['overwrite'] and not self._append_zarr:
             print("          overwriting: " + out_file)
             shutil.rmtree(out_file)
