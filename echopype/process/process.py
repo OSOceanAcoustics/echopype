@@ -1,17 +1,17 @@
 """
-This file provides a wrapper for the model object and functions.
+This file provides a wrapper for the process object and functions.
 Users will not need to know the names of the specific objects they need to create.
 """
 import os
 
 import xarray as xr
 import zarr
-from echopype.model.azfp import ModelAZFP
-from echopype.model.ek60 import ModelEK60
-from echopype.model.ek80 import ModelEK80
+from echopype.process.azfp import ProcessAZFP
+from echopype.process.ek60 import ProcessEK60
+from echopype.process.ek80 import ProcessEK80
 
 
-def EchoData(nc_path):
+def Process(nc_path):
     """
     Provides data analysis and computation tools for sonar data in netCDF form.
 
@@ -22,7 +22,7 @@ def EchoData(nc_path):
 
     Returns
     -------
-        Returns a specialized EchoData object depending on
+        Returns a specialized Process object depending on
         the type of echosounder the .nc file was produced with
     """
 
@@ -43,12 +43,12 @@ def EchoData(nc_path):
         except AttributeError:
             raise ValueError("This file is incompatible with echopype functions.")
 
-    # Returns specific EchoData object
+    # Returns specific Process object
     if echo_type == "EK60":
-        return ModelEK60(nc_path)
+        return ProcessEK60(nc_path)
     elif echo_type == "EK80":
-        return ModelEK80(nc_path)
+        return ProcessEK80(nc_path)
     elif echo_type == "AZFP":
-        return ModelAZFP(nc_path)
+        return ProcessAZFP(nc_path)
     else:
         raise ValueError("Unsupported file type")
