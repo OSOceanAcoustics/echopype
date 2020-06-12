@@ -5,6 +5,7 @@ pynmea2
 pytz
 xarray
 zarr
+scipy
 # build docs
 sphinx-automodapi
 numpydoc
