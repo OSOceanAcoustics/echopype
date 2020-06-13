@@ -13,7 +13,7 @@ import xarray as xr
 import zarr
 
 
-class ModelBase(object):
+class ProcessBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
@@ -547,7 +547,7 @@ class ModelBase(object):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
-        calculate and save MVBS as a new attribute to the calling EchoData instance.
+        calculate and save MVBS as a new attribute to the calling Process instance.
         MVBS is an xarray DataArray with dimensions ``ping_time`` and ``range_bin``
         that are from the first elements of each tile along the corresponding dimensions
         in the original Sv or Sv_clean DataArray.

@@ -12,7 +12,7 @@ The current version supports:
 - ASL Environmental Sciences AZFP echosounder ``.01A`` data
 
 """
-from .echodata import EchoData
-from .ek60 import ModelEK60
-from .azfp import ModelAZFP
-from .ek80 import ModelEK80
+from .process import Process
+from .ek60 import ProcessEK60
+from .azfp import ProcessAZFP
+from .ek80 import ProcessEK80

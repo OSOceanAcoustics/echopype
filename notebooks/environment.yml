@@ -1,23 +1,21 @@
 name: echopype
 channels:
   - conda-forge
-  - defaults
 dependencies:
+  - python=3.8
+  - matplotlib
+  - netCDF4
+  - numpy
+  - pynmea2
+  - pytz
+  - xarray
+  - zarr
+  # extras
   - beautifulsoup4
   - click
   - dask
   - ipykernel
-  - matplotlib
-  - numpy
-  - netCDF4
   - pandas
-  - pip
-  - pytz
-  - python=3.8
   - requests
   - scipy
   - tox
-  - xarray
-  - zarr
-  - pip:
-      - pynmea2

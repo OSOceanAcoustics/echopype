@@ -6,15 +6,15 @@ import os
 import datetime as dt
 import numpy as np
 import xarray as xr
-from .modelbase import ModelBase
+from .processbase import ProcessBase
 from echopype.utils import uwa
 
 
-class ModelAZFP(ModelBase):
+class ProcessAZFP(ProcessBase):
     """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
     def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None):
-        ModelBase.__init__(self, file_path)
+        ProcessBase.__init__(self, file_path)
         self._salinity = salinity    # salinity in [psu]
         self._pressure = pressure    # pressure in [dbars] (approximately equal to depth in meters)
         if temperature is None:

@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from echopype.convert import Convert
-from echopype.model import ModelEK60
-from echopype.model import EchoData
+from echopype.process import ProcessEK60
+from echopype.process import Process
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
@@ -25,13 +25,13 @@ def test_noise_estimates_removal():
     """Check noise estimation and noise removal using xarray and brute force using numpy.
     """
 
-    # Noise estimation via EchoData method =========
+    # Noise estimation via Process method =========
     # Unpack data and convert to .nc file
     tmp = Convert(ek60_raw_path)
     tmp.raw2nc()
 
-    # Read .nc file into an EchoData object and calibrate
-    e_data = EchoData(nc_path)
+    # Read .nc file into an Process object and calibrate
+    e_data = Process(nc_path)
     e_data.calibrate(save=True)
     noise_est = e_data.noise_estimates()
 
@@ -118,8 +118,8 @@ def test_calibration_ek60_echoview():
     tmp = Convert(ek60_raw_path)
     tmp.raw2nc()
 
-    # Read .nc file into an EchoData object and calibrate
-    e_data = EchoData(nc_path)
+    # Read .nc file into an Process object and calibrate
+    e_data = Process(nc_path)
     e_data.calibrate(save=True)
 
     channels = []
@@ -151,7 +151,7 @@ def test_calibrate():
     ds.to_netcdf(tmp.nc_path, mode='a', group='Beam')
 
     # Run Sv calibration on array of 1
-    e_data = ModelEK60(tmp.nc_path)
+    e_data = ProcessEK60(tmp.nc_path)
     e_data.calibrate()
     # Check if Sv is strictly increasing by differentiating along range
     assert np.all(np.diff(e_data.Sv.Sv) >= 0)
