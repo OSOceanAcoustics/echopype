@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from echopype.convert import Convert
-from echopype.model import EchoData
+from echopype.process import Process
 
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
@@ -20,7 +20,7 @@ azfp_echoview_TS_paths = ['./echopype/test_data/azfp/from_echoview/17082117-TS38
                           './echopype/test_data/azfp/from_echoview/17082117-TS455.csv']
 
 
-def test_model_AZFP_matlab():
+def test_process_AZFP_matlab():
     # Read in the dataset that will be used to confirm working conversions. Generated from MATLAB code.
     Sv_test = xr.open_dataset(azfp_test_Sv_path)
     TS_test = xr.open_dataset(azfp_test_TS_path)
@@ -29,7 +29,7 @@ def test_model_AZFP_matlab():
     tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    tmp_echo = EchoData(tmp_convert.nc_path)
+    tmp_echo = Process(tmp_convert.nc_path)
     tmp_echo.calibrate(save=True)
     tmp_echo.calibrate_TS(save=True)
     tmp_echo.remove_noise()
@@ -56,12 +56,12 @@ def test_model_AZFP_matlab():
     del tmp_echo
 
 
-# def test_model_AZFP_echoview():
+# def test_process_AZFP_echoview():
 #     # Convert to .nc file
 #     tmp_convert = Convert(azfp_01a_path, azfp_xml_path)
 #     tmp_convert.raw2nc()
 
-#     tmp_echo = EchoData(tmp_convert.nc_path)
+#     tmp_echo = Process(tmp_convert.nc_path)
 #     tmp_echo.calibrate()
 #     tmp_echo.calibrate_TS()
 

@@ -1,12 +1,12 @@
 matplotlib
 netCDF4
 numpy
-pandas
 pynmea2
 pytz
-scipy
 xarray
 zarr
+scipy
+# build docs
 sphinx-automodapi
 numpydoc
 dask[array]
