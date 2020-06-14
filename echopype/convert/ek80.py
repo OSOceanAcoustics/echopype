@@ -2,6 +2,7 @@ import os
 import shutil
 from collections import defaultdict
 import numpy as np
+import xarray as xr
 from datetime import datetime as dt
 import pytz
 import pynmea2
@@ -34,6 +35,7 @@ class ConvertEK80(ConvertBase):
         self.fil_coeffs = defaultdict(dict)   # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
         self.ch_ids = []                      # List of all channel ids
+        self.recorded_ch_ids = []
 
     def _read_datagrams(self, fid):
         """
@@ -49,11 +51,6 @@ class ConvertEK80(ConvertBase):
         """
 
         num_datagrams_parsed = 0
-        tmp_num_ch_per_ping_parsed = 0   # number of channels of the same ping parsed
-                                         # this is used to control saving only pings
-                                         # that have all freq channels present
-        tmp_datagram_dict = []  # tmp list of datagrams, only saved to actual output
-                                # structure if data from all freq channels are present
 
         while True:
             try:
@@ -76,6 +73,10 @@ class ConvertEK80(ConvertBase):
                     # If frequency_start/end is not found, fill values with frequency
                     if 'frequency_start' not in current_parameters:
                         self.parameters[current_parameters['channel_id']]['frequency'].append(
+                            int(current_parameters['frequency']))
+                        self.parameters[current_parameters['channel_id']]['frequency_start'].append(
+                            int(current_parameters['frequency']))
+                        self.parameters[current_parameters['channel_id']]['frequency_end'].append(
                             int(current_parameters['frequency']))
                     else:
                         self.parameters[current_parameters['channel_id']]['frequency_start'].append(
@@ -100,29 +101,19 @@ class ConvertEK80(ConvertBase):
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # Reset counter and storage for parsed number of channels
-                # if encountering datagram from the first channel
-                if curr_ch_id == self.ch_ids[0]:
-                    tmp_num_ch_per_ping_parsed = -1
-                    tmp_datagram_dict = []
+                # tmp_num_ch_per_ping_parsed += 1
+                if curr_ch_id not in self.recorded_ch_ids:
+                    self.recorded_ch_ids.append(curr_ch_id)
 
-                # Save datagram temporarily before knowing if all freq channels are present
-                tmp_num_ch_per_ping_parsed += 1
-                tmp_datagram_dict.append(new_datagram)
-                # Actually save datagram when all freq channels are present
-                if np.all(np.array([curr_ch_id, self.ch_ids[tmp_num_ch_per_ping_parsed]]) ==
-                          self.ch_ids[-1]):
+                # append ping time from first channel
+                if curr_ch_id == self.recorded_ch_ids[0]:
+                    self.ping_time.append(new_datagram['timestamp'])
 
-                    # append ping time from first channel
-                    self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
-
-                    for i, ch_id in enumerate(self.ch_ids):
-                        # self._append_channel_ping_data(ch_id, tmp_datagram_dict[ch_id])  # ping-by-ping metadata
-                        self.power_dict[ch_id].append(tmp_datagram_dict[i]['power'])  # append power data
-                        self.angle_dict[ch_id].append(tmp_datagram_dict[i]['angle'])  # append angle data
-                        self.complex_dict[ch_id].append(tmp_datagram_dict[i]['complex'])  # append complex data
-                        if self.n_complex_dict[ch_id] < 0:
-                            self.n_complex_dict[ch_id] = tmp_datagram_dict[i]['n_complex']  # update n_complex data
+                self.power_dict[curr_ch_id].append(new_datagram['power'])  # append power data
+                self.angle_dict[curr_ch_id].append(new_datagram['angle'])  # append angle data
+                self.complex_dict[curr_ch_id].append(new_datagram['complex'])  # append complex data
+                if self.n_complex_dict[curr_ch_id] < 0:
+                    self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith("NME"):
@@ -192,24 +183,27 @@ class ConvertEK80(ConvertBase):
                 if all(x is None for x in self.complex_dict[ch_id]):
                     self.complex_dict[ch_id] = None
 
-    """ Sorts the channel ids into broadband and continuous wave channel ids
+        if len(self.ch_ids) != len(self.recorded_ch_ids):
+            self.ch_ids = self.recorded_ch_ids
 
-        Returns
-        -------
-        2 lists containing the bb channel ids and the cw channel ids
-    """
     def sort_ch_ids(self):
-        if self.complex_dict:
-            bb_ch_ids = []
-            cw_ch_ids = []
-            for k, v in self.complex_dict.items():
-                if v is not None:
-                    bb_ch_ids.append(k)
-                else:
+        """ Sorts the channel ids into broadband and continuous wave channel ids
+
+            Returns
+            -------
+            2 lists containing the bb channel ids and the cw channel ids
+        """
+        bb_ch_ids = []
+        cw_ch_ids = []
+        for k, v in self.complex_dict.items():
+            if v is not None:
+                bb_ch_ids.append(k)
+            else:
+                if self.power_dict[k] is not None:
                     cw_ch_ids.append(k)
         return bb_ch_ids, cw_ch_ids
 
-        # Functions to set various dictionaries
+    # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
         # filename must have "-" as the field separator for the last 2 fields. Uses first file
         filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
@@ -234,9 +228,9 @@ class ConvertEK80(ConvertBase):
                     sound_speed_indicative=self.environment['sound_speed'])
 
     def _set_prov_dict(self, raw_file, combine_opt):
-        out_dict =  dict(conversion_software_name='echopype',
-                    conversion_software_version=ECHOPYPE_VERSION,
-                    conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
+        out_dict = dict(conversion_software_name='echopype',
+                        conversion_software_version=ECHOPYPE_VERSION,
+                        conversion_time=dt.now(tz=pytz.utc).isoformat(timespec='seconds'))  # use UTC time
         # Send a list of all filenames if combining raw files. Else, send the one file to be converted
         out_dict['src_filenames'] = self.filename if combine_opt else [raw_file]
         return out_dict
@@ -310,7 +304,7 @@ class ConvertEK80(ConvertBase):
         beam_dict['conversion_equation_t'] = 'type_3'  # type_3 is EK60 conversion
         beam_dict['ping_time'] = self.ping_time   # [seconds since 1900-01-01] for xarray.to_netcdf conversion
         beam_dict['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
-                                            for x in ch_ids], dtype='float32')
+                                          for x in ch_ids], dtype='float32')
         tx_num = len(ch_ids)
         ping_num = len(self.ping_time)
         b_r_tmp = {}      # Real part of broadband backscatter
@@ -447,12 +441,12 @@ class ConvertEK80(ConvertBase):
         pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
         # Gets indices from pulse length table using the transmit_duration_nominal values selected
         idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
-                                        self.config_datagram['configuration'][ch][pulse_length])).squeeze()
-                for i, ch in enumerate(ch_ids)]
+                                      self.config_datagram['configuration'][ch][pulse_length])).squeeze()
+               for i, ch in enumerate(ch_ids)]
         # Use the indices to select sa_correction values from the sa correction table
         beam_dict['sa_correction'] = \
             np.array([x['sa_correction'][y]
-                        for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
+                     for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
 
         return beam_dict
 
@@ -541,7 +535,7 @@ class ConvertEK80(ConvertBase):
         """
         out_file = self.save_path[file_idx] if type(self.save_path) == list else self.save_path
         raw_file = self.filename[file_idx]
-        
+
         if os.path.exists(out_file) and save_settings['overwrite'] and not self._append_zarr:
             print("          overwriting: " + out_file)
             shutil.rmtree(out_file)
@@ -558,6 +552,45 @@ class ConvertEK80(ConvertBase):
             print(f'          ... this file has already been converted to .zarr, conversion not executed.')
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
+
+    def _combine_files(self):
+        # Do nothing if combine_opt is true if there is nothing to combine
+        if not self._temp_path:
+            return
+        save_path = self.save_path
+        split = os.path.splitext(self.save_path)
+        all_temp = os.listdir(self._temp_dir)
+        # Group files into cw (index 0) and broadband files (index 1)
+        file_groups = [[], []]
+        for f in all_temp:
+            if "_cw" in f:
+                file_groups[0].append(os.path.join(self._temp_dir, f))
+            else:
+                file_groups[1].append(os.path.join(self._temp_dir, f))
+
+        for n, file_group in enumerate(file_groups):
+            if len(file_groups) > 1:
+                if not file_groups[n]:
+                    # Skip saving either bb or cw if only one or the other is present
+                    continue
+                save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
+            # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
+                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
+                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+            with xr.open_dataset(file_group[0], group='Environment') as ds_env:
+                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
+                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            with xr.open_mfdataset(file_group, group='Platform/NMEA',
+                                   combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
+                ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
+
+        # Delete temporary folder:
+        shutil.rmtree(self._temp_dir)
 
     def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
@@ -580,4 +613,4 @@ class ConvertEK80(ConvertBase):
                 self._append_zarr = True if file_idx and combine_opt else False
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
-            self.combine_files('EK80')
+            self._combine_files()

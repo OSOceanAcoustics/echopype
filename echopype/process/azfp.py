@@ -6,15 +6,15 @@ import os
 import datetime as dt
 import numpy as np
 import xarray as xr
-from .modelbase import ModelBase
+from .processbase import ProcessBase
 from echopype.utils import uwa
 
 
-class ModelAZFP(ModelBase):
+class ProcessAZFP(ProcessBase):
     """Class for manipulating AZFP echo data that is already converted to netCDF."""
 
     def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None):
-        ModelBase.__init__(self, file_path)
+        ProcessBase.__init__(self, file_path)
         self._salinity = salinity    # salinity in [psu]
         self._pressure = pressure    # pressure in [dbars] (approximately equal to depth in meters)
         if temperature is None:
@@ -187,11 +187,15 @@ class ModelAZFP(ModelBase):
         save_path : str, optional
             Full filename to save the TS calculation results, overwritting the RAWFILE_TS.nc default
         """
-        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
-            self.TS = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
-                       ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 40 * np.log10(self.range) +
-                       2 * self.seawater_absorption * self.range)
-            self.TS.name = "TS"
+        with xr.open_dataset(self.file_path, group="Beam") as ds_beam:
+            TS = (ds_beam.EL - 2.5 / ds_beam.DS + ds_beam.backscatter_r / (26214 * ds_beam.DS) -
+                  ds_beam.TVR - 20 * np.log10(ds_beam.VTX) + 40 * np.log10(self.range) +
+                  2 * self.seawater_absorption * self.range)
+            TS.name = "TS"
+            TS = TS.to_dataset()
+            # Attached calculated range into the dataset
+            TS['range'] = (('frequency', 'range_bin'), self.range)
+            self.TS = TS
             if save:
                 self.TS_path = self.validate_path(save_path, save_postfix)
                 print("{} saving calibrated TS to {}".format(dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))

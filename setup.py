@@ -35,8 +35,7 @@ opts = dict(name='echopype',
             packages=find_packages(),
             package_data={'echopype': [pjoin('data', '*')]},
             install_requires=INSTALL_REQUIRES,
-            tests_require='tox',
-            scripts=['echopype/convert/echopype_converter'])
+            tests_require='tox',)
 
 
 if __name__ == '__main__':

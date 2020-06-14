@@ -1,5 +1,5 @@
 """
-echopype data model inherited from based class EchoData for EK80 data.
+echopype data model inherited from based class Process for EK80 data.
 """
 
 import os
@@ -8,14 +8,14 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 from echopype.utils import uwa
-from .modelbase import ModelBase
+from .processbase import ProcessBase
 
 
-class ModelEK80(ModelBase):
+class ProcessEK80(ProcessBase):
     """Class for manipulating EK60 echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
-        ModelBase.__init__(self, file_path)
+        ProcessBase.__init__(self, file_path)
         self._acidity = None
         self._salinity = None
         self._temperature = None

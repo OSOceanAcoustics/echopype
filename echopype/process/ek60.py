@@ -1,20 +1,20 @@
 """
-echopype data model inherited from based class EchoData for EK60 data.
+echopype data model inherited from based class Process for EK60 data.
 """
 
 import os
 import datetime as dt
 import numpy as np
 import xarray as xr
-from .modelbase import ModelBase
+from .processbase import ProcessBase
 from echopype.utils import uwa
 
 
-class ModelEK60(ModelBase):
+class ProcessEK60(ProcessBase):
     """Class for manipulating EK60 echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
-        ModelBase.__init__(self, file_path)
+        ProcessBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60
 
         # Initialize environment-related parameters
@@ -93,8 +93,8 @@ class ModelEK60(ModelBase):
         """Calculates range in meters using parameters stored in the .nc file.
         """
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
-            range_meter = ds_beam.range_bin * self.sample_thickness - \
-                        self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
+            range_meter = self.sample_thickness * ds_beam.range_bin - \
+                self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
             range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
@@ -140,7 +140,7 @@ class ModelEK60(ModelBase):
         Sv = Sv.to_dataset()
 
         # Attach calculated range into data set
-        Sv['range'] = (('frequency', 'range_bin'), self.range.T)
+        Sv['range'] = (('frequency', 'range_bin'), self.range)
 
         # Save calibrated data into the calling instance and
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
@@ -191,7 +191,7 @@ class ModelEK60(ModelBase):
         TS = TS.to_dataset()
 
         # Attach calculated range into data set
-        TS['range'] = (('frequency', 'range_bin'), self.range.T)
+        TS['range'] = (('frequency', 'range_bin'), self.range)
 
         # Save calibrated data into the calling instance and
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
