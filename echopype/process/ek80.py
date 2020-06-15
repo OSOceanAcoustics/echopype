@@ -284,7 +284,7 @@ class ProcessEK80(ProcessBase):
             if mode == 'Sv':
                 Sv.name = 'Sv'
                 Sv = Sv.to_dataset()
-                Sv['ranges'] = (('frequency', 'range_bin'), ranges)
+                Sv['range'] = (('frequency', 'range_bin'), ranges)
                 self.Sv = Sv
                 if save:
                     self.Sv_path = self.validate_path(save_path, save_postfix)
@@ -294,7 +294,7 @@ class ProcessEK80(ProcessBase):
             elif mode == 'TS':
                 TS.name = 'TS'
                 TS = TS.to_dataset()
-                TS['ranges'] = (('frequency', 'range_bin'), ranges)
+                TS['range'] = (('frequency', 'range_bin'), ranges)
                 self.TS = TS
                 if save:
                     self.TS_path = self.validate_path(save_path, save_postfix)
