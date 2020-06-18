@@ -245,6 +245,13 @@ Echopype accommodates these cases in the following two ways:
 Data processing
 ---------------
 
+.. warning::
+   The 'model' module has been renamed to 'process' and
+   ``EchoData`` has been renamed to ``Process``.
+   As such, ``EchoData``, ``ModelAZFP``, ``ModelEK60`` are deprecated and
+   will be no longer work in the future.
+   Instead, use ``Process``, ``ProcessAZFP``, ``ProcessEK60``, or ``ProcessEK80``.
+
 
 Functionality
 ~~~~~~~~~~~~~
