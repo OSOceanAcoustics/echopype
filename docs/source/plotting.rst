@@ -3,7 +3,7 @@ Plotting with echopype
 
 Introduction
 -------------
-echopype proves an easy to use framework for plotting echograms using ``EchoData`` objects. Minimal code is required to see Sv, TS, or MVBS data plotted with select frequencies, but as echopype's plotting functionality are simply a thin wrapper around `xarray <http://xarray.pydata.org/en/stable/index.html>`_
+echopype proves an easy to use framework for plotting echograms using ``Process`` objects. Minimal code is required to see Sv, TS, or MVBS data plotted with select frequencies, but as echopype's plotting functionality are simply a thin wrapper around `xarray <http://xarray.pydata.org/en/stable/index.html>`_
 plotting functions, which wrap `matplotlib <https://matplotlib.org/>`_  functions, plots can be customized using matplotlib's extensive features.
 
 Plotting an Echogram
@@ -14,7 +14,7 @@ AZFP Example
 This example will use the test datasets in the `echopype <https://github.com/OSOceanAcoustics/echopype>`_
 GitHub repository.
 
-First, create an ``EchoData`` object for the AZFP data
+First, create a ``Process`` object for the AZFP data
 
 .. code-block:: console
 
@@ -27,8 +27,8 @@ First, create an ``EchoData`` object for the AZFP data
     tmp_convert = ep.convert.Convert(azfp_01a_path, azfp_xml_path)
     tmp_convert.raw2nc()
 
-    # Make EchoData object
-    tmp_echo = ep.model.EchoData(tmp_convert.nc_path)
+    # Make Process object
+    tmp_echo = ep.process.Process(tmp_convert.nc_path)
 
 Now, calibrate the raw data to acquire xarray Datasets to plot
 
@@ -41,7 +41,7 @@ Now, calibrate the raw data to acquire xarray Datasets to plot
 Plotting a Single Channel
 ++++++++++++++++++++++++++++
 
-For plotting a single frequency, plot the data using ``.plot()`` on the ``EchoData`` object and specify the frequency to be plotted (in Hz). This example data set contains data collected in bursts. So times where the instrument did not take measurements are blank.
+For plotting a single frequency, plot the data using ``.plot()`` on the ``Process`` object and specify the frequency to be plotted (in Hz). This example data set contains data collected in bursts. So times where the instrument did not take measurements are blank.
 
 .. code-block:: console
 

@@ -264,9 +264,9 @@ The steps of performing these analysis for each echosounder are summarized below
 
 .. code-block:: python
 
-   from echopype.model import EchoData
+   from echopype.process import Process
    nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
-   ed = EchoData(nc_path)   # create an echo data processing object
+   ed = Process(nc_path)   # create a processing object
    ed.calibrate()           # Sv
    ed.remove_noise()        # denoise
    ed.get_MVBS()            # calculate MVBS
@@ -308,9 +308,9 @@ path. For example:
 
    .. code-block:: python
 
-      from echopype.model import EchoData
+      from echopype.process import Process
       nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
-      ed = EchoData(nc_path)   # create an echo data processing object
+      ed = Process(nc_path)   # create a processing object
       ed.get_MVBS()  # echopype will call .calibrate() automatically
 
 2. Try to do MVBS calculation with _Sv_clean.nc file previously created in
@@ -318,9 +318,9 @@ path. For example:
 
    .. code-block:: python
 
-      from echopype.model import EchoData
+      from echopype.process import Process
       nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
-      ed = EchoData(nc_path)   # create an echo data processing object
+      ed = Process(nc_path)   # create a data processing object
       ed.get_MVBS(source_path='another_directory', source_postfix='_Sv_clean')
 
 
@@ -444,7 +444,7 @@ check after setting these parameters!
    In the Matlab code, users set temperature/salinity parameters in
    AZFP_parameters.m and run that script first before doing unpacking.
    Here we require users to unpack raw data first into netCDF, and then
-   set temperature/salinity in the model module if they want to perform
+   set temperature/salinity in the process module if they want to perform
    calibration. This is cleaner and less error prone, because the param
    setting step is separated from the raw data unpacking, so user-defined
    params are not in the unpacked files.
