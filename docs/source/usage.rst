@@ -91,7 +91,7 @@ the following in an interactive Python session:
 
 .. code-block:: python
 
-    from echopype.convert import Convert
+    from echopype import Convert
     dc = Convert('FILENAME.raw')
     dc.raw2nc()
 
@@ -108,7 +108,7 @@ This can be done by:
 
 .. code-block:: python
 
-    from echopype.convert import Convert
+    from echopype import Convert
     dc = Convert('FILENAME.01A', 'XMLFILENAME.xml')
     dc.raw2nc()
 
@@ -246,11 +246,11 @@ Data processing
 ---------------
 
 .. warning::
-   The 'model' module has been renamed to 'process' and
-   ``EchoData`` has been renamed to ``Process``.
-   As such, ``EchoData``, ``ModelAZFP``, ``ModelEK60`` are deprecated and
-   will be no longer work in the future.
-   Instead, use ``Process``, ``ProcessAZFP``, ``ProcessEK60``, or ``ProcessEK80``.
+   The ``model`` subpackage has been renamed to ``process``,
+   and the data processing interface ``EchoData`` under ``model``
+   has been renamed to ``Process``.
+   Attempts to import and use ``EchoData`` will continue to function
+   at the moment but will be deprecated in the future.
 
 
 Functionality
@@ -271,7 +271,7 @@ The steps of performing these analysis for each echosounder are summarized below
 
 .. code-block:: python
 
-   from echopype.process import Process
+   from echopype import Process
    nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
    ed = Process(nc_path)   # create a processing object
    ed.calibrate()           # Sv
@@ -315,7 +315,7 @@ path. For example:
 
    .. code-block:: python
 
-      from echopype.process import Process
+      from echopype import Process
       nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
       ed = Process(nc_path)   # create a processing object
       ed.get_MVBS()  # echopype will call .calibrate() automatically
@@ -325,7 +325,7 @@ path. For example:
 
    .. code-block:: python
 
-      from echopype.process import Process
+      from echopype import Process
       nc_path = './converted_files/convertedfile.nc'  # path to a converted nc file
       ed = Process(nc_path)   # create a data processing object
       ed.get_MVBS(source_path='another_directory', source_postfix='_Sv_clean')
