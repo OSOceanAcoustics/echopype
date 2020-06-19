@@ -6,5 +6,5 @@ This page provides an auto-generated summary of echopype’s API.
 .. automodapi:: echopype.convert
    :no-inheritance-diagram:
 
-.. automodapi:: echopype.model
+.. automodapi:: echopype.process
    :no-inheritance-diagram:
