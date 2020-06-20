@@ -39,15 +39,6 @@ noise removal, and mean volume backscattering strength (MVBS) calculation
 for narrowband echoes. EK80 calibration based on pulse compression output
 in the form of average over frequency is implemented.
 
-.. note::
-   EK80 ``.raw`` conversion is now for alpha testing.
-   We know the current implementation raises error when encountering data
-   recorded using the 2-in-1 transducer
-   (see `#145 <https://github.com/OSOceanAcoustics/echopype/issues/145>`_ and
-   `#146 <https://github.com/OSOceanAcoustics/echopype/pull/146>`_ ).
-   Please report any bugs by raising issues on GitHub.
-   Pull requests are always welcome!
-
 
 
 Installation
@@ -79,11 +70,17 @@ Usage
 
 Check out the `echopype documentation`_ for more details on usage.
 
+Please report any bugs by `creating issues on GitHub`_.
+`Pull requests`_ are always welcome!
+
 Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
 
 .. _echopype documentation: https://echopype.readthedocs.io
 .. _echopype talk: https://www.youtube.com/watch?v=qboH7MyHrpU
-
+.. _creating issues on GitHub:
+   https://help.github.com/en/github/managing-your-work-on-github/creating-an-issue
+.. _Pull requests:
+   https://jarednielsen.com/learn-git-fork-pull-request/
 
 Contributors
 ------------

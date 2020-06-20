@@ -74,15 +74,21 @@ into netCDF (stable) or zarr (beta) files.
 
 .. note::
    EK80 ``.raw`` conversion is now for alpha testing.
-   We know the current implementation raises error when encountering data
-   recorded using the 2-in-1 transducer
+   Please report any bugs by `creating issues on GitHub`_.
+   `Pull requests`_ are always welcome!
+
+   We know the current EK80 implementation raises an error when encountering
+   data recorded using the 2-in-1 transducer
    (see `#145 <https://github.com/OSOceanAcoustics/echopype/issues/145>`_ and
    `#146 <https://github.com/OSOceanAcoustics/echopype/pull/146>`_ ).
-   Please report any bugs by raising issues on GitHub.
-   Pull requests are always welcome!
 
 We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
+
+.. _creating issues on GitHub:
+   https://help.github.com/en/github/managing-your-work-on-github/creating-an-issue
+.. _Pull requests:
+   https://jarednielsen.com/learn-git-fork-pull-request/
 
 
 Conversion operation
