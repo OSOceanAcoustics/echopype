@@ -38,8 +38,7 @@ or through conda:
    $ conda install -c conda-forge echopype
 
 
-When creating an conda environment to work with echopype,
-use the supplied ``environment.yml`` or do
+When creating an conda environment to work with echopype, do
 
 .. code-block:: console
 
@@ -62,13 +61,13 @@ noise removal, and mean volume backscattering strength (MVBS) calculation
 for narrowband echoes. EK80 calibration based on pulse compression output
 in the form of average over frequency is implemented.
 
-Check out the `echopype documentation`_ for more details on usage.
+For more details, check out the `echopype documentation`_
+and watch the `echopype talk`_  at SciPy 2019 for background,
+discussions and a quick demo!
 
-Watch the `echopype talk`_  at SciPy 2019 for background, discussions and a quick demo!
 
-
-Doesn't run on your data?
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Echopype doesn't run on your data?
+----------------------------------
 
 Please report any bugs by `creating issues on GitHub`_.
 `Pull requests`_ are always welcome!
