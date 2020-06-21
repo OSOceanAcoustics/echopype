@@ -1,16 +1,10 @@
 """
 Code originally developed for pyEcholab
-(https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
-Contains class ``_SimradDatagramParser`` for low-level parsing of EK60 data files.
-Called by class RawSimradFile in ``echopype/convert/ek60_raw_io.py``.
-Correction done for parsing splitbeam angle data.
+(https://github.com/CI-CMG/pyEcholab)
+by Rick Towler <rick.towler@noaa.gov> at NOAA AFSC.
 
-| Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
-| National Oceanic and Atmospheric Administration (NOAA)
-| Alaska Fisheries Science Center (AFSC)
-| Midwater Assesment and Conservation Engineering Group (MACE)
-
-TODO: fix docstring
+The code has been modified to handle split-beam data and
+channel-transducer structure from different EK80 setups.
 """
 
 import numpy as np
@@ -18,7 +12,8 @@ import logging
 import struct
 import re
 import sys
-from .ek60_date_conversion import nt_to_unix
+import xml.etree.ElementTree as ET
+from echopype.convert.utils.ek_date_conversion import nt_to_unix
 
 
 __all__ = ['SimradNMEAParser', 'SimradDepthParser', 'SimradBottomParser',
@@ -69,13 +64,13 @@ class _SimradDatagramParser(object):
 
         return type_, version
 
-    def from_string(self, raw_string):
+    def from_string(self, raw_string, bytes_read):
 
         header = raw_string[:4]
         if (sys.version_info.major > 2):
             header = header.decode()
         id_, version = self.validate_data_header(header)
-        return self._unpack_contents(raw_string, version=version)
+        return self._unpack_contents(raw_string, bytes_read, version=version)
 
     def to_string(self, data={}):
 
@@ -127,7 +122,7 @@ class SimradDepthParser(_SimradDatagramParser):
                 }
         _SimradDatagramParser.__init__(self, "DEP", headers)
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
         '''
 
         '''
@@ -141,6 +136,7 @@ class SimradDepthParser(_SimradDatagramParser):
                 data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
 
         if version == 0:
             data_fmt    = '=3f'
@@ -220,7 +216,7 @@ class SimradBottomParser(_SimradDatagramParser):
                 }
         _SimradDatagramParser.__init__(self, "BOT", headers)
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
         '''
 
         '''
@@ -234,6 +230,7 @@ class SimradBottomParser(_SimradDatagramParser):
                 data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
 
         if version == 0:
             depth_fmt    = '=%dd' %(data['transceiver_count'],)
@@ -297,7 +294,7 @@ class SimradAnnotationParser(_SimradDatagramParser):
         _SimradDatagramParser.__init__(self, "TAG", headers)
 
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
         '''
 
         '''
@@ -311,6 +308,7 @@ class SimradAnnotationParser(_SimradDatagramParser):
                 data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
 
 #        if version == 0:
 #            data['text'] = raw_string[self.header_size(version):].strip('\x00')
@@ -374,7 +372,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                             ready for writing to disk
     '''
 
-    nmea_head_re = re.compile(r'\$[A-Za-z]{5},')
+    nmea_head_re = re.compile('\$[A-Za-z]{5},')
 
     def __init__(self):
         headers = {0: [('type', '4s'),
@@ -386,7 +384,7 @@ class SimradNMEAParser(_SimradDatagramParser):
         _SimradDatagramParser.__init__(self, "NME", headers)
 
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
         '''
         Parses the NMEA string provided in raw_string
 
@@ -405,6 +403,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                 data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
 
         if version == 0:
             if (sys.version_info.major > 2):
@@ -450,6 +449,525 @@ class SimradNMEAParser(_SimradDatagramParser):
 
             datagram_contents.append(tmp_string)
 
+
+        return struct.pack(datagram_fmt, *datagram_contents)
+
+
+class SimradMRUParser(_SimradDatagramParser):
+    '''
+    EK80 MRU datagram contains the following keys:
+
+
+        type:         string == 'MRU0'
+        low_date:     long uint representing LSBytes of 64bit NT date
+        high_date:    long uint representing MSBytes of 64bit NT date
+        timestamp:    datetime.datetime object of NT date, assumed to be UTC
+        heave:        float
+        roll :        float
+        pitch:        float
+        heading:      float
+
+    The following methods are defined:
+
+        from_string(str):    parse a raw ER60 NMEA datagram
+                            (with leading/trailing datagram size stripped)
+
+        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
+                            ready for writing to disk
+    '''
+
+    def __init__(self):
+        headers = {0: [('type', '4s'),
+                       ('low_date', 'L'),
+                       ('high_date', 'L'),
+                       ('heave', 'f'),
+                       ('roll', 'f'),
+                       ('pitch', 'f'),
+                       ('heading', 'f'),
+                      ]
+                   }
+
+        _SimradDatagramParser.__init__(self, "MRU", headers)
+
+
+    def _unpack_contents(self, raw_string, bytes_read, version):
+        '''
+        Unpacks the data in raw_string into dictionary containing MRU data
+
+        :param raw_string:
+        :type raw_string: str
+
+        :returns: None
+        '''
+
+        header_values = struct.unpack(self.header_fmt(version), raw_string[:self.header_size(version)])
+        data = {}
+
+        for indx, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[indx]
+            if isinstance(data[field], bytes):
+                data[field] = data[field].decode()
+
+        data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
+
+        return data
+
+    def _pack_contents(self, data, version):
+
+        datagram_fmt      = self.header_fmt(version)
+        datagram_contents = []
+
+        if version == 0:
+
+            for field in self.header_fields(version):
+                datagram_contents.append(data[field])
+
+
+            if data['nmea_string'][-1] != '\x00':
+                tmp_string = data['nmea_string'] + '\x00'
+            else:
+                tmp_string = data['nmea_string']
+
+
+            #Pad with more nulls to 4-byte word boundry if necessary
+            if len(tmp_string) % 4:
+                tmp_string += '\x00' * (4 - (len(tmp_string) % 4))
+
+            datagram_fmt += '%ds' % (len(tmp_string))
+
+            #Convert to python string if needed
+            if isinstance(tmp_string, str):
+                tmp_string = tmp_string.encode('ascii', errors='replace')
+
+            datagram_contents.append(tmp_string)
+
+
+        return struct.pack(datagram_fmt, *datagram_contents)
+
+
+class SimradXMLParser(_SimradDatagramParser):
+    '''
+    EK80 XML datagram contains the following keys:
+
+
+        type:         string == 'XML0'
+        low_date:     long uint representing LSBytes of 64bit NT date
+        high_date:    long uint representing MSBytes of 64bit NT date
+        timestamp:    datetime.datetime object of NT date, assumed to be UTC
+        subtype:      string representing Simrad XML datagram type: configuration, environment, or parameter
+
+        [subtype]:    dict containing the data specific to the XML subtype.
+
+    The following methods are defined:
+
+        from_string(str):    parse a raw EK80 XML datagram
+                            (with leading/trailing datagram size stripped)
+
+        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
+                            ready for writing to disk
+    '''
+
+    #  define the XML parsing options - here we define dictionaries for various xml datagram
+    #  types. When parsing that xml datagram, these dictionaries are used to inform the parser about
+    #  type conversion, name wrangling, and delimiter. If a field is missing, the parser
+    #  assumes no conversion: type will be string, default mangling, and that there is only 1
+    #  element.
+    #
+    #  the dicts are in the form:
+    #       'XMLParamName':[converted type,'fieldname', 'parse char']
+    #
+    #  For example: 'PulseDurationFM':[float,'pulse_duration_fm',';']
+    #
+    #  will result in a return dictionary field named 'pulse_duration_fm' that contains a list
+    #  of float values parsed from a string that uses ';' to separate values. Empty strings
+    #  for fieldname and/or parse char result in the default action for those parsing steps.
+
+    channel_parsing_options = {'MaxTxPowerTransceiver':[int,'',''],
+                               'PulseDuration':[float,'',';'],
+                               'PulseDurationFM':[float,'pulse_duration_fm',';'],
+                               'SampleInterval':[float,'',';'],
+                               'ChannelID':[str,'channel_id',''],
+                               'HWChannelConfiguration':[str,'hw_channel_configuration','']
+                               }
+
+    transceiver_parsing_options = {'TransceiverNumber':[int,'',''],
+                                   'Version':[str,'transceiver_version',''],
+                                   'IPAddress':[str,'ip_address',''],
+                                   'Impedance':[int,'','']
+                                  }
+
+    transducer_parsing_options = {'SerialNumber':[str,'transducer_serial_number',''],
+                                  'Frequency':[float,'transducer_frequency',''],
+                                  'FrequencyMinimum':[float,'transducer_frequency_minimum',''],
+                                  'FrequencyMaximum':[float,'transducer_frequency_maximum',''],
+                                  'BeamType':[int,'transducer_beam_type',''],
+                                  'Gain':[float,'',';'],
+                                  'SaCorrection':[float,'',';'],
+                                  'MaxTxPowerTransducer':[float,'',''],
+                                  'EquivalentBeamAngle':[float,'',''],
+                                  'BeamWidthAlongship':[float,'',''],
+                                  'BeamWidthAthwartship':[float,'',''],
+                                  'AngleSensitivityAlongship':[float,'',''],
+                                  'AngleSensitivityAthwartship':[float,'',''],
+                                  'AngleOffsetAlongship':[float,'',''],
+                                  'AngleOffsetAthwartship':[float,'',''],
+                                  'DirectivityDropAt2XBeamWidth':[float,'directivity_drop_at_2x_beam_width',''],
+                                  'TransducerOffsetX':[float,'',''],
+                                  'TransducerOffsetY':[float,'',''],
+                                  'TransducerOffsetZ':[float,'',''],
+                                  'TransducerAlphaX':[float,'',''],
+                                  'TransducerAlphaY':[float,'',''],
+                                  'TransducerAlphaZ':[float,'','']
+                                 }
+
+    header_parsing_options = {'Version':[str,'application_version','']
+                              }
+
+    envxdcr_parsing_options = {'SoundSpeed':[float,'transducer_sound_speed','']
+                              }
+
+    environment_parsing_options = {'Depth':[float,'',''],
+                                   'Acidity':[float,'',''],
+                                   'Salinity':[float,'',''],
+                                   'SoundSpeed':[float,'',''],
+                                   'Temperature':[float,'',''],
+                                   'Latitude':[float,'',''],
+                                   'SoundVelocityProfile':[float,'',';'],
+                                   'DropKeelOffset':[float,'',''],
+                                   'DropKeelOffsetIsManual':[int,'',''],
+                                   'WaterLevelDraft':[float,'',''],
+                                   'WaterLevelDraftIsManual':[int,'','']
+                                   }
+
+    parameter_parsing_options = {'ChannelID':[str,'channel_id',''],
+                                 'ChannelMode':[int,'',''],
+                                 'PulseForm':[int,'',''],
+                                 'Frequency':[float,'',''],
+                                 'PulseDuration':[float,'',''],
+                                 'SampleInterval':[float,'',''],
+                                 'TransmitPower':[float,'',''],
+                                 'Slope':[float,'','']
+                                }
+
+
+    def __init__(self):
+        headers = {0: [('type', '4s'),
+                        ('low_date', 'L'),
+                        ('high_date', 'L')
+                            ]
+                        }
+
+        _SimradDatagramParser.__init__(self, "XML", headers)
+
+
+    def _unpack_contents(self, raw_string, bytes_read, version):
+        '''
+        Parses the NMEA string provided in raw_string
+
+        :param raw_string:  Raw NMEA strin (i.e. '$GPZDA,160012.71,11,03,2004,-1,00*7D')
+        :type raw_string: str
+
+        :returns: None
+        '''
+
+        def from_CamelCase(xml_param):
+            '''
+            convert name from CamelCase to fit with existing naming convention by
+            inserting an underscore before each capital and then lowering the caps
+            e.g. CamelCase becomes camel_case.
+            '''
+            idx = list(reversed([i for i, c in enumerate(xml_param) if c.isupper()]))
+            param_len = len(xml_param)
+            for i in idx:
+                #  check if we should insert an underscore
+                if (i > 0 and i < param_len):
+                    xml_param = xml_param[:i] + '_' + xml_param[i:]
+            xml_param = xml_param.lower()
+
+            return xml_param
+
+
+        def dict_to_dict(xml_dict, data_dict, parse_opts):
+            '''
+            dict_to_dict appends the ETree xml value dicts to a provided dictionary
+            and along the way converts the key name to conform to the project's
+            naming convention and optionally parses and or converts values as
+            specified in the parse_opts dictionary.
+            '''
+
+            for k in xml_dict:
+                #  check if we're parsing this key/value
+                if k in parse_opts:
+                    #  try to parse the string
+                    if (parse_opts[k][2]):
+                        try:
+                            data = xml_dict[k].split(parse_opts[k][2])
+                        except:
+                            #  bad or empty parse chararacter(s) provided
+                            data = xml_dict[k]
+                    else:
+                        #  no parse char provided - nothing to parse
+                        data = xml_dict[k]
+
+                    #  try to convert to specified type
+                    if isinstance(data, list):
+                        for i in range(len(data)):
+                            try:
+                                data[i] = parse_opts[k][0](data[i])
+                            except:
+                                pass
+                    else:
+                        data = parse_opts[k][0](data)
+
+                    #  and add the value to the provided dict
+                    if (parse_opts[k][1]):
+                        #  add using the specified key name
+                        data_dict[parse_opts[k][1]] = data
+                    else:
+                        #  add using the default key name wrangling
+                        data_dict[from_CamelCase(k)] = data
+                else:
+                    #  nothing to do with the value string
+                    data = xml_dict[k]
+
+                    #  add the parameter to the provided dictionary
+                    data_dict[from_CamelCase(k)] = data
+
+
+        header_values = struct.unpack(self.header_fmt(version), raw_string[:self.header_size(version)])
+        data = {}
+
+        for indx, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[indx]
+            if isinstance(data[field], bytes):
+                data[field] = data[field].decode()
+
+        data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
+
+        if version == 0:
+            if (sys.version_info.major > 2):
+                xml_string = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
+            else:
+                xml_string = unicode(raw_string[self.header_size(version):].strip('\x00'), 'ascii', errors='replace')
+
+            #  get the ElementTree element
+            root = ET.fromstring(xml_string)
+
+            #  get the XML message type
+            data['subtype'] = root.tag.lower()
+
+            #  create the dictionary that contains the message data
+            data[data['subtype']] = {}
+
+            #  parse it
+            if (data['subtype'] == 'configuration'):
+
+                #  parse the Transceiver section
+                for t in root.iter('Transceiver'):
+                    #  parse the Transceiver section
+                    transceiver_xml = t.attrib
+
+                    #  parse the Channel section
+                    for c in t.iter('Channel'):
+                        channel_xml = c.attrib
+                        channel_id = channel_xml['ChannelID']
+
+                        #  create the configuration dict for this channel
+                        data['configuration'][channel_id] = {}
+
+                        #  add the transceiver data to the config dict (this is
+                        #  replicated for all channels)
+                        dict_to_dict(transceiver_xml, data['configuration'][channel_id],
+                                self.transceiver_parsing_options)
+
+                        #  add the general channel data to the config dict
+                        dict_to_dict(channel_xml, data['configuration'][channel_id],
+                                self.channel_parsing_options)
+
+                        #  parse the Transducer section
+                        for td in t.iter('Transducer'):
+                            xducer_xml = td.attrib
+
+                            #  add the transducer data to the config dict
+                            dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                    self.transducer_parsing_options)
+
+                            #  now look thru the Transducers for transducer install data for this channel/transducer combo
+                            for t in root.iter('Transducers'):
+                                for c in t.iter('Transducer'):
+                                    if (td.attrib['SerialNumber'] == c.attrib['TransducerSerialNumber']):
+                                        xducer_xml = c.attrib
+                                        #  add the transducer mounting details
+                                        dict_to_dict(xducer_xml, data['configuration'][channel_id],
+                                                self.transducer_parsing_options)
+
+                        #  add the header data to the config dict
+                        for h in root.iter('Header'):
+                            header_xml = h.attrib
+                            #  add the transducer mounting details
+                            dict_to_dict(header_xml, data['configuration'][channel_id],
+                                    self.header_parsing_options)
+
+            elif (data['subtype'] == 'parameter'):
+
+                #  parse the parameter XML datagram
+                for h in root.iter('Channel'):
+                    parm_xml = h.attrib
+                    #  add the data to the environment dict
+                    dict_to_dict(parm_xml, data['parameter'],
+                            self.parameter_parsing_options)
+
+            elif (data['subtype'] == 'environment'):
+
+                #  parse the environment XML datagram
+                for h in root.iter('Environment'):
+                    env_xml = h.attrib
+                    #  add the data to the environment dict
+                    dict_to_dict(env_xml, data['environment'],
+                            self.environment_parsing_options)
+
+                for h in root.iter('Transducer'):
+                    transducer_xml = h.attrib
+                    #  add the data to the environment dict
+                    dict_to_dict(transducer_xml, data['environment'],
+                            self.envxdcr_parsing_options)
+
+
+        return data
+
+
+    def _pack_contents(self, data, version):
+
+        def to_CamelCase(xml_param):
+            '''
+            convert name from project's convention to CamelCase for converting back to
+            XML to in Kongsberg's convention.
+            '''
+            idx = list(reversed([i for i, c in enumerate(xml_param) if c.isupper()]))
+            param_len = len(xml_param)
+            for i in idx:
+                #  check if we should insert an underscore
+                if (idx > 0 and idx < param_len - 1):
+                    xml_param = xml_param[:idx] + '_' + xml_param[idx:]
+            xml_param = xml_param.lower()
+
+            return xml_param
+
+        datagram_fmt      = self.header_fmt(version)
+        datagram_contents = []
+
+        if version == 0:
+
+            for field in self.header_fields(version):
+                datagram_contents.append(data[field])
+
+
+            if data['nmea_string'][-1] != '\x00':
+                tmp_string = data['nmea_string'] + '\x00'
+            else:
+                tmp_string = data['nmea_string']
+
+
+            #Pad with more nulls to 4-byte word boundry if necessary
+            if len(tmp_string) % 4:
+                tmp_string += '\x00' * (4 - (len(tmp_string) % 4))
+
+            datagram_fmt += '%ds' % (len(tmp_string))
+
+            #Convert to python string if needed
+            if isinstance(tmp_string, str):
+                tmp_string = tmp_string.encode('ascii', errors='replace')
+
+            datagram_contents.append(tmp_string)
+
+
+        return struct.pack(datagram_fmt, *datagram_contents)
+
+
+
+class SimradFILParser(_SimradDatagramParser):
+    '''
+    EK80 FIL datagram contains the following keys:
+
+
+        type:               string == 'FIL1'
+        low_date:           long uint representing LSBytes of 64bit NT date
+        high_date:          long uint representing MSBytes of 64bit NT date
+        timestamp:          datetime.datetime object of NT date, assumed to be UTC
+        stage:              int
+        channel_id:         string
+        n_coefficients:     int
+        decimation_factor:  int
+        coefficients:       np.complex64
+
+    The following methods are defined:
+
+        from_string(str):    parse a raw EK80 FIL datagram
+                            (with leading/trailing datagram size stripped)
+
+        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
+                            ready for writing to disk
+    '''
+
+    def __init__(self):
+        headers = {1:[('type', '4s'),
+                      ('low_date', 'L'),
+                      ('high_date', 'L'),
+                      ('stage', 'h'),
+                      ('spare', '2s'),
+                      ('channel_id', '128s'),
+                      ('n_coefficients', 'h'),
+                      ('decimation_factor', 'h')
+                      ]
+                   }
+
+        _SimradDatagramParser.__init__(self, 'FIL', headers)
+
+
+    def _unpack_contents(self, raw_string, bytes_read, version):
+
+        data = {}
+        header_values = struct.unpack(self.header_fmt(version), raw_string[:self.header_size(version)])
+
+        for indx, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[indx]
+
+            #  handle Python 3 strings
+            if (sys.version_info.major > 2) and isinstance(data[field], bytes):
+                data[field] = data[field].decode('latin_1')
+
+        data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
+
+        if version == 1:
+            #  clean up the channel ID
+            data['channel_id'] = data['channel_id'].strip('\x00')
+
+            #  unpack the coefficients
+            indx = self.header_size(version)
+            block_size = data['n_coefficients'] * 8
+            data['coefficients'] = np.fromstring(raw_string[indx:indx + block_size], dtype='complex64')
+
+        return data
+
+
+    def _pack_contents(self, data, version):
+
+        datagram_fmt = self.header_fmt(version)
+        datagram_contents = []
+
+        if version == 0:
+
+           pass
+
+        elif version == 1:
+            for field in self.header_fields(version):
+                datagram_contents.append(data[field])
+
+            datagram_fmt += '%ds' %(len(data['beam_config']))
+            datagram_contents.append(data['beam_config'])
 
         return struct.pack(datagram_fmt, *datagram_contents)
 
@@ -646,7 +1164,7 @@ class SimradConfigParser(_SimradDatagramParser):
                                        ]
                                     }
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
 
         data = {}
         round6 = lambda x: round(x, ndigits=6)
@@ -660,6 +1178,7 @@ class SimradConfigParser(_SimradDatagramParser):
                 data[field] = data[field].decode('latin_1')
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
 
         if version == 0:
 
@@ -820,19 +1339,6 @@ class SimradConfigParser(_SimradDatagramParser):
         return struct.pack(datagram_fmt, *datagram_contents)
 
 
-# class SimradConfig1Parser(_SimradDatagramParser):
-#     '''
-#     Beam configuration parser (CON1 datagrams), found in ME70 raw data
-
-#         type:         string == 'CON1'
-#         low_date:     long uint representing LSBytes of 64bit NT date
-#         high_date:    long uint representing MSBytes of 64bit NT date
-#         timestamp:    datetime.datetime object of NT date, assumed to be UTC
-
-
-#         beam_config             [str]    xml string
-#     '''
-
 
 class SimradRawParser(_SimradDatagramParser):
     '''
@@ -874,7 +1380,7 @@ class SimradRawParser(_SimradDatagramParser):
     '''
 
     def __init__(self):
-        headers = {0:[('type', '4s'),
+        headers = {0 : [('type', '4s'),
                         ('low_date', 'L'),
                         ('high_date', 'L'),
                         ('channel', 'h'),
@@ -896,30 +1402,41 @@ class SimradRawParser(_SimradDatagramParser):
                         ('spare0', '6s'),
                         ('offset', 'l'),
                         ('count', 'l')
+                        ],
+                   3 : [('type', '4s'),
+                        ('low_date', 'L'),
+                        ('high_date', 'L'),
+                        ('channel_id', '128s'),
+                        ('data_type', 'h'),
+                        ('spare', '2s'),
+                        ('offset', 'l'),
+                        ('count', 'l')
                         ]
                     }
         _SimradDatagramParser.__init__(self, 'RAW', headers)
 
-    def _unpack_contents(self, raw_string, version):
+    def _unpack_contents(self, raw_string, bytes_read, version):
 
         header_values = struct.unpack(self.header_fmt(version), raw_string[:self.header_size(version)])
 
         data = {}
 
-        if version == 0:
-            for indx, field in enumerate(self.header_fields(version)):
-                data[field] = header_values[indx]
-                if isinstance(data[field], bytes):
-                    data[field] = data[field].decode()
+        for indx, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[indx]
+            if isinstance(data[field], bytes):
+                data[field] = data[field].decode()
 
-            data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
+        data['bytes_read'] = bytes_read
+
+        if version == 0:
 
             if data['count'] > 0:
                 block_size = data['count'] * 2
                 indx = self.header_size(version)
 
                 if int(data['mode']) & 0x1:
-                    data['power'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int16')
+                    data['power'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int16')
                     indx += block_size
                 else:
                     data['power'] = None
@@ -933,6 +1450,59 @@ class SimradRawParser(_SimradDatagramParser):
             else:
                 data['power'] = np.empty((0,), dtype='int16')
                 data['angle'] = np.empty((0,), dtype='int8')
+
+        elif version == 3:
+
+            #result = 1j*Data[...,1]; result += Data[...,0]
+
+            #  clean up the channel ID
+            data['channel_id'] = data['channel_id'].strip('\x00')
+
+            if data['count'] > 0:
+
+                #  set the initial block size and indx value.
+                block_size = data['count'] * 2
+                indx = self.header_size(version)
+
+                if data['data_type'] & 0b1:
+                    data['power'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int16')
+                    indx += block_size
+                else:
+                    data['power'] = None
+
+                if data['data_type'] & 0b10:
+                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = data['angle'].reshape((-1, 2))
+                    indx += block_size
+                else:
+                    data['angle'] = None
+
+                #  determine the complex sample data type - this is contained in bits 2 and 3
+                #  of the datatype <short> value. I'm assuming the types are exclusive...
+                data['complex_dtype'] = np.float16
+                type_bytes = 2
+                if ((data['data_type'] & 0b1000)):
+                     data['complex_dtype'] = np.float32
+                     type_bytes = 8
+
+                #  determine the number of complex samples
+                data['n_complex'] = data['data_type'] >> 8
+
+                #  unpack the complex samples
+                if (data['n_complex'] > 0):
+                    #  determine the block size
+                    block_size = data['count'] * data['n_complex'] * type_bytes
+
+                    data['complex'] = np.fromstring(raw_string[indx:indx + block_size], dtype=data['complex_dtype'])
+                    data['complex'].dtype = np.complex64
+                else:
+                    data['complex'] = None
+
+            else:
+                data['power'] = np.empty((0,), dtype='int16')
+                data['angle'] = np.empty((0,), dtype='int8')
+                data['complex'] = np.empty((0,), dtype='complex64')
+                data['n_complex'] = 0
 
         return data
 
