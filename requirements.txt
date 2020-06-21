@@ -1,10 +1,9 @@
+dask[array]
 matplotlib
 netCDF4
 numpy
 pynmea2
 pytz
+scipy
 xarray
 zarr
-# build docs
-sphinx-automodapi
-numpydoc

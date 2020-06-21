@@ -10,9 +10,10 @@ from echopype.utils import uwa
 
 import numpy as np
 import xarray as xr
+import zarr
 
 
-class ModelBase(object):
+class ProcessBase(object):
     """Class for manipulating echo data that is already converted to netCDF."""
 
     def __init__(self, file_path=""):
@@ -27,6 +28,8 @@ class ModelBase(object):
         self.TS = None            # calibrated target strength
         self.TS_path = None       # path to save TS calculation results
         self.MVBS = None          # mean volume backscattering strength
+        self._file_format = None
+        self._open_dataset = None
         self._salinity = None
         self._temperature = None
         self._pressure = None
@@ -34,6 +37,9 @@ class ModelBase(object):
         self._sample_thickness = None
         self._range = None
         self._seawater_absorption = None
+
+        self._set_file_format()
+        self._set_open_dataset()
 
     @property
     def salinity(self):
@@ -125,8 +131,30 @@ class ModelBase(object):
             if self.toplevel.sonar_convention_name != 'SONAR-netCDF4':
                 raise ValueError('netCDF file convention not recognized.')
             self.toplevel.close()
+        elif ext == '.zarr':
+            self.toplevel = zarr.open(self._file_path)
+
+            # Get .zarr filenames for storing processed data if computation is performed
+            self.Sv_path = os.path.join(os.path.dirname(self.file_path),
+                                        os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv.zarr')
+            self.Sv_clean_path = os.path.join(os.path.dirname(self.file_path),
+                                              os.path.splitext(os.path.basename(self.file_path))[0] + '_Sv_clean.zarr')
+            self.TS_path = os.path.join(os.path.dirname(self.file_path),
+                                        os.path.splitext(os.path.basename(self.file_path))[0] + '_TS.zarr')
+            self.MVBS_path = os.path.join(os.path.dirname(self.file_path),
+                                          os.path.splitext(os.path.basename(self.file_path))[0] + '_MVBS.zarr')
+
+            # Raise error if the file format convention does not match
+            if self.toplevel.attrs['sonar_convention_name'] != 'SONAR-netCDF4':
+                raise ValueError('netCDF file convention not recognized.')
         else:
             raise ValueError('Data file format not recognized.')
+    
+    def _set_file_format(self):
+        if self.file_path.endswith('.nc'):
+            self._file_format = 'netcdf'
+        elif self.file_path.endswith('.zarr'):
+            self._file_format = 'zarr'
 
     def calc_sound_speed(self, src='file'):
         """Base method to be overridden for calculating sound_speed for different sonar models
@@ -196,7 +224,7 @@ class ModelBase(object):
         # issue warning when subclass methods not available
         print('Target strength calibration has not been implemented for this sonar model!')
 
-    def validate_path(self, save_path, save_postfix, file_path=''):
+    def validate_path(self, save_path=None, save_postfix='_Sv', file_path=''):
         """Creates a directory if it doesnt exist. Returns a valid save path.
         """
         def _assemble_path():
@@ -285,7 +313,7 @@ class ModelBase(object):
             Sv_path = self.validate_path(save_path=source_path,  # wrangle _Sv path
                                               save_postfix=source_postfix)
             if os.path.exists(Sv_path):  # _Sv exists
-                self.Sv = xr.open_dataset(Sv_path)  # load _Sv file
+                self.Sv = self._open_dataset(Sv_path)  # load _Sv file
             else:
                 # if path specification given but file do not exist:
                 if (source_path is not None) or (source_postfix != '_Sv'):
@@ -305,7 +333,7 @@ class ModelBase(object):
         along each column of tiles.
 
         See method noise_estimates() for details of noise estimation.
-        Reference: De Robertis & Higginbottom, 2017, ICES Journal of Marine Sciences
+        Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
 
         Parameters
         ----------
@@ -416,17 +444,10 @@ class ModelBase(object):
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
 
-        # TODO: now adding the below so that MVBS can be calculated directly
-        #  from the cleaned Sv without saving and loading Sv_clean from disk.
-        #  However this is not explicit to the user. A better way to do this
-        #  is to change get_MVBS() to first check existence of self.Sv_clean
-        #  when `_Sv_clean` is specified as the source_postfix.
-        if not print_src:  # remove noise from Sv stored in memory
-            self.Sv = Sv_clean.copy()
         if save:
             self.Sv_clean_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving denoised Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_clean_path))
-            Sv_clean.to_netcdf(self.Sv_clean_path)
+            self._save_dataset(Sv_clean, self.Sv_clean_path)
 
         # Close opened resources
         proc_data.close()
@@ -526,7 +547,7 @@ class ModelBase(object):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
-        calculate and save MVBS as a new attribute to the calling EchoData instance.
+        calculate and save MVBS as a new attribute to the calling Process instance.
         MVBS is an xarray DataArray with dimensions ``ping_time`` and ``range_bin``
         that are from the first elements of each tile along the corresponding dimensions
         in the original Sv or Sv_clean DataArray.
@@ -534,7 +555,7 @@ class ModelBase(object):
         Parameters
         ----------
         source_postfix : str
-            postfix of the Sv file used to calculate MVBS, default to '_Sv'
+            postfix of the Sv file used to calculate MVBS, can be '_Sv' or '_Sv_clean'. Default to '_Sv'
         source_path : str
             path of Sv file used to calculate MVBS, can be one of the following:
             - None (default):
@@ -566,7 +587,12 @@ class ModelBase(object):
         else:
             print_src = True
 
-        proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
+        if source_postfix == '_Sv_clean':
+            if self.Sv_clean is None:
+                self.remove_noise()
+            proc_data = self.Sv_clean
+        else:
+            proc_data = self._get_proc_Sv(source_path=source_path, source_postfix=source_postfix)
 
         if print_src:
             if self.Sv_path is not None:
@@ -624,7 +650,31 @@ class ModelBase(object):
         if save:
             self.MVBS_path = self.validate_path(save_path=save_path, save_postfix=save_postfix)
             print('%s  saving MVBS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.MVBS_path))
-            MVBS.to_netcdf(self.MVBS_path)
+            self._save_dataset(MVBS, self.MVBS_path)
 
         # Close opened resources
         proc_data.close()
+    
+    def _save_dataset(self, ds, path, mode="w"):
+        """Save dataset to the appropriate formats.
+
+        A utility method to use the correct function to save the dataset,
+        based on the input file format.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            xarray dataset object
+        path : str
+            output file
+        """
+        if self._file_format == 'netcdf':
+            ds.to_netcdf(path, mode=mode)
+        elif self._file_format == 'zarr':
+            ds.to_zarr(path, mode=mode)
+
+    def _set_open_dataset(self):
+        if self._file_format == 'netcdf':
+            self._open_dataset = xr.open_dataset
+        elif self._file_format == 'zarr':
+            self._open_dataset = xr.open_zarr
