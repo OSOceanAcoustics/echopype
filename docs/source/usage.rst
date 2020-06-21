@@ -77,8 +77,8 @@ into netCDF (stable) or zarr (beta) files.
    Please report any bugs by `creating issues on GitHub`_.
    `Pull requests`_ are always welcome!
 
-   We know the current EK80 implementation raises an error when encountering
-   data recorded using the 2-in-1 transducer
+   We are currently addressing the issue with parsing transducer configuration
+   from data collected by the 2-in-1 transducer
    (see `#145 <https://github.com/OSOceanAcoustics/echopype/issues/145>`_ and
    `#146 <https://github.com/OSOceanAcoustics/echopype/pull/146>`_ ).
 
@@ -86,7 +86,7 @@ We are considering implementing calibration routines for
 *raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
 
 .. _creating issues on GitHub:
-   https://help.github.com/en/github/managing-your-work-on-github/creating-an-issue
+   https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f
 .. _Pull requests:
    https://jarednielsen.com/learn-git-fork-pull-request/
 
