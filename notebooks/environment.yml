@@ -8,6 +8,7 @@ dependencies:
   - numpy
   - pynmea2
   - pytz
+  - scipy
   - xarray
   - zarr
   # extras
@@ -17,5 +18,4 @@ dependencies:
   - ipykernel
   - pandas
   - requests
-  - scipy
   - tox
