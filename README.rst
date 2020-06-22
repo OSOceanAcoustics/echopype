@@ -1,7 +1,7 @@
 Echopype
 ========
 .. image:: docs/source/_static/echopype_logo_transparent-light.png
-  :width: 250
+   :width: 250
 
 .. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
     :target: https://travis-ci.org/OSOceanAcoustics/echopype
