@@ -104,7 +104,7 @@ html_theme_options = {
 html_static_path = ['_static']
 
 # Add logo
-html_logo = '_static/echopype_logo_transparent_dark.png'
+html_logo = '_static/echopype_logo_dark.png'
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
