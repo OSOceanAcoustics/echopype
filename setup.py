@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 import versioneer
 
 # Long description will go up on the pypi page
-with open('README.rst') as file:
+with open('README.md') as file:
     LONG_DESCRIPTION = file.read()
     
 # Dependencies.
