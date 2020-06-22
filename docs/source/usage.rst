@@ -19,12 +19,11 @@ or through conda:
    $ conda install -c conda-forge echopype
 
 
-When creating an conda environment to work with echopype,
-use the supplied ``environment.yml`` or do
+When creating an conda environment to work with echopype, do
 
 .. code-block:: console
 
-   $ conda create -c conda-forge -n echopype python=3.8 --file requirements.txt
+   $ conda create -c conda-forge --name echopype python=3.8 --file requirements.txt --file requirements-dev.txt
 
 Echopype works for python>=3.7.
 
