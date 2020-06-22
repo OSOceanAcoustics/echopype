@@ -1,5 +1,6 @@
 Echopype
 ========
+
 .. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
     :target: https://travis-ci.org/OSOceanAcoustics/echopype
 .. image:: https://readthedocs.org/projects/echopype/badge/?version=latest
@@ -7,6 +8,11 @@ Echopype
     :alt: Documentation Status
 .. image:: https://mybinder.org/badge_logo.svg
     :target: https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master
+    
+.. raw:: html
+
+   <img src="./docs/source/_static/echopype_logo_transparent_light.png" width="200">
+
 
 Echopype is a package built to enable interoperability and scalability
 in ocean sonar data processing.
