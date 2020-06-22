@@ -16,8 +16,8 @@ del get_versions
 
 
 class ConvertAZFP(ConvertBase):
-    """Class for converting AZFP `.01A` files """
-
+    """Class for converting AZFP ``.01A`` files.
+    """
     def __init__(self, _filename='', _xml_path=''):
         ConvertBase.__init__(self)
         self.filename = _filename
