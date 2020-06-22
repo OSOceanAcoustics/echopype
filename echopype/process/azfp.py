@@ -11,8 +11,8 @@ from echopype.utils import uwa
 
 
 class ProcessAZFP(ProcessBase):
-    """Class for manipulating AZFP echo data that is already converted to netCDF."""
-
+    """Class for manipulating AZFP echo data already converted to netCDF.
+    """
     def __init__(self, file_path="", salinity=29.6, pressure=60, temperature=None):
         ProcessBase.__init__(self, file_path)
         self._salinity = salinity    # salinity in [psu]

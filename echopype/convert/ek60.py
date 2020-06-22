@@ -29,7 +29,8 @@ INDEX2ELEC = 180.0 / 128.0
 
 
 class ConvertEK60(ConvertBase):
-    """Class for converting EK60 .raw files."""
+    """Class for converting EK60 ``.raw`` files.
+    """
     def __init__(self, _filename=''):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
