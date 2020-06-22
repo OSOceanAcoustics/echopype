@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://github.com/OSOceanAcoustics/echopype/blob/master/docs/source/_static/echopype_logo_light_banner.png" width="400">
+    <img src="https://github.com/OSOceanAcoustics/echopype/blob/master/docs/source/_static/echopype_logo_banner.png" width="400">
 </div>
 
 # Echopype
