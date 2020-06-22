@@ -1,3 +1,7 @@
+<div align="center">
+    <img src="https://github.com/OSOceanAcoustics/echopype/blob/master/docs/source/_static/echopype_logo_light_banner.png" width="400">
+</div>
+
 # Echopype
 
 <a href="https://travis-ci.org/OSOceanAcoustics/echopype">
@@ -11,8 +15,6 @@
 <a href="https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master">
 <img src="https://mybinder.org/badge_logo.svg"/>
 </a>
-
-<img src="https://github.com/OSOceanAcoustics/echopype/blob/master/docs/source/_static/echopype_logo_transparent_light.png" width="200">
 
 
 Echopype is a package built to enable interoperability and scalability
