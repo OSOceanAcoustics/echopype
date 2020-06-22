@@ -19,6 +19,14 @@ import sys
 sys.path.insert(0, os.path.abspath('../../'))
 # sys.path.append(os.path.join(os.path.abspath(os.pardir)))
 
+# git-lfs support
+if not os.path.exists('./git-lfs'):
+    os.system('wget https://github.com/git-lfs/git-lfs/releases/download/v2.11.0/git-lfs-linux-amd64-v2.11.0.tar.gz')
+    os.system('tar xvfz git-lfs-linux-amd64-v2.11.0.tar.gz')
+    os.system('./git-lfs install')  # make lfs available in current repository
+    os.system('./git-lfs fetch')  # download content from remote
+    os.system('./git-lfs checkout')  # make local files to have the real content on them
+    
 
 # -- Project information -----------------------------------------------------
 
