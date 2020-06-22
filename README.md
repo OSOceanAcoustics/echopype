@@ -1,17 +1,20 @@
-Echopype
-========
+<div align="center">
+    <img src="https://github.com/OSOceanAcoustics/echopype/blob/master/docs/source/_static/echopype_logo_banner.png" width="400">
+</div>
 
-.. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
-    :target: https://travis-ci.org/OSOceanAcoustics/echopype
-.. image:: https://readthedocs.org/projects/echopype/badge/?version=latest
-    :target: https://echopype.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
-.. image:: https://mybinder.org/badge_logo.svg
-    :target: https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master
-    
-.. raw:: html
+# Echopype
 
-   <img src="./docs/source/_static/echopype_logo_transparent_light.png" width="200">
+<a href="https://travis-ci.org/OSOceanAcoustics/echopype">
+<img src="https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master"/>
+</a>
+
+<a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
+<img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
+</a>
+
+<a href="https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master">
+<img src="https://mybinder.org/badge_logo.svg"/>
+</a>
 
 
 Echopype is a package built to enable interoperability and scalability
@@ -27,31 +30,25 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
-Installation
-------------
+## Installation
 
 Echopype can be installed from PyPI:
 
-.. code-block:: console
-
-   $ pip install echopype
+```bash
+$ pip install echopype
+```
 
 or through conda:
-
-.. code-block:: console
-
-   $ conda install -c conda-forge echopype
-
+```bash
+$ conda install -c conda-forge echopype
+```
 
 When creating an conda environment to work with echopype, do
+```bash
+$ conda create -c conda-forge --name echopype python=3.8 --file requirements.txt --file requirements-dev.txt
+```
 
-.. code-block:: console
-
-   $ conda create -c conda-forge --name echopype python=3.8 --file requirements.txt --file requirements-dev.txt
-
-
-Functionality and Usage
------------------------
+## Functionality and Usage
 
 Echopype converts data stored in manufacturer-specific binary formats from
 the following echosounders into standardized netCDF or zarr files,
@@ -66,41 +63,32 @@ noise removal, and mean volume backscattering strength (MVBS) calculation
 for narrowband echoes. EK80 calibration based on pulse compression output
 in the form of average over frequency is implemented.
 
-For more details, check out the `echopype documentation`_
-and watch the `echopype talk`_  at SciPy 2019 for background,
-discussions and a quick demo!
+For more details, check out the [echopype documentation](https://echopype.readthedocs.io)
+and watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU) 
+at SciPy 2019 for background, discussions and a quick demo!
 
 
-Echopype doesn't run on your data?
-----------------------------------
+## Echopype doesn't run on your data?
 
-Please report any bugs by `creating issues on GitHub`_.
-`Pull requests`_ are always welcome!
-
-
-.. _echopype documentation: https://echopype.readthedocs.io
-.. _echopype talk: https://www.youtube.com/watch?v=qboH7MyHrpU
-.. _creating issues on GitHub:
-   https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f
-.. _Pull requests:
-   https://jarednielsen.com/learn-git-fork-pull-request/
+Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f).
+[Pull requests](https://jarednielsen.com/learn-git-fork-pull-request/) are always welcome!
 
 
 Contributors
 ------------
 
-`Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) leads this project
-and along with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project
+and along with [Kavin Nguyen](https://github.com/ngkavin) (@ngkavin)
 are primary developers of this package.
-`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
+[Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
+and [Emilio Mayorga](https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio) (@emiliom)
 provide consultation and also contribute to the development.
 Other contributors are listed in `echopype documentation`_.
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
-We also thank `Rick Towler <https://github.com/rhtowler>`_
+We also thank [Rick Towler](https://github.com/rhtowler)
 of the Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
