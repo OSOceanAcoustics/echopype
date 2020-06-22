@@ -1,8 +1,5 @@
 Echopype
 ========
-.. image:: docs/source/_static/echopype_logo_transparent_light.png
-   :width: 250
-
 .. image:: https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master
     :target: https://travis-ci.org/OSOceanAcoustics/echopype
 .. image:: https://readthedocs.org/projects/echopype/badge/?version=latest
