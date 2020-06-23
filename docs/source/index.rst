@@ -41,6 +41,7 @@ and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name
 provide consultation and also contribute to the development.
 
 Other contributors include:
+`Landungs "Don" Setiawan <https://github.com/lsetiawan>`_ (@lsetiawan),
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
 `Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
@@ -53,7 +54,7 @@ Other contributors include:
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
-We also thank `Rick Towler <https://github.com/rhtowler>`_
+We also thank `Rick Towler <https://github.com/rhtowler>`_ (@rhtowler)
 of the Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
