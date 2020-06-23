@@ -83,7 +83,7 @@ are primary developers of this package.
 [Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
 and [Emilio Mayorga](https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio) (@emiliom)
 provide consultation and also contribute to the development.
-Other contributors are listed in `echopype documentation`_.
+Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
