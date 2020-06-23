@@ -7,7 +7,7 @@
 Welcome to echopype!
 ====================
 
-**Echopype** is a package built for enhancing the interoperability and scalability
+**Echopype** is a package built to enable interoperability and scalability
 in ocean sonar data processing.
 These data are widely used for obtaining information about the distribution and
 abundance of marine animals, such as fish and krill.
