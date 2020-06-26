@@ -1,38 +1,10 @@
-# coding=utf-8
+"""
+Code originally developed for pyEcholab
+(https://github.com/CI-CMG/pyEcholab)
+by Rick Towler <rick.towler@noaa.gov> at NOAA AFSC.
 
-#     National Oceanic and Atmospheric Administration (NOAA)
-#     Alaskan Fisheries Science Center (AFSC)
-#     Resource Assessment and Conservation Engineering (RACE)
-#     Midwater Assessment and Conservation Engineering (MACE)
-
-#  THIS SOFTWARE AND ITS DOCUMENTATION ARE CONSIDERED TO BE IN THE PUBLIC DOMAIN
-#  AND THUS ARE AVAILABLE FOR UNRESTRICTED PUBLIC USE. THEY ARE FURNISHED "AS IS."
-#  THE AUTHORS, THE UNITED STATES GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS,
-#  EMPLOYEES, AND AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
-#  OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE. THEY ASSUME NO RESPONSIBILITY
-#  (1) FOR THE USE OF THE SOFTWARE AND DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL
-#  SUPPORT TO USERS.
-
-'''
-.. module:: echolab2.instruments.util.simrad_raw_file
-
-    :synopsis:  A low-level interface for SIMRAD ".raw" formatted files
-
-    Provides the RawSimradFile class, a low-level object for
-        interacting with SIMRAD RAW formated datafiles.
-
-| Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
-| National Oceanic and Atmospheric Administration (NOAA)
-| Alaska Fisheries Science Center (AFSC)
-| Midwater Assesment and Conservation Engineering Group (MACE)
-|
-| Author:
-|       Zac Berkowitz <zac.berkowitz@gmail.com>
-| Maintained by:
-|       Rick Towler   <rick.towler@noaa.gov>
-
-$Id$
-'''
+Contains low-level functions called by ./ek_raw_parsers.py
+"""
 
 from io import BufferedReader, FileIO, SEEK_SET, SEEK_CUR, SEEK_END
 import struct

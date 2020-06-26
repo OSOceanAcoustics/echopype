@@ -16,6 +16,8 @@ del get_versions
 
 
 class ConvertEK80(ConvertBase):
+    """Class for converting EK80 ``.raw`` files.
+    """
     def __init__(self, _filename=""):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed

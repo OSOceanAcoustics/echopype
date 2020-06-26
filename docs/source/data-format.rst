@@ -12,7 +12,7 @@ converting data from manufacturer-specific formats into a standardized
 netcdf_introduction.html>`_ file format.
 NetCDF is the `current defacto standard <https://clouds.eos.ubc.ca/
 ~phil/courses/parallel_python/02_xarray_zarr.html>`_ in climate
-research and is supported by many powerful Python packages for
+research and is supported by many powerful  Python packages for
 efficient computation, of which echopype take advantage in its
 data analysis modules.
 
@@ -27,11 +27,12 @@ the computation can take full advantage of the power of
 xarray in manipulating labelled multi-dimensional arrays.
 See `Modifications to SONAR-netCDF4`_ for details of this modification.
 
-We are also experimenting with using `zarr <https://zarr.readthedocs.io/en/stable/>`_
-for cloud-optimized data storage and access.
-It is possible to convert raw data files to .zarr files using the current
-version of echopype, but computational support for this format has not
-been thoroughly tested.
+Echopype also supports converting raw data files
+into the `zarr <https://zarr.readthedocs.io/en/stable/>`_ format
+for cloud-optimized data storage and access,
+following the same structure as in the netCDF files.
+However, computing based on the zarr format via ``Process`` is still being
+developed.
 
 .. _ICES SONAR-netCDF4 convention:
    http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf
