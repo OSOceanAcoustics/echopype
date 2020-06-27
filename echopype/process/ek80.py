@@ -24,7 +24,7 @@ class ProcessEK80(ProcessBase):
         self._tau_effective = None
         self.ytx = []
         self.backscatter_compressed = []
-        self._sound_speed = self.get_sound_speed()
+        self._sound_speed = self.calc_sound_speed()
         self._salinity = self.get_salinity()
         self._temperature = self.get_temperature()
         self._pressure = self.get_pressure()
@@ -59,27 +59,50 @@ class ProcessEK80(ProcessBase):
             with self._open_dataset(self.file_path, group="Environment") as ds_env:
                 return ds_env.depth
 
-    def get_sound_speed(self):
+    def calc_sound_speed(self, src='file'):
         """gets sound speed [m/s] using parameters stored in the .nc file.
         Will use a custom path if one is provided
         """
-        with self._open_dataset(self.file_path, group="Environment") as ds_env:
-            return ds_env.sound_speed_indicative
+        if src == 'file':
+            with self._open_dataset(self.file_path, group="Environment") as ds_env:
+                return ds_env.sound_speed_indicative
+        elif src == 'user':
+            ss = uwa.calc_sound_speed(salinity=self.salinity,
+                                      temperature=self.temperature,
+                                      pressure=self.pressure)
+            return ss * np.ones(self.sound_speed.size)
+        else:
+            ValueError('Not sure how to update sound speed!')
 
-    def calc_seawater_absorption(self, src='FG', path=''):
-        path = path if path else self.file_path
-        with self._open_dataset(path, group='Beam') as ds_beam:
-            try:
-                f0 = ds_beam.frequency_start
-                f1 = ds_beam.frequency_end
-                f = (f0 + f1) / 2
-            except AttributeError:
-                f = ds_beam.frequency
-        sea_abs = uwa.calc_seawater_absorption(f,
-                                               salinity=self.salinity,
-                                               temperature=self.temperature,
-                                               pressure=self.pressure,
-                                               formula_source='FG')
+    def calc_seawater_absorption(self, src='user', path=''):
+        """Returns the seawater absorption
+
+        Parameters
+        ----------
+        src : str
+            'file' will return the seawater absoption recorded in the .nc file
+            'user' will calculate the seawater absorption. Default (Francois and Garrison, 1982).
+
+        Returns
+        -------
+        Seawater absorption value
+        """
+        if src == 'user':
+            path = path if path else self.file_path
+            with self._open_dataset(path, group='Beam') as ds_beam:
+                try:
+                    f0 = ds_beam.frequency_start
+                    f1 = ds_beam.frequency_end
+                    f = (f0 + f1) / 2
+                except AttributeError:
+                    f = ds_beam.frequency
+            sea_abs = uwa.calc_seawater_absorption(f,
+                                                   salinity=self.salinity,
+                                                   temperature=self.temperature,
+                                                   pressure=self.pressure,
+                                                   formula_source='FG')
+        else:
+            ValueError('Not sure how to update seawater absorption!')
         return sea_abs
 
     def calc_sample_thickness(self, path=''):

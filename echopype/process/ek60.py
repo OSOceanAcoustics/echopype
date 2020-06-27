@@ -67,8 +67,18 @@ class ProcessEK60(ProcessBase):
         else:
             ValueError('Not sure how to update sound speed!')
 
-    def calc_seawater_absorption(self, src='file'):
-        """Returns the seawater absorption values from the .nc file.
+    def calc_seawater_absorption(self, src='file', formula_source='AM'):
+        """Returns the seawater absorption
+
+        Parameters
+        ----------
+        src : str
+            'file' will return the seawater absoption recorded in the .nc file
+            'user' will calculate the seawater absorption. Default (Ainslie and McColm, 1998).
+
+        Returns
+        -------
+        Seawater absorption value
         """
         if src == 'file':
             with self._open_dataset(self.file_path, group="Environment") as ds_env:
