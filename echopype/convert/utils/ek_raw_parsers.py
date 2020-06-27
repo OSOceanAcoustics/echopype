@@ -837,11 +837,9 @@ class SimradXMLParser(_SimradDatagramParser):
                                                  self.transducer_parsing_options)
 
                         #  add the header data to the config dict
-                        for h in root.iter('Header'):
-                            header_xml = h.attrib
-                            #  add the transducer mounting details
-                            dict_to_dict(header_xml, data['configuration'][channel_id],
-                                         self.header_parsing_options)
+                        h = root.find('Header')
+                        dict_to_dict(h.attrib, data['configuration'][channel_id],
+                                     self.header_parsing_options)
 
             elif (data['subtype'] == 'parameter'):
 
