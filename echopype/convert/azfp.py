@@ -7,9 +7,9 @@ import xml.dom.minidom
 import math
 from datetime import datetime as dt
 from datetime import timezone
-from echopype.convert.utils.set_groups import SetGroups
 from struct import unpack
-from echopype._version import get_versions
+from .._version import get_versions
+from .utils.set_groups import SetGroups
 from .convertbase import ConvertBase
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions

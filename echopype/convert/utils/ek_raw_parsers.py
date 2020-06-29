@@ -13,7 +13,7 @@ import struct
 import re
 import sys
 import xml.etree.ElementTree as ET
-from echopype.convert.utils.ek_date_conversion import nt_to_unix
+from .ek_date_conversion import nt_to_unix
 
 
 __all__ = ['SimradNMEAParser', 'SimradDepthParser', 'SimradBottomParser',

@@ -1,9 +1,8 @@
-from .set_groups_base import SetGroupsBase
 import xarray as xr
 import os
 import numpy as np
-import shutil
 import zarr
+from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsEK60(SetGroupsBase):
