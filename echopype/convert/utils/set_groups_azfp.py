@@ -1,8 +1,8 @@
-from .set_groups_base import SetGroupsBase
 import xarray as xr
 import netCDF4
 import zarr
 import os
+from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsAZFP(SetGroupsBase):

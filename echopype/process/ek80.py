@@ -7,7 +7,7 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 from scipy import signal
-from echopype.utils import uwa
+from ..utils import uwa
 from .processbase import ProcessBase
 
 
