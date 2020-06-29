@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import xarray as xr
-from echopype.convert.ek60 import ConvertEK60
-from echopype.process import Process
+from ..convert.ek60 import ConvertEK60
+from ..process import Process
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 
 
