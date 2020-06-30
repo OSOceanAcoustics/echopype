@@ -583,11 +583,13 @@ class ConvertEK60(ConvertBase):
                 # Construct a new path with _part[n] if there are multiple range_bin lengths
                 save_path = split[0] + '_part%02d' % (n + 1) + split[1]
             # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0]) as ds_top:
+                ds_top.to_netcdf(path=save_path, mode='w')
             with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
-                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+                ds_prov.to_netcdf(path=save_path, mode='a', group='Provenance')
             with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
-            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords', data_vars='minimal') as ds_beam:
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
             with xr.open_dataset(file_group[0], group='Environment') as ds_env:
                 ds_env.to_netcdf(path=save_path, mode='a', group='Environment')

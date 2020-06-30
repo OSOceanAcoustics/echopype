@@ -611,24 +611,25 @@ class ConvertAZFP(ConvertBase):
             return
         save_path = self.save_path
         all_temp = os.listdir(self._temp_dir)
-        file_groups = [[]]
-        file_groups[0] = [os.path.join(self._temp_dir, file) for file in all_temp]
-        for file_group in file_groups:
-            # Open multiple files as one dataset of each group and save them into a single file
-            with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
-                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
-            with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
-                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
-            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
-                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
-            with xr.open_mfdataset(file_group, group='Environment', combine='by_coords') as ds_env:
-                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
-            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-            with xr.open_dataset(file_group[0], group='Platform') as ds_plat:
-                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
-            # EK60 does not have the "vendor specific" group
-            with xr.open_mfdataset(file_group, group='Vendor', combine='by_coords') as ds_vend:
-                ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
+        files = [os.path.join(self._temp_dir, file) for file in all_temp]
+
+        # Open multiple files as one dataset of each group and save them into a single file
+        with xr.open_dataset(files[0]) as ds_top:
+            ds_top.to_netcdf(path=save_path, mode='w')
+        with xr.open_dataset(files[0], group='Provenance') as ds_prov:
+            ds_prov.to_netcdf(path=save_path, mode='a', group='Provenance')
+        with xr.open_dataset(files[0], group='Sonar') as ds_sonar:
+            ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+        with xr.open_mfdataset(files, group='Beam', combine='by_coords', data_vars='minimal') as ds_beam:
+            ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+        with xr.open_mfdataset(files, group='Environment', combine='by_coords') as ds_env:
+            ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+        # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+        with xr.open_dataset(files[0], group='Platform') as ds_plat:
+            ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+        # EK60 does not have the "vendor specific" group
+        with xr.open_mfdataset(files, group='Vendor', combine='by_coords', data_vars='minimal') as ds_vend:
+            ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
 
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
