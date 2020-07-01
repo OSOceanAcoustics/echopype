@@ -133,7 +133,7 @@ class ConvertEK80(ConvertBase):
                 self.fil_coeffs[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
                 self.fil_df[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['decimation_factor']
 
-    def load_ek80_raw(self, raw):
+    def load_ek80_raw(self, raw, export_xml=False):
         """Method to parse the EK80 ``.raw`` data file.
 
         This method parses the ``.raw`` file and saves the parsed data
@@ -143,10 +143,15 @@ class ConvertEK80(ConvertBase):
         ----------
         raw : str
             raw filename
+        export_xml : bool
+            whether or not to export the configuration as an xml file
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(raw)))
-
-        with RawSimradFile(raw, 'r') as fid:
+        if export_xml:
+            xml_path = raw[:-3] + 'xml'
+        else:
+            xml_path = None
+        with RawSimradFile(raw, 'r', xml_path=xml_path) as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
 
@@ -458,6 +463,7 @@ class ConvertEK80(ConvertBase):
             decimation_factors[f'{ch}_PC_decimation'] = self.fil_df[ch][2]
         out_dict['filter_coefficients'] = coeffs
         out_dict['decimation_factors'] = decimation_factors
+        out_dict['xml'] = self.config_datagram['xml']
 
         return out_dict
 
@@ -586,7 +592,14 @@ class ConvertEK80(ConvertBase):
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
 
-    def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
+    # Overloads base methods due to the option to export the configuration xml
+    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
+        self.save(".nc", save_path, combine_opt, overwrite, compress, export_xml)
+
+    def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
+        self.save(".zarr", save_path, combine_opt, overwrite, compress, export_xml)
+
+    def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
         """Save data from EK60 `.raw` to netCDF format.
         """
         save_settings = dict(combine_opt=combine_opt, overwrite=overwrite, compress=compress)
@@ -598,7 +611,7 @@ class ConvertEK80(ConvertBase):
                 self.reset_vars('EK80')
             # Load data if it has not already been loaded.
             if self.config_datagram is None:
-                self.load_ek80_raw(file)
+                self.load_ek80_raw(file, export_xml)
             # multiple raw files are saved differently between the .nc and .zarr formats
             if file_format == '.nc':
                 self._export_nc(save_settings, file_idx)
