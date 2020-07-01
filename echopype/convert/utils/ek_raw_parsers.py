@@ -651,13 +651,13 @@ class SimradXMLParser(_SimradDatagramParser):
                                 }
 
 
-    def __init__(self):
+    def __init__(self, xml_path=None):
         headers = {0: [('type', '4s'),
                         ('low_date', 'L'),
                         ('high_date', 'L')
                             ]
                         }
-
+        self._xml_path = xml_path
         _SimradDatagramParser.__init__(self, "XML", headers)
 
 
@@ -751,7 +751,10 @@ class SimradXMLParser(_SimradDatagramParser):
                 xml_string = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
             else:
                 xml_string = unicode(raw_string[self.header_size(version):].strip('\x00'), 'ascii', errors='replace')
-
+            # write xml string to file
+            if self._xml_path is not None:
+                with open(self._xml_path, 'w') as xml_file:
+                    xml_file.write(xml_string)
             #  get the ElementTree element
             root = ET.fromstring(xml_string)
 
@@ -834,7 +837,7 @@ class SimradXMLParser(_SimradDatagramParser):
                     dict_to_dict(transducer_xml, data['environment'],
                             self.envxdcr_parsing_options)
 
-
+        data['xml'] = xml_string
         return data
 
 
