@@ -608,9 +608,7 @@ class ConvertEK80(ConvertBase):
             with xr.open_mfdataset(file_group, group='Platform/NMEA',
                                    combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
                 ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
-            if n == 1:
-                # Save filter coefficients only for bb files
-                self._copy_group(file_group[0], save_path)
+            self._copy_group(file_group[0], save_path)
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
 
