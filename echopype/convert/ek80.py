@@ -3,6 +3,7 @@ import shutil
 from collections import defaultdict
 import numpy as np
 import xarray as xr
+import netCDF4
 from datetime import datetime as dt
 import pytz
 import pynmea2
@@ -553,6 +554,31 @@ class ConvertEK80(ConvertBase):
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
 
+    def _copy_group(self, src_file, trg_file):
+        # Utility function for copying the filter coefficients from one file into another
+        src = netCDF4.Dataset(src_file)
+        trg = netCDF4.Dataset(trg_file, mode='a')
+        ds_vend = src.groups['Vendor']
+        vdr = trg.createGroup('Vendor')
+        complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
+        complex64_t = vdr.createCompoundType(complex64, "complex64")
+
+        # set decimation values
+        vdr.setncatts({a: ds_vend.getncattr(a) for a in ds_vend.ncattrs()})
+
+        # Create the dimensions of the file
+        for k, v in ds_vend.dimensions.items():
+            vdr.createDimension(k, len(v) if not v.isunlimited() else None)
+
+        # Create the variables in the file
+        for k, v in ds_vend.variables.items():
+            data = np.empty(len(v), complex64)
+            var = vdr.createVariable(k, complex64_t, v.dimensions)
+            var[:] = data
+
+        src.close()
+        trg.close()
+
     def _combine_files(self):
         # Do nothing if combine_opt is true if there is nothing to combine
         if not self._temp_path:
@@ -575,11 +601,13 @@ class ConvertEK80(ConvertBase):
                     continue
                 save_path = split[0] + '_cw' + split[1] if n == 0 else self.save_path
             # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(file_group[0]) as ds_top:
+                ds_top.to_netcdf(path=save_path, mode='w')
             with xr.open_dataset(file_group[0], group='Provenance') as ds_prov:
-                ds_prov.to_netcdf(path=save_path, mode='w', group='Provenance')
+                ds_prov.to_netcdf(path=save_path, mode='a', group='Provenance')
             with xr.open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
-            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords') as ds_beam:
+            with xr.open_mfdataset(file_group, group='Beam', combine='by_coords', data_vars='minimal') as ds_beam:
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
             with xr.open_dataset(file_group[0], group='Environment') as ds_env:
                 ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
@@ -588,7 +616,9 @@ class ConvertEK80(ConvertBase):
             with xr.open_mfdataset(file_group, group='Platform/NMEA',
                                    combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
                 ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
-
+            if n == 1:
+                # Save filter coefficients only for bb files
+                self._copy_group(file_group[0], save_path)
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
 
