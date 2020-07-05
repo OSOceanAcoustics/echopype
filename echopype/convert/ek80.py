@@ -546,32 +546,32 @@ class ConvertEK80(ConvertBase):
         else:
             self._set_groups(raw_file, out_file, save_settings=save_settings)
 
-    def _copy_group(self, src_file, trg_file):
-        # Utility function for copying the filter coefficients from one file into another
-        src = netCDF4.Dataset(src_file)
-        trg = netCDF4.Dataset(trg_file, mode='a')
-        ds_vend = src.groups['Vendor']
-        vdr = trg.createGroup('Vendor')
-        complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
-        complex64_t = vdr.createCompoundType(complex64, "complex64")
-
-        # set decimation values
-        vdr.setncatts({a: ds_vend.getncattr(a) for a in ds_vend.ncattrs()})
-
-        # Create the dimensions of the file
-        for k, v in ds_vend.dimensions.items():
-            vdr.createDimension(k, len(v) if not v.isunlimited() else None)
-
-        # Create the variables in the file
-        for k, v in ds_vend.variables.items():
-            data = np.empty(len(v), complex64)
-            var = vdr.createVariable(k, complex64_t, v.dimensions)
-            var[:] = data
-
-        src.close()
-        trg.close()
-
     def _combine_files(self):
+        def copy_vendor(src_file, trg_file):
+            # Utility function for copying the filter coefficients from one file into another
+            src = netCDF4.Dataset(src_file)
+            trg = netCDF4.Dataset(trg_file, mode='a')
+            ds_vend = src.groups['Vendor']
+            vdr = trg.createGroup('Vendor')
+            complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
+            complex64_t = vdr.createCompoundType(complex64, "complex64")
+
+            # set decimation values
+            vdr.setncatts({a: ds_vend.getncattr(a) for a in ds_vend.ncattrs()})
+
+            # Create the dimensions of the file
+            for k, v in ds_vend.dimensions.items():
+                vdr.createDimension(k, len(v) if not v.isunlimited() else None)
+
+            # Create the variables in the file
+            for k, v in ds_vend.variables.items():
+                data = np.empty(len(v), complex64)
+                var = vdr.createVariable(k, complex64_t, v.dimensions)
+                var[:] = data
+
+            src.close()
+            trg.close()
+
         # Do nothing if combine_opt is true if there is nothing to combine
         if not self._temp_path:
             return
@@ -603,12 +603,13 @@ class ConvertEK80(ConvertBase):
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
             with xr.open_dataset(file_group[0], group='Environment') as ds_env:
                 ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
-            with xr.open_mfdataset(file_group, group='Platform', combine='by_coords') as ds_plat:
+            with xr.open_mfdataset(file_group, group='Platform', combine='nested',
+                                   concat_dim='location_time', data_vars='minimal') as ds_plat:
                 ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
             with xr.open_mfdataset(file_group, group='Platform/NMEA',
                                    combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
                 ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
-            self._copy_group(file_group[0], save_path)
+            copy_vendor(file_group[0], save_path)
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
 
