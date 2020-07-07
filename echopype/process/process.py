@@ -3,9 +3,7 @@ This file provides a wrapper for the process object and functions.
 Users will not need to know the names of the specific objects they need to create.
 """
 import os
-
 import xarray as xr
-import zarr
 from echopype.process.azfp import ProcessAZFP
 from echopype.process.ek60 import ProcessEK60
 from echopype.process.ek80 import ProcessEK80
