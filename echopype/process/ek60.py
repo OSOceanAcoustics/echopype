@@ -2,17 +2,15 @@
 echopype data model inherited from based class Process for EK60 data.
 """
 
-import os
 import datetime as dt
 import numpy as np
-import xarray as xr
+from ..utils import uwa
 from .processbase import ProcessBase
-from echopype.utils import uwa
 
 
 class ProcessEK60(ProcessBase):
-    """Class for manipulating EK60 echo data that is already converted to netCDF."""
-
+    """Class for manipulating EK60 echo data already converted to netCDF.
+    """
     def __init__(self, file_path=""):
         ProcessBase.__init__(self, file_path)
         self.tvg_correction_factor = 2  # range bin offset factor for calculating time-varying gain in EK60

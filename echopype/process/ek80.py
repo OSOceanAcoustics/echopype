@@ -7,13 +7,13 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 from scipy import signal
-from echopype.utils import uwa
+from ..utils import uwa
 from .processbase import ProcessBase
 
 
 class ProcessEK80(ProcessBase):
-    """Class for manipulating EK60 echo data that is already converted to netCDF."""
-
+    """Class for manipulating EK80 echo data already converted to netCDF.
+    """
     def __init__(self, file_path=""):
         ProcessBase.__init__(self, file_path)
         self._acidity = None

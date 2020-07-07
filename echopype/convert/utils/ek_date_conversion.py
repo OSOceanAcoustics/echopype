@@ -1,13 +1,9 @@
 """
 Code originally developed for pyEcholab
-(https://github.com/CI-CMG/pyEcholab) by NOAA AFSC.
-Contains functions to convert date info from EK60 data files.
-Called by class _SimradDatagramParser in ``echopype/convert/ek60_raw_parsers.py``.
+(https://github.com/CI-CMG/pyEcholab)
+by Rick Towler <rick.towler@noaa.gov> at NOAA AFSC.
 
-| Developed by:  Zac Berkowitz <zac.berkowitz@gmail.com> under contract for
-| National Oceanic and Atmospheric Administration (NOAA)
-| Alaska Fisheries Science Center (AFSC)
-| Midwater Assesment and Conservation Engineering Group (MACE)
+Contains functions to convert date information.
 
 TODO: merge necessary function into ek60.py or group everything into a class
 TODO: fix docstring

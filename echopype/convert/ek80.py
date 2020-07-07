@@ -7,16 +7,18 @@ import netCDF4
 from datetime import datetime as dt
 import pytz
 import pynmea2
-from echopype.convert.utils.ek_raw_io import RawSimradFile, SimradEOF
-from echopype.convert.utils.nmea_data import NMEAData
-from echopype.convert.utils.set_groups import SetGroups
-from echopype._version import get_versions
+from .._version import get_versions
+from .utils.ek_raw_io import RawSimradFile, SimradEOF
+from .utils.nmea_data import NMEAData
+from .utils.set_groups import SetGroups
 from .convertbase import ConvertBase
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
 class ConvertEK80(ConvertBase):
+    """Class for converting EK80 ``.raw`` files.
+    """
     def __init__(self, _filename=""):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed

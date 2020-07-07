@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
-from echopype.convert import Convert
+from ..convert import Convert
 
 raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.nc'

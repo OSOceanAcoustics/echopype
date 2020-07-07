@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 import versioneer
 
 # Long description will go up on the pypi page
-with open('README.rst') as file:
+with open('README.md') as file:
     LONG_DESCRIPTION = file.read()
     
 # Dependencies.
@@ -17,6 +17,7 @@ opts = dict(name='echopype',
             maintainer_email='leewujung@gmail.com',
             description='Enhancing the interoperability and scalability in analyzing ocean sonar data',
             long_description=LONG_DESCRIPTION,
+            long_description_content_type='text/markdown',
             url='https://github.com/OSOceanAcoustics/echopype',
             download_url='',
             license='Apache License, Version 2.0',
@@ -33,9 +34,10 @@ opts = dict(name='echopype',
             version=versioneer.get_version(),
             cmdclass=versioneer.get_cmdclass(),
             packages=find_packages(),
+            package_dir={'': '.'},
             package_data={'echopype': [pjoin('data', '*')]},
             install_requires=INSTALL_REQUIRES,
-            tests_require='tox',)
+            tests_require=['tox', 'pandas'],)
 
 
 if __name__ == '__main__':
