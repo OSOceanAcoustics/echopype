@@ -1,6 +1,6 @@
 import os
-from echopype.convert import Convert
-from echopype.process import Process
+from ..convert import Convert
+from ..process import Process
 
 # ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'   # Large dataset (BB)
 # ek80_raw_path = './echopype/test_data/ek80/D20190822-T161221.raw'     # Small dataset (CW)

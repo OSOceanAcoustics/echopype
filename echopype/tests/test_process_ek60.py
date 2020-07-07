@@ -2,9 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-from echopype.convert import Convert
-from echopype.process import ProcessEK60
-from echopype.process import Process
+from ..convert import Convert
+from ..process import ProcessEK60
+from ..process import Process
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges

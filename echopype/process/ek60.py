@@ -2,12 +2,10 @@
 echopype data model inherited from based class Process for EK60 data.
 """
 
-import os
 import datetime as dt
 import numpy as np
-import xarray as xr
+from ..utils import uwa
 from .processbase import ProcessBase
-from echopype.utils import uwa
 
 
 class ProcessEK60(ProcessBase):

@@ -3,9 +3,9 @@ This file provides a wrapper for the convert objects and functions.
 Users will not need to know the names of the specific objects they need to create.
 """
 import os
-from echopype.convert.azfp import ConvertAZFP
-from echopype.convert.ek60 import ConvertEK60
-from echopype.convert.ek80 import ConvertEK80
+from .azfp import ConvertAZFP
+from .ek60 import ConvertEK60
+from .ek80 import ConvertEK80
 
 
 def Convert(path='', xml_path='', model='EK60'):

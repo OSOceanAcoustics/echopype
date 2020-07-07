@@ -4,10 +4,7 @@ its connection to data files.
 """
 
 import os
-import warnings
 import datetime as dt
-from echopype.utils import uwa
-
 import numpy as np
 import xarray as xr
 import zarr

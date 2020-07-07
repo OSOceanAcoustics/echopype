@@ -34,9 +34,10 @@ opts = dict(name='echopype',
             version=versioneer.get_version(),
             cmdclass=versioneer.get_cmdclass(),
             packages=find_packages(),
+            package_dir={'': '.'},
             package_data={'echopype': [pjoin('data', '*')]},
             install_requires=INSTALL_REQUIRES,
-            tests_require='tox',)
+            tests_require=['tox', 'pandas'],)
 
 
 if __name__ == '__main__':

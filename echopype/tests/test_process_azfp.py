@@ -1,9 +1,8 @@
 import os
 import numpy as np
-import pandas as pd
 import xarray as xr
-from echopype.convert import Convert
-from echopype.process import Process
+from ..convert import Convert
+from ..process import Process
 
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'

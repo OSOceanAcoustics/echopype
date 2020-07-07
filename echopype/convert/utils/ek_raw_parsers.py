@@ -14,7 +14,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
-from echopype.convert.utils.ek_date_conversion import nt_to_unix
+from .ek_date_conversion import nt_to_unix
 
 TCVR_CH_NUM_MATCHER = re.compile('\d{6}-\w{1,2}')
 
