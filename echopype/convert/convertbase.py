@@ -176,7 +176,7 @@ class ConvertBase:
                 os.mkdir(self._temp_dir)
             self._temp_path = [os.path.join(self._temp_dir, f + file_format) for f in orig_files]
 
-    def combine_files(self, echo_type):
+    def _combine_files(self, echo_type):
         # Combines NetCDF files
         print("Combining is not supported for this echosounder model")
 
