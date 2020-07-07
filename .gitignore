@@ -4,11 +4,6 @@
 __pycache__/
 .pytest_cache/
 .gitignore~
-*.h5
-*.bot
-*.idx
-*.png
-*.tex
 *~
 *.egg-info/
 .tox/
@@ -26,4 +21,3 @@ toolbox
 *.01A
 ek60/
 azfp/
-
