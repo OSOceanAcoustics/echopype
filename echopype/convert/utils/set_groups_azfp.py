@@ -55,9 +55,8 @@ class SetGroupsAZFP(SetGroupsBase):
         if not os.path.exists(self.file_path):
             print("netCDF file does not exist, exiting without saving Platform group...")
         elif self.format == '.nc':
-            ncfile = netCDF4.Dataset(self.file_path, 'a', format='NETCDF4')
-            plat = ncfile.createGroup('Platform')
             with netCDF4.Dataset(self.file_path, 'a', format='NETCDF4') as ncfile:
+                plat = ncfile.createGroup('Platform')
                 [plat.setncattr(k, v) for k, v in platform_dict.items()]
         elif self.format == '.zarr' and not self.append_zarr:    # Do not save platform if appending
             zarrfile = zarr.open(self.file_path, mode='a')
