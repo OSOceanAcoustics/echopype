@@ -15,8 +15,9 @@ docs/source/api
 profile.html
 dask-worker-space/
 toolbox
-echopype/test_data/*/*.nc
-echopype/test_data/*/*/*.csv
-notebooks/*.raw
-notebooks/*.nc
-*default.profraw
+*.nc
+*.raw
+*.csv
+*.01A
+ek60/
+azfp/
