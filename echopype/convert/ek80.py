@@ -621,14 +621,7 @@ class ConvertEK80(ConvertBase):
         # Delete temporary folder:
         shutil.rmtree(self._temp_dir)
 
-    # Overloads base methods due to the option to export the configuration xml
-    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
-        self.save(".nc", save_path, combine_opt, overwrite, compress, export_xml)
-
-    def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
-        self.save(".zarr", save_path, combine_opt, overwrite, compress, export_xml)
-
-    def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True, export_xml=False):
+    def save(self, file_format, save_path=None, combine_opt=False, overwrite=False, compress=True):
         """Save data from EK60 `.raw` to netCDF format.
         """
         save_settings = dict(combine_opt=combine_opt, overwrite=overwrite, compress=compress)
@@ -640,7 +633,7 @@ class ConvertEK80(ConvertBase):
                 self.reset_vars('EK80')
             # Load data if it has not already been loaded.
             if self.config_datagram is None:
-                self.load_ek80_raw(file, export_xml)
+                self.load_ek80_raw(file)
             # multiple raw files are saved differently between the .nc and .zarr formats
             if file_format == '.nc':
                 self._export_nc(save_settings, file_idx)
@@ -650,3 +643,9 @@ class ConvertEK80(ConvertBase):
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
             self._combine_files()
+
+    def export_xml(self):
+        """ Exports the configuration data as an xml file in the same directory as the data files"""
+        for file in self.filename:
+            self.reset_vars('EK80')
+            self.load_ek80_raw(file, export_xml=True)
