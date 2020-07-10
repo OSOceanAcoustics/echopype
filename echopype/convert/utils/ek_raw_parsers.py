@@ -751,10 +751,7 @@ class SimradXMLParser(_SimradDatagramParser):
                 xml_string = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
             else:
                 xml_string = unicode(raw_string[self.header_size(version):].strip('\x00'), 'ascii', errors='replace')
-            # write xml string to file
-            if self._xml_path is not None:
-                with open(self._xml_path, 'w') as xml_file:
-                    xml_file.write(xml_string)
+
             #  get the ElementTree element
             root = ET.fromstring(xml_string)
 
@@ -766,6 +763,10 @@ class SimradXMLParser(_SimradDatagramParser):
 
             #  parse it
             if (data['subtype'] == 'configuration'):
+                # write xml string to file
+                if self._xml_path is not None:
+                    with open(self._xml_path, 'w') as xml_file:
+                        xml_file.write(xml_string)
 
                 #  parse the Transceiver section
                 for t in root.iter('Transceiver'):
