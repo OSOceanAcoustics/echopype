@@ -314,7 +314,7 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'}),
-                            'quadrant': (['quadrant'], np.arange(4)),
+                            'quadrant': (['quadrant'], np.arange(beam_dict["backscatter_r"].shape[1])),
                             'range_bin': (['range_bin'], beam_dict['range_bin'])
                             })
                 ds = xr.merge([ds, bb])
