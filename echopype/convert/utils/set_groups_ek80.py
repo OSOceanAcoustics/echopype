@@ -55,23 +55,23 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ping_time = (platform_dict['ping_time'] - np.datetime64('1900-01-01T00:00:00')) \
+            mru_time = (platform_dict['mru_time'] - np.datetime64('1900-01-01T00:00:00')) \
                 / np.timedelta64(1, 's')
             location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
                 / np.timedelta64(1, 's')
 
             ds = xr.Dataset(
-                {'pitch': (['ping_time'], platform_dict['pitch'],
+                {'pitch': (['mru_time'], platform_dict['pitch'],
                            {'long_name': 'Platform pitch',
                             'standard_name': 'platform_pitch_angle',
                             'units': 'arc_degree',
                             'valid_range': (-90.0, 90.0)}),
-                 'roll': (['ping_time'], platform_dict['roll'],
+                 'roll': (['mru_time'], platform_dict['roll'],
                           {'long_name': 'Platform roll',
                            'standard_name': 'platform_roll_angle',
                            'units': 'arc_degree',
                            'valid_range': (-90.0, 90.0)}),
-                 'heave': (['ping_time'], platform_dict['heave'],
+                 'heave': (['mru_time'], platform_dict['heave'],
                            {'long_name': 'Platform heave',
                             'standard_name': 'platform_heave_angle',
                             'units': 'arc_degree',
@@ -91,16 +91,16 @@ class SetGroupsEK80(SetGroupsBase):
                                                'origin to the sonar transducer',
                                   'units': 'm'})
                  },
-                coords={'ping_time': (['ping_time'], ping_time,
+                coords={'mru_time': (['mru_time'], mru_time,
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
-                                       'long_name': 'Timestamps for position datagrams',
+                                       'long_name': 'Timestamps for MRU datagrams',
                                        'standard_name': 'time',
                                        'units': 'seconds since 1900-01-01'}),
                         'location_time': (['location_time'], location_time,
                                           {'axis': 'T',
                                            'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for NMEA position datagrams',
+                                           'long_name': 'Timestamps for NMEA datagrams',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})
                         },
