@@ -263,7 +263,7 @@ class ConvertEK80(ConvertBase):
         out_dict['platform_code_ICES'] = self.platform_code_ICES
 
         # Read pitch/roll/heave from ping data
-        out_dict['ping_time'] = self.ping_time  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        out_dict['mru_time'] = self.mru_data['timestamp']  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
         out_dict['pitch'] = np.array(self.mru_data['pitch'])
         out_dict['roll'] = np.array(self.mru_data['roll'])
         out_dict['heave'] = np.array(self.mru_data['heave'])
