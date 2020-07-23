@@ -54,7 +54,15 @@ class ProcessAZFP(ProcessBase):
             ValueError('Not sure how to calculate sound speed for AZFP!')
 
     def calc_seawater_absorption(self, src='user'):
-        """Calculates seawater absorption in dB/km using AZFP-supplied formula.
+        """Calculates seawater absorption in dB/km
+
+        Parameters
+        ----------
+        src : str
+            'file' will return the seawater absoption recorded in the .nc file
+            'user' will calculate the seawater absorption. Default to AZFP provided formula.
+        formula_source : str
+            Select the formula used for calculating seawater absorption. 
 
         Returns
         -------
