@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from collections import defaultdict
 import numpy as np
@@ -19,7 +20,7 @@ del get_versions
 class ConvertEK80(ConvertBase):
     """Class for converting EK80 ``.raw`` files.
     """
-    def __init__(self, _filename=""):
+    def __init__(self, _filename="", regex=r'D\d{8}-T\d{6}'):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -39,6 +40,7 @@ class ConvertEK80(ConvertBase):
         self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
         self.ch_ids = []                      # List of all channel ids
         self.recorded_ch_ids = []
+        self.timestamp_pattern = re.compile(regex)
 
     def _read_datagrams(self, fid):
         """
@@ -208,10 +210,10 @@ class ConvertEK80(ConvertBase):
 
     # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
-        # filename must have "-" as the field separator for the last 2 fields. Uses first file
-        filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
-        filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
-        filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
+        # filename must have timestamp that matches self.timestamp_patter
+        raw_date = self.timestamp_pattern.search(raw_file).group().split("-")
+        filedate = raw_date[0].replace("D", "")
+        filetime = raw_date[1].replace("T", "")
 
         out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
                         keywords='EK80',
@@ -267,7 +269,12 @@ class ConvertEK80(ConvertBase):
         out_dict['pitch'] = np.array(self.mru_data['pitch'])
         out_dict['roll'] = np.array(self.mru_data['roll'])
         out_dict['heave'] = np.array(self.mru_data['heave'])
-        out_dict['water_level'] = self.environment['water_level_draft']
+        if 'water_level_draft' in self.environment:
+            out_dict['water_level'] = self.environment['water_level_draft']
+        else:
+            out_dict['water_level'] = None
+            print('WARNING: The water_level_draft was not in the file. Value '
+                  'set to None')
 
         # Read lat/long from NMEA datagram
         idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
