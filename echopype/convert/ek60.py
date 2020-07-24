@@ -344,6 +344,7 @@ class ConvertEK60(ConvertBase):
         out_dict['pitch'] = np.array(self.ping_data_dict[1]['pitch'], dtype='float32')
         out_dict['roll'] = np.array(self.ping_data_dict[1]['roll'], dtype='float32')
         out_dict['heave'] = np.array(self.ping_data_dict[1]['heave'], dtype='float32')
+        # TODO: need to check and resolve difference if any on water_level for EK60 and EK80
         # water_level is set to 0 for EK60 since this is not separately recorded
         # and is part of transducer_depth
         out_dict['water_level'] = np.int32(0)

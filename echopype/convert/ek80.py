@@ -277,6 +277,7 @@ class ConvertEK80(ConvertBase):
         out_dict['pitch'] = np.array(self.mru_data['pitch'])
         out_dict['roll'] = np.array(self.mru_data['roll'])
         out_dict['heave'] = np.array(self.mru_data['heave'])
+        # TODO: we need a method for user to set water_level before conversion
         if 'water_level_draft' in self.environment:
             out_dict['water_level'] = self.environment['water_level_draft']
         else:
