@@ -1,3 +1,7 @@
+"""
+Functions to unpack Simrad EK80 .raw data file and save to netCDF or zarr.
+"""
+
 import os
 import re
 import shutil
@@ -265,8 +269,8 @@ class ConvertEK80(ConvertBase):
 
     def _set_platform_dict(self):
         out_dict = dict()
-        # TODO: Need to reconcile the logic between using the unpacked "survey_name"
-        #  and the user-supplied platform_name
+        # TODO: platform_name is not part of the .raw file, so should add set method for user to add
+        # TODO: it seems a good idea to add a variable survey_name to the top-level group
         # self.platform_name = self.config_datagram['survey_name']
         out_dict['platform_name'] = self.platform_name
         out_dict['platform_type'] = self.platform_type
