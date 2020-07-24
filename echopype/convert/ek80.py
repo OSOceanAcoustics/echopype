@@ -17,10 +17,18 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
+# String used to match filename patterns
+#  survey: not currently saved anywhere
+#  date: used in top-level group for variable date_created
+#  time: used in top-level group for variable date_created
+#  postfix: so far only saw Saildrone that produces filename with postfix
+FILENAME_MATCHER_STR = '(?P<survey>\w+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+
+
 class ConvertEK80(ConvertBase):
     """Class for converting EK80 ``.raw`` files.
     """
-    def __init__(self, _filename="", regex=r'D\d{8}-T\d{6}'):
+    def __init__(self, _filename="", regex=FILENAME_MATCHER_STR):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -210,10 +218,10 @@ class ConvertEK80(ConvertBase):
 
     # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
-        # filename must have timestamp that matches self.timestamp_patter
-        raw_date = self.timestamp_pattern.search(raw_file).group().split("-")
-        filedate = raw_date[0].replace("D", "")
-        filetime = raw_date[1].replace("T", "")
+        # filename must have timestamp that matches self.timestamp_pattern
+        raw_date_time = self.timestamp_pattern.match(os.path.basename(raw_file))
+        filedate = raw_date_time['date']
+        filetime = raw_date_time['time']
 
         out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
                         keywords='EK80',
