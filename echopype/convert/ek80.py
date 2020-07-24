@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from collections import defaultdict
 import numpy as np
@@ -16,10 +17,18 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
+# String used to match filename patterns
+#  survey: not currently saved anywhere
+#  date: used in top-level group for variable date_created
+#  time: used in top-level group for variable date_created
+#  postfix: so far only saw Saildrone that produces filename with postfix
+FILENAME_MATCHER_STR = '(?P<survey>\w+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+
+
 class ConvertEK80(ConvertBase):
     """Class for converting EK80 ``.raw`` files.
     """
-    def __init__(self, _filename=""):
+    def __init__(self, _filename="", regex=FILENAME_MATCHER_STR):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -39,6 +48,7 @@ class ConvertEK80(ConvertBase):
         self.fil_df = defaultdict(dict)       # Dictionary to store filter decimation factors
         self.ch_ids = []                      # List of all channel ids
         self.recorded_ch_ids = []
+        self.timestamp_pattern = re.compile(regex)
 
     def _read_datagrams(self, fid):
         """
@@ -208,10 +218,10 @@ class ConvertEK80(ConvertBase):
 
     # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
-        # filename must have "-" as the field separator for the last 2 fields. Uses first file
-        filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
-        filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
-        filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
+        # filename must have timestamp that matches self.timestamp_pattern
+        raw_date_time = self.timestamp_pattern.match(os.path.basename(raw_file))
+        filedate = raw_date_time['date']
+        filetime = raw_date_time['time']
 
         out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
                         keywords='EK80',
@@ -267,7 +277,13 @@ class ConvertEK80(ConvertBase):
         out_dict['pitch'] = np.array(self.mru_data['pitch'])
         out_dict['roll'] = np.array(self.mru_data['roll'])
         out_dict['heave'] = np.array(self.mru_data['heave'])
-        out_dict['water_level'] = self.environment['water_level_draft']
+        # TODO: we need a method for user to set water_level before conversion
+        if 'water_level_draft' in self.environment:
+            out_dict['water_level'] = self.environment['water_level_draft']
+        else:
+            out_dict['water_level'] = None
+            print('WARNING: The water_level_draft was not in the file. Value '
+                  'set to None')
 
         # Read lat/long from NMEA datagram
         idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
