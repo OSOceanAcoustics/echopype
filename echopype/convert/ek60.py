@@ -1,9 +1,10 @@
 """
-Functions to unpack Simrad EK60 .raw data file and save to .nc.
+Functions to unpack Simrad EK60 .raw data file and save to netCDF or zarr.
 """
 
 
 import os
+import re
 import shutil
 from collections import defaultdict
 import numpy as np
@@ -20,6 +21,14 @@ ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
 
+# String used to match filename patterns
+#  survey: not currently saved anywhere
+#  date: used in top-level group for variable date_created
+#  time: used in top-level group for variable date_created
+#  postfix: so far only saw Saildrone that produces filename with postfix
+FILENAME_MATCHER_STR = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+
+
 # Create a constant to convert indexed power to power.
 INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 
@@ -30,7 +39,7 @@ INDEX2ELEC = 180.0 / 128.0
 class ConvertEK60(ConvertBase):
     """Class for converting EK60 ``.raw`` files.
     """
-    def __init__(self, _filename=''):
+    def __init__(self, _filename='', regex=FILENAME_MATCHER_STR):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -50,6 +59,7 @@ class ConvertEK60(ConvertBase):
         self.angle_dict_split = {}
         self.tx_sig = {}   # dictionary to store transmit signal parameters and sample interval
         self.ping_slices = []
+        self.timestamp_pattern = re.compile(regex)
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -274,10 +284,11 @@ class ConvertEK60(ConvertBase):
 
     # Functions to set various dictionaries
     def _set_toplevel_dict(self, raw_file):
-        # filename must have "-" as the field separator for the last 2 fields. Uses first file
-        filename_tup = os.path.splitext(os.path.basename(raw_file))[0].split("-")
-        filedate = filename_tup[len(filename_tup) - 2].replace("D", "")
-        filetime = filename_tup[len(filename_tup) - 1].replace("T", "")
+        # filename must have timestamp that matches self.timestamp_pattern
+        raw_date_time = self.timestamp_pattern.match(os.path.basename(raw_file))
+        filedate = raw_date_time['date']
+        filetime = raw_date_time['time']
+
         out_dict = dict(Conventions='CF-1.7, SONAR-netCDF4, ACDD-1.3',
                         keywords='EK60',
                         sonar_convention_authority='ICES',
@@ -331,8 +342,8 @@ class ConvertEK60(ConvertBase):
 
     def _set_platform_dict(self, out_file=None, piece_seq=0):
         out_dict = dict()
-        # TODO: Need to reconcile the logic between using the unpacked "survey_name"
-        #  and the user-supplied platform_name
+        # TODO: platform_name is not part of the .raw file, so should add set method for user to add
+        # TODO: it seems a good idea to add a variable survey_name to the top-level group
         # self.platform_name = self.config_datagram['survey_name']
         out_dict['platform_name'] = self.platform_name
         out_dict['platform_type'] = self.platform_type
