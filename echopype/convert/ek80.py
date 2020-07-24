@@ -22,7 +22,7 @@ del get_versions
 #  date: used in top-level group for variable date_created
 #  time: used in top-level group for variable date_created
 #  postfix: so far only saw Saildrone that produces filename with postfix
-FILENAME_MATCHER_STR = '(?P<survey>\w+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+FILENAME_MATCHER_STR = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
 
 
 class ConvertEK80(ConvertBase):
