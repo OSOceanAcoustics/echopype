@@ -114,6 +114,13 @@ For data files from the EK80 broadband echosounder, use
 
     dc = Convert('FILENAME.raw', model='EK80')
 
+.. note::
+
+   The water level should be specified using `dc.water_level = 'some value'`
+   if the value is known. Otherwise, the default water level
+   will be `None` if it is not already recorded by the instrument.
+
+
 to indicate the echosounder type, since the filename extension
 ``.raw`` does not contain echosounder type information.
 

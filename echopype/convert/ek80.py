@@ -53,6 +53,15 @@ class ConvertEK80(ConvertBase):
         self.ch_ids = []                      # List of all channel ids
         self.recorded_ch_ids = []
         self.timestamp_pattern = re.compile(regex)
+        self._water_level = None
+
+    @property
+    def water_level(self):
+        return self._water_level
+
+    @water_level.setter
+    def water_level(self, water_level):
+        self._water_level = water_level
 
     def _read_datagrams(self, fid):
         """
@@ -281,8 +290,9 @@ class ConvertEK80(ConvertBase):
         out_dict['pitch'] = np.array(self.mru_data.get('pitch', [np.nan]))
         out_dict['roll'] = np.array(self.mru_data.get('roll', [np.nan]))
         out_dict['heave'] = np.array(self.mru_data.get('heave', [np.nan]))
-        # TODO: we need a method for user to set water_level before conversion
-        if 'water_level_draft' in self.environment:
+        if self.water_level is not None:
+            out_dict['water_level'] = self.water_level
+        elif 'water_level_draft' in self.environment:
             out_dict['water_level'] = self.environment['water_level_draft']
         else:
             out_dict['water_level'] = None
