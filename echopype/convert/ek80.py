@@ -134,7 +134,7 @@ class ConvertEK80(ConvertBase):
                 self.fil_coeffs[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['coefficients']
                 self.fil_df[new_datagram['channel_id']][new_datagram['stage']] = new_datagram['decimation_factor']
 
-    def load_ek80_raw(self, raw, export_xml=False):
+    def load_ek80_raw(self, raw):
         """Method to parse the EK80 ``.raw`` data file.
 
         This method parses the ``.raw`` file and saves the parsed data
@@ -148,11 +148,7 @@ class ConvertEK80(ConvertBase):
             whether or not to export the configuration as an xml file
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(raw)))
-        if export_xml:
-            xml_path = raw[:-3] + 'xml'
-        else:
-            xml_path = None
-        with RawSimradFile(raw, 'r', xml_path=xml_path) as fid:
+        with RawSimradFile(raw, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
 
@@ -645,7 +641,16 @@ class ConvertEK80(ConvertBase):
             self._combine_files()
 
     def export_xml(self):
+        def write_str(file):
+            xml_str = self.config_datagram['xml']
+            xml_path = file[:-3] + 'xml'
+            with open(xml_path, 'w') as xml_file:
+                xml_file.write(xml_str)
         """ Exports the configuration data as an xml file in the same directory as the data files"""
-        for file in self.filename:
-            self.reset_vars('EK80')
-            self.load_ek80_raw(file, export_xml=True)
+        if self.config_datagram is not None:
+            write_str(self.filename[-1])
+        else:
+            for file in self.filename:
+                self.reset_vars('EK80')
+                self.load_ek80_raw(file)
+                write_str(file)

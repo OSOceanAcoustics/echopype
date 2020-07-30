@@ -651,13 +651,12 @@ class SimradXMLParser(_SimradDatagramParser):
                                 }
 
 
-    def __init__(self, xml_path=None):
+    def __init__(self):
         headers = {0: [('type', '4s'),
                         ('low_date', 'L'),
                         ('high_date', 'L')
                             ]
                         }
-        self._xml_path = xml_path
         _SimradDatagramParser.__init__(self, "XML", headers)
 
 
@@ -763,10 +762,6 @@ class SimradXMLParser(_SimradDatagramParser):
 
             #  parse it
             if (data['subtype'] == 'configuration'):
-                # write xml string to file
-                if self._xml_path is not None:
-                    with open(self._xml_path, 'w') as xml_file:
-                        xml_file.write(xml_string)
 
                 #  parse the Transceiver section
                 for t in root.iter('Transceiver'):

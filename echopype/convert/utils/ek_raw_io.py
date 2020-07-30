@@ -81,7 +81,7 @@ class RawSimradFile(BufferedReader):
                       }
 
 
-    def __init__(self, name, mode='rb', closefd=True, return_raw=False, buffer_size=1024*1024, xml_path=None):
+    def __init__(self, name, mode='rb', closefd=True, return_raw=False, buffer_size=1024*1024):
 
         #  9-28-18 RHT: Changed RawSimradFile to implement BufferedReader instead of
         #  io.FileIO to increase performance.
@@ -94,7 +94,6 @@ class RawSimradFile(BufferedReader):
         self._current_dgram_offset = 0
         self._total_dgram_count = None
         self._return_raw = return_raw
-        self._xml_path = xml_path
 
 
     def _seek_bytes(self, bytes_, whence=0):
@@ -326,10 +325,7 @@ class RawSimradFile(BufferedReader):
 
         dgram_type = raw_datagram_string[:3].decode()
         try:
-            if dgram_type == 'XML':
-                parser = parsers.SimradXMLParser(self._xml_path)
-            else:
-                parser = self.DGRAM_TYPE_KEY[dgram_type]
+            parser = self.DGRAM_TYPE_KEY[dgram_type]
         except KeyError:
             #raise KeyError('Unknown datagram type %s, valid types: %s' % (str(dgram_type), str(self.DGRAM_TYPE_KEY.keys())))
             return raw_datagram_string
