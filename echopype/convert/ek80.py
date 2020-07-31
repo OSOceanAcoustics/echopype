@@ -303,9 +303,9 @@ class ConvertEK80(ConvertBase):
         idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
-        out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if idx_loc else [np.nan]
-        out_dict['lon'] = np.array([x.longitude for x in nmea_msg]) if idx_loc else [np.nan]
-        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc] if idx_loc else [np.nan]
+        out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['lon'] = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc] if nmea_msg else [np.nan]
 
         return out_dict
 
