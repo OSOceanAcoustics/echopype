@@ -651,7 +651,7 @@ class ProcessBase(object):
 
         # Close opened resources
         proc_data.close()
-    
+
     def _save_dataset(self, ds, path, mode="w"):
         """Save dataset to the appropriate formats.
 
@@ -675,3 +675,84 @@ class ProcessBase(object):
             self._open_dataset = xr.open_dataset
         elif self._file_format == 'zarr':
             self._open_dataset = xr.open_zarr
+
+    def resample_to_depth(self, source=None, depth_grid=None):
+        """Produces depth-aligned data so that calibrated data has dimensions
+        frequency[Hz] x ping_time x depth[m].
+
+        Parameters
+        ----------
+        depth_grid : int, list
+            Defaults to ``None``.
+            If none, the data is interpolated to the longest physical depth range
+            If an int, it must be a frequency of the data so the interpolation will
+            be along the depth of that channel.
+            A list of real depth values will align the data to the given depth range.
+        source : str
+            Define the data that will be used. If none is provided,
+            use Sv data stored in memory or as a file.
+            Valid options = 'Sv', 'Sv_clean', 'TS', 'MVBS'
+        Returns
+        -------
+        Data that has been resampled to fit the specified depth grid
+
+        """
+        def interpolate_range(idx=None, depths=None):
+            """ Function that does the interpolating"""
+            ranges = self.calc_range(remove_negative_range=False)
+            # Define depth grid by calulating or by using the user defined grid
+            x = (ranges[idx][:max_bin[idx]].values if depths is None else depths)
+            resampled = []
+            # Loop over frequencies
+            for i, Sv in enumerate(data):
+                # Create range (meters) vector
+                Sv = Sv.dropna('range_bin')
+                r = ranges[i][:max_bin[i]]
+                # Switch range from bin values to real values
+                Sv['range_bin'] = r
+                # Interpolate the data to the depth grid
+                Sv = Sv.interp(range_bin=x)
+                # Set negative range values to 0
+                Sv['range_bin'] = Sv['range_bin'].where(Sv['range_bin'] > 0, other=0)
+                resampled.append(Sv)
+            return xr.concat(resampled, dim='frequency').rename(range_bin='range')
+
+        # Load data from specified source
+        try:
+            if source is None or source == 'Sv':
+                data = self._open_dataset(self.Sv_path) if self.Sv is None else self.Sv.Sv
+            elif source == 'Sv_clean':
+                data = self._open_dataset(self.Sv_path) if self.Sv_clean is None else self.Sv_clean.Sv
+            elif source == 'TS':
+                data = self._open_dataset(self.TS_path) if self.TS is None else self.TS.TS
+            elif source == 'MVBS':
+                data = self._open_dataset(self.MVBS_path) if self.MVBS.MVBS is None else self.MVBS.MVBS
+            else:
+                raise ValueError("Invalid source:", source)
+        except AttributeError:
+            raise ValueError(f"{source} not found")
+
+        with self._open_dataset(self.file_path, group="Beam") as ds_beam:
+            tdn = ds_beam.transmit_duration_nominal
+        max_bin = np.array([l.dropna('range_bin').shape[1] for l in data])
+        # Use largest depth grid if none specified
+        if depth_grid is None:
+            max_valid_range = max_bin * self.sample_thickness - tdn * self.sound_speed / 2
+            resampled = interpolate_range(max_valid_range.argmax())
+        # Use user specified frequency
+        elif type(depth_grid) is float or type(depth_grid) is int:
+            depth_idx = np.where(data.frequency == depth_grid)[0]
+            if depth_idx.size == 1:
+                resampled = interpolate_range(depth_idx[0])
+                pass
+            else:
+                raise ValueError(f"{depth_grid} is not a valid frequency")
+            pass
+        else:
+            # Use custom depth grid
+            try:
+                resampled = interpolate_range(depths=list(depth_grid))
+            except TypeError:
+                raise ValueError(f"{depth_grid} is not a valid depth grid")
+
+        return resampled.to_dataset()

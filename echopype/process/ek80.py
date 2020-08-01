@@ -114,7 +114,7 @@ class ProcessEK80(ProcessBase):
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
             return sth
 
-    def calc_range(self, range_bins=None, path=''):
+    def calc_range(self, range_bins=None, path='', remove_negative_range=True):
         """Calculates range [m] using parameters stored in the .nc file.
         Will use a custom path if one is provided
         """
@@ -126,9 +126,10 @@ class ProcessEK80(ProcessBase):
                 range_bin = xr.DataArray(range_bin, coords=[('range_bin', range_bin)])
             else:
                 range_bin = ds_beam.range_bin
-            range_meter = range_bin * st - \
+            range_meter = st * range_bin - \
                 ds_beam.transmit_duration_nominal * self.sound_speed / 2  # DataArray [frequency x range_bin]
-            range_meter = range_meter.where(range_meter > 0, other=0).transpose()
+            if remove_negative_range:
+                range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
     def calc_transmit_signal(self):

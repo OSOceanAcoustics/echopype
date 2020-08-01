@@ -97,13 +97,14 @@ class ProcessEK60(ProcessBase):
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
             return sth
 
-    def calc_range(self):
+    def calc_range(self, remove_negative_range=True):
         """Calculates range in meters using parameters stored in the .nc file.
         """
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             range_meter = self.sample_thickness * ds_beam.range_bin - \
                 self.tvg_correction_factor * self.sample_thickness  # DataArray [frequency x range_bin]
-            range_meter = range_meter.where(range_meter > 0, other=0)
+            if remove_negative_range:
+                range_meter = range_meter.where(range_meter > 0, other=0)
             return range_meter
 
     def calibrate(self, save=False, save_postfix='_Sv', save_path=None):

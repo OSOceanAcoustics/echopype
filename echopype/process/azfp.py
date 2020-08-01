@@ -89,7 +89,7 @@ class ProcessAZFP(ProcessBase):
             sth = self.sound_speed * ds_beam.sample_interval / 2
             return sth
 
-    def calc_range(self, tilt_corrected=False):
+    def calc_range(self, tilt_corrected=False, remove_negative_range=True):
         """Calculates range in meters using AZFP-supplied formula, instead of from sample_interval directly.
 
         Parameters
@@ -119,10 +119,10 @@ class ProcessAZFP(ProcessBase):
         range_meter = (sound_speed * lockout_index / (2 * dig_rate) + sound_speed / 4 *
                        (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
                         pulse_length))
-
         if tilt_corrected:
             range_meter = ds_beam.cos_tilt_mag.mean() * range_meter
-
+        if remove_negative_range:
+            range_meter = range_meter.where(range_meter > 0, other=0)
         ds_beam.close()
         ds_vend.close()
 

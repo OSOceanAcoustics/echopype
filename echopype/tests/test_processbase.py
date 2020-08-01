@@ -186,3 +186,14 @@ def test_get_MVBS():
 
     # delete created nc file
     os.remove(tmp.nc_path)
+
+
+def test_resample_to_depth():
+    tmp = ConvertEK60(ek60_raw_path)
+    tmp.raw2nc()
+    e_data = Process(tmp.nc_path)
+
+    e_data.calibrate()
+    depth_len = 10
+    resample_grid = e_data.resample_to_depth(depth_grid=np.arange(depth_len))
+    assert resample_grid.Sv.shape[2] == depth_len
