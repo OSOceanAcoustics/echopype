@@ -659,7 +659,6 @@ class SimradXMLParser(_SimradDatagramParser):
                         ('high_date', 'L')
                             ]
                         }
-
         _SimradDatagramParser.__init__(self, "XML", headers)
 
 
@@ -865,7 +864,7 @@ class SimradXMLParser(_SimradDatagramParser):
                     dict_to_dict(transducer_xml, data['environment'],
                             self.envxdcr_parsing_options)
 
-
+        data['xml'] = xml_string
         return data
 
 
