@@ -144,8 +144,6 @@ class ConvertEK80(ConvertBase):
         ----------
         raw : str
             raw filename
-        export_xml : bool
-            whether or not to export the configuration as an xml file
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(raw)))
         with RawSimradFile(raw, 'r') as fid:
@@ -641,16 +639,18 @@ class ConvertEK80(ConvertBase):
             self._combine_files()
 
     def export_xml(self):
+        """ Exports the configuration data as an xml file in the same directory as the data files.
+        """
         def write_str(file):
             xml_str = self.config_datagram['xml']
             xml_path = file[:-3] + 'xml'
             with open(xml_path, 'w') as xml_file:
                 xml_file.write(xml_str)
-        """ Exports the configuration data as an xml file in the same directory as the data files"""
+
         if self.config_datagram is not None:
             write_str(self.filename[-1])
         else:
-            for file in self.filename:
+            for filename in self.filename:
                 self.reset_vars('EK80')
-                self.load_ek80_raw(file)
-                write_str(file)
+                self.load_ek80_raw(filename)
+                write_str(filename)
