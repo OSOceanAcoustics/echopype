@@ -172,7 +172,6 @@ class ConvertEK80(ConvertBase):
             raw filename
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(raw)))
-
         with RawSimradFile(raw, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
@@ -498,6 +497,7 @@ class ConvertEK80(ConvertBase):
             decimation_factors[f'{ch}_PC_decimation'] = self.fil_df[ch][2]
         out_dict['filter_coefficients'] = coeffs
         out_dict['decimation_factors'] = decimation_factors
+        out_dict['xml'] = self.config_datagram['xml']
 
         return out_dict
 
@@ -676,3 +676,20 @@ class ConvertEK80(ConvertBase):
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
             self._combine_files()
+
+    def export_xml(self):
+        """ Exports the configuration data as an xml file in the same directory as the data files.
+        """
+        def write_str(file):
+            xml_str = self.config_datagram['xml']
+            xml_path = file[:-3] + 'xml'
+            with open(xml_path, 'w') as xml_file:
+                xml_file.write(xml_str)
+
+        if self.config_datagram is not None:
+            write_str(self.filename[-1])
+        else:
+            for filename in self.filename:
+                self.reset_vars('EK80')
+                self.load_ek80_raw(filename)
+                write_str(filename)

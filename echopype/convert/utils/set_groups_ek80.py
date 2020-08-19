@@ -392,8 +392,13 @@ class SetGroupsEK80(SetGroupsBase):
                     var[:] = data
                 for k, v in vendor_dict['decimation_factors'].items():
                     vdr.setncattr(k, v)
+                # Save xml string
+                vdr.setncattr('xml', vendor_dict['xml'])
             elif self.format == '.zarr':
-                ds = xr.Dataset(vendor_dict['filter_coefficients'])
-                for k, v in vendor_dict['decimation_factors'].items():
-                    ds.attrs[k] = v
-                ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
+                # Only save vendor group if not appending to an existing .zarr file
+                if not self.append_zarr:
+                    ds = xr.Dataset(vendor_dict['filter_coefficients'])
+                    ds.attrs['xml'] = vendor_dict['xml']
+                    for k, v in vendor_dict['decimation_factors'].items():
+                        ds.attrs[k] = v
+                    ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
