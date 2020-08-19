@@ -39,7 +39,7 @@ INDEX2ELEC = 180.0 / 128.0
 class ConvertEK60(ConvertBase):
     """Class for converting EK60 ``.raw`` files.
     """
-    def __init__(self, _filename='', regex=FILENAME_MATCHER_STR):
+    def __init__(self, _filename='', regex=FILENAME_MATCHER_STR, nmea_gps_sentence='GGA'):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -52,7 +52,7 @@ class ConvertEK60(ConvertBase):
         self.ping_time = []    # list to store ping time
         self.CON1_datagram = None    # storage for CON1 datagram for ME70
 
-        # Variables only used in EK60 parsing
+        # Variables used in EK60 parsing
         self.range_lengths = None    # number of range_bin groups
         self.ping_time_split = {}    # dictionaries to store variables of each range_bin groups (if there are multiple)
         self.power_dict_split = {}
@@ -60,6 +60,7 @@ class ConvertEK60(ConvertBase):
         self.tx_sig = {}   # dictionary to store transmit signal parameters and sample interval
         self.ping_slices = []
         self.timestamp_pattern = re.compile(regex)
+        self.nmea_gps_sentence = nmea_gps_sentence  # select GPS datagram in _set_platform_dict()
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """ Append ping-by-ping channel metadata extracted from the newly read datagram of type 'RAW'.
@@ -361,7 +362,10 @@ class ConvertEK60(ConvertBase):
         out_dict['water_level'] = np.int32(0)
 
         # Read lat/long from NMEA datagram
-        idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+        # TODO: Initally we select: ['GGA', 'GLL', 'RMC']
+        #  but found GLL has low precision in hake survey EK60 data.
+        #  Need more investigation on other data sources.
+        idx_loc = np.argwhere(np.isin(self.nmea_data.messages, self.nmea_gps_sentence)).squeeze()
         # TODO: use NaN when nmea_msg is empty
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
