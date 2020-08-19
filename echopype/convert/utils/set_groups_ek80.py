@@ -56,9 +56,9 @@ class SetGroupsEK80(SetGroupsBase):
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             mru_time = (platform_dict['mru_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                / np.timedelta64(1, 's')
+                / np.timedelta64(1, 's') if not np.all(np.isnan(platform_dict['mru_time'])) else [np.nan]
             location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                / np.timedelta64(1, 's')
+                / np.timedelta64(1, 's') if not np.all(np.isnan(platform_dict['location_time'])) else [np.nan]
 
             ds = xr.Dataset(
                 {'pitch': (['mru_time'], platform_dict['pitch'],

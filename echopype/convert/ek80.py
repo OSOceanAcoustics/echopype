@@ -53,6 +53,15 @@ class ConvertEK80(ConvertBase):
         self.ch_ids = []                      # List of all channel ids
         self.recorded_ch_ids = []
         self.timestamp_pattern = re.compile(regex)
+        self._water_level = None
+
+    @property
+    def water_level(self):
+        return self._water_level
+
+    @water_level.setter
+    def water_level(self, water_level):
+        self._water_level = water_level
 
     def _read_datagrams(self, fid):
         """
@@ -277,12 +286,13 @@ class ConvertEK80(ConvertBase):
         out_dict['platform_code_ICES'] = self.platform_code_ICES
 
         # Read pitch/roll/heave from ping data
-        out_dict['mru_time'] = self.mru_data['timestamp']  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-        out_dict['pitch'] = np.array(self.mru_data['pitch'])
-        out_dict['roll'] = np.array(self.mru_data['roll'])
-        out_dict['heave'] = np.array(self.mru_data['heave'])
-        # TODO: we need a method for user to set water_level before conversion
-        if 'water_level_draft' in self.environment:
+        out_dict['mru_time'] = np.array(self.mru_data.get('timestamp', [np.nan]))  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        out_dict['pitch'] = np.array(self.mru_data.get('pitch', [np.nan]))
+        out_dict['roll'] = np.array(self.mru_data.get('roll', [np.nan]))
+        out_dict['heave'] = np.array(self.mru_data.get('heave', [np.nan]))
+        if self.water_level is not None:
+            out_dict['water_level'] = self.water_level
+        elif 'water_level_draft' in self.environment:
             out_dict['water_level'] = self.environment['water_level_draft']
         else:
             out_dict['water_level'] = None
@@ -293,9 +303,10 @@ class ConvertEK80(ConvertBase):
         idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
-        out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
-        out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
-        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
+        out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['lon'] = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc] if nmea_msg else [np.nan]
+
         return out_dict
 
     def _set_nmea_dict(self):

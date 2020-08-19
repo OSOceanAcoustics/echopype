@@ -117,6 +117,13 @@ For data files from the EK80 broadband echosounder, use
 to indicate the echosounder type, since the filename extension
 ``.raw`` does not contain echosounder type information.
 
+.. note::
+
+   The water level should be specified using ``dc.water_level = 'some value'``
+   if the value is known. Otherwise, the water level will be saved as
+   ``None`` if it is not already recorded by the instrument.
+
+
 For data files from the AZFP echosounder, the conversion requires an
 extra ``.XML`` file along with the ``.01A`` data file. The ``.XML`` file
 contains a lot of metadata needed for unpacking the binary data files.
