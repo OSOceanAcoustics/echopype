@@ -2,6 +2,9 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 
+from .convertbase_new import ConvertEK60
+from .utils.setgroups_new import SetGroupsEK60
+
 
 class ConvertUI:
     """UI class for using convert objects.
@@ -54,8 +57,8 @@ class ConvertUI:
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
                                 #   condiguration header is exported.
-        self.combine = False
-        self.compress = True
+        self.combine_opt = False
+        self.compress_opt = True
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
 
@@ -77,11 +80,11 @@ class ConvertUI:
     def _convert_indiv_file(self, file, path, output_format):
         """Convert a single file.
         """
-        # Something like below:
-        #   c = ConvertEK60(file)  # use echosounder-specific object
-        #   c.parse_raw()
-        #   sg = SetGroups(c, output_file, output_path, output_format='netcdf', compress=True)
-        #   sf.save()
+        # if converting EK60 files:
+        c = ConvertEK60(file)  # use echosounder-specific object
+        c.parse_raw()   # pass data_type to convert here, for EK60 and EK80 only
+        sg = SetGroupsEK60(c, output_file=file, output_path=path, output_format='netcdf', compress=self.compress_opt)
+        sg.save()
 
     def _check_param_consistency(self):
         """Check consistency of key params so that xr.open_mfdataset() will work.
@@ -92,26 +95,34 @@ class ConvertUI:
         #  _check_tx_param_uniqueness() or _check_env_param_uniqueness() for EK60/EK80,
         #  and _check_uniqueness() for AZFP.
 
-    def _combine_files(self):
+    def combine_files(self):
         """Combine output files when self.combine=True.
         """
+        if self._check_param_consistency():
+            # code to actually combine files
+            print('combine files...')
+        else:
+            print('cannot combine files...')
 
-    def to_netcdf(self, save_path, data_type='all', compress=True, combine=False):
+    def to_netcdf(self, save_path, data_type='all', compress_opt=True, combine_opt=False, parallel=False):
         """Convert a file or a list of files to netcdf format.
         """
-        # Pseudo code for sequential or parallel conversion
-        # if sequential:
-        #     for file in self.source_file:
-        #         # convert file one by one into path set by validate_path()
-        #         self._convert_indiv_file(file, path, 'netcdf')
-        # elif parallel:
-        #         # use dask syntax but we'll probably use something else, like multiprocessing?
-        #         delayed(self._convert_indiv_file(file, path, 'netcdf'))
+        self.data_type = data_type
+        self.compress_opt = compress_opt
+        self.combine_opt = combine_opt
+
+        # Sequential or parallel conversion
+        if not parallel:
+            for file in self.source_file:
+                # convert file one by one into path set by validate_path()
+                self._convert_indiv_file(file=file, path=save_path, output_format='netcdf')
+        # else:
+            # use dask syntax but we'll probably use something else, like multiprocessing?
+            # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
 
         # combine files if needed
-        if self.combine:
-            self._check_param_consistency()
-            self._combine_files()
+        if self.combine_opt:
+            self.combine_files()
 
     def to_zarr(self, save_path, data_type='all', compress=True, combine=False):
         """Convert a file or a list of files to zarr format.
