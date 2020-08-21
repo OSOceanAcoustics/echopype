@@ -1,7 +1,8 @@
 from collections import defaultdict
 from .utils.nmea_data import NMEAData
 
-FILENAME_DATETIME_REGEX = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
+FILENAME_DATETIME_AZFP = '\w+.raw'
 NMEA_GPS_SENTECE = 'GGA'
 
 
@@ -9,13 +10,12 @@ class ConvertBase:
     """Parent class for all convert classes.
     """
     def __init__(self, files, params, compress=True, overwrite=False):
-        # Attributes from convertUI
         self.source_file = files
         self.ui_param = params
         self.compress = compress
         self.overwrite = overwrite
-        self.timestamp_pattern = FILENAME_DATETIME_REGEX  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = NMEA_GPS_SENTECE  # select GPS datagram in _set_platform_dict()
+        self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
+        self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
 
     def __str__(self):
         """Overload the print function to allow user to print basic properties of this object.
@@ -34,7 +34,14 @@ class ConvertBase:
 class ConvertEK(ConvertBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self):
+    def __init__(self, files, params):
+        super().__init__(files, params)
+
+        # Parent class attributes
+        self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
+        self.nmea_gps_sentence = NMEA_GPS_SENTECE  # select GPS datagram in _set_platform_dict()
+
+        # Class attributes
         self.config_datagram = None
         self.nmea_data = NMEAData()  # object for NMEA data
         self.ping_data_dict = {}  # dictionary to store metadata
@@ -106,7 +113,8 @@ class ConvertEK60(ConvertEK):
 class ConvertEK80(ConvertEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
-    def __init__(self):
+    def __init__(self, files, params):
+        super().__init__(files, params)
         self.complex_dict = {}  # dictionary to store complex data
         self.n_complex_dict = {}  # dictionary to store the number of beams in split-beam complex data
         self.environment = {}  # dictionary to store environment data
@@ -134,14 +142,18 @@ class ConvertEK80(ConvertEK):
 class ConvertAZFP(ConvertBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder.
     """
-    def __init__(self):
+    def __init__(self, files, params):
+        super().__init__(files, params)
+        # Parent class attributes
+        self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
+
         # TODO: the following constants should just be constants on top of azfp.py and not
         #  class attributes since they do not change.
         self.FILE_TYPE = 64770
         self.HEADER_SIZE = 124
         self.HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
 
-        # Attributes
+        # Class attributes
         self.parameters = dict()
         self.unpacked_data = None
 

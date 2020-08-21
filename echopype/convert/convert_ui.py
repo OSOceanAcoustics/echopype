@@ -6,7 +6,7 @@ from .convertbase_new import ConvertEK60
 from .utils.setgroups_new import SetGroupsEK60
 
 
-class ConvertUI:
+class Convert:
     """UI class for using convert objects.
 
     Sample use case:
@@ -57,8 +57,9 @@ class ConvertUI:
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
                                 #   condiguration header is exported.
-        self.combine_opt = False
-        self.compress_opt = True
+        self.combine = False
+        self.compress = True
+        self.overwrite = False
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
 
@@ -83,7 +84,8 @@ class ConvertUI:
         # if converting EK60 files:
         c = ConvertEK60(file)  # use echosounder-specific object
         c.parse_raw()   # pass data_type to convert here, for EK60 and EK80 only
-        sg = SetGroupsEK60(c, output_file=file, output_path=path, output_format='netcdf', compress=self.compress_opt)
+        sg = SetGroupsEK60(c, output_file=file, output_path=path, output_format='netcdf',
+                           compress=self.compress, overwrite=self.overwrite)
         sg.save()
 
     def _check_param_consistency(self):
@@ -104,12 +106,12 @@ class ConvertUI:
         else:
             print('cannot combine files...')
 
-    def to_netcdf(self, save_path, data_type='all', compress_opt=True, combine_opt=False, parallel=False):
+    def to_netcdf(self, save_path, data_type='all', compress=True, combine=False, parallel=False):
         """Convert a file or a list of files to netcdf format.
         """
         self.data_type = data_type
-        self.compress_opt = compress_opt
-        self.combine_opt = combine_opt
+        self.compress = compress
+        self.combine = combine
 
         # Sequential or parallel conversion
         if not parallel:
@@ -121,7 +123,7 @@ class ConvertUI:
             # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
 
         # combine files if needed
-        if self.combine_opt:
+        if self.combine:
             self.combine_files()
 
     def to_zarr(self, save_path, data_type='all', compress=True, combine=False):

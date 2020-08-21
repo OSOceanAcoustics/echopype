@@ -3,15 +3,16 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
 
 
-class SetGroups:
+class SetGroupsBase:
     """Base class for saving groups to netcdf or zarr from echosounder data files.
     """
-    def __init__(self, convert_obj, output_file, output_path, output_format='netcdf', compress=True):
+    def __init__(self, convert_obj, output_file, output_path, output_format='netcdf', compress=True, overwrite=True):
         self.convert_obj = convert_obj   # a convert object ConvertEK60/ConvertAZFP/etc...
         self.output_file = output_file
         self.output_path = output_path
         self.output_format = output_format
         self.compress = compress
+        self.overwrite = overwrite
 
     def save(self):
         """Actually save groups to file by calling the set methods.
@@ -34,7 +35,7 @@ class SetGroups:
         """
 
 
-class SetGroupsEK60(SetGroups):
+class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files.
     """
     def save(self):
@@ -54,7 +55,7 @@ class SetGroupsEK60(SetGroups):
         """
 
 
-class SetGroupsEK80(SetGroups):
+class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files.
     """
     def save(self):
@@ -78,7 +79,7 @@ class SetGroupsEK80(SetGroups):
         """
 
 
-class SetGroupsAZFP(SetGroups):
+class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files.
     """
     def save(self):
