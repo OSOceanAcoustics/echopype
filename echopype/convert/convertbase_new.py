@@ -17,7 +17,7 @@ class ConvertBase:
         self.timestamp_pattern = FILENAME_DATETIME_REGEX  # regex pattern used to grab datetime embedded in filename
         self.nmea_gps_sentence = NMEA_GPS_SENTECE  # select GPS datagram in _set_platform_dict()
 
-    def print(self):
+    def __str__(self):
         """Overload the print function to allow user to print basic properties of this object.
 
         Print out should include: source file name, source folder location, echosounder model.
@@ -78,7 +78,6 @@ class ConvertEK(ConvertBase):
         #  `ch_id = current_parameters['channel_id']`
         #  and then just use ch_id, to increase code readbility
 
-
     def _find_range_group(self):
         """Find the pings at which range_bin changes.
         """
@@ -130,6 +129,7 @@ class ConvertEK80(ConvertEK):
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).
         """
+
 
 class ConvertAZFP(ConvertBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder.

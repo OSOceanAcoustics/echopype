@@ -14,7 +14,7 @@ class SetGroups:
         self.compress = compress
 
     def save(self):
-        """Actually save groups to file.
+        """Actually save groups to file by calling the set methods.
         """
 
     def set_toplevel(self):
@@ -37,6 +37,10 @@ class SetGroups:
 class SetGroupsEK60(SetGroups):
     """Class for saving groups to netcdf or zarr from EK60 data files.
     """
+    def save(self):
+        """Actually save groups to file by calling the set methods.
+        """
+
     def set_env(self):
         """Set the Environment group.
         """
@@ -53,6 +57,10 @@ class SetGroupsEK60(SetGroups):
 class SetGroupsEK80(SetGroups):
     """Class for saving groups to netcdf or zarr from EK80 data files.
     """
+    def save(self):
+        """Actually save groups to file by calling the set methods.
+        """
+
     def set_env(self):
         """Set the Environment group.
         """
@@ -73,6 +81,10 @@ class SetGroupsEK80(SetGroups):
 class SetGroupsAZFP(SetGroups):
     """Class for saving groups to netcdf or zarr from AZFP data files.
     """
+    def save(self):
+        """Actually save groups to file by calling the set methods.
+        """
+
     def set_env(self):
         """Set the Environment group.
         """
