@@ -6,7 +6,7 @@ FILENAME_DATETIME_AZFP = '\w+.raw'
 NMEA_GPS_SENTECE = 'GGA'
 
 
-class ConvertBase:
+class ParseBase:
     """Parent class for all convert classes.
     """
     def __init__(self, files, params, compress=True, overwrite=False):
@@ -31,7 +31,7 @@ class ConvertBase:
         #  Let's consolidate the same operation in one method.
 
 
-class ConvertEK(ConvertBase):
+class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
     def __init__(self, files, params):
@@ -63,6 +63,17 @@ class ConvertEK(ConvertBase):
         # parameters along the ping_time dimension if they change.
         # NOTE: discuss this in light of what AZFP has.
 
+        # TODO:
+        #  EK80: there is only 1 XML-environment datagram for each file
+        #        so no need to check for uniqueness for the variables.
+        #  EK60: the environment variables are wrapped in RAW0 datagrams
+        #        for each ping -- see docstring _read_datagrams()
+        #        so will have to check for uniqueness.
+        #        variables to check are:
+        #           - sound_velocity
+        #        	- absorption_coefficient
+        # 	        - temperature
+
     def _check_tx_param_uniqueness(self):
         """Check if transmit parameters are unique throughout the file.
         """
@@ -72,8 +83,92 @@ class ConvertEK(ConvertBase):
         # For EK60 the params are: pulse_length, transmit_power, bandwidth, sample_interval
         # For EK80 the params will include frequency-related params
 
+        # TODO:
+        #  EK80: each RAW3 datagrams is preceded by an XML-parameter datagram,
+        #        which contains tx parameters for the following channel data
+        #        -- see docstring _read_datagrams() for detail
+        #        we will have to check for uniqueness for these variables.
+        #  EK60: the environment variables are wrapped in RAW0 datagrams
+        #        for each ping -- see docstring _read_datagrams()
+        #        we will have to check for uniqueness for these parameters
+        #        variables to check are:
+        #           - transmit_power
+        #           - pulse_length
+        #           - bandwidth
+        #           - sample_interval
+        #           - transmit_mod(  # 0 = Active, 1 = Passive, 2 = Test, -1 = Unknown)
+        #           - offset
+
     def _read_datagrams(self):
         """Read all datagrams.
+
+        A sample EK60 RAW0 datagram:
+            {'type': 'RAW0',
+            'low_date': 71406392,
+            'high_date': 30647127,
+            'channel': 1,
+            'mode': 3,
+            'transducer_depth': 9.149999618530273,
+            'frequency': 18000.0,
+            'transmit_power': 2000.0,
+            'pulse_length': 0.0010239999974146485,
+            'bandwidth': 1573.66552734375,
+            'sample_interval': 0.00025599999935366213,
+            'sound_velocity': 1466.0,
+            'absorption_coefficient': 0.0030043544247746468,
+            'heave': 0.0,
+            'roll': 0.0,
+            'pitch': 0.0,
+            'temperature': 4.0,
+            'heading': 0.0,
+            'transmit_mode': 1,
+            'spare0': '\x00\x00\x00\x00\x00\x00',
+            'offset': 0,
+            'count': 1386,
+            'timestamp': numpy.datetime64('2018-02-11T16:40:25.276'),
+            'bytes_read': 5648,
+            'power': array([ -6876,  -8726, -11086, ..., -11913, -12522, -11799], dtype=int16),
+            'angle': array([[ 110,   13],
+                [   3,   -4],
+                [ -54,  -65],
+                ...,
+                [ -92, -107],
+                [-104, -122],
+                [  82,   74]], dtype=int8)}
+
+        A sample EK80 XML-parameter datagram:
+            {'channel_id': 'WBT 545612-15 ES200-7C',
+             'channel_mode': 0,
+             'pulse_form': 1,
+             'frequency_start': '160000',
+             'frequency_end': '260000',
+             'pulse_duration': 0.001024,
+             'sample_interval': 5.33333333333333e-06,
+             'transmit_power': 15.0,
+             'slope': 0.01220703125}
+
+        A sample EK80 XML-environment datagram:
+            {'type': 'XML0',
+             'low_date': 3137819385,
+             'high_date': 30616609,
+             'timestamp': numpy.datetime64('2017-09-12T23:49:10.723'),
+             'bytes_read': 448,
+             'subtype': 'environment',
+             'environment': {'depth': 240.0,
+              'acidity': 8.0,
+              'salinity': 33.7,
+              'sound_speed': 1486.4,
+              'temperature': 6.9,
+              'latitude': 45.0,
+              'sound_velocity_profile': [1.0, 1486.4, 1000.0, 1486.4],
+              'sound_velocity_source': 'Manual',
+              'drop_keel_offset': 0.0,
+              'drop_keel_offset_is_manual': 0,
+              'water_level_draft': 0.0,
+              'water_level_draft_is_manual': 0,
+              'transducer_name': 'Unknown',
+              'transducer_sound_speed': 1490.0},
+             'xml': '<?xml version="1.0" encoding="utf-8"?>\r\n<Environment Depth="240" ... />\r\n</Environment>'}
         """
 
     def _append_channel_ping_data(self):
@@ -102,7 +197,7 @@ class ConvertEK(ConvertBase):
         # This seems to be what line 211 of convert/ek80.py is doing?
 
 
-class ConvertEK60(ConvertEK):
+class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
     def parse_raw(self):
@@ -110,7 +205,7 @@ class ConvertEK60(ConvertEK):
         """
 
 
-class ConvertEK80(ConvertEK):
+class ParseEK80(ParseEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
     def __init__(self, files, params):
@@ -126,7 +221,7 @@ class ConvertEK80(ConvertEK):
         self.recorded_ch_ids = []  # TODO: what is the difference between this and ch_ids?
 
         # TODO: we shouldn't need `power_dict_split`, `angle_dict_split` and `ping_time_split`,
-        #  and can just get the values from the original corressponding storage values
+        #  and can just get the values from the original corresponding storage values
         #  `power_dict`, `angle_dict`, `ping_time`
 
     def parse_raw(self):
@@ -139,7 +234,7 @@ class ConvertEK80(ConvertEK):
         """
 
 
-class ConvertAZFP(ConvertBase):
+class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder.
     """
     def __init__(self, files, params):

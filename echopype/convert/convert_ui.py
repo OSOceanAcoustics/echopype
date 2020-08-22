@@ -2,7 +2,7 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 
-from .convertbase_new import ConvertEK60
+from .convertbase_new import ParseEK60
 from .utils.setgroups_new import SetGroupsEK60
 
 
@@ -36,6 +36,9 @@ class Convert:
 
         # get configuration XML only (EK80)
         ec.to_netcdf(data_type='CONFIG_XML')
+
+        # get environment XML only (EK80)
+        ec.to_netcdf(data_type='ENV_XML')
     """
     def __init__(self):
         # Attributes
@@ -82,7 +85,7 @@ class Convert:
         """Convert a single file.
         """
         # if converting EK60 files:
-        c = ConvertEK60(file)  # use echosounder-specific object
+        c = ParseEK60(file)  # use echosounder-specific object
         c.parse_raw()   # pass data_type to convert here, for EK60 and EK80 only
         sg = SetGroupsEK60(c, output_file=file, output_path=path, output_format='netcdf',
                            compress=self.compress, overwrite=self.overwrite)
