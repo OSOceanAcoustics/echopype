@@ -69,6 +69,8 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self):
         """Set the Platform group.
         """
+        # TODO: let's add ConvertEK80.environment['drop_keel_offset'] to
+        #  the Platform group even though it is not in the convention.
 
     def set_beam(self):
         """Set the Beam group.
