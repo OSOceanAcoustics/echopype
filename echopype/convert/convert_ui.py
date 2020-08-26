@@ -1,9 +1,11 @@
 """
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
-
-from .convertbase_new import ParseEK60
-from .utils.setgroups_new import SetGroupsEK60
+import os
+import shutil
+import xarray as xr
+from .convertbase_new import ParseEK60, ParseEK80, ParseAZFP
+from .utils.setgroups_new import SetGroupsEK60, SetGroupsEK80, SetGroupsAZFP
 
 
 class Convert:
@@ -43,7 +45,7 @@ class Convert:
     def __init__(self):
         # Attributes
         self.sonar_model = None    # type of echosounder
-        self.xml_file = ''         # path to xml file (AZFP only)
+        self.xml_path = ''         # path to xml file (AZFP only)
                                    # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None    # input file path or list of input file paths
         self.output_file = None    # converted file path or list of converted file paths
@@ -66,29 +68,115 @@ class Convert:
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
 
-    def set_source(self, file, model):
+    def set_source(self, file, model, xml_path=None):
         """Set source file and echosounder model.
         """
+        # Check if specified model is valid
+        if model == "AZFP":
+            ext = '.01A'
+            # Check for the xml file if dealing with an AZFP
+            if xml_path:
+                if '.XML' in xml_path.upper():
+                    if not os.path.isfile(xml_path):
+                        raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
+                else:
+                    raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
+                self.xml_path = xml_path
+            else:
+                raise ValueError("XML file is required for AZFP raw data")
+        elif model == 'EK60' or model == 'EK80':
+            ext = '.raw'
+        else:
+            raise ValueError(model + " is not a supported echosounder model")
+
+        self.sonar_model = model
+
+        # Check if given files are valid
+        if isinstance(file, str):
+            file = [file]
+        try:
+            for p in file:
+                if not os.path.isfile(p):
+                    raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
+                if os.path.splitext(p)[1] != ext:
+                    raise ValueError("Not all files are in the same format.")
+        except TypeError:
+            raise ValueError("file must be string or list-like")
+
+        self.source_file = file
 
     def set_param(self, param_dict):
-        """Allow users to set specific parameters in the conversion.
+        """Allow users to set, ``platform_name``, ``platform_type``, and ``platform_code_ICES``
+        to be saved during the conversion.
         """
+        self._conversion_params['platform_name'] = param_dict.get('platform_name', '')
+        self._conversion_params['platform_code_ICES'] = param_dict.get('platform_code_ICES', '')
+        self._conversion_params['platform_type'] = param_dict.get('platform_type', '')
 
-    def _validate_path(self):
+    def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
 
-        The file names and path will depend on inputs to to_netcdf() and to_zarr().
+        Parameters
+        ----------
+        save_path : str
+            Either a directory or a file. If none then the save path is the same as the raw file.
+        file_format : str            .nc or .zarr
         """
-        # TODO: this was previously in ConvertBase
 
-    def _convert_indiv_file(self, file, path, output_format):
+        # Raise error if output format is not .nc or .zarr
+        if file_format != '.nc' and file_format != '.zarr':
+            raise ValueError("File format is not .nc or .zarr")
+
+        filenames = self.source_file
+
+        # Default output directory taken from first input file
+        self.out_dir = os.path.dirname(filenames[0])
+        if save_path is not None:
+            path_ext = os.path.splitext(save_path)[1]
+            # Check if save_path is a file or a directory
+            if path_ext == '':   # if a directory
+                self.out_dir = save_path
+            elif (path_ext == '.nc' or path_ext == '.zarr') and len(filenames) == 1:
+                self.out_dir = os.path.dirname(save_path)
+            else:  # if a file
+                raise ValueError("save_path must be a directory")
+
+        # Create folder if save_path does not exist already
+        if not os.path.exists(self.out_dir):
+            try:
+                os.mkdir(self.out_dir)
+            # Raise error if save_path is not a folder
+            except FileNotFoundError:
+                raise ValueError("A valid save directory was not given.")
+
+        # Store output filenames
+        files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
+        self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
+        self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
+        self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
+
+    def _convert_indiv_file(self, file, output_path, save_ext):
         """Convert a single file.
         """
-        # if converting EK60 files:
-        c = ParseEK60(file)  # use echosounder-specific object
-        c.parse_raw()   # pass data_type to convert here, for EK60 and EK80 only
-        sg = SetGroupsEK60(c, output_file=file, output_path=path, output_format='netcdf',
-                           compress=self.compress, overwrite=self.overwrite)
+        params = self._conversion_params
+        # use echosounder-specific object
+        if self.sonar_model == 'EK60':
+            c = ParseEK60
+            sg = SetGroupsEK60
+        elif self.sonar_model == 'EK80':
+            c = ParseEK80
+            sg = SetGroupsEK80
+        elif self.sonar_model == 'AZFP':
+            c = ParseAZFP
+            sg = SetGroupsAZFP
+            params['xml_path'] = self.xml_path
+        else:
+            raise ValueError("Unknown sonar model", self.sonar_model)
+
+        c = c(file, params)
+        c.parse_raw()
+        sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext,
+                compress=self.compress, overwrite=self.overwrite)
         sg.save()
 
     def _check_param_consistency(self):
@@ -99,28 +187,93 @@ class Convert:
         #  Can think about using something like
         #  _check_tx_param_uniqueness() or _check_env_param_uniqueness() for EK60/EK80,
         #  and _check_uniqueness() for AZFP.
+        # if self.sonar_model == 'EK60':
+        #     pass
+        # elif self.sonar_model == 'EK80':
+        #     pass
+        # elif self.sonar_model == 'AZFP':
+        #     parser._check_uniqueness()
+        return True
 
-    def combine_files(self):
+    @staticmethod
+    def _remove(path):
+        fname, ext = os.path.splitext(path)
+        if ext == '.zarr':
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+
+    def combine_files(self, src_files=None, save_path=None):
         """Combine output files when self.combine=True.
         """
         if self._check_param_consistency():
             # code to actually combine files
-            print('combine files...')
+            print('combining files...')
+            if save_path is None:
+                fname, ext = os.path.splitext(self.output_file[0])
+                save_path = fname + '[combined]' + ext
+
+            src_files = self.output_file if src_files is None else src_files
+            # Open multiple files as one dataset of each group and save them into a single file
+            with xr.open_dataset(src_files[0]) as ds_top:
+                ds_top.to_netcdf(path=save_path, mode='w')
+            with xr.open_dataset(src_files[0], group='Provenance') as ds_prov:
+                ds_prov.to_netcdf(path=save_path, mode='a', group='Provenance')
+            with xr.open_dataset(src_files[0], group='Sonar') as ds_sonar:
+                ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
+            with xr.open_mfdataset(src_files, group='Beam', combine='by_coords', data_vars='minimal') as ds_beam:
+                ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
+            with xr.open_mfdataset(src_files, group='Environment', combine='by_coords') as ds_env:
+                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+            with xr.open_dataset(src_files[0], group='Platform') as ds_plat:
+                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            # EK60 does not have the "vendor specific" group
+            with xr.open_mfdataset(src_files, group='Vendor', combine='by_coords', data_vars='minimal') as ds_vend:
+                ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
+
+            # Delete files after combining
+            for f in src_files:
+                self._remove(f)
         else:
             print('cannot combine files...')
 
-    def to_netcdf(self, save_path, data_type='all', compress=True, combine=False, parallel=False):
+    def to_netcdf(self, save_path=None, data_type='all', compress=True, overwrite=True, combine=False, parallel=False):
         """Convert a file or a list of files to netcdf format.
         """
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
+        self.overwrite = overwrite
 
+        self._validate_path('.nc', save_path)
         # Sequential or parallel conversion
         if not parallel:
-            for file in self.source_file:
+            for i, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, path=save_path, output_format='netcdf')
+                self._convert_indiv_file(file=file, output_path=self.output_file[i], save_ext='.nc')
+        # else:
+            # use dask syntax but we'll probably use something else, like multiprocessing?
+            # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
+
+        # combine files if needed
+        if self.combine:
+            self.combine_files(save_path)
+
+    def to_zarr(self, save_path=None, data_type='all', compress=True, combine=False, overwrite=False, parallel=False):
+        """Convert a file or a list of files to zarr format.
+        """
+        self.data_type = data_type
+        self.compress = compress
+        self.combine = combine
+        self.overwrite = overwrite
+
+        self._validate_path('.zarr', save_path)
+        # Sequential or parallel conversion
+        if not parallel:
+            for i, file in enumerate(self.source_file):
+                # convert file one by one into path set by validate_path()
+                self._convert_indiv_file(file=file, output_path=self.output_file[i], save_ext='.zarr')
         # else:
             # use dask syntax but we'll probably use something else, like multiprocessing?
             # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
@@ -128,9 +281,3 @@ class Convert:
         # combine files if needed
         if self.combine:
             self.combine_files()
-
-    def to_zarr(self, save_path, data_type='all', compress=True, combine=False):
-        """Convert a file or a list of files to zarr format.
-    """
-
-
