@@ -44,19 +44,19 @@ class Convert:
     """
     def __init__(self):
         # Attributes
-        self.sonar_model = None    # type of echosounder
-        self.xml_path = ''         # path to xml file (AZFP only)
-                                   # users will get an error if try to set this directly for EK60 or EK80 data
-        self.source_file = None    # input file path or list of input file paths
-        self.output_file = None    # converted file path or list of converted file paths
-        self._source_path = None   # for convenience only, the path is included in source_file already;
-                                   # user should not interact with this directly
-        self._output_path = None   # for convenience only, the path is included in source_file already;
-                                   # user should not interact with this directly
-        self._conversion_params = {}   # a dictionary of conversion parameters,
-                                       # the keys could be different for different echosounders.
-                                       # This dictionary is set by the `set_param` method.
-        self.data_type = 'all'  # type of data to be converted into netcdf or zarr.
+        self.sonar_model = None     # type of echosounder
+        self.xml_path = ''          # path to xml file (AZFP only)
+                                    # users will get an error if try to set this directly for EK60 or EK80 data
+        self.source_file = None     # input file path or list of input file paths
+        self.output_file = None     # converted file path or list of converted file paths
+        self._source_path = None    # for convenience only, the path is included in source_file already;
+                                    # user should not interact with this directly
+        self._output_path = None    # for convenience only, the path is included in source_file already;
+                                    # user should not interact with this directly
+        self._conversion_params = {}    # a dictionary of conversion parameters,
+                                        # the keys could be different for different echosounders.
+                                        # This dictionary is set by the `set_param` method.
+        self.data_type = 'all'      # type of data to be converted into netcdf or zarr.
                                 # - default to 'all'
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
@@ -67,6 +67,7 @@ class Convert:
         self.overwrite = False
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
+        self.set_param({})      # Initialize parameters with empty strings
 
     def set_source(self, file, model, xml_path=None):
         """Set source file and echosounder model.
@@ -112,6 +113,8 @@ class Convert:
         self._conversion_params['platform_name'] = param_dict.get('platform_name', '')
         self._conversion_params['platform_code_ICES'] = param_dict.get('platform_code_ICES', '')
         self._conversion_params['platform_type'] = param_dict.get('platform_type', '')
+        self._conversion_params['survey_name'] = param_dict.get('survey_name', '')
+        self._conversion_params['water_level'] = param_dict.get('water_level', 0)
 
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
@@ -173,11 +176,21 @@ class Convert:
         else:
             raise ValueError("Unknown sonar model", self.sonar_model)
 
-        c = c(file, params)
-        c.parse_raw()
-        sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext,
-                compress=self.compress, overwrite=self.overwrite)
-        sg.save()
+
+        # Check if file exists
+        if os.path.exists(output_path) and self.overwrite:
+            # Remove the file if self.overwrite is true
+            print("          overwriting: " + output_path)
+            self._remove(output_path)
+        if os.path.exists(output_path):
+            # Otherwise, skip saving
+            print(f'          ... this file has already been converted to {save_ext}, conversion not executed.')
+        else:
+            c = c(file, params)
+            c.parse_raw()
+            sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext,
+                    compress=self.compress, overwrite=self.overwrite)
+            sg.save()
 
     def _check_param_consistency(self):
         """Check consistency of key params so that xr.open_mfdataset() will work.
@@ -203,17 +216,26 @@ class Convert:
         else:
             os.remove(path)
 
-    def combine_files(self, src_files=None, save_path=None):
+    def combine_files(self, src_files=None, save_path=None, remove_orig=True):
         """Combine output files when self.combine=True.
         """
         if self._check_param_consistency():
             # code to actually combine files
             print('combining files...')
-            if save_path is None:
-                fname, ext = os.path.splitext(self.output_file[0])
-                save_path = fname + '[combined]' + ext
-
             src_files = self.output_file if src_files is None else src_files
+            if save_path is None:
+                fname, ext = os.path.splitext(src_files[0])
+                save_path = fname + '[combined]' + ext
+            elif isinstance(save_path, str):
+                fname, ext = os.path.splitext(save_path)
+                # If save_path is a directory. (It must exist due to validate_path)
+                if ext == '':
+                    file = os.path.basename(src_files[0])
+                    fname, ext = os.path.splitext(file)
+                    save_path = os.path.join(save_path, fname + '[combined]' + ext)
+            else:
+                raise ValueError("Invalid save path")
+
             # Open multiple files as one dataset of each group and save them into a single file
             with xr.open_dataset(src_files[0]) as ds_top:
                 ds_top.to_netcdf(path=save_path, mode='w')
@@ -223,18 +245,32 @@ class Convert:
                 ds_sonar.to_netcdf(path=save_path, mode='a', group='Sonar')
             with xr.open_mfdataset(src_files, group='Beam', combine='by_coords', data_vars='minimal') as ds_beam:
                 ds_beam.to_netcdf(path=save_path, mode='a', group='Beam')
-            with xr.open_mfdataset(src_files, group='Environment', combine='by_coords') as ds_env:
-                ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            if self.sonar_model == 'AZFP':
+                with xr.open_mfdataset(src_files, group='Environment', combine='by_coords') as ds_env:
+                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
+            else:
+                with xr.open_dataset(src_files[0], group='Environment') as ds_env:
+                    ds_env.to_netcdf(path=save_path, mode='a', group='Environment')
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-            with xr.open_dataset(src_files[0], group='Platform') as ds_plat:
-                ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
-            # EK60 does not have the "vendor specific" group
-            with xr.open_mfdataset(src_files, group='Vendor', combine='by_coords', data_vars='minimal') as ds_vend:
-                ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
+            if self.sonar_model == 'AZFP':
+                with xr.open_dataset(src_files[0], group='Platform') as ds_plat:
+                    ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            else:
+                with xr.open_mfdataset(src_files, group='Platform', combine='by_coords') as ds_plat:
+                    ds_plat.to_netcdf(path=save_path, mode='a', group='Platform')
+            if self.sonar_model == 'AZFP':
+                # EK60 does not have the "vendor specific" group
+                with xr.open_mfdataset(src_files, group='Vendor', combine='by_coords', data_vars='minimal') as ds_vend:
+                    ds_vend.to_netcdf(path=save_path, mode='a', group='Vendor')
+            else:
+                with xr.open_mfdataset(src_files, group='Platform/NMEA',
+                                       combine='nested', concat_dim='time', decode_times=False) as ds_nmea:
+                    ds_nmea.to_netcdf(path=save_path, mode='a', group='Platform/NMEA')
 
             # Delete files after combining
-            for f in src_files:
-                self._remove(f)
+            if remove_orig:
+                for f in src_files:
+                    self._remove(f)
         else:
             print('cannot combine files...')
 
@@ -258,7 +294,7 @@ class Convert:
 
         # combine files if needed
         if self.combine:
-            self.combine_files(save_path)
+            self.combine_files(save_path=save_path, remove_orig=True)
 
     def to_zarr(self, save_path=None, data_type='all', compress=True, combine=False, overwrite=False, parallel=False):
         """Convert a file or a list of files to zarr format.
@@ -280,4 +316,4 @@ class Convert:
 
         # combine files if needed
         if self.combine:
-            self.combine_files()
+            self.combine_files(save_path=save_path, remomve_orig=True)

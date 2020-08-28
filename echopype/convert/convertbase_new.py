@@ -1,6 +1,7 @@
 from collections import defaultdict
 from .utils.nmea_data import NMEAData
 import xml.dom.minidom
+from .utils.ek_raw_io import RawSimradFile, SimradEOF
 from struct import unpack
 from datetime import datetime as dt
 from datetime import timezone
@@ -8,8 +9,8 @@ import math
 import numpy as np
 import os
 
-FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?(?P<postfix>\w+)?.raw'
-FILENAME_DATETIME_AZFP = '\w+.raw'
+FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
+FILENAME_DATETIME_AZFP = '\\w+.raw'
 NMEA_GPS_SENTECE = 'GGA'
 
 
@@ -19,8 +20,6 @@ class ParseBase:
     def __init__(self, file, params=None, compress=True, overwrite=False):
         self.source_file = file
         self.ui_param = params
-        self.compress = compress
-        self.overwrite = overwrite
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
 
@@ -33,9 +32,7 @@ class ParseBase:
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
-        # TODO: this currently is only in convert/azfp.py and
-        #  embedded in other methods for EK60 and EK80.
-        #  Let's consolidate the same operation in one method.
+        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.source_file)))
 
 
 class ParseEK(ParseBase):
@@ -60,6 +57,7 @@ class ParseEK(ParseBase):
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
         """
+        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.source_file)))
 
     def _check_env_param_uniqueness(self):
         """Check if env parameters are unique throughout the file.
@@ -106,7 +104,7 @@ class ParseEK(ParseBase):
         #           - transmit_mod(  # 0 = Active, 1 = Passive, 2 = Test, -1 = Unknown)
         #           - offset
 
-    def _read_datagrams(self):
+    def _read_datagrams(self, fid):
         """Read all datagrams.
 
         A sample EK60 RAW0 datagram:
@@ -177,8 +175,81 @@ class ParseEK(ParseBase):
               'transducer_sound_speed': 1490.0},
              'xml': '<?xml version="1.0" encoding="utf-8"?>\r\n<Environment Depth="240" ... />\r\n</Environment>'}
         """
+        num_datagrams_parsed = 0
+        tmp_num_ch_per_ping_parsed = 0  # number of channels of the same ping parsed
+                                        # this is used to control saving only pings
+                                        # that have all freq channels present
+        tmp_datagram_dict = []  # tmp list of datagrams, only saved to actual output
+                                # structure if data from all freq channels are present
 
-    def _append_channel_ping_data(self):
+        while True:
+            try:
+                new_datagram = fid.read(1)
+            except SimradEOF:
+                break
+
+            # Convert the timestamp to a datetime64 object.
+            new_datagram['timestamp'] = np.datetime64(new_datagram['timestamp'].replace(tzinfo=None), '[ms]')
+
+            num_datagrams_parsed += 1
+
+            # RAW datagrams store raw acoustic data for a channel
+            if new_datagram['type'].startswith('RAW'):
+                curr_ch_num = new_datagram['channel']
+
+                # Reset counter and storage for parsed number of channels
+                # if encountering datagram from the first channel
+                if curr_ch_num == 1:
+                    tmp_num_ch_per_ping_parsed = 0
+                    tmp_datagram_dict = []
+
+                # Save datagram temporarily before knowing if all freq channels are present
+                tmp_num_ch_per_ping_parsed += 1
+                tmp_datagram_dict.append(new_datagram)
+
+                # Actually save datagram when all freq channels are present
+                if np.all(np.array([curr_ch_num, tmp_num_ch_per_ping_parsed]) ==
+                          self.config_datagram['transceiver_count']):
+
+                    # append ping time from first channel
+                    self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
+
+                    for ch_seq in range(self.config_datagram['transceiver_count']):
+                        # If frequency matches for this channel, actually store data
+                        # Note all storage structure indices are 1-based since they are indexed by
+                        # the channel number as stored in config_datagram['transceivers'].keys()
+                        if self.config_datagram['transceivers'][ch_seq + 1]['frequency'] \
+                                == tmp_datagram_dict[ch_seq]['frequency']:
+                            self._append_channel_ping_data(ch_seq + 1, tmp_datagram_dict[ch_seq])   # metadata per ping
+                            self.power_dict[ch_seq + 1].append(tmp_datagram_dict[ch_seq]['power'])  # append power data
+                            self.angle_dict[ch_seq + 1].append(tmp_datagram_dict[ch_seq]['angle'])  # append angle data
+                        else:
+                            # TODO: need error-handling code here
+                            print('Frequency mismatch for data from the same channel number!')
+
+            # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
+            elif new_datagram['type'].startswith('NME'):
+                # Add the datagram to our nmea_data object.
+                self.nmea_data.add_datagram(new_datagram['timestamp'],
+                                            new_datagram['nmea_string'])
+
+            # TAG datagrams contain time-stamped annotations inserted via the recording software
+            elif new_datagram['type'].startswith('TAG'):
+                print('TAG datagram encountered.')
+
+            # BOT datagrams contain sounder detected bottom depths from .bot files
+            elif new_datagram['type'].startswith('BOT'):
+                print('BOT datagram encountered.')
+
+            # DEP datagrams contain sounder detected bottom depths from .out files
+            # as well as reflectivity data
+            elif new_datagram['type'].startswith('DEP'):
+                print('DEP datagram encountered.')
+
+            else:
+                print("Unknown datagram type: " + str(new_datagram['type']))
+
+    def _append_channel_ping_data(self, ch_num, datagram):
         """Append non-backscatter data for each ping.
         """
         # This is currently implemented for EK60, but not for EK80.
@@ -186,6 +257,19 @@ class ParseEK(ParseBase):
         # TODO: simplify the calls `current_parameters['channel_id']` to
         #  `ch_id = current_parameters['channel_id']`
         #  and then just use ch_id, to increase code readbility
+        self.ping_data_dict[ch_num]['mode'].append(datagram['mode'])
+        self.ping_data_dict[ch_num]['transducer_depth'].append(datagram['transducer_depth'])
+        self.ping_data_dict[ch_num]['transmit_power'].append(datagram['transmit_power'])
+        self.ping_data_dict[ch_num]['pulse_length'].append(datagram['pulse_length'])
+        self.ping_data_dict[ch_num]['bandwidth'].append(datagram['bandwidth'])
+        self.ping_data_dict[ch_num]['sample_interval'].append(datagram['sample_interval'])
+        self.ping_data_dict[ch_num]['sound_velocity'].append(datagram['sound_velocity'])
+        self.ping_data_dict[ch_num]['absorption_coefficient'].append(datagram['absorption_coefficient'])
+        self.ping_data_dict[ch_num]['heave'].append(datagram['heave'])
+        self.ping_data_dict[ch_num]['roll'].append(datagram['roll'])
+        self.ping_data_dict[ch_num]['pitch'].append(datagram['pitch'])
+        self.ping_data_dict[ch_num]['temperature'].append(datagram['temperature'])
+        self.ping_data_dict[ch_num]['heading'].append(datagram['heading'])
 
     def _find_range_group(self):
         """Find the pings at which range_bin changes.
@@ -203,13 +287,133 @@ class ParseEK(ParseBase):
         """
         # This seems to be what line 211 of convert/ek80.py is doing?
 
+    def split_by_range_group(self):
+        INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+        self.tx_sig = {}
+        range_bin_lens = [len(l) for l in self.power_dict[1]]
+        uni, uni_inv, uni_cnt = np.unique(range_bin_lens, return_inverse=True, return_counts=True)
+
+        # TODO find a way to simplify this
+        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
+        ping_time_split = {}
+        angle_dict_split = {}
+        power_dict_split = {}
+        uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
+        beam_type = np.array([x['beam_type'] for x in self.config_datagram['transceivers'].values()])
+        for range_group in range(len(uni)):
+            ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
+                                                                    uni_cnt_insert[range_group + 1]]
+            range_bin_freq_lens = np.unique(
+                [x_val[uni_cnt_insert[range_group]].shape for x_val in self.power_dict.values()])
+            angle_dict_split[range_group] = np.empty(
+                (len(self.power_dict), uni_cnt_insert[range_group + 1] - uni_cnt_insert[range_group],
+                 range_bin_freq_lens.max(), 2))
+            angle_dict_split[range_group][:] = np.nan
+            if len(range_bin_freq_lens) != 1:  # different frequency channels have different range_bin lengths
+                tmp_power_pad, tmp_angle_pad = [], []
+                for x_p, x_a in zip(self.power_dict.values(), self.angle_dict.values()):  # pad nan to shorter channels
+                    tmp_p_data = np.array(x_p[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_a_data = np.array(x_a[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    tmp_power = np.pad(tmp_p_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max() - tmp_p_data.shape[1])),
+                                       mode='constant', constant_values=(np.nan,))
+                    tmp_angle = np.pad(tmp_a_data.astype('float64'),
+                                       ((0, 0), (0, range_bin_freq_lens.max() - tmp_a_data.shape[1]), (0, 0)),
+                                       mode='constant', constant_values=(np.nan,))
+                    tmp_power_pad.append(tmp_power)
+                    tmp_angle_pad.append(tmp_angle)
+                angle_dict_split[range_group] = np.array(tmp_angle_pad)
+                power_dict_split[range_group] = np.array(tmp_power_pad) * INDEX2POWER
+            else:
+                power_dict_split[range_group] = np.array(
+                    [x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
+                     for x_key, x in self.power_dict.items()]) * INDEX2POWER
+                for ch in np.argwhere(beam_type == 1):   # if split-beam
+                    angle_dict_split[range_group][ch, :, :, :] = np.array(
+                        self.angle_dict[ch[0] + 1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+            self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+
+        # Pad power dict with nans so that there is only 1 range length
+        largest_range = max(uni)
+        power_split = []
+        angle_split = []
+        for i in range(len(power_dict_split)):
+            # Pad power data
+            tmp_power = np.full((power_dict_split[i].shape[0], power_dict_split[i].shape[1],
+                                 largest_range), np.nan)
+            tmp_power[:, :, :power_dict_split[i].shape[2]] = power_dict_split[i]
+            power_split.append(tmp_power)
+
+            # Pad angle data
+            tmp_angle = np.full((power_dict_split[i].shape[0], power_dict_split[i].shape[1],
+                                 largest_range, angle_dict_split[i].shape[3]), np.nan)
+            tmp_angle[:, :, :power_dict_split[i].shape[2], :] = angle_dict_split[i]
+            angle_split.append(tmp_angle)
+        # Concatenate power and angle along ping_time
+        self.power_dict = np.concatenate(power_split, axis=1)
+        self.angle_dict = np.concatenate(angle_split, axis=1)
+
+        pulse_length, transmit_power, bandwidth, sample_interval = [], [], [], []
+        param = [pulse_length, transmit_power, bandwidth, sample_interval]
+        param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
+        param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
+        for range_group in range(len(uni)):
+            for p, pname in zip(param, param_name):
+                p.append(np.array([np.array(
+                    self.ping_data_dict[x][pname][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
+                    for x in self.config_datagram['transceivers'].keys()]))
+        tx_num = self.config_datagram['transceiver_count']  # number of transceivers
+        for range_group in range(len(uni)):
+            for p, pname, pname_save in zip(param, param_name, param_name_save):
+                if np.unique(p[range_group], axis=1).size != tx_num:
+                    # TODO: right now set_groups_ek60/set_beam doens't deal with this case, need to add
+                    ValueError('%s changed in the middle of range_bin group' % pname)
+                else:
+                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze(axis=1)
+
+        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
+
 
 class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
+
     def parse_raw(self):
         """Parse raw data file from Simrad EK60 echosounder.
         """
+        self._print_status()
+
+        with RawSimradFile(self.source_file, 'r') as fid:
+            # Read the CON0 configuration datagram. Only keep 1 if multiple files
+            if self.config_datagram is None:
+                self.config_datagram = fid.read(1)
+                self.config_datagram['timestamp'] = np.datetime64(
+                    self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
+
+                for ch_num in self.config_datagram['transceivers'].keys():
+                    self.ping_data_dict[ch_num] = defaultdict(list)
+                    self.ping_data_dict[ch_num]['frequency'] = \
+                        self.config_datagram['transceivers'][ch_num]['frequency']
+                    self.power_dict[ch_num] = []
+                    self.angle_dict[ch_num] = []
+            else:
+                tmp_config = fid.read(1)
+
+            # Check if reading an ME70 file with a CON1 datagram.
+            next_datagram = fid.peek()
+            if next_datagram == 'CON1':
+                self.CON1_datagram = fid.read(1)
+            else:
+                self.CON1_datagram = None
+
+            # Read the rest of datagrams
+            self._read_datagrams(fid)
+
+        # Split data based on range_group (when there is a switch of range_bin in the middle of a file)
+        self.split_by_range_group()
+
+        # Trim excess data from NMEA object
+        self.nmea_data.trim()
 
 
 class ParseEK80(ParseEK):
@@ -247,7 +451,7 @@ class ParseAZFP(ParseBase):
     def __init__(self, file, params=None):
         super().__init__(file, params)
         # Parent class attributes
-        self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
+        self.timestamp_pattern = FILENAME_DATETIME_AZFP  # regex pattern used to grab datetime embedded in filename
 
         # Class attributes
         self.parameters = dict()
@@ -515,7 +719,7 @@ class ParseAZFP(ParseBase):
         if not self.unpacked_data:
             self.parse_raw()
 
-        if np.array(self.unpacked_data['profile_flag']).size != 1:    # Only check uniqueness once. Will error if done twice
+        if np.array(self.unpacked_data['profile_flag']).size != 1:    # Only check uniqueness once.
             # fields with num_freq data
             field_w_freq = ('dig_rate', 'lockout_index', 'num_bins', 'range_samples_per_bin',
                             'data_type', 'gain', 'pulse_length', 'board_num', 'frequency')
