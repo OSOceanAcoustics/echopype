@@ -6,6 +6,8 @@ import shutil
 from datetime import datetime as dt
 import xarray as xr
 import numpy as np
+import re
+import pynmea2
 import zarr
 import netCDF4
 from ..._version import get_versions
@@ -32,13 +34,21 @@ class SetGroupsBase:
         """Set the top-level group.
         """
         # Collect variables
+        timestamp_pattern = re.compile(self.convert_obj.timestamp_pattern)
+        raw_date_time = timestamp_pattern.match(os.path.basename(self.input_file))
+        filedate = raw_date_time['date']
+        filetime = raw_date_time['time']
+        date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
+
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,
                    'sonar_convention_authority': 'ICES',
                    'sonar_convention_name': 'SONAR-netCDF4',
                    'sonar_convention_version': '1.0',
                    'summary': '',
-                   'title': ''}
+                   'title': '',
+                   'date_created': date_created,
+                   'survey_name': self.convert_obj.ui_param['survey_name']}
         # Save
         if self.save_ext == '.nc':
             with netCDF4.Dataset(self.output_path, "w", format="NETCDF4") as ncfile:
@@ -96,6 +106,35 @@ class SetGroupsBase:
     def set_nmea(self):
         """Set the Platform/NMEA group.
         """
+
+        if not os.path.exists(self.output_path):
+            print('netCDF file does not exist, exiting without saving Platform group...')
+        else:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            time = (self.convert_obj.nmea_data.nmea_times - np.datetime64('1900-01-01T00:00:00')) \
+                    / np.timedelta64(1, 's')
+            ds = xr.Dataset(
+                {'NMEA_datagram': (['time'], self.convert_obj.nmea_data.raw_datagrams,
+                                   {'long_name': 'NMEA datagram'})
+                 },
+                coords={'time': (['time'], time,
+                                 {'axis': 'T',
+                                  'calendar': 'gregorian',
+                                  'long_name': 'Timestamps for NMEA datagrams',
+                                  'standard_name': 'time',
+                                  'units': 'seconds since 1900-01-01'})},
+                attrs={'description': 'All NMEA sensor datagrams'})
+
+            # save to file
+            if self.save_ext == '.nc':
+                nc_encoding = {'time': dict(zlib=True, complevel=4)} if self.compress else {}
+                ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
+            elif self.save_ext == '.zarr':
+                zarr_encoding = {'time': dict(compressor=zarr.Blosc(cname='zstd',
+                                 clevel=3, shuffle=2))} if self.compress else {}
+                ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
+
     @staticmethod
     def _remove(path):
         fname, ext = os.path.splitext(path)
@@ -111,18 +150,356 @@ class SetGroupsEK60(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
+        # filename must have timestamp that matches self.timestamp_pattern
+        sonar_values = ('Simrad', self.convert_obj.config_datagram['sounder_name'],
+                        '', '', self.convert_obj.config_datagram['version'], 'echosounder')
+        self.set_toplevel("EK60")         # top-level group
+        self.set_env()              # environment group
+        self.set_provenance()       # provenance group
+        self.set_sonar(sonar_values)            # sonar group
+        self.set_beam()             # beam group
+        self.set_platform()         # platform group
+        self.set_nmea()             # platform/NMEA group
 
     def set_env(self):
         """Set the Environment group.
         """
+        # Collect variables
+        config = self.convert_obj.config_datagram
+        ping_data = self.convert_obj.ping_data_dict
+        freq = np.array([config['transceivers'][x]['frequency']
+                        for x in config['transceivers'].keys()], dtype='float32')
+        # Extract absorption and sound speed depending on if the values are identical for all pings
+        abs_tmp = np.unique(ping_data[1]['absorption_coefficient']).size
+        ss_tmp = np.unique(ping_data[1]['sound_velocity']).size
+        # --- if identical for all pings, save only values from the first ping
+        if np.all(np.array([abs_tmp, ss_tmp]) == 1):
+            abs_val = np.array([ping_data[x]['absorption_coefficient'][0]
+                                for x in config['transceivers'].keys()], dtype='float32')
+            ss_val = np.array([ping_data[x]['sound_velocity'][0]
+                              for x in config['transceivers'].keys()], dtype='float32')
+        # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
+        else:  # TODO: right now set_groups_ek60/set_env doens't deal with this case, need to add
+            abs_val = np.array([ping_data[x]['absorption_coefficient']
+                                for x in config['transceivers'].keys()],
+                               dtype='float32')
+            ss_val = np.array([ping_data[x]['sound_velocity']
+                               for x in config['transceivers'].keys()],
+                              dtype='float32')
+
+        # Only save environment group if file_path exists
+        if not os.path.exists(self.output_path):
+            print('netCDF file does not exist, exiting without saving Environment group...')
+        else:
+            # Assemble variables into a dataset
+            absorption = xr.DataArray(abs_val,
+                                      coords=[freq], dims={'frequency'},
+                                      attrs={'long_name': "Indicative acoustic absorption",
+                                             'units': "dB/m",
+                                             'valid_min': 0.0})
+            sound_speed = xr.DataArray(ss_val,
+                                       coords=[freq], dims={'frequency'},
+                                       attrs={'long_name': "Indicative sound speed",
+                                              'standard_name': "speed_of_sound_in_sea_water",
+                                              'units': "m/s",
+                                              'valid_min': 0.0})
+            ds = xr.Dataset({'absorption_indicative': absorption,
+                             'sound_speed_indicative': sound_speed},
+                            coords={'frequency': (['frequency'], freq)})
+
+            ds.frequency.attrs['long_name'] = "Acoustic frequency"
+            ds.frequency.attrs['standard_name'] = "sound_frequency"
+            ds.frequency.attrs['units'] = "Hz"
+            ds.frequency.attrs['valid_min'] = 0.0
+
+            # save to file
+            if self.save_ext == '.nc':
+                ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
+            elif self.save_ext == '.zarr':
+                # Only save environment group if not appending to an existing .zarr file
+                ds.to_zarr(store=self.output_path, mode='a', group='Environment')
 
     def set_platform(self):
         """Set the Platform group.
         """
+        # Collect variables
+
+        # Read lat/long from NMEA datagram
+        idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+        nmea_msg = []
+        [nmea_msg.append(pynmea2.parse(self.convert_obj.nmea_data.raw_datagrams[x])) for x in idx_loc]
+        lat = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        lon = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        location_time = (self.convert_obj.nmea_data.nmea_times[idx_loc] -
+                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
+
+        if not os.path.exists(self.output_path):
+            print('netCDF file does not exist, exiting without saving Platform group...')
+        else:
+            # Assemble variables into a dataset
+
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ping_time = (self.convert_obj.ping_time -
+                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+
+            ds = xr.Dataset(
+                {'pitch': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['pitch'], dtype='float32'),
+                           {'long_name': 'Platform pitch',
+                            'standard_name': 'platform_pitch_angle',
+                            'units': 'arc_degree',
+                            'valid_range': (-90.0, 90.0)}),
+                 'roll': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['roll'], dtype='float32'),
+                          {'long_name': 'Platform roll',
+                           'standard_name': 'platform_roll_angle',
+                           'units': 'arc_degree',
+                           'valid_range': (-90.0, 90.0)}),
+                 'heave': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['heave'], dtype='float32'),
+                           {'long_name': 'Platform heave',
+                            'standard_name': 'platform_heave_angle',
+                            'units': 'arc_degree',
+                            'valid_range': (-90.0, 90.0)}),
+                 # Get user defined water level (0 if undefined)
+                 'water_level': ([], self.convert_obj.ui_param['water_level'],
+                                 {'long_name': 'z-axis distance from the platform coordinate system '
+                                               'origin to the sonar transducer',
+                                  'units': 'm'})
+                 },
+                coords={'ping_time': (['ping_time'], ping_time,
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'long_name': 'Timestamps for position datagrams',
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'})
+                        },
+                attrs={'platform_code_ICES': self.convert_obj.ui_param['platform_code_ICES'],
+                       'platform_name': self.convert_obj.ui_param['platform_name'],
+                       'platform_type': self.convert_obj.ui_param['platform_type']})
+            if len(location_time) > 0:
+                ds_loc = xr.Dataset(
+                    {'latitude': (['location_time'], lat,
+                                  {'long_name': 'Platform latitude',
+                                   'standard_name': 'latitude',
+                                   'units': 'degrees_north',
+                                   'valid_range': (-90.0, 90.0)}),
+                     'longitude': (['location_time'], lon,
+                                   {'long_name': 'Platform longitude',
+                                    'standard_name': 'longitude',
+                                    'units': 'degrees_east',
+                                    'valid_range': (-180.0, 180.0)})},
+                    coords={'location_time': (['location_time'], location_time,
+                                              {'axis': 'T',
+                                               'calendar': 'gregorian',
+                                               'long_name': 'Timestamps for NMEA position datagrams',
+                                               'standard_name': 'time',
+                                               'units': 'seconds since 1900-01-01'})})
+                ds = xr.merge([ds, ds_loc])
+
+            # save dataset to file with specified compression settings for all variables
+            if self.save_ext == '.nc':
+                nc_settings = dict(zlib=True, complevel=4)
+                nc_encoding = {var: nc_settings for var in ds.data_vars} if self.compress else {}
+                ds.to_netcdf(path=self.output_path, mode='a', group='Platform', encoding=nc_encoding)
+            elif self.save_ext == '.zarr':
+                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
+                zarr_encoding = {var: zarr_settings for var in ds.data_vars} if self.compress else {}
+                ds.to_zarr(store=self.output_path, mode='w', group='Platform', encoding=zarr_encoding)
 
     def set_beam(self):
         """Set the Beam group.
         """
+        # Collect variables
+        config = self.convert_obj.config_datagram
+
+
+        # Additional coordinate variables added by echopype for storing data as a cube with
+        # dimensions [frequency x ping_time x range_bin]
+        freq = np.array([config['transceivers'][x]['frequency']
+                        for x in config['transceivers'].keys()], dtype='float32')
+        range_bin = np.arange(self.convert_obj.power_dict.shape[2])
+
+        # Loop through each transducer for channel-specific variables
+        param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
+                           "beamwidth_receive_minor": "beamwidth_athwartship",
+                           "beamwidth_transmit_major": "beamwidth_alongship",
+                           "beamwidth_transmit_minor": "beamwidth_athwartship",
+                           "beam_direction_x": "dir_x",
+                           "beam_direction_y": "dir_y",
+                           "beam_direction_z": "dir_z",
+                           "angle_offset_alongship": "angle_offset_alongship",
+                           "angle_offset_athwartship": "angle_offset_athwartship",
+                           "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+                           "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
+                           "transducer_offset_x": "pos_x",
+                           "transducer_offset_y": "pos_y",
+                           "transducer_offset_z": "pos_z",
+                           "equivalent_beam_angle": "equivalent_beam_angle",
+                           "gain_correction": "gain"}
+        param_str = {"gpt_software_version": "gpt_software_version",
+                     "channel_id": "channel_id",
+                     "beam_type": "beam_type"}
+
+        beam_dict = dict()
+        for encode_name, origin_name in param_numerical.items():
+            beam_dict[encode_name] = np.array(
+                [val[origin_name] for key, val in config['transceivers'].items()]).astype('float32')
+        beam_dict['transducer_offset_z'] += [self.convert_obj.ping_data_dict[x]['transducer_depth'][0]
+                                             for x in config['transceivers'].keys()]
+
+        for encode_name, origin_name in param_str.items():
+            beam_dict[encode_name] = [val[origin_name]
+                                      for key, val in config['transceivers'].items()]
+
+        # TODO: The following code only uses the data of the first range_bin group
+        beam_dict['transmit_signal'] = self.convert_obj.tx_sig[0]  # only this range_bin group
+
+        if len(config['transceivers']) == 1:   # only 1 channel
+            idx = np.argwhere(np.isclose(self.convert_obj.tx_sig[0]['transmit_duration_nominal'],
+                                         config['transceivers'][1]['pulse_length_table'])).squeeze()
+            idx = np.expand_dims(np.array(idx), axis=0)
+        else:
+            idx = [np.argwhere(np.isclose(self.convert_obj.tx_sig[0]['transmit_duration_nominal'][key - 1],
+                                          val['pulse_length_table'])).squeeze()
+                   for key, val in config['transceivers'].items()]
+        beam_dict['sa_correction'] = \
+            np.array([x['sa_correction_table'][y]
+                     for x, y in zip(config['transceivers'].values(), np.array(idx))])
+
+        if not os.path.exists(self.output_path):
+            print('netCDF file does not exist, exiting without saving Beam group...')
+        else:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+            # Assemble variables into a dataset
+            ds = xr.Dataset(
+                {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.power_dict,
+                                   {'long_name': 'Backscatter power',
+                                    'units': 'dB'}),
+                 'angle_athwartship': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.angle_dict[:, :, :, 0],
+                                       {'long_name': 'electrical athwartship angle'}),
+                 'angle_alongship': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.angle_dict[:, :, :, 1],
+                                     {'long_name': 'electrical alongship angle'}),
+                 'beam_type': ('frequency', beam_dict['beam_type'],
+                               {'long_name': 'type of transducer (0-single, 1-split)'}),
+                 'beamwidth_receive_alongship': (['frequency'], beam_dict['beamwidth_receive_major'],
+                                                 {'long_name': 'Half power one-way receive beam width along '
+                                                  'alongship axis of beam',
+                                                  'units': 'arc_degree',
+                                                  'valid_range': (0.0, 360.0)}),
+                 'beamwidth_receive_athwartship': (['frequency'], beam_dict['beamwidth_receive_minor'],
+                                                   {'long_name': 'Half power one-way receive beam width along '
+                                                    'athwartship axis of beam',
+                                                    'units': 'arc_degree',
+                                                    'valid_range': (0.0, 360.0)}),
+                 'beamwidth_transmit_alongship': (['frequency'], beam_dict['beamwidth_transmit_major'],
+                                                  {'long_name': 'Half power one-way transmit beam width along '
+                                                   'alongship axis of beam',
+                                                   'units': 'arc_degree',
+                                                   'valid_range': (0.0, 360.0)}),
+                 'beamwidth_transmit_athwartship': (['frequency'], beam_dict['beamwidth_transmit_minor'],
+                                                    {'long_name': 'Half power one-way transmit beam width along '
+                                                        'athwartship axis of beam',
+                                                     'units': 'arc_degree',
+                                                     'valid_range': (0.0, 360.0)}),
+                 'beam_direction_x': (['frequency'], beam_dict['beam_direction_x'],
+                                      {'long_name': 'x-component of the vector that gives the pointing '
+                                                    'direction of the beam, in sonar beam coordinate '
+                                                    'system',
+                                                    'units': '1',
+                                                    'valid_range': (-1.0, 1.0)}),
+                 'beam_direction_y': (['frequency'], beam_dict['beam_direction_x'],
+                                      {'long_name': 'y-component of the vector that gives the pointing '
+                                                    'direction of the beam, in sonar beam coordinate '
+                                                    'system',
+                                       'units': '1',
+                                       'valid_range': (-1.0, 1.0)}),
+                 'beam_direction_z': (['frequency'], beam_dict['beam_direction_x'],
+                                      {'long_name': 'z-component of the vector that gives the pointing '
+                                                    'direction of the beam, in sonar beam coordinate '
+                                                    'system',
+                                       'units': '1',
+                                       'valid_range': (-1.0, 1.0)}),
+                 'angle_offset_alongship': (['frequency'], beam_dict['angle_offset_alongship'],
+                                            {'long_name': 'electrical alongship angle of the transducer'}),
+                 'angle_offset_athwartship': (['frequency'], beam_dict['angle_offset_athwartship'],
+                                              {'long_name': 'electrical athwartship angle of the transducer'}),
+                 'angle_sensitivity_alongship': (['frequency'], beam_dict['angle_sensitivity_alongship'],
+                                                 {'long_name': 'alongship sensitivity of the transducer'}),
+                 'angle_sensitivity_athwartship': (['frequency'], beam_dict['angle_sensitivity_athwartship'],
+                                                   {'long_name': 'athwartship sensitivity of the transducer'}),
+                 'equivalent_beam_angle': (['frequency'], beam_dict['equivalent_beam_angle'],
+                                           {'long_name': 'Equivalent beam angle',
+                                            'units': 'sr',
+                                            'valid_range': (0.0, 4 * np.pi)}),
+                 'gain_correction': (['frequency'], beam_dict['gain_correction'],
+                                     {'long_name': 'Gain correction',
+                                      'units': 'dB'}),
+                 'non_quantitative_processing': (['frequency'], np.array([0, ] * freq.size, dtype='int32'),
+                                                 {'flag_meanings': 'no_non_quantitative_processing',
+                                                  'flag_values': '0',
+                                                  'long_name': 'Presence or not of non-quantitative '
+                                                               'processing applied to the backscattering '
+                                                               'data (sonar specific)'}),
+                 'sample_interval': (['frequency'], beam_dict['transmit_signal']['sample_interval'],
+                                     {'long_name': 'Interval between recorded raw data samples',
+                                      'units': 's',
+                                      'valid_min': 0.0}),
+                 'sample_time_offset': (['frequency'], np.array([2, ] * freq.size, dtype='int32'),
+                                        {'long_name': 'Time offset that is subtracted from the timestamp '
+                                                      'of each sample',
+                                                      'units': 's'}),
+                 'transmit_bandwidth': (['frequency'], beam_dict['transmit_signal']['transmit_bandwidth'],
+                                        {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                         'units': 'Hz',
+                                         'valid_min': 0.0}),
+                 'transmit_duration_nominal': (['frequency'], beam_dict['transmit_signal']['transmit_duration_nominal'],
+                                               {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                                             'units': 's',
+                                                'valid_min': 0.0}),
+                 'transmit_power': (['frequency'], beam_dict['transmit_signal']['transmit_power'],
+                                    {'long_name': 'Nominal transmit power',
+                                                  'units': 'W',
+                                                  'valid_min': 0.0}),
+                 'transducer_offset_x': (['frequency'], beam_dict['transducer_offset_x'],
+                                         {'long_name': 'x-axis distance from the platform coordinate system '
+                                                       'origin to the sonar transducer',
+                                                       'units': 'm'}),
+                 'transducer_offset_y': (['frequency'], beam_dict['transducer_offset_y'],
+                                         {'long_name': 'y-axis distance from the platform coordinate system '
+                                                       'origin to the sonar transducer',
+                                                       'units': 'm'}),
+                 'transducer_offset_z': (['frequency'], beam_dict['transducer_offset_z'],
+                                         {'long_name': 'z-axis distance from the platform coordinate system '
+                                                       'origin to the sonar transducer',
+                                                       'units': 'm'})},
+                coords={'frequency': (['frequency'], freq,
+                                      {'units': 'Hz',
+                                       'valid_min': 0.0}),
+                        'ping_time': (['ping_time'], ping_time,
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'units': 'seconds since 1900-01-01',
+                                       'long_name': 'Timestamp of each ping',
+                                       'standard_name': 'time'}),
+                        'range_bin': range_bin},
+                attrs={'beam_mode': 'vertical',
+                       'conversion_equation_t': 'type_3'})
+
+            # Below are specific to Simrad EK60 .raw files
+            ds['channel_id'] = ('frequency', beam_dict['channel_id'])
+            ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
+            ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
+
+            # Save dataset with optional compression for all data variables
+            if self.save_ext == '.nc':
+                comp = {'zlib': True, 'complevel': 4}
+                nc_encoding = {var: comp for var in ds.data_vars} if self.compress else {}
+                ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
+            elif self.save_ext == '.zarr':
+                comp = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+                zarr_encoding = {var: comp for var in ds.data_vars} if self.compress else {}
+                ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -157,26 +534,17 @@ class SetGroupsAZFP(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-        # Check if file exists
-        if os.path.exists(self.output_path) and self.overwrite:
-            # Remove the file if self.overwrite is true
-            print("          overwriting: " + self.output_path)
-            self._remove(self.output_path)
-        if os.path.exists(self.output_path):
-            # Otherwise, skip saving
-            print(f'          ... this file has already been converted to {self.save_ext}, conversion not executed.')
-        else:
-            ping_time = self.convert_obj._get_ping_time()
-            sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                            int(self.convert_obj.unpacked_data['serial_number']),
-                            'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
-            self.set_toplevel("AZFP")
-            self.set_env(ping_time)
-            self.set_provenance()
-            self.set_platform()
-            self.set_sonar(sonar_values)
-            self.set_beam(ping_time)
-            self.set_vendor(ping_time)
+        ping_time = self.convert_obj._get_ping_time()
+        sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
+                        int(self.convert_obj.unpacked_data['serial_number']),
+                        'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
+        self.set_toplevel("AZFP")
+        self.set_env(ping_time)
+        self.set_provenance()
+        self.set_platform()
+        self.set_sonar(sonar_values)
+        self.set_beam(ping_time)
+        self.set_vendor(ping_time)
 
     def set_env(self, ping_time):
         """Set the Environment group.
@@ -318,12 +686,12 @@ class SetGroupsAZFP(SetGroupsBase):
 
         if self.save_ext == '.nc':
             comp = {'zlib': True, 'complevel': 4}
-            c_settings = {var: comp for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=c_settings)
+            nc_encoding = {var: comp for var in ds.data_vars} if self.compress else {}
+            ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
         elif self.save_ext == '.zarr':
             comp = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
-            c_settings = {var: comp for var in ds.data_vars} if self.compress else {}
-            ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=c_settings)
+            zarr_encoding = {var: comp for var in ds.data_vars} if self.compress else {}
+            ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
 
     def set_vendor(self, ping_time):
         """Set the Vendor-specific group.
