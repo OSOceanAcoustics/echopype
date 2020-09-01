@@ -19,5 +19,6 @@ toolbox
 *.raw
 *.csv
 *.01A
+*.zarr
 ek60/
 azfp/
