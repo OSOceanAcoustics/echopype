@@ -186,7 +186,7 @@ class Convert:
                 raise ValueError("A valid save directory was not given.")
 
         # Store output filenames
-        if not os.path.isdir(save_path):
+        if save_path is not None and os.path.isdir(save_path):
             files = [os.path.basename(fname)]
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
@@ -520,20 +520,26 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
 
-    def to_xml(self, save_path=None):
+    def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80 only)
 
         Parameters
         ----------
         save_path : str
             path that converted .xml file will be saved
+        type: str
+            which XML to export
+            either 'CONFIG_XML' or 'ENV_XML'
         """
         if self.sonar_model != 'EK80':
             raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
+        if data_type != 'CONFIG_XML' and data_type != 'ENV_XML':
+            raise ValueError(f"data_type must be either 'CONFIG_XML' or 'ENV_XML' not {data_type}")
         self._validate_path('.xml', save_path)
         for i, file in enumerate(self.source_file):
             # convert file one by one into path set by validate_path()
-            tmp = ParseEK80(file, params='CONFIG_XML')
+            tmp = ParseEK80(file, params=[data_type, 'EXPORT'])
             tmp.parse_raw()
             with open(self.output_file[i], 'w') as xml_file:
-                xml_file.write(tmp.config_datagram['xml'])
+                data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
+                xml_file.write(data)
