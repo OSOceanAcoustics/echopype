@@ -159,20 +159,20 @@ class Convert:
         file_format : str            .nc or .zarr
         """
 
-        # Raise error if output format is not .nc or .zarr
-        if file_format != '.nc' and file_format != '.zarr':
-            raise ValueError("File format is not .nc or .zarr")
-
         filenames = self.source_file
 
         # Default output directory taken from first input file
         self.out_dir = os.path.dirname(filenames[0])
         if save_path is not None:
-            path_ext = os.path.splitext(save_path)[1]
+            fname, path_ext = os.path.splitext(save_path)
+            if path_ext != file_format and path_ext != '':
+                raise ValueError("Saving {file_format} file but save path is to a {path_ext} file")
+            if path_ext != '.nc' and path_ext != '.zarr' and path_ext != '.xml' and path_ext != '':
+                raise ValueError("File format must be .nc, .zarr, or .xml")
             # Check if save_path is a file or a directory
             if path_ext == '':   # if a directory
                 self.out_dir = save_path
-            elif (path_ext == '.nc' or path_ext == '.zarr') and len(filenames) == 1:
+            elif len(filenames) == 1:
                 self.out_dir = os.path.dirname(save_path)
             else:  # if a file
                 raise ValueError("save_path must be a directory")
@@ -186,12 +186,17 @@ class Convert:
                 raise ValueError("A valid save directory was not given.")
 
         # Store output filenames
-        files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
+        if not os.path.isdir(save_path):
+            files = [os.path.basename(fname)]
+        else:
+            files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
         self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
+        if file_format == '.xml':
+            self.xml_path = self.output_file.copy()
 
-    def _convert_indiv_file(self, file, output_path, save_ext):
+    def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
         """
         # use echosounder-specific object
@@ -514,3 +519,21 @@ class Convert:
         # combine files if needed
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
+
+    def to_xml(self, save_path=None):
+        """Save an xml file containing the condiguration of the transducer and transciever (EK80 only)
+
+        Parameters
+        ----------
+        save_path : str
+            path that converted .xml file will be saved
+        """
+        if self.sonar_model != 'EK80':
+            raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
+        self._validate_path('.xml', save_path)
+        for i, file in enumerate(self.source_file):
+            # convert file one by one into path set by validate_path()
+            tmp = ParseEK80(file, params='CONFIG_XML')
+            tmp.parse_raw()
+            with open(self.output_file[i], 'w') as xml_file:
+                xml_file.write(tmp.config_datagram['xml'])
