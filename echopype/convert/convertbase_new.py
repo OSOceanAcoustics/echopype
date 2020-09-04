@@ -197,6 +197,7 @@ class ParseEK(ParseBase):
             if new_datagram['type'].startswith("XML"):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_types or 'ALL' in self.data_types):
                     self.environment = new_datagram['environment']
+                    self.environment['xml'] = new_datagram['xml']
                 elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_types or 'ALL' in self.data_types):
                     current_parameters = new_datagram['parameter']
 
@@ -403,12 +404,16 @@ class ParseEK(ParseBase):
                     return ['NME', 'MRU']
             elif s == 'CONFIG_XML':
                 return ['CONFIG']
+            elif s == 'ENV_XML':
+                return ['XML', 'ENV']
+            elif s == 'EXPORT':
+                return ['EXPORT']
         if isinstance(params, str):
             dgrams = translate_to_dgram(params)
         else:
             dgrams = []
             for p in params:
-                dgrams += translate_to_dgram(p, dgrams)
+                dgrams += translate_to_dgram(p)
         return dgrams
 
 
@@ -487,7 +492,7 @@ class ParseEK80(ParseEK):
         with RawSimradFile(self.source_file, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
-            if 'CONFIG' in self.data_types:
+            if 'EXPORT' in self.data_types:
                 print(f"{dt.now().strftime('%H:%M:%S')} exporting XML file")
             else:
                 self._print_status()
