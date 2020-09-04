@@ -25,8 +25,9 @@ class ParseBase:
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
-        # TODO: add time of first ping
-        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.source_file)))
+        time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
+        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
+              f"time of first ping: {time}")
 
 
 class ParseEK(ParseBase):
@@ -97,6 +98,7 @@ class ParseEK(ParseBase):
         #           - sample_interval
         #           - transmit_mod(  # 0 = Active, 1 = Passive, 2 = Test, -1 = Unknown)
         #           - offset
+        pass
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -400,7 +402,7 @@ class ParseEK(ParseBase):
                 if self.sonar_type == 'EK80':
                     return ['NME', 'MRU']
             elif s == 'CONFIG_XML':
-                return ['XML', 'CONFIG']
+                return ['CONFIG']
         if isinstance(params, str):
             dgrams = translate_to_dgram(params)
         else:
@@ -421,7 +423,6 @@ class ParseEK60(ParseEK):
     def parse_raw(self):
         """Parse raw data file from Simrad EK60 echosounder.
         """
-        self._print_status()
 
         with RawSimradFile(self.source_file, 'r') as fid:
             # Read the CON0 configuration datagram. Only keep 1 if multiple files
@@ -429,6 +430,7 @@ class ParseEK60(ParseEK):
                 self.config_datagram = fid.read(1)
                 self.config_datagram['timestamp'] = np.datetime64(
                     self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
+                self._print_status()
 
                 for ch_num in self.config_datagram['transceivers'].keys():
                     self.ping_data_dict[ch_num] = defaultdict(list)
@@ -482,10 +484,13 @@ class ParseEK80(ParseEK):
     def parse_raw(self):
         """Parse raw data file from Simrad EK80 echosounder.
         """
-        self._print_status()
         with RawSimradFile(self.source_file, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
+            if 'CONFIG' in self.data_types:
+                print(f"{dt.now().strftime('%H:%M:%S')} exporting XML file")
+            else:
+                self._print_status()
 
             # IDs of the channels found in the dataset
             self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
@@ -748,7 +753,7 @@ class ParseAZFP(ParseBase):
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         pathstr, xml_name = os.path.split(self.xml_path)
         print(f"{dt.now().strftime('%H:%M:%S')} converting file {filename} with {xml_name}, "
-              f"time of first ping {timestr}")
+              f"time of first ping: {timestr}")
 
     def _split_header(self, raw, header_unpacked):
         """Splits the header information into a dictionary.
