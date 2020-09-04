@@ -17,27 +17,22 @@ NMEA_GPS_SENTECE = 'GGA'
 class ParseBase:
     """Parent class for all convert classes.
     """
-    def __init__(self, file, compress=True, overwrite=False):
+    def __init__(self, file):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
 
-    def __str__(self):
-        """Overload the print function to allow user to print basic properties of this object.
-
-        Print out should include: source file name, source folder location, echosounder model.
-        """
-
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
+        # TODO: add time of first ping
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.source_file)))
 
 
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self, file):
+    def __init__(self, file, params):
         super().__init__(file)
 
         # Parent class attributes
@@ -52,12 +47,11 @@ class ParseEK(ParseBase):
         self.angle_dict = {}     # dictionary to store angle data
         self.ping_time = []      # list to store ping time
         self.num_range_bin_groups = None  # number of range_bin groups
+        self.data_types = self._select_datagrams(params)  # Which datagrams to parse
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
         """
-        # TODO add time of first ping
-        print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(self.source_file)))
 
     def _check_env_param_uniqueness(self):
         """Check if env parameters are unique throughout the file.
@@ -193,36 +187,20 @@ class ParseEK(ParseBase):
 
             num_datagrams_parsed += 1
 
-            # TODO
+            # Skip any datagram that the user does not want to save
+            if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_types) and
+               'ALL' not in self.data_types):
+                continue
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram['type'].startswith("XML"):
-                if new_datagram['subtype'] == 'environment':
+                if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_types or 'ALL' in self.data_types):
                     self.environment = new_datagram['environment']
-                elif new_datagram['subtype'] == 'parameter':
+                elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_types or 'ALL' in self.data_types):
                     current_parameters = new_datagram['parameter']
-                    # If frequency_start/end is not found, fill values with frequency
-                    if 'frequency_start' not in current_parameters:
-                        self.ping_data_dict[current_parameters['channel_id']]['frequency'].append(
-                            int(current_parameters['frequency']))
-                        self.ping_data_dict[current_parameters['channel_id']]['frequency_start'].append(
-                            int(current_parameters['frequency']))
-                        self.ping_data_dict[current_parameters['channel_id']]['frequency_end'].append(
-                            int(current_parameters['frequency']))
-                    else:
-                        self.ping_data_dict[current_parameters['channel_id']]['frequency_start'].append(
-                            int(current_parameters['frequency_start']))
-                        self.ping_data_dict[current_parameters['channel_id']]['frequency_end'].append(
-                            int(current_parameters['frequency_end']))
-                    self.ping_data_dict[current_parameters['channel_id']]['pulse_duration'].append(
-                        current_parameters['pulse_duration'])
-                    self.ping_data_dict[current_parameters['channel_id']]['pulse_form'].append(
-                        current_parameters['pulse_form'])
-                    self.ping_data_dict[current_parameters['channel_id']]['sample_interval'].append(
-                        current_parameters['sample_interval'])
-                    self.ping_data_dict[current_parameters['channel_id']]['slope'].append(
-                        current_parameters['slope'])
-                    self.ping_data_dict[current_parameters['channel_id']]['transmit_power'].append(
-                        current_parameters['transmit_power'])
+
+                    for k, v in current_parameters.items():
+                        if v != 'channel_id':
+                            self.ping_data_dict[current_parameters['channel_id']][k].append(v)
                     self.ping_data_dict[current_parameters['channel_id']]['timestamp'].append(
                         new_datagram['timestamp'])
 
@@ -311,9 +289,9 @@ class ParseEK(ParseBase):
             # as well as reflectivity data
             elif new_datagram['type'].startswith('DEP'):
                 print('DEP datagram encountered.')
-
             else:
-                print("Unknown datagram type: " + str(new_datagram['type']))
+                if 'ALL' in self.data_types:
+                    print("Unknown datagram type: " + str(new_datagram['type']))
 
     def _append_channel_ping_data(self, ch_num, datagram):
         """Append non-backscatter data for each ping.
@@ -337,11 +315,16 @@ class ParseEK(ParseBase):
         self.ping_data_dict[ch_num]['temperature'].append(datagram['temperature'])
         self.ping_data_dict[ch_num]['heading'].append(datagram['heading'])
 
-    def _find_range_group(self):
+    def _find_range_group(self, power_dict):
         """Find the pings at which range_bin changes.
         """
-        # Use this function to check if all pings in this file contains the same range_bin.
-        # If not, find out the index of which changes happen.
+        if all([p is None for p in power_dict.values()]):
+            return None, None
+        range_bin_lens = [len(l) for l in list(power_dict.values())[0]]
+        uni, uni_cnt = np.unique(range_bin_lens, return_counts=True)
+        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
+
+        return uni, np.cumsum(np.insert(uni_cnt, 0, 0))
 
     def _check_ping_channel_match(self):
         """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
@@ -351,98 +334,89 @@ class ParseEK(ParseBase):
     def _clean_channel(self):
         """Remove channels that do not record any pings.
         """
-        # This seems to be what line 211 of convert/ek80.py is doing?
+        # TODO Look at ek60 save only when all channels are present
+        if len(self.ch_ids) != len(self.recorded_ch_ids):
+            self.ch_ids = self.recorded_ch_ids
 
-    def split_by_range_group(self):
-        INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
-        self.tx_sig = {}
-        range_bin_lens = [len(l) for l in self.power_dict[1]]
-        uni, uni_inv, uni_cnt = np.unique(range_bin_lens, return_inverse=True, return_counts=True)
+    def _rectangularize(self, power_dict, angle_dict=None):
+        """ Takes a potentially irregular dictionary with frequency as keys and returns
+        a rectangular numpy array padded with nans.
+        """
+        INDEX2POWER = (10.0 * np.log10(2.0) / 256.0) if self.sonar_type == 'EK60' else 1
 
-        # TODO find a way to simplify this
-        # Initialize dictionaries. keys are index for ranges. values are dictionaries with keys for each freq
-        ping_time_split = {}
-        angle_dict_split = {}
-        power_dict_split = {}
-        uni_cnt_insert = np.cumsum(np.insert(uni_cnt, 0, 0))
-        beam_type = np.array([x['beam_type'] for x in self.config_datagram['transceivers'].values()])
-        for range_group in range(len(uni)):
-            ping_time_split[range_group] = np.array(self.ping_time)[uni_cnt_insert[range_group]:
-                                                                    uni_cnt_insert[range_group + 1]]
-            range_bin_freq_lens = np.unique(
-                [x_val[uni_cnt_insert[range_group]].shape for x_val in self.power_dict.values()])
-            angle_dict_split[range_group] = np.empty(
-                (len(self.power_dict), uni_cnt_insert[range_group + 1] - uni_cnt_insert[range_group],
-                 range_bin_freq_lens.max(), 2))
-            angle_dict_split[range_group][:] = np.nan
-            if len(range_bin_freq_lens) != 1:  # different frequency channels have different range_bin lengths
-                tmp_power_pad, tmp_angle_pad = [], []
-                for x_p, x_a in zip(self.power_dict.values(), self.angle_dict.values()):  # pad nan to shorter channels
-                    tmp_p_data = np.array(x_p[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    tmp_a_data = np.array(x_a[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    tmp_power = np.pad(tmp_p_data.astype('float64'),
-                                       ((0, 0), (0, range_bin_freq_lens.max() - tmp_p_data.shape[1])),
-                                       mode='constant', constant_values=(np.nan,))
-                    tmp_angle = np.pad(tmp_a_data.astype('float64'),
-                                       ((0, 0), (0, range_bin_freq_lens.max() - tmp_a_data.shape[1]), (0, 0)),
-                                       mode='constant', constant_values=(np.nan,))
-                    tmp_power_pad.append(tmp_power)
-                    tmp_angle_pad.append(tmp_angle)
-                angle_dict_split[range_group] = np.array(tmp_angle_pad)
-                power_dict_split[range_group] = np.array(tmp_power_pad) * INDEX2POWER
-            else:
-                power_dict_split[range_group] = np.array(
-                    [x[uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]]
-                     for x_key, x in self.power_dict.items()]) * INDEX2POWER
-                for ch in np.argwhere(beam_type == 1):   # if split-beam
-                    angle_dict_split[range_group][ch, :, :, :] = np.array(
-                        self.angle_dict[ch[0] + 1][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-            self.tx_sig[range_group] = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
+        power_dict = {k: v for k, v in power_dict.items() if v is not None}
+        uni, uni_cnt_insert = self._find_range_group(power_dict)
+        if uni is None:
+            return None, None
+        if angle_dict is not None:
+            angle_dict = {k: v for k, v in angle_dict.items() if v is not None}
 
-        # Pad power dict with nans so that there is only 1 range length
-        largest_range = max(uni)
-        power_split = []
-        angle_split = []
-        for i in range(len(power_dict_split)):
-            # Pad power data
-            tmp_power = np.full((power_dict_split[i].shape[0], power_dict_split[i].shape[1],
-                                 largest_range), np.nan)
-            tmp_power[:, :, :power_dict_split[i].shape[2]] = power_dict_split[i]
-            power_split.append(tmp_power)
+        largest_range = 0
+        # Find the largest range length across channels and range groups
+        for ch in power_dict.values():
+            if ch is not None:
+                ch_size = len(max(ch, key=len))
+                largest_range = ch_size if ch_size > largest_range else largest_range
+        assert max(uni) <= largest_range
+        power_type = 'complex64' if np.any(np.iscomplex(list(power_dict.values())[0])) else 'float64'
+        tmp_power = np.full((len(power_dict), uni_cnt_insert[-1],
+                             largest_range), np.nan, dtype=power_type)
+        tmp_angle = np.full((len(power_dict), uni_cnt_insert[-1],
+                            largest_range, 2), np.nan) if angle_dict is not None else None
+        # Pad range groups and channels
+        for i in range(len(uni)):
+            # List of all channels sliced into a range group
+            grouped_power = [np.array(p[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
+                             for p in power_dict.values() if p is not None]
+            if angle_dict is not None:
+                grouped_angle = [np.array(a[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
+                                 for a in angle_dict.values() if a is not None]
 
-            # Pad angle data
-            tmp_angle = np.full((angle_dict_split[i].shape[0], angle_dict_split[i].shape[1],
-                                 largest_range, angle_dict_split[i].shape[3]), np.nan)
-            tmp_angle[:, :, :angle_dict_split[i].shape[2], :] = angle_dict_split[i]
-            angle_split.append(tmp_angle)
-        # Concatenate power and angle along ping_time
-        self.power_dict = np.concatenate(power_split, axis=1)
-        self.angle_dict = np.concatenate(angle_split, axis=1)
+            for ch in range(len(grouped_power)):
+                # Pad power data
+                tmp_power[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
+                          :grouped_power[ch].shape[1]] = grouped_power[ch]
+                # Pad angle data
+                if angle_dict is not None:
+                    tmp_angle[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
+                              :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
+        return tmp_power * INDEX2POWER, tmp_angle
 
-        pulse_length, transmit_power, bandwidth, sample_interval = [], [], [], []
-        param = [pulse_length, transmit_power, bandwidth, sample_interval]
-        param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
-        param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
-        for range_group in range(len(uni)):
-            for p, pname in zip(param, param_name):
-                p.append(np.array([np.array(
-                    self.ping_data_dict[x][pname][uni_cnt_insert[range_group]:uni_cnt_insert[range_group + 1]])
-                    for x in self.config_datagram['transceivers'].keys()]))
-        tx_num = self.config_datagram['transceiver_count']  # number of transceivers
-        for range_group in range(len(uni)):
-            for p, pname, pname_save in zip(param, param_name, param_name_save):
-                if np.unique(p[range_group], axis=1).size != tx_num:
-                    # TODO: right now set_groups_ek60/set_beam doens't deal with this case, need to add
-                    ValueError('%s changed in the middle of range_bin group' % pname)
-                else:
-                    self.tx_sig[range_group][pname_save] = np.unique(p[range_group], axis=1).squeeze(axis=1)
+    def _select_datagrams(self, params):
+        # get GPS info only (EK60, EK80)
+        # ec.to_netcdf(data_type='GPS')
 
-        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
+        # get configuration XML only (EK80)
+        # ec.to_netcdf(data_type='CONFIG_XML')
+
+        # get environment XML only (EK80)
+        # ec.to_netcdf(data_type='ENV_XML')
+        # TODO: save platform all or xml
+        def translate_to_dgram(s):
+            if s == 'all':
+                return ['ALL']
+            elif s == 'GPS':
+                return ['NME']
+                if self.sonar_type == 'EK80':
+                    return ['NME', 'MRU']
+            elif s == 'CONFIG_XML':
+                return ['XML', 'CONFIG']
+        if isinstance(params, str):
+            dgrams = translate_to_dgram(params)
+        else:
+            dgrams = []
+            for p in params:
+                dgrams += translate_to_dgram(p, dgrams)
+        return dgrams
 
 
 class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
+
+    def __init__(self, file, params):
+        super().__init__(file, params)
+        self.sonar_type = 'EK60'
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60 echosounder.
@@ -475,18 +449,19 @@ class ParseEK60(ParseEK):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-        # Split data based on range_group (when there is a switch of range_bin in the middle of a file)
-        self.split_by_range_group()
+        # Make a regctangular array (when there is a switch of range_bin in the middle of a file
+        # or when range_bin size changes across channels)
+        self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
 
         # Trim excess data from NMEA object
         self.nmea_data.trim()
 
 
 class ParseEK80(ParseEK):
-    """Class for converting data from Simrad EK60 echosounders.
+    """Class for converting data from Simrad EK80 echosounders.
     """
-    def __init__(self, file,):
-        super().__init__(file)
+    def __init__(self, file, params):
+        super().__init__(file, params)
         self.complex_dict = {}  # dictionary to store complex data
         self.n_complex_dict = {}  # dictionary to store the number of beams in split-beam complex data
         self.environment = {}  # dictionary to store environment data
@@ -495,7 +470,10 @@ class ParseEK80(ParseEK):
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
         self.ch_ids = []  # List of all channel ids
-        self.recorded_ch_ids = []  # TODO: what is the difference between this and ch_ids?
+        self.bb_ch_ids = []
+        self.cw_ch_ids = []
+        self.recorded_ch_ids = []  # Channels where power data is present. Not necessarily the same as self.ch_ids
+        self.sonar_type = 'EK80'
 
         # TODO: we shouldn't need `power_dict_split`, `angle_dict_split` and `ping_time_split`,
         #  and can just get the values from the original corresponding storage values
@@ -504,7 +482,6 @@ class ParseEK80(ParseEK):
     def parse_raw(self):
         """Parse raw data file from Simrad EK80 echosounder.
         """
-        # TODO: line 191 block can be substitute by `self.parameters[ch_id] = defaultdict(list)`
         self._print_status()
         with RawSimradFile(self.source_file, 'r') as fid:
             self.config_datagram = fid.read(1)
@@ -539,14 +516,20 @@ class ParseEK80(ParseEK):
             for ch_id in self.ch_ids:
                 if all(x is None for x in self.power_dict[ch_id]):
                     self.power_dict[ch_id] = None
+                    self.angle_dict[ch_id] = None
                 if all(x is None for x in self.complex_dict[ch_id]):
                     self.complex_dict[ch_id] = None
 
-        if len(self.ch_ids) != len(self.recorded_ch_ids):
-            self.ch_ids = self.recorded_ch_ids
+        self._clean_channel()
+        # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
+        self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
+        #todo cchange split by range gourp name
+        self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
+        self.complex_dict, _ = self._rectangularize(self.complex_dict)
 
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).
+        Returns a tuple containing a list of bb channel ids and a list of cw channel ids
         """
         bb_ch_ids = []
         cw_ch_ids = []
@@ -562,15 +545,16 @@ class ParseEK80(ParseEK):
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder.
     """
-    def __init__(self, file, xml_path=None):
+    def __init__(self, file, params):
         super().__init__(file)
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_AZFP  # regex pattern used to grab datetime embedded in filename
-        self.xml_path = xml_path
+        self.xml_path = params
 
         # Class attributes
         self.parameters = dict()
         self.unpacked_data = defaultdict(list)
+        self.sonar_type = 'AZFP'
 
     def load_AZFP_xml(self):
         """Parse XML file to get params for reading AZFP data."""

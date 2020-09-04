@@ -355,15 +355,18 @@ class SetGroupsEK60(SetGroupsBase):
                 beam_dict[encode_name] = [val[origin_name]
                                           for key, val in config['transceivers'].items()]
 
-            # TODO: The following code only uses the data of the first range_bin group
-            beam_dict['transmit_signal'] = self.convert_obj.tx_sig[0]  # only this range_bin group
+            param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
+            param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
+            beam_dict['transmit_signal'] = {k: np.array([self.convert_obj.ping_data_dict[x][v]
+                                                        for x in config['transceivers'].keys()])
+                                            for k, v in zip(param_name_save, param_name)}
 
             if len(config['transceivers']) == 1:   # only 1 channel
-                idx = np.argwhere(np.isclose(self.convert_obj.tx_sig[0]['transmit_duration_nominal'],
+                idx = np.argwhere(np.isclose(beam_dict['transmit_signal']['transmit_duration_nominal'][:, 0],
                                              config['transceivers'][1]['pulse_length_table'])).squeeze()
                 idx = np.expand_dims(np.array(idx), axis=0)
             else:
-                idx = [np.argwhere(np.isclose(self.convert_obj.tx_sig[0]['transmit_duration_nominal'][key - 1],
+                idx = [np.argwhere(np.isclose(beam_dict['transmit_signal']['transmit_duration_nominal'][:, 0][key - 1],
                                               val['pulse_length_table'])).squeeze()
                        for key, val in config['transceivers'].items()]
             beam_dict['sa_correction'] = \
@@ -440,7 +443,7 @@ class SetGroupsEK60(SetGroupsBase):
                                                   'long_name': 'Presence or not of non-quantitative '
                                                                'processing applied to the backscattering '
                                                                'data (sonar specific)'}),
-                 'sample_interval': (['frequency'], beam_dict['transmit_signal']['sample_interval'],
+                 'sample_interval': (['frequency', 'ping_time'], beam_dict['transmit_signal']['sample_interval'],
                                      {'long_name': 'Interval between recorded raw data samples',
                                       'units': 's',
                                       'valid_min': 0.0}),
@@ -448,16 +451,16 @@ class SetGroupsEK60(SetGroupsBase):
                                         {'long_name': 'Time offset that is subtracted from the timestamp '
                                                       'of each sample',
                                                       'units': 's'}),
-                 'transmit_bandwidth': (['frequency'], beam_dict['transmit_signal']['transmit_bandwidth'],
+                 'transmit_bandwidth': (['frequency', 'ping_time'], beam_dict['transmit_signal']['transmit_bandwidth'],
                                         {'long_name': 'Nominal bandwidth of transmitted pulse',
                                          'units': 'Hz',
                                          'valid_min': 0.0}),
-                 'transmit_duration_nominal': (['frequency'],
+                 'transmit_duration_nominal': (['frequency', 'ping_time'],
                                                beam_dict['transmit_signal']['transmit_duration_nominal'],
                                                {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                              'units': 's',
                                                 'valid_min': 0.0}),
-                 'transmit_power': (['frequency'], beam_dict['transmit_signal']['transmit_power'],
+                 'transmit_power': (['frequency', 'ping_time'], beam_dict['transmit_signal']['transmit_power'],
                                     {'long_name': 'Nominal transmit power',
                                                   'units': 'W',
                                                   'valid_min': 0.0}),
@@ -497,6 +500,7 @@ class SetGroupsEK60(SetGroupsBase):
                 ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
             elif self.save_ext == '.zarr':
                 zarr_encoding = {var: ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
+                ds = ds.chunk({'range_bin': 25000})
                 ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
 
 
@@ -512,9 +516,8 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
         self.set_vendor()        # vendor group
-        """Handles saving the beam and sonar group. These groups contain specific
-        broadband and continuous wave data which need to be stored in separate files"""
-        bb_ch_ids, cw_ch_ids = self.convert_obj._sort_ch_bb_cw()
+        bb_ch_ids = self.convert_obj.bb_ch_ids
+        cw_ch_ids = self.convert_obj.cw_ch_ids
         # If there is both bb and cw data
         if bb_ch_ids and cw_ch_ids:
             new_path = self._copy_file(self.output_path)
@@ -652,23 +655,15 @@ class SetGroupsEK80(SetGroupsBase):
             freq = np.array([config[x]['transducer_frequency'] for x in ch_ids], dtype='float32')
             tx_num = len(ch_ids)
             ping_num = len(self.convert_obj.ping_time)
-            b_r_tmp = {}      # Real part of broadband backscatter
-            b_i_tmp = {}      # Imaginary part of b 99-6 raodband backscatter
 
             # Find largest dimensions of array in order to pad and stack smaller arrays
-            max_samples = 0
+            # max_samples = 0
             # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
             max_splits = max([n_c for n_c in self.convert_obj.n_complex_dict.values()]) if bb else 4
-            for tx in ch_ids:
-                if bb:
-                    shape = (ping_num, -1, self.convert_obj.n_complex_dict[tx])
-                    reshaped = np.array(self.convert_obj.complex_dict[tx]).reshape(shape)
-                    b_r_tmp[tx] = np.real(reshaped)
-                    b_i_tmp[tx] = np.imag(reshaped)
-                    max_samples = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_samples else max_samples
-                else:
-                    b_r_tmp[tx] = np.array(self.convert_obj.power_dict[tx], dtype='float32')
-                    max_samples = b_r_tmp[tx].shape[1] if b_r_tmp[tx].shape[1] > max_samples else max_samples
+            if bb:
+                shape = (len(ch_ids), ping_num, -1, max_splits)
+                backscatter = np.array(self.convert_obj.complex_dict).reshape(shape)
+                backscatter = np.moveaxis(backscatter, 3, 1)
 
             # Loop through each transducer for channel-specific variables
             bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
@@ -682,9 +677,6 @@ class SetGroupsEK80(SetGroupsBase):
             beam_dict['frequency_start'] = []
             beam_dict['frequency_end'] = []
             beam_dict['slope'] = []
-            beam_dict['backscatter_r'] = []
-            beam_dict['backscatter_i'] = []
-            beam_dict['angle_dict'] = []
             c_seq = 0
             for k, c in config.items():
                 if k not in ch_ids:
@@ -711,37 +703,16 @@ class SetGroupsEK80(SetGroupsBase):
                 beam_dict['slope'].append(self.convert_obj.ping_data_dict[k]['slope'])
 
                 # Pad each channel with nan so that they can be stacked
-                # Broadband
                 if bb:
-                    diff_samples = max_samples - b_r_tmp[k].shape[1]
-                    diff_splits = max_splits - b_r_tmp[k].shape[2] if b_r_tmp[k].ndim > 2 else max_splits - 1
-                    beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff_samples), (0, diff_splits)),
-                                                             mode='constant', constant_values=np.nan))
-                    beam_dict['backscatter_i'].append(np.pad(b_i_tmp[k], ((0, 0), (0, diff_samples), (0, diff_splits)),
-                                                             mode='constant', constant_values=np.nan))
                     beam_dict['frequency_start'].append(self.convert_obj.ping_data_dict[k]['frequency_start'])
                     beam_dict['frequency_end'].append(self.convert_obj.ping_data_dict[k]['frequency_end'])
-                # Continuous wave
-                else:
-                    diff_samples = max_samples - b_r_tmp[k].shape[1]
-                    diff_splits = max_splits - b_r_tmp[k].shape[2] if b_r_tmp[k].ndim > 2 else max_splits - 1
-                    beam_dict['backscatter_r'].append(np.pad(b_r_tmp[k], ((0, 0), (0, diff_samples)),
-                                                             mode='constant', constant_values=np.nan))
-                    beam_dict['angle_dict'].append(np.pad(np.array(self.convert_obj.angle_dict[k], dtype='float32'),
-                                                          ((0, 0), (0, diff_samples), (0, diff_splits)),
-                                                          mode='constant', constant_values=np.nan))
                 c_seq += 1
 
             # Stack channels and order axis as: channel, quadrant, ping, range
             if bb:
-                beam_dict['backscatter_r'] = np.moveaxis(np.stack(beam_dict['backscatter_r']), 3, 1)
-                beam_dict['backscatter_i'] = np.moveaxis(np.stack(beam_dict['backscatter_i']), 3, 1)
-                beam_dict['frequency_start'] = np.unique(beam_dict['frequency_start'])
-                beam_dict['frequency_end'] = np.unique(beam_dict['frequency_end'])
+                beam_dict['frequency_start'] = np.unique(beam_dict['frequency_start']).astype(int)
+                beam_dict['frequency_end'] = np.unique(beam_dict['frequency_end']).astype(int)
                 beam_dict['frequency_center'] = (beam_dict['frequency_start'] + beam_dict['frequency_end']) / 2
-            else:
-                beam_dict['backscatter_r'] = np.stack(beam_dict['backscatter_r'])
-                beam_dict['angle_dict'] = np.stack(beam_dict['angle_dict'])
 
             # Loop through each transducer for variables that may vary at each ping
             # -- this rarely is the case for EK60 so we check first before saving
@@ -898,12 +869,12 @@ class SetGroupsEK80(SetGroupsBase):
                 attrs={'beam_mode': 'vertical',
                        'conversion_equation_t': 'type_3'})
             # Save broadband backscatter if present
-            if len(beam_dict['backscatter_i']) != 0:
-                bb = xr.Dataset(
-                    {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+            if bb:
+                ds_bb = xr.Dataset(
+                    {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.real(backscatter),
                                        {'long_name': 'Real part of backscatter power',
                                         'units': 'V'}),
-                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], beam_dict['backscatter_i'],
+                     'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter),
                                        {'long_name': 'Imaginary part of backscatter power',
                                         'units': 'V'})},
                     coords={'frequency': (['frequency'], freq,
@@ -921,20 +892,21 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'}),
-                            'quadrant': (['quadrant'], np.arange(beam_dict["backscatter_r"].shape[1])),
-                            'range_bin': (['range_bin'], np.arange(beam_dict["backscatter_r"].shape[3]))
+                            'quadrant': (['quadrant'], np.arange(max_splits)),
+                            'range_bin': (['range_bin'], np.arange(backscatter.shape[3]))
                             })
-                ds = xr.merge([ds, bb])
+                ds = xr.merge([ds, ds_bb])
             # Save continuous wave backscatter
             else:
-                cw = xr.Dataset(
-                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], beam_dict['backscatter_r'],
+                ds_cw = xr.Dataset(
+                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.power_dict,
                                        {'long_name': 'Backscattering power',
                                            'units': 'dB'}),
                      'angle_athwartship': (['frequency', 'ping_time', 'range_bin'],
-                                           beam_dict['angle_dict'][:, :, :, 0],
+                                           self.convert_obj.angle_dict[:, :, :, 0],
                                            {'long_name': 'electrical athwartship angle'}),
-                     'angle_alongship': (['frequency', 'ping_time', 'range_bin'], beam_dict['angle_dict'][:, :, :, 1],
+                     'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
+                                         self.convert_obj.angle_dict[:, :, :, 1],
                                          {'long_name': 'electrical alongship angle'})},
                     coords={'frequency': (['frequency'], freq,
                                           {'long_name': 'Transducer frequency', 'units': 'Hz'}),
@@ -944,9 +916,9 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'}),
-                            'range_bin': (['range_bin'], np.arange(beam_dict["backscatter_r"].shape[2]))
+                            'range_bin': (['range_bin'], np.arange(self.convert_obj.power_dict.shape[2]))
                             })
-                ds = xr.merge([ds, cw])
+                ds = xr.merge([ds, ds_cw])
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
@@ -959,6 +931,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ds.to_netcdf(path=path, mode='a', group='Beam', encoding=nc_encoding)
             elif self.save_ext == '.zarr':
                 zarr_encoding = {var: ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
+                ds = ds.chunk({'range_bin': 25000})
                 ds.to_zarr(store=path, mode='a', group='Beam', encoding=zarr_encoding)
 
     def set_vendor(self):
