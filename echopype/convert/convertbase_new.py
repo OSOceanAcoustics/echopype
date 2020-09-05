@@ -48,7 +48,6 @@ class ParseEK(ParseBase):
         self.angle_dict = {}     # dictionary to store angle data
         self.ping_time = []      # list to store ping time
         self.num_range_bin_groups = None  # number of range_bin groups
-        self.data_types = self._select_datagrams(params)  # Which datagrams to parse
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
@@ -77,6 +76,7 @@ class ParseEK(ParseBase):
     def _check_tx_param_uniqueness(self):
         """Check if transmit parameters are unique throughout the file.
         """
+
         # Right now we don't handle the case if any transmit parameters change in the middle of the file.
         # We also haven't run into any file that has that happening?
         # At minimum we should spit out an error message.
@@ -88,6 +88,7 @@ class ParseEK(ParseBase):
         #        which contains tx parameters for the following channel data
         #        -- see docstring _read_datagrams() for detail
         #        we will have to check for uniqueness for these variables.
+        #        Also filter parameters
         #  EK60: the environment variables are wrapped in RAW0 datagrams
         #        for each ping -- see docstring _read_datagrams()
         #        we will have to check for uniqueness for these parameters
@@ -190,15 +191,15 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
-            if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_types) and
-               'ALL' not in self.data_types):
+            if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
+               'ALL' not in self.data_type):
                 continue
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram['type'].startswith("XML"):
-                if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_types or 'ALL' in self.data_types):
+                if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
-                elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_types or 'ALL' in self.data_types):
+                elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_type or 'ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
                     for k, v in current_parameters.items():
@@ -293,7 +294,7 @@ class ParseEK(ParseBase):
             elif new_datagram['type'].startswith('DEP'):
                 print('DEP datagram encountered.')
             else:
-                if 'ALL' in self.data_types:
+                if 'ALL' in self.data_type:
                     print("Unknown datagram type: " + str(new_datagram['type']))
 
     def _append_channel_ping_data(self, ch_num, datagram):
@@ -396,12 +397,13 @@ class ParseEK(ParseBase):
         # ec.to_netcdf(data_type='ENV_XML')
         # TODO: save platform all or xml
         def translate_to_dgram(s):
-            if s == 'all':
+            if s == 'ALL':
                 return ['ALL']
             elif s == 'GPS':
-                return ['NME']
-                if self.sonar_type == 'EK80':
-                    return ['NME', 'MRU']
+                if self.sonar_type == 'EK60':
+                    return ['NME', 'GPS']
+                elif self.sonar_type == 'EK80':
+                    return ['NME', 'MRU', 'GPS']
             elif s == 'CONFIG_XML':
                 return ['CONFIG']
             elif s == 'ENV_XML':
@@ -424,6 +426,7 @@ class ParseEK60(ParseEK):
     def __init__(self, file, params):
         super().__init__(file, params)
         self.sonar_type = 'EK60'
+        self.data_type = self._select_datagrams(params)
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60 echosounder.
@@ -456,12 +459,14 @@ class ParseEK60(ParseEK):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-        # Make a regctangular array (when there is a switch of range_bin in the middle of a file
-        # or when range_bin size changes across channels)
-        self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
+        if 'ALL' in self.data_type:
+            # Make a regctangular array (when there is a switch of range_bin in the middle of a file
+            # or when range_bin size changes across channels)
+            self.angle_dict = None if self.angle_dict[1] is None else self.angle_dict
+            self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
 
-        # Trim excess data from NMEA object
-        self.nmea_data.trim()
+            # Trim excess data from NMEA object
+            self.nmea_data.trim()
 
 
 class ParseEK80(ParseEK):
@@ -481,6 +486,7 @@ class ParseEK80(ParseEK):
         self.cw_ch_ids = []
         self.recorded_ch_ids = []  # Channels where power data is present. Not necessarily the same as self.ch_ids
         self.sonar_type = 'EK80'
+        self.data_type = self._select_datagrams(params)
 
         # TODO: we shouldn't need `power_dict_split`, `angle_dict_split` and `ping_time_split`,
         #  and can just get the values from the original corresponding storage values
@@ -492,7 +498,7 @@ class ParseEK80(ParseEK):
         with RawSimradFile(self.source_file, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
-            if 'EXPORT' in self.data_types:
+            if 'EXPORT' in self.data_type:
                 print(f"{dt.now().strftime('%H:%M:%S')} exporting XML file")
             else:
                 self._print_status()
@@ -530,12 +536,12 @@ class ParseEK80(ParseEK):
                 if all(x is None for x in self.complex_dict[ch_id]):
                     self.complex_dict[ch_id] = None
 
-        self._clean_channel()
-        # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
-        self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
-        #todo cchange split by range gourp name
-        self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
-        self.complex_dict, _ = self._rectangularize(self.complex_dict)
+        if 'ALL' in self.data_type:
+            self._clean_channel()
+            # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
+            self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
+            self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
+            self.complex_dict, _ = self._rectangularize(self.complex_dict)
 
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).
