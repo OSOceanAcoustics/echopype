@@ -155,10 +155,18 @@ class SetGroupsEK60(SetGroupsBase):
         # filename must have timestamp that matches self.timestamp_pattern
         sonar_values = ('Simrad', self.convert_obj.config_datagram['sounder_name'],
                         '', '', self.convert_obj.config_datagram['version'], 'echosounder')
-        self.set_toplevel("EK60")         # top-level group
+        self.set_toplevel('EK60')
+        self.set_provenance()           # provenance group
+        self.set_sonar(sonar_values)    # sonar group
+
+        if 'ENV' in self.convert_obj.data_type:
+            self.set_env()           # environment group
+            return
+        elif 'GPS' in self.convert_obj.data_type:
+            self.set_platform()
+            return
+
         self.set_env()              # environment group
-        self.set_provenance()       # provenance group
-        self.set_sonar(sonar_values)            # sonar group
         self.set_beam()             # beam group
         self.set_platform()         # platform group
         self.set_nmea()             # platform/NMEA group
@@ -510,9 +518,19 @@ class SetGroupsEK80(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-        self.set_toplevel('EK80')      # top-level group
-        self.set_env()           # environment group
+
+        self.set_toplevel('EK80')
         self.set_provenance()    # provenance group
+
+        # Save environment only
+        if 'ENV' in self.convert_obj.data_type:
+            self.set_env()           # environment group
+            return
+        elif 'GPS' in self.convert_obj.data_type:
+            self.set_platform()
+            return
+
+        self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
         self.set_vendor()        # vendor group
