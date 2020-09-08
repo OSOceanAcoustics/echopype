@@ -164,7 +164,8 @@ class Convert:
         # Default output directory taken from first input file
         self.out_dir = os.path.dirname(filenames[0])
         if save_path is not None:
-            fname, path_ext = os.path.splitext(save_path)
+            dirname, fname = os.path.split(save_path)
+            basename, path_ext = os.path.splitext(fname)
             if path_ext != file_format and path_ext != '':
                 raise ValueError("Saving {file_format} file but save path is to a {path_ext} file")
             if path_ext != '.nc' and path_ext != '.zarr' and path_ext != '.xml' and path_ext != '':
@@ -173,7 +174,8 @@ class Convert:
             if path_ext == '':   # if a directory
                 self.out_dir = save_path
             elif len(filenames) == 1:
-                self.out_dir = os.path.dirname(save_path)
+                if dirname != '':
+                    self.out_dir = dirname
             else:  # if a file
                 raise ValueError("save_path must be a directory")
 
@@ -186,8 +188,8 @@ class Convert:
                 raise ValueError("A valid save directory was not given.")
 
         # Store output filenames
-        if save_path is not None and os.path.isdir(save_path):
-            files = [os.path.basename(fname)]
+        if save_path is not None and not os.path.isdir(save_path):
+            files = [os.path.basename(basename)]
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
@@ -246,6 +248,7 @@ class Convert:
         #     parser._check_uniqueness()
 
         # Check EK80 filter coefficients and do not combine if not the same
+
         return True
 
     @staticmethod
@@ -262,8 +265,10 @@ class Convert:
             self.output_file = self.output_file[0]
             self.nc_path = self.nc_path[0]
             self.zarr_path = self.zarr_path[0]
+            if hasattr(self, 'xml_path'):
+                self.xml_path = self.xml_path[0]
 
-    def combine_files(self, src_files=None, save_path=None, remove_orig=False):
+    def combine_files(self, src_files=None, save_path=None, remove_orig=False, check_consistency=True):
         """Combine output files when self.combine=True.
 
         Parameters
@@ -275,6 +280,9 @@ class Convert:
         remove_orig : bool
             Whether or not to remove the files in ``src_files``
             Defaults to ``False``
+        check_consistency : bool
+            Whether or not to enforce the consistency of certain parameters.
+            Defaults to ``True``
 
         Returns
         -------
@@ -287,19 +295,43 @@ class Convert:
             print("Combination did not occur as there are inconsistent parameters")
             return False
 
-        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal', concat_dim='time', decode_times=False):
-            def modify(task):
+        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
+                        concat_dim='time', decode_times=False, compat='no_conflicts'):
+            def modify(task, group):
                 return task
-            # this is basically what open_mfdataset does
+            # This is basically what open_mfdataset does
             open_kwargs = dict(decode_cf=True, decode_times=decode_times)
             open_tasks = [dask.delayed(xr.open_zarr)(f, group=group, **open_kwargs) for f in files]
-            tasks = [dask.delayed(modify)(task) for task in open_tasks]
+            tasks = [dask.delayed(modify)(task, group) for task in open_tasks]
             datasets = dask.compute(tasks)  # get a list of xarray.Datasets
+            # Return combined data
             if combine == 'by_coords':
-                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars)  # or some combination of concat, merge
+                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars, compat=compat)
             else:
-                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)  # or some combination of concat, merge
+                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
             return combined
+
+        def open_mfnc(files, group, combine='by_coords', data_vars='minimal',
+                      concat_dim='time', decode_times=False, compat='no_conflicts'):
+            # Wrapper function for open_mfdataset used for checking parameter consistency
+            # Check if filter coefficients change
+            if group == 'Vendor':
+                filter_coeffs = []
+                for f in files:
+                    with xr.open_dataset(f, group='Vendor') as ds:
+                        filter_coeffs.append(ds)
+                try:
+                    [xr.testing.assert_equal(filter_coeffs[0], b) for b in filter_coeffs[1:]]
+                except AssertionError:
+                    raise ValueError("Filter coefficients must be the same across files to be combined")
+            return
+            # Return combined data
+            if combine == 'by_coords':
+                return xr.open_mfdataset(files, group=group, combine='by_coords',
+                                         data_vars=data_vars, compat=compat, decode_times=False)
+            else:
+                return xr.open_mfdataset(files, combine='nested', concat_dim=concat_dim,
+                                         data_vars=data_vars, decode_times=False)
 
         def set_open_dataset(ext):
             if ext == '.nc':
@@ -322,6 +354,7 @@ class Convert:
 
         def copy_vendor(src_file, trg_file):
             # Utility function for copying the filter coefficients from one file into another
+            # Necessary because xarray cannot save complex values to NetCDF
             src = netCDF4.Dataset(src_file)
             trg = netCDF4.Dataset(trg_file, mode='a')
             ds_vend = src.groups['Vendor']
@@ -345,6 +378,17 @@ class Convert:
             src.close()
             trg.close()
 
+        def check_vendor_consistency(files):
+            filter_coeffs = []
+            for f in files:
+                with _open_dataset(f, group='Vendor') as ds:
+                    filter_coeffs.append(ds)
+            if all([filter_coeffs[0].equals(b) for b in filter_coeffs[1:]]):
+                del filter_coeffs
+                return
+            else:
+                raise ValueError("Filter coefficients must be the same across files to be combined")
+
         def split_into_groups(files):
             # Sorts the cw and bb files from EK80 into groups
             if self.sonar_model == 'EK80':
@@ -362,6 +406,7 @@ class Convert:
         src_files = self.output_file if src_files is None else src_files
         ext = '.nc'
         if self.sonar_model == 'EK80':
+            bb = True
             file_groups = split_into_groups(src_files + self.extra_files)
         if save_path is None:
             fname, ext = os.path.splitext(src_files[0])
@@ -380,9 +425,20 @@ class Convert:
         _open_dataset = set_open_dataset(ext)
         _open_mfdataset = set_open_mfdataset(ext)
 
+        # TODO remove debug lines below
+        # file_groups = [['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113.zarr',
+        #                 './echopype/test_data/ek80/export/Summer2018--D20180905-T033258.zarr'],
+        #                ['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113_cw.zarr',
+        #                 './echopype/test_data/ek80/export/Summer2018--D20180905-T033258_cw.zarr']]
+        file_groups = [['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113.nc',
+                        './echopype/test_data/ek80/export/Summer2018--D20180905-T033258.nc'],
+                       ['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113_cw.nc',
+                        './echopype/test_data/ek80/export/Summer2018--D20180905-T033258_cw.nc']]
+
         for i, file_group in enumerate(file_groups):
             # Append '_cw' to EK80 filepath if combining CW files
             if i == 1:
+                bb = False
                 fname, ext = os.path.splitext(save_path)
                 save_path = fname + '_cw' + ext
             # Open multiple files as one dataset of each group and save them into a single file
@@ -431,6 +487,8 @@ class Convert:
                                      combine='nested', concat_dim='time') as ds_nmea:
                     _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
             if self.sonar_model == 'EK80':
+                if check_consistency and bb:
+                    check_vendor_consistency(file_group)
                 # Save filter coefficients in EK80
                 if ext == '.zarr':
                     with _open_dataset(file_group[0], group='Vendor') as ds_vend:
@@ -547,3 +605,4 @@ class Convert:
             with open(self.output_file[i], 'w') as xml_file:
                 data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
                 xml_file.write(data)
+        self._path_list_to_str()
