@@ -60,8 +60,8 @@ class Convert:
         self._conversion_params = {}    # a dictionary of conversion parameters,
                                         # the keys could be different for different echosounders.
                                         # This dictionary is set by the `set_param` method.
-        self.data_type = 'all'      # type of data to be converted into netcdf or zarr.
-                                # - default to 'all'
+        self.data_type = 'ALL'      # type of data to be converted into netcdf or zarr.
+                                # - default to 'ALL'
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
@@ -156,7 +156,7 @@ class Convert:
         ----------
         save_path : str
             Either a directory or a file. If none then the save path is the same as the raw file.
-        file_format : str            .nc or .zarr
+        file_format : str {'.nc', '.zarr'}
         """
 
         filenames = self.source_file
@@ -186,7 +186,7 @@ class Convert:
                 raise ValueError("A valid save directory was not given.")
 
         # Store output filenames
-        if not os.path.isdir(save_path):
+        if save_path is not None and os.path.isdir(save_path):
             files = [os.path.basename(fname)]
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
@@ -244,6 +244,8 @@ class Convert:
         #     pass
         # elif self.sonar_model == 'AZFP':
         #     parser._check_uniqueness()
+
+        # Check EK80 filter coefficients and do not combine if not the same
         return True
 
     @staticmethod
@@ -285,11 +287,11 @@ class Convert:
             print("Combination did not occur as there are inconsistent parameters")
             return False
 
-        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal', concat_dim='time'):
+        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal', concat_dim='time', decode_times=False):
             def modify(task):
                 return task
             # this is basically what open_mfdataset does
-            open_kwargs = dict(decode_cf=True, decode_times=False)
+            open_kwargs = dict(decode_cf=True, decode_times=decode_times)
             open_tasks = [dask.delayed(xr.open_zarr)(f, group=group, **open_kwargs) for f in files]
             tasks = [dask.delayed(modify)(task) for task in open_tasks]
             datasets = dask.compute(tasks)  # get a list of xarray.Datasets
@@ -404,6 +406,7 @@ class Convert:
                                      combine='by_coords', data_vars='minimal') as ds_env:
                     _save(ext, ds_env, save_path, 'a', group='Environment')
             else:
+                # TODO: Save with dim ping time look at compat
                 with _open_dataset(file_group[0], group='Environment') as ds_env:
                     _save(ext, ds_env, save_path, 'a', group='Environment')
             # Combine Platfrom
@@ -423,6 +426,7 @@ class Convert:
                     _save(ext, ds_vend, save_path, 'a', group='Vendor')
             if self.sonar_model == 'EK80' or self.sonar_model == 'EK60':
                 # AZFP does not record NMEA data
+                # TODO: Look into why decode times = True for beam does not error out
                 with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
                                      combine='nested', concat_dim='time') as ds_nmea:
                     _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
@@ -440,16 +444,16 @@ class Convert:
                 self._remove(f)
         return True
 
-    def to_netcdf(self, save_path=None, data_type='all', compress=True, overwrite=True, combine=False, parallel=False):
+    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, overwrite=True, combine=False, parallel=False):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
         ----------
         save_path : str
             path that converted .nc file will be saved
-        data_type : str
+        data_type : str {'ALL', 'GPS', 'CONFIG_XML', 'ENV_XML'}
             select specific datagrams to save (EK60 and EK80 only)
-            Defaults to ``all``
+            Defaults to ``ALL``
         compress : bool
             whether or not to preform compression on data variables
             Defaults to ``True``
@@ -479,16 +483,16 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
 
-    def to_zarr(self, save_path=None, data_type='all', compress=True, combine=False, overwrite=False, parallel=False):
+    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False):
         """Convert a file or a list of files to zarr format.
 
         Parameters
         ----------
         save_path : str
             path that converted .zarr file will be saved
-        data_type : str
+        data_type : str {'ALL', 'GPS', 'CONFIG_XML', 'ENV_XML'}
             select specific datagrams to save (EK60 and EK80 only)
-            Defaults to ``all``
+            Defaults to ``ALL``
         compress : bool
             whether or not to preform compression on data variables
             Defaults to ``True``
@@ -520,20 +524,26 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
 
-    def to_xml(self, save_path=None):
+    def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80 only)
 
         Parameters
         ----------
         save_path : str
             path that converted .xml file will be saved
+        type: str
+            which XML to export
+            either 'CONFIG_XML' or 'ENV_XML'
         """
         if self.sonar_model != 'EK80':
             raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
+        if data_type != 'CONFIG_XML' and data_type != 'ENV_XML':
+            raise ValueError(f"data_type must be either 'CONFIG_XML' or 'ENV_XML' not {data_type}")
         self._validate_path('.xml', save_path)
         for i, file in enumerate(self.source_file):
             # convert file one by one into path set by validate_path()
-            tmp = ParseEK80(file, params='CONFIG_XML')
+            tmp = ParseEK80(file, params=[data_type, 'EXPORT'])
             tmp.parse_raw()
             with open(self.output_file[i], 'w') as xml_file:
-                xml_file.write(tmp.config_datagram['xml'])
+                data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
+                xml_file.write(data)
