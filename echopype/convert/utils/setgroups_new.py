@@ -7,7 +7,6 @@ from datetime import datetime as dt
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-import re
 import pynmea2
 import zarr
 import netCDF4
@@ -40,13 +39,15 @@ class SetGroupsBase:
     def set_toplevel(self, sonar_model):
         """Set the top-level group.
         """
+        # Capture datetime from filename
+        # timestamp_pattern = re.compile(self.convert_obj.timestamp_pattern)
+        # raw_date_time = timestamp_pattern.match(os.path.basename(self.input_file))
+        # filedate = raw_date_time['date']
+        # filetime = raw_date_time['time']
+        # date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
+
         # Collect variables
-        # TODO Use ping time
-        timestamp_pattern = re.compile(self.convert_obj.timestamp_pattern)
-        raw_date_time = timestamp_pattern.match(os.path.basename(self.input_file))
-        filedate = raw_date_time['date']
-        filetime = raw_date_time['time']
-        date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
+        date_created = self.convert_obj.ping_time[0]
 
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,
@@ -55,7 +56,7 @@ class SetGroupsBase:
                    'sonar_convention_version': '1.0',
                    'summary': '',
                    'title': '',
-                   'date_created': date_created,
+                   'date_created': np.datetime_as_string(date_created, 's') + 'Z',
                    'survey_name': self.ui_param['survey_name']}
         # Add any extra user defined values
         for k, v in list(self.ui_param.items())[5:]:
@@ -180,47 +181,37 @@ class SetGroupsEK60(SetGroupsBase):
             print('netCDF file does not exist, exiting without saving Environment group...')
         else:
             # Collect variables
-            config = self.convert_obj.config_datagram
-            ping_data = self.convert_obj.ping_data_dict
-            freq = np.array([config['transceivers'][x]['frequency']
-                            for x in config['transceivers'].keys()], dtype='float32')
-            # Extract absorption and sound speed depending on if the values are identical for all pings
-            abs_tmp = np.unique(ping_data[1]['absorption_coefficient']).size
-            ss_tmp = np.unique(ping_data[1]['sound_velocity']).size
-            # --- if identical for all pings, save only values from the first ping
-            if np.all(np.array([abs_tmp, ss_tmp]) == 1):
-                abs_val = np.array([ping_data[x]['absorption_coefficient'][0]
-                                    for x in config['transceivers'].keys()], dtype='float32')
-                ss_val = np.array([ping_data[x]['sound_velocity'][0]
-                                  for x in config['transceivers'].keys()], dtype='float32')
-            # --- if NOT identical for all pings, save as array of dimension [frequency x ping_time]
-            else:  # TODO: right now set_groups_ek60/set_env doens't deal with this case, need to add
-                abs_val = np.array([ping_data[x]['absorption_coefficient']
-                                    for x in config['transceivers'].keys()],
-                                   dtype='float32')
-                ss_val = np.array([ping_data[x]['sound_velocity']
-                                  for x in config['transceivers'].keys()],
-                                  dtype='float32')
-            # Assemble variables into a dataset
-            absorption = xr.DataArray(abs_val,
-                                      coords=[freq], dims={'frequency'},
-                                      attrs={'long_name': "Indicative acoustic absorption",
-                                             'units': "dB/m",
-                                             'valid_min': 0.0})
-            sound_speed = xr.DataArray(ss_val,
-                                       coords=[freq], dims={'frequency'},
-                                       attrs={'long_name': "Indicative sound speed",
-                                              'standard_name': "speed_of_sound_in_sea_water",
-                                              'units': "m/s",
-                                              'valid_min': 0.0})
-            ds = xr.Dataset({'absorption_indicative': absorption,
-                             'sound_speed_indicative': sound_speed},
-                            coords={'frequency': (['frequency'], freq)})
+            freq = np.array(list(self.convert_obj.ping_data_dict['frequency'].values()), dtype=int)[:, 0]
+            ping_time = (self.convert_obj.ping_time -
+                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+            ss_val = np.array(list(
+                self.convert_obj.ping_data_dict['sound_velocity'].values()), dtype='float32')
+            abs_val = np.array(list(
+                self.convert_obj.ping_data_dict['absorption_coefficient'].values()), dtype='float32')
 
-            ds.frequency.attrs['long_name'] = "Acoustic frequency"
-            ds.frequency.attrs['standard_name'] = "sound_frequency"
-            ds.frequency.attrs['units'] = "Hz"
-            ds.frequency.attrs['valid_min'] = 0.0
+            # Assemble variables into a dataset
+            ds = xr.Dataset({'absorption_indicative': (['frequency', 'ping_time'], abs_val,
+                                                       {'long_name': 'Indicative acoustic absorption',
+                                                        'units': 'dB/m',
+                                                        'valid_min': 0.0}),
+                             'sound_speed_indicative': (['frequency', 'ping_time'], ss_val,
+                                                        {'long_name': 'Indicative sound speed',
+                                                         'standard_name': 'speed_of_sound_in_sea_water',
+                                                         'units': 'm/s',
+                                                         'valid_min': 0.0})
+                             },
+                            coords={'frequency': (['frequency'], freq,
+                                                  {'long_name': 'Acoustic frequency',
+                                                   'standard_name': 'sound_frequency',
+                                                   'units': 'HZ',
+                                                   'valid_min': 0.0
+                                                   }),
+                                    'ping_time': (['ping_time'], ping_time,
+                                                  {'axis': 'T',
+                                                   'calendar': 'gregorian',
+                                                   'long_name': 'Timestamps for NMEA position datagrams',
+                                                   'standard_name': 'time',
+                                                   'units': 'seconds since 1900-01-01'})})
 
             # save to file
             if self.save_ext == '.nc':
@@ -253,17 +244,20 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Assemble variables into a dataset
             ds = xr.Dataset(
-                {'pitch': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['pitch'], dtype='float32'),
+                {'pitch': (['ping_time'], np.array(list(
+                           self.convert_obj.ping_data_dict['pitch'].values())[0], dtype='float32'),
                            {'long_name': 'Platform pitch',
                             'standard_name': 'platform_pitch_angle',
                             'units': 'arc_degree',
                             'valid_range': (-90.0, 90.0)}),
-                 'roll': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['roll'], dtype='float32'),
+                 'roll': (['ping_time'], np.array(list(
+                          self.convert_obj.ping_data_dict['roll'].values())[0], dtype='float32'),
                           {'long_name': 'Platform roll',
                            'standard_name': 'platform_roll_angle',
                            'units': 'arc_degree',
                            'valid_range': (-90.0, 90.0)}),
-                 'heave': (['ping_time'], np.array(self.convert_obj.ping_data_dict[1]['heave'], dtype='float32'),
+                 'heave': (['ping_time'], np.array(list(
+                           self.convert_obj.ping_data_dict['heave'].values())[0], dtype='float32'),
                            {'long_name': 'Platform heave',
                             'standard_name': 'platform_heave_angle',
                             'units': 'arc_degree',
@@ -302,7 +296,7 @@ class SetGroupsEK60(SetGroupsBase):
                                                'long_name': 'Timestamps for NMEA position datagrams',
                                                'standard_name': 'time',
                                                'units': 'seconds since 1900-01-01'})})
-                ds = xr.merge([ds, ds_loc])
+                ds = xr.merge([ds, ds_loc], combine_attrs='override')
 
             # save dataset to file with specified compression settings for all variables
             if self.save_ext == '.nc':
@@ -329,7 +323,7 @@ class SetGroupsEK60(SetGroupsBase):
             # dimensions [frequency x ping_time x range_bin]
             freq = np.array([config['transceivers'][x]['frequency']
                             for x in config['transceivers'].keys()], dtype='float32')
-            range_bin = np.arange(self.convert_obj.power_dict.shape[2])
+            range_bin = np.arange(self.convert_obj.ping_data_dict['power'].shape[2])
 
             # Loop through each transducer for channel-specific variables
             param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
@@ -356,39 +350,33 @@ class SetGroupsEK60(SetGroupsBase):
             for encode_name, origin_name in param_numerical.items():
                 beam_dict[encode_name] = np.array(
                     [val[origin_name] for key, val in config['transceivers'].items()]).astype('float32')
-            beam_dict['transducer_offset_z'] += [self.convert_obj.ping_data_dict[x]['transducer_depth'][0]
+            beam_dict['transducer_offset_z'] += [self.convert_obj.ping_data_dict['transducer_depth'][x][0]
                                                  for x in config['transceivers'].keys()]
 
             for encode_name, origin_name in param_str.items():
                 beam_dict[encode_name] = [val[origin_name]
                                           for key, val in config['transceivers'].items()]
 
-            param_name = ['pulse_length', 'transmit_power', 'bandwidth', 'sample_interval']
-            param_name_save = ['transmit_duration_nominal', 'transmit_power', 'transmit_bandwidth', 'sample_interval']
-            beam_dict['transmit_signal'] = {k: np.array([self.convert_obj.ping_data_dict[x][v]
-                                                        for x in config['transceivers'].keys()])
-                                            for k, v in zip(param_name_save, param_name)}
-
+            pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))[:, 0]
             if len(config['transceivers']) == 1:   # only 1 channel
-                idx = np.argwhere(np.isclose(beam_dict['transmit_signal']['transmit_duration_nominal'][:, 0],
+                idx = np.argwhere(np.isclose(pulse_length,
                                              config['transceivers'][1]['pulse_length_table'])).squeeze()
                 idx = np.expand_dims(np.array(idx), axis=0)
             else:
-                idx = [np.argwhere(np.isclose(beam_dict['transmit_signal']['transmit_duration_nominal'][:, 0][key - 1],
-                                              val['pulse_length_table'])).squeeze()
+                idx = [np.argwhere(np.isclose(pulse_length[key - 1], val['pulse_length_table'])).squeeze()
                        for key, val in config['transceivers'].items()]
-            beam_dict['sa_correction'] = \
-                np.array([x['sa_correction_table'][y]
-                         for x, y in zip(config['transceivers'].values(), np.array(idx))])
+            sa_correction = np.array([x['sa_correction_table'][y]
+                                     for x, y in zip(config['transceivers'].values(), np.array(idx))])
             # Assemble variables into a dataset
             ds = xr.Dataset(
-                {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.power_dict,
+                {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'],
                                    {'long_name': 'Backscatter power',
                                     'units': 'dB'}),
                  'angle_athwartship': (['frequency', 'ping_time', 'range_bin'],
-                                       self.convert_obj.angle_dict[:, :, :, 0],
+                                       self.convert_obj.ping_data_dict['angle'][:, :, :, 0],
                                        {'long_name': 'electrical athwartship angle'}),
-                 'angle_alongship': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.angle_dict[:, :, :, 1],
+                 'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
+                                     self.convert_obj.ping_data_dict['angle'][:, :, :, 1],
                                      {'long_name': 'electrical alongship angle'}),
                  'beam_type': ('frequency', beam_dict['beam_type'],
                                {'long_name': 'type of transducer (0-single, 1-split)'}),
@@ -451,7 +439,8 @@ class SetGroupsEK60(SetGroupsBase):
                                                   'long_name': 'Presence or not of non-quantitative '
                                                                'processing applied to the backscattering '
                                                                'data (sonar specific)'}),
-                 'sample_interval': (['frequency', 'ping_time'], beam_dict['transmit_signal']['sample_interval'],
+                 'sample_interval': (['frequency'], np.array(list(
+                                     self.convert_obj.ping_data_dict['sample_interval'].values()))[:, 0],
                                      {'long_name': 'Interval between recorded raw data samples',
                                       'units': 's',
                                       'valid_min': 0.0}),
@@ -459,16 +448,17 @@ class SetGroupsEK60(SetGroupsBase):
                                         {'long_name': 'Time offset that is subtracted from the timestamp '
                                                       'of each sample',
                                                       'units': 's'}),
-                 'transmit_bandwidth': (['frequency', 'ping_time'], beam_dict['transmit_signal']['transmit_bandwidth'],
+                 'transmit_bandwidth': (['frequency'], np.array(list(
+                                        self.convert_obj.ping_data_dict['bandwidth'].values()))[:, 0],
                                         {'long_name': 'Nominal bandwidth of transmitted pulse',
                                          'units': 'Hz',
                                          'valid_min': 0.0}),
-                 'transmit_duration_nominal': (['frequency', 'ping_time'],
-                                               beam_dict['transmit_signal']['transmit_duration_nominal'],
+                 'transmit_duration_nominal': (['frequency'], pulse_length,
                                                {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                              'units': 's',
                                                 'valid_min': 0.0}),
-                 'transmit_power': (['frequency', 'ping_time'], beam_dict['transmit_signal']['transmit_power'],
+                 'transmit_power': (['frequency'], np.array(list(
+                                    self.convert_obj.ping_data_dict['transmit_power'].values()))[:, 0],
                                     {'long_name': 'Nominal transmit power',
                                                   'units': 'W',
                                                   'valid_min': 0.0}),
@@ -483,7 +473,11 @@ class SetGroupsEK60(SetGroupsBase):
                  'transducer_offset_z': (['frequency'], beam_dict['transducer_offset_z'],
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
-                                                       'units': 'm'})},
+                                                       'units': 'm'}),
+                 # Below are specific to Simrad EK60 .raw files
+                 'channel_id': (['frequency'], beam_dict['channel_id']),
+                 'gpt_software_version': (['frequency'], beam_dict['gpt_software_version']),
+                 'sa_correction': (['frequency'], sa_correction)},
                 coords={'frequency': (['frequency'], freq,
                                       {'units': 'Hz',
                                        'valid_min': 0.0}),
@@ -496,11 +490,6 @@ class SetGroupsEK60(SetGroupsBase):
                         'range_bin': range_bin},
                 attrs={'beam_mode': 'vertical',
                        'conversion_equation_t': 'type_3'})
-
-            # Below are specific to Simrad EK60 .raw files
-            ds['channel_id'] = ('frequency', beam_dict['channel_id'])
-            ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
-            ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
 
             # Save dataset with optional compression for all data variables
             if self.save_ext == '.nc':
@@ -579,8 +568,6 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self):
         """Set the Platform group.
         """
-        # TODO: let's add ConvertEK80.environment['drop_keel_offset'] to
-        #  the Platform group even though it is not in the convention.
 
         if not os.path.exists(self.output_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
@@ -652,7 +639,8 @@ class SetGroupsEK80(SetGroupsBase):
                         },
                 attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                        'platform_name': self.ui_param['platform_name'],
-                       'platform_type': self.ui_param['platform_type']})
+                       'platform_type': self.ui_param['platform_type'],
+                       'drop_keel_offset': self.convert_obj.environment['drop_keel_offset']})
 
             # Save to file
             if self.save_ext == '.nc':
@@ -670,7 +658,7 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             config = self.convert_obj.config_datagram['configuration']
             beam_dict = dict()
-            freq = np.array([config[x]['transducer_frequency'] for x in ch_ids], dtype='float32')
+            freq = np.array([config[x]['transducer_frequency'] for x in ch_ids], dtype=int)
             tx_num = len(ch_ids)
             ping_num = len(self.convert_obj.ping_time)
 
@@ -680,7 +668,7 @@ class SetGroupsEK80(SetGroupsBase):
             max_splits = max([n_c for n_c in self.convert_obj.n_complex_dict.values()]) if bb else 4
             if bb:
                 shape = (len(ch_ids), ping_num, -1, max_splits)
-                backscatter = np.array(self.convert_obj.complex_dict).reshape(shape)
+                backscatter = np.array(self.convert_obj.ping_data_dict['complex']).reshape(shape)
                 backscatter = np.moveaxis(backscatter, 3, 1)
 
             # Loop through each transducer for channel-specific variables
@@ -692,9 +680,6 @@ class SetGroupsEK80(SetGroupsBase):
             beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
             beam_dict['gpt_software_version'] = []
             beam_dict['channel_id'] = []
-            beam_dict['frequency_start'] = []
-            beam_dict['frequency_end'] = []
-            beam_dict['slope'] = []
             c_seq = 0
             for k, c in config.items():
                 if k not in ch_ids:
@@ -718,64 +703,45 @@ class SetGroupsEK80(SetGroupsBase):
                 beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
                 beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
                 beam_dict['channel_id'].append(c['channel_id'])
-                beam_dict['slope'].append(self.convert_obj.ping_data_dict[k]['slope'])
 
-                # Pad each channel with nan so that they can be stacked
-                if bb:
-                    beam_dict['frequency_start'].append(self.convert_obj.ping_data_dict[k]['frequency_start'])
-                    beam_dict['frequency_end'].append(self.convert_obj.ping_data_dict[k]['frequency_end'])
                 c_seq += 1
 
             # Stack channels and order axis as: channel, quadrant, ping, range
             if bb:
-                beam_dict['frequency_start'] = np.unique(beam_dict['frequency_start']).astype(int)
-                beam_dict['frequency_end'] = np.unique(beam_dict['frequency_end']).astype(int)
-                beam_dict['frequency_center'] = (beam_dict['frequency_start'] + beam_dict['frequency_end']) / 2
+                try:
+                    freq_start = np.array([self.convert_obj.ping_data_dict['frequency_start'][x][0]
+                                          for x in ch_ids], dtype=int)
+                    freq_end = np.array([self.convert_obj.ping_data_dict['frequency_end'][x][0]
+                                        for x in ch_ids], dtype=int)
+                # Exception occurs when instrument records complex power data without
+                # supplying the frequency start and end
+                except IndexError:
+                    freq_start = np.array([config[x].get('transducer_frequency_minimum', np.nan)
+                                           for x in ch_ids], dtype=int)
+                    freq_end = np.array([config[x].get('transducer_frequency_maximum', np.nan)
+                                         for x in ch_ids], dtype=int)
 
             # Loop through each transducer for variables that may vary at each ping
             # -- this rarely is the case for EK60 so we check first before saving
-            pl_tmp = np.unique(self.convert_obj.ping_data_dict[ch_ids[0]]['pulse_duration']).size
-            pw_tmp = np.unique(self.convert_obj.ping_data_dict[ch_ids[0]]['transmit_power']).size
-            # bw_tmp = np.unique(self.ping_data_dict[1]['bandwidth']).size      # Not in EK80
-            si_tmp = np.unique(self.convert_obj.ping_data_dict[ch_ids[0]]['sample_interval']).size
-            if np.all(np.array([pl_tmp, pw_tmp, si_tmp]) == 1):
-                tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-                beam_dict['sample_interval'] = np.zeros(shape=(tx_num,), dtype='float32')
-                for t_seq in range(tx_num):
-                    tx_sig['transmit_duration_nominal'][t_seq] = \
-                        np.float32(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['pulse_duration'][0])
-                    tx_sig['transmit_power'][t_seq] = \
-                        np.float32(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['transmit_power'][0])
-                    # tx_sig['transmit_bandwidth'][t_seq] = \
-                    #     np.float32((self.parameters[self.ch_ids[t_seq]]['bandwidth'][0])
-                    beam_dict['sample_interval'][t_seq] = \
-                        np.float32(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['sample_interval'][0])
-            else:
-                tx_sig = defaultdict(lambda: np.zeros(shape=(tx_num, ping_num), dtype='float32'))
-                beam_dict['sample_interval'] = np.zeros(shape=(tx_num, ping_num), dtype='float32')
-                for t_seq in range(tx_num):
-                    tx_sig['transmit_duration_nominal'][t_seq, :] = \
-                        np.array(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['pulse_duration'], dtype='float32')
-                    tx_sig['transmit_power'][t_seq, :] = \
-                        np.array(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['transmit_power'], dtype='float32')
-                    # tx_sig['transmit_bandwidth'][t_seq, :] = \
-                    #     np.array(self.ping_data_dictj[self.ch_ids[t_seq]]['bandwidth'], dtype='float32')
-                    beam_dict['sample_interval'][t_seq, :] = \
-                        np.array(self.convert_obj.ping_data_dict[ch_ids[t_seq]]['sample_interval'], dtype='float32')
+            ch_idx = [self.convert_obj.ch_ids.index(ch) for ch in ch_ids]
+            tdn = np.array(list(self.convert_obj.ping_data_dict['pulse_duration'].values()))[ch_idx]
+            tx_power = np.array(list(self.convert_obj.ping_data_dict['transmit_power'].values()))[ch_idx]
+            smpl_int = np.array(list(self.convert_obj.ping_data_dict['sample_interval'].values()))[ch_idx]
+            slope = np.array(list(self.convert_obj.ping_data_dict['slope'].values()))[ch_idx]
 
             # Build other parameters
             # beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
             # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
             # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
-            pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
-            # Gets indices from pulse length table using the transmit_duration_nominal values selected
-            idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
-                                          config[ch][pulse_length])).squeeze()
-                   for i, ch in enumerate(ch_ids)]
-            # Use the indices to select sa_correction values from the sa correction table
-            beam_dict['sa_correction'] = \
-                np.array([x['sa_correction'][y]
-                         for x, y in zip(config.values(), np.array(idx))])
+
+            # Gets indices from pulse length table using the transmit_duration_nominal values selected (cw only)
+            if not bb:
+                # Use the indices to select sa_correction values from the sa correction table
+                pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
+                idx = [np.argwhere(np.isclose(tdn[i][0], config[ch][pulse_length])).squeeze()
+                       for i, ch in enumerate(ch_ids)]
+                sa_correction = np.array([x['sa_correction'][y]
+                                         for x, y in zip(config.values(), np.array(idx))])
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -841,7 +807,7 @@ class SetGroupsEK80(SetGroupsBase):
                 #                                   'long_name': 'Presence or not of non-quantitative '
                 #                                                'processing applied to the backscattering '
                 #                                                'data (sonar specific)'}),
-                 'sample_interval': (['frequency'], beam_dict['sample_interval'],
+                 'sample_interval': (['frequency', 'ping_time'], smpl_int,
                                      {'long_name': 'Interval between recorded raw data samples',
                                       'units': 's',
                                       'valid_min': 0.0}),
@@ -849,15 +815,15 @@ class SetGroupsEK80(SetGroupsBase):
                 #                         {'long_name': 'Time offset that is subtracted from the timestamp '
                 #                                       'of each sample',
                 #                          'units': 's'}),
-                 'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
-                                        {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                         'units': 'Hz',
-                                         'valid_min': 0.0}),
-                 'transmit_duration_nominal': (['frequency'], tx_sig['transmit_duration_nominal'],
+                #  'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
+                #                         {'long_name': 'Nominal bandwidth of transmitted pulse',
+                #                          'units': 'Hz',
+                #                          'valid_min': 0.0}),
+                 'transmit_duration_nominal': (['frequency', 'ping_time'], tdn,
                                                {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                 'units': 's',
                                                 'valid_min': 0.0}),
-                 'transmit_power': (['frequency'], tx_sig['transmit_power'],
+                 'transmit_power': (['frequency', 'ping_time'], tx_power,
                                     {'long_name': 'Nominal transmit power',
                                      'units': 'W',
                                      'valid_min': 0.0}),
@@ -873,7 +839,7 @@ class SetGroupsEK80(SetGroupsBase):
                                          {'long_name': 'z-axis distance from the platform coordinate system '
                                                        'origin to the sonar transducer',
                                           'units': 'm'}),
-                 'slope': (['frequency', 'ping_time'], np.array(beam_dict['slope'])),
+                 'slope': (['frequency', 'ping_time'], slope),
                  },
                 coords={'frequency': (['frequency'], freq,
                                       {'long_name': 'Transducer frequency', 'units': 'Hz'}),
@@ -898,10 +864,10 @@ class SetGroupsEK80(SetGroupsBase):
                     coords={'frequency': (['frequency'], freq,
                                           {'long_name': 'Center frequency of the transducer',
                                           'units': 'Hz'}),
-                            'frequency_start': (['frequency'], beam_dict['frequency_start'],
+                            'frequency_start': (['frequency'], freq_start,
                                                 {'long_name': 'Starting frequency of the transducer',
                                                  'units': 'Hz'}),
-                            'frequency_end': (['frequency'], beam_dict['frequency_end'],
+                            'frequency_end': (['frequency'], freq_end,
                                               {'long_name': 'Ending frequency of the transducer',
                                                'units': 'Hz'}),
                             'ping_time': (['ping_time'], ping_time,
@@ -913,19 +879,21 @@ class SetGroupsEK80(SetGroupsBase):
                             'quadrant': (['quadrant'], np.arange(max_splits)),
                             'range_bin': (['range_bin'], np.arange(backscatter.shape[3]))
                             })
-                ds = xr.merge([ds, ds_bb])
+                ds = xr.merge([ds, ds_bb], combine_attrs='override')
             # Save continuous wave backscatter
             else:
                 ds_cw = xr.Dataset(
-                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.power_dict,
+                    {'backscatter_r': (['frequency', 'ping_time', 'range_bin'],
+                                       self.convert_obj.ping_data_dict['power'],
                                        {'long_name': 'Backscattering power',
                                            'units': 'dB'}),
                      'angle_athwartship': (['frequency', 'ping_time', 'range_bin'],
-                                           self.convert_obj.angle_dict[:, :, :, 0],
+                                           self.convert_obj.ping_data_dict['angle'][:, :, :, 0],
                                            {'long_name': 'electrical athwartship angle'}),
                      'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
-                                         self.convert_obj.angle_dict[:, :, :, 1],
-                                         {'long_name': 'electrical alongship angle'})},
+                                         self.convert_obj.ping_data_dict['angle'][:, :, :, 1],
+                                         {'long_name': 'electrical alongship angle'}),
+                     'sa_correction': (['frequency'], sa_correction)},
                     coords={'frequency': (['frequency'], freq,
                                           {'long_name': 'Transducer frequency', 'units': 'Hz'}),
                             'ping_time': (['ping_time'], ping_time,
@@ -934,15 +902,13 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'}),
-                            'range_bin': (['range_bin'], np.arange(self.convert_obj.power_dict.shape[2]))
+                            'range_bin': (['range_bin'], np.arange(self.convert_obj.ping_data_dict['power'].shape[2]))
                             })
-                ds = xr.merge([ds, ds_cw])
+                ds = xr.merge([ds, ds_cw], combine_attrs='override')
 
             # Below are specific to Simrad .raw files
             if 'gpt_software_version' in beam_dict:
                 ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
-            if 'sa_correction' in beam_dict:
-                ds['sa_correction'] = ('frequency', beam_dict['sa_correction'])
             # Save to file
             if self.save_ext == '.nc':
                 nc_encoding = {var: NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
@@ -967,29 +933,19 @@ class SetGroupsEK80(SetGroupsBase):
                 coeffs[f'{ch}_PC_filter'] = self.convert_obj.fil_coeffs[ch][2]
                 decimation_factors[f'{ch}_WBT_decimation'] = self.convert_obj.fil_df[ch][1]
                 decimation_factors[f'{ch}_PC_decimation'] = self.convert_obj.fil_df[ch][2]
-
+            # Assemble variables into dataset
+            ds = xr.Dataset()
+            for k, v in coeffs.items():
+                # Save filter coefficients as real and imaginary parts as attributes
+                ds.attrs[k + '_r'] = np.real(v)
+                ds.attrs[k + '_i'] = np.imag(v)
+                # Save decimation factors as attributes
+            for k, v in decimation_factors.items():
+                ds.attrs[k] = v
+            # save to file
             if self.save_ext == '.nc':
-                ncfile = netCDF4.Dataset(self.output_path, "a", format="NETCDF4")
-                vdr = ncfile.createGroup("Vendor")
-                # Create compound datatype. (2 f32 values to make a c64 value)
-                complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
-                complex64_t = vdr.createCompoundType(complex64, "complex64")
-                for k, v in coeffs.items():
-                    data = np.empty(len(v), complex64)
-                    data['real'] = v.real
-                    data['imag'] = v.imag
-                    vdr.createDimension(k + '_dim', None)
-                    var = vdr.createVariable(k, complex64_t, k + '_dim')
-                    var[:] = data
-                for k, v in decimation_factors.items():
-                    vdr.setncattr(k, v)
-                # Save xml string
-                vdr.setncattr('xml', self.convert_obj.config_datagram['xml'])
+                ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
             elif self.save_ext == '.zarr':
-                ds = xr.Dataset(coeffs)
-                ds.attrs['xml'] = self.convert_obj.config_datagram['xml']
-                for k, v in decimation_factors.items():
-                    ds.attrs[k] = v
                 ds.to_zarr(store=self.output_path, mode='a', group='Vendor')
 
     def set_sonar(self, ch_ids, path):
@@ -1048,25 +1004,27 @@ class SetGroupsAZFP(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-        ping_time = self.convert_obj._get_ping_time()
         sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
                         int(self.convert_obj.unpacked_data['serial_number']),
                         'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
         self.set_toplevel("AZFP")
-        self.set_env(ping_time)
+        self.set_env()
         self.set_provenance()
         self.set_platform()
         self.set_sonar(sonar_values)
-        self.set_beam(ping_time)
-        self.set_vendor(ping_time)
+        self.set_beam()
+        self.set_vendor()
 
-    def set_env(self, ping_time):
+    def set_env(self, ):
         """Set the Environment group.
         """
         # Only save environment group if file_path exists
         if not os.path.exists(self.output_path):
             print('netCDF file does not exist, exiting without saving Environment group...')
         else:
+            # TODO Look at why this cannot be encoded without the modifications
+            ping_time = (self.convert_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
+            # ping_time = self.convert_obj.ping_time
             ds = xr.Dataset({'temperature': (['ping_time'], self.convert_obj.unpacked_data['temperature'])},
                             coords={'ping_time': (['ping_time'], ping_time,
                                     {'axis': 'T',
@@ -1076,7 +1034,6 @@ class SetGroupsAZFP(SetGroupsBase):
                                      'units': 'seconds since 1970-01-01'})},
                             attrs={'long_name': "Water temperature",
                                    'units': "C"})
-
             # save to file
             if self.save_ext == '.nc':
                 ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
@@ -1103,7 +1060,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 for k, v in platform_dict.items():
                     plat.attrs[k] = v
 
-    def set_beam(self, ping_time):
+    def set_beam(self):
         """Set the Beam group.
         """
         unpacked_data = self.convert_obj.unpacked_data
@@ -1111,6 +1068,7 @@ class SetGroupsAZFP(SetGroupsBase):
         anc = np.array(unpacked_data['ancillary'])   # convert to np array for easy slicing
         dig_rate = unpacked_data['dig_rate']         # dim: freq
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
+        ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         # Build variables in the output xarray Dataset
         N = []   # for storing backscatter_r values for each frequency
@@ -1119,6 +1077,18 @@ class SetGroupsAZFP(SetGroupsBase):
             Sv_offset[ich] = self.convert_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))
+
+        # Largest number of counts along the range dimension among the different channels
+        longest_range_bin = np.max(unpacked_data['num_bins'])
+        range_bin = np.arange(longest_range_bin)
+
+        # Pad power data
+        if any(unpacked_data['num_bins'] != longest_range_bin):
+            N_tmp = np.full((len(N), len(ping_time), longest_range_bin), np.nan)
+            for i, n in enumerate(N):
+                N_tmp[i, :, :n.shape[1]] = n
+            N = N_tmp
+            del N_tmp
 
         tdn = unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
         range_samples_xml = np.array(parameters['range_samples'])         # from xml file
@@ -1129,19 +1099,6 @@ class SetGroupsAZFP(SetGroupsBase):
             sample_int = range_samples_per_bin / dig_rate
         else:
             raise ValueError("dig_rate and range_samples not unique across frequencies")
-
-        # Largest number of counts along the range dimension among the different channels
-        longest_range_bin = np.max(unpacked_data['num_bins'])
-        range_bin = np.arange(longest_range_bin)
-        # TODO: replace the following with an explicit check of length of range across channels
-        try:
-            np.array(N)
-        # Exception occurs when N is not rectangular,
-        #  so it must be padded with nan values to make it rectangular
-        except ValueError:
-            N = [np.pad(n, ((0, 0), (0, longest_range_bin - n.shape[1])),
-                 mode='constant', constant_values=np.nan)
-                 for n in N]
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                          'equivalent_beam_angle': (['frequency'], parameters['BP']),
@@ -1174,7 +1131,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                                'calendar': 'gregorian',
                                                'long_name': 'Timestamp of each ping',
                                                'standard_name': 'time',
-                                               'units': 'seconds since 1970-01-01'}),
+                                               'units': 'seconds since 1900-01-01'}),
                                 'range_bin': (['range_bin'], range_bin)},
                         attrs={'beam_mode': '',
                                'conversion_equation_t': 'type_4',
@@ -1205,11 +1162,12 @@ class SetGroupsAZFP(SetGroupsBase):
             zarr_encoding = {var: ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
             ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
 
-    def set_vendor(self, ping_time):
+    def set_vendor(self):
         """Set the Vendor-specific group.
         """
         unpacked_data = self.convert_obj.unpacked_data
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
+        ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         ds = xr.Dataset({
             'digitization_rate': (['frequency'], unpacked_data['dig_rate']),

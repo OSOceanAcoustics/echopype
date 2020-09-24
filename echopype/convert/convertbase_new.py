@@ -10,7 +10,7 @@ import numpy as np
 import os
 
 FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
-FILENAME_DATETIME_AZFP = '\\w+.raw'
+FILENAME_DATETIME_AZFP = '\\w+.01A'
 NMEA_GPS_SENTECE = 'GGA'
 
 
@@ -21,6 +21,7 @@ class ParseBase:
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
+        self.ping_time = []            # list to store ping time
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
@@ -43,63 +44,12 @@ class ParseEK(ParseBase):
         # Class attributes
         self.config_datagram = None
         self.nmea_data = NMEAData()  # object for NMEA data
-        self.ping_data_dict = {}  # dictionary to store metadata
-        self.power_dict = {}     # dictionary to store power data
-        self.angle_dict = {}     # dictionary to store angle data
-        self.ping_time = []      # list to store ping time
+        self.ping_data_dict = defaultdict()  # dictionary to store metadata
         self.num_range_bin_groups = None  # number of range_bin groups
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
         """
-
-    def _check_env_param_uniqueness(self):
-        """Check if env parameters are unique throughout the file.
-        """
-        # Right now we don't handle changes in the environmental parameters and
-        # just store the first set of unpacked env parameters.
-        # We should have this function to check this formally, and save the env
-        # parameters along the ping_time dimension if they change.
-        # NOTE: discuss this in light of what AZFP has.
-
-        # TODO:
-        #  EK80: there is only 1 XML-environment datagram for each file
-        #        so no need to check for uniqueness for the variables.
-        #  EK60: the environment variables are wrapped in RAW0 datagrams
-        #        for each ping -- see docstring _read_datagrams()
-        #        so will have to check for uniqueness.
-        #        variables to check are:
-        #           - sound_velocity
-        #        	- absorption_coefficient
-        # 	        - temperature
-
-    def _check_tx_param_uniqueness(self):
-        """Check if transmit parameters are unique throughout the file.
-        """
-
-        # Right now we don't handle the case if any transmit parameters change in the middle of the file.
-        # We also haven't run into any file that has that happening?
-        # At minimum we should spit out an error message.
-        # For EK60 the params are: pulse_length, transmit_power, bandwidth, sample_interval
-        # For EK80 the params will include frequency-related params
-
-        # TODO:
-        #  EK80: each RAW3 datagrams is preceded by an XML-parameter datagram,
-        #        which contains tx parameters for the following channel data
-        #        -- see docstring _read_datagrams() for detail
-        #        we will have to check for uniqueness for these variables.
-        #        Also filter parameters
-        #  EK60: the environment variables are wrapped in RAW0 datagrams
-        #        for each ping -- see docstring _read_datagrams()
-        #        we will have to check for uniqueness for these parameters
-        #        variables to check are:
-        #           - transmit_power
-        #           - pulse_length
-        #           - bandwidth
-        #           - sample_interval
-        #           - transmit_mod(  # 0 = Active, 1 = Passive, 2 = Test, -1 = Unknown)
-        #           - offset
-        pass
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -202,12 +152,6 @@ class ParseEK(ParseBase):
                 elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_type or 'ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
-                    for k, v in current_parameters.items():
-                        if v != 'channel_id':
-                            self.ping_data_dict[current_parameters['channel_id']][k].append(v)
-                    self.ping_data_dict[current_parameters['channel_id']]['timestamp'].append(
-                        new_datagram['timestamp'])
-
             # RAW datagrams store raw acoustic data for a channel for EK60
             elif new_datagram['type'].startswith('RAW0'):
                 curr_ch_num = new_datagram['channel']
@@ -228,16 +172,13 @@ class ParseEK(ParseBase):
 
                     # append ping time from first channel
                     self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
-
                     for ch_seq in range(self.config_datagram['transceiver_count']):
                         # If frequency matches for this channel, actually store data
                         # Note all storage structure indices are 1-based since they are indexed by
                         # the channel number as stored in config_datagram['transceivers'].keys()
                         if self.config_datagram['transceivers'][ch_seq + 1]['frequency'] \
                                 == tmp_datagram_dict[ch_seq]['frequency']:
-                            self._append_channel_ping_data(ch_seq + 1, tmp_datagram_dict[ch_seq])   # metadata per ping
-                            self.power_dict[ch_seq + 1].append(tmp_datagram_dict[ch_seq]['power'])  # append power data
-                            self.angle_dict[ch_seq + 1].append(tmp_datagram_dict[ch_seq]['angle'])  # append angle data
+                            self._append_channel_ping_data(tmp_datagram_dict[ch_seq])   # metadata per ping
                         else:
                             # TODO: need error-handling code here
                             print('Frequency mismatch for data from the same channel number!')
@@ -256,9 +197,9 @@ class ParseEK(ParseBase):
                 if curr_ch_id == self.recorded_ch_ids[0]:
                     self.ping_time.append(new_datagram['timestamp'])
 
-                self.power_dict[curr_ch_id].append(new_datagram['power'])  # append power data
-                self.angle_dict[curr_ch_id].append(new_datagram['angle'])  # append angle data
-                self.complex_dict[curr_ch_id].append(new_datagram['complex'])  # append complex data
+                # Append ping by ping data
+                new_datagram.update(current_parameters)
+                self._append_channel_ping_data(new_datagram)
                 if self.n_complex_dict[curr_ch_id] < 0:
                     self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
 
@@ -297,27 +238,15 @@ class ParseEK(ParseBase):
                 if 'ALL' in self.data_type:
                     print("Unknown datagram type: " + str(new_datagram['type']))
 
-    def _append_channel_ping_data(self, ch_num, datagram):
-        """Append non-backscatter data for each ping.
+    def _append_channel_ping_data(self, datagram):
+        """Append ping by ping data.
         """
-        # This is currently implemented for EK60, but not for EK80.
-        # line 94-123 in convert/ek80.py can be made into this method:
-        # TODO: simplify the calls `current_parameters['channel_id']` to
-        #  `ch_id = current_parameters['channel_id']`
-        #  and then just use ch_id, to increase code readbility
-        self.ping_data_dict[ch_num]['mode'].append(datagram['mode'])
-        self.ping_data_dict[ch_num]['transducer_depth'].append(datagram['transducer_depth'])
-        self.ping_data_dict[ch_num]['transmit_power'].append(datagram['transmit_power'])
-        self.ping_data_dict[ch_num]['pulse_length'].append(datagram['pulse_length'])
-        self.ping_data_dict[ch_num]['bandwidth'].append(datagram['bandwidth'])
-        self.ping_data_dict[ch_num]['sample_interval'].append(datagram['sample_interval'])
-        self.ping_data_dict[ch_num]['sound_velocity'].append(datagram['sound_velocity'])
-        self.ping_data_dict[ch_num]['absorption_coefficient'].append(datagram['absorption_coefficient'])
-        self.ping_data_dict[ch_num]['heave'].append(datagram['heave'])
-        self.ping_data_dict[ch_num]['roll'].append(datagram['roll'])
-        self.ping_data_dict[ch_num]['pitch'].append(datagram['pitch'])
-        self.ping_data_dict[ch_num]['temperature'].append(datagram['temperature'])
-        self.ping_data_dict[ch_num]['heading'].append(datagram['heading'])
+        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', 'frequency',
+                   'transmit_mode', 'spare0', 'bytes_read', 'type', 'n_complex']
+        ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
+        for k, v in datagram.items():
+            if k not in unsaved:
+                self.ping_data_dict[k][ch_id].append(v)
 
     def _find_range_group(self, power_dict):
         """Find the pings at which range_bin changes.
@@ -395,7 +324,6 @@ class ParseEK(ParseBase):
 
         # get environment XML only (EK80)
         # ec.to_netcdf(data_type='ENV_XML')
-        # TODO: save platform all or xml
         def translate_to_dgram(s):
             if s == 'ALL':
                 return ['ALL']
@@ -440,14 +368,13 @@ class ParseEK60(ParseEK):
                     self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
                 self._print_status()
 
+                self.ping_data_dict = defaultdict(lambda: defaultdict(list))
                 for ch_num in self.config_datagram['transceivers'].keys():
-                    self.ping_data_dict[ch_num] = defaultdict(list)
-                    self.ping_data_dict[ch_num]['frequency'] = \
-                        self.config_datagram['transceivers'][ch_num]['frequency']
-                    self.power_dict[ch_num] = []
-                    self.angle_dict[ch_num] = []
+                    self.ping_data_dict['frequency'][ch_num].append(
+                        self.config_datagram['transceivers'][ch_num]['frequency'])
+
             else:
-                tmp_config = fid.read(1)
+                fid.read(1)
 
             # Check if reading an ME70 file with a CON1 datagram.
             next_datagram = fid.peek()
@@ -462,8 +389,10 @@ class ParseEK60(ParseEK):
         if 'ALL' in self.data_type:
             # Make a regctangular array (when there is a switch of range_bin in the middle of a file
             # or when range_bin size changes across channels)
-            self.angle_dict = None if self.angle_dict[1] is None else self.angle_dict
-            self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
+            self.ping_data_dict['angle'] = (None if self.ping_data_dict['angle'][1] is None
+                                            else self.ping_data_dict['angle'])
+            self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
+                self.ping_data_dict['power'], self.ping_data_dict['angle'])
 
             # Trim excess data from NMEA object
             self.nmea_data.trim()
@@ -474,7 +403,6 @@ class ParseEK80(ParseEK):
     """
     def __init__(self, file, params):
         super().__init__(file, params)
-        self.complex_dict = {}  # dictionary to store complex data
         self.n_complex_dict = {}  # dictionary to store the number of beams in split-beam complex data
         self.environment = {}  # dictionary to store environment data
         # self.parameters = defaultdict(dict)  # Dictionary to hold parameter data --> use self.ping_data_dict
@@ -487,10 +415,6 @@ class ParseEK80(ParseEK):
         self.recorded_ch_ids = []  # Channels where power data is present. Not necessarily the same as self.ch_ids
         self.sonar_type = 'EK80'
         self.data_type = self._select_datagrams(params)
-
-        # TODO: we shouldn't need `power_dict_split`, `angle_dict_split` and `ping_time_split`,
-        #  and can just get the values from the original corresponding storage values
-        #  `power_dict`, `angle_dict`, `ping_time`
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK80 echosounder.
@@ -506,42 +430,31 @@ class ParseEK80(ParseEK):
             # IDs of the channels found in the dataset
             self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
 
-            for ch_id in self.ch_ids:
-                self.ping_data_dict[ch_id] = defaultdict(list)
-                self.ping_data_dict[ch_id]['frequency'] = \
-                    self.config_datagram['configuration'][ch_id]['transducer_frequency']
-                self.power_dict[ch_id] = []
-                self.angle_dict[ch_id] = []
-                self.complex_dict[ch_id] = []
-                self.n_complex_dict[ch_id] = -1
+            # Parameters recorded for each frequency for each ping
+            self.ping_data_dict = defaultdict(lambda: defaultdict(list))
 
-                # Parameters recorded for each frequency for each ping
-                self.ping_data_dict[ch_id]['frequency_start'] = []
-                self.ping_data_dict[ch_id]['frequency_end'] = []
-                self.ping_data_dict[ch_id]['frequency'] = []
-                self.ping_data_dict[ch_id]['pulse_duration'] = []
-                self.ping_data_dict[ch_id]['pulse_form'] = []
-                self.ping_data_dict[ch_id]['sample_interval'] = []
-                self.ping_data_dict[ch_id]['slope'] = []
-                self.ping_data_dict[ch_id]['transmit_power'] = []
-                self.ping_data_dict[ch_id]['timestamp'] = []
+            for ch_id in self.ch_ids:
+                self.ping_data_dict['frequency'][ch_id].append(
+                    self.config_datagram['configuration'][ch_id]['transducer_frequency'])
+                self.n_complex_dict[ch_id] = -1
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
             # Remove empty lists
             for ch_id in self.ch_ids:
-                if all(x is None for x in self.power_dict[ch_id]):
-                    self.power_dict[ch_id] = None
-                    self.angle_dict[ch_id] = None
-                if all(x is None for x in self.complex_dict[ch_id]):
-                    self.complex_dict[ch_id] = None
+                if all(x is None for x in self.ping_data_dict['power'][ch_id]):
+                    self.ping_data_dict['power'][ch_id] = None
+                    self.ping_data_dict['angle'][ch_id] = None
+                if all(x is None for x in self.ping_data_dict['complex'][ch_id]):
+                    self.ping_data_dict['complex'][ch_id] = None
 
         if 'ALL' in self.data_type:
             self._clean_channel()
             # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
             self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
-            self.power_dict, self.angle_dict = self._rectangularize(self.power_dict, self.angle_dict)
-            self.complex_dict, _ = self._rectangularize(self.complex_dict)
+            self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
+                self.ping_data_dict['power'], self.ping_data_dict['angle'])
+            self.ping_data_dict['complex'], _ = self._rectangularize(self.ping_data_dict['complex'])
 
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).
@@ -549,11 +462,11 @@ class ParseEK80(ParseEK):
         """
         bb_ch_ids = []
         cw_ch_ids = []
-        for k, v in self.complex_dict.items():
+        for k, v in self.ping_data_dict['complex'].items():
             if v is not None:
                 bb_ch_ids.append(k)
             else:
-                if self.power_dict[k] is not None:
+                if self.ping_data_dict['power'][k] is not None:
                     cw_ch_ids.append(k)
         return bb_ch_ids, cw_ch_ids
 
@@ -710,6 +623,7 @@ class ParseAZFP(ParseBase):
                     eof = True
                 ping_num += 1
         self._check_uniqueness()
+        self._get_ping_time()
 
     @staticmethod
     def _get_fields():
@@ -865,15 +779,14 @@ class ParseAZFP(ParseBase):
 
         ping_time = []
         for ping_num, year in enumerate(self.unpacked_data['year']):
-            ping_time.append(dt(year,
-                                self.unpacked_data['month'][ping_num],
-                                self.unpacked_data['day'][ping_num],
-                                self.unpacked_data['hour'][ping_num],
-                                self.unpacked_data['minute'][ping_num],
-                                int(self.unpacked_data['second'][ping_num] +
-                                    self.unpacked_data['hundredths'][ping_num] / 100)
-                                ).replace(tzinfo=timezone.utc).timestamp())
-        return ping_time
+            ping_time.append(np.datetime64(dt(year,
+                             self.unpacked_data['month'][ping_num],
+                             self.unpacked_data['day'][ping_num],
+                             self.unpacked_data['hour'][ping_num],
+                             self.unpacked_data['minute'][ping_num],
+                             int(self.unpacked_data['second'][ping_num] +
+                                 self.unpacked_data['hundredths'][ping_num] / 100)).replace(tzinfo=timezone.utc)))
+        self.ping_time = ping_time
 
     @staticmethod
     def _calc_Sv_offset(f, pulse_length):
