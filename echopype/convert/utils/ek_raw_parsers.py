@@ -267,7 +267,7 @@ class SimradBottomParser(_SimradDatagramParser):
 
 class SimradAnnotationParser(_SimradDatagramParser):
     '''
-    ER60 NMEA datagram contains the following keys:
+    ER60 Annotation datagram contains the following keys:
 
 
         type:         string == 'TAG0'
@@ -378,10 +378,15 @@ class SimradNMEAParser(_SimradDatagramParser):
 
     def __init__(self):
         headers = {0: [('type', '4s'),
-                             ('low_date', 'L'),
-                             ('high_date', 'L')
-                            ]
-                        }
+                       ('low_date', 'L'),
+                       ('high_date', 'L')
+                       ],
+                   1: [('type', '4s'),
+                       ('low_date', 'L'),
+                       ('high_date', 'L'),
+                       ('port', '32s')
+                       ]
+                   }
 
         _SimradDatagramParser.__init__(self, "NME", headers)
 
@@ -407,7 +412,11 @@ class SimradNMEAParser(_SimradDatagramParser):
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['bytes_read'] = bytes_read
 
-        if version == 0:
+        # Remove trailing \x00 from the PORT field for NME1, rest of the datagram identical to NME0
+        if version == 1:
+            data['port'] = data['port'].strip('\x00')
+
+        if version == 0 or version == 1:
             if (sys.version_info.major > 2):
                 data['nmea_string'] = str(raw_string[self.header_size(version):].strip(b'\x00'), 'ascii', errors='replace')
             else:
