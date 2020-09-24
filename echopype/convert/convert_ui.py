@@ -2,6 +2,7 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
+import re
 import shutil
 import xarray as xr
 import netCDF4
@@ -73,7 +74,6 @@ class Convert:
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
         self.set_source(file, model, xml_path)
-        # TODO: INit filename source
 
     def __str__(self):
         """Overload the print function to allow user to print basic properties of this object.
@@ -91,7 +91,16 @@ class Convert:
         return self.__str__()
 
     def set_source(self, file, model, xml_path=None):
-        """Set source file and echosounder model.
+        """Set source and echosounder model
+
+        Parameters
+        ----------
+        file : str, list
+            A file or list of files to be converted
+        model : str
+            echosounder model. "AZFP", "EK60", or "EK80"
+        xml_path : str
+            path to xml file required for AZFP conversion
         """
         if file is None:
             return
@@ -195,8 +204,6 @@ class Convert:
         self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
         self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
-        if file_format == '.xml':
-            self.xml_path = self.output_file.copy()
 
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
@@ -232,27 +239,9 @@ class Convert:
                     overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files)
             sg.save()
 
-    def _check_param_consistency(self):
-        """Check consistency of key params so that xr.open_mfdataset() will work.
-        """
-        # TODO: need to figure out exactly what parameters to check.
-        #  These will be different for each echosounder model.
-        #  Can think about using something like
-        #  _check_tx_param_uniqueness() or _check_env_param_uniqueness() for EK60/EK80,
-        #  and _check_uniqueness() for AZFP.
-        # if self.sonar_model == 'EK60':
-        #     pass
-        # elif self.sonar_model == 'EK80':
-        #     pass
-        # elif self.sonar_model == 'AZFP':
-        #     parser._check_uniqueness()
-
-        # Check EK80 filter coefficients and do not combine if not the same
-
-        return True
-
     @staticmethod
     def _remove(path):
+        """Used to delete .nc or .zarr files"""
         fname, ext = os.path.splitext(path)
         if ext == '.zarr':
             shutil.rmtree(path)
@@ -265,10 +254,8 @@ class Convert:
             self.output_file = self.output_file[0]
             self.nc_path = self.nc_path[0]
             self.zarr_path = self.zarr_path[0]
-            if hasattr(self, 'xml_path'):
-                self.xml_path = self.xml_path[0]
 
-    def combine_files(self, src_files=None, save_path=None, remove_orig=False, check_consistency=True):
+    def combine_files(self, src_files=None, save_path=None, remove_orig=False):
         """Combine output files when self.combine=True.
 
         Parameters
@@ -280,9 +267,6 @@ class Convert:
         remove_orig : bool
             Whether or not to remove the files in ``src_files``
             Defaults to ``False``
-        check_consistency : bool
-            Whether or not to enforce the consistency of certain parameters.
-            Defaults to ``True``
 
         Returns
         -------
@@ -290,9 +274,6 @@ class Convert:
         """
         if len(self.source_file) < 2:
             print("Combination did not occur as there is only 1 source file")
-            return False
-        if not self._check_param_consistency():
-            print("Combination did not occur as there are inconsistent parameters")
             return False
 
         def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
@@ -310,28 +291,6 @@ class Convert:
             else:
                 combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
             return combined
-
-        def open_mfnc(files, group, combine='by_coords', data_vars='minimal',
-                      concat_dim='time', decode_times=False, compat='no_conflicts'):
-            # Wrapper function for open_mfdataset used for checking parameter consistency
-            # Check if filter coefficients change
-            if group == 'Vendor':
-                filter_coeffs = []
-                for f in files:
-                    with xr.open_dataset(f, group='Vendor') as ds:
-                        filter_coeffs.append(ds)
-                try:
-                    [xr.testing.assert_equal(filter_coeffs[0], b) for b in filter_coeffs[1:]]
-                except AssertionError:
-                    raise ValueError("Filter coefficients must be the same across files to be combined")
-            return
-            # Return combined data
-            if combine == 'by_coords':
-                return xr.open_mfdataset(files, group=group, combine='by_coords',
-                                         data_vars=data_vars, compat=compat, decode_times=False)
-            else:
-                return xr.open_mfdataset(files, combine='nested', concat_dim=concat_dim,
-                                         data_vars=data_vars, decode_times=False)
 
         def set_open_dataset(ext):
             if ext == '.nc':
@@ -383,11 +342,13 @@ class Convert:
             for f in files:
                 with _open_dataset(f, group='Vendor') as ds:
                     filter_coeffs.append(ds)
-            if all([filter_coeffs[0].equals(b) for b in filter_coeffs[1:]]):
-                del filter_coeffs
-                return
-            else:
-                raise ValueError("Filter coefficients must be the same across files to be combined")
+            # Check to see if filter coefficients change across files. Raise error if it does
+            try:
+                xr.merge(filter_coeffs, combine_attrs='identical')
+            except xr.MergeError:
+                raise ValueError("Filter coefficients must be the same across the files being combined")
+            del filter_coeffs
+            return True
 
         def split_into_groups(files):
             # Sorts the cw and bb files from EK80 into groups
@@ -404,9 +365,9 @@ class Convert:
 
         print('combining files...')
         src_files = self.output_file if src_files is None else src_files
+        file_groups = [src_files]
         ext = '.nc'
         if self.sonar_model == 'EK80':
-            bb = True
             file_groups = split_into_groups(src_files + self.extra_files)
         if save_path is None:
             fname, ext = os.path.splitext(src_files[0])
@@ -425,20 +386,9 @@ class Convert:
         _open_dataset = set_open_dataset(ext)
         _open_mfdataset = set_open_mfdataset(ext)
 
-        # TODO remove debug lines below
-        # file_groups = [['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113.zarr',
-        #                 './echopype/test_data/ek80/export/Summer2018--D20180905-T033258.zarr'],
-        #                ['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113_cw.zarr',
-        #                 './echopype/test_data/ek80/export/Summer2018--D20180905-T033258_cw.zarr']]
-        file_groups = [['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113.nc',
-                        './echopype/test_data/ek80/export/Summer2018--D20180905-T033258.nc'],
-                       ['./echopype/test_data/ek80/export/Summer2018--D20180905-T033113_cw.nc',
-                        './echopype/test_data/ek80/export/Summer2018--D20180905-T033258_cw.nc']]
-
         for i, file_group in enumerate(file_groups):
             # Append '_cw' to EK80 filepath if combining CW files
             if i == 1:
-                bb = False
                 fname, ext = os.path.splitext(save_path)
                 save_path = fname + '_cw' + ext
             # Open multiple files as one dataset of each group and save them into a single file
@@ -452,9 +402,13 @@ class Convert:
             with _open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 _save(ext, ds_sonar, save_path, 'a', group='Sonar')
             # Combine Beam
-            with _open_mfdataset(file_group, group='Beam', decode_times=False,
-                                 combine='by_coords', data_vars='minimal') as ds_beam:
-                _save(ext, ds_beam, save_path, 'a', group='Beam')
+            try:
+                with _open_mfdataset(file_group, group='Beam', decode_times=False,
+                                     combine='by_coords', data_vars='minimal') as ds_beam:
+                    _save(ext, ds_beam, save_path, 'a', group='Beam')
+            except xr.MergeError as e:
+                var = re.findall(r"('[^']*')", str(e))[0]
+                raise ValueError(f"Files cannot be combined due to {var} changing across the files")
             # Combine Environment
             # AZFP environment changes as a function of ping time
             if self.sonar_model == 'AZFP':
@@ -487,14 +441,10 @@ class Convert:
                                      combine='nested', concat_dim='time') as ds_nmea:
                     _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
             if self.sonar_model == 'EK80':
-                if check_consistency and bb:
-                    check_vendor_consistency(file_group)
-                # Save filter coefficients in EK80
-                if ext == '.zarr':
+                if check_vendor_consistency(file_group):
+                    # Save filter coefficients in EK80
                     with _open_dataset(file_group[0], group='Vendor') as ds_vend:
                         _save(ext, ds_vend, save_path, 'a', group='Vendor')
-                else:
-                    copy_vendor(file_group[0], save_path)
 
         # Delete files after combining
         if remove_orig:
@@ -502,7 +452,8 @@ class Convert:
                 self._remove(f)
         return True
 
-    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, overwrite=True, combine=False, parallel=False):
+    def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
+                  overwrite=False, combine=False, parallel=False):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
@@ -517,7 +468,7 @@ class Convert:
             Defaults to ``True``
         overwrite : bool
             whether or not to overwrite existing files
-            Defaults to ``True``
+            Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
         """
@@ -556,7 +507,7 @@ class Convert:
             Defaults to ``True``
         overwrite : bool
             whether or not to overwrite existing files
-            Defaults to ``True``
+            Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
 
