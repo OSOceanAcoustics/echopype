@@ -32,7 +32,7 @@ FILENAME_MATCHER_STR = '(?P<survey>.+)?-?D(?P<date>\w{1,8})-T(?P<time>\w{1,6})-?
 class ConvertEK80(ConvertBase):
     """Class for converting EK80 ``.raw`` files.
     """
-    def __init__(self, _filename="", regex=FILENAME_MATCHER_STR):
+    def __init__(self, _filename="", regex=FILENAME_MATCHER_STR, nmea_gps_sentence='GGA'):
         ConvertBase.__init__(self)
         self.filename = _filename  # path to EK60 .raw filename to be parsed
 
@@ -53,6 +53,7 @@ class ConvertEK80(ConvertBase):
         self.ch_ids = []                      # List of all channel ids
         self.recorded_ch_ids = []
         self.timestamp_pattern = re.compile(regex)
+        self.nmea_gps_sentence = nmea_gps_sentence  # select GPS datagram in _set_platform_dict()
         self._water_level = None
 
     @property
@@ -299,7 +300,12 @@ class ConvertEK80(ConvertBase):
                   'set to None')
 
         # Read lat/long from NMEA datagram
-        idx_loc = np.argwhere(np.isin(self.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+        # TODO: Initally we select: ['GGA', 'GLL', 'RMC']
+        #  but found GLL has low precision in hake survey EK60 data.
+        #  Need more investigation on other data sources.
+        idx_loc = np.argwhere(np.isin(self.nmea_data.messages, self.nmea_gps_sentence)).squeeze()
+        if idx_loc.size == 1:
+            idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
         out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
