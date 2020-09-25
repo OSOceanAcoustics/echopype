@@ -27,8 +27,8 @@ def test_noise_estimates_removal():
 
     # Noise estimation via Process method =========
     # Unpack data and convert to .nc file
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
     e_data = Process(nc_path)
@@ -115,8 +115,8 @@ def test_noise_estimates_removal():
 
 
 def test_calibration_ek60_echoview():
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
     e_data = Process(nc_path)
@@ -134,8 +134,8 @@ def test_calibrate():
     # General calibration test
 
     # Use raw files for environment parameters
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc(overwrite=True)
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf(overwrite=True)
     # Overwrite beam group with array of 1
     with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
         backscatter_r = np.full_like(ds_beam.backscatter_r, 1)
