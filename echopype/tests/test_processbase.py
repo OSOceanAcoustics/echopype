@@ -1,15 +1,15 @@
 import os
 import numpy as np
 import xarray as xr
-from ..convert.ek60 import ConvertEK60
+from ..convert import Convert
 from ..process import Process
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 
 
 def test_validate_path():
     # Create process object
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.raw2nc(overwrite=True)
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf(overwrite=True)
     e_data = Process(tmp.nc_path)
 
     # Create save folder
@@ -35,8 +35,8 @@ def test_validate_path():
 
 def test_get_tile_params():
     # Create process object
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
     e_data = Process(tmp.nc_path)
 
     # Create sample DataArray
@@ -70,8 +70,8 @@ def test_get_tile_params():
 
 def test_get_proc_Sv():
     # Create process object
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
     e_data = Process(tmp.nc_path)
 
     e_data.calibrate(save=True)
@@ -96,8 +96,8 @@ def test_get_proc_Sv():
 
 def test_remove_noise():
     # Create process object
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
     e_data = Process(tmp.nc_path)
     freq, npings, nrange = [100000], 2, 100
     ping_index = np.arange(npings)
@@ -135,8 +135,8 @@ def test_remove_noise():
 
 def test_get_MVBS():
     # Create process object
-    tmp = ConvertEK60(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
     e_data = Process(tmp.nc_path)
     nfreq, npings, nrange = 2, 10, 100
     data = np.ones((nfreq, npings, nrange))

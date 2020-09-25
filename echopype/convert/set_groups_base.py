@@ -1,115 +1,129 @@
-from __future__ import absolute_import, division, print_function
 import os
-import numpy as np
-import netCDF4
-import zarr
+from datetime import datetime as dt
 import xarray as xr
+import numpy as np
+import zarr
+import netCDF4
+from .._version import get_versions
+ECHOPYPE_VERSION = get_versions()['version']
+del get_versions
+
+NETCDF_COMPRESSION_SETTINGS = {'zlib': True, 'complevel': 4}
+ZARR_COMPRESSION_SETTINGS = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
 
 
 class SetGroupsBase:
-    """Base class for setting groups in netCDF file.
+    """Base class for saving groups to netcdf or zarr from echosounder data files.
     """
-
-    def __init__(self, file_path='test.nc', compress=True, append_zarr=False):
-        self.file_path = file_path
-        filename, ext = os.path.splitext(file_path)
-        self.format = ext
+    def __init__(self, convert_obj, input_file, output_path,
+                 save_ext='.nc', compress=True, overwrite=True, params=None, extra_files=None):
+        self.convert_obj = convert_obj   # a convert object ConvertEK60/ConvertAZFP/etc...
+        self.input_file = input_file
+        self.output_path = output_path
+        self.save_ext = save_ext
         self.compress = compress
-        self.append_zarr = append_zarr
+        self.overwrite = overwrite
+        self.ui_param = params
+        self.extra_files = extra_files
+        self.NETCDF_COMPRESSION_SETTINGS = NETCDF_COMPRESSION_SETTINGS
+        self.ZARR_COMPRESSION_SETTINGS = ZARR_COMPRESSION_SETTINGS
 
-    def set_toplevel(self, tl_dict):
-        """Set attributes in the Top-level group."""
-        if self.format == '.nc':
-            with netCDF4.Dataset(self.file_path, "w", format="NETCDF4") as ncfile:
+    def save(self):
+        """Actually save groups to file by calling the set methods.
+        """
+
+    def set_toplevel(self, sonar_model):
+        """Set the top-level group.
+        """
+        # Capture datetime from filename
+        # timestamp_pattern = re.compile(self.convert_obj.timestamp_pattern)
+        # raw_date_time = timestamp_pattern.match(os.path.basename(self.input_file))
+        # filedate = raw_date_time['date']
+        # filetime = raw_date_time['time']
+        # date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
+
+        # Collect variables
+        date_created = self.convert_obj.ping_time[0]
+
+        tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
+                   'keywords': sonar_model,
+                   'sonar_convention_authority': 'ICES',
+                   'sonar_convention_name': 'SONAR-netCDF4',
+                   'sonar_convention_version': '1.0',
+                   'summary': '',
+                   'title': '',
+                   'date_created': np.datetime_as_string(date_created, 's') + 'Z',
+                   'survey_name': self.ui_param['survey_name']}
+        # Add any extra user defined values
+        for k, v in list(self.ui_param.items())[5:]:
+            tl_dict[k] = v
+
+        # Save
+        if self.save_ext == '.nc':
+            with netCDF4.Dataset(self.output_path, "w", format="NETCDF4") as ncfile:
                 [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
-        elif self.format == '.zarr':
-            # Do not save toplevel if appending
-            if not self.append_zarr:
-                zarrfile = zarr.open(self.file_path, mode="w")
-                for k, v in tl_dict.items():
-                    zarrfile.attrs[k] = v
+        elif self.save_ext == '.zarr':
+            zarrfile = zarr.open(self.output_path, mode="w")
+            for k, v in tl_dict.items():
+                zarrfile.attrs[k] = v
         else:
             raise ValueError("Unsupported file format")
 
-    def set_provenance(self, prov_dict):
-        """Set the Provenance group in the nc file.
-
-        Parameters
-        ----------
-        prov_dict
-            dictionary containing file conversion parameters
-                          prov_dict['conversion_software_name']
-                          prov_dict['conversion_software_version']
-                          prov_dict['conversion_time']
+    def set_provenance(self):
+        """Set the Provenance group.
         """
-        src_filenames = prov_dict.pop('src_filenames')
-        # Save the source filenames as a data variable
-        ds = xr.Dataset(
-            {
-                'filenames': ('file_num', src_filenames, {'long_name': 'Source filenames'})
-            },
-            coords={'file_num': np.arange(len(src_filenames))},
-        )
+        # Collect variables
+        prov_dict = {'conversion_software_name': 'echopype',
+                     'conversion_software_version': ECHOPYPE_VERSION,
+                     'conversion_time': dt.utcnow().isoformat(timespec='seconds') + 'Z',    # use UTC time
+                     'src_filenames': self.input_file}
+        # Save
+        if self.save_ext == '.nc':
+            with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
+                prov = ncfile.createGroup("Provenance")
+                [prov.setncattr(k, v) for k, v in prov_dict.items()]
+        elif self.save_ext == '.zarr':
+            zarr_file = zarr.open(self.output_path, mode="a")
+            prov = zarr_file.create_group('Provenance')
+            for k, v in prov_dict.items():
+                prov.attrs[k] = v
+        else:
+            raise ValueError("Unsupported file format")
 
-        # Save all attributes
-        for k, v in prov_dict.items():
-            ds.attrs[k] = v
-
-        # save to file
-        if self.format == '.nc':
-            ds.to_netcdf(path=self.file_path, mode='a', group='Provenance')
-        elif self.format == '.zarr':
-            # Do not save provenance group if appending
-            if not self.append_zarr:
-                ds.to_zarr(store=self.file_path, mode='a', group='Provenance')
-
-    def set_sonar(self, sonar_dict):
-        """Set the Sonar group in the nc file.
-
-        Parameters
-        ----------
-        sonar_dict
-            dictionary containing sonar parameters
+    def set_sonar(self, sonar_vals):
+        """Set the Sonar group.
         """
-        # create group
-        if self.format == '.nc':
-            ncfile = netCDF4.Dataset(self.file_path, "a", format="NETCDF4")
-            snr = ncfile.createGroup("Sonar")
+        # Collect variables
+        sonar_dict = dict(zip(('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
+                               'sonar_software_name', 'sonar_software_version', 'sonar_type'), sonar_vals))
 
-            # set group attributes
+        # Save variables
+        if self.save_ext == '.nc':
+            with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
+                snr = ncfile.createGroup("Sonar")
+                # set group attributes
+                [snr.setncattr(k, v) for k, v in sonar_dict.items()]
+
+        elif self.save_ext == '.zarr':
+            zarrfile = zarr.open(self.output_path, mode='a')
+            snr = zarrfile.create_group('Sonar')
+
             for k, v in sonar_dict.items():
-                snr.setncattr(k, v)
+                snr.attrs[k] = v
 
-            # close nc file
-            ncfile.close()
-        elif self.format == '.zarr':
-            # Do not save sonar group if appending
-            if not self.append_zarr:
-                zarrfile = zarr.open(self.file_path, mode='a')
-                snr = zarrfile.create_group('Sonar')
-
-                for k, v in sonar_dict.items():
-                    snr.attrs[k] = v
-
-    def set_nmea(self, nmea_dict):
-        """Set the Platform/NMEA group in the nc file.
-
-        Parameters
-        ----------
-        nmea_dict
-            dictionary containing platform parameters
+    def set_nmea(self):
+        """Set the Platform/NMEA group.
         """
-        # Only save platform group if file_path exists
-        save_path = nmea_dict['path'] if 'path' in nmea_dict else self.file_path
-        if not os.path.exists(save_path):
+
+        if not os.path.exists(self.output_path):
             print('netCDF file does not exist, exiting without saving Platform group...')
         else:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            time = (nmea_dict['nmea_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                   / np.timedelta64(1, 's')
+            time = (self.convert_obj.nmea_data.nmea_times -
+                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
             ds = xr.Dataset(
-                {'NMEA_datagram': (['time'], nmea_dict['nmea_datagram'],
+                {'NMEA_datagram': (['time'], self.convert_obj.nmea_data.raw_datagrams,
                                    {'long_name': 'NMEA datagram'})
                  },
                 coords={'time': (['time'], time,
@@ -120,32 +134,10 @@ class SetGroupsBase:
                                   'units': 'seconds since 1900-01-01'})},
                 attrs={'description': 'All NMEA sensor datagrams'})
 
-            # Splits up the time dimension. Used for when range bin length varies with time
-            if 'ping_slice' in nmea_dict:
-                # Slice using ping_time which does not map perfectly with nmea_time.
-                # Rounds ping_time slice values to nmea_time
-                lower = (nmea_dict['ping_slice'][0] - np.datetime64('1900-01-01T00:00:00')) \
-                            / np.timedelta64(1, 's')
-                lower =  time[(np.abs(time - lower)).argmin()]
-                upper = (nmea_dict['ping_slice'][-1] - np.datetime64('1900-01-01T00:00:00')) \
-                            / np.timedelta64(1, 's')
-                upper =  time[(np.abs(time - upper)).argmin()]
-                ds = ds.sel(time=slice(lower, upper))
-
-            # Configure compression settings
-            nc_encoding = {}
-            zarr_encoding = {}
-            if self.compress:
-                nc_settings = dict(zlib=True, complevel=4)
-                nc_encoding = {var: nc_settings for var in ds.data_vars}
-                zarr_settings = dict(compressor=zarr.Blosc(cname='zstd', clevel=3, shuffle=2))
-                zarr_encoding = {var: zarr_settings for var in ds.data_vars}
-
             # save to file
-            if self.format == '.nc':
-                ds.to_netcdf(path=save_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
-            elif self.format == '.zarr':
-                if not self.append_zarr:
-                    ds.to_zarr(store=save_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
-                else:
-                    ds.to_zarr(store=save_path, mode='a', group='Platform/NMEA', append_dim='time')
+            if self.save_ext == '.nc':
+                nc_encoding = {'time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
+                ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
+            elif self.save_ext == '.zarr':
+                zarr_encoding = {'time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
+                ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
