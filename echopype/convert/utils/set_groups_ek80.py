@@ -56,9 +56,9 @@ class SetGroupsEK80(SetGroupsBase):
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             mru_time = (platform_dict['mru_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                / np.timedelta64(1, 's')
+                / np.timedelta64(1, 's') if not np.all(np.isnan(platform_dict['mru_time'])) else [np.nan]
             location_time = (platform_dict['location_time'] - np.datetime64('1900-01-01T00:00:00')) \
-                / np.timedelta64(1, 's')
+                / np.timedelta64(1, 's') if not np.all(np.isnan(platform_dict['location_time'])) else [np.nan]
 
             ds = xr.Dataset(
                 {'pitch': (['mru_time'], platform_dict['pitch'],
@@ -392,8 +392,13 @@ class SetGroupsEK80(SetGroupsBase):
                     var[:] = data
                 for k, v in vendor_dict['decimation_factors'].items():
                     vdr.setncattr(k, v)
+                # Save xml string
+                vdr.setncattr('xml', vendor_dict['xml'])
             elif self.format == '.zarr':
-                ds = xr.Dataset(vendor_dict['filter_coefficients'])
-                for k, v in vendor_dict['decimation_factors'].items():
-                    ds.attrs[k] = v
-                ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
+                # Only save vendor group if not appending to an existing .zarr file
+                if not self.append_zarr:
+                    ds = xr.Dataset(vendor_dict['filter_coefficients'])
+                    ds.attrs['xml'] = vendor_dict['xml']
+                    for k, v in vendor_dict['decimation_factors'].items():
+                        ds.attrs[k] = v
+                    ds.to_zarr(store=self.file_path, mode='a', group='Vendor')
