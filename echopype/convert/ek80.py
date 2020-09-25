@@ -54,6 +54,15 @@ class ConvertEK80(ConvertBase):
         self.recorded_ch_ids = []
         self.timestamp_pattern = re.compile(regex)
         self.nmea_gps_sentence = nmea_gps_sentence  # select GPS datagram in _set_platform_dict()
+        self._water_level = None
+
+    @property
+    def water_level(self):
+        return self._water_level
+
+    @water_level.setter
+    def water_level(self, water_level):
+        self._water_level = water_level
 
     def _read_datagrams(self, fid):
         """
@@ -164,7 +173,6 @@ class ConvertEK80(ConvertBase):
             raw filename
         """
         print('%s  converting file: %s' % (dt.now().strftime('%H:%M:%S'), os.path.basename(raw)))
-
         with RawSimradFile(raw, 'r') as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
@@ -278,12 +286,13 @@ class ConvertEK80(ConvertBase):
         out_dict['platform_code_ICES'] = self.platform_code_ICES
 
         # Read pitch/roll/heave from ping data
-        out_dict['mru_time'] = self.mru_data['timestamp']  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
-        out_dict['pitch'] = np.array(self.mru_data['pitch'])
-        out_dict['roll'] = np.array(self.mru_data['roll'])
-        out_dict['heave'] = np.array(self.mru_data['heave'])
-        # TODO: we need a method for user to set water_level before conversion
-        if 'water_level_draft' in self.environment:
+        out_dict['mru_time'] = np.array(self.mru_data.get('timestamp', [np.nan]))  # [seconds since 1900-01-01] for xarray.to_netcdf conversion
+        out_dict['pitch'] = np.array(self.mru_data.get('pitch', [np.nan]))
+        out_dict['roll'] = np.array(self.mru_data.get('roll', [np.nan]))
+        out_dict['heave'] = np.array(self.mru_data.get('heave', [np.nan]))
+        if self.water_level is not None:
+            out_dict['water_level'] = self.water_level
+        elif 'water_level_draft' in self.environment:
             out_dict['water_level'] = self.environment['water_level_draft']
         else:
             out_dict['water_level'] = None
@@ -299,9 +308,10 @@ class ConvertEK80(ConvertBase):
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
-        out_dict['lat'] = np.array([x.latitude for x in nmea_msg])
-        out_dict['lon'] = np.array([x.longitude for x in nmea_msg])
-        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
+        out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['lon'] = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc] if nmea_msg else [np.nan]
+
         return out_dict
 
     def _set_nmea_dict(self):
@@ -493,6 +503,7 @@ class ConvertEK80(ConvertBase):
             decimation_factors[f'{ch}_PC_decimation'] = self.fil_df[ch][2]
         out_dict['filter_coefficients'] = coeffs
         out_dict['decimation_factors'] = decimation_factors
+        out_dict['xml'] = self.config_datagram['xml']
 
         return out_dict
 
@@ -671,3 +682,20 @@ class ConvertEK80(ConvertBase):
                 self._export_zarr(save_settings, file_idx)
         if combine_opt and file_format == '.nc':
             self._combine_files()
+
+    def export_xml(self):
+        """ Exports the configuration data as an xml file in the same directory as the data files.
+        """
+        def write_str(file):
+            xml_str = self.config_datagram['xml']
+            xml_path = file[:-3] + 'xml'
+            with open(xml_path, 'w') as xml_file:
+                xml_file.write(xml_str)
+
+        if self.config_datagram is not None:
+            write_str(self.filename[-1])
+        else:
+            for filename in self.filename:
+                self.reset_vars('EK80')
+                self.load_ek80_raw(filename)
+                write_str(filename)
