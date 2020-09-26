@@ -8,9 +8,9 @@ import xarray as xr
 import netCDF4
 import numpy as np
 import dask
-from .azfp import ParseAZFP
-from .ek60 import ParseEK60
-from .ek80 import ParseEK80
+from .parse_azfp import ParseAZFP
+from .parse_ek60 import ParseEK60
+from .parse_ek80 import ParseEK80
 from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
@@ -150,12 +150,15 @@ class Convert:
     def set_param(self, param_dict):
         """Allow users to set, ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
         and ```survey_name`` to be saved during the conversion. Extra values are saved to the top level.
+        ```nmea_gps_sentence``` can be specified to save specific messages in a nmea string.
+        nmea sentence Defaults to 'GGA'. Originally ['GGA', 'GLL', 'RMC'].
         """
         # Platform
         self._conversion_params['platform_name'] = param_dict.get('platform_name', '')
         self._conversion_params['platform_code_ICES'] = param_dict.get('platform_code_ICES', '')
         self._conversion_params['platform_type'] = param_dict.get('platform_type', '')
         self._conversion_params['water_level'] = param_dict.get('water_level', None)
+        self._conversion_params['nmea_gps_sentence'] = param_dict.get('nmea_gps_sentence', 'GGA')
         # Top level
         self._conversion_params['survey_name'] = param_dict.get('survey_name', '')
         for k, v in param_dict.items():
