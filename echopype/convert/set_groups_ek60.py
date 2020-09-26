@@ -87,11 +87,15 @@ class SetGroupsEK60(SetGroupsBase):
         else:
             # Collect variables
             # Read lat/long from NMEA datagram
-            idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+            idx_loc = np.reshape(np.argwhere(np.isin(self.convert_obj.nmea_data.messages,
+                                                     self.ui_param['nmea_gps_sentence'])).squeeze(), (-1))
             nmea_msg = []
             [nmea_msg.append(pynmea2.parse(self.convert_obj.nmea_data.raw_datagrams[x])) for x in idx_loc]
-            lat = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
-            lon = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
+            lat = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
+                           for x in nmea_msg]) if nmea_msg else [np.nan]
+            lon = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
+                           for x in nmea_msg]) if nmea_msg else [np.nan]
+
             location_time = (self.convert_obj.nmea_data.nmea_times[idx_loc] -
                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
 

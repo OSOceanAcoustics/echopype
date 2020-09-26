@@ -90,9 +90,14 @@ class SetGroupsEK80(SetGroupsBase):
                 print('WARNING: The water_level_draft was not in the file. Value '
                       'set to None')
 
-            idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages, ['GGA', 'GLL', 'RMC'])).squeeze()
+            idx_loc = np.reshape(np.argwhere(np.isin(self.convert_obj.nmea_data.messages,
+                                                     self.ui_param['nmea_gps_sentence'])).squeeze(), (-1))
             nmea_msg = []
             [nmea_msg.append(pynmea2.parse(self.convert_obj.nmea_data.raw_datagrams[x])) for x in idx_loc]
+            lat = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
+                           for x in nmea_msg]) if nmea_msg else [np.nan]
+            lon = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
+                           for x in nmea_msg]) if nmea_msg else [np.nan]
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
@@ -117,12 +122,12 @@ class SetGroupsEK80(SetGroupsBase):
                             'standard_name': 'platform_heave_angle',
                             'units': 'arc_degree',
                             'valid_range': (-90.0, 90.0)}),
-                 'latitude': (['location_time'], np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan],
+                 'latitude': (['location_time'], lat,
                               {'long_name': 'Platform latitude',
                                'standard_name': 'latitude',
                                'units': 'degrees_north',
                                'valid_range': (-90.0, 90.0)}),
-                 'longitude': (['location_time'], np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan],
+                 'longitude': (['location_time'], lon,
                                {'long_name': 'Platform longitude',
                                 'standard_name': 'longitude',
                                 'units': 'degrees_east',
