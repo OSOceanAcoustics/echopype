@@ -6,7 +6,7 @@ from datetime import timezone
 import math
 import numpy as np
 import os
-from .convertbase import ParseBase
+from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = '\\w+.01A'
 
