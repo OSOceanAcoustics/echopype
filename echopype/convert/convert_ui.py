@@ -2,13 +2,18 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
+import re
 import shutil
 import xarray as xr
 import netCDF4
 import numpy as np
 import dask
-from .convertbase_new import ParseEK60, ParseEK80, ParseAZFP
-from .utils.setgroups_new import SetGroupsEK60, SetGroupsEK80, SetGroupsAZFP
+from .azfp import ParseAZFP
+from .ek60 import ParseEK60
+from .ek80 import ParseEK80
+from .set_groups_azfp import SetGroupsAZFP
+from .set_groups_ek60 import SetGroupsEK60
+from .set_groups_ek80 import SetGroupsEK80
 
 
 class Convert:
@@ -73,7 +78,6 @@ class Convert:
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
         self.set_source(file, model, xml_path)
-        # TODO: INit filename source
 
     def __str__(self):
         """Overload the print function to allow user to print basic properties of this object.
@@ -91,7 +95,16 @@ class Convert:
         return self.__str__()
 
     def set_source(self, file, model, xml_path=None):
-        """Set source file and echosounder model.
+        """Set source and echosounder model
+
+        Parameters
+        ----------
+        file : str, list
+            A file or list of files to be converted
+        model : str
+            echosounder model. "AZFP", "EK60", or "EK80"
+        xml_path : str
+            path to xml file required for AZFP conversion
         """
         if file is None:
             return
@@ -164,7 +177,8 @@ class Convert:
         # Default output directory taken from first input file
         self.out_dir = os.path.dirname(filenames[0])
         if save_path is not None:
-            fname, path_ext = os.path.splitext(save_path)
+            dirname, fname = os.path.split(save_path)
+            basename, path_ext = os.path.splitext(fname)
             if path_ext != file_format and path_ext != '':
                 raise ValueError("Saving {file_format} file but save path is to a {path_ext} file")
             if path_ext != '.nc' and path_ext != '.zarr' and path_ext != '.xml' and path_ext != '':
@@ -173,7 +187,8 @@ class Convert:
             if path_ext == '':   # if a directory
                 self.out_dir = save_path
             elif len(filenames) == 1:
-                self.out_dir = os.path.dirname(save_path)
+                if dirname != '':
+                    self.out_dir = dirname
             else:  # if a file
                 raise ValueError("save_path must be a directory")
 
@@ -186,15 +201,13 @@ class Convert:
                 raise ValueError("A valid save directory was not given.")
 
         # Store output filenames
-        if save_path is not None and os.path.isdir(save_path):
-            files = [os.path.basename(fname)]
+        if save_path is not None and not os.path.isdir(save_path):
+            files = [os.path.basename(basename)]
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
         self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
-        if file_format == '.xml':
-            self.xml_path = self.output_file.copy()
 
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
@@ -230,26 +243,9 @@ class Convert:
                     overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files)
             sg.save()
 
-    def _check_param_consistency(self):
-        """Check consistency of key params so that xr.open_mfdataset() will work.
-        """
-        # TODO: need to figure out exactly what parameters to check.
-        #  These will be different for each echosounder model.
-        #  Can think about using something like
-        #  _check_tx_param_uniqueness() or _check_env_param_uniqueness() for EK60/EK80,
-        #  and _check_uniqueness() for AZFP.
-        # if self.sonar_model == 'EK60':
-        #     pass
-        # elif self.sonar_model == 'EK80':
-        #     pass
-        # elif self.sonar_model == 'AZFP':
-        #     parser._check_uniqueness()
-
-        # Check EK80 filter coefficients and do not combine if not the same
-        return True
-
     @staticmethod
     def _remove(path):
+        """Used to delete .nc or .zarr files"""
         fname, ext = os.path.splitext(path)
         if ext == '.zarr':
             shutil.rmtree(path)
@@ -283,22 +279,21 @@ class Convert:
         if len(self.source_file) < 2:
             print("Combination did not occur as there is only 1 source file")
             return False
-        if not self._check_param_consistency():
-            print("Combination did not occur as there are inconsistent parameters")
-            return False
 
-        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal', concat_dim='time', decode_times=False):
-            def modify(task):
+        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
+                        concat_dim='time', decode_times=False, compat='no_conflicts'):
+            def modify(task, group):
                 return task
-            # this is basically what open_mfdataset does
+            # This is basically what open_mfdataset does
             open_kwargs = dict(decode_cf=True, decode_times=decode_times)
             open_tasks = [dask.delayed(xr.open_zarr)(f, group=group, **open_kwargs) for f in files]
-            tasks = [dask.delayed(modify)(task) for task in open_tasks]
+            tasks = [dask.delayed(modify)(task, group) for task in open_tasks]
             datasets = dask.compute(tasks)  # get a list of xarray.Datasets
+            # Return combined data
             if combine == 'by_coords':
-                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars)  # or some combination of concat, merge
+                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars, compat=compat)
             else:
-                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)  # or some combination of concat, merge
+                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
             return combined
 
         def set_open_dataset(ext):
@@ -322,6 +317,7 @@ class Convert:
 
         def copy_vendor(src_file, trg_file):
             # Utility function for copying the filter coefficients from one file into another
+            # Necessary because xarray cannot save complex values to NetCDF
             src = netCDF4.Dataset(src_file)
             trg = netCDF4.Dataset(trg_file, mode='a')
             ds_vend = src.groups['Vendor']
@@ -345,6 +341,19 @@ class Convert:
             src.close()
             trg.close()
 
+        def check_vendor_consistency(files):
+            filter_coeffs = []
+            for f in files:
+                with _open_dataset(f, group='Vendor') as ds:
+                    filter_coeffs.append(ds)
+            # Check to see if filter coefficients change across files. Raise error if it does
+            try:
+                xr.merge(filter_coeffs, combine_attrs='identical')
+            except xr.MergeError:
+                raise ValueError("Filter coefficients must be the same across the files being combined")
+            del filter_coeffs
+            return True
+
         def split_into_groups(files):
             # Sorts the cw and bb files from EK80 into groups
             if self.sonar_model == 'EK80':
@@ -360,6 +369,7 @@ class Convert:
 
         print('combining files...')
         src_files = self.output_file if src_files is None else src_files
+        file_groups = [src_files]
         ext = '.nc'
         if self.sonar_model == 'EK80':
             file_groups = split_into_groups(src_files + self.extra_files)
@@ -396,9 +406,13 @@ class Convert:
             with _open_dataset(file_group[0], group='Sonar') as ds_sonar:
                 _save(ext, ds_sonar, save_path, 'a', group='Sonar')
             # Combine Beam
-            with _open_mfdataset(file_group, group='Beam', decode_times=False,
-                                 combine='by_coords', data_vars='minimal') as ds_beam:
-                _save(ext, ds_beam, save_path, 'a', group='Beam')
+            try:
+                with _open_mfdataset(file_group, group='Beam', decode_times=False,
+                                     combine='by_coords', data_vars='minimal') as ds_beam:
+                    _save(ext, ds_beam, save_path, 'a', group='Beam')
+            except xr.MergeError as e:
+                var = re.findall(r"('[^']*')", str(e))[0]
+                raise ValueError(f"Files cannot be combined due to {var} changing across the files")
             # Combine Environment
             # AZFP environment changes as a function of ping time
             if self.sonar_model == 'AZFP':
@@ -431,12 +445,10 @@ class Convert:
                                      combine='nested', concat_dim='time') as ds_nmea:
                     _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
             if self.sonar_model == 'EK80':
-                # Save filter coefficients in EK80
-                if ext == '.zarr':
+                if check_vendor_consistency(file_group):
+                    # Save filter coefficients in EK80
                     with _open_dataset(file_group[0], group='Vendor') as ds_vend:
                         _save(ext, ds_vend, save_path, 'a', group='Vendor')
-                else:
-                    copy_vendor(file_group[0], save_path)
 
         # Delete files after combining
         if remove_orig:
@@ -444,7 +456,8 @@ class Convert:
                 self._remove(f)
         return True
 
-    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, overwrite=True, combine=False, parallel=False):
+    def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
+                  overwrite=False, combine=False, parallel=False):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
@@ -459,7 +472,7 @@ class Convert:
             Defaults to ``True``
         overwrite : bool
             whether or not to overwrite existing files
-            Defaults to ``True``
+            Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
         """
@@ -498,7 +511,7 @@ class Convert:
             Defaults to ``True``
         overwrite : bool
             whether or not to overwrite existing files
-            Defaults to ``True``
+            Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
 
@@ -547,3 +560,4 @@ class Convert:
             with open(self.output_file[i], 'w') as xml_file:
                 data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
                 xml_file.write(data)
+        self._path_list_to_str()
