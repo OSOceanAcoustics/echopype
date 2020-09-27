@@ -300,17 +300,18 @@ class ConvertEK80(ConvertBase):
                   'set to None')
 
         # Read lat/long from NMEA datagram
-        # TODO: Initally we select: ['GGA', 'GLL', 'RMC']
-        #  but found GLL has low precision in hake survey EK60 data.
-        #  Need more investigation on other data sources.
+        # Only use messages specified in self.nmea_gps_sentence
         idx_loc = np.argwhere(np.isin(self.nmea_data.messages, self.nmea_gps_sentence)).squeeze()
-        if idx_loc.size == 1:
+        if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
+        # Use NaN if any part of nmea_msg is empty
         nmea_msg = []
         [nmea_msg.append(pynmea2.parse(self.nmea_data.raw_datagrams[x])) for x in idx_loc]
-        out_dict['lat'] = np.array([x.latitude for x in nmea_msg]) if nmea_msg else [np.nan]
-        out_dict['lon'] = np.array([x.longitude for x in nmea_msg]) if nmea_msg else [np.nan]
-        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc] if nmea_msg else [np.nan]
+        out_dict['lat'] = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
+                                    for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['lon'] = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
+                                    for x in nmea_msg]) if nmea_msg else [np.nan]
+        out_dict['location_time'] = self.nmea_data.nmea_times[idx_loc]
 
         return out_dict
 
