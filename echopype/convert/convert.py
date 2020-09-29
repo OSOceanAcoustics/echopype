@@ -8,6 +8,7 @@ import xarray as xr
 import netCDF4
 import numpy as np
 import dask
+from collections import MutableMapping
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -165,6 +166,20 @@ class Convert:
             if k not in self._conversion_params:
                 self._conversion_params[k] = v
 
+    def _validate_object_store(self, store):
+        fs = store.fs
+        root = store.root
+        files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
+                 for f in self.source_file]
+        if 's3' in fs.protocol:
+            import s3fs
+            self.output_file = [s3fs.S3Map(root=f, s3=fs) for f in files]
+        elif 'gcs' in fs.protocol:
+            import gcsfs
+            self.output_file = [gcsfs.GCSMap(root=f, gcs=fs) for f in files]
+        self.zarr_path = self.output_file.copy()
+        self.nc_path = None
+
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
 
@@ -231,20 +246,30 @@ class Convert:
         else:
             raise ValueError("Unknown sonar model", self.sonar_model)
 
-        # Check if file exists
-        if os.path.exists(output_path) and self.overwrite:
-            # Remove the file if self.overwrite is true
-            print("          overwriting: " + output_path)
-            self._remove(output_path)
-        if os.path.exists(output_path):
-            # Otherwise, skip saving
-            print(f'          ... this file has already been converted to {save_ext}, conversion not executed.')
+        if isinstance(output_path, MutableMapping):
+            if not self.overwrite:
+                if output_path.fs.exists(output_path.root):
+                    print(f"          ... this file has already been converted to {save_ext}, " +
+                          "conversion not executed.")
+                    return
+            # output_path.fs.rm(output_path.root, recursive=True)
+
         else:
-            c = c(file, params=params)
-            c.parse_raw()
-            sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
-                    overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files)
-            sg.save()
+            # Check if file exists
+            if os.path.exists(output_path) and self.overwrite:
+                # Remove the file if self.overwrite is true
+                print("          overwriting: " + output_path)
+                self._remove(output_path)
+            if os.path.exists(output_path):
+                # Otherwise, skip saving
+                print(f"          ... this file has already been converted to {save_ext}, conversion not executed.")
+                return
+
+        c = c(file, params=params)
+        c.parse_raw()
+        sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
+                overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files)
+        sg.save()
 
     @staticmethod
     def _remove(path):
@@ -257,10 +282,9 @@ class Convert:
 
     def _path_list_to_str(self):
         # Convert to sting if only 1 output file
-        if len(self.output_file) == 1:
-            self.output_file = self.output_file[0]
-            self.nc_path = self.nc_path[0]
-            self.zarr_path = self.zarr_path[0]
+        self.output_file = self.output_file[0] if len(self.output_file) == 1 else self.output_file
+        self.nc_path = self.nc_path[0] if self.nc_path is not None and len(self.nc_path) == 1 else self.nc_path[0]
+        self.zarr_path = self.zarr_path[0] if len(self.zarr_path) == 1 else self.zarr_path[0]
 
     def combine_files(self, src_files=None, save_path=None, remove_orig=False):
         """Combine output files when self.combine=True.
@@ -490,9 +514,13 @@ class Convert:
             for i, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
                 self._convert_indiv_file(file=file, output_path=self.output_file[i], save_ext='.nc')
-        # else:
-            # use dask syntax but we'll probably use something else, like multiprocessing?
-            # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
+        else:
+            # # use dask syntax but we'll probably use something else, like multiprocessing?
+            # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
+            #                                                      output_path=self.output_file[i], save_ext='.nc')
+            #               for i, file in enumerate(self.source_file)]
+            # datasets = dask.compute(open_tasks)  # get a list of xarray.Datasets
+            pass
 
         self._path_list_to_str()
         # combine files if needed
@@ -525,7 +553,10 @@ class Convert:
         self.combine = combine
         self.overwrite = overwrite
 
-        self._validate_path('.zarr', save_path)
+        if isinstance(save_path, MutableMapping):
+            self._validate_object_store(save_path)
+        else:
+            self._validate_path('.zarr', save_path)
         # Sequential or parallel conversion
         if not parallel:
             for i, file in enumerate(self.source_file):
