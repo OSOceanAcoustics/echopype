@@ -2,7 +2,6 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
-import re
 import shutil
 import xarray as xr
 import netCDF4
@@ -370,6 +369,13 @@ class Convert:
                 file_groups = [files]
             return file_groups
 
+        def _coerce(ds, group):
+            if self.sonar_model == 'EK80' or self.sonar_model == 'EK60':
+                if group == 'Beam':
+                    ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
+                    ds['channel_id'] = ds['channel_id'].astype('<U50')
+
+
         print('combining files...')
         src_files = self.output_file if src_files is None else src_files
         file_groups = [src_files]
@@ -412,9 +418,10 @@ class Convert:
             try:
                 with _open_mfdataset(file_group, group='Beam', decode_times=False,
                                      combine='by_coords', data_vars='minimal') as ds_beam:
+                    _coerce(ds_beam, 'Beam')
                     _save(ext, ds_beam, save_path, 'a', group='Beam')
             except xr.MergeError as e:
-                var = re.findall(r"('[^']*')", str(e))[0]
+                var = str(e).split("'")[1]
                 raise ValueError(f"Files cannot be combined due to {var} changing across the files")
             # Combine Environment
             # AZFP environment changes as a function of ping time
