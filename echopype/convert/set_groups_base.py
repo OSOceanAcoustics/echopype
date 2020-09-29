@@ -115,29 +115,26 @@ class SetGroupsBase:
         """Set the Platform/NMEA group.
         """
 
-        if not os.path.exists(self.output_path):
-            print('netCDF file does not exist, exiting without saving Platform group...')
-        else:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
-            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            time = (self.convert_obj.nmea_data.nmea_times -
-                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
-            ds = xr.Dataset(
-                {'NMEA_datagram': (['time'], self.convert_obj.nmea_data.raw_datagrams,
-                                   {'long_name': 'NMEA datagram'})
-                 },
-                coords={'time': (['time'], time,
-                                 {'axis': 'T',
-                                  'calendar': 'gregorian',
-                                  'long_name': 'Timestamps for NMEA datagrams',
-                                  'standard_name': 'time',
-                                  'units': 'seconds since 1900-01-01'})},
-                attrs={'description': 'All NMEA sensor datagrams'})
+        # Convert np.datetime64 numbers to seconds since 1900-01-01
+        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+        time = (self.convert_obj.nmea_data.nmea_times -
+                np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ds = xr.Dataset(
+            {'NMEA_datagram': (['time'], self.convert_obj.nmea_data.raw_datagrams,
+                               {'long_name': 'NMEA datagram'})
+             },
+            coords={'time': (['time'], time,
+                             {'axis': 'T',
+                              'calendar': 'gregorian',
+                              'long_name': 'Timestamps for NMEA datagrams',
+                              'standard_name': 'time',
+                              'units': 'seconds since 1900-01-01'})},
+            attrs={'description': 'All NMEA sensor datagrams'})
 
-            # save to file
-            if self.save_ext == '.nc':
-                nc_encoding = {'time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
-                ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
-            elif self.save_ext == '.zarr':
-                zarr_encoding = {'time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
-                ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
+        # save to file
+        if self.save_ext == '.nc':
+            nc_encoding = {'time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
+            ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
+        elif self.save_ext == '.zarr':
+            zarr_encoding = {'time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
+            ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
