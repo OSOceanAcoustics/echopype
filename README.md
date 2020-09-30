@@ -16,6 +16,9 @@
 <img src="https://mybinder.org/badge_logo.svg"/>
 </a>
 
+<a href="https://doi.org/10.5281/zenodo.3907000">
+<img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3907000.svg" alt="DOI">
+</a>
 
 Echopype is a package built to enable interoperability and scalability
 in ocean sonar data processing.
