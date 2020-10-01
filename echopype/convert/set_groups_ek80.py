@@ -16,7 +16,7 @@ class SetGroupsEK80(SetGroupsBase):
         """Actually save groups to file by calling the set methods.
         """
 
-        self.set_toplevel('EK80')
+        self.set_toplevel(self.sonar_model)
         self.set_provenance()    # provenance group
 
         # Save environment only

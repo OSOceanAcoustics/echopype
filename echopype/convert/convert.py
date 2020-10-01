@@ -126,7 +126,7 @@ class Convert:
                 self.xml_path = xml_path
             else:
                 raise ValueError("XML file is required for AZFP raw data")
-        elif model == 'EK60' or model == 'EK80':
+        elif model in ['EK60', 'EK80', 'EA640']:
             ext = '.raw'
         else:
             raise ValueError(model + " is not a supported echosounder model")
@@ -220,7 +220,7 @@ class Convert:
             c = ParseEK60
             sg = SetGroupsEK60
             params = self.data_type
-        elif self.sonar_model == 'EK80':
+        elif self.sonar_model in ['EK80', 'EA640']:
             c = ParseEK80
             sg = SetGroupsEK80
             params = self.data_type
@@ -243,7 +243,8 @@ class Convert:
             c = c(file, params=params)
             c.parse_raw()
             sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
-                    overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files)
+                    overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files,
+                    sonar_model=self.sonar_model)
             sg.save()
 
     @staticmethod
@@ -359,7 +360,7 @@ class Convert:
 
         def split_into_groups(files):
             # Sorts the cw and bb files from EK80 into groups
-            if self.sonar_model == 'EK80':
+            if self.sonar_model in ['EK80', 'EA640']:
                 file_groups = [[], []]
                 for f in files:
                     if '_cw' in f:
@@ -374,7 +375,7 @@ class Convert:
         src_files = self.output_file if src_files is None else src_files
         file_groups = [src_files]
         ext = '.nc'
-        if self.sonar_model == 'EK80':
+        if self.sonar_model in ['EK80', 'EA640']:
             file_groups = split_into_groups(src_files + self.extra_files)
         if save_path is None:
             fname, ext = os.path.splitext(src_files[0])
@@ -441,13 +442,13 @@ class Convert:
                 with _open_mfdataset(file_group, group='Vendor',
                                      combine='by_coords', data_vars='minimal') as ds_vend:
                     _save(ext, ds_vend, save_path, 'a', group='Vendor')
-            if self.sonar_model == 'EK80' or self.sonar_model == 'EK60':
+            if self.sonar_model in ['EK80', 'EK60', 'EA640']:
                 # AZFP does not record NMEA data
                 # TODO: Look into why decode times = True for beam does not error out
                 with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
                                      combine='nested', concat_dim='time') as ds_nmea:
                     _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
-            if self.sonar_model == 'EK80':
+            if self.sonar_model in ['EK80', 'EA640']:
                 if check_vendor_consistency(file_group):
                     # Save filter coefficients in EK80
                     with _open_dataset(file_group[0], group='Vendor') as ds_vend:
@@ -541,7 +542,7 @@ class Convert:
             self.combine_files(save_path=save_path, remove_orig=True)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
-        """Save an xml file containing the condiguration of the transducer and transciever (EK80 only)
+        """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
 
         Parameters
         ----------
@@ -551,7 +552,7 @@ class Convert:
             which XML to export
             either 'CONFIG_XML' or 'ENV_XML'
         """
-        if self.sonar_model != 'EK80':
+        if self.sonar_model not in ['EK80', 'EA640']:
             raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
         if data_type != 'CONFIG_XML' and data_type != 'ENV_XML':
             raise ValueError(f"data_type must be either 'CONFIG_XML' or 'ENV_XML' not {data_type}")

@@ -15,9 +15,10 @@ ZARR_COMPRESSION_SETTINGS = {'compressor': zarr.Blosc(cname='zstd', clevel=3, sh
 class SetGroupsBase:
     """Base class for saving groups to netcdf or zarr from echosounder data files.
     """
-    def __init__(self, convert_obj, input_file, output_path,
+    def __init__(self, convert_obj, input_file, output_path, sonar_model=None,
                  save_ext='.nc', compress=True, overwrite=True, params=None, extra_files=None):
-        self.convert_obj = convert_obj   # a convert object ConvertEK60/ConvertAZFP/etc...
+        self.convert_obj = convert_obj   # a convert object ParseEK60/ParseAZFP/etc...
+        self.sonar_model = sonar_model   # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.input_file = input_file
         self.output_path = output_path
         self.save_ext = save_ext
