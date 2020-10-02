@@ -57,7 +57,7 @@ class Convert:
         self.xml_path = ''          # path to xml file (AZFP only)
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
-        self.output_file = None     # converted file path or list of converted file paths
+        self.output_path = None     # converted file path or list of converted file paths
         self.extra_files = []       # additional files created when setting groups (EK80 only)
         self._source_path = None    # for convenience only, the path is included in source_file already;
                                     # user should not interact with this directly
@@ -169,15 +169,23 @@ class Convert:
     def _validate_object_store(self, store):
         fs = store.fs
         root = store.root
-        files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
-                 for f in self.source_file]
-        if 's3' in fs.protocol:
-            import s3fs
-            self.output_file = [s3fs.S3Map(root=f, s3=fs) for f in files]
-        elif 'gcs' in fs.protocol:
-            import gcsfs
-            self.output_file = [gcsfs.GCSMap(root=f, gcs=fs) for f in files]
-        self.zarr_path = self.output_file.copy()
+        fname, ext = os.path.splitext(root)
+        if ext == '':
+            files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
+                     for f in self.source_file]
+            self.output_path = [fs.get_mapper(f) for f in files]
+            # if 's3' in fs.protocol:
+            #     import s3fs
+            #     self.output_path = [s3fs.S3Map(root=f, s3=fs) for f in files]
+            # elif 'gcs' in fs.protocol:
+            #     import gcsfs
+            #     self.output_path = [gcsfs.GCSMap(root=f, gcs=fs) for f in files]
+        elif ext == '.zarr':
+            if len(self.source_file) > 1:
+                raise ValueError("save_path must be a directory")
+            else:
+                self.output_path = [store]
+        self.zarr_path = self.output_path.copy()
         self.nc_path = None
 
     def _validate_path(self, file_format, save_path=None):
@@ -193,7 +201,7 @@ class Convert:
         filenames = self.source_file
 
         # Default output directory taken from first input file
-        self.out_dir = os.path.dirname(filenames[0])
+        out_dir = os.path.dirname(filenames[0])
         if save_path is not None:
             dirname, fname = os.path.split(save_path)
             basename, path_ext = os.path.splitext(fname)
@@ -203,17 +211,17 @@ class Convert:
                 raise ValueError("File format must be .nc, .zarr, or .xml")
             # Check if save_path is a file or a directory
             if path_ext == '':   # if a directory
-                self.out_dir = save_path
+                out_dir = save_path
             elif len(filenames) == 1:
                 if dirname != '':
-                    self.out_dir = dirname
+                    out_dir = dirname
             else:  # if a file
                 raise ValueError("save_path must be a directory")
 
         # Create folder if save_path does not exist already
-        if not os.path.exists(self.out_dir):
+        if not os.path.exists(out_dir):
             try:
-                os.mkdir(self.out_dir)
+                os.mkdir(out_dir)
             # Raise error if save_path is not a folder
             except FileNotFoundError:
                 raise ValueError("A valid save directory was not given.")
@@ -223,9 +231,9 @@ class Convert:
             files = [os.path.basename(basename)]
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
-        self.output_file = [os.path.join(self.out_dir, f + file_format) for f in files]
-        self.nc_path = [os.path.join(self.out_dir, f + '.nc') for f in files]
-        self.zarr_path = [os.path.join(self.out_dir, f + '.zarr') for f in files]
+        self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
+        self.nc_path = [os.path.join(out_dir, f + '.nc') for f in files]
+        self.zarr_path = [os.path.join(out_dir, f + '.zarr') for f in files]
 
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
@@ -274,16 +282,19 @@ class Convert:
     @staticmethod
     def _remove(path):
         """Used to delete .nc or .zarr files"""
-        fname, ext = os.path.splitext(path)
-        if ext == '.zarr':
-            shutil.rmtree(path)
+        if isinstance(path, MutableMapping):
+            path.fs.rm(path.root, recursive=True)
         else:
-            os.remove(path)
+            fname, ext = os.path.splitext(path)
+            if ext == '.zarr':
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
 
     def _path_list_to_str(self):
         # Convert to sting if only 1 output file
-        self.output_file = self.output_file[0] if len(self.output_file) == 1 else self.output_file
-        self.nc_path = self.nc_path[0] if self.nc_path is not None and len(self.nc_path) == 1 else self.nc_path[0]
+        self.output_path = self.output_path[0] if len(self.output_path) == 1 else self.output_path
+        self.nc_path = self.nc_path[0] if self.nc_path is not None and len(self.nc_path) == 1 else self.nc_path
         self.zarr_path = self.zarr_path[0] if len(self.zarr_path) == 1 else self.zarr_path[0]
 
     def combine_files(self, src_files=None, save_path=None, remove_orig=False):
@@ -323,17 +334,13 @@ class Convert:
                 combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
             return combined
 
-        def set_open_dataset(ext):
+        def set_open_dataset(save_path):
+            save_path = save_path.root if isinstance(save_path, MutableMapping) else save_path
+            ext = os.path.splitext(save_path)[1]
             if ext == '.nc':
-                return xr.open_dataset
+                return xr.open_dataset, xr.open_mfdataset
             elif ext == '.zarr':
-                return xr.open_zarr
-
-        def set_open_mfdataset(ext):
-            if ext == '.nc':
-                return xr.open_mfdataset
-            elif ext == '.zarr':
-                return open_mfzarr
+                return xr.open_zarr, open_mfzarr, ext
 
         def _save(ext, ds, path, mode, group=None):
             # Allows saving both NetCDF and Zarr files from an xarray dataset
@@ -395,27 +402,46 @@ class Convert:
             return file_groups
 
         print('combining files...')
-        src_files = self.output_file if src_files is None else src_files
+        src_files = self.output_path if src_files is None else src_files
         file_groups = [src_files]
-        ext = '.nc'
+
+        def get_combined_fname(path):
+            fname, ext = os.path.splitext(path)
+            return fname + '[combined]' + ext
+
+        # Construct save path
         if self.sonar_model == 'EK80':
             file_groups = split_into_groups(src_files + self.extra_files)
-        if save_path is None:
-            fname, ext = os.path.splitext(src_files[0])
-            save_path = fname + '[combined]' + ext
-        elif isinstance(save_path, str):
-            fname, ext = os.path.splitext(save_path)
-            # If save_path is a directory. (It must exist due to validate_path)
-            if ext == '':
-                file = os.path.basename(src_files[0])
-                fname, ext = os.path.splitext(file)
-                save_path = os.path.join(save_path, fname + '[combined]' + ext)
+        # Handle saving to cloud storage
+        if isinstance(src_files[0], MutableMapping):
+            fs = src_files[0].fs
+            if save_path is None:
+                save_path = fs.get_mapper(get_combined_fname(src_files[0].root))
+            elif isinstance(save_path, MutableMapping):
+                fname, ext = os.path.splitext(save_path.root)
+                if ext == '':
+                    save_path = save_path.root + '/' + get_combined_fname(os.path.basename(src_files[0].root))
+                    save_path = fs.get_mapper(save_path)
+                elif ext != '.zarr':
+                    raise ValueError("save_path must be a zarr file")
+            else:
+                raise ValueError("save_path must be a MutableMapping to a cloud store")
+        # Handle saving to local paths
         else:
-            raise ValueError("Invalid save path")
+            if save_path is None:
+                save_path = get_combined_fname(src_files[0])
+            elif isinstance(save_path, str):
+                fname, ext = os.path.splitext(save_path)
+                # If save_path is a directory. (It must exist due to validate_path)
+                if ext == '':
+                    save_path = os.path.join(save_path, get_combined_fname(os.path.basename(src_files[0])))
+                elif ext != '.nc' and ext != '.zarr':
+                    raise ValueError("save_path must be '.nc' or '.zarr'")
+            else:
+                raise ValueError("Invalid save_path")
 
         # Get the correct xarray functions for opening datasets
-        _open_dataset = set_open_dataset(ext)
-        _open_mfdataset = set_open_mfdataset(ext)
+        _open_dataset, _open_mfdataset, ext = set_open_dataset(save_path)
 
         for i, file_group in enumerate(file_groups):
             # Append '_cw' to EK80 filepath if combining CW files
@@ -513,11 +539,11 @@ class Convert:
         if not parallel:
             for i, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_file[i], save_ext='.nc')
+                self._convert_indiv_file(file=file, output_path=self.output_path[i], save_ext='.nc')
         else:
             # # use dask syntax but we'll probably use something else, like multiprocessing?
             # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
-            #                                                      output_path=self.output_file[i], save_ext='.nc')
+            #                                                      output_path=self.output_path[i], save_ext='.nc')
             #               for i, file in enumerate(self.source_file)]
             # datasets = dask.compute(open_tasks)  # get a list of xarray.Datasets
             pass
@@ -561,7 +587,7 @@ class Convert:
         if not parallel:
             for i, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_file[i], save_ext='.zarr')
+                self._convert_indiv_file(file=file, output_path=self.output_path[i], save_ext='.zarr')
         # else:
             # use dask syntax but we'll probably use something else, like multiprocessing?
             # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
@@ -591,7 +617,7 @@ class Convert:
             # convert file one by one into path set by validate_path()
             tmp = ParseEK80(file, params=[data_type, 'EXPORT'])
             tmp.parse_raw()
-            with open(self.output_file[i], 'w') as xml_file:
+            with open(self.output_path[i], 'w') as xml_file:
                 data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
                 xml_file.write(data)
         self._path_list_to_str()
