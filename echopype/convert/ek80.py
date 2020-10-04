@@ -478,15 +478,16 @@ class ConvertEK80(ConvertBase):
         # beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
         # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
         # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
-        pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
-        # Gets indices from pulse length table using the transmit_duration_nominal values selected
-        idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
-                                      self.config_datagram['configuration'][ch][pulse_length])).squeeze()
-               for i, ch in enumerate(ch_ids)]
-        # Use the indices to select sa_correction values from the sa correction table
-        beam_dict['sa_correction'] = \
-            np.array([x['sa_correction'][y]
-                     for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
+        if not bb:
+            pulse_length = 'pulse_duration'
+            # Gets indices from pulse length table using the transmit_duration_nominal values selected
+            idx = [np.argwhere(np.isclose(tx_sig['transmit_duration_nominal'][i],
+                                          self.config_datagram['configuration'][ch][pulse_length])).squeeze()
+                   for i, ch in enumerate(ch_ids)]
+            # Use the indices to select sa_correction values from the sa correction table
+            beam_dict['sa_correction'] = \
+                np.array([x['sa_correction'][y]
+                         for x, y in zip(self.config_datagram['configuration'].values(), np.array(idx))])
 
         return beam_dict
 
