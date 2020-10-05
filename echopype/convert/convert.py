@@ -46,7 +46,7 @@ def Convert(path='', xml_path='', model='EK60'):
             # TODO: Find something better to distinguish EK60 and EK80 raw files
             if model == 'EK60':
                 return ConvertEK60(path)
-            elif model == 'EK80':
+            elif model == 'EK80' or model == 'EA640':
                 return ConvertEK80(path)
         elif ext == '.01A':
             if xml_path:
