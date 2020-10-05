@@ -71,8 +71,8 @@ Echopype currently supports conversion from
 into netCDF (stable) or zarr (beta) files.
 
 
-We are considering implementing calibration routines for
-*raw beam* data from common-found Acoustic Doppler Current Profilers (ADCPs).
+We are planning on adding conversion and calibration routines for
+beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
 
 .. _creating issues on GitHub:
    https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f
@@ -87,8 +87,9 @@ File conversion for different types of echosounders is achieved by
 using a single interface through the ``Convert`` subpackage.
 
 For data files from Simrad's EK60, EK80 and EA640 echosounder,
-use parameter ``model`` to indicate the echosounder type,
-since there is no specific information in the extension ``.raw``:
+use the parameter ``model`` to indicate the echosounder type,
+since there is no specific information in the extension ``.raw``
+that include information about the echosounder type:
 
 .. code-block:: python
 
