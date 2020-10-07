@@ -87,6 +87,8 @@ class SetGroupsEK80(SetGroupsBase):
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
+        # TODO: WJ: after removing NMEAData structure we would have to change what's done here
+        #  in terms of parsing the messages specified in 'nmea_gps_sentence'
         idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages,
                                       self.ui_param['nmea_gps_sentence'])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
