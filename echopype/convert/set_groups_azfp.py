@@ -29,27 +29,23 @@ class SetGroupsAZFP(SetGroupsBase):
     def set_env(self, ):
         """Set the Environment group.
         """
-        # Only save environment group if file_path exists
-        if not os.path.exists(self.output_path):
-            print('netCDF file does not exist, exiting without saving Environment group...')
-        else:
-            # TODO Look at why this cannot be encoded without the modifications
-            ping_time = (self.convert_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
-            # ping_time = self.convert_obj.ping_time
-            ds = xr.Dataset({'temperature': (['ping_time'], self.convert_obj.unpacked_data['temperature'])},
-                            coords={'ping_time': (['ping_time'], ping_time,
-                                    {'axis': 'T',
-                                     'calendar': 'gregorian',
-                                     'long_name': 'Timestamp of each ping',
-                                     'standard_name': 'time',
-                                     'units': 'seconds since 1970-01-01'})},
-                            attrs={'long_name': "Water temperature",
-                                   'units': "C"})
-            # save to file
-            if self.save_ext == '.nc':
-                ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
-            elif self.save_ext == '.zarr':
-                ds.to_zarr(store=self.output_path, mode='a', group='Environment')
+        # TODO Look at why this cannot be encoded without the modifications
+        ping_time = (self.convert_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
+        # ping_time = self.convert_obj.ping_time
+        ds = xr.Dataset({'temperature': (['ping_time'], self.convert_obj.unpacked_data['temperature'])},
+                        coords={'ping_time': (['ping_time'], ping_time,
+                                {'axis': 'T',
+                                 'calendar': 'gregorian',
+                                 'long_name': 'Timestamp of each ping',
+                                 'standard_name': 'time',
+                                 'units': 'seconds since 1970-01-01'})},
+                        attrs={'long_name': "Water temperature",
+                               'units': "C"})
+        # save to file
+        if self.save_ext == '.nc':
+            ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
+        elif self.save_ext == '.zarr':
+            ds.to_zarr(store=self.output_path, mode='a', group='Environment')
 
     def set_platform(self):
         """Set the Platform group.
@@ -57,19 +53,15 @@ class SetGroupsAZFP(SetGroupsBase):
         platform_dict = {'platform_name': self.ui_param['platform_name'],
                          'platform_type': self.ui_param['platform_type'],
                          'platform_code_ICES': self.ui_param['platform_code_ICES']}
-        # Only save platform group if file_path exists
-        if not os.path.exists(self.output_path):
-            print("netCDF file does not exist, exiting without saving Platform group...")
-        else:
-            if self.save_ext == '.nc':
-                with netCDF4.Dataset(self.output_path, 'a', format='NETCDF4') as ncfile:
-                    plat = ncfile.createGroup('Platform')
-                    [plat.setncattr(k, v) for k, v in platform_dict.items()]
-            elif self.save_ext == '.zarr':
-                zarrfile = zarr.open(self.output_path, mode='a')
-                plat = zarrfile.create_group('Platform')
-                for k, v in platform_dict.items():
-                    plat.attrs[k] = v
+        if self.save_ext == '.nc':
+            with netCDF4.Dataset(self.output_path, 'a', format='NETCDF4') as ncfile:
+                plat = ncfile.createGroup('Platform')
+                [plat.setncattr(k, v) for k, v in platform_dict.items()]
+        elif self.save_ext == '.zarr':
+            zarrfile = zarr.open(self.output_path, mode='a')
+            plat = zarrfile.create_group('Platform')
+            for k, v in platform_dict.items():
+                plat.attrs[k] = v
 
     def set_beam(self):
         """Set the Beam group.

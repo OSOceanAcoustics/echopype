@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
-from echopype.convert import Convert
+from ..convert import Convert
 
 # raw_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)
@@ -109,18 +109,18 @@ def test_validate_path():
     # Test saving
     # save_path is None
     tmp._validate_path(file_format='.nc')
-    compare_paths(tmp.output_file[0], raw_path[:-3] + 'nc')
+    compare_paths(tmp.output_path[0], raw_path[:-3] + 'nc')
     # save_path is directory
     tmp._validate_path(file_format='.nc', save_path=directory)
-    compare_paths(tmp.output_file[0], os.path.join(directory, new_filename))
+    compare_paths(tmp.output_path[0], os.path.join(directory, new_filename))
     # Check if the requested folder is created
     assert os.path.exists(directory)
     # save_path is just a filename
     tmp._validate_path(file_format='.nc', save_path=filename)
-    compare_paths(tmp.output_file[0], os.path.join(base_dir, filename))
+    compare_paths(tmp.output_path[0], os.path.join(base_dir, filename))
     # save_path is a file path
     tmp._validate_path(file_format='.nc', save_path=file_path)
-    compare_paths(tmp.output_file[0], file_path)
+    compare_paths(tmp.output_path[0], file_path)
     # save_path is a file that does not match the extension of file_format (should fail)
     try:
         tmp._validate_path(file_format='.zarr', save_path=file_path)
@@ -145,5 +145,3 @@ def test_validate_path():
         raise AssertionError
 
     os.rmdir(directory)
-
-test_convert_raw_echoview()
