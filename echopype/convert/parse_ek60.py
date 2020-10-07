@@ -46,10 +46,12 @@ class ParseEK60(ParseEK):
         if 'ALL' in self.data_type:
             # Make a regctangular array (when there is a switch of range_bin in the middle of a file
             # or when range_bin size changes across channels)
+            # TODO: WJ: why do you need this None substitution?
             self.ping_data_dict['angle'] = (None if self.ping_data_dict['angle'][1] is None
                                             else self.ping_data_dict['angle'])
             self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
 
             # Trim excess data from NMEA object
+            # TODO: WJ: take this into account when removing use of NMEAData
             self.nmea_data.trim()
