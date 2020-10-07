@@ -2,7 +2,7 @@ from collections import defaultdict
 from .utils.ek_raw_io import RawSimradFile
 from datetime import datetime as dt
 import numpy as np
-from .convertbase import ParseEK
+from .parse_base import ParseEK
 
 
 class ParseEK80(ParseEK):
