@@ -489,6 +489,8 @@ class SetGroupsEK80(SetGroupsBase):
         # Copy the current file into a new file with _cw appended to filename
         fname, ext = os.path.splitext(file)
         new_path = fname + '_cw' + ext
+        # TODO: WJ: this list really should not be created on the fly
+        #  It can be created in a top-down manner as part of the Parse/Convert class
         self.extra_files.append(new_path)
         if os.path.exists(new_path):
             print("          overwriting: " + new_path)
