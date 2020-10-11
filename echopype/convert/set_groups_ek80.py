@@ -87,6 +87,8 @@ class SetGroupsEK80(SetGroupsBase):
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
+        # TODO: WJ: after removing NMEAData structure we would have to change what's done here
+        #  in terms of parsing the messages specified in 'nmea_gps_sentence'
         idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages,
                                       self.ui_param['nmea_gps_sentence'])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
@@ -487,6 +489,8 @@ class SetGroupsEK80(SetGroupsBase):
         # Copy the current file into a new file with _cw appended to filename
         fname, ext = os.path.splitext(file)
         new_path = fname + '_cw' + ext
+        # TODO: WJ: this list really should not be created on the fly
+        #  It can be created in a top-down manner as part of the Parse/Convert class
         self.extra_files.append(new_path)
         if os.path.exists(new_path):
             print("          overwriting: " + new_path)
