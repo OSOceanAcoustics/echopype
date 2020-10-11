@@ -57,6 +57,7 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
+        # TODO: WJ: the use of self.extra_files is arbitrary and breaks the encapsulation of Parse/Convert objects
         self.extra_files = []       # additional files created when setting groups (EK80 only)
         self._source_path = None    # for convenience only, the path is included in source_file already;
                                     # user should not interact with this directly
@@ -274,6 +275,8 @@ class Convert:
 
         c = c(file, params=params)
         c.parse_raw()
+        # TODO: WJ: the added self.extra_files attribute is breaking the encapsulation of Parse objects,
+        #  let's clean up the flow and re-write the implementation
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files,
                 sonar_model=self.sonar_model)
@@ -292,7 +295,7 @@ class Convert:
                 os.remove(path)
 
     def _path_list_to_str(self):
-        # Convert to sting if only 1 output file
+        # Convert to string if only 1 output file
         self.output_path = self.output_path[0] if len(self.output_path) == 1 else self.output_path
         self.nc_path = self.nc_path[0] if self.nc_path is not None and len(self.nc_path) == 1 else self.nc_path
         self.zarr_path = self.zarr_path[0] if len(self.zarr_path) == 1 else self.zarr_path[0]
@@ -318,6 +321,7 @@ class Convert:
             print("Combination did not occur as there is only 1 source file")
             return False
 
+        # TODO: WJ: check the now merged zarr engine for open_mfdataset
         def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
                         concat_dim='time', decode_times=False, compat='no_conflicts'):
             def modify(task, group):
@@ -349,6 +353,7 @@ class Convert:
             elif ext == '.zarr':
                 ds.to_zarr(store=path, mode=mode, group=group)
 
+        # TODO: WJ: this appears unused? --> delete
         def copy_vendor(src_file, trg_file):
             # Utility function for copying the filter coefficients from one file into another
             # Necessary because xarray cannot save complex values to NetCDF
@@ -388,6 +393,7 @@ class Convert:
             del filter_coeffs
             return True
 
+        # TODO: WJ: Change method name to split_bb_cw_files
         def split_into_groups(files):
             # Sorts the cw and bb files from EK80 into groups
             if self.sonar_model in ['EK80', 'EA640']:

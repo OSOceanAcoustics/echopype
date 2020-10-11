@@ -136,6 +136,7 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
+            # TODO: WJ: what does this check do? if user only selects 'ENV' the 'RAW0/3' are still parsed?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
                'ALL' not in self.data_type):
                 continue
@@ -144,6 +145,7 @@ class ParseEK(ParseBase):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
+                # TODO: WJ: 'CON' --> 'CONFIG' as output from _select_datagrams()?
                 elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_type or 'ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
@@ -201,6 +203,10 @@ class ParseEK(ParseBase):
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
                 # Add the datagram to our nmea_data object.
+                # TODO: WJ thinks that we can remove the dependency on NMEAData
+                #  because we are not actually using it since we parse the NMEA message using pynmea2.
+                #  We can change the following to appending new_datagram['nmea_string'] to self.nmea_data
+                #  like what we do for other variables
                 self.nmea_data.add_datagram(new_datagram['timestamp'],
                                             new_datagram['nmea_string'])
 
@@ -327,6 +333,8 @@ class ParseEK(ParseBase):
                     return ['NME', 'GPS']
                 elif self.sonar_type == 'EK80':
                     return ['NME', 'MRU', 'GPS']
+            # TODO: WJ: I don't see how the 'ENV_XML' case is working,
+            #  and why do you need both CONFIG+ENV and EXPORT?
             elif s == 'CONFIG_XML':
                 return ['CONFIG']
             elif s == 'ENV_XML':
