@@ -63,6 +63,9 @@ class ParseEK80(ParseEK):
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
             self.ping_data_dict['complex'], _ = self._rectangularize(self.ping_data_dict['complex'])
 
+            self.nmea_time = np.array(self.nmea_time)
+            self.raw_nmea_string = np.array(self.raw_nmea_string)
+
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).
         Returns a tuple containing a list of bb channel ids and a list of cw channel ids

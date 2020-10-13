@@ -38,7 +38,9 @@ class ParseEK(ParseBase):
 
         # Class attributes
         self.config_datagram = None
-        self.nmea_data = NMEAData()  # object for NMEA data
+        self.nmea_data_orig = NMEAData()
+        self.nmea_time = []
+        self.raw_nmea_string = []
         self.ping_data_dict = defaultdict()  # dictionary to store metadata
         self.num_range_bin_groups = None  # number of range_bin groups
 
@@ -203,12 +205,19 @@ class ParseEK(ParseBase):
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
                 # Add the datagram to our nmea_data object.
-                # TODO: WJ thinks that we can remove the dependency on NMEAData
-                #  because we are not actually using it since we parse the NMEA message using pynmea2.
-                #  We can change the following to appending new_datagram['nmea_string'] to self.nmea_data
-                #  like what we do for other variables
-                self.nmea_data.add_datagram(new_datagram['timestamp'],
+                self.nmea_data_orig.add_datagram(new_datagram['timestamp'],
                                             new_datagram['nmea_string'])
+                # TODO: Look at duplicate time
+                # Check duplicate time
+                # duplicate_idx = (self.nmea_time == new_datagram['timestamp'])
+                # if np.any(duplicate_idx):
+                #     # Check for duplicate message.
+                #     string = np.array(self.raw_nmea_string)[duplicate_idx][0]
+                #     # If duplicate, skip saving the datagram
+                #     if new_datagram['nmea_string'][1:6] == string[1:6]:
+                #         continue
+                self.nmea_time.append(new_datagram['timestamp'])
+                self.raw_nmea_string.append(new_datagram['nmea_string'])
 
             # MRU datagrams contain motion data for each ping for EK80
             elif new_datagram['type'].startswith("MRU"):

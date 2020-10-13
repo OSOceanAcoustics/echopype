@@ -174,12 +174,6 @@ class Convert:
             files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
                      for f in self.source_file]
             self.output_path = [fs.get_mapper(f) for f in files]
-            # if 's3' in fs.protocol:
-            #     import s3fs
-            #     self.output_path = [s3fs.S3Map(root=f, s3=fs) for f in files]
-            # elif 'gcs' in fs.protocol:
-            #     import gcsfs
-            #     self.output_path = [gcsfs.GCSMap(root=f, gcs=fs) for f in files]
         elif ext == '.zarr':
             if len(self.source_file) > 1:
                 raise ValueError("save_path must be a directory")
@@ -342,7 +336,7 @@ class Convert:
             save_path = save_path.root if isinstance(save_path, MutableMapping) else save_path
             ext = os.path.splitext(save_path)[1]
             if ext == '.nc':
-                return xr.open_dataset, xr.open_mfdataset
+                return xr.open_dataset, xr.open_mfdataset, ext
             elif ext == '.zarr':
                 return xr.open_zarr, open_mfzarr, ext
 
@@ -352,33 +346,6 @@ class Convert:
                 ds.to_netcdf(path=path, mode=mode, group=group)
             elif ext == '.zarr':
                 ds.to_zarr(store=path, mode=mode, group=group)
-
-        # TODO: WJ: this appears unused? --> delete
-        def copy_vendor(src_file, trg_file):
-            # Utility function for copying the filter coefficients from one file into another
-            # Necessary because xarray cannot save complex values to NetCDF
-            src = netCDF4.Dataset(src_file)
-            trg = netCDF4.Dataset(trg_file, mode='a')
-            ds_vend = src.groups['Vendor']
-            vdr = trg.createGroup('Vendor')
-            complex64 = np.dtype([("real", np.float32), ("imag", np.float32)])
-            complex64_t = vdr.createCompoundType(complex64, "complex64")
-
-            # set decimation values
-            vdr.setncatts({a: ds_vend.getncattr(a) for a in ds_vend.ncattrs()})
-
-            # Create the dimensions of the file
-            for k, v in ds_vend.dimensions.items():
-                vdr.createDimension(k, len(v) if not v.isunlimited() else None)
-
-            # Create the variables in the file
-            for k, v in ds_vend.variables.items():
-                data = np.empty(len(v), complex64)
-                var = vdr.createVariable(k, complex64_t, v.dimensions)
-                var[:] = data
-
-            src.close()
-            trg.close()
 
         def check_vendor_consistency(files):
             filter_coeffs = []
@@ -393,8 +360,7 @@ class Convert:
             del filter_coeffs
             return True
 
-        # TODO: WJ: Change method name to split_bb_cw_files
-        def split_into_groups(files):
+        def split_bb_cw_files(files):
             # Sorts the cw and bb files from EK80 into groups
             if self.sonar_model in ['EK80', 'EA640']:
                 file_groups = [[], []]
@@ -413,7 +379,6 @@ class Convert:
                     ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
                     ds['channel_id'] = ds['channel_id'].astype('<U50')
 
-        print('combining files...')
         src_files = self.output_path if src_files is None else src_files
         file_groups = [src_files]
 
@@ -422,7 +387,7 @@ class Convert:
             return fname + '[combined]' + ext
 
         if self.sonar_model in ['EK80', 'EA640']:
-            file_groups = split_into_groups(src_files + self.extra_files)
+            file_groups = split_bb_cw_files(src_files + self.extra_files)
 
         # Construct save path
         # Handle saving to cloud storage
@@ -457,6 +422,7 @@ class Convert:
         _open_dataset, _open_mfdataset, ext = set_open_dataset(save_path)
 
         for i, file_group in enumerate(file_groups):
+            print('combining files...')
             # Append '_cw' to EK80 filepath if combining CW files
             if i == 1:
                 fname, ext = os.path.splitext(save_path)
@@ -476,7 +442,8 @@ class Convert:
                 with _open_mfdataset(file_group, group='Beam', decode_times=False,
                                      combine='by_coords', data_vars='minimal') as ds_beam:
                     _coerce(ds_beam, 'Beam')
-                    _save(ext, ds_beam, save_path, 'a', group='Beam')
+                    _save(ext, ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
+                          save_path, 'a', group='Beam')
             except xr.MergeError as e:
                 var = str(e).split("'")[1]
                 raise ValueError(f"Files cannot be combined due to {var} changing across the files")
@@ -487,7 +454,6 @@ class Convert:
                                      combine='by_coords', data_vars='minimal') as ds_env:
                     _save(ext, ds_env, save_path, 'a', group='Environment')
             else:
-                # TODO: Save with dim ping time look at compat
                 with _open_dataset(file_group[0], group='Environment') as ds_env:
                     _save(ext, ds_env, save_path, 'a', group='Environment')
             # Combine Platfrom
@@ -498,7 +464,8 @@ class Convert:
             else:
                 with _open_mfdataset(file_group, group='Platform', decode_times=False,
                                      combine='by_coords', data_vars='minimal') as ds_plat:
-                    _save(ext, ds_plat, save_path, 'a', group='Platform')
+                    _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
+                          save_path, 'a', group='Platform')
             # Combine Sonar-specific
             if self.sonar_model == 'AZFP':
                 # EK60 does not have the "vendor specific" group
@@ -510,12 +477,14 @@ class Convert:
                 # TODO: Look into why decode times = True for beam does not error out
                 with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
                                      combine='nested', concat_dim='time') as ds_nmea:
-                    _save(ext, ds_nmea.astype('str'), save_path, 'a', group='Platform/NMEA')
+                    _save(ext, ds_nmea.chunk({'time': 100}).astype('str'), save_path, 'a', group='Platform/NMEA')
             if self.sonar_model in ['EK80', 'EA640']:
                 if check_vendor_consistency(file_group):
                     # Save filter coefficients in EK80
                     with _open_dataset(file_group[0], group='Vendor') as ds_vend:
                         _save(ext, ds_vend, save_path, 'a', group='Vendor')
+
+            print("Files combined into", save_path)
 
         # Delete files after combining
         if remove_orig:
@@ -585,8 +554,6 @@ class Convert:
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
-
-        # TODO save to s3 bucket
         """
         self.data_type = data_type
         self.compress = compress

@@ -53,5 +53,6 @@ class ParseEK60(ParseEK):
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
 
             # Trim excess data from NMEA object
-            # TODO: WJ: take this into account when removing use of NMEAData
-            self.nmea_data.trim()
+            self.nmea_data_orig.trim()
+            self.nmea_time = np.array(self.nmea_time)
+            self.raw_nmea_string = np.array(self.raw_nmea_string)
