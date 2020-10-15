@@ -163,6 +163,7 @@ class SetGroupsAZFP(SetGroupsBase):
             ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
         elif self.save_ext == '.zarr':
             zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
+            ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
             ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
 
     def set_vendor(self):

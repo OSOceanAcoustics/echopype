@@ -3,7 +3,6 @@ import shutil
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-import pynmea2
 import zarr
 import netCDF4
 from .set_groups_base import SetGroupsBase
@@ -87,24 +86,11 @@ class SetGroupsEK80(SetGroupsBase):
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
-        # TODO: WJ: after removing NMEAData structure we would have to change what's done here
-        #  in terms of parsing the messages specified in 'nmea_gps_sentence'
-        idx_loc = np.argwhere(np.isin(self.convert_obj.nmea_data.messages,
-                                      self.ui_param['nmea_gps_sentence'])).squeeze()
-        if idx_loc.size == 1:  # in case of only 1 matching message
-            idx_loc = np.expand_dims(idx_loc, axis=0)
-        nmea_msg = []
-        [nmea_msg.append(pynmea2.parse(self.convert_obj.nmea_data.raw_datagrams[x])) for x in idx_loc]
-        lat = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
-                       for x in nmea_msg]) if nmea_msg else [np.nan]
-        lon = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
-                       for x in nmea_msg]) if nmea_msg else [np.nan]
+        lat, lon, location_time, nmea_msg = self._parse_NMEA()
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
-                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
-        location_time = (self.convert_obj.nmea_data.nmea_times[idx_loc] -
-                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
+        mru_time = mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
+                               np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
 
         # Assemble variables into a dataset
         ds = xr.Dataset(
@@ -154,7 +140,8 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                    'platform_name': self.ui_param['platform_name'],
                    'platform_type': self.ui_param['platform_type'],
-                   'drop_keel_offset': self.convert_obj.environment['drop_keel_offset']})
+                   'drop_keel_offset': (self.convert_obj.environment['drop_keel_offset'] if
+                                        hasattr(self.convert_obj.environment, 'drop_keel_offset') else np.nan)})
 
         # Save to file
         if self.save_ext == '.nc':
@@ -162,6 +149,7 @@ class SetGroupsEK80(SetGroupsBase):
             ds.to_netcdf(path=self.output_path, mode='a', group='Platform', encoding=nc_encoding)
         elif self.save_ext == '.zarr':
             zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
+            ds = ds.chunk({'location_time': 100, 'mru_time': 100})
             ds.to_zarr(store=self.output_path, mode='a', group='Platform', encoding=zarr_encoding)
 
     def set_beam(self, ch_ids, bb, path):
@@ -426,7 +414,7 @@ class SetGroupsEK80(SetGroupsBase):
             ds.to_netcdf(path=path, mode='a', group='Beam', encoding=nc_encoding)
         elif self.save_ext == '.zarr':
             zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'range_bin': 25000})
+            ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
             ds.to_zarr(store=path, mode='a', group='Beam', encoding=zarr_encoding)
 
     def set_vendor(self):
@@ -489,9 +477,6 @@ class SetGroupsEK80(SetGroupsBase):
         # Copy the current file into a new file with _cw appended to filename
         fname, ext = os.path.splitext(file)
         new_path = fname + '_cw' + ext
-        # TODO: WJ: this list really should not be created on the fly
-        #  It can be created in a top-down manner as part of the Parse/Convert class
-        self.extra_files.append(new_path)
         if os.path.exists(new_path):
             print("          overwriting: " + new_path)
             if ext == '.zarr':

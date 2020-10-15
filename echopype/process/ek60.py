@@ -80,7 +80,7 @@ class ProcessEK60(ProcessBase):
         """
         if src == 'file':
             with self._open_dataset(self.file_path, group="Environment") as ds_env:
-                return ds_env.absorption_indicative
+                return ds_env.absorption_indicative.isel(ping_time=0).drop(['ping_time'])
         elif src == 'user':
             with self._open_dataset(self.file_path, group='Beam') as ds_beam:
                 freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
@@ -95,7 +95,7 @@ class ProcessEK60(ProcessBase):
     def calc_sample_thickness(self):
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
-            return sth
+            return sth.isel(ping_time=0).drop(['ping_time'])
 
     def calc_range(self):
         """Calculates range in meters using parameters stored in the .nc file.

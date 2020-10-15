@@ -112,7 +112,7 @@ class ProcessEK80(ProcessBase):
         path = path if path else self.file_path
         with self._open_dataset(path, group="Beam") as ds_beam:
             sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
-            return sth
+            return sth.isel(ping_time=0).drop(['ping_time'])
 
     def calc_range(self, range_bins=None, path=''):
         """Calculates range [m] using parameters stored in the .nc file.
@@ -127,7 +127,8 @@ class ProcessEK80(ProcessBase):
             else:
                 range_bin = ds_beam.range_bin
             range_meter = range_bin * st - \
-                ds_beam.transmit_duration_nominal * self.sound_speed / 2  # DataArray [frequency x range_bin]
+                ds_beam.transmit_duration_nominal.isel(ping_time=0).drop(['ping_time']) * \
+                self.sound_speed / 2  # DataArray [frequency x range_bin]
             range_meter = range_meter.where(range_meter > 0, other=0).transpose()
             return range_meter
 
@@ -145,8 +146,8 @@ class ProcessEK80(ProcessBase):
             # Get various parameters
             Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
             delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
-            tau = ds_beam.transmit_duration_nominal.data
-            txpower = ds_beam.transmit_power.data
+            tau = ds_beam.transmit_duration_nominal.data[:, 0]
+            txpower = ds_beam.transmit_power.data[:, 0]
             f0 = ds_beam.frequency_start.data
             f1 = ds_beam.frequency_end.data
             slope = ds_beam.slope[:, 0].data  # Use slope of first ping
@@ -166,12 +167,10 @@ class ProcessEK80(ProcessBase):
                 y = (y_tmp / np.max(np.abs(y_tmp)))
 
                 # filter and decimation
-                wbt_fil = ds_fil[self.ch_ids[ch] + "_WBT_filter"].data
-                pc_fil = ds_fil[self.ch_ids[ch] + "_PC_filter"].data
-                # if saved as netCDF4, convert compound complex datatype to complex64
-                if wbt_fil.ndim == 1:
-                    wbt_fil = np.array([complex(n[0], n[1]) for n in wbt_fil], dtype='complex64')
-                    pc_fil = np.array([complex(n[0], n[1]) for n in pc_fil], dtype='complex64')
+                wbt_fil = ds_fil.attrs[self.ch_ids[ch] + '_WBT_filter_r'] + 1j * \
+                    ds_fil.attrs[self.ch_ids[ch] + "_WBT_filter_i"]
+                pc_fil = ds_fil.attrs[self.ch_ids[ch] + '_PC_filter_r'] + 1j * \
+                    ds_fil.attrs[self.ch_ids[ch] + '_PC_filter_i']
 
                 # Apply WBT filter and downsample
                 ytx_tmp = np.convolve(y, wbt_fil)
@@ -191,7 +190,7 @@ class ProcessEK80(ProcessBase):
         """Pulse compression using transmit signal as replica.
         """
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
-            sample_interval = ds_beam.sample_interval
+            sample_interval = ds_beam.sample_interval.isel(ping_time=0).drop(['ping_time'])
             backscatter = ds_beam.backscatter_r + ds_beam.backscatter_i * 1j  # Construct complex backscatter
 
             backscatter_compressed = []
@@ -226,14 +225,13 @@ class ProcessEK80(ProcessBase):
             largest_range_bin = max([bc.shape[2] for bc in backscatter_compressed])
             for i, ds in enumerate(backscatter_compressed):
                 pad_width = largest_range_bin - ds.shape[2]
-                backscatter_compressed[i] = xr.apply_ufunc(lambda x: np.pad(x, ((0,0), (0,0), (0,pad_width)),
+                backscatter_compressed[i] = xr.apply_ufunc(lambda x: np.pad(x, ((0, 0), (0, 0), (0, pad_width)),
                                                                             constant_values=np.nan),
                                                            ds,
                                                            input_core_dims=[['range_bin']],
                                                            output_core_dims=[['range_bin']],
                                                            exclude_dims={'range_bin'})
             self.backscatter_compressed = xr.concat(backscatter_compressed, dim='frequency')
-
 
     def calibrate(self, mode='Sv', save=False, save_path=None, save_postfix=None):
         """Perform echo-integration to get volume backscattering strength (Sv)
@@ -273,6 +271,7 @@ class ProcessEK80(ProcessBase):
             self.pulse_compression()    # Perform pulse compression
 
             c = self.sound_speed
+            tx_power = ds_beam.transmit_power.isel(ping_time=0).drop(['ping_time'])
             f_nominal = ds_beam.frequency
             f_center = (ds_beam.frequency_start.data + ds_beam.frequency_end.data) / 2
             psifc = ds_beam.equivalent_beam_angle + 20 * np.log10(f_nominal / f_center)
@@ -290,17 +289,17 @@ class ProcessEK80(ProcessBase):
             ranges = ranges.where(ranges >= 1, other=1)
             if mode == 'Sv':
                 Sv = (
-                      10 * np.log10(prx) + 20 * np.log10(ranges) +
-                      2 * self.seawater_absorption * ranges -
-                      10 * np.log10(ds_beam.transmit_power * la2 * c / (32 * np.pi * np.pi)) -
-                      2 * Gfc - 10 * np.log10(self.tau_effective) - psifc
+                    10 * np.log10(prx) + 20 * np.log10(ranges) +
+                    2 * self.seawater_absorption * ranges -
+                    10 * np.log10(tx_power * la2 * c / (32 * np.pi * np.pi)) -
+                    2 * Gfc - 10 * np.log10(self.tau_effective) - psifc
                 )
             if mode == 'TS':
                 TS = (
-                      10 * np.log10(prx) + 40 * np.log10(ranges) +
-                      2 * self.seawater_absorption * ranges -
-                      10 * np.log10(ds_beam.transmit_power * la2 / (16 * np.pi * np.pi)) -
-                      2 * Gfc
+                    10 * np.log10(prx) + 40 * np.log10(ranges) +
+                    2 * self.seawater_absorption * ranges -
+                    10 * np.log10(tx_power * la2 / (16 * np.pi * np.pi)) -
+                    2 * Gfc
                 )
             ds_beam.close()     # Close opened dataset
             # Save Sv calibrated data

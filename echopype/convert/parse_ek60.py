@@ -52,7 +52,5 @@ class ParseEK60(ParseEK):
             self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
 
-            # Trim excess data from NMEA object
-            self.nmea_data_orig.trim()
             self.nmea_time = np.array(self.nmea_time)
             self.raw_nmea_string = np.array(self.raw_nmea_string)

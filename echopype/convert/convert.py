@@ -57,7 +57,6 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
-        # TODO: WJ: the use of self.extra_files is arbitrary and breaks the encapsulation of Parse/Convert objects
         self.extra_files = []       # additional files created when setting groups (EK80 only)
         self._source_path = None    # for convenience only, the path is included in source_file already;
                                     # user should not interact with this directly
@@ -229,6 +228,12 @@ class Convert:
         self.nc_path = [os.path.join(out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(out_dir, f + '.zarr') for f in files]
 
+    def _fetch_extra_files(self, c, output_path):
+        if c.bb_ch_ids and c.cw_ch_ids:
+            fname, ext = os.path.splitext(output_path)
+            new_path = fname + '_cw' + ext
+            self.extra_files.append(new_path)
+
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
         """
@@ -269,11 +274,10 @@ class Convert:
 
         c = c(file, params=params)
         c.parse_raw()
-        # TODO: WJ: the added self.extra_files attribute is breaking the encapsulation of Parse objects,
-        #  let's clean up the flow and re-write the implementation
+        self.extra_files = self._fetch_extra_files(c, output_path) \
+            if self.sonar_model in ['EK80', 'EA640'] else self.extra_files
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
-                overwrite=self.overwrite, params=self._conversion_params, extra_files=self.extra_files,
-                sonar_model=self.sonar_model)
+                overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
 
     @staticmethod
@@ -477,7 +481,8 @@ class Convert:
                 # TODO: Look into why decode times = True for beam does not error out
                 with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
                                      combine='nested', concat_dim='time') as ds_nmea:
-                    _save(ext, ds_nmea.chunk({'time': 100}).astype('str'), save_path, 'a', group='Platform/NMEA')
+                    _save(ext, ds_nmea.chunk({'location_time': 100}).astype('str'),
+                          save_path, 'a', group='Platform/NMEA')
             if self.sonar_model in ['EK80', 'EA640']:
                 if check_vendor_consistency(file_group):
                     # Save filter coefficients in EK80

@@ -1,4 +1,4 @@
-import os
+import pynmea2
 from datetime import datetime as dt
 import xarray as xr
 import numpy as np
@@ -16,7 +16,7 @@ class SetGroupsBase:
     """Base class for saving groups to netcdf or zarr from echosounder data files.
     """
     def __init__(self, convert_obj, input_file, output_path, sonar_model=None,
-                 save_ext='.nc', compress=True, overwrite=True, params=None, extra_files=None):
+                 save_ext='.nc', compress=True, overwrite=True, params=None):
         self.convert_obj = convert_obj   # a convert object ParseEK60/ParseAZFP/etc...
         self.sonar_model = sonar_model   # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.input_file = input_file
@@ -25,7 +25,6 @@ class SetGroupsBase:
         self.compress = compress
         self.overwrite = overwrite
         self.ui_param = params
-        self.extra_files = extra_files
         self.NETCDF_COMPRESSION_SETTINGS = NETCDF_COMPRESSION_SETTINGS
         self.ZARR_COMPRESSION_SETTINGS = ZARR_COMPRESSION_SETTINGS
 
@@ -115,27 +114,50 @@ class SetGroupsBase:
     def set_nmea(self):
         """Set the Platform/NMEA group.
         """
+        # Save nan if nmea data is not encoded in the raw file
+        if self.convert_obj.raw_nmea_string.size != 0:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            time = (self.convert_obj.nmea_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+            raw_nmea = self.convert_obj.raw_nmea_string
+        else:
+            time = [np.nan]
+            raw_nmea = [np.nan]
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        time = (self.convert_obj.nmea_data.nmea_times -
-                np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
         ds = xr.Dataset(
-            {'NMEA_datagram': (['time'], self.convert_obj.nmea_data.raw_datagrams,
+            {'NMEA_datagram': (['location_time'], raw_nmea,
                                {'long_name': 'NMEA datagram'})
              },
-            coords={'time': (['time'], time,
-                             {'axis': 'T',
-                              'calendar': 'gregorian',
-                              'long_name': 'Timestamps for NMEA datagrams',
-                              'standard_name': 'time',
-                              'units': 'seconds since 1900-01-01'})},
+            coords={'location_time': (['location_time'], time,
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'long_name': 'Timestamps for NMEA datagrams',
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'})},
             attrs={'description': 'All NMEA sensor datagrams'})
 
         # save to file
         if self.save_ext == '.nc':
-            nc_encoding = {'time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
+            nc_encoding = {'location_time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
             ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
         elif self.save_ext == '.zarr':
-            zarr_encoding = {'time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
+            zarr_encoding = {'location_time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
             ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
+
+    def _parse_NMEA(self):
+        """Get the lat and lon values from the raw nmea data"""
+
+        messages = [string[3:6] for string in self.convert_obj.raw_nmea_string]
+        idx_loc = np.argwhere(np.isin(messages,
+                                      self.ui_param['nmea_gps_sentence'])).squeeze()
+        if idx_loc.size == 1:  # in case of only 1 matching message
+            idx_loc = np.expand_dims(idx_loc, axis=0)
+        nmea_msg = [pynmea2.parse(self.convert_obj.raw_nmea_string[x]) for x in idx_loc]
+        lat = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
+                       for x in nmea_msg]) if nmea_msg else [np.nan]
+        lon = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
+                       for x in nmea_msg]) if nmea_msg else [np.nan]
+
+        location_time = (self.convert_obj.nmea_time[idx_loc] -
+                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
+        return lat, lon, location_time, nmea_msg
