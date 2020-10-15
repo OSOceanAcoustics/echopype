@@ -30,7 +30,8 @@ class ParseEK80(ParseEK):
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
             if 'EXPORT' in self.data_type:
-                print(f"{dt.now().strftime('%H:%M:%S')} exporting XML file")
+                xml_type = 'environment' if 'ENV' in self.data_type else 'configuration'
+                print(f"{dt.now().strftime('%H:%M:%S')} exporting {xml_type} XML file")
             else:
                 self._print_status()
 
