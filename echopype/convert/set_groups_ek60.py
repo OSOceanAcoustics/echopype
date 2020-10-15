@@ -198,13 +198,13 @@ class SetGroupsEK60(SetGroupsBase):
             beam_dict[encode_name] = [val[origin_name]
                                       for key, val in config['transceivers'].items()]
 
-        pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))[:, 0]
+        pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))
         if len(config['transceivers']) == 1:   # only 1 channel
-            idx = np.argwhere(np.isclose(pulse_length,
+            idx = np.argwhere(np.isclose(pulse_length[:, 0],
                                          config['transceivers'][1]['pulse_length_table'])).squeeze()
             idx = np.expand_dims(np.array(idx), axis=0)
         else:
-            idx = [np.argwhere(np.isclose(pulse_length[key - 1], val['pulse_length_table'])).squeeze()
+            idx = [np.argwhere(np.isclose(pulse_length[:, 0][key - 1], val['pulse_length_table'])).squeeze()
                    for key, val in config['transceivers'].items()]
         sa_correction = np.array([x['sa_correction_table'][y]
                                  for x, y in zip(config['transceivers'].values(), np.array(idx))])
@@ -280,8 +280,8 @@ class SetGroupsEK60(SetGroupsBase):
                                               'long_name': 'Presence or not of non-quantitative '
                                                            'processing applied to the backscattering '
                                                            'data (sonar specific)'}),
-             'sample_interval': (['frequency'], np.array(list(
-                                 self.convert_obj.ping_data_dict['sample_interval'].values()))[:, 0],
+             'sample_interval': (['frequency', 'ping_time'], np.array(list(
+                                 self.convert_obj.ping_data_dict['sample_interval'].values())),
                                  {'long_name': 'Interval between recorded raw data samples',
                                   'units': 's',
                                   'valid_min': 0.0}),
@@ -289,17 +289,17 @@ class SetGroupsEK60(SetGroupsBase):
                                     {'long_name': 'Time offset that is subtracted from the timestamp '
                                                   'of each sample',
                                                   'units': 's'}),
-             'transmit_bandwidth': (['frequency'], np.array(list(
-                                    self.convert_obj.ping_data_dict['bandwidth'].values()))[:, 0],
+             'transmit_bandwidth': (['frequency', 'ping_time'], np.array(list(
+                                    self.convert_obj.ping_data_dict['bandwidth'].values())),
                                     {'long_name': 'Nominal bandwidth of transmitted pulse',
                                      'units': 'Hz',
                                      'valid_min': 0.0}),
-             'transmit_duration_nominal': (['frequency'], pulse_length,
+             'transmit_duration_nominal': (['frequency', 'ping_time'], pulse_length,
                                            {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                          'units': 's',
                                             'valid_min': 0.0}),
-             'transmit_power': (['frequency'], np.array(list(
-                                self.convert_obj.ping_data_dict['transmit_power'].values()))[:, 0],
+             'transmit_power': (['frequency', 'ping_time'], np.array(list(
+                                self.convert_obj.ping_data_dict['transmit_power'].values())),
                                 {'long_name': 'Nominal transmit power',
                                               'units': 'W',
                                               'valid_min': 0.0}),
