@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
+import pytest
 from ..convert import Convert
 
 raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
@@ -12,11 +13,8 @@ csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power70.csv',
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power120.csv',
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power200.csv']
-# raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'     # Different ranges
-# raw_path = ['./echopype/test_data/ek60/OOI-D20170821-T063618.raw',
-#                  './echopype/test_data/ek60/OOI-D20170821-T081522.raw']       # Multiple files
-# raw_path = ['./echopype/test_data/ek60/set1/' + file
-#             for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
+# raw_paths = ['./echopype/test_data/ek60/set1/' + file
+#              for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
 # raw_path = ['./echopype/test_data/ek60/set2/' + file
 #                  for file in os.listdir('./echopype/test_data/ek60/set2')]    # 3 range lengths
 # Other data files
@@ -30,7 +28,7 @@ def test_convert_matlab():
     tmp = Convert(file=raw_path, model='EK60')
 
     # Test saving nc file and perform checks
-    tmp.to_netcdf(save_path='./echopype/test_data/ek60/export', overwrite=True, combine=True)
+    tmp.to_netcdf()
 
     # Read .nc file into an xarray DataArray
     ds_beam = xr.open_dataset(tmp.nc_path, group='Beam')
@@ -75,3 +73,59 @@ def test_convert_zarr():
         assert np.allclose(ds_test.power, ds_beam.backscatter_r)
 
     shutil.rmtree(tmp.zarr_path, ignore_errors=True)    # Delete non-empty folder
+
+
+@pytest.mark.skip(reason='Too many raw files needed')
+def test_combine():
+    """Test combing converted files"""
+    export_folder = './echopype/test_data/ek60/export/'
+
+    # Test combining while converting
+    tmp = Convert(file=raw_paths[:4], model='EK60')
+    tmp.to_zarr(save_path=export_folder, overwrite=True, combine=True)
+
+    # Test combining after converting
+    tmp = Convert(file=raw_paths[4:8], model='EK60')
+    tmp.to_zarr(save_path=export_folder, overwrite=True)
+    tmp.combine_files(tmp.output_path)
+
+    shutil.rmtree(export_folder)
+
+
+@pytest.mark.skip(reason='Do not use cloud resources for auto test')
+def test_save_to_s3():
+    # Test saving a zarr file to bucket
+    import s3fs
+    raw_paths = ['./echopype/test_data/ek60/set1/Winter2017-D20170115-T131932.raw',
+                 './echopype/test_data/ek60/set1/Winter2017-D20170115-T134426.raw']
+    path = 's3://"bucket name"/'
+    fs = s3fs.S3FileSystem()
+    store = s3fs.S3Map(root=path, s3=fs, check=False)
+    tmp = Convert(file=raw_paths, model='EK60')
+    tmp.to_zarr(save_path=store, overwrite=True, combine=True)
+
+
+@pytest.mark.skip(reason='Do not use cloud resources for auto test')
+def test_save_to_gcloud():
+    import gcsfs
+    raw_paths = ['./echopype/test_data/ek60/set1/Winter2017-D20170115-T131932.raw',
+                 './echopype/test_data/ek60/set1/Winter2017-D20170115-T134426.raw']
+    path = 'gcs://ngkavin-bucket1/'
+    fs = gcsfs.GCSFileSystem(token='C:/Users/Kavin/AppData/Roaming/gcloud/application_default_credentials.json')
+    store = gcsfs.GCSMap(root=path, gcs=fs)
+    tmp = Convert(file=raw_paths, model='EK60')
+    tmp.to_zarr(save_path=store, overwrite=True, combine=True)
+
+
+@pytest.mark.skip(reason='Do not use cloud resources for auto test')
+def test_save_to_azure():
+    # adlfs with zarr still in development
+    import adlfs
+    raw_paths = ['./echopype/test_data/ek60/set1/Winter2017-D20170115-T131932.raw',
+                 './echopype/test_data/ek60/set1/Winter2017-D20170115-T134426.raw']
+    path = '"blob name"'
+    connect_str = os.getenv('AZURE_STORAGE_CONNECTION_STRING')      # Save azure keys in environment variable first
+    fs = adlfs.AzureBlobFileSystem(account_name='"account name"', connection_string=connect_str)
+    store = fs.get_mapper(path)
+    tmp = Convert(file=raw_paths, model='EK60')
+    tmp.to_zarr(save_path=store, overwrite=True, combine=True)

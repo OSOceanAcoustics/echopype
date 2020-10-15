@@ -1,5 +1,4 @@
 from collections import defaultdict
-from .utils.nmea_data import NMEAData
 from .utils.ek_raw_io import SimradEOF
 from datetime import datetime as dt
 import numpy as np
@@ -38,7 +37,6 @@ class ParseEK(ParseBase):
 
         # Class attributes
         self.config_datagram = None
-        self.nmea_data_orig = NMEAData()
         self.nmea_time = []
         self.raw_nmea_string = []
         self.ping_data_dict = defaultdict()  # dictionary to store metadata
@@ -147,8 +145,7 @@ class ParseEK(ParseBase):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
-                # TODO: WJ: 'CON' --> 'CONFIG' as output from _select_datagrams()?
-                elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_type or 'ALL' in self.data_type):
+                elif new_datagram['subtype'] == 'parameter' and ('ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
             # RAW datagrams store raw acoustic data for a channel for EK60
@@ -205,8 +202,6 @@ class ParseEK(ParseBase):
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
                 # Add the datagram to our nmea_data object.
-                self.nmea_data_orig.add_datagram(new_datagram['timestamp'],
-                                            new_datagram['nmea_string'])
                 # TODO: Look at duplicate time
                 # Check duplicate time
                 # duplicate_idx = (self.nmea_time == new_datagram['timestamp'])

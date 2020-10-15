@@ -25,7 +25,7 @@ def test_process_AZFP_matlab():
     TS_test = xr.open_dataset(azfp_test_TS_path)
 
     # Convert to .nc file
-    tmp_convert = Convert(azfp_01a_path, azfp_xml_path, model='AZFP')
+    tmp_convert = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     tmp_convert.to_netcdf()
 
     tmp_echo = Process(tmp_convert.nc_path)
@@ -53,7 +53,6 @@ def test_process_AZFP_matlab():
     os.remove(tmp_convert.nc_path)
     del tmp_convert
     del tmp_echo
-
 
 # def test_process_AZFP_echoview():
 #     # Convert to .nc file
