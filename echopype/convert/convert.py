@@ -4,8 +4,6 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 import os
 import shutil
 import xarray as xr
-import netCDF4
-import numpy as np
 import dask
 from collections import MutableMapping
 from .parse_azfp import ParseAZFP
@@ -57,7 +55,7 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
-        self.extra_files = []       # additional files created when setting groups (EK80 only)
+        self.cw_files = []       # additional files created when setting groups (EK80 only)
         self._source_path = None    # for convenience only, the path is included in source_file already;
                                     # user should not interact with this directly
         self._output_path = None    # for convenience only, the path is included in source_file already;
@@ -228,11 +226,11 @@ class Convert:
         self.nc_path = [os.path.join(out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(out_dir, f + '.zarr') for f in files]
 
-    def _fetch_extra_files(self, c, output_path):
+    def _fetch_cw_files(self, c, output_path):
         if c.bb_ch_ids and c.cw_ch_ids:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_cw' + ext
-            self.extra_files.append(new_path)
+            self.cw_files.append(new_path)
 
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
@@ -274,8 +272,8 @@ class Convert:
 
         c = c(file, params=params)
         c.parse_raw()
-        self.extra_files = self._fetch_extra_files(c, output_path) \
-            if self.sonar_model in ['EK80', 'EA640'] else self.extra_files
+        self.cw_files = self._fetch_cw_files(c, output_path) \
+            if self.sonar_model in ['EK80', 'EA640'] else self.cw_files
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
@@ -391,7 +389,7 @@ class Convert:
             return fname + '[combined]' + ext
 
         if self.sonar_model in ['EK80', 'EA640']:
-            file_groups = split_bb_cw_files(src_files + self.extra_files)
+            file_groups = split_bb_cw_files(src_files + self.cw_files)
 
         # Construct save path
         # Handle saving to cloud storage
@@ -493,7 +491,7 @@ class Convert:
 
         # Delete files after combining
         if remove_orig:
-            for f in src_files + self.extra_files:
+            for f in src_files + self.cw_files:
                 self._remove(f)
         return True
 
