@@ -80,7 +80,8 @@ class ProcessEK60(ProcessBase):
         """
         if src == 'file':
             with self._open_dataset(self.file_path, group="Environment") as ds_env:
-                return ds_env.absorption_indicative.isel(ping_time=0).drop(['ping_time'])
+                sea_abs = ds_env.absorption_indicative
+                return sea_abs
         elif src == 'user':
             with self._open_dataset(self.file_path, group='Beam') as ds_beam:
                 freq = ds_beam.frequency.astype(np.int64)  # should already be in unit [Hz]
@@ -94,8 +95,9 @@ class ProcessEK60(ProcessBase):
 
     def calc_sample_thickness(self):
         with self._open_dataset(self.file_path, group="Beam") as ds_beam:
-            sth = self.sound_speed * ds_beam.sample_interval / 2  # sample thickness
-            return sth.isel(ping_time=0).drop(['ping_time'])
+            sample_interval = ds_beam.sample_interval
+            sth = self.sound_speed * sample_interval / 2  # sample thickness
+            return sth
 
     def calc_range(self):
         """Calculates range in meters using parameters stored in the .nc file.
@@ -148,7 +150,7 @@ class ProcessEK60(ProcessBase):
         Sv = Sv.to_dataset()
 
         # Attach calculated range into data set
-        Sv['range'] = (('frequency', 'range_bin'), self.range)
+        Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self.range)
 
         # Save calibrated data into the calling instance and
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
@@ -199,7 +201,7 @@ class ProcessEK60(ProcessBase):
         TS = TS.to_dataset()
 
         # Attach calculated range into data set
-        TS['range'] = (('frequency', 'range_bin'), self.range)
+        TS['range'] = (('frequency', 'ping_time', 'range_bin'), self.range)
 
         # Save calibrated data into the calling instance and
         #  to a separate .nc file in the same directory as the data filef.Sv = Sv
