@@ -69,6 +69,7 @@ class Convert:
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
                                 #   condiguration header is exported.
+        self.extra_platform_data = []
         self.combine = False
         self.compress = True
         self.overwrite = False
@@ -422,6 +423,7 @@ class Convert:
 
         # Get the correct xarray functions for opening datasets
         _open_dataset, _open_mfdataset, ext = set_open_dataset(save_path)
+        combined_files = []
 
         for i, file_group in enumerate(file_groups):
             print('combining files...')
@@ -488,15 +490,21 @@ class Convert:
                         _save(ext, ds_vend, save_path, 'a', group='Vendor')
 
             print("Files combined into", save_path)
-
+            combined_files.append(save_path)
         # Delete files after combining
         if remove_orig:
             for f in src_files + self.cw_files:
                 self._remove(f)
-        return True
+        return combined_files
+
+    def update_platform(save_path):
+        # self.extra_platform data passed into to_netcdf or from another function
+        extra_platform_data = self.extra_platform_data
+        for f in save_path:
+            pass
 
     def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
-                  overwrite=False, combine=False, parallel=False):
+                  overwrite=False, combine=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
@@ -514,11 +522,14 @@ class Convert:
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : list
+            files containing platform (NMEA/GPS) data
         """
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
+        self.extra_platform_data = extra_platform_data
 
         self._validate_path('.nc', save_path)
         # Sequential or parallel conversion
@@ -537,7 +548,12 @@ class Convert:
         self._path_list_to_str()
         # combine files if needed
         if self.combine:
-            self.combine_files(save_path=save_path, remove_orig=True)
+            combined_files = self.combine_files(save_path=save_path, remove_orig=True)
+            if extra_platform_data is not None:
+                self.update_platform(save_path=combined_files)
+        else:
+            if extra_platform_data is not None:
+                self.update_platform(save_path=self.output_path)
 
     def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False):
         """Convert a file or a list of files to zarr format.
@@ -557,6 +573,9 @@ class Convert:
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : list
+            files containing platform (NMEA/GPS) data
+        self.extra_platform_data = extra_platform_data
         """
         self.data_type = data_type
         self.compress = compress
@@ -580,6 +599,11 @@ class Convert:
         # combine files if needed
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
+            if extra_platform_data is not None:
+                self.update_platform(save_path=save_path)
+        else:
+            if extra_platform_data is not None:
+                self.update_platform(save_path=self.output_path)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
