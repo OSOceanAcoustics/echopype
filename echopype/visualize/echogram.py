@@ -29,7 +29,7 @@ class EchoGram:
             additional keyword arguments to matplotlib
         """
         data = getattr(self.echo_data, form)
-        depth = self.echo_data.calc_range()
+        depth = self.echo_data._calc_range()
 
         # Plot MVBS
         if form == 'MVBS':
