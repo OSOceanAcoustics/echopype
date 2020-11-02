@@ -80,6 +80,8 @@ class ProcessAZFP(ProcessBase):
             ValueError('For AZFP seawater absorption needs to be calculated '
                        'based on user-input environmental parameters.')
 
+    # TODO: self.sample_thickness doesn't seem to be used anywhere?
+    #  since range is calculated using AZFP formula in .calc_range()
     def calc_sample_thickness(self):
         """Gets ``sample_thickness`` for AZFP data.
 
