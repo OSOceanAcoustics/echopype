@@ -6,165 +6,152 @@ Some operations are instrument-dependent, such as calibration to obtain Sv.
 Some operations are instrument-agnostic, such as obtaining MVBS or detecting bottom.
 """
 from ..utils import uwa
+from . import process_classes
+from .echodata import EchoDataBase
 
 
-class ProcessBase:
-    """Class for processing sonar data.
+class Process:
+    """UI class for using process objects.
+
+    Use case (AZFP):
+        ed = EchoData(raw_path='some_path_to_converted_raw_data_files')
+        proc = Process(model='AZFP')
+        proc.env_params = {'salinity': 35, 'pressure': 200}  # set env params needed for calibration
+        proc.save_paths['Sv'] = 'some_path_for_Sv'           # set paths to save Sv data to
+        proc.get_Sv(ed, save=True, save_format='zarr')
+
     """
-    def __init__(self, model=None, echodata=None):
+    # A dictionary of supported echosounder types
+    PROCESS_SONAR = {
+        'AZFP': process_classes.ProcessAZFP(),
+        'EK60': process_classes.ProcessEK60(),
+        'EK80': process_classes.ProcessEK80(),
+        'EA640': process_classes.ProcessEK80(),
+    }
+
+    def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
-        self.echodata = echodata   # EchoData object
+        self.process_obj = self.PROCESS_SONAR[model]   # process object to use
 
-        self.env_parameters = {
-            'sea_water_salinity': None,            # [psu]
-            'sea_water_temperature': None,         # [degC]
-            'sea_water_pressure': None,            # [dbars] (~depth in meters)
-            'speed_of_sound_in_sea_water': None,   # [m/s]
-            'seawater_absorption': None            # [dB/m]
-        }
-        self.sample_thickness = None  # TODO: this is not used in AZFP , right?
+        # TODO: we need something to restrict the type of parameters users
+        #  can put in to these dictionaries,
+        #  for example, for env_params we allow only:
+        #     'sea_water_salinity'            [psu]
+        #     'sea_water_temperature'         [degC]
+        #     'sea_water_pressure'            [dbars] (~depth in meters)
+        #     'speed_of_sound_in_sea_water'   [m/s]
+        #     'seawater_absorption'           [dB/m]
+        self.env_params = {}   # env parameters
+        self.cal_params = {}   # cal parameters, eg: sa_correction for EK60
+        self.proc_params = {}  # proc parameters, eg: MVBS bin size
 
-        self.check_model_echodata_match()
+        self.save_paths = {}   # paths to save processing results, index by proc type: Sv, TS, etc.
 
-    def check_model_echodata_match(self):
+    def _check_model_echodata_match(self, ed):
         """Check if sonar model corresponds with the type of data in EchoData object.
         """
+        # Check is self.sonar_model and ed.sonar_model are the same
         # Raise error if they do not match
 
-    def set_environment_parameters(self, var_name, var_val):
-        """Allow user to add and overwrite environment parameters from raw data files.
+    def _autofill_save_path(self, save_type):
+        """
+        Autofill the paths to save the processing results if not already set.
+        The default paths will be to the same folder as the raw data files.
 
-        TODO: finish docstring
+        Use case is something like:
+            proc._autofill_save_path(save_type='Sv')
 
         Parameters
         ----------
-        var_name
-        var_val
-        """
-        self.env_parameters[var_name] = var_val
-
-    def _calc_sound_speed(self):
-        """Base method for calculating sound speed.
+        save_type
         """
 
-    def _calc_seawater_absorption(self):
-        """Base method for calculating seawater absorption.
+    def align_to_range(self, ed, param_source='file'):
         """
+        Align raw backscatter data along `range` in meter
+        instead of `range_bin` in the original data files.
 
-    def _calc_sample_thickness(self):
-        """Base method for calculating sample thickness.
-
-        This method is only used for EK echosounders.
-        """
-
-    def _calc_range(self):
-        """Base method for calculating range.
-        """
-
-    def update_env_parameters(self, ss=True, sa=True, st=True, r=True):
-        """Recalculates sound speed, seawater absorption, sample thickness, and range using
-        updated salinity, temperature, and pressure.
-
-        # TODO: how about we just force this to always re-calculate everything?
         Parameters
         ----------
-        ss : bool
-            Whether to calculate sound speed. Defaults to `True`.
-        sa : bool
-            Whether to calculate seawater absorption. Defaults to `True`.
-        st : bool
-            Whether to calculate sample thickness. Defaults to `True`.
-        r : bool
-            Whether to calculate range. Defaults to `True`.
+        ed : EchoDataBase
+            EchoData object to operate on
+        param_source
         """
+        # Check if we already have range calculated from .calibrate()
+        # and if so we can just get range from there instead of re-calculating.
 
-    def get_Sv(self):
-        """Base method to be overridden for calculating Sv from raw backscatter data.
+        # Check if sonar model matches
+        self._check_model_echodata_match(ed)
+
+        # Obtain env parameters
+        #  Here we want to obtain the env params stored in the data file, but
+        #  overwrite those that are specified by user
+        #  We can first do a check to see what parameters we still need to get
+        #  from the raw files before retrieving them (I/O is slow,
+        #  so let's not do that unless needed).
+
+        # To get access to parameters stored in the raw data, use:
+        ed.get_env_from_raw()
+        ed.get_vend_from_raw()
+
+        #  If not already specifed by user, calculate sound speed and absorption
+        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed()
+        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption()
+
+        # Calculate range
+        self.process_obj.calc_range(ed)
+
+        # Swap dim to align raw backscatter to range instead of range_bin
+        # Users then have the option to use ed.Sv.to_zarr() or other xarray function
+        # to explore the data.
+
+    def calibrate(self, ed, param_source='file', save=True, save_format='zarr'):
+        """Calibrate raw data.
+
+        Parameters
+        ----------
+        ed : EchoDataBase
+            EchoData object to operate on
+        param_source : str
+            'file' or 'user'
+        save : bool
+        save_format : str
         """
-        # Issue warning when subclass methods not available
-        print('Calibration has not been implemented for this sonar model!')
+        # Check if sonar model matches
+        self._check_model_echodata_match(ed)
 
-    def get_TS(self):
-        """Base method to be overridden for calculating TS from raw backscatter data.
-        """
-        # Issue warning when subclass methods not available
-        print('Calibration has not been implemented for this sonar model!')
+        # Obtain env parameters
+        #  Here we want to obtain the env params stored in the data file, but
+        #  overwrite those that are specified by user
+        #  We can first do a check to see what parameters we still need to get
+        #  from the raw files before retrieving them (I/O is slow,
+        #  so let's not do that unless needed).
 
-    def get_MVBS(self):
-        """Calculate Mean Volume Backscattering Strength (MVBS).
+        # To get access to parameters stored in the raw data, use:
+        ed.get_env_from_raw()
+        ed.get_vend_from_raw()
 
-        The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
-        calculate and save MVBS as a new attribute to the calling Process instance.
-        MVBS is an xarray DataArray with dimensions ``ping_time`` and ``range_bin``
-        that are from the first elements of each tile along the corresponding dimensions
-        in the original Sv or Sv_clean DataArray.
-        """
-        # Issue warning when subclass methods not available
-        print('Calibration has not been implemented for this sonar model!')
+        #  If not already specifed by user, calculate sound speed and absorption
+        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed()
+        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption()
 
-    def remove_noise(self):
-        """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
-        along each column of tiles.
+        # Obtain cal parameters
+        #  Operations are very similar to those from the env parameters,
+        #  for AZFP AFAIK some additional parameters are needed from the vendor group
+        #  to calculate range
 
-        See method noise_estimates() for details of noise estimation.
-        Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
-        """
+        # Autofill save paths if not already generated
+        if save and ('Sv' not in self.save_paths):
+            self._autofill_save_path('Sv')
 
-    def get_noise_estimates(self):
-        """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
-
-        The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
-        This method contains redundant pieces of code that also appear in method remove_noise(),
-        but this method can be used separately to determine the exact tile size for noise removal before
-        noise removal is actually performed.
-        """
-
-
-class ProcessAZFP(ProcessBase):
-    """Class for processing data from ASL Env Sci AZFP echosounder.
-    """
-    def __init__(self, model=None, echodata=None):
-        super().__init__(model, echodata)
-
-    # TODO: need something to prompt user to use set_environment_parameters()
-    #  to put in pressure and salinity before trying to calibrate
-
-    def _calc_sound_speed(self):
-        """Calculate sound speed using AZFP formula and save results to self.env_parameters.
-        """
-
-    def _calc_seawater_absorption(self):
-        """Calculate sound absorption using AZFP formula and save results to self.env_parameters.
-        """
-
-    def _calc_range(self):
-        """Calculates range in meters using AZFP formula, instead of from sample_interval directly.
-        """
-        # TODO: required parameters are dictionary items in
-        #  self.echodata.env_parameters and
-        #  self.echodata.instr_parameters
-
-    def get_Sv(self):
-        """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
-        """
-        # TODO: transplant what was in .calibrate() before
-
-    def get_TS(self):
-        """Calibrate to get Target Strength (TS) from AZFP power data.
-        """
-        # TODO: transplant what was in .calibrate_TS() before
-
-
-class ProcessEK(ProcessBase):
-    """Class for processing data from Simrad EK echosounders.
-    """
-
-
-class ProcessEK60(ProcessEK):
-    """Class for processing data from Simrad EK60 echosounder.
-    """
-
-
-class ProcessEK80(ProcessEK):
-    """Class for processing data from Simrad EK80 echosounder.
-    """
+        # Perform calibration
+        #  this operation should make an xarray Dataset in ed.Sv
+        #  if save=True: save the results as zarr in self.save_paths['Sv'] and update ed.Sv_path
+        #  users obviously would have the option to do ed.Sv.to_zarr() to wherever they like
+        self.process_obj.get_Sv(
+            ed,
+            env_params=self.env_params,
+            cal_params=self.cal_params,
+            save=save,
+            save_format=save_format
+        )
