@@ -33,10 +33,6 @@ class EchoDataBase:
         self._MVBS = None
         self._TS = None
 
-        # Data parameters: mostly instrument-dependent
-        self.env_params = {}
-        self.instr_params = {}
-
         # Initialize data pointers
         self._init_data_pointer()
 
@@ -175,8 +171,46 @@ class EchoDataAZFP(EchoDataBase):
         Parameters
         ----------
         group
+        """
 
-        Returns
-        -------
 
+class EchoDataEK60(EchoDataBase):
+    """Echo data model for data from EK60 echosounder.
+    """
+    def __init__(self, raw_path=None,
+                 Sv_path=None, Sv_clean_path=None,
+                 TS_path=None, MVBS_path=None):
+        super().__init__(raw_path,
+                         Sv_path, Sv_clean_path,
+                         TS_path, MVBS_path)
+
+    def _check_key_param_consistency(self, group):
+        """
+        Check if key params in the files for the specified group
+        to make sure the files can be opened together.
+
+        Parameters
+        ----------
+        group
+        """
+
+
+class EchoDataEK80(EchoDataBase):
+    """Echo data model for data from EK80 echosounder.
+    """
+    def __init__(self, raw_path=None,
+                 Sv_path=None, Sv_clean_path=None,
+                 TS_path=None, MVBS_path=None):
+        super().__init__(raw_path,
+                         Sv_path, Sv_clean_path,
+                         TS_path, MVBS_path)
+
+    def _check_key_param_consistency(self, group):
+        """
+        Check if key params in the files for the specified group
+        to make sure the files can be opened together.
+
+        Parameters
+        ----------
+        group
         """
