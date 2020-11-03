@@ -132,8 +132,8 @@ class Process:
         ed.get_vend_from_raw()
 
         #  If not already specifed by user, calculate sound speed and absorption
-        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed()
-        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption()
+        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed(self.env_params)
+        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption(self.env_params)
 
         # Obtain cal parameters
         #  Operations are very similar to those from the env parameters,
