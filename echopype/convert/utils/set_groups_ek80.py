@@ -136,7 +136,7 @@ class SetGroupsEK80(SetGroupsBase):
         """
         # The following variables should be non-unique
         save_path = sonar_dict.pop('path')
-        sonar = list(sonar_dict)[1]
+        sonar = list(sonar_dict)[0]
         sonar_manufacturer = sonar_dict[sonar]['sonar_manufacturer']
         sonar_software_name = sonar_dict[sonar]['sonar_software_name']
         sonar_software_version = sonar_dict[sonar]['sonar_software_version']
