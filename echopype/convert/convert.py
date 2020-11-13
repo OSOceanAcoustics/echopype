@@ -6,6 +6,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import netCDF4
+import zarr
 import dask
 from collections import MutableMapping
 
@@ -72,7 +73,7 @@ class Convert:
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
                                 #   condiguration header is exported.
-        self.extra_platform_data = []
+        self.extra_platform_data = None
         self.combine = False
         self.compress = True
         self.overwrite = False
@@ -542,23 +543,25 @@ class Convert:
             # (and need to close the file so to_netcdf can write to it)
             ds_platform.close()
             ds_beam.close()
-            
-            # https://github.com/Unidata/netcdf4-python/issues/65
-            old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
-            new_dataset_filename = f + ".temp"
-            new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
-            for name, group in old_dataset.groups.items():
-                if name != "Platform":
-                    new_dataset.groups[name] = group
-            new_dataset.sync()
-            old_dataset.close()
-            new_dataset.close()
-            os.remove(f)
-            os.rename(new_dataset_filename, f)
 
             if ext == ".nc":
+                # https://github.com/Unidata/netcdf4-python/issues/65
+                old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
+                new_dataset_filename = f + ".temp"
+                new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
+                for name, group in old_dataset.groups.items():
+                    if name != "Platform":
+                        new_dataset.groups[name] = group
+                new_dataset.sync()
+                old_dataset.close()
+                new_dataset.close()
+                os.remove(f)
+                os.rename(new_dataset_filename, f)
                 ds_platform.to_netcdf(f, mode="a", group="Platform")
             elif ext == ".zarr":
+                # https://github.com/zarr-developers/zarr-python/issues/65
+                old_dataset = zarr.open_group(f, mode="a")
+                del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
     def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
@@ -606,9 +609,9 @@ class Convert:
         self._path_list_to_str()
         # combine files if needed
         if self.combine:
-            combined_files = self.combine_files(save_path=save_path, remove_orig=True)
+            self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_paths=combined_files)
+                self.update_platform(save_paths=[save_path])
         else:
             if extra_platform_data is not None:
                 self.update_platform(save_paths=[self.output_path])
@@ -639,6 +642,7 @@ class Convert:
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
+        self.extra_platform_data = extra_platform_data
 
         if isinstance(save_path, MutableMapping):
             self._validate_object_store(save_path)
@@ -658,10 +662,10 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_paths=save_path)
+                self.update_platform(save_paths=[save_path])
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_paths=self.output_path)
+                self.update_platform(save_paths=[self.output_path])
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
