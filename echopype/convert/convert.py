@@ -3,9 +3,12 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
 import shutil
+import numpy as np
 import xarray as xr
+import netCDF4
 import dask
 from collections import MutableMapping
+
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -497,11 +500,66 @@ class Convert:
                 self._remove(f)
         return combined_files
 
-    def update_platform(save_path):
+    def update_platform(self, save_paths):
         # self.extra_platform data passed into to_netcdf or from another function
         extra_platform_data = self.extra_platform_data
-        for f in save_path:
-            pass
+        for f in save_paths:
+            ext = os.path.splitext(f)[-1]
+            if ext == ".nc":
+                ds_beam = xr.open_dataset(f, group="Beam")
+                ds_platform = xr.open_dataset(f, group="Platform")
+            elif ext == ".zarr":
+                ds_beam = xr.open_zarr(f, group="Beam")
+                ds_platform = xr.open_zarr(f, group="Platform")
+            else:
+                raise ValueError("Invalid file type (must be .nc or .zarr)")
+
+            # saildrone specific hack
+            if "trajectory" in extra_platform_data:
+                    extra_platform_data = extra_platform_data.sel({"trajectory": extra_platform_data["trajectory"][0]})
+                    extra_platform_data = extra_platform_data.drop("trajectory")
+            # only take data during ping times
+            start_time, end_time = min(ds_beam["ping_time"]), max(ds_beam["ping_time"])
+            extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
+            extra_platform_data = extra_platform_data.sel({"time": slice(start_time, end_time)})
+
+            # merge extra platform data
+            ds_platform = ds_platform.reindex({
+                "location_time": extra_platform_data["time"].values,
+                "mru_time": extra_platform_data["time"].values
+            })
+            num_obs = len(extra_platform_data["time"])
+            ds_platform = ds_platform.update({
+                "pitch": ("mru_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
+                "roll": ("mru_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
+                "heave": ("mru_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
+                "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
+                "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
+                "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
+            })
+
+            # need to close the file in order to remove it
+            # (and need to close the file so to_netcdf can write to it)
+            ds_platform.close()
+            ds_beam.close()
+            
+            # https://github.com/Unidata/netcdf4-python/issues/65
+            old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
+            new_dataset_filename = f + ".temp"
+            new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
+            for name, group in old_dataset.groups.items():
+                if name != "Platform":
+                    new_dataset.groups[name] = group
+            new_dataset.sync()
+            old_dataset.close()
+            new_dataset.close()
+            os.remove(f)
+            os.rename(new_dataset_filename, f)
+
+            if ext == ".nc":
+                ds_platform.to_netcdf(f, mode="a", group="Platform")
+            elif ext == ".zarr":
+                ds_platform.to_zarr(f, mode="a", group="Platform")
 
     def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
                   overwrite=False, combine=False, parallel=False, extra_platform_data=None):
@@ -550,12 +608,12 @@ class Convert:
         if self.combine:
             combined_files = self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_path=combined_files)
+                self.update_platform(save_paths=combined_files)
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_path=self.output_path)
+                self.update_platform(save_paths=[self.output_path])
 
-    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False):
+    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to zarr format.
 
         Parameters
@@ -600,10 +658,10 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_path=save_path)
+                self.update_platform(save_paths=save_path)
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_path=self.output_path)
+                self.update_platform(save_paths=self.output_path)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
