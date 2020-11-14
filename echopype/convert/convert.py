@@ -504,6 +504,8 @@ class Convert:
     def update_platform(self, save_paths):
         # self.extra_platform data passed into to_netcdf or from another function
         extra_platform_data = self.extra_platform_data
+        if isinstance(save_paths, list):
+            save_paths = [save_paths]
         for f in save_paths:
             ext = os.path.splitext(f)[-1]
             if ext == ".nc":
@@ -614,7 +616,7 @@ class Convert:
                 self.update_platform(save_paths=[save_path])
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_paths=[self.output_path])
+                self.update_platform(save_paths=self.output_path)
 
     def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to zarr format.
@@ -665,7 +667,7 @@ class Convert:
                 self.update_platform(save_paths=[save_path])
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_paths=[self.output_path])
+                self.update_platform(save_paths=self.output_path)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
