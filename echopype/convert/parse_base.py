@@ -316,8 +316,12 @@ class ParseEK(ParseBase):
                           :grouped_power[ch].shape[1]] = grouped_power[ch]
                 # Pad angle data
                 if angle_dict is not None:
+                    if grouped_angle[ch].ndim == 1:
+                        continue
+                    # Exception occurs when only one channel records angle data.
+                    # In that case, skip channel (filled with nan)
                     tmp_angle[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
-                              :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
+                                :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
         return tmp_power * INDEX2POWER, tmp_angle
 
     def _select_datagrams(self, params):
