@@ -16,7 +16,9 @@ EK80 broadband echosounder:
   form of average over frequency.
 
 """
-from .process import Process
+from .process_new import Process
+from .process_classes import ProcessAZFP
 from .ek60 import ProcessEK60
 from .azfp import ProcessAZFP
 from .ek80 import ProcessEK80
+from .echodata import EchoDataAZFP, EchoDataEK60, EchoDataEK80
