@@ -393,8 +393,8 @@ class Convert:
 
         # Construct save path
         # Handle saving to cloud storage
-        if isinstance(src_files[0], MutableMapping):
-            fs = src_files[0].fs
+        if isinstance(src_files[0], MutableMapping) or isinstance(save_path, MutableMapping):
+            fs = src_files[0].fs if isinstance(src_files[0], MutableMapping) else save_path.fs
             if save_path is None:
                 save_path = fs.get_mapper(get_combined_fname(src_files[0].root))
             elif isinstance(save_path, MutableMapping):
@@ -441,8 +441,8 @@ class Convert:
                 _save(ext, ds_sonar, save_path, 'a', group='Sonar')
             # Combine Beam
             try:
-                with _open_mfdataset(file_group, group='Beam', decode_times=False,
-                                     combine='by_coords', data_vars='minimal') as ds_beam:
+                with _open_mfdataset(file_group, group='Beam', decode_times=False, combine='nested',
+                                     concat_dim='ping_time', data_vars='minimal') as ds_beam:
                     _coerce(ds_beam, 'Beam')
                     _save(ext, ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
                           save_path, 'a', group='Beam')
@@ -464,8 +464,8 @@ class Convert:
                 with _open_dataset(file_group[0], group='Platform') as ds_plat:
                     _save(ext, ds_plat, save_path, 'a', group='Platform')
             else:
-                with _open_mfdataset(file_group, group='Platform', decode_times=False,
-                                     combine='by_coords', data_vars='minimal') as ds_plat:
+                with _open_mfdataset(file_group, group='Platform', decode_times=False, combine='nested',
+                                     concat_dim='ping_time', data_vars='minimal') as ds_plat:
                     _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
                           save_path, 'a', group='Platform')
             # Combine Sonar-specific
