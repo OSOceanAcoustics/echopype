@@ -501,10 +501,10 @@ class Convert:
                 self._remove(f)
         return combined_files
 
-    def update_platform(self, save_paths):
+    def update_platform(self, save_paths, extra_platform_data=None):
         # self.extra_platform data passed into to_netcdf or from another function
-        extra_platform_data = self.extra_platform_data
-        if isinstance(save_paths, list):
+        extra_platform_data = self.extra_platform_data if extra_platform_data is None else extra_platform_data
+        if not isinstance(save_paths, list):
             save_paths = [save_paths]
         for f in save_paths:
             ext = os.path.splitext(f)[-1]
@@ -567,7 +567,7 @@ class Convert:
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
     def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
-                  overwrite=False, combine=False, parallel=False, extra_platform_data=None):
+                  combine=False, overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
@@ -618,7 +618,8 @@ class Convert:
             if extra_platform_data is not None:
                 self.update_platform(save_paths=self.output_path)
 
-    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False, overwrite=False, parallel=False, extra_platform_data=None):
+    def to_zarr(self, save_path=None, data_type='ALL', compress=True,
+                combine=False, overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to zarr format.
 
         Parameters
