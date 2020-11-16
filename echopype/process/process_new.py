@@ -5,6 +5,7 @@ Some operations are instrument-dependent, such as calibration to obtain Sv.
 
 Some operations are instrument-agnostic, such as obtaining MVBS or detecting bottom.
 """
+import warnings
 from ..utils import uwa
 from . import process_classes
 from .echodata import EchoDataBase
@@ -41,11 +42,34 @@ class Process:
         #     'sea_water_pressure'            [dbars] (~depth in meters)
         #     'speed_of_sound_in_sea_water'   [m/s]
         #     'seawater_absorption'           [dB/m]
-        self.env_params = {}   # env parameters
-        self.cal_params = {}   # cal parameters, eg: sa_correction for EK60
-        self.proc_params = {}  # proc parameters, eg: MVBS bin size
+        self._env_params = {}   # env parameters
+        self._cal_params = {}   # cal parameters, eg: equivalent beam width sa_correction for EK60
+        self._proc_params = {}  # proc parameters, eg: MVBS bin size
 
-        self.save_paths = {}   # paths to save processing results, index by proc type: Sv, TS, etc.
+    @property
+    def env_params(self):
+        return self._env_params
+
+    @env_params.setter
+    def env_params(self, params):
+        if params is None:
+            return
+        valid_params = ['sea_water_salinity', 'sea_water_temperature',
+                        'sea_water_pressure', 'speed_of_sound_in_sea_water', 'seawater_absorption']
+        self._env_params.update(params)
+        # Removes invalid parameterss
+        self._env_params = {k: v for k, v in params.items() if k in valid_params}
+        if self._env_params != params:
+            invalid = [k for k in params.keys() if k not in valid_params]
+            warnings.warn(f'{invalid} will not be used because they are not valid environment parameters.')
+        # Recalculate sound speed and absorption coefficient when environment parameters are changed
+        self.recalculate_environment()
+
+    def recalculate_environment(self, ed=None):
+        if ed is None:
+            ed = self.ed
+        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed(self.env_params)
+        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption(ed, self.env_params)
 
     def _check_model_echodata_match(self, ed):
         """Check if sonar model corresponds with the type of data in EchoData object.
@@ -131,10 +155,6 @@ class Process:
         ed.get_env_from_raw()
         ed.get_vend_from_raw()
 
-        #  If not already specifed by user, calculate sound speed and absorption
-        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed(self.env_params)
-        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption(self.env_params)
-
         # Obtain cal parameters
         #  Operations are very similar to those from the env parameters,
         #  for AZFP AFAIK some additional parameters are needed from the vendor group
@@ -155,3 +175,15 @@ class Process:
             save=save,
             save_format=save_format
         )
+
+    def get_Sv(self, ed=None, save=False, save_format='zarr'):
+        if ed is None:
+            pass
+            # ed = self.ed
+        return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, save=save, save_format=save_format)
+
+    def get_TS(self, ed=None, save=False, save_format='zarr'):
+        if ed is None:
+            pass
+            # ed = self.ed
+        return self.process_obj.get_TS(ed=ed, env_params=self.env_params, save=save, save_format=save_format)

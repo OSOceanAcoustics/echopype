@@ -32,9 +32,23 @@ class EchoDataBase:
         self._Sv_clean = None
         self._MVBS = None
         self._TS = None
+        self._range = None
+
+        self._file_format = None
+        self._open_dataset = None
 
         # Initialize data pointers
         self._init_data_pointer()
+        self._set_file_format()
+        self._set_open_dataset()
+
+    @property
+    def range(self):
+        if self._range is None:
+            print('range array has not been calculated. '
+                  'Call `Process.get_range()` to calculate.')
+        else:
+            return self._range
 
     # TODO: need to make raw_backscatter, Sv_clean, MVBS, TS all properties
     #  seems that we can use a decorator to avoid too much repetitive code
@@ -152,6 +166,17 @@ class EchoDataBase:
         else:
             self._update_data_pointer('Sv_clean')
 
+    def _set_file_format(self):
+        if self.raw_path.endswith('.nc'):
+            self._file_format = 'netcdf'
+        elif self.raw_path.endswith('.zarr'):
+            self._file_format = 'zarr'
+
+    def _set_open_dataset(self):
+        if self._file_format == 'netcdf':
+            self._open_dataset = xr.open_dataset
+        elif self._file_format == 'zarr':
+            self._open_dataset = xr.open_zarr
 
 class EchoDataAZFP(EchoDataBase):
     """Echo data model for data from AZFP echosounder.
