@@ -501,12 +501,22 @@ class Convert:
                 self._remove(f)
         return combined_files
 
-    def update_platform(self, save_paths, extra_platform_data=None):
+    def update_platform(self, files=None, extra_platform_data=None):
+        """Add in platform data (NMEA/GPS) to an existing NetCDF/Zarr file.
+
+        Parameters
+        ----------
+        files : str / list
+            path of converted .nc/.zarr files
+        extra_platform_data : xarray dataset
+            dataset containing platform information along a 'time' dimension
+        """
         # self.extra_platform data passed into to_netcdf or from another function
         extra_platform_data = self.extra_platform_data if extra_platform_data is None else extra_platform_data
-        if not isinstance(save_paths, list):
-            save_paths = [save_paths]
-        for f in save_paths:
+        files = self.output_path if files is None else files
+        if not isinstance(files, list):
+            files = [files]
+        for f in files:
             ext = os.path.splitext(f)[-1]
             if ext == ".nc":
                 ds_beam = xr.open_dataset(f, group="Beam")
@@ -517,29 +527,47 @@ class Convert:
             else:
                 raise ValueError("Invalid file type (must be .nc or .zarr)")
 
-            # saildrone specific hack
-            if "trajectory" in extra_platform_data:
-                    extra_platform_data = extra_platform_data.sel({"trajectory": extra_platform_data["trajectory"][0]})
-                    extra_platform_data = extra_platform_data.drop("trajectory")
             # only take data during ping times
             start_time, end_time = min(ds_beam["ping_time"]), max(ds_beam["ping_time"])
-            extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
+
+            # saildrone specific hack
+            if "trajectory" in extra_platform_data:
+                extra_platform_data = extra_platform_data.sel({"trajectory": extra_platform_data["trajectory"][0]})
+                extra_platform_data = extra_platform_data.drop("trajectory")
+                extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
+
             extra_platform_data = extra_platform_data.sel({"time": slice(start_time, end_time)})
 
-            # merge extra platform data
-            ds_platform = ds_platform.reindex({
-                "location_time": extra_platform_data["time"].values,
-                "mru_time": extra_platform_data["time"].values
-            })
-            num_obs = len(extra_platform_data["time"])
-            ds_platform = ds_platform.update({
-                "pitch": ("mru_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
-                "roll": ("mru_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
-                "heave": ("mru_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
-                "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
-                "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
-                "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
-            })
+            if self.sonar_model in ['EK80', 'EA640']:
+                ds_platform = ds_platform.reindex({
+                    "location_time": extra_platform_data["time"].values,
+                    "mru_time": extra_platform_data["time"].values
+                })
+                # merge extra platform data
+                num_obs = len(extra_platform_data["time"])
+                ds_platform = ds_platform.update({
+                    "pitch": ("mru_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
+                    "roll": ("mru_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
+                    "heave": ("mru_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
+                    "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
+                    "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
+                    "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
+                })
+            elif self.sonar_model == 'EK60':
+                ds_platform = ds_platform.reindex({
+                    "ping_time": extra_platform_data["time"].values,
+                    "location_time": extra_platform_data["time"].values,
+                })
+                # merge extra platform data
+                num_obs = len(extra_platform_data["time"])
+                ds_platform = ds_platform.update({
+                    "pitch": ("ping_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
+                    "roll": ("ping_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
+                    "heave": ("ping_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
+                    "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
+                    "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
+                    "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
+                })
 
             # need to close the file in order to remove it
             # (and need to close the file so to_netcdf can write to it)
@@ -586,13 +614,12 @@ class Convert:
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
         extra_platform_data : list
-            files containing platform (NMEA/GPS) data
+            dataset containing platform (NMEA/GPS) data
         """
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
-        self.extra_platform_data = extra_platform_data
 
         self._validate_path('.nc', save_path)
         # Sequential or parallel conversion
@@ -613,10 +640,10 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_paths=[save_path])
+                self.update_platform(files=[save_path], extra_platform_data=extra_platform_data)
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_paths=self.output_path)
+                self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
 
     def to_zarr(self, save_path=None, data_type='ALL', compress=True,
                 combine=False, overwrite=False, parallel=False, extra_platform_data=None):
@@ -638,14 +665,12 @@ class Convert:
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
         extra_platform_data : list
-            files containing platform (NMEA/GPS) data
-        self.extra_platform_data = extra_platform_data
+            dataset containing platform (NMEA/GPS) data
         """
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
-        self.extra_platform_data = extra_platform_data
 
         if isinstance(save_path, MutableMapping):
             self._validate_object_store(save_path)
@@ -665,10 +690,10 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(save_paths=[save_path])
+                self.update_platform(files=[save_path])
         else:
             if extra_platform_data is not None:
-                self.update_platform(save_paths=self.output_path)
+                self.update_platform(files=self.output_path)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
