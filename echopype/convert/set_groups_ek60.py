@@ -87,19 +87,19 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Assemble variables into a dataset
         ds = xr.Dataset(
-            {'pitch': (['ping_time'], np.array(list(
+            {'pitch': (['mru_time'], np.array(list(
                        self.convert_obj.ping_data_dict['pitch'].values())[0], dtype='float32'),
                        {'long_name': 'Platform pitch',
                         'standard_name': 'platform_pitch_angle',
                         'units': 'arc_degree',
                         'valid_range': (-90.0, 90.0)}),
-             'roll': (['ping_time'], np.array(list(
+             'roll': (['mru_time'], np.array(list(
                       self.convert_obj.ping_data_dict['roll'].values())[0], dtype='float32'),
                       {'long_name': 'Platform roll',
                        'standard_name': 'platform_roll_angle',
                        'units': 'arc_degree',
                        'valid_range': (-90.0, 90.0)}),
-             'heave': (['ping_time'], np.array(list(
+             'heave': (['mru_time'], np.array(list(
                        self.convert_obj.ping_data_dict['heave'].values())[0], dtype='float32'),
                        {'long_name': 'Platform heave',
                         'standard_name': 'platform_heave_angle',
@@ -111,7 +111,7 @@ class SetGroupsEK60(SetGroupsBase):
                                            'origin to the sonar transducer',
                               'units': 'm'})
              },
-            coords={'ping_time': (['ping_time'], ping_time,
+            coords={'ping_time': (['mru_time'], ping_time,
                                   {'axis': 'T',
                                    'calendar': 'gregorian',
                                    'long_name': 'Timestamps for position datagrams',
