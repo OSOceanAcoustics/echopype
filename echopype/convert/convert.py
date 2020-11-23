@@ -496,7 +496,7 @@ class Convert:
         return True
 
     def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
-                  overwrite=False, combine=False, parallel=False):
+                  combine=False, overwrite=False, parallel=False):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
@@ -509,6 +509,9 @@ class Convert:
         compress : bool
             whether or not to preform compression on data variables
             Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
@@ -552,6 +555,9 @@ class Convert:
         compress : bool
             whether or not to preform compression on data variables
             Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
@@ -582,7 +588,7 @@ class Convert:
             self.combine_files(save_path=save_path, remove_orig=True)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
-        """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
+        """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
 
         Parameters
         ----------

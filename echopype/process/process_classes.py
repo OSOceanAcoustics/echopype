@@ -44,7 +44,7 @@ class ProcessBase:
         # Issue warning when subclass methods not available
         print('Calibration has not been implemented for this sonar model!')
 
-    def get_MVBS(self):
+    def get_MVBS(self, ed, proc_params, save=True, save_format='zarr'):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
@@ -53,10 +53,8 @@ class ProcessBase:
         that are from the first elements of each tile along the corresponding dimensions
         in the original Sv or Sv_clean DataArray.
         """
-        # Issue warning when subclass methods not available
-        print('Calibration has not been implemented for this sonar model!')
 
-    def remove_noise(self):
+    def remove_noise(self, ed, proc_params, save=True, save_format='zarr'):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -73,6 +71,9 @@ class ProcessBase:
         noise removal is actually performed.
         """
 
+    def db_diff(self, ed, proc_params, save=True, save_format='zarr'):
+        """Perform dB-differencing (frequency-differencing) for specified thresholds.
+        """
 
 class ProcessAZFP(ProcessBase):
     """
