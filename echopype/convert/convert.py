@@ -546,7 +546,7 @@ class Convert:
         ----------
         save_path : str
             path that converted .zarr file will be saved
-        data_type : str {'ALL', 'GPS', 'CONFIG_XML', 'ENV_XML'}
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
         compress : bool
@@ -590,7 +590,7 @@ class Convert:
             path that converted .xml file will be saved
         type: str
             which XML to export
-            either 'CONFIG_XML' or 'ENV_XML'
+            either 'CONFIG' or 'ENV'
         """
         if self.sonar_model not in ['EK80', 'EA640']:
             raise ValueError("Exporting to xml is not availible for " + self.sonar_model)

@@ -343,9 +343,9 @@ class ParseEK(ParseBase):
                     return ['NME', 'MRU', 'GPS']
             # TODO: WJ: I don't see how the 'ENV_XML' case is working,
             #  and why do you need both CONFIG+ENV and EXPORT?
-            elif s == 'CONFIG_XML':
+            elif s == 'CONFIG':
                 return ['CONFIG']
-            elif s == 'ENV_XML':
+            elif s == 'ENV':
                 return ['XML', 'ENV']
             elif s == 'EXPORT':
                 return ['EXPORT']
