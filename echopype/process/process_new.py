@@ -30,7 +30,7 @@ class Process:
         'EA640': process_classes.ProcessEK80(),
     }
 
-    def __init__(self, model=None):
+    def __init__(self, model=None, ed=None):
         self.sonar_model = model   # type of echosounder
         self.process_obj = self.PROCESS_SONAR[model]   # process object to use
 
@@ -46,6 +46,10 @@ class Process:
         self._cal_params = {}   # cal parameters, eg: equivalent beam width sa_correction for EK60
         self._proc_params = {}  # proc parameters, eg: MVBS bin size
 
+        if ed is not None:
+            self.init_cal_params(ed)
+            self.init_env_params(ed)
+
     @property
     def env_params(self):
         return self._env_params
@@ -56,20 +60,99 @@ class Process:
             return
         valid_params = ['sea_water_salinity', 'sea_water_temperature',
                         'sea_water_pressure', 'speed_of_sound_in_sea_water', 'seawater_absorption']
-        self._env_params.update(params)
-        # Removes invalid parameterss
-        self._env_params = {k: v for k, v in params.items() if k in valid_params}
-        if self._env_params != params:
-            invalid = [k for k in params.keys() if k not in valid_params]
-            warnings.warn(f'{invalid} will not be used because they are not valid environment parameters.')
-        # Recalculate sound speed and absorption coefficient when environment parameters are changed
-        self.recalculate_environment()
+        self._env_params = self._check_valid_params(params, self._env_params, valid_params)
 
-    def recalculate_environment(self, ed=None):
-        if ed is None:
-            ed = self.ed
-        self.env_params['speed_of_sound_in_sea_water'] = self.process_obj.calc_sound_speed(self.env_params)
-        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption(ed, self.env_params)
+    @property
+    def cal_params(self):
+        return self._cal_params
+
+    @cal_params.setter
+    def cal_params(self, params):
+        if params is None:
+            return
+        valid_params = ['gain_correction', 'sa_correction', 'sample_interval', 'slope',
+                        'equivalent_beam_angle', 'transmit_power', 'transmit_duration_nominal']
+        self._cal_params = self._check_valid_params(params, self._cal_params, valid_params)
+
+    def _check_valid_params(self, params, current_params, valid_params):
+        tmp_params = current_params.copy()
+        tmp_params.update(params)
+        # Removes invalid parameterss
+        current_params = {k: v for k, v in tmp_params.items() if k in valid_params}
+        if tmp_params != current_params:
+            invalid = [k for k in params.keys() if k not in valid_params]
+            msg = f"{invalid} will not be used because they are not valid parameters."
+            warnings.warn(msg)
+        return current_params
+
+    def init_env_params(self, ed, params={}):
+        if 'sea_water_salinity' not in params:
+            params['sea_water_salinity'] = 29.6     # Default salinity in ppt
+            print("Initialize using default sea water salinity of 29.6 ppt")
+        if 'sea_water_pressure' not in params:
+            params['sea_water_pressure'] == 60      # Default pressure in dbars
+            print("Initialize using default sea water salinity of 60 dbars")
+        if 'sea_water_temperature' not in params:
+            if self.sonar_model == 'AZFP':
+                with ed._open_dataset(ed.raw_path, group='Environment') as ds_env:
+                    params['sea_water_temperature'] = ds_env.temperature
+            else:
+                params['sea_water_temperature'] = 8.0   # Default temperature in Celsius
+        if self.sonar_model in ['EK60', 'EK80', 'EA640']:
+            if 'speed_of_sound_in_sea_water' not in params or 'seawater_absorption' not in params:
+                ds_env = ed._open_dataset(ed.raw_path, group="Environment")
+                if 'speed_of_sound_in_sea_water' not in params:
+                    params['speed_of_sound_in_sea_water'] = ds_env.sound_speed_indicative
+                if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
+                    params['seawater_absorption'] = ds_env.absorption_indicative
+
+        self.env_params = params
+
+        # Recalculate sound speed and absorption coefficient when environment parameters are changed
+        if 'speed_of_sound_in_sea_water' not in self.env_params or 'seawater_absorption' not in self.env_params:
+            ss, sa = True, True
+            if self.sonar_model != 'AZFP':
+                ss = False
+            self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
+
+    def init_cal_params(self, ed, params={}):
+        if self.sonar_model in ['EK60', 'EK80', 'EA640']:
+            if 'gain_correction' not in params:
+                params['gain_correction'] = ed.raw.get('gain_correction', None)
+            if 'equivalent_beam_angle' not in params:
+                params['equivalent_beam_angle'] = ed.raw.get('equivalent_beam_angle', None)
+            if 'transmit_power' not in params:
+                params['transmit_power'] = ed.raw.get('transmit_power', None)
+            if 'transmit_duration_nominal' not in params:
+                params['transmit_duration_nominal'] = ed.raw.get('transmit_duration_nominal', None)
+            if 'sa_correction' not in params:
+                params['sa_correction'] = ed.raw.get('sa_correction', None)
+
+            if self.sonar_model in ['EK80', 'EA640']:
+                if 'slope' not in params:
+                    params['slope'] = ed.raw.get('slope', None)
+                if 'sample_interval' not in params:
+                    params['sample_interval'] = ed.raw.get('sample_interval', None)
+
+            self.cal_params = params
+
+    def recalculate_environment(self, ed, src='user', ss=True, sa=True):
+        """Retrieves the speed of sound and seawater absorption
+
+        Parameters
+        ----------
+        src : str
+            How the parameters are retrieved.
+            'user' for calculated from salinity, tempearture, and pressure
+            'file' for retrieved from raw data (Not availible for AZFP)
+        """
+        if ss:
+            self._env_params['speed_of_sound_in_sea_water'] = \
+                self.process_obj.calc_sound_speed(self.env_params, src)
+        if sa:
+            fs = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
+            self._env_params['seawater_absorption'] = \
+                self.process_obj.calc_seawater_absorption(ed, self.env_params, src, formula_source=fs)
 
     def _check_model_echodata_match(self, ed):
         """Check if sonar model corresponds with the type of data in EchoData object.
@@ -126,7 +209,7 @@ class Process:
         self.process_obj.calc_range(ed)
 
         # Swap dim to align raw backscatter to range instead of range_bin
-        # Users then have the option to use ed.Sv.to_zarr() or other xarray function
+        # Users then have the option to use ed.Sv.zarr() or other xarray function
         # to explore the data.
 
     def calibrate(self, ed, param_source='file', save=True, save_format='zarr'):
@@ -176,14 +259,10 @@ class Process:
             save_format=save_format
         )
 
-    def get_Sv(self, ed=None, save=False, save_format='zarr'):
-        if ed is None:
-            pass
-            # ed = self.ed
-        return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, save=save, save_format=save_format)
+    def get_Sv(self, ed, save=False, save_path=None, save_format='zarr'):
+        return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
+                                       save=save, save_path=save_path, save_format=save_format)
 
-    def get_TS(self, ed=None, save=False, save_format='zarr'):
-        if ed is None:
-            pass
-            # ed = self.ed
-        return self.process_obj.get_TS(ed=ed, env_params=self.env_params, save=save, save_format=save_format)
+    def get_TS(self, ed, save=False, save_path=None, save_format='zarr'):
+        return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
+                                       save=save, save_path=save_path, save_format=save_format)
