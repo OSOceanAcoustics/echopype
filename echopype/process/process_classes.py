@@ -14,11 +14,25 @@ class ProcessBase:
     """
     def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
-        self._open_dataset = None
 
-    def calc_sound_speed(self, env_params):
+    def calc_sound_speed(self, ed, env_params=None, src='user'):
         """Base method for calculating sound speed.
         """
+        if src == 'file':
+            with ed._open_dataset(ed.raw_path, group="Environment") as ds_env:
+                if 'sound_speed_indicative' in ds_env:
+                    return ds_env.sound_speed_indicative
+                else:
+                    ValueError("Sound speed not found in file")
+        elif src == 'user':
+            if env_params is None:
+                raise ValueError("`env_params` required for calculating sound speed")
+            ss = uwa.calc_sound_speed(salinity=env_params['sea_water_salinity'],
+                                      temperature=env_params['sea_water_temperature'],
+                                      pressure=env_params['sea_water_pressure'])
+            return ss
+        else:
+            ValueError("Not sure how to update sound speed!")
 
     def calc_seawater_absorption(self, ed, env_params, src, formula_source):
         """Base method for calculating seawater absorption.
@@ -95,13 +109,6 @@ class ProcessAZFP(ProcessBase):
     def __init__(self, model='AZFP'):
         super().__init__(model)
 
-    # TODO: need something to prompt user to use set_environment_parameters()
-    #  to put in pressure and salinity before trying to calibrate
-
-    def calc_sound_speed(self, env_params, src='user', formula_source='AZFP'):
-        """Calculate sound speed using AZFP formula.
-        """
-
     def calc_seawater_absorption(self, ed, env_params, src='user', formula_source='AZFP', param_source=None):
         """Calculate sound absorption using AZFP formula.
         """
@@ -152,17 +159,7 @@ class ProcessAZFP(ProcessBase):
 
     def get_Sv(self, ed, env_params, cal_params=None, save=True, save_path=None, save_format='zarr'):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
-        """
-        # TODO: transplant what was in .calibrate() before
-        #  this operation should make an xarray Dataset in ed.Sv
-        #  if save=True:
-        #      - save the results as zarr in self.save_paths['Sv']
-        #      - update ed.Sv_path
 
-        # Print raw data nc file
-        print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
-
-        """
         The calibration formula used here is documented in eq.(9) on p.85
         of GU-100-AZFP-01-R50 Operator's Manual.
         Note a Sv_offset factor that varies depending on frequency is used
@@ -201,8 +198,6 @@ class ProcessAZFP(ProcessBase):
     def get_TS(self, ed, env_params, cal_params=None, save=True, save_path=None, save_format='zarr'):
         """Calibrate to get Target Strength (TS) from AZFP power data.
         """
-        # TODO: transplant what was in .calibrate_TS() before,
-        #  other requirements are the same as .get_Sv()
         if ed.range is None:
             ed.range = self.calc_range(ed, env_params)
 
@@ -234,10 +229,6 @@ class ProcessEK(ProcessBase):
     def __init__(self, model=None):
         super().__init__(model)
 
-    def calc_sound_speed(self, env_params, param_source='file'):
-        """Calculate sound speed.
-        """
-
     def calc_sample_thickness(self, ed, env_params):
         """Calculate sample thickness.
         """
@@ -247,11 +238,6 @@ class ProcessEK(ProcessBase):
                         save=True, save_path=None, save_format='zarr'):
         """Calibrate narrowband data from EK60 and EK80.
         """
-        # TODO: this operation should make an xarray Dataset in ed.Sv
-        #  if save=True:
-        #      - save the results as zarr in self.save_paths['Sv']
-        #      - update ed.Sv_path
-
         # Derived params
         wavelength = env_params['speed_of_sound_in_sea_water'] / ed.raw.frequency  # wavelength
         if ed.range is None:
@@ -261,7 +247,6 @@ class ProcessEK(ProcessBase):
         ABS = 2 * env_params['seawater_absorption'] * ed.range
         if cal_type == 'Sv':
             # Print raw data nc file
-            print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
 
             # Calc gain
             CSv = 10 * np.log10((cal_params['transmit_power'] * (10 ** (cal_params['gain_correction'] / 10)) ** 2 *
@@ -312,7 +297,6 @@ class ProcessEK(ProcessBase):
                 ed._save_dataset(TS, TS_path, mode="w", save_format=save_format)
                 ed.TS_path = TS_path
             else:
-                # TODO Add to docs
                 ed.TS = TS
 
 
@@ -506,8 +490,6 @@ class ProcessEK80(ProcessEK):
                        save=True, save_path=None, save_format='zarr'):
         """Calibrate broadband EK80 data.
         """
-
-        # Calibrate bb data
         Ztrd = 75       # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
         Rwbtrx = 1000   # Wideband transceiver impedance [Ohms] (Supplied by Simrad)
         tx_signal = self.calc_transmit_signal(ed, cal_params)  # Get transmit signal

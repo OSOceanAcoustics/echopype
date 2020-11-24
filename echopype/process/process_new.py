@@ -148,7 +148,7 @@ class Process:
         """
         if ss:
             self._env_params['speed_of_sound_in_sea_water'] = \
-                self.process_obj.calc_sound_speed(self.env_params, src)
+                self.process_obj.calc_sound_speed(ed, self.env_params, src)
         if sa:
             fs = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
             self._env_params['seawater_absorption'] = \
@@ -260,9 +260,11 @@ class Process:
         )
 
     def get_Sv(self, ed, save=False, save_path=None, save_format='zarr'):
+        print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
         return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
     def get_TS(self, ed, save=False, save_path=None, save_format='zarr'):
+        print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
         return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
