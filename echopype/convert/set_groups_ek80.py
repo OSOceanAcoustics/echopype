@@ -89,8 +89,9 @@ class SetGroupsEK80(SetGroupsBase):
         lat, lon, location_time, nmea_msg = self._parse_NMEA()
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        mru_time = mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
-                               np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
+        # TODO: @ngkavin: why is nmea_msg used here?
+        mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
+                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
 
         # Assemble variables into a dataset
         ds = xr.Dataset(
@@ -177,7 +178,7 @@ class SetGroupsEK80(SetGroupsBase):
         tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
         beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
         beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
-        beam_dict['gpt_software_version'] = []
+        beam_dict['gpt_software_version'] = []  # TODO: @ngkavin: change this to wbt_software_version
         beam_dict['channel_id'] = []
         c_seq = 0
         for k, c in config.items():
@@ -206,6 +207,7 @@ class SetGroupsEK80(SetGroupsBase):
             c_seq += 1
 
         # Stack channels and order axis as: channel, quadrant, ping, range
+        # TODO: @ngkavin: change below to if-else testing the power data and frequency start/end combination
         if bb:
             try:
                 freq_start = np.array([self.convert_obj.ping_data_dict['frequency_start'][x][0]
@@ -237,6 +239,10 @@ class SetGroupsEK80(SetGroupsBase):
         if not bb:
             # Use the indices to select sa_correction values from the sa correction table
             pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
+            # TODO: @ngkavin:
+            #  this part should find the *closest* instead of the exact match of pulse length,
+            #  see line 51-67 (under %% missing value section) in EK80applyGain.
+            #  Print out message similar to line 88-91 if exact matches are not found.
             idx = [np.argwhere(np.isclose(tdn[i][0], config[ch][pulse_length])).squeeze()
                    for i, ch in enumerate(ch_ids)]
             sa_correction = np.array([x['sa_correction'][y]
@@ -363,6 +369,8 @@ class SetGroupsEK80(SetGroupsBase):
                 coords={'frequency': (['frequency'], freq,
                                       {'long_name': 'Center frequency of the transducer',
                                       'units': 'Hz'}),
+                        # TODO: @ngkavin:
+                        #  frequency_start and frequency_end should be data variables and not coordinates
                         'frequency_start': (['frequency'], freq_start,
                                             {'long_name': 'Starting frequency of the transducer',
                                              'units': 'Hz'}),
@@ -381,6 +389,10 @@ class SetGroupsEK80(SetGroupsBase):
             ds = xr.merge([ds, ds_bb], combine_attrs='override')
         # Save continuous wave backscatter
         else:
+            # TODO: @ngkavin:
+            #  Move sa_correction to the Vendor group as a data variable indexed by pulse length,
+            #  and performs the pulse length matching "on the fly" in process.calibrate.
+            #  See EK80applyGain for matching tolerance (tol=1e-6).
             ds_cw = xr.Dataset(
                 {'backscatter_r': (['frequency', 'ping_time', 'range_bin'],
                                    self.convert_obj.ping_data_dict['power'],
