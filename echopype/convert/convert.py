@@ -512,7 +512,10 @@ class Convert:
             dataset containing platform information along a 'time' dimension
         """
         # self.extra_platform data passed into to_netcdf or from another function
-        extra_platform_data = self.extra_platform_data if extra_platform_data is None else extra_platform_data
+        if extra_platform_data is None and self.extra_platform_data is not None:
+            extra_platform_data = self.extra_platform_data
+        elif extra_platform_data is None and self.extra_platform_data is None:
+            return
         files = self.output_path if files is None else files
         if not isinstance(files, list):
             files = [files]
@@ -538,20 +541,26 @@ class Convert:
 
             extra_platform_data = extra_platform_data.sel({"time": slice(start_time, end_time)})
 
+            def mapping_get_multiple(mapping, keys, default=None):
+                for key in keys:
+                    if key in mapping:
+                        return mapping[key]
+                return default
+
             if self.sonar_model in ['EK80', 'EA640']:
                 ds_platform = ds_platform.reindex({
+                    "mru_time": extra_platform_data["time"].values,
                     "location_time": extra_platform_data["time"].values,
-                    "mru_time": extra_platform_data["time"].values
                 })
                 # merge extra platform data
                 num_obs = len(extra_platform_data["time"])
                 ds_platform = ds_platform.update({
-                    "pitch": ("mru_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
-                    "roll": ("mru_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
-                    "heave": ("mru_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
-                    "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
-                    "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
-                    "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
+                    "pitch": ("mru_time", mapping_get_multiple(extra_platform_data, ["pitch", "PITCH"], np.full(num_obs, np.nan))),
+                    "roll": ("mru_time", mapping_get_multiple(extra_platform_data, ["roll", "ROLL"], np.full(num_obs, np.nan))),
+                    "heave": ("mru_time", mapping_get_multiple(extra_platform_data, ["heave", "HEAVE"], np.full(num_obs, np.nan))),
+                    "latitude": ("location_time", mapping_get_multiple(extra_platform_data, ["lat", "latitude", "LATITUDE"], default=np.full(num_obs, np.nan))),
+                    "longitude": ("location_time", mapping_get_multiple(extra_platform_data, ["lon", "longitude", "LONGITUDE"], default=np.full(num_obs, np.nan))),
+                    "water_level": ("location_time", mapping_get_multiple(extra_platform_data, ["water_level", "WATER_LEVEL"], np.ones(num_obs)))
                 })
             elif self.sonar_model == 'EK60':
                 ds_platform = ds_platform.reindex({
@@ -561,12 +570,12 @@ class Convert:
                 # merge extra platform data
                 num_obs = len(extra_platform_data["time"])
                 ds_platform = ds_platform.update({
-                    "pitch": ("ping_time", extra_platform_data.get("PITCH", np.full(num_obs, np.nan))),
-                    "roll": ("ping_time", extra_platform_data.get("ROLL", np.full(num_obs, np.nan))),
-                    "heave": ("ping_time", extra_platform_data.get("HEAVE", np.full(num_obs, np.nan))),
-                    "latitude": ("location_time", extra_platform_data.get("latitude", np.full(num_obs, np.nan))),
-                    "longitude": ("location_time", extra_platform_data.get("longitude", np.full(num_obs, np.nan))),
-                    "water_level": ("location_time", extra_platform_data.get("water_level", np.full(num_obs, np.nan)))
+                    "pitch": ("ping_time", mapping_get_multiple(extra_platform_data, ["pitch", "PITCH"], np.full(num_obs, np.nan))),
+                    "roll": ("ping_time", mapping_get_multiple(extra_platform_data, ["roll", "ROLL"], np.full(num_obs, np.nan))),
+                    "heave": ("ping_time", mapping_get_multiple(extra_platform_data, ["heave", "HEAVE"], np.full(num_obs, np.nan))),
+                    "latitude": ("location_time", mapping_get_multiple(extra_platform_data, ["lat", "latitude", "LATITUDE"], default=np.full(num_obs, np.nan))),
+                    "longitude": ("location_time", mapping_get_multiple(extra_platform_data, ["lon", "longitude", "LONGITUDE"], default=np.full(num_obs, np.nan))),
+                    "water_level": ("location_time", mapping_get_multiple(extra_platform_data, ["water_level", "WATER_LEVEL"], np.ones(num_obs)))
                 })
 
             # need to close the file in order to remove it
@@ -579,9 +588,7 @@ class Convert:
                 old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
                 new_dataset_filename = f + ".temp"
                 new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
-                for name, group in old_dataset.groups.items():
-                    if name != "Platform":
-                        new_dataset.groups[name] = group
+                new_dataset.groups.update({group_name : group for group_name, group in old_dataset.groups.items() if group_name != "Platform"})
                 new_dataset.sync()
                 old_dataset.close()
                 new_dataset.close()
@@ -690,10 +697,10 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
             if extra_platform_data is not None:
-                self.update_platform(files=[save_path])
+                self.update_platform(files=[save_path], extra_platform_data=extra_platform_data)
         else:
             if extra_platform_data is not None:
-                self.update_platform(files=self.output_path)
+                self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
 
     def to_xml(self, save_path=None, data_type='CONFIG_XML'):
         """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
