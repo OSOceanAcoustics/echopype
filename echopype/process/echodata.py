@@ -57,9 +57,8 @@ class EchoDataBase:
         self._open_dataset = None
 
         # Initialize data pointers
-        self._init_data_pointer()
         self._set_file_format()
-        self._set_handle_dataset()
+        self._set_dataset_handlers()
 
     @property
     def Sv(self):
@@ -248,42 +247,13 @@ class EchoDataBase:
             except:  # catch errors thrown from the above
                 raise
 
-    def _init_data_pointer(self):
-        """Initialize pointer to data if the path exists.
-        """
-        # Initialize pointer to raw data files
-        if (self.raw_path is None) and (self.Sv_path is None):
-            raise ValueError('Please specify a path to nc or zarr files '
-                             'containing either raw data or calibrated Sv.')
-        else:
-            # Point raw to data
-            if self.raw_path is not None:
-                # Get paths to files
-                self._update_file_list(self.raw_path, 'raw')
-                try:
-                    self._check_key_param_consistency(group='Beam')
-                    self.raw = xr.open_mfdataset(self.raw_path, group='Beam')
-                except:  # TODO: need to specify exception type
-                    raise
-
-            # Point Sv to data
-            if self.Sv_path is not None:
-                # Get paths to files
-                self._update_file_list('Sv')
-
-        # Initialize Sv_clean, MVBS, TS  # TODO: do the same as below for MVBS and TS
-        if self.Sv_clean_path is None:
-            self._Sv_clean = None
-        else:
-            self._update_data_pointer('Sv_clean')
-
     def _set_file_format(self):
         if self.raw_path.endswith('.nc'):
             self._file_format = 'netcdf'
         elif self.raw_path.endswith('.zarr'):
             self._file_format = 'zarr'
 
-    def _set_handle_dataset(self):
+    def _set_dataset_handlers(self):
         if self._file_format == 'netcdf':
             self._open_dataset = xr.open_dataset
         elif self._file_format == 'zarr':
