@@ -20,5 +20,6 @@ toolbox
 *.csv
 *.01A
 *.zarr
+*.xml
 ek60/
 azfp/
