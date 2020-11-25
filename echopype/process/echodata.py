@@ -10,6 +10,7 @@ use Plot objects for visualization.
 
 import os
 import glob
+from ..utils import io
 import xarray as xr
 
 
@@ -19,20 +20,38 @@ class EchoDataBase:
     def __init__(self, raw_path=None,
                  Sv_path=None, Sv_clean_path=None,
                  TS_path=None, MVBS_path=None):
-        # Paths to files: can be netcdf or zarr
-        self.raw_path = raw_path
-        self._Sv_path = Sv_path
-        self.Sv_clean_path = Sv_clean_path
-        self.MVBS_path = MVBS_path
-        self.TS_path = TS_path
 
         # Pointer to data
-        self._raw_backscatter = None
+        self._raw = None
         self._Sv = None
         self._Sv_clean = None
         self._MVBS = None
         self._TS = None
-        self._range = None
+
+        self._raw_path = None
+        self._Sv_path = None
+        self._Sv_clean_path = None
+        self._TS_path = None
+        self._MVBS_path = None
+
+        # Paths to files: can be netcdf or zarr
+        self.raw_path = raw_path
+        self.Sv_path = Sv_path
+        self.Sv_clean_path = Sv_clean_path
+        self.TS_path = TS_path
+        self.MVBS_path = MVBS_path
+
+        self.range = None
+
+
+        # TODO might be better:
+        # attrs = ['Sv', 'Sv_clean', 'TS', 'MVBS']
+        # self._raw_path = None
+        # self._raw = None
+        # for attr in attrs:
+        #     setattr(self, '_' + attr, None)
+        #     setattr(self, '_' + attr + '_path', None)
+        #     setattr(self, attr, kwargs['attr'])
 
         self._file_format = None
         self._open_dataset = None
@@ -40,18 +59,8 @@ class EchoDataBase:
         # Initialize data pointers
         self._init_data_pointer()
         self._set_file_format()
-        self._set_open_dataset()
+        self._set_handle_dataset()
 
-    @property
-    def range(self):
-        if self._range is None:
-            print('range array has not been calculated. '
-                  'Call `Process.get_range()` to calculate.')
-        else:
-            return self._range
-
-    # TODO: need to make raw_backscatter, Sv_clean, MVBS, TS all properties
-    #  seems that we can use a decorator to avoid too much repetitive code
     @property
     def Sv(self):
         if self._Sv is None:
@@ -70,7 +79,63 @@ class EchoDataBase:
         """
         self._Sv = val
 
-    # TODO: change below to use decorator for all paths
+    # Data
+    @property
+    def Sv_clean(self):
+        if self._Sv_clean is None:
+            print('Data has not been calibrated. '
+                  'Call `Process.calibrate(EchoData)` to calibrate.')
+        else:
+            return self._Sv_clean
+
+    @Sv_clean.setter
+    def Sv_clean(self, val):
+        self._Sv_clean = val
+
+    @property
+    def TS(self):
+        if self._TS is None:
+            print('Data has not been calibrated. '
+                  'Call `Process.calibrate(EchoData)` to calibrate.')
+        else:
+            return self._TS
+
+    @TS.setter
+    def TS(self, val):
+        self._TS = val
+
+    @property
+    def MVBS(self):
+        if self._MVBS is None:
+            print('Data has not been calibrated. '
+                  'Call `Process.calibrate(EchoData)` to calibrate.')
+        else:
+            return self._MVBS
+
+    @MVBS.setter
+    def MVBS(self, val):
+        self._MVBS = val
+
+    @property
+    def raw(self):
+        if self._raw is None:
+            print('No raw backscatter data availible')
+        else:
+            return self._raw
+
+    @raw.setter
+    def raw(self, val):
+        self._raw = val
+
+    # Paths
+    @property
+    def raw_path(self):
+        return self._raw_path
+
+    @raw_path.setter
+    def raw_path(self, val):
+        self._update_data_pointer(val, arr_type='raw')
+
     @property
     def Sv_path(self):
         return self._Sv_path
@@ -83,8 +148,32 @@ class EchoDataBase:
             ed = EchoData(raw_path=[...])
             ed.Sv_path = [some path of files containing Sv data]
         """
-        self._Sv_path = val
-        self._update_data_pointer()
+        # self._Sv_path = val
+        self._update_data_pointer(val, arr_type='Sv')
+
+    @property
+    def TS_path(self):
+        return self._TS_path
+
+    @TS_path.setter
+    def TS_path(self, val):
+        self._update_data_pointer(val, arr_type='TS')
+
+    @property
+    def Sv_clean_path(self):
+        return self._Sv_clean_path
+
+    @Sv_clean_path.setter
+    def Sv_clean_path(self, val):
+        self._update_data_pointer(val, arr_type='Sv_clean')
+
+    @property
+    def MVBS_path(self):
+        return self._MVBS_path
+
+    @MVBS_path.setter
+    def MVBS_path(self, val):
+        self._update_data_pointer(val, arr_type='MVBS')
 
     def _check_key_param_consistency(self, group):
         """Check if key params in the files for the specified group
@@ -120,22 +209,44 @@ class EchoDataBase:
         #
         # return an xarray Dataset
 
-    def _update_file_list(self, varname):
+    def _update_file_list(self, path, file_list):
         """Update the path specified by user to a list of all files to be opened together.
         """
         # If user passes in a list in self.X_path, use that list directly.
         # If user passes in a path to folder in self.X_path, index all files in the folder.
         # Update self.varname to be the above list, probably by using setattr?
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1]
+            # Check for folder to paths
+            if ext == '':
+                setattr(self, file_list, io.get_files_from_dir(path))
+            # Check single file path
+            elif ext in ['.nc', '.zarr']:
+                setattr(self, file_list, path)
+            else:
+                raise ValueError("Unsupported file path")
+        else:
+            # Check for list of paths
+            if isinstance(path, list):
+                setattr(self, file_list, path)
+            else:
+                raise ValueError("Unsupported file path")
 
-    def _update_data_pointer(self, varname):
+    def _update_data_pointer(self, path, arr_type):
         """Update pointer to data for the specified type and path.
         """
-        # TODO: below is written for Sv, make it general and applicable to Sv_clean, MVBS, and TS
-        self._update_file_list('Sv')
-        try:
-            self.Sv = xr.open_mfdataset(self.Sv_path)
-        except:  # catch errors thrown from the above
-            raise
+        attr = f'_{arr_type}'
+        attr_path = attr + '_path'
+        if path is None:
+            setattr(self, attr, None)
+            setattr(self, attr_path, None)
+        else:
+            self._update_file_list(path, attr_path)
+            try:
+                # Lazy load data into instance variable ie. self.Sv, self.raw, etc
+                setattr(self, attr, xr.open_mfdataset(getattr(self, attr_path)))
+            except:  # catch errors thrown from the above
+                raise
 
     def _init_data_pointer(self):
         """Initialize pointer to data if the path exists.
@@ -145,13 +256,13 @@ class EchoDataBase:
             raise ValueError('Please specify a path to nc or zarr files '
                              'containing either raw data or calibrated Sv.')
         else:
-            # Point raw_backscatter to data
+            # Point raw to data
             if self.raw_path is not None:
                 # Get paths to files
-                self._update_file_list('raw_path')
+                self._update_file_list(self.raw_path, 'raw')
                 try:
                     self._check_key_param_consistency(group='Beam')
-                    self.raw_backscatter = xr.open_mfdataset(self.raw_path, group='Beam')
+                    self.raw = xr.open_mfdataset(self.raw_path, group='Beam')
                 except:  # TODO: need to specify exception type
                     raise
 
@@ -172,11 +283,32 @@ class EchoDataBase:
         elif self.raw_path.endswith('.zarr'):
             self._file_format = 'zarr'
 
-    def _set_open_dataset(self):
+    def _set_handle_dataset(self):
         if self._file_format == 'netcdf':
             self._open_dataset = xr.open_dataset
         elif self._file_format == 'zarr':
             self._open_dataset = xr.open_zarr
+
+    def _save_dataset(self, ds, path, mode="w", save_format='zarr'):
+        """Save dataset to the appropriate formats.
+
+        A utility method to use the correct function to save the dataset,
+        based on the input file format.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            xarray dataset object
+        path : str
+            output file
+        """
+        if save_format == 'netcdf':
+            ds.to_netcdf(path, mode=mode)
+        elif save_format == 'zarr':
+            ds.to_zarr(path, mode=mode)
+        else:
+            raise ValueError("Unsupported save format " + save_format)
+
 
 class EchoDataAZFP(EchoDataBase):
     """Echo data model for data from AZFP echosounder.
