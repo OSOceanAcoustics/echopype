@@ -45,6 +45,55 @@ class Process:
             self.init_env_params(ed)
 
     @property
+    def proc_params(self):
+        # TODO: discussion: use dict of dict
+        #   self.proc_params['MVBS'] = {k: v}
+        # TODO: ngkavin: implement: get_MVBS() / remove_noise() / get_noise_estimates()
+        # get_MVBS() related params:
+        #  - MVBS_source: 'Sv' or 'Sv_cleaned'
+        #  - MVBS_type: 'binned' or 'rolling'
+        #               so far we've only had binned averages (what coarsen is doing)
+        #               let's add the functionality to use rolling
+        #  - MVBS_ping_num or MVBS_time_interval (one of them has to be given)
+        #     - MVBS_ping_num:
+        #     - MVBS_time_interval: can use .groupby/resample().mean() or .rolling().mean(),
+        #                           based on ping_time
+        #       ?? x.resample(time='30s').mean()
+        #     - MVBS_distance_interval: can use .groupby().mean(),
+        #                               based on distance calculated by lat/lon from Platform group,
+        #                               let's put this the last to add
+        #  - MVBS_range_bin_num or MVBS_range_interval (use left close right open intervals for now)
+        #     - MVBS_range_bin_num:
+        #     - MVBS_range_interval: can use .groupby.resample().mean() or .rolling().mean(),
+        #                            based on the actual range in meter
+        #
+        # remove_noise() related params:
+        #   - noise_est_ping_num
+        #   - noise_est_range_bin_num
+        #   - operation: before we calculate the minimum value within each ping number-range bin tile
+        #                and use map() to do the noise removal operation.
+        #                I think we can use xr.align() with the correct `join` parameter (probably 'left')
+        #                to perform the same operation.
+        #                Method get_noise_estimates() would naturally be part of the remove_noise() operation.
+        #
+        # TODO: leewujung: prototype this
+        # db_diff() params:
+        #   - New method that creates 0-1 (yes-no) masks for crude scatterer classification
+        #     based on thresholding the difference of Sv or Sv_clean across pairs of frequencies.
+        #   - db_diff_threshold: ('freq1', 'freq2', iterable), the iterable could be
+        #
+        #   - quick implementation:
+        #     ```
+        #     # 2-sided threshold: -16 < del_Sv_200_38 <= 2
+        #     MVBS_fish_lowrank = xr.where(
+        #         -16 < (MVBS_lowrank_200kHz - MVBS_lowrank_38kHz).values,
+        #         ds_rpca['low_rank'], np.nan)
+        #     MVBS_fish_lowrank = xr.where(
+        #         (MVBS_lowrank_200kHz - MVBS_lowrank_38kHz).values <= 2, MVBS_fish_lowrank, np.nan)
+        #     ```
+        return self._proc_params
+
+    @property
     def env_params(self):
         return self._env_params
 
@@ -229,3 +278,14 @@ class Process:
         print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
         return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
+    def get_MVBS(self, ed=None, save=False, save_format='zarr'):
+        if ed is None:
+            pass
+            # TODO: print out the need for ed as an input argument
+        return self.process_obj.get_MVBS(ed=ed, proc_params=self.proc_params, save=save, save_format=save_format)
+
+    def remove_noise(self, ed=None, save=False, save_format='zarr'):
+        if ed is None:
+            pass
+            # TODO: print out the need for ed as an input argument
+        return self.process_obj.remove_noise(ed=ed, proc_params=self.proc_params, save=save, save_format=save_format)
