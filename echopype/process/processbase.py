@@ -146,7 +146,7 @@ class ProcessBase(object):
                 raise ValueError('netCDF file convention not recognized.')
         else:
             raise ValueError('Data file format not recognized.')
-    
+
     def _set_file_format(self):
         if self.file_path.endswith('.nc'):
             self._file_format = 'netcdf'
@@ -284,6 +284,8 @@ class ProcessBase(object):
         """
 
         # Adjust noise_est_range_bin_size because range_bin_size may be an inconvenient value
+        sample_thickness = sample_thickness.isel(ping_time=0).drop('ping_time') \
+            if hasattr(sample_thickness, 'ping_time') else sample_thickness
         num_r_per_tile = np.round(r_tile_sz / sample_thickness).astype(int)  # num of range_bin per tile
         r_tile_sz = num_r_per_tile * sample_thickness
 
@@ -436,7 +438,10 @@ class ProcessBase(object):
         Sv_clean.attrs['noise_est_ping_size'] = self.noise_est_ping_size
 
         # Attach calculated range into data set
-        Sv_clean['range'] = (('frequency', 'range_bin'), self.range)
+        if self.range.ndim == 3:
+            Sv_clean['range'] = (('frequency', 'ping_time', 'range_bin'), self.range)
+        else:
+            Sv_clean['range'] = (('frequency', 'range_bin'), self.range)
 
         # Save as object attributes as a netCDF file
         self.Sv_clean = Sv_clean
@@ -651,7 +656,7 @@ class ProcessBase(object):
 
         # Close opened resources
         proc_data.close()
-    
+
     def _save_dataset(self, ds, path, mode="w"):
         """Save dataset to the appropriate formats.
 
