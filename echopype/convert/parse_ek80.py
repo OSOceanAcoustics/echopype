@@ -2,7 +2,7 @@ from collections import defaultdict
 from .utils.ek_raw_io import RawSimradFile
 from datetime import datetime as dt
 import numpy as np
-from .convertbase import ParseEK
+from .parse_base import ParseEK
 
 
 class ParseEK80(ParseEK):
@@ -30,7 +30,8 @@ class ParseEK80(ParseEK):
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(self.config_datagram['timestamp'], '[ms]')
             if 'EXPORT' in self.data_type:
-                print(f"{dt.now().strftime('%H:%M:%S')} exporting XML file")
+                xml_type = 'environment' if 'ENV' in self.data_type else 'configuration'
+                print(f"{dt.now().strftime('%H:%M:%S')} exporting {xml_type} XML file")
             else:
                 self._print_status()
 
@@ -62,6 +63,9 @@ class ParseEK80(ParseEK):
             self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
             self.ping_data_dict['complex'], _ = self._rectangularize(self.ping_data_dict['complex'])
+
+            self.nmea_time = np.array(self.nmea_time)
+            self.raw_nmea_string = np.array(self.raw_nmea_string)
 
     def _sort_ch_bb_cw(self):
         """Sort which channels are broadband (BB) and continuous wave (CW).

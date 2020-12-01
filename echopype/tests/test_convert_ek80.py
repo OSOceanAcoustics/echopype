@@ -14,10 +14,11 @@ power_test_path = ['./echopype/test_data/ek80/from_echoview/18kHz.power.csv',
                    './echopype/test_data/ek80/from_echoview/200kHz.power.csv']
 angle_test_path = './echopype/test_data/ek80/from_echoview/EK80_test_angles.csv'
 bb_power_test_path = './echopype/test_data/ek80/from_echoview/70 kHz raw power.complex.csv'
-# raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
-#             './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
+raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
+            './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'
 raw_path_2_f = './echopype/test_data/ek80/2019118 group2survey-D20191214-T081342.raw'
+raw_path_EA640 = './echopype/test_data/ek80/0001a-D20200321-T032026.raw'
 
 
 def test_cw():
@@ -122,9 +123,18 @@ def test_xml():
     # Tests the exporting of the configuration xml as well as the environment xml
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
     tmp.to_xml(data_type='CONFIG_XML')
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
+    assert os.path.exists(tmp.output_path)
+    os.remove(tmp.output_path)
 
     tmp.to_xml(save_path='env.xml', data_type='ENV_XML')
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
+    assert os.path.exists(tmp.output_path)
+    os.remove(tmp.output_path)
+
+
+def test_EA640():
+    # Test converting file in the EA640 format (similar structure to EK80)
+    tmp = Convert(file=raw_path_EA640, model='EA640')
+    tmp.to_netcdf(overwrite=True)
+    tmp.to_xml()
+    os.remove(tmp.nc_path)
+    os.remove(tmp.output_path)

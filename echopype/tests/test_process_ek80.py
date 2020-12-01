@@ -22,7 +22,7 @@ def test_noise_estimates_removal():
     # Noise estimation via Process method =========
     # Unpack data and convert to .nc file
     tmp = Convert(ek80_raw_path, model="EK80")
-    tmp.raw2nc()
+    tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
     e_data = Process(tmp.nc_path)

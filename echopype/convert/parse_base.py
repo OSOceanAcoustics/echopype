@@ -1,5 +1,4 @@
 from collections import defaultdict
-from .utils.nmea_data import NMEAData
 from .utils.ek_raw_io import SimradEOF
 from datetime import datetime as dt
 import numpy as np
@@ -38,7 +37,8 @@ class ParseEK(ParseBase):
 
         # Class attributes
         self.config_datagram = None
-        self.nmea_data = NMEAData()  # object for NMEA data
+        self.nmea_time = []
+        self.raw_nmea_string = []
         self.ping_data_dict = defaultdict()  # dictionary to store metadata
         self.num_range_bin_groups = None  # number of range_bin groups
 
@@ -136,6 +136,7 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
+            # TODO: WJ: what does this check do? if user only selects 'ENV' the 'RAW0/3' are still parsed?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
                'ALL' not in self.data_type):
                 continue
@@ -144,7 +145,7 @@ class ParseEK(ParseBase):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
-                elif new_datagram['subtype'] == 'parameter' and ('CON' in self.data_type or 'ALL' in self.data_type):
+                elif new_datagram['subtype'] == 'parameter' and ('ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
             # RAW datagrams store raw acoustic data for a channel for EK60
@@ -201,8 +202,17 @@ class ParseEK(ParseBase):
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
                 # Add the datagram to our nmea_data object.
-                self.nmea_data.add_datagram(new_datagram['timestamp'],
-                                            new_datagram['nmea_string'])
+                # TODO: Look at duplicate time
+                # Check duplicate time
+                # duplicate_idx = (self.nmea_time == new_datagram['timestamp'])
+                # if np.any(duplicate_idx):
+                #     # Check for duplicate message.
+                #     string = np.array(self.raw_nmea_string)[duplicate_idx][0]
+                #     # If duplicate, skip saving the datagram
+                #     if new_datagram['nmea_string'][1:6] == string[1:6]:
+                #         continue
+                self.nmea_time.append(new_datagram['timestamp'])
+                self.raw_nmea_string.append(new_datagram['nmea_string'])
 
             # MRU datagrams contain motion data for each ping for EK80
             elif new_datagram['type'].startswith("MRU"):
@@ -306,8 +316,12 @@ class ParseEK(ParseBase):
                           :grouped_power[ch].shape[1]] = grouped_power[ch]
                 # Pad angle data
                 if angle_dict is not None:
+                    if grouped_angle[ch].ndim == 1:
+                        continue
+                    # Exception occurs when only one channel records angle data.
+                    # In that case, skip channel (filled with nan)
                     tmp_angle[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
-                              :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
+                                :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
         return tmp_power * INDEX2POWER, tmp_angle
 
     def _select_datagrams(self, params):
@@ -327,9 +341,11 @@ class ParseEK(ParseBase):
                     return ['NME', 'GPS']
                 elif self.sonar_type == 'EK80':
                     return ['NME', 'MRU', 'GPS']
-            elif s == 'CONFIG_XML':
+            # TODO: WJ: I don't see how the 'ENV_XML' case is working,
+            #  and why do you need both CONFIG+ENV and EXPORT?
+            elif s == 'CONFIG':
                 return ['CONFIG']
-            elif s == 'ENV_XML':
+            elif s == 'ENV':
                 return ['XML', 'ENV']
             elif s == 'EXPORT':
                 return ['EXPORT']
