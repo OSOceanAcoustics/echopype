@@ -29,7 +29,6 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
-        self.set_vendor()        # vendor group
         bb_ch_ids = self.convert_obj.bb_ch_ids
         cw_ch_ids = self.convert_obj.cw_ch_ids
         # If there is both bb and cw data
@@ -37,16 +36,20 @@ class SetGroupsEK80(SetGroupsBase):
             new_path = self._copy_file(self.output_path)
             self.set_beam(bb_ch_ids, bb=True, path=self.output_path)
             self.set_sonar(bb_ch_ids, path=self.output_path)
+            self.set_vendor(bb_ch_ids, bb=True, path=self.output_path)
             self.set_beam(cw_ch_ids, bb=False, path=new_path)
             self.set_sonar(cw_ch_ids, path=new_path)
+            self.set_vendor(cw_ch_ids, bb=False, path=new_path)
         # If there is only bb data
         elif bb_ch_ids:
             self.set_beam(bb_ch_ids, bb=True, path=self.output_path)
             self.set_sonar(bb_ch_ids, path=self.output_path)
+            self.set_vendor(bb_ch_ids, bb=True, path=self.output_path)
         # If there is only cw data
         else:
             self.set_beam(cw_ch_ids, bb=False, path=self.output_path)
             self.set_sonar(cw_ch_ids, path=self.output_path)
+            self.set_vendor(cw_ch_ids, bb=False, path=self.output_path)
 
     def set_env(self):
         """Set the Environment group.
@@ -183,6 +186,7 @@ class SetGroupsEK80(SetGroupsBase):
         for k, c in config.items():
             if k not in ch_ids:
                 continue
+            # TODO Make into for loop
             bm_width['beamwidth_receive_major'][c_seq] = c.get('beam_width_alongship', np.nan)
             bm_width['beamwidth_receive_minor'][c_seq] = c.get('beam_width_athwartship', np.nan)
             bm_width['beamwidth_transmit_major'][c_seq] = c.get('beam_width_alongship', np.nan)
@@ -234,10 +238,10 @@ class SetGroupsEK80(SetGroupsBase):
         # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
         # Gets indices from pulse length table using the transmit_duration_nominal values selected (cw only)
+        # TODO move to vendor. Save as matrix of pulse length x frequency
         if not bb:
-            # Use the indices to select sa_correction values from the sa correction table
-            pulse_length = 'pulse_duration_fm' if bb else 'pulse_duration'
-            idx = [np.argwhere(np.isclose(tdn[i][0], config[ch][pulse_length])).squeeze()
+            # TODO Use the indices to select sa_correction values from the sa correction table (move selection to proccess)
+            idx = [np.argwhere(np.isclose(tdn[i][0], config[ch]['pulse_duration'])).squeeze()
                    for i, ch in enumerate(ch_ids)]
             sa_correction = np.array([x['sa_correction'][y]
                                      for x, y in zip(config.values(), np.array(idx))])
@@ -417,9 +421,42 @@ class SetGroupsEK80(SetGroupsBase):
             ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
             ds.to_zarr(store=path, mode='a', group='Beam', encoding=zarr_encoding)
 
-    def set_vendor(self):
+    def set_vendor(self, ch_ids, bb, path):
         """Set the Vendor-specific group.
         """
+        # Save broadband calibration parameters
+        if bb:
+            cal_ch_ids = []
+            config = self.convert_obj.config_datagram['configuration']
+            cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
+            full_ch_names = [f"{config[ch]['transceiver_type']} " +
+                             f"{config[ch]['serial_number']}-" +
+                             f"{config[ch]['hw_channel_configuration']} " +
+                             f"{config[ch]['channel_id_short']}" for ch in cal_ch_ids]
+            frequency = [config[ch]['calibration']['frequency'] for ch in cal_ch_ids]
+            freq_coord = np.unique(np.hstack(frequency))
+            tmp = np.full((len(frequency), len(freq_coord)), np.nan)
+            params = ['gain', 'impedence', 'phase', 'beamwidth_alongship', 'beamwidth_athwartship',
+                      'angle_offset_alongship', 'angle_offset_athwartship']
+            param_dict = {}
+            for param in params:
+                param_val = tmp.copy()
+                for i, ch in enumerate(cal_ch_ids):
+                    indices = np.searchsorted(freq_coord, frequency[i])
+                    param_val[i][indices] = config[ch]['calibration'][param]
+                param_dict[param] = (['channel', 'frequency'], param_val)
+
+            ds = xr.Dataset(
+                data_vars=param_dict,
+                coords={
+                    'channel': (['channel'], full_ch_names),
+                    'frequency': (['frequency'], freq_coord,
+                                  {'long_name': 'Transducer frequency', 'units': 'Hz'})
+                })
+        else:
+            ds = xr.Dataset()
+
+        #  Save decimation factors and filter coefficients
         coeffs = dict()
         decimation_factors = dict()
         for ch in self.convert_obj.ch_ids:
@@ -429,8 +466,8 @@ class SetGroupsEK80(SetGroupsBase):
             coeffs[f'{ch}_PC_filter'] = self.convert_obj.fil_coeffs[ch][2]
             decimation_factors[f'{ch}_WBT_decimation'] = self.convert_obj.fil_df[ch][1]
             decimation_factors[f'{ch}_PC_decimation'] = self.convert_obj.fil_df[ch][2]
+
         # Assemble variables into dataset
-        ds = xr.Dataset()
         for k, v in coeffs.items():
             # Save filter coefficients as real and imaginary parts as attributes
             ds.attrs[k + '_r'] = np.real(v)
@@ -438,6 +475,7 @@ class SetGroupsEK80(SetGroupsBase):
             # Save decimation factors as attributes
         for k, v in decimation_factors.items():
             ds.attrs[k] = v
+        ds.attrs['config_xml'] = self.convert_obj.config_datagram['xml']
         # save to file
         if self.save_ext == '.nc':
             ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
