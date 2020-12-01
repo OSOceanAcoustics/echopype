@@ -10,7 +10,7 @@ from datetime import datetime as dt
 import xarray as xr
 from ..utils import uwa
 from . import process_classes
-from .echodata import EchoDataBase
+from .echodata import EchoData
 
 
 class Process:
@@ -159,6 +159,7 @@ class Process:
             self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
 
     def init_cal_params(self, ed, params={}):
+        # TODO: make parameters a list
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
             if 'gain_correction' not in params:
                 params['gain_correction'] = ed.raw.get('gain_correction', None)
@@ -193,9 +194,9 @@ class Process:
             self._env_params['speed_of_sound_in_sea_water'] = \
                 self.process_obj.calc_sound_speed(ed, self.env_params, src)
         if sa:
-            fs = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
+            formula_source = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
             self._env_params['seawater_absorption'] = \
-                self.process_obj.calc_seawater_absorption(ed, self.env_params, src, formula_source=fs)
+                self.process_obj.calc_seawater_absorption(ed, self.env_params, src, formula_source=formula_source)
 
     def _check_model_echodata_match(self, ed):
         """Check if sonar model corresponds with the type of data in EchoData object.
@@ -278,6 +279,7 @@ class Process:
         print('%s  calibrating data in %s' % (dt.now().strftime('%H:%M:%S'), ed.raw_path))
         return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
+
     def get_MVBS(self, ed=None, save=False, save_format='zarr'):
         if ed is None:
             pass
