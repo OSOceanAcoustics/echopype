@@ -139,8 +139,14 @@ class Convert:
                 if not os.path.isfile(p):
                     raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
                 if os.path.splitext(p)[1] != ext:
+                    # TODO: @ngkavin:
+                    #  Change the msg to explicitly say what is expected and what is received.
+                    #  for example when I passed in 'ABC.nc' it is not obvious what I did wrong
+                    #  with the current msg.
+                    #
                     raise ValueError("Not all files are in the same format.")
         except TypeError:
+            # TODO: @ngkavin: Change this to use if-else, since you can test the string and list type easily.
             raise ValueError("file must be string or list-like")
 
         self.source_file = file
