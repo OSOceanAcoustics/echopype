@@ -143,7 +143,7 @@ class Process:
                 params['sea_water_temperature'] = 8.0   # Default temperature in Celsius
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
             if 'speed_of_sound_in_sea_water' not in params or 'seawater_absorption' not in params:
-                ds_env = ed._open_dataset(ed.raw_path, group="Environment")
+                ds_env = ed.get_env_from_raw()
                 if 'speed_of_sound_in_sea_water' not in params:
                     params['speed_of_sound_in_sea_water'] = ds_env.sound_speed_indicative
                 if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
@@ -170,7 +170,7 @@ class Process:
             if 'transmit_duration_nominal' not in params:
                 params['transmit_duration_nominal'] = ed.raw.get('transmit_duration_nominal', None)
             if 'sa_correction' not in params:
-                params['sa_correction'] = ed.raw.get('sa_correction', None)
+                params['sa_correction'] = self.process_obj.calc_sa_correction(ed)
 
             if self.sonar_model in ['EK80', 'EA640']:
                 if 'slope' not in params:
@@ -204,10 +204,8 @@ class Process:
         if ed.raw_path is None:
             raise ValueError("EchoData object does not have raw files to calibrate")
         else:
-            with xr.open_dataset(ed.raw_path) as ds:
-                model = ds.keywords
-            if model != self.sonar_model:
-                raise ValueError(f"Proccess sonar {self.sonar_model} does not match EchoData sonar {model}")
+            if ed.sonar_model != self.sonar_model:
+                raise ValueError(f"Proccess sonar {self.sonar_model} does not match EchoData sonar {ed.sonar_model}")
 
     def align_to_range(self, ed, param_source='file'):
         """

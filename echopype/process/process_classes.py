@@ -214,6 +214,25 @@ class ProcessEK(ProcessBase):
     def __init__(self, model=None):
         super().__init__(model)
 
+    def calc_sa_correction(self, ed):
+        ds_vend = ed.get_vend_from_raw()
+
+        if 'sa_correction' not in ds_vend:
+            return
+
+        sa_correction_table = ds_vend.sa_correction
+        pulse_length_table = ds_vend.pulse_length
+        pulse_length = np.unique(ed.raw.transmit_duration_nominal, axis=1).flatten()
+
+        if pulse_length.ndim > 1:
+            raise ValueError("Pulse length changes over time")
+        idx = [np.argwhere(np.isclose(pulse_length[i], pulse_length_table[i])).squeeze()
+               for i in range(pulse_length_table.shape[0])]
+
+        sa_correction = np.array([ch[x] for ch, x in zip(sa_correction_table, np.array(idx))])
+
+        return xr.DataArray(sa_correction, dims='frequency').assign_coords(frequency=sa_correction_table.frequency)
+
     def calc_sample_thickness(self, ed, env_params):
         """Calculate sample thickness.
         """
