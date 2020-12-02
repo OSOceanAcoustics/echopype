@@ -175,39 +175,27 @@ class SetGroupsEK80(SetGroupsBase):
             backscatter = np.moveaxis(backscatter, 3, 1)
 
         # Loop through each transducer for channel-specific variables
-        bm_width = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-        bm_dir = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-        bm_angle = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-        tx_pos = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
-        beam_dict['equivalent_beam_angle'] = np.zeros(shape=(tx_num,), dtype='float32')
         beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
         beam_dict['gpt_software_version'] = []  # TODO: @ngkavin: change this to wbt_software_version
         beam_dict['channel_id'] = []
+
+        params = ['beam_width_alongship', 'beam_width_athwartship', 'beam_width_alongship',
+                  'beam_width_athwartship', 'transducer_alpha_x', 'transducer_alpha_y',
+                  'transducer_alpha_z', 'angle_offset_alongship', 'angle_offset_athwartship',
+                  'angle_sensitivity_alongship', 'angle_sensitivity_athwartship', 'transducer_offset_x',
+                  'transducer_offset_y', 'transducer_offset_z', 'equivalent_beam_angle']
+
+        beam_par = defaultdict(lambda: np.zeros(shape=(tx_num,), dtype='float32'))
         c_seq = 0
         for k, c in config.items():
             if k not in ch_ids:
                 continue
-            # TODO Make into for loop
-            bm_width['beamwidth_receive_major'][c_seq] = c.get('beam_width_alongship', np.nan)
-            bm_width['beamwidth_receive_minor'][c_seq] = c.get('beam_width_athwartship', np.nan)
-            bm_width['beamwidth_transmit_major'][c_seq] = c.get('beam_width_alongship', np.nan)
-            bm_width['beamwidth_transmit_minor'][c_seq] = c.get('beam_width_athwartship', np.nan)
-            bm_dir['beam_direction_x'][c_seq] = c.get('transducer_alpha_x', np.nan)
-            bm_dir['beam_direction_y'][c_seq] = c.get('transducer_alpha_y', np.nan)
-            bm_dir['beam_direction_z'][c_seq] = c.get('transducer_alpha_z', np.nan)
-            bm_angle['angle_offset_alongship'][c_seq] = c.get('angle_offset_alongship', np.nan)
-            bm_angle['angle_offset_athwartship'][c_seq] = c.get('angle_offset_athwartship', np.nan)
-            bm_angle['angle_sensitivity_alongship'][c_seq] = c.get('angle_sensitivity_alongship', np.nan)
-            bm_angle['angle_sensitivity_athwartship'][c_seq] = c.get('angle_sensitivity_athwartship', np.nan)
-            tx_pos['transducer_offset_x'][c_seq] = c.get('transducer_offset_x', np.nan)
-            tx_pos['transducer_offset_y'][c_seq] = c.get('transducer_offset_y', np.nan)
-            tx_pos['transducer_offset_z'][c_seq] = c.get('transducer_offset_z', np.nan)
-            beam_dict['equivalent_beam_angle'][c_seq] = c.get('equivalent_beam_angle', np.nan)
-            # TODO: gain is 5 values in test dataset
+            for param in params:
+                beam_par[param][c_seq] = c.get(param, np.nan)
+
             beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
             beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
             beam_dict['channel_id'].append(c['channel_id'])
-
             c_seq += 1
 
         # Stack channels and order axis as: channel, quadrant, ping, range
@@ -239,67 +227,59 @@ class SetGroupsEK80(SetGroupsBase):
         # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
         # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
-        # Gets indices from pulse length table using the transmit_duration_nominal values selected (cw only)
-        # TODO move to vendor. Save as matrix of pulse length x frequency
-        if not bb:
-            # TODO Use the indices to select sa_correction values from the sa correction table (move selection to proccess)
-            idx = [np.argwhere(np.isclose(tdn[i][0], config[ch]['pulse_duration'])).squeeze()
-                   for i, ch in enumerate(ch_ids)]
-            sa_correction = np.array([x['sa_correction'][y]
-                                     for x, y in zip(config.values(), np.array(idx))])
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         ds = xr.Dataset(
             {'channel_id': (['frequency'], beam_dict['channel_id']),
-             'beamwidth_receive_alongship': (['frequency'], bm_width['beamwidth_receive_major'],
+             'beamwidth_receive_alongship': (['frequency'], beam_par['beamwidth_receive_major'],
                                              {'long_name': 'Half power one-way receive beam width along '
                                               'alongship axis of beam',
                                               'units': 'arc_degree',
                                               'valid_range': (0.0, 360.0)}),
-             'beamwidth_receive_athwartship': (['frequency'], bm_width['beamwidth_receive_minor'],
+             'beamwidth_receive_athwartship': (['frequency'], beam_par['beamwidth_receive_minor'],
                                                {'long_name': 'Half power one-way receive beam width along '
                                                 'athwartship axis of beam',
                                                 'units': 'arc_degree',
                                                 'valid_range': (0.0, 360.0)}),
-             'beamwidth_transmit_alongship': (['frequency'], bm_width['beamwidth_transmit_major'],
+             'beamwidth_transmit_alongship': (['frequency'], beam_par['beamwidth_transmit_major'],
                                               {'long_name': 'Half power one-way transmit beam width along '
                                                'alongship axis of beam',
                                                'units': 'arc_degree',
                                                'valid_range': (0.0, 360.0)}),
-             'beamwidth_transmit_athwartship': (['frequency'], bm_width['beamwidth_transmit_minor'],
+             'beamwidth_transmit_athwartship': (['frequency'], beam_par['beamwidth_transmit_minor'],
                                                 {'long_name': 'Half power one-way transmit beam width along '
                                                  'athwartship axis of beam',
                                                  'units': 'arc_degree',
                                                  'valid_range': (0.0, 360.0)}),
-             'beam_direction_x': (['frequency'], bm_dir['beam_direction_x'],
+             'beam_direction_x': (['frequency'], beam_par['beam_direction_x'],
                                   {'long_name': 'x-component of the vector that gives the pointing '
                                                 'direction of the beam, in sonar beam coordinate '
                                                 'system',
                                    'units': '1',
                                    'valid_range': (-1.0, 1.0)}),
-             'beam_direction_y': (['frequency'], bm_dir['beam_direction_x'],
+             'beam_direction_y': (['frequency'], beam_par['beam_direction_x'],
                                   {'long_name': 'y-component of the vector that gives the pointing '
                                                 'direction of the beam, in sonar beam coordinate '
                                                 'system',
                                    'units': '1',
                                    'valid_range': (-1.0, 1.0)}),
-             'beam_direction_z': (['frequency'], bm_dir['beam_direction_x'],
+             'beam_direction_z': (['frequency'], beam_par['beam_direction_x'],
                                   {'long_name': 'z-component of the vector that gives the pointing '
                                                 'direction of the beam, in sonar beam coordinate '
                                                 'system',
                                    'units': '1',
                                    'valid_range': (-1.0, 1.0)}),
-             'angle_offset_alongship': (['frequency'], bm_angle['angle_offset_alongship'],
+             'angle_offset_alongship': (['frequency'], beam_par['angle_offset_alongship'],
                                         {'long_name': 'electrical alongship angle of the transducer'}),
-             'angle_offset_athwartship': (['frequency'], bm_angle['angle_offset_athwartship'],
+             'angle_offset_athwartship': (['frequency'], beam_par['angle_offset_athwartship'],
                                           {'long_name': 'electrical athwartship angle of the transducer'}),
-             'angle_sensitivity_alongship': (['frequency'], bm_angle['angle_sensitivity_alongship'],
+             'angle_sensitivity_alongship': (['frequency'], beam_par['angle_sensitivity_alongship'],
                                              {'long_name': 'alongship sensitivity of the transducer'}),
-             'angle_sensitivity_athwartship': (['frequency'], bm_angle['angle_sensitivity_athwartship'],
+             'angle_sensitivity_athwartship': (['frequency'], beam_par['angle_sensitivity_athwartship'],
                                                {'long_name': 'athwartship sensitivity of the transducer'}),
-             'equivalent_beam_angle': (['frequency'], beam_dict['equivalent_beam_angle'],
+             'equivalent_beam_angle': (['frequency'], beam_par['equivalent_beam_angle'],
                                        {'long_name': 'Equivalent beam angle',
                                         'units': 'sr',
                                         'valid_range': (0.0, 4 * np.pi)}),
@@ -332,22 +312,30 @@ class SetGroupsEK80(SetGroupsBase):
                                 {'long_name': 'Nominal transmit power',
                                  'units': 'W',
                                  'valid_min': 0.0}),
-             'transducer_offset_x': (['frequency'], tx_pos['transducer_offset_x'],
+             'transducer_offset_x': (['frequency'], beam_par['transducer_offset_x'],
                                      {'long_name': 'x-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'}),
-             'transducer_offset_y': (['frequency'], tx_pos['transducer_offset_y'],
+             'transducer_offset_y': (['frequency'], beam_par['transducer_offset_y'],
                                      {'long_name': 'y-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'}),
-             'transducer_offset_z': (['frequency'], tx_pos['transducer_offset_z'],
+             'transducer_offset_z': (['frequency'], beam_par['transducer_offset_z'],
                                      {'long_name': 'z-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'}),
              'slope': (['frequency', 'ping_time'], slope),
+             'frequency_start': (['frequency'], freq_start,
+                                 {'long_name': 'Starting frequency of the transducer',
+                                  'units': 'Hz'}),
+             'frequency_end': (['frequency'], freq_end,
+                               {'long_name': 'Ending frequency of the transducer',
+                                'units': 'Hz'})
              },
             coords={'frequency': (['frequency'], freq,
-                                  {'long_name': 'Transducer frequency', 'units': 'Hz'}),
+                                  {'units': 'Hz',
+                                   'long_name': 'Transducer frequency',
+                                   'valid_min': 0.0}),
                     'ping_time': (['ping_time'], ping_time,
                                   {'axis': 'T',
                                    'calendar': 'gregorian',
@@ -367,16 +355,9 @@ class SetGroupsEK80(SetGroupsBase):
                                    {'long_name': 'Imaginary part of backscatter power',
                                     'units': 'V'})},
                 coords={'frequency': (['frequency'], freq,
-                                      {'long_name': 'Center frequency of the transducer',
-                                      'units': 'Hz'}),
-                        # TODO: @ngkavin:
-                        #  frequency_start and frequency_end should be data variables and not coordinates
-                        'frequency_start': (['frequency'], freq_start,
-                                            {'long_name': 'Starting frequency of the transducer',
-                                             'units': 'Hz'}),
-                        'frequency_end': (['frequency'], freq_end,
-                                          {'long_name': 'Ending frequency of the transducer',
-                                           'units': 'Hz'}),
+                                      {'units': 'Hz',
+                                       'long_name': 'Transducer frequency',
+                                       'valid_min': 0.0}),
                         'ping_time': (['ping_time'], ping_time,
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
@@ -403,10 +384,11 @@ class SetGroupsEK80(SetGroupsBase):
                                        {'long_name': 'electrical athwartship angle'}),
                  'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
                                      self.convert_obj.ping_data_dict['angle'][:, :, :, 1],
-                                     {'long_name': 'electrical alongship angle'}),
-                 'sa_correction': (['frequency'], sa_correction)},
+                                     {'long_name': 'electrical alongship angle'})},
                 coords={'frequency': (['frequency'], freq,
-                                      {'long_name': 'Transducer frequency', 'units': 'Hz'}),
+                                      {'units': 'Hz',
+                                       'long_name': 'Transducer frequency',
+                                       'valid_min': 0.0}),
                         'ping_time': (['ping_time'], ping_time,
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
@@ -433,9 +415,9 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Vendor-specific group.
         """
         # Save broadband calibration parameters
+        config = self.convert_obj.config_datagram['configuration']
         if bb:
             cal_ch_ids = []
-            config = self.convert_obj.config_datagram['configuration']
             cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
             full_ch_names = [f"{config[ch]['transceiver_type']} " +
                              f"{config[ch]['serial_number']}-" +
@@ -462,7 +444,20 @@ class SetGroupsEK80(SetGroupsBase):
                                   {'long_name': 'Transducer frequency', 'units': 'Hz'})
                 })
         else:
-            ds = xr.Dataset()
+            # Save pulse length and sa correction
+            freq = [config[ch]['transducer_frequency'] for ch in ch_ids]
+            pulse_length = np.array([config[ch]['pulse_duration'] for ch in ch_ids])
+            sa_correction = [config[ch]['sa_correction'] for ch in ch_ids]
+            ds = xr.Dataset({
+                'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
+                'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)},
+                coords={
+                    'frequency': (['frequency'], freq,
+                                  {'units': 'Hz',
+                                   'long_name': 'Transducer frequency',
+                                   'valid_min': 0.0}),
+                    'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))
+            })
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()
