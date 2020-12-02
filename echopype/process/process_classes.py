@@ -340,10 +340,6 @@ class ProcessEK80(ProcessEK):
     def calc_transmit_signal(self, ed, cal_params):
         """Generate transmit signal as replica for pulse compression.
         """
-        def chirp_linear(t, f0, f1, tau):
-            beta = (f1 - f0) * (tau ** -1)
-            return np.cos(2 * np.pi * (beta / 2 * (t ** 2) + f0 * t))
-
         # Retrieve filter coefficients
         with ed._open_dataset(ed.raw_path, group="Vendor") as ds_fil:
             # Get various parameters
@@ -374,18 +370,17 @@ class ProcessEK80(ProcessEK):
 
             ytx = []
             # Loop over each unique transmit signal
-            for i in range(tau.shape[1]):
+            for txi in range(tau.shape[1]):
                 ytx_ping = []
                 # Create transmit signal
                 for ch in range(ed.raw.frequency.size):
-                    t = np.arange(0, tau[ch][i], delta)
+                    t = np.arange(0, tau[ch][txi], delta)
                     nt = len(t)
-                    nwtx = (int(2 * np.floor(slope[ch][i] * nt)))
+                    nwtx = (int(2 * np.floor(slope[ch][txi] * nt)))
                     wtx_tmp = np.hanning(nwtx)
                     nwtxh = (int(np.round(nwtx / 2)))
                     wtx = np.concatenate([wtx_tmp[0:nwtxh], np.ones((nt - nwtx)), wtx_tmp[nwtxh:]])
-                    #TODO use scipy chirp
-                    y_tmp = amp[ch][i] * chirp_linear(t, f0[ch], f1[ch], tau[ch][i]) * wtx
+                    y_tmp = amp[ch][txi] * signal.chirp(t, f0[ch], tau[ch][txi], f1[ch]) * wtx
                     # The transmit signal must have a max amplitude of 1
                     y = (y_tmp / np.max(np.abs(y_tmp)))
 
@@ -404,7 +399,7 @@ class ProcessEK80(ProcessEK):
                     ytx_tmp = ytx_tmp[0::ds_fil.attrs[ch_ids[ch] + "_PC_decimation"]]
                     ytx_ping.append(ytx_tmp)
                     del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
-                ytx.extend([ytx_ping for n in range(counts[i])])
+                ytx.extend([ytx_ping for n in range(counts[txi])])
 
             return np.array(ytx).T
 
