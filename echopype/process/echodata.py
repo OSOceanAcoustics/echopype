@@ -14,7 +14,7 @@ from ..utils import io
 import xarray as xr
 
 
-class EchoDataBase:
+class EchoData:
     """Echo data model base class.
     """
     def __init__(self, raw_path=None,
@@ -22,36 +22,36 @@ class EchoDataBase:
                  TS_path=None, MVBS_path=None):
 
         # Pointer to data
-        self._raw = None
-        self._Sv = None
-        self._Sv_clean = None
-        self._MVBS = None
-        self._TS = None
+        # self._raw = None
+        # self._Sv = None
+        # self._Sv_clean = None
+        # self._MVBS = None
+        # self._TS = None
 
-        self._raw_path = None
-        self._Sv_path = None
-        self._Sv_clean_path = None
-        self._TS_path = None
-        self._MVBS_path = None
+        # self._raw_path = None
+        # self._Sv_path = None
+        # self._Sv_clean_path = None
+        # self._TS_path = None
+        # self._MVBS_path = None
 
-        # Paths to files: can be netcdf or zarr
-        self.raw_path = raw_path
-        self.Sv_path = Sv_path
-        self.Sv_clean_path = Sv_clean_path
-        self.TS_path = TS_path
-        self.MVBS_path = MVBS_path
+        # # Paths to files: can be netcdf or zarr
+        # self.raw_path = raw_path
+        # self.Sv_path = Sv_path
+        # self.Sv_clean_path = Sv_clean_path
+        # self.TS_path = TS_path
+        # self.MVBS_path = MVBS_path
 
+        self._sonar_model = None
         self.range = None
 
-
-        # TODO might be better:
-        # attrs = ['Sv', 'Sv_clean', 'TS', 'MVBS']
-        # self._raw_path = None
-        # self._raw = None
-        # for attr in attrs:
-        #     setattr(self, '_' + attr, None)
-        #     setattr(self, '_' + attr + '_path', None)
-        #     setattr(self, attr, kwargs['attr'])
+        # Initialize data pointers and paths to files
+        attrs = ['raw', 'Sv', 'Sv_clean', 'TS', 'MVBS']    # Data that is handled in Process
+        for attr in attrs:
+            setattr(self, '_' + attr, None)
+            setattr(self, '_' + attr + '_path', None)
+            files = eval(attr + '_path')
+            files = [files] if isinstance(files, str) else files
+            setattr(self, attr + '_path', files)
 
         self._file_format = None
         self._open_dataset = None
@@ -59,6 +59,8 @@ class EchoDataBase:
         # Initialize data pointers
         self._set_file_format()
         self._set_dataset_handlers()
+
+    # https://stackoverflow.com/questions/21918561/python-multiple-property-statements-in-class-definition
 
     @property
     def Sv(self):
@@ -174,39 +176,28 @@ class EchoDataBase:
     def MVBS_path(self, val):
         self._update_data_pointer(val, arr_type='MVBS')
 
-    def _check_key_param_consistency(self, group):
-        """Check if key params in the files for the specified group
-        to make sure the files can be opened together.
+    @property
+    def sonar_model(self):
+        if self._sonar_model is None:
+            with self._open_dataset(self.raw_path[0]) as ds:
+                self._sonar_model = ds.keywords
+        return self._sonar_model
 
-
-        This function is instrument-dependent and needs to be inherited.
-        """
-        # TODO: throw an error if parameters are not consistent, which
-        #  can be caught in the calling function like self._init_pointer()
-
+    @io._check_key_param_consistency(group='Environment')
     def get_env_from_raw(self):
         """Open the Environment group from raw data files.
         """
-        # TODO: the open_mfdataset below should be changed to something like _set_open_dataset()
-        #  but also include a check for whether it is one file or multiple files
-        #  and if it is multiple files, need to check consistency before combining.
-        self._check_key_param_consistency(group='Environment')
+        if self.sonar_model == 'AZFP':
+            return self._open_mfdataset(self.raw_path, group='Environment',
+                                        combine='by_coords', data_vars='minimal')
+        else:
+            return self._open_dataset(self.raw_path[0], group='Environment')
 
-        # When raw_path is empty this should error out.
-        #
-        # return an xarray Dataset
-
+    @io._check_key_param_consistency(group='Vendor')
     def get_vend_from_raw(self):
         """Open the Vendor group from raw data files.
         """
-        # See requirements in get_env_from_raw()
-        #
-        # The combine part is tricky for BB data in terms of filter coeffs.
-        self._check_key_param_consistency(group='Vendor')
-        #
-        # When raw_path is empty this should error out.
-        #
-        # return an xarray Dataset
+        return self._open_dataset(self.raw_path[0], group='Vendor')
 
     def _update_file_list(self, path, file_list):
         """Update the path specified by user to a list of all files to be opened together.
@@ -241,14 +232,16 @@ class EchoDataBase:
             setattr(self, attr_path, None)
         else:
             self._update_file_list(path, attr_path)
+            group = 'Beam' if attr == '_raw' else None
             try:
                 # Lazy load data into instance variable ie. self.Sv, self.raw, etc
-                setattr(self, attr, xr.open_mfdataset(getattr(self, attr_path)))
-            except:  # catch errors thrown from the above
-                raise
+                setattr(self, attr, xr.open_mfdataset(getattr(self, attr_path), group=group))
+            except xr.MergeError as e:
+                var = str(e).split("'")[1]
+                raise ValueError(f"Files cannot be opened due to {var} changing across the files")
 
     def _set_file_format(self):
-        if self.raw_path.endswith('.nc'):
+        if self.raw_path[0].endswith('.nc'):
             self._file_format = 'netcdf'
         elif self.raw_path.endswith('.zarr'):
             self._file_format = 'zarr'
@@ -278,66 +271,3 @@ class EchoDataBase:
             ds.to_zarr(path, mode=mode)
         else:
             raise ValueError("Unsupported save format " + save_format)
-
-
-class EchoDataAZFP(EchoDataBase):
-    """Echo data model for data from AZFP echosounder.
-    """
-    def __init__(self, raw_path=None,
-                 Sv_path=None, Sv_clean_path=None,
-                 TS_path=None, MVBS_path=None):
-        super().__init__(raw_path,
-                         Sv_path, Sv_clean_path,
-                         TS_path, MVBS_path)
-
-    def _check_key_param_consistency(self, group):
-        """
-        Check if key params in the files for the specified group
-        to make sure the files can be opened together.
-
-        Parameters
-        ----------
-        group
-        """
-
-
-class EchoDataEK60(EchoDataBase):
-    """Echo data model for data from EK60 echosounder.
-    """
-    def __init__(self, raw_path=None,
-                 Sv_path=None, Sv_clean_path=None,
-                 TS_path=None, MVBS_path=None):
-        super().__init__(raw_path,
-                         Sv_path, Sv_clean_path,
-                         TS_path, MVBS_path)
-
-    def _check_key_param_consistency(self, group):
-        """
-        Check if key params in the files for the specified group
-        to make sure the files can be opened together.
-
-        Parameters
-        ----------
-        group
-        """
-
-
-class EchoDataEK80(EchoDataBase):
-    """Echo data model for data from EK80 echosounder.
-    """
-    def __init__(self, raw_path=None,
-                 Sv_path=None, Sv_clean_path=None,
-                 TS_path=None, MVBS_path=None):
-        super().__init__(raw_path,
-                         Sv_path, Sv_clean_path,
-                         TS_path, MVBS_path)
-
-    def _check_key_param_consistency(self, group):
-        """
-        Check if key params in the files for the specified group
-        to make sure the files can be opened together.
-
-        Parameters
-        ----------
-        group
-        """

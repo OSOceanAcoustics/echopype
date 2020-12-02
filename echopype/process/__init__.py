@@ -21,4 +21,4 @@ from .process_classes import ProcessAZFP
 from .ek60 import ProcessEK60
 from .azfp import ProcessAZFP
 from .ek80 import ProcessEK80
-from .echodata import EchoDataAZFP, EchoDataEK60, EchoDataEK80
+from .echodata import EchoData
