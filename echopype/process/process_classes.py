@@ -4,7 +4,7 @@ import xarray as xr
 import dask
 from scipy import signal
 import os
-from .echodata import EchoDataBase
+from .echodata import EchoData
 from ..utils import uwa
 from ..utils import io
 
@@ -34,7 +34,7 @@ class ProcessBase:
         else:
             ValueError("Not sure how to update sound speed!")
 
-    def calc_seawater_absorption(self, ed, env_params, src, formula_source):
+    def calc_seawater_absorption(self, ed, env_params, src, formula_source='FG'):
         """Base method for calculating seawater absorption.
         """
         if src != 'user':
@@ -103,29 +103,13 @@ class ProcessBase:
         """Perform dB-differencing (frequency-differencing) for specified thresholds.
         """
 
+
 class ProcessAZFP(ProcessBase):
     """
     Class for processing data from ASL Env Sci AZFP echosounder.
     """
     def __init__(self, model='AZFP'):
         super().__init__(model)
-
-    def calc_seawater_absorption(self, ed, env_params, src='user', formula_source='AZFP', param_source=None):
-        """Calculate sound absorption using AZFP formula.
-        """
-        if src != 'user':
-            raise ValueError("'src' can only be 'user'")
-        try:
-            f0 = ed.raw_dataset.frequency_start
-            f1 = ed.raw_dataset.frequency_end
-            freq = (f0 + f1) / 2
-        except AttributeError:
-            freq = ed.raw_dataset.frequency
-        return uwa.calc_seawater_absorption(freq,
-                                            temperature=env_params['sea_water_temperature'],
-                                            salinity=env_params['sea_water_salinity'],
-                                            pressure=env_params['sea_water_pressure'],
-                                            formula_source=formula_source)
 
     def calc_range(self, ed, env_params, tilt_corrected=False):
         """Calculates range in meters using AZFP formula,
@@ -233,6 +217,7 @@ class ProcessEK(ProcessBase):
     def calc_sample_thickness(self, ed, env_params):
         """Calculate sample thickness.
         """
+        # TODO: change to speed_of_sound_in_water
         return env_params['speed_of_sound_in_sea_water'] * ed.raw.sample_interval / 2
 
     def _cal_narrowband(self, ed, env_params, cal_params, cal_type,
