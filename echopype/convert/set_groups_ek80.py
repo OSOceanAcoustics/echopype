@@ -324,14 +324,7 @@ class SetGroupsEK80(SetGroupsBase):
                                      {'long_name': 'z-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'}),
-             'slope': (['frequency', 'ping_time'], slope),
-             'frequency_start': (['frequency'], freq_start,
-                                 {'long_name': 'Starting frequency of the transducer',
-                                  'units': 'Hz'}),
-             'frequency_end': (['frequency'], freq_end,
-                               {'long_name': 'Ending frequency of the transducer',
-                                'units': 'Hz'})
-             },
+             'slope': (['frequency', 'ping_time'], slope)},
             coords={'frequency': (['frequency'], freq,
                                   {'units': 'Hz',
                                    'long_name': 'Transducer frequency',
@@ -341,8 +334,7 @@ class SetGroupsEK80(SetGroupsBase):
                                    'calendar': 'gregorian',
                                    'long_name': 'Timestamp of each ping',
                                    'standard_name': 'time',
-                                   'units': 'seconds since 1900-01-01'}),
-                    },
+                                   'units': 'seconds since 1900-01-01'})},
             attrs={'beam_mode': 'vertical',
                    'conversion_equation_t': 'type_3'})
         # Save broadband backscatter if present
@@ -353,7 +345,13 @@ class SetGroupsEK80(SetGroupsBase):
                                     'units': 'V'}),
                  'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter),
                                    {'long_name': 'Imaginary part of backscatter power',
-                                    'units': 'V'})},
+                                    'units': 'V'}),
+                 'frequency_start': (['frequency'], freq_start,
+                                     {'long_name': 'Starting frequency of the transducer',
+                                      'units': 'Hz'}),
+                 'frequency_end': (['frequency'], freq_end,
+                                   {'long_name': 'Ending frequency of the transducer',
+                                    'units': 'Hz'})},
                 coords={'frequency': (['frequency'], freq,
                                       {'units': 'Hz',
                                        'long_name': 'Transducer frequency',
@@ -481,9 +479,9 @@ class SetGroupsEK80(SetGroupsBase):
         ds.attrs['config_xml'] = self.convert_obj.config_datagram['xml']
         # save to file
         if self.save_ext == '.nc':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
+            ds.to_netcdf(path=path, mode='a', group='Vendor')
         elif self.save_ext == '.zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Vendor')
+            ds.to_zarr(store=path, mode='a', group='Vendor')
 
     def set_sonar(self, ch_ids, path):
         config = self.convert_obj.config_datagram['configuration']
