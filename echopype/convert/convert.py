@@ -55,7 +55,7 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
-        self.cw_files = []       # additional files created when setting groups (EK80 only)
+        self.cw_files = []          # additional files created when setting groups (EK80 only)
         self._source_path = None    # for convenience only, the path is included in source_file already;
                                     # user should not interact with this directly
         self._output_path = None    # for convenience only, the path is included in source_file already;
@@ -139,8 +139,14 @@ class Convert:
                 if not os.path.isfile(p):
                     raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
                 if os.path.splitext(p)[1] != ext:
+                    # TODO: @ngkavin:
+                    #  Change the msg to explicitly say what is expected and what is received.
+                    #  for example when I passed in 'ABC.nc' it is not obvious what I did wrong
+                    #  with the current msg.
+                    #
                     raise ValueError("Not all files are in the same format.")
         except TypeError:
+            # TODO: @ngkavin: Change this to use if-else, since you can test the string and list type easily.
             raise ValueError("file must be string or list-like")
 
         self.source_file = file
@@ -272,8 +278,8 @@ class Convert:
 
         c = c(file, params=params)
         c.parse_raw()
-        self.cw_files = self._fetch_cw_files(c, output_path) \
-            if self.sonar_model in ['EK80', 'EA640'] else self.cw_files
+        if self.sonar_model in ['EK80', 'EA640']:
+            self._fetch_cw_files(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
@@ -334,13 +340,13 @@ class Convert:
                 combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
             return combined
 
-        def set_open_dataset(save_path):
+        def set_filetype(save_path):
             save_path = save_path.root if isinstance(save_path, MutableMapping) else save_path
             ext = os.path.splitext(save_path)[1]
             if ext == '.nc':
-                return xr.open_dataset, xr.open_mfdataset, ext
+                return 'netcdf4', ext
             elif ext == '.zarr':
-                return xr.open_zarr, open_mfzarr, ext
+                return 'zarr', ext
 
         def _save(ext, ds, path, mode, group=None):
             # Allows saving both NetCDF and Zarr files from an xarray dataset
@@ -352,7 +358,7 @@ class Convert:
         def check_vendor_consistency(files):
             filter_coeffs = []
             for f in files:
-                with _open_dataset(f, group='Vendor') as ds:
+                with xr.open_dataset(f, group='Vendor', engine=engine) as ds:
                     filter_coeffs.append(ds)
             # Check to see if filter coefficients change across files. Raise error if it does
             try:
@@ -421,7 +427,7 @@ class Convert:
                 raise ValueError("Invalid save_path")
 
         # Get the correct xarray functions for opening datasets
-        _open_dataset, _open_mfdataset, ext = set_open_dataset(save_path)
+        engine, ext = set_filetype(save_path)
 
         for i, file_group in enumerate(file_groups):
             print('combining files...')
@@ -431,18 +437,18 @@ class Convert:
                 save_path = fname + '_cw' + ext
             # Open multiple files as one dataset of each group and save them into a single file
             # Combine Top-level
-            with _open_dataset(file_group[0]) as ds_top:
+            with xr.open_dataset(file_group[0], engine=engine) as ds_top:
                 _save(ext, ds_top, save_path, 'w')
             # Combine Provenance
-            with _open_dataset(file_group[0], group='Provenance') as ds_prov:
+            with xr.open_dataset(file_group[0], group='Provenance', engine=engine) as ds_prov:
                 _save(ext, ds_prov, save_path, 'a', group='Provenance')
             # Combine Sonar
-            with _open_dataset(file_group[0], group='Sonar') as ds_sonar:
+            with xr.open_dataset(file_group[0], group='Sonar', engine=engine) as ds_sonar:
                 _save(ext, ds_sonar, save_path, 'a', group='Sonar')
             # Combine Beam
             try:
-                with _open_mfdataset(file_group, group='Beam', decode_times=False, combine='nested',
-                                     concat_dim='ping_time', data_vars='minimal') as ds_beam:
+                with xr.open_mfdataset(file_group, group='Beam', decode_times=False, combine='nested',
+                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
                     _coerce(ds_beam, 'Beam')
                     _save(ext, ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
                           save_path, 'a', group='Beam')
@@ -451,40 +457,41 @@ class Convert:
                 raise ValueError(f"Files cannot be combined due to {var} changing across the files")
             # Combine Environment
             # AZFP environment changes as a function of ping time
-            if self.sonar_model == 'AZFP':
-                with _open_mfdataset(file_group, group='Environment',
-                                     combine='by_coords', data_vars='minimal') as ds_env:
-                    _save(ext, ds_env, save_path, 'a', group='Environment')
-            else:
-                with _open_dataset(file_group[0], group='Environment') as ds_env:
-                    _save(ext, ds_env, save_path, 'a', group='Environment')
+            # TODO test for ek80 and 60
+            with xr.open_mfdataset(file_group, group='Environment', combine='nested', concat_dim='ping_time',
+                                   data_vars='minimal', engine=engine) as ds_env:
+                _save(ext, ds_env, save_path, 'a', group='Environment')
             # Combine Platfrom
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
             if self.sonar_model == 'AZFP':
-                with _open_dataset(file_group[0], group='Platform') as ds_plat:
+                with xr.open_dataset(file_group[0], group='Platform', engine=engine) as ds_plat:
                     _save(ext, ds_plat, save_path, 'a', group='Platform')
             else:
-                with _open_mfdataset(file_group, group='Platform', decode_times=False, combine='nested',
-                                     concat_dim='ping_time', data_vars='minimal') as ds_plat:
-                    _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
-                          save_path, 'a', group='Platform')
+                with xr.open_mfdataset(file_group, group='Platform', decode_times=False, combine='nested',
+                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
+                    if self.sonar_model in ['EK80', 'EA640']:
+                        _save(ext, ds_plat.chunk({'location_time': 100, 'mru_time': 100}),
+                            save_path, 'a', group='Platform')
+                    else:
+                        _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
+                              save_path, 'a', group='Platform')
             # Combine Sonar-specific
             if self.sonar_model == 'AZFP':
                 # EK60 does not have the "vendor specific" group
-                with _open_mfdataset(file_group, group='Vendor',
-                                     combine='by_coords', data_vars='minimal') as ds_vend:
+                with xr.open_mfdataset(file_group, group='Vendor',
+                                       combine='by_coords', data_vars='minimal', engine=engine) as ds_vend:
                     _save(ext, ds_vend, save_path, 'a', group='Vendor')
             if self.sonar_model in ['EK80', 'EK60', 'EA640']:
                 # AZFP does not record NMEA data
                 # TODO: Look into why decode times = True for beam does not error out
-                with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
-                                     combine='nested', concat_dim='time') as ds_nmea:
+                with xr.open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
+                                       combine='nested', concat_dim='time', engine=engine) as ds_nmea:
                     _save(ext, ds_nmea.chunk({'location_time': 100}).astype('str'),
                           save_path, 'a', group='Platform/NMEA')
             if self.sonar_model in ['EK80', 'EA640']:
                 if check_vendor_consistency(file_group):
                     # Save filter coefficients in EK80
-                    with _open_dataset(file_group[0], group='Vendor') as ds_vend:
+                    with xr.open_dataset(file_group[0], group='Vendor', engine=engine) as ds_vend:
                         _save(ext, ds_vend, save_path, 'a', group='Vendor')
 
             print("Files combined into", save_path)

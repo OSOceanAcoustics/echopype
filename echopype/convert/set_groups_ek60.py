@@ -27,6 +27,7 @@ class SetGroupsEK60(SetGroupsBase):
         self.set_beam()             # beam group
         self.set_platform()         # platform group
         self.set_nmea()             # platform/NMEA group
+        self.set_vendor()           # vendor group
 
     def set_env(self):
         """Set the Environment group.
@@ -199,15 +200,7 @@ class SetGroupsEK60(SetGroupsBase):
                                       for key, val in config['transceivers'].items()]
 
         pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))
-        if len(config['transceivers']) == 1:   # only 1 channel
-            idx = np.argwhere(np.isclose(pulse_length[:, 0],
-                                         config['transceivers'][1]['pulse_length_table'])).squeeze()
-            idx = np.expand_dims(np.array(idx), axis=0)
-        else:
-            idx = [np.argwhere(np.isclose(pulse_length[:, 0][key - 1], val['pulse_length_table'])).squeeze()
-                   for key, val in config['transceivers'].items()]
-        sa_correction = np.array([x['sa_correction_table'][y]
-                                 for x, y in zip(config['transceivers'].values(), np.array(idx))])
+
         # Assemble variables into a dataset
         ds = xr.Dataset(
             {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'],
@@ -317,10 +310,10 @@ class SetGroupsEK60(SetGroupsBase):
                                                    'units': 'm'}),
              # Below are specific to Simrad EK60 .raw files
              'channel_id': (['frequency'], beam_dict['channel_id']),
-             'gpt_software_version': (['frequency'], beam_dict['gpt_software_version']),
-             'sa_correction': (['frequency'], sa_correction)},
+             'gpt_software_version': (['frequency'], beam_dict['gpt_software_version'])},
             coords={'frequency': (['frequency'], freq,
                                   {'units': 'Hz',
+                                   'long_name': 'Transducer frequency',
                                    'valid_min': 0.0}),
                     'ping_time': (['ping_time'], ping_time,
                                   {'axis': 'T',
@@ -340,3 +333,25 @@ class SetGroupsEK60(SetGroupsBase):
             zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
             ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
             ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
+
+    def set_vendor(self):
+        # Retrieve pulse length and sa correction
+        config = self.convert_obj.config_datagram['transceivers']
+        freq = [v['frequency'] for v in config.values()]
+        pulse_length = np.array([v['pulse_length_table'] for v in config.values()])
+        sa_correction = [v['sa_correction_table'] for v in config.values()]
+        # Save pulse length and sa correction
+        ds = xr.Dataset({
+            'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
+            'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)},
+            coords={
+                'frequency': (['frequency'], freq,
+                              {'units': 'Hz',
+                               'long_name': 'Transducer frequency',
+                               'valid_min': 0.0}),
+                'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))})
+
+        if self.save_ext == '.nc':
+            ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
+        elif self.save_ext == '.zarr':
+            ds.to_zarr(store=self.output_path, mode='a', group='Vendor')
