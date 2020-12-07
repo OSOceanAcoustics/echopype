@@ -10,10 +10,8 @@ from ..convert import Convert
 raw_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
 test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
-# raw_path = ['./echopype/test_data/azfp/set1/17033000.01A',     # Multiple files
-#                  './echopype/test_data/azfp/set1/17033001.01A',
-#                  './echopype/test_data/azfp/set1/17033002.01A',
-#                  './echopype/test_data/azfp/set1/17033003.01A']
+# raw_path = ['./echopype/test_data/azfp/set1/' + file
+#             for file in os.listdir('./echopype/test_data/azfp/set1')]
 # xml_path = './echopype/test_data/azfp/set1/17033000.XML'       # Multiple files
 csv_paths = ['./echopype/test_data/azfp/from_echoview/17082117-raw38.csv',    # EchoView exports
              './echopype/test_data/azfp/from_echoview/17082117-raw125.csv',
