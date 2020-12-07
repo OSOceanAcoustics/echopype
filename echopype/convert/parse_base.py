@@ -41,6 +41,7 @@ class ParseEK(ParseBase):
         self.raw_nmea_string = []
         self.ping_data_dict = defaultdict()  # dictionary to store metadata
         self.num_range_bin_groups = None  # number of range_bin groups
+        self.ch_ping_idx = []
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
@@ -190,8 +191,7 @@ class ParseEK(ParseBase):
                     self.recorded_ch_ids.append(curr_ch_id)
 
                 # append ping time from first channel
-                if curr_ch_id == self.recorded_ch_ids[0]:
-                    self.ping_time.append(new_datagram['timestamp'])
+                self.ping_time.append(new_datagram['timestamp'])
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
@@ -257,17 +257,27 @@ class ParseEK(ParseBase):
         """Find the pings at which range_bin changes.
         """
         if all([p is None for p in power_dict.values()]):
-            return None, None
-        range_bin_lens = [len(l) for l in list(power_dict.values())[0]]
-        uni, uni_cnt = np.unique(range_bin_lens, return_counts=True)
-        self.range_lengths = uni  # used in looping when saving files with different range_bin numbers
-
-        return uni, np.cumsum(np.insert(uni_cnt, 0, 0))
+            return None
+        uni, uni_cnt = [], []
+        # Find the channel with the most range length changes
+        for ch, val in power_dict.items():
+            range_bin_lens = [len(l) for l in list(power_dict.values())[0]]
+            uni_tmp, uni_cnt_tmp = np.unique(range_bin_lens, return_counts=True)
+            # used in looping when saving files with different range_bin numbers
+            self.range_lengths = uni_tmp if len(uni_tmp) > len(uni) else self.range_lengths
+            uni_cnt = uni_cnt_tmp if len(uni_cnt_tmp) > len(uni_cnt) else uni_cnt
+        return np.cumsum(np.insert(uni_cnt, 0, 0))
 
     def _check_ping_channel_match(self):
         """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
         """
         # Check line 312 of convert/ek60.py
+
+    def _match_ch_ping_time(self):
+        # Match timestamp of each ping in power data with ping_time for each channel
+        # If all channels ping at the same time then ch_indices equals the ping_time
+        self.ch_ping_idx = {ch: np.searchsorted(self.ping_time, timestamp) for
+                            ch, timestamp in self.ping_data_dict['timestamp'].items()}
 
     def _clean_channel(self):
         """Remove channels that do not record any pings.
@@ -282,46 +292,53 @@ class ParseEK(ParseBase):
         """
         INDEX2POWER = (10.0 * np.log10(2.0) / 256.0) if self.sonar_type == 'EK60' else 1
 
+        # Remove channels that do not record power data
         power_dict = {k: v for k, v in power_dict.items() if v is not None}
-        uni, uni_cnt_insert = self._find_range_group(power_dict)
-        if uni is None:
+        # Find where the range changes
+        uni_cnt_insert = self._find_range_group(power_dict)
+        # Exit function if no power data is collected on any of the channels
+        if uni_cnt_insert is None:
             return None, None
         if angle_dict is not None:
             angle_dict = {k: v for k, v in angle_dict.items() if v is not None}
 
-        largest_range = 0
+        # Slice out which ping times correspond to which ping in each channel
+        ch_indices = [self.ch_ping_idx[ch] for ch in power_dict.keys()]
+
         # Find the largest range length across channels and range groups
-        for ch in power_dict.values():
+        largest_range = 0
+        for ch, power in power_dict.items():
             if ch is not None:
-                ch_size = len(max(ch, key=len))
+                ch_size = len(max(power, key=len))
                 largest_range = ch_size if ch_size > largest_range else largest_range
-        assert max(uni) <= largest_range
-        power_type = 'complex64' if np.any(np.iscomplex(list(power_dict.values())[0])) else 'float64'
-        tmp_power = np.full((len(power_dict), uni_cnt_insert[-1],
+        assert max(self.range_lengths) <= largest_range
+        # Must define a power-type of either float32 or complex64 because np.nan cannot be int
+        power_type = np.complex64 if list(power_dict.values())[0][0].dtype == np.complex64 else np.float32
+        tmp_power = np.full((len(power_dict), len(self.ping_time),
                              largest_range), np.nan, dtype=power_type)
-        tmp_angle = np.full((len(power_dict), uni_cnt_insert[-1],
+        tmp_angle = np.full((len(power_dict), len(self.ping_time),
                             largest_range, 2), np.nan) if angle_dict is not None else None
         # Pad range groups and channels
-        for i in range(len(uni)):
+        for i in range(len(self.range_lengths)):
             # List of all channels sliced into a range group
-            grouped_power = [np.array(p[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
-                             for p in power_dict.values() if p is not None]
+            grouped_indices = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
+                               for ch in ch_indices]
+            grouped_power = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
+                             for ch in power_dict.values() if ch is not None]
             if angle_dict is not None:
                 grouped_angle = [np.array(a[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
                                  for a in angle_dict.values() if a is not None]
 
             for ch in range(len(grouped_power)):
-                # Pad power data
-                tmp_power[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
-                          :grouped_power[ch].shape[1]] = grouped_power[ch]
-                # Pad angle data
+                # Fill in nan array with power data
+                tmp_power[ch, grouped_indices[ch], :grouped_power[ch].shape[1]] = grouped_power[ch]
+                # Fill in nan array with angle data
                 if angle_dict is not None:
                     if grouped_angle[ch].ndim == 1:
                         continue
                     # Exception occurs when only one channel records angle data.
                     # In that case, skip channel (filled with nan)
-                    tmp_angle[ch, uni_cnt_insert[i]:uni_cnt_insert[i + 1],
-                                :grouped_angle[ch].shape[1], :] = grouped_angle[ch]
+                    tmp_angle[ch, grouped_indices[ch], :grouped_angle[ch].shape[1]] = grouped_angle[ch]
         return tmp_power * INDEX2POWER, tmp_angle
 
     def _select_datagrams(self, params):

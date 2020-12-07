@@ -58,6 +58,8 @@ class ParseEK80(ParseEK):
 
         if 'ALL' in self.data_type:
             self._clean_channel()
+            self.ping_time = np.unique(self.ping_time)
+            self._match_ch_ping_time()
             # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
             self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
             self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
@@ -73,10 +75,9 @@ class ParseEK80(ParseEK):
         """
         bb_ch_ids = []
         cw_ch_ids = []
-        for k, v in self.ping_data_dict['complex'].items():
-            if v is not None:
-                bb_ch_ids.append(k)
-            else:
-                if self.ping_data_dict['power'][k] is not None:
-                    cw_ch_ids.append(k)
+        for ch in self.ch_ids:
+            if self.ping_data_dict['complex'][ch] is not None:
+                bb_ch_ids.append(ch)
+            elif self.ping_data_dict['power'][ch] is not None:
+                cw_ch_ids.append(ch)
         return bb_ch_ids, cw_ch_ids
