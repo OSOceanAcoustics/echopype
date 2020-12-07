@@ -384,7 +384,7 @@ class Convert:
         def _coerce(ds, group):
             if self.sonar_model == 'EK80' or self.sonar_model == 'EK60':
                 if group == 'Beam':
-                    ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
+                    ds['wbt_software_version'] = ds['wbt_software_version'].astype('<U10')
                     ds['channel_id'] = ds['channel_id'].astype('<U50')
 
         src_files = self.output_path if src_files is None else src_files
@@ -433,6 +433,8 @@ class Convert:
             print('combining files...')
             # Append '_cw' to EK80 filepath if combining CW files
             if i == 1:
+                if not file_group:
+                    continue
                 fname, ext = os.path.splitext(save_path)
                 save_path = fname + '_cw' + ext
             # Open multiple files as one dataset of each group and save them into a single file
