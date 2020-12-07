@@ -92,9 +92,9 @@ class SetGroupsEK80(SetGroupsBase):
         lat, lon, location_time, nmea_msg = self._parse_NMEA()
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        # TODO: @ngkavin: why is nmea_msg used here?
-        mru_time = (np.array(self.convert_obj.mru.get('timestamp', [np.nan])) -
-                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
+        mru_time = np.array(self.convert_obj.mru.get('timestamp', None))
+        mru_time = (mru_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
+            mru_time is not None else [np.nan]
 
         # Assemble variables into a dataset
         ds = xr.Dataset(
@@ -160,23 +160,24 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Beam group.
         """
         config = self.convert_obj.config_datagram['configuration']
-        beam_dict = dict()
         freq = np.array([config[x]['transducer_frequency'] for x in ch_ids], dtype=int)
         tx_num = len(ch_ids)
         ping_num = len(self.convert_obj.ping_time)
+        # Order channels based on config because channel ordering from ping_data_dict is not always the same
+        ping_data_channels = self.convert_obj.ping_data_dict['frequency'].keys()
+        ch_idx = [ch_ids.index(ch) for ch in ping_data_channels if ch in ch_ids]
 
-        # Find largest dimensions of array in order to pad and stack smaller arrays
-        # max_samples = 0
         # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
         max_splits = max([n_c for n_c in self.convert_obj.n_complex_dict.values()]) if bb else 4
         if bb:
-            shape = (len(ch_ids), ping_num, -1, max_splits)
-            backscatter = np.array(self.convert_obj.ping_data_dict['complex']).reshape(shape)
+            shape = (tx_num, ping_num, -1, max_splits)
+            backscatter = self.convert_obj.ping_data_dict['complex'].reshape(shape)
             backscatter = np.moveaxis(backscatter, 3, 1)
 
         # Loop through each transducer for channel-specific variables
+        beam_dict = dict()
         beam_dict['gain_correction'] = np.zeros(shape=(tx_num,), dtype='float32')
-        beam_dict['gpt_software_version'] = []  # TODO: @ngkavin: change this to wbt_software_version
+        beam_dict['wbt_software_version'] = []
         beam_dict['channel_id'] = []
 
         params = ['beam_width_alongship', 'beam_width_athwartship', 'beam_width_alongship',
@@ -194,7 +195,7 @@ class SetGroupsEK80(SetGroupsBase):
                 beam_par[param][c_seq] = c.get(param, np.nan)
 
             beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
-            beam_dict['gpt_software_version'].append(c['transceiver_software_version'])
+            beam_dict['wbt_software_version'].append(c['transceiver_software_version'])
             beam_dict['channel_id'].append(c['channel_id'])
             c_seq += 1
 
@@ -207,20 +208,25 @@ class SetGroupsEK80(SetGroupsBase):
                 freq_end = np.array([self.convert_obj.ping_data_dict['frequency_end'][x][0]
                                     for x in ch_ids], dtype=int)
             # Exception occurs when instrument records complex power data without
-            # supplying the frequency start and end
+            # supplying the frequency start and end for every channel
             except IndexError:
                 freq_start = np.array([config[x].get('transducer_frequency_minimum', np.nan)
                                        for x in ch_ids], dtype=int)
                 freq_end = np.array([config[x].get('transducer_frequency_maximum', np.nan)
                                      for x in ch_ids], dtype=int)
 
-        # Loop through each transducer for variables that may vary at each ping
-        # -- this rarely is the case for EK60 so we check first before saving
-        ch_idx = [self.convert_obj.ch_ids.index(ch) for ch in ch_ids]
-        tdn = np.array(list(self.convert_obj.ping_data_dict['pulse_duration'].values()))[ch_idx]
-        tx_power = np.array(list(self.convert_obj.ping_data_dict['transmit_power'].values()))[ch_idx]
-        smpl_int = np.array(list(self.convert_obj.ping_data_dict['sample_interval'].values()))[ch_idx]
-        slope = np.array(list(self.convert_obj.ping_data_dict['slope'].values()))[ch_idx]
+        # Match timestamp of each ping in power data with ping_time for each channel
+        # If all channels ping at the same time then ch_indices equals the ping_time
+        ch_indices = np.array(list(self.convert_obj.ch_ping_idx.values()))
+        pulse_length_name = 'pulse_duration' if 'pulse_duration' in self.convert_obj.ping_data_dict else 'pulse_length'
+        ping_params = [pulse_length_name, 'transmit_power', 'sample_interval', 'slope']
+        ping_param_dict = {}
+        for param in ping_params:
+            tmp_arr = np.full((tx_num, ping_num), np.nan)
+            for ch in ch_idx:
+                tmp_arr[ch, ch_indices[ch]] = \
+                    np.array(list(self.convert_obj.ping_data_dict[param].values()))[ch]
+            ping_param_dict[param] = tmp_arr
 
         # Build other parameters
         # beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
@@ -292,7 +298,7 @@ class SetGroupsEK80(SetGroupsBase):
             #                                   'long_name': 'Presence or not of non-quantitative '
             #                                                'processing applied to the backscattering '
             #                                                'data (sonar specific)'}),
-             'sample_interval': (['frequency', 'ping_time'], smpl_int,
+             'sample_interval': (['frequency', 'ping_time'], ping_param_dict['sample_interval'],
                                  {'long_name': 'Interval between recorded raw data samples',
                                   'units': 's',
                                   'valid_min': 0.0}),
@@ -304,11 +310,11 @@ class SetGroupsEK80(SetGroupsBase):
             #                         {'long_name': 'Nominal bandwidth of transmitted pulse',
             #                          'units': 'Hz',
             #                          'valid_min': 0.0}),
-             'transmit_duration_nominal': (['frequency', 'ping_time'], tdn,
+             'transmit_duration_nominal': (['frequency', 'ping_time'], ping_param_dict[pulse_length_name],
                                            {'long_name': 'Nominal bandwidth of transmitted pulse',
                                             'units': 's',
                                             'valid_min': 0.0}),
-             'transmit_power': (['frequency', 'ping_time'], tx_power,
+             'transmit_power': (['frequency', 'ping_time'], ping_param_dict['transmit_power'],
                                 {'long_name': 'Nominal transmit power',
                                  'units': 'W',
                                  'valid_min': 0.0}),
@@ -324,7 +330,7 @@ class SetGroupsEK80(SetGroupsBase):
                                      {'long_name': 'z-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'}),
-             'slope': (['frequency', 'ping_time'], slope)},
+             'slope': (['frequency', 'ping_time'], ping_param_dict['slope'])},
             coords={'frequency': (['frequency'], freq,
                                   {'units': 'Hz',
                                    'long_name': 'Transducer frequency',
@@ -340,10 +346,10 @@ class SetGroupsEK80(SetGroupsBase):
         # Save broadband backscatter if present
         if bb:
             ds_bb = xr.Dataset(
-                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.real(backscatter),
+                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.real(backscatter)[ch_idx],
                                    {'long_name': 'Real part of backscatter power',
                                     'units': 'V'}),
-                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter),
+                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter)[ch_idx],
                                    {'long_name': 'Imaginary part of backscatter power',
                                     'units': 'V'}),
                  'frequency_start': (['frequency'], freq_start,
@@ -368,20 +374,16 @@ class SetGroupsEK80(SetGroupsBase):
             ds = xr.merge([ds, ds_bb], combine_attrs='override')
         # Save continuous wave backscatter
         else:
-            # TODO: @ngkavin:
-            #  Move sa_correction to the Vendor group as a data variable indexed by pulse length,
-            #  and performs the pulse length matching "on the fly" in process.calibrate.
-            #  See EK80applyGain for matching tolerance (tol=1e-6).
             ds_cw = xr.Dataset(
                 {'backscatter_r': (['frequency', 'ping_time', 'range_bin'],
-                                   self.convert_obj.ping_data_dict['power'],
+                                   self.convert_obj.ping_data_dict['power'][ch_idx],
                                    {'long_name': 'Backscattering power',
                                        'units': 'dB'}),
                  'angle_athwartship': (['frequency', 'ping_time', 'range_bin'],
-                                       self.convert_obj.ping_data_dict['angle'][:, :, :, 0],
+                                       self.convert_obj.ping_data_dict['angle'][ch_idx, :, :, 0],
                                        {'long_name': 'electrical athwartship angle'}),
                  'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
-                                     self.convert_obj.ping_data_dict['angle'][:, :, :, 1],
+                                     self.convert_obj.ping_data_dict['angle'][ch_idx, :, :, 1],
                                      {'long_name': 'electrical alongship angle'})},
                 coords={'frequency': (['frequency'], freq,
                                       {'units': 'Hz',
@@ -398,8 +400,8 @@ class SetGroupsEK80(SetGroupsBase):
             ds = xr.merge([ds, ds_cw], combine_attrs='override')
 
         # Below are specific to Simrad .raw files
-        if 'gpt_software_version' in beam_dict:
-            ds['gpt_software_version'] = ('frequency', beam_dict['gpt_software_version'])
+        if 'wbt_software_version' in beam_dict:
+            ds['wbt_software_version'] = ('frequency', beam_dict['wbt_software_version'])
         # Save to file
         if self.save_ext == '.nc':
             nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
@@ -414,9 +416,8 @@ class SetGroupsEK80(SetGroupsBase):
         """
         # Save broadband calibration parameters
         config = self.convert_obj.config_datagram['configuration']
-        if bb:
-            cal_ch_ids = []
-            cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
+        cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
+        if cal_ch_ids:
             full_ch_names = [f"{config[ch]['transceiver_type']} " +
                              f"{config[ch]['serial_number']}-" +
                              f"{config[ch]['hw_channel_configuration']} " +
