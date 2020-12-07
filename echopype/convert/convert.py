@@ -323,23 +323,6 @@ class Convert:
             print("Combination did not occur as there is only 1 source file")
             return False
 
-        # TODO: WJ: check the now merged zarr engine for open_mfdataset
-        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
-                        concat_dim='time', decode_times=False, compat='no_conflicts'):
-            def modify(task, group):
-                return task
-            # This is basically what open_mfdataset does
-            open_kwargs = dict(decode_cf=True, decode_times=decode_times)
-            open_tasks = [dask.delayed(xr.open_zarr)(f, group=group, **open_kwargs) for f in files]
-            tasks = [dask.delayed(modify)(task, group) for task in open_tasks]
-            datasets = dask.compute(tasks)  # get a list of xarray.Datasets
-            # Return combined data
-            if combine == 'by_coords':
-                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars, compat=compat)
-            else:
-                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
-            return combined
-
         def set_filetype(save_path):
             save_path = save_path.root if isinstance(save_path, MutableMapping) else save_path
             ext = os.path.splitext(save_path)[1]
@@ -430,13 +413,13 @@ class Convert:
         engine, ext = set_filetype(save_path)
 
         for i, file_group in enumerate(file_groups):
-            print('combining files...')
             # Append '_cw' to EK80 filepath if combining CW files
             if i == 1:
                 if not file_group:
                     continue
                 fname, ext = os.path.splitext(save_path)
                 save_path = fname + '_cw' + ext
+            print('combining files...')
             # Open multiple files as one dataset of each group and save them into a single file
             # Combine Top-level
             with xr.open_dataset(file_group[0], engine=engine) as ds_top:
@@ -473,7 +456,7 @@ class Convert:
                                        concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
                     if self.sonar_model in ['EK80', 'EA640']:
                         _save(ext, ds_plat.chunk({'location_time': 100, 'mru_time': 100}),
-                            save_path, 'a', group='Platform')
+                              save_path, 'a', group='Platform')
                     else:
                         _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
                               save_path, 'a', group='Platform')
@@ -596,7 +579,7 @@ class Convert:
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
 
-    def to_xml(self, save_path=None, data_type='CONFIG_XML'):
+    def to_xml(self, save_path=None, data_type='CONFIG'):
         """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
 
         Parameters
@@ -609,14 +592,14 @@ class Convert:
         """
         if self.sonar_model not in ['EK80', 'EA640']:
             raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
-        if data_type != 'CONFIG_XML' and data_type != 'ENV_XML':
-            raise ValueError(f"data_type must be either 'CONFIG_XML' or 'ENV_XML' not {data_type}")
+        if data_type != 'CONFIG' and data_type != 'ENV':
+            raise ValueError(f"data_type must be either 'CONFIG' or 'ENV' not {data_type}")
         self._validate_path('.xml', save_path)
         for i, file in enumerate(self.source_file):
             # convert file one by one into path set by validate_path()
             tmp = ParseEK80(file, params=[data_type, 'EXPORT'])
             tmp.parse_raw()
             with open(self.output_path[i], 'w') as xml_file:
-                data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
+                data = tmp.config_datagram['xml'] if data_type == 'CONFIG' else tmp.environment['xml']
                 xml_file.write(data)
         self._path_list_to_str()
