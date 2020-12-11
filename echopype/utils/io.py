@@ -6,6 +6,10 @@ import functools
 import xarray as xr
 
 
+# TODO: @ngkavin: if you are using this only for the process objects, this should not be here.
+#  My suggestion to factor this out was to have it work for both convert and process.
+#  Let's discuss what you are doing differently in both cases and see if can combine.
+
 def validate_proc_path(ed, postfix, save_path=None):
     """Creates a directory if it doesnt exist. Returns a valid save path.
     """
