@@ -207,17 +207,6 @@ class ParseEK(ParseBase):
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
-                # TODO: @ngkvain: what are in the commented out section?
-                # Add the datagram to our nmea_data object.
-                # TODO: Look at duplicate time
-                # Check duplicate time
-                # duplicate_idx = (self.nmea_time == new_datagram['timestamp'])
-                # if np.any(duplicate_idx):
-                #     # Check for duplicate message.
-                #     string = np.array(self.raw_nmea_string)[duplicate_idx][0]
-                #     # If duplicate, skip saving the datagram
-                #     if new_datagram['nmea_string'][1:6] == string[1:6]:
-                #         continue
                 # TODO: @ngkvain: change to use the same structure as mru,
                 #  so have a field for the nmea timestamp and a field for raw strings
                 self.nmea_time.append(new_datagram['timestamp'])
@@ -278,11 +267,11 @@ class ParseEK(ParseBase):
             uni_cnt = uni_cnt_tmp if len(uni_cnt_tmp) > len(uni_cnt) else uni_cnt
         return np.cumsum(np.insert(uni_cnt, 0, 0))
 
-    def _check_ping_channel_match(self):
-        """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
-        """
-        # Check line 312 of convert/ek60.py
-        # TODO: @ngkavin: fragment? complete this
+    # def _check_ping_channel_match(self):
+    #     """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
+    #     """
+    #     # Check line 312 of convert/ek60.py
+    #     # TODO: @ngkavin: fragment? complete this
 
     def _match_ch_ping_time(self):
         # Match timestamp of each ping in power data with ping_time for each channel
@@ -385,8 +374,6 @@ class ParseEK(ParseBase):
                     return ['NME', 'GPS']
                 elif self.sonar_type == 'EK80':
                     return ['NME', 'MRU', 'GPS']
-            # TODO: WJ: I don't see how the 'ENV_XML' case is working,
-            #  and why do you need both CONFIG+ENV and EXPORT?
             elif s == 'CONFIG':
                 return ['CONFIG']
             elif s == 'ENV':

@@ -56,11 +56,6 @@ class Convert:
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
         self.cw_files = []          # additional files created when setting groups (EK80 only)
-        self._source_path = None    # for convenience only, the path is included in source_file already;
-                                    # user should not interact with this directly
-        # TODO: @ngkavin: why do you have self._output_path when there is self.output_path
-        self._output_path = None    # for convenience only, the path is included in source_file already;
-                                    # user should not interact with this directly
         self._conversion_params = {}    # a dictionary of conversion parameters,
                                         # the keys could be different for different echosounders.
                                         # This dictionary is set by the `set_param` method.
@@ -231,8 +226,7 @@ class Convert:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         # TODO: @ngkavin: why do you have self.nc_path and self.zarr_path
         #  when self.output_path should capture the output path already?
-        # TODO: @ngkavin: you have a sprawling of class attributes,
-        #  and many are not properly defined in __init__. This is not a good practice.
+        # TODO: @ngkavin: Remove nc_path and zarr_path
         self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
         self.nc_path = [os.path.join(out_dir, f + '.nc') for f in files]
         self.zarr_path = [os.path.join(out_dir, f + '.zarr') for f in files]
@@ -241,8 +235,8 @@ class Convert:
         if c.bb_ch_ids and c.cw_ch_ids:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_cw' + ext
-            # TODO: @ngkavin: you did not initialize this in __init__,
-            #  it should also be self._cw_files
+            # TODO: @ngkavin:
+            #  make it self.output_cw_files
 
             self.cw_files.append(new_path)
 
@@ -396,7 +390,7 @@ class Convert:
             fname, ext = os.path.splitext(path)
             return fname + '[combined]' + ext
 
-        # TODO: @ngkvain: Why do you need a separate function for this? Don't you already have self._cw_files?
+        # TODO: @ngkvain: Why do you need a separate function for this? Don't you already have self.cw_files?
         if self.sonar_model in ['EK80', 'EA640']:
             file_groups = split_bb_cw_files(src_files + self.cw_files)
 
@@ -479,7 +473,7 @@ class Convert:
                                    data_vars='minimal', engine=engine) as ds_env:
                 _save(ext, ds_env, save_path, 'a', group='Environment')
 
-            # Combine Platfrom
+            # Combine Platform
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
             if self.sonar_model == 'AZFP':
                 # TODO: @ngkvain: why do you only open 1 file here?
@@ -495,16 +489,17 @@ class Convert:
                         _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
                               save_path, 'a', group='Platform')
 
-            # Combine Sonar-specific  # TODO: @ngkvain: you mean Vendor?
+            # Combine sonar model-specific
             if self.sonar_model == 'AZFP':
                 # EK60 does not have the "vendor specific" group
                 with xr.open_mfdataset(file_group, group='Vendor',
                                        combine='by_coords', data_vars='minimal', engine=engine) as ds_vend:
                     _save(ext, ds_vend, save_path, 'a', group='Vendor')
+
+            # TODO: @ngkvain: move this to be with the above Platform group handling
             if self.sonar_model in ['EK80', 'EK60', 'EA640']:
                 # AZFP does not record NMEA data
                 # TODO: Look into why decode times = True for beam does not error out
-                # TODO: @ngkvain: why is Platform/NMEA handled here?
                 with xr.open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
                                        combine='nested', concat_dim='time', engine=engine) as ds_nmea:
                     _save(ext, ds_nmea.chunk({'location_time': 100}).astype('str'),
