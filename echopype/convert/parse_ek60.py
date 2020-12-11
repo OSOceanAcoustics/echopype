@@ -21,6 +21,7 @@ class ParseEK60(ParseEK):
             # Read the CON0 configuration datagram. Only keep 1 if multiple files
             if self.config_datagram is None:
                 self.config_datagram = fid.read(1)
+                # TODO: @ngkavin: different from EK80 code, why?
                 self.config_datagram['timestamp'] = np.datetime64(
                     self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
                 self._print_status()
@@ -38,7 +39,7 @@ class ParseEK60(ParseEK):
             if next_datagram == 'CON1':
                 self.CON1_datagram = fid.read(1)
             else:
-                self.CON1_datagram = None
+                self.CON1_datagram = None   # TODO: @ngkavin: not initialized
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
@@ -46,9 +47,12 @@ class ParseEK60(ParseEK):
         if 'ALL' in self.data_type:
             # Make a regctangular array (when there is a switch of range_bin in the middle of a file
             # or when range_bin size changes across channels)
+            # TODO: @ngkavin: change after _rectangularize() is updated
             self._match_ch_ping_time()
             self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
                 self.ping_data_dict['power'], self.ping_data_dict['angle'])
 
+            # TODO: @ngkavin: converting to numpy array should be done in the parent class
+            #  since it's the same for both EK60 and EK80
             self.nmea_time = np.array(self.nmea_time)
             self.raw_nmea_string = np.array(self.raw_nmea_string)
