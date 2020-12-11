@@ -29,8 +29,10 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
+        # TODO: @ngkavin: redundant
         bb_ch_ids = self.convert_obj.bb_ch_ids
         cw_ch_ids = self.convert_obj.cw_ch_ids
+        # TODO: @ngkavin: redundancy in if-else cases
         # If there is both bb and cw data
         if bb_ch_ids and cw_ch_ids:
             new_path = self._copy_file(self.output_path)
@@ -168,6 +170,7 @@ class SetGroupsEK80(SetGroupsBase):
         ch_idx = [ch_ids.index(ch) for ch in ping_data_channels if ch in ch_ids]
 
         # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
+        # TODO: @ngkavin: this line below doesn't make sense: many bb data have 4 channels also.
         max_splits = max([n_c for n_c in self.convert_obj.n_complex_dict.values()]) if bb else 4
         if bb:
             shape = (tx_num, ping_num, -1, max_splits)
@@ -292,6 +295,7 @@ class SetGroupsEK80(SetGroupsBase):
              'gain_correction': (['frequency'], beam_dict['gain_correction'],
                                  {'long_name': 'Gain correction',
                                   'units': 'dB'}),
+             # TODO: @ngkvain: any reason we are keeping the commented-out variables?
             #  'non_quantitative_processing': (['frequency'], beam_dict['non_quantitative_processing'],
             #                                  {'flag_meanings': 'no_non_quantitative_processing',
             #                                   'flag_values': '0',
