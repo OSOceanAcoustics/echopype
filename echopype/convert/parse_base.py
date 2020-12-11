@@ -20,6 +20,7 @@ class ParseBase:
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
+        # TODO: @ngkvain: do you have config_datagram for AZPF?
         time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
         print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
               f"time of first ping: {time}")
@@ -28,7 +29,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self, file, params):
+    def __init__(self, file, params):  # TODO: @ngkvain: you pass in param from convert.py but it is not used
         super().__init__(file)
 
         # Parent class attributes
@@ -127,6 +128,9 @@ class ParseEK(ParseBase):
 
         while True:
             try:
+                # TODO: @ngkvain: what I need in the code to not PARSE the raw0/3 datagram
+                #  when users only want CONFIG or ENV, but the way this is implemented
+                #  the raw0/3 datagrams are still parsed, you are just not saving them
                 new_datagram = fid.read(1)
             except SimradEOF:
                 break
@@ -137,7 +141,9 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
-            # TODO: WJ: what does this check do? if user only selects 'ENV' the 'RAW0/3' are still parsed?
+            # TODO: @ngkvain: Where is self.data_type initialized? I only see you pass in param, which is not used
+
+            # TODO: @ngkvain: what does this first if check do? Why don't you just check for 'ALL'?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
                'ALL' not in self.data_type):
                 continue
@@ -149,7 +155,7 @@ class ParseEK(ParseBase):
                 elif new_datagram['subtype'] == 'parameter' and ('ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
-            # RAW datagrams store raw acoustic data for a channel for EK60
+            # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram['type'].startswith('RAW0'):
                 curr_ch_num = new_datagram['channel']
 
@@ -180,7 +186,7 @@ class ParseEK(ParseBase):
                             # TODO: need error-handling code here
                             print('Frequency mismatch for data from the same channel number!')
 
-            # RAW datagrams store raw acoustic data for a channel for EK80
+            # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram['type'].startswith('RAW3'):
                 curr_ch_id = new_datagram['channel_id']
                 if current_parameters['channel_id'] != curr_ch_id:
@@ -196,11 +202,12 @@ class ParseEK(ParseBase):
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
-                if self.n_complex_dict[curr_ch_id] < 0:
+                if self.n_complex_dict[curr_ch_id] < 0:   # TODO: @ngkvain: why test <0 ?
                     self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
+                # TODO: @ngkvain: what are in the commented out section?
                 # Add the datagram to our nmea_data object.
                 # TODO: Look at duplicate time
                 # Check duplicate time
@@ -211,11 +218,13 @@ class ParseEK(ParseBase):
                 #     # If duplicate, skip saving the datagram
                 #     if new_datagram['nmea_string'][1:6] == string[1:6]:
                 #         continue
+                # TODO: @ngkvain: change to use the same structure as mru,
+                #  so have a field for the nmea timestamp and a field for raw strings
                 self.nmea_time.append(new_datagram['timestamp'])
                 self.raw_nmea_string.append(new_datagram['nmea_string'])
 
             # MRU datagrams contain motion data for each ping for EK80
-            elif new_datagram['type'].startswith("MRU"):
+            elif new_datagram['type'].startswith("MRU"):   # TODO: @ngkvain: is self.mru initialized somewhere?
                 self.mru['heading'].append(new_datagram['heading'])
                 self.mru['pitch'].append(new_datagram['pitch'])
                 self.mru['roll'].append(new_datagram['roll'])
@@ -240,7 +249,7 @@ class ParseEK(ParseBase):
             elif new_datagram['type'].startswith('DEP'):
                 print('DEP datagram encountered.')
             else:
-                if 'ALL' in self.data_type:
+                if 'ALL' in self.data_type:   # TODO: @ngkvain: why do you do this here?
                     print("Unknown datagram type: " + str(new_datagram['type']))
 
     def _append_channel_ping_data(self, datagram):
@@ -260,6 +269,7 @@ class ParseEK(ParseBase):
             return None
         uni, uni_cnt = [], []
         # Find the channel with the most range length changes
+        # TODO: @ngkavin: why are you looping here? ch, val are not used
         for ch, val in power_dict.items():
             range_bin_lens = [len(l) for l in list(power_dict.values())[0]]
             uni_tmp, uni_cnt_tmp = np.unique(range_bin_lens, return_counts=True)
@@ -272,6 +282,7 @@ class ParseEK(ParseBase):
         """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
         """
         # Check line 312 of convert/ek60.py
+        # TODO: @ngkavin: fragment? complete this
 
     def _match_ch_ping_time(self):
         # Match timestamp of each ping in power data with ping_time for each channel
@@ -283,6 +294,7 @@ class ParseEK(ParseBase):
         """Remove channels that do not record any pings.
         """
         # TODO Look at ek60 save only when all channels are present
+        # TODO: @ngkavin: what does this do?
         if len(self.ch_ids) != len(self.recorded_ch_ids):
             self.ch_ids = self.recorded_ch_ids
 
@@ -290,6 +302,12 @@ class ParseEK(ParseBase):
         """ Takes a potentially irregular dictionary with frequency as keys and returns
         a rectangular numpy array padded with nans.
         """
+        # TODO: @ngkavin: change _rectangularize to only operate on one type of data
+        #  and not try to deal with both power and angle data at the same time.
+
+        # TODO: @ngkavin: it is a bad idea to hide sonar model specific things
+        #  in a subfunction under a parent class -- you should do it in the child class,
+        #  and in this case it should NOT be in the function
         INDEX2POWER = (10.0 * np.log10(2.0) / 256.0) if self.sonar_type == 'EK60' else 1
 
         # Remove channels that do not record power data
@@ -302,6 +320,10 @@ class ParseEK(ParseBase):
         if angle_dict is not None:
             angle_dict = {k: v for k, v in angle_dict.items() if v is not None}
 
+        # TODO: @ngkavin:
+        #  I think it will be cleaner to assemble one DataArray for each channel (pad the shorter pings with NaN),
+        #  and then concat or merge along the frequency dimension with NaN padding
+        #  to direclty assemble a cube DataSet with ping_time x range_bin x frequency dimensions.
         # Slice out which ping times correspond to which ping in each channel
         ch_indices = [self.ch_ping_idx[ch] for ch in power_dict.keys()]
 
@@ -342,6 +364,7 @@ class ParseEK(ParseBase):
         return tmp_power * INDEX2POWER, tmp_angle
 
     def _select_datagrams(self, params):
+        # TODO: @ngkavin: Why do you need this translation?
         # get GPS info only (EK60, EK80)
         # ec.to_netcdf(data_type='GPS')
 
@@ -354,6 +377,10 @@ class ParseEK(ParseBase):
             if s == 'ALL':
                 return ['ALL']
             elif s == 'GPS':
+                # TODO: @ngkavin:
+                #  What you have breaks the class inheritance.
+                #  If you find yourself using sonar model specific things,
+                #  then that thing should be in the child class.
                 if self.sonar_type == 'EK60':
                     return ['NME', 'GPS']
                 elif self.sonar_type == 'EK80':
@@ -364,6 +391,9 @@ class ParseEK(ParseBase):
                 return ['CONFIG']
             elif s == 'ENV':
                 return ['XML', 'ENV']
+            # TODO: @ngkavin:
+            #  'EXPORT' is not a good variable name as it does not reflect what this flag controls.
+            #  also explain in what circumstance EXPORT will be passed in?
             elif s == 'EXPORT':
                 return ['EXPORT']
         if isinstance(params, str):
