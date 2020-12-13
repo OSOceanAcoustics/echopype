@@ -133,7 +133,7 @@ class ParseEK(ParseBase):
                 #  when users only want CONFIG or ENV, but the way this is implemented
                 #  the raw0/3 datagrams are still parsed, you are just not saving them
                 new_datagram = fid.read(1)
-                print(new_datagram['type'])
+
             except SimradEOF:
                 break
 
@@ -211,8 +211,8 @@ class ParseEK(ParseBase):
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
-                if self.n_complex_dict[curr_ch_id] < 0:   # TODO: @ngkvain: why test <0 ?
-                    self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
+                # if self.n_complex_dict[curr_ch_id] < 0:   # TODO: @ngkvain: why test <0 ?
+                #     self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
@@ -253,8 +253,8 @@ class ParseEK(ParseBase):
     def _append_channel_ping_data(self, datagram):
         """Append ping by ping data.
         """
-        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', 'frequency',
-                   'transmit_mode', 'spare0', 'bytes_read', 'type', 'n_complex']
+        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', #'frequency',
+                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
             if k not in unsaved:
