@@ -91,10 +91,12 @@ class SetGroupsEK80(SetGroupsBase):
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
+        # TODO: @ngkavin: raw nmea_msg are to be saved in Vendor group
         lat, lon, location_time, nmea_msg = self._parse_NMEA()
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         mru_time = np.array(self.convert_obj.mru.get('timestamp', None))
+        # TODO: @ngkavin: why do you convert the timestamps twice? it's already done in _parse_NMEA()
         mru_time = (mru_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
             mru_time is not None else [np.nan]
 
@@ -169,13 +171,84 @@ class SetGroupsEK80(SetGroupsBase):
         ping_data_channels = self.convert_obj.ping_data_dict['frequency'].keys()
         ch_idx = [ch_ids.index(ch) for ch in ping_data_channels if ch in ch_ids]
 
-        # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
-        # TODO: @ngkavin: this line below doesn't make sense: many bb data have 4 channels also.
-        max_splits = max([n_c for n_c in self.convert_obj.n_complex_dict.values()]) if bb else 4
-        if bb:
-            shape = (tx_num, ping_num, -1, max_splits)
-            backscatter = self.convert_obj.ping_data_dict['complex'].reshape(shape)
-            backscatter = np.moveaxis(backscatter, 3, 1)
+        # Assemble coordinates and data variables
+        ds_backscatter = []
+        if bb:  # complex data (BB or CW)
+            for k in ch_ids:
+                num_transducer_sectors = np.unique(np.array(self.convert_obj.ping_data_dict['n_complex'][k]))
+                if num_transducer_sectors.size > 1:
+                    raise ValueError('Transducer sector number changes in the middle of the file!')
+                else:
+                    num_transducer_sectors = num_transducer_sectors[0]
+                data_shape = self.convert_obj.ping_data_dict['complex'][k].shape
+                data_shape = (data_shape[0], int(data_shape[1]/num_transducer_sectors), num_transducer_sectors)
+                data = np.expand_dims(self.convert_obj.ping_data_dict['complex'][k].reshape(data_shape), axis=0)
+                ds_tmp = xr.Dataset(
+                    {
+                        'backscatter_r': (['frequency', 'ping_time', 'range_bin', 'quadrant'],
+                                          np.real(data),
+                                          {'long_name': 'Real part of backscatter power',
+                                           'units': 'V'}),
+                        'backscatter_i': (['frequency', 'ping_time', 'range_bin', 'quadrant'],
+                                          np.imag(data),
+                                          {'long_name': 'Imaginary part of backscatter power',
+                                           'units': 'V'}),
+                    },
+                    coords={
+                        'frequency': (['frequency'],
+                                      [self.convert_obj.config_datagram['configuration'][k]['transducer_frequency']],
+                                      {'units': 'Hz',
+                                       'long_name': 'Transducer frequency',
+                                       'valid_min': 0.0}),
+                        'ping_time': (['ping_time'], self.convert_obj.ping_time[k],
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'long_name': 'Timestamp of each ping',
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'}),
+                        'range_bin': (['range_bin'], np.arange(data_shape[1])),
+                        'quadrant': (['quadrant'], np.arange(num_transducer_sectors)),
+                    }
+                )
+                ds_backscatter.append(ds_tmp)
+
+        else:  # power and angle data (CW)
+            for k in ch_ids:
+                data_shape = self.convert_obj.ping_data_dict['power'][k].shape
+                ds_tmp = xr.Dataset(
+                    {
+                        'backscatter_r': (['frequency', 'ping_time', 'range_bin'],
+                                          np.expand_dims(self.convert_obj.ping_data_dict['power'][k], axis=0),
+                                          {'long_name': 'Backscattering power',
+                                           'units': 'dB'}),
+                        'angle_athwartship': (['frequency', 'ping_time', 'range_bin'],
+                                              np.expand_dims(self.convert_obj.ping_data_dict['angle'][k][:, :, 0],
+                                                             axis=0),
+                                              {'long_name': 'electrical athwartship angle'}),
+                        'angle_alongship': (['frequency', 'ping_time', 'range_bin'],
+                                            np.expand_dims(self.convert_obj.ping_data_dict['angle'][k][:, :, 1],
+                                                           axis=0),
+                                            {'long_name': 'electrical alongship angle'})
+                    },
+                    coords={
+                        'frequency': (['frequency'],
+                                      [self.convert_obj.config_datagram['configuration'][k]['transducer_frequency']],
+                                      {'units': 'Hz',
+                                       'long_name': 'Transducer frequency',
+                                       'valid_min': 0.0}),
+                        'ping_time': (['ping_time'], self.convert_obj.ping_time[k],
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'long_name': 'Timestamp of each ping',
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'}),
+                        'range_bin': (['range_bin'], np.arange(data_shape[1])),
+                    }
+                )
+                ds_backscatter.append(ds_tmp)
+
+        # Merge data from all channels
+        ds_merge = xr.merge(ds_backscatter)
 
         # Loop through each transducer for channel-specific variables
         beam_dict = dict()
