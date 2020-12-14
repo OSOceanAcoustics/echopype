@@ -27,6 +27,42 @@ class ParseEK80(ParseEK):
         self.sonar_type = 'EK80'
         self.data_type = self._select_datagrams(params)  # TODO: @ngkvain: you use this in ParseBase
 
+    @staticmethod
+    def pad_shorter_ping(data_list) -> np.ndarray:
+        """
+        Pad shorter ping with NaN: power, angle, complex samples.
+
+        Parameters
+        ----------
+        data_list : list
+            Power, angle, or complex samples for each channel from RAW3 datagram.
+            Each ping is one entry in the list.
+
+        Returns
+        -------
+        out_array : np.ndarray
+            Numpy array containing samplings from all pings.
+            The array is NaN-padded if some pings are of different lengths.
+        """
+        lens = np.array([len(item) for item in data_list])
+        if np.unique(lens).size != 1:  # if some pings have different lengths along range
+            if data_list[0].ndim == 2:
+                # Angle data have an extra dimension for alongship and athwartship samples
+                mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
+            else:
+                mask = lens[:, None] > np.arange(lens.max())
+            # Take care of problem of np.nan being implicitly "real"
+            if isinstance(data_list[0][0], (np.complex, np.complex64, np.complex128)):
+                out_array = np.full(mask.shape, np.nan + 0j)
+            else:
+                out_array = np.full(mask.shape, np.nan)
+
+            # Fill in values
+            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+        else:
+            out_array = np.array(data_list)
+        return out_array
+
     def parse_raw(self):
         """Parse raw data file from Simrad EK80 echosounder.
         """
@@ -41,53 +77,37 @@ class ParseEK80(ParseEK):
                 self._print_status()
 
             # IDs of the channels found in the dataset
-            self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
+            self.ch_ids = list(self.config_datagram['configuration'].keys())
 
             # Parameters recorded for each frequency for each ping
             # TODO: @ngkavin: you are initializing attribute outside out __init__ and this should be done in ParseBase
             self.ping_data_dict = defaultdict(lambda: defaultdict(list))
 
-            for ch_id in self.ch_ids:
-                self.ping_data_dict['frequency'][ch_id].append(
-                    self.config_datagram['configuration'][ch_id]['transducer_frequency'])
-                # TODO: @ngkavin: what is this -1 for? you need to add an explicit comment if doing this
-                self.n_complex_dict[ch_id] = -1
-
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-            # Remove empty lists
-            # TODO: @ngkavin: I thought you would already handle this in _rectangularize()?
-            #  consolidate all code to clean up empty ping_data_dict
-            #  and also do the determiniation of cw and bb mode there.
-            for ch_id in self.ch_ids:
-                if all(x is None for x in self.ping_data_dict['power'][ch_id]):
-                    self.ping_data_dict['power'][ch_id] = None
-                    self.ping_data_dict['angle'][ch_id] = None
-                if all(x is None for x in self.ping_data_dict['complex'][ch_id]):
-                    self.ping_data_dict['complex'][ch_id] = None
-
         if 'ALL' in self.data_type:
-            self._clean_channel()  # TODO: @ngkavin: what does this do?
 
-            # TODO: @ngkavin: the next 2 lines can be removed
-            #  if you take the assembling a Dataset approach detailed in _rectangularize()
-            self.ping_time = np.unique(self.ping_time)
-            self._match_ch_ping_time()
+            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
+            #  this will help merge data from all channels into a cube
+            for ch, val in self.ping_time.items():
+                self.ping_time[ch] = np.array(val)
+
+            # Rectangularize all data and convert to numpy array indexed by channel
+            for data_type in ['power', 'angle', 'complex']:
+                print(data_type)
+                for k, v in self.ping_data_dict[data_type].items():
+                    print(k)
+                    if all(x is None for x in v):  # if no data in a particular channel
+                        self.ping_data_dict[data_type][k] = None
+                    else:
+                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
 
             # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
             # TODO: @ngkavin:
             #  consolidate all code to clean up empty ping_data_dict
             #  and also do the determiniation of cw and bb mode there.
             self.bb_ch_ids, self.cw_ch_ids = self._sort_ch_bb_cw()
-
-            # TODO: @ngkavin: change _rectangularize() to handle only one type of data in an abstract form,
-            #  as there are no real differences in power, complex, or angle.
-            #  i.e. one call only rectangularizes power, complex, or angle.
-            #  The current structure trying to 1 or 2 of the 3 is confusing.
-            self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
-                self.ping_data_dict['power'], self.ping_data_dict['angle'])
-            self.ping_data_dict['complex'], _ = self._rectangularize(self.ping_data_dict['complex'])
 
             # TODO: @ngkavin: converting to numpy array should be done in the parent class
             #  since it's the same for both EK60 and EK80
