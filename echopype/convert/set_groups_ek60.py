@@ -201,6 +201,9 @@ class SetGroupsEK60(SetGroupsBase):
 
         pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))
 
+        # TODO: Need to remember removing INDEX2POWER factor from the backscatter_r
+        #  if we are encoding only raw data to the .nc/zarr file.
+        #  Need discussion since then the units won't match with convention (though it didn't match already...).
         # Assemble variables into a dataset
         ds = xr.Dataset(
             {'backscatter_r': (['frequency', 'ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'],
