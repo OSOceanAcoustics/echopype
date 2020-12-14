@@ -77,17 +77,11 @@ class ParseEK80(ParseEK):
                 self._print_status()
 
             # IDs of the channels found in the dataset
-            self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
+            self.ch_ids = list(self.config_datagram['configuration'].keys())
 
             # Parameters recorded for each frequency for each ping
             # TODO: @ngkavin: you are initializing attribute outside out __init__ and this should be done in ParseBase
             self.ping_data_dict = defaultdict(lambda: defaultdict(list))
-
-            # for ch_id in self.ch_ids:
-            #     self.ping_data_dict['frequency'][ch_id].append(
-            #         self.config_datagram['configuration'][ch_id]['transducer_frequency'])
-            #     # TODO: @ngkavin: what is this -1 for? you need to add an explicit comment if doing this
-            #     self.n_complex_dict[ch_id] = -1
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
