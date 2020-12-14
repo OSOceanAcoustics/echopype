@@ -34,6 +34,8 @@ class SetGroupsEK60(SetGroupsBase):
         """
 
         # Collect variables
+        # TODO: @ngkavin: make the code compatible with the new way self.ping_time is saved.
+        #  See the new SetGroupsEK80.set_beam for style.
         freq = np.array(list(self.convert_obj.ping_data_dict['frequency'].values()), dtype=int)[:, 0]
         ping_time = (self.convert_obj.ping_time -
                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -81,6 +83,8 @@ class SetGroupsEK60(SetGroupsBase):
         # Read lat/long from NMEA datagram
         lat, lon, location_time, _ = self._parse_NMEA()
 
+        # TODO: @ngkavin: make the code compatible with the new way self.ping_time is saved.
+        #  See the new SetGroupsEK80.set_beam for style.
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         ping_time = (self.convert_obj.ping_time -
@@ -155,6 +159,8 @@ class SetGroupsEK60(SetGroupsBase):
         """Set the Beam group.
         """
 
+        # TODO: @ngkavin: Please make the code compatible with how self.ping_time is saved
+        #  and change the code below in the same style as the new SetGroupsEK80
         # Collect variables
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
@@ -202,7 +208,8 @@ class SetGroupsEK60(SetGroupsBase):
         pulse_length = np.array(list(self.convert_obj.ping_data_dict['pulse_length'].values()))
 
         # TODO: Need to remember removing INDEX2POWER factor from the backscatter_r
-        #  if we are encoding only raw data to the .nc/zarr file.
+        #  currently this factor is multiplied to the raw data before backscatter_r is saved.
+        #  This is if we are encoding only raw data to the .nc/zarr file.
         #  Need discussion since then the units won't match with convention (though it didn't match already...).
         # Assemble variables into a dataset
         ds = xr.Dataset(

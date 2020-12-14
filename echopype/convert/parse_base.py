@@ -158,11 +158,6 @@ class ParseEK(ParseBase):
                     current_parameters = new_datagram['parameter']
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
-            # TODO: change saving of RAW0 datagrams in the same way as RAW3 datagrams:
-            #   - keeping all the ping_time
-            #   - do not assume that all pings are transmitted simultaneously
-            #   - do not assume that the pings from different channels come in in a particular sequence.
-
             elif new_datagram['type'].startswith('RAW0'):
                 curr_ch_num = new_datagram['channel']
 
@@ -180,6 +175,16 @@ class ParseEK(ParseBase):
                 if np.all(np.array([curr_ch_num, tmp_num_ch_per_ping_parsed]) ==
                           self.config_datagram['transceiver_count']):
 
+                    # TODO: @ngkavin: please change the saving of RAW0 datagram content and timestamp
+                    #  in the same style as RAW3 (i.e., save channel-specific ping time),
+                    #   - keeping all the ping_time
+                    #   - do not assume that all pings are transmitted simultaneously
+                    #   - do not assume that the pings from different channels come in a particular sequence.
+                    #  and make downstream changes in ParseEK60 and SetGroupsEK60 in the same style as
+                    #  the new SetGroupsEK80.set_beam.
+                    #  Note there are additional variables encoded in RAW0 compared to RAW3
+                    #  so you will have to change other groups in addition to Beam, but otherwise
+                    #  EK60 raw formats are very similar to EK80.
                     # append ping time from first channel
                     self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
                     for ch_seq in range(self.config_datagram['transceiver_count']):
@@ -204,8 +209,7 @@ class ParseEK(ParseBase):
                 if curr_ch_id not in self.recorded_ch_ids:
                     self.recorded_ch_ids.append(curr_ch_id)
 
-                # append ping time from first channel
-                # self.ping_time.append(new_datagram['timestamp'])
+                # Save channel-specific ping time
                 self.ping_time[curr_ch_id].append(new_datagram['timestamp'])
 
                 # Append ping by ping data
