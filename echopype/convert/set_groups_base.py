@@ -43,7 +43,10 @@ class SetGroupsBase:
         # date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
 
         # Collect variables
-        date_created = self.convert_obj.ping_time[0]
+        pt = []
+        for v in self.convert_obj.ping_time.values():
+            pt.append(v[0])
+        date_created = np.sort(pt)[0]
 
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,

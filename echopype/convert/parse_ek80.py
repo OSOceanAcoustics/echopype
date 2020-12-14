@@ -30,6 +30,42 @@ class ParseEK80(ParseEK):
         self.cw_ch_ids = list(self.ping_data_dict['power'].keys())
         self.n_complex_dict = {k: v for k, v in self.n_complex_dict.items() if k in self.bb_ch_ids}
 
+    @staticmethod
+    def pad_shorter_ping(data_list) -> np.ndarray:
+        """
+        Pad shorter ping with NaN: power, angle, complex samples.
+
+        Parameters
+        ----------
+        data_list : list
+            Power, angle, or complex samples for each channel from RAW3 datagram.
+            Each ping is one entry in the list.
+
+        Returns
+        -------
+        out_array : np.ndarray
+            Numpy array containing samplings from all pings.
+            The array is NaN-padded if some pings are of different lengths.
+        """
+        lens = np.array([len(item) for item in data_list])
+        if np.unique(lens).size != 1:  # if some pings have different lengths along range
+            if data_list[0].ndim == 2:
+                # Angle data have an extra dimension for alongship and athwartship samples
+                mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
+            else:
+                mask = lens[:, None] > np.arange(lens.max())
+            # Take care of problem of np.nan being implicitly "real"
+            if isinstance(data_list[0][0], (np.complex, np.complex64, np.complex128)):
+                out_array = np.full(mask.shape, np.nan + 0j)
+            else:
+                out_array = np.full(mask.shape, np.nan)
+
+            # Fill in values
+            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+        else:
+            out_array = np.array(data_list)
+        return out_array
+
     def parse_raw(self):
         """Parse raw data file from Simrad EK80 echosounder.
         """
@@ -48,32 +84,37 @@ class ParseEK80(ParseEK):
                 self._print_status()
 
             # IDs of the channels found in the dataset
-            self.ch_ids = list(self.config_datagram[self.config_datagram['subtype']])
+            self.ch_ids = list(self.config_datagram['configuration'].keys())
 
+            # TODO remove?
             # Parameters recorded for each frequency for each ping
-            for ch_id in self.ch_ids:
-                self.ping_data_dict['frequency'][ch_id].append(
-                    self.config_datagram['configuration'][ch_id]['transducer_frequency'])
-                self.n_complex_dict[ch_id] = None
+            # for ch_id in self.ch_ids:
+            #     self.ping_data_dict['frequency'][ch_id].append(
+            #         self.config_datagram['configuration'][ch_id]['transducer_frequency'])
+            #     self.n_complex_dict[ch_id] = None
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
         if 'ALL' in self.data_type:
-            # TODO: @ngkavin: the next 2 lines can be removed
-            #  if you take the assembling a Dataset approach detailed in _rectangularize()
-            self.ping_time = np.unique(self.ping_time)
-            self._match_ch_ping_time()
+            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
+            #  this will help merge data from all channels into a cube
+            for ch, val in self.ping_time.items():
+                self.ping_time[ch] = np.array(val)
+
+            # Rectangularize all data and convert to numpy array indexed by channel
+            for data_type in ['power', 'angle', 'complex']:
+                print(data_type)
+                for k, v in self.ping_data_dict[data_type].items():
+                    print(k)
+                    if all(x is None for x in v):  # if no data in a particular channel
+                        self.ping_data_dict[data_type][k] = None
+                    else:
+                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
+
             # Save which channel ids are bb and which are ch because rectangularize() removes channel ids
             # Also removes cw channels from bb data and bb channels from cw data
             self._remove_unrecorded_channels()
-
-            # Create rectangular arrays from a dictionary of potentially irregular arrays.
-            if self.bb_ch_ids:
-                self.ping_data_dict['complex'] = self._rectangularize(self.ping_data_dict['complex'])
-            if self.cw_ch_ids:
-                self.ping_data_dict['power'] = self._rectangularize(self.ping_data_dict['power'])
-                self.ping_data_dict['angle'] = self._rectangularize(self.ping_data_dict['angle'], is_power=False)
 
     def _select_datagrams(self, params):
         """ Translates user input into specific datagrams or ALL

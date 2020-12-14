@@ -35,6 +35,7 @@ class ParseEK(ParseBase):
         # Class attributes
         self.config_datagram = None
         self.ping_data_dict = self.ping_data_dict = defaultdict(lambda: defaultdict(list))
+        self.ping_time = defaultdict(list)  # store ping time according to channel
         self.num_range_bin_groups = None  # number of range_bin groups
         self.ch_ping_idx = []
         self.data_type = self._select_datagrams(params)
@@ -137,6 +138,7 @@ class ParseEK(ParseBase):
                 #  when users only want CONFIG or ENV, but the way this is implemented
                 #  the raw0/3 datagrams are still parsed, you are just not saving them
                 new_datagram = fid.read(1)
+
             except SimradEOF:
                 break
 
@@ -160,6 +162,11 @@ class ParseEK(ParseBase):
                     current_parameters = new_datagram['parameter']
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
+            # TODO: change saving of RAW0 datagrams in the same way as RAW3 datagrams:
+            #   - keeping all the ping_time
+            #   - do not assume that all pings are transmitted simultaneously
+            #   - do not assume that the pings from different channels come in in a particular sequence.
+
             elif new_datagram['type'].startswith('RAW0'):
                 curr_ch_num = new_datagram['channel']
 
@@ -193,11 +200,13 @@ class ParseEK(ParseBase):
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram['type'].startswith('RAW3'):
                 curr_ch_id = new_datagram['channel_id']
+                # Check if the proceeding Parameter XML does not match with data in this RAW3 datagram
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
                 # append ping time from first channel
-                self.ping_time.append(new_datagram['timestamp'])
+                # self.ping_time.append(new_datagram['timestamp'])
+                self.ping_time[curr_ch_id].append(new_datagram['timestamp'])
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
@@ -242,8 +251,8 @@ class ParseEK(ParseBase):
     def _append_channel_ping_data(self, datagram):
         """Append ping by ping data.
         """
-        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', 'frequency',
-                   'transmit_mode', 'spare0', 'bytes_read', 'type', 'n_complex']
+        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', #'frequency',
+                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
             if k not in unsaved:
