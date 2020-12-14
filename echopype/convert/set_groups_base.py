@@ -115,11 +115,12 @@ class SetGroupsBase:
         """Set the Platform/NMEA group.
         """
         # Save nan if nmea data is not encoded in the raw file
-        if self.convert_obj.raw_nmea_string.size != 0:
+        if len(self.convert_obj.nmea['nmea_string']) != 0:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            time = (self.convert_obj.nmea_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
-            raw_nmea = self.convert_obj.raw_nmea_string
+            time = (self.convert_obj.nmea['timestamp'] -
+                    np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+            raw_nmea = self.convert_obj.nmea['nmea_string']
         else:
             time = [np.nan]
             raw_nmea = [np.nan]
@@ -147,17 +148,17 @@ class SetGroupsBase:
     def _parse_NMEA(self):
         """Get the lat and lon values from the raw nmea data"""
 
-        messages = [string[3:6] for string in self.convert_obj.raw_nmea_string]
+        messages = [string[3:6] for string in self.convert_obj.nmea['nmea_string']]
         idx_loc = np.argwhere(np.isin(messages,
                                       self.ui_param['nmea_gps_sentence'])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
-        nmea_msg = [pynmea2.parse(self.convert_obj.raw_nmea_string[x]) for x in idx_loc]
+        nmea_msg = [pynmea2.parse(self.convert_obj.nmea['nmea_string'][x]) for x in idx_loc]
         lat = np.array([x.latitude if hasattr(x, 'latitude') else np.nan
                        for x in nmea_msg]) if nmea_msg else [np.nan]
         lon = np.array([x.longitude if hasattr(x, 'longitude') else np.nan
                        for x in nmea_msg]) if nmea_msg else [np.nan]
 
-        location_time = (self.convert_obj.nmea_time[idx_loc] -
+        location_time = (np.array(self.convert_obj.nmea['timestamp'])[idx_loc] -
                          np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
         return lat, lon, location_time, nmea_msg
