@@ -162,11 +162,6 @@ class ParseEK(ParseBase):
                     current_parameters = new_datagram['parameter']
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
-            # TODO: change saving of RAW0 datagrams in the same way as RAW3 datagrams:
-            #   - keeping all the ping_time
-            #   - do not assume that all pings are transmitted simultaneously
-            #   - do not assume that the pings from different channels come in in a particular sequence.
-
             elif new_datagram['type'].startswith('RAW0'):
                 curr_ch_num = new_datagram['channel']
 
@@ -184,6 +179,16 @@ class ParseEK(ParseBase):
                 if np.all(np.array([curr_ch_num, tmp_num_ch_per_ping_parsed]) ==
                           self.config_datagram['transceiver_count']):
 
+                    # TODO: @ngkavin: please change the saving of RAW0 datagram content and timestamp
+                    #  in the same style as RAW3 (i.e., save channel-specific ping time),
+                    #   - keeping all the ping_time
+                    #   - do not assume that all pings are transmitted simultaneously
+                    #   - do not assume that the pings from different channels come in a particular sequence.
+                    #  and make downstream changes in ParseEK60 and SetGroupsEK60 in the same style as
+                    #  the new SetGroupsEK80.set_beam.
+                    #  Note there are additional variables encoded in RAW0 compared to RAW3
+                    #  so you will have to change other groups in addition to Beam, but otherwise
+                    #  EK60 raw formats are very similar to EK80.
                     # append ping time from first channel
                     self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
                     for ch_seq in range(self.config_datagram['transceiver_count']):
@@ -204,8 +209,11 @@ class ParseEK(ParseBase):
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # append ping time from first channel
-                # self.ping_time.append(new_datagram['timestamp'])
+                # tmp_num_ch_per_ping_parsed += 1
+                if curr_ch_id not in self.recorded_ch_ids:
+                    self.recorded_ch_ids.append(curr_ch_id)
+
+                # Save channel-specific ping time
                 self.ping_time[curr_ch_id].append(new_datagram['timestamp'])
 
                 # Append ping by ping data
@@ -257,79 +265,6 @@ class ParseEK(ParseBase):
         for k, v in datagram.items():
             if k not in unsaved:
                 self.ping_data_dict[k][ch_id].append(v)
-
-    def _find_range_group(self, data_dict):
-        """Find the pings at which range_bin changes.
-        """
-        if all([p is None for p in data_dict.values()]):
-            return None, None
-        uni, uni_cnt, range_lengths = [], [], []
-        # Find the channel with the most range length changes
-        for val in data_dict.values():
-            range_bin_lens = [len(l) for l in val]
-            uni_tmp, uni_cnt_tmp = np.unique(range_bin_lens, return_counts=True)
-            # used in looping when saving files with different range_bin numbers
-            range_lengths = uni_tmp if len(uni_tmp) > len(uni) else range_lengths
-            uni_cnt = uni_cnt_tmp if len(uni_cnt_tmp) > len(uni_cnt) else uni_cnt
-        return range_lengths, np.cumsum(np.insert(uni_cnt, 0, 0))
-
-    def _match_ch_ping_time(self):
-        # Match timestamp of each ping in power data with ping_time for each channel
-        # If all channels ping at the same time then ch_indices equals the ping_time
-        self.ch_ping_idx = {ch: np.searchsorted(self.ping_time, timestamp) for
-                            ch, timestamp in self.ping_data_dict['timestamp'].items()}
-
-    def _rectangularize(self, data_dict, is_power=True):
-        """ Takes a potentially irregular dictionary with frequency as keys and returns
-        a rectangular numpy array padded with nans.
-        """
-        # Find where the range changes
-        range_lengths, uni_cnt_insert = self._find_range_group(data_dict)
-        # Exit function if no power data is collected on any of the channels
-        if uni_cnt_insert is None:
-            return None, None
-
-        # TODO: @ngkavin:
-        #  I think it will be cleaner to assemble one DataArray for each channel (pad the shorter pings with NaN),
-        #  and then concat or merge along the frequency dimension with NaN padding
-        #  to directly assemble a cube DataSet with ping_time x range_bin x frequency dimensions.
-        # Slice out which ping times correspond to which ping in each channel
-        ch_indices = [self.ch_ping_idx[ch] for ch in data_dict.keys()]
-
-        # Find the largest range length across channels and range groups
-        largest_range = 0
-        for ch, power in data_dict.items():
-            if ch is not None:
-                ch_size = len(max(power, key=len))
-                largest_range = ch_size if ch_size > largest_range else largest_range
-        assert max(range_lengths) <= largest_range
-        # Must define a power-type of either float32 or complex64 because np.nan cannot be int
-        power_type = np.complex64 if list(data_dict.values())[0][0].dtype == np.complex64 else np.float32
-        # Check if data is angle or power. Angle data has 1 extra dimension
-        if is_power:
-            tmp_data = np.full((len(data_dict), len(self.ping_time),
-                                largest_range), np.nan, dtype=power_type)
-        else:
-            tmp_data = np.full((len(data_dict), len(self.ping_time),
-                                largest_range, 2), np.nan)
-        # Pad range groups and channels
-        for i in range(len(range_lengths)):
-            # List of all channels sliced into a range group
-            grouped_indices = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
-                               for ch in ch_indices]
-            # Group pings by range length
-            grouped_data = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
-                            for ch in data_dict.values() if ch is not None]
-
-            for ch in range(len(grouped_data)):
-                # Exception occurs when only one channel records angle data.
-                # In that case, skip channel (filled with nan)
-                if not is_power:
-                    if grouped_data[ch].ndim == 1:
-                        continue
-                # Fill in nan array with power/angle data
-                tmp_data[ch, grouped_indices[ch], :grouped_data[ch].shape[1]] = grouped_data[ch]
-        return tmp_data
 
     def _select_datagrams(self, params):
         """ Translates user input into specific datagrams or ALL
