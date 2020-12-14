@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
-NMEA_GPS_SENTECE = 'GGA'
+NMEA_GPS_SENTENCE = 'GGA'
 
 
 class ParseBase:
@@ -20,29 +20,34 @@ class ParseBase:
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
-        # TODO: @ngkvain: do you have config_datagram for AZPF?
-        time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
-        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
-              f"time of first ping: {time}")
 
 
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self, file, params):  # TODO: @ngkvain: you pass in param from convert.py but it is not used
+    def __init__(self, file, params):
         super().__init__(file)
 
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = NMEA_GPS_SENTECE  # select GPS datagram in _set_platform_dict()
+        self.nmea_gps_sentence = NMEA_GPS_SENTENCE  # select GPS datagram in _set_platform_dict()
 
         # Class attributes
         self.config_datagram = None
-        self.nmea_time = []
-        self.raw_nmea_string = []
-        self.ping_data_dict = defaultdict()  # dictionary to store metadata
+        self.ping_data_dict = self.ping_data_dict = defaultdict(lambda: defaultdict(list))
         self.num_range_bin_groups = None  # number of range_bin groups
         self.ch_ping_idx = []
+        self.data_type = self._select_datagrams(params)
+
+        self.nmea = defaultdict(list)   # Dictionary to store NMEA data(timestamp and string)
+        self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
+        self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
+        self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+
+    def _print_status(self):
+        time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
+        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
+              f"time of first ping: {time}")
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
@@ -141,7 +146,6 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
-            # TODO: @ngkvain: Where is self.data_type initialized? I only see you pass in param, which is not used
 
             # TODO: @ngkvain: what does this first if check do? Why don't you just check for 'ALL'?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
@@ -192,28 +196,23 @@ class ParseEK(ParseBase):
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # tmp_num_ch_per_ping_parsed += 1
-                if curr_ch_id not in self.recorded_ch_ids:
-                    self.recorded_ch_ids.append(curr_ch_id)
-
                 # append ping time from first channel
                 self.ping_time.append(new_datagram['timestamp'])
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
-                if self.n_complex_dict[curr_ch_id] < 0:   # TODO: @ngkvain: why test <0 ?
-                    self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
+                if self.n_complex_dict[curr_ch_id] is None:
+                    # update number of complex samples for each channel
+                    self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
-                # TODO: @ngkvain: change to use the same structure as mru,
-                #  so have a field for the nmea timestamp and a field for raw strings
-                self.nmea_time.append(new_datagram['timestamp'])
-                self.raw_nmea_string.append(new_datagram['nmea_string'])
+                self.nmea['timestamp'].append(new_datagram['timestamp'])
+                self.nmea['nmea_string'].append(new_datagram['nmea_string'])
 
             # MRU datagrams contain motion data for each ping for EK80
-            elif new_datagram['type'].startswith("MRU"):   # TODO: @ngkvain: is self.mru initialized somewhere?
+            elif new_datagram['type'].startswith("MRU"):
                 self.mru['heading'].append(new_datagram['heading'])
                 self.mru['pitch'].append(new_datagram['pitch'])
                 self.mru['roll'].append(new_datagram['roll'])
@@ -238,8 +237,7 @@ class ParseEK(ParseBase):
             elif new_datagram['type'].startswith('DEP'):
                 print('DEP datagram encountered.')
             else:
-                if 'ALL' in self.data_type:   # TODO: @ngkvain: why do you do this here?
-                    print("Unknown datagram type: " + str(new_datagram['type']))
+                print("Unknown datagram type: " + str(new_datagram['type']))
 
     def _append_channel_ping_data(self, datagram):
         """Append ping by ping data.
@@ -251,27 +249,20 @@ class ParseEK(ParseBase):
             if k not in unsaved:
                 self.ping_data_dict[k][ch_id].append(v)
 
-    def _find_range_group(self, power_dict):
+    def _find_range_group(self, data_dict):
         """Find the pings at which range_bin changes.
         """
-        if all([p is None for p in power_dict.values()]):
-            return None
-        uni, uni_cnt = [], []
+        if all([p is None for p in data_dict.values()]):
+            return None, None
+        uni, uni_cnt, range_lengths = [], [], []
         # Find the channel with the most range length changes
-        # TODO: @ngkavin: why are you looping here? ch, val are not used
-        for ch, val in power_dict.items():
-            range_bin_lens = [len(l) for l in list(power_dict.values())[0]]
+        for val in data_dict.values():
+            range_bin_lens = [len(l) for l in val]
             uni_tmp, uni_cnt_tmp = np.unique(range_bin_lens, return_counts=True)
             # used in looping when saving files with different range_bin numbers
-            self.range_lengths = uni_tmp if len(uni_tmp) > len(uni) else self.range_lengths
+            range_lengths = uni_tmp if len(uni_tmp) > len(uni) else range_lengths
             uni_cnt = uni_cnt_tmp if len(uni_cnt_tmp) > len(uni_cnt) else uni_cnt
-        return np.cumsum(np.insert(uni_cnt, 0, 0))
-
-    # def _check_ping_channel_match(self):
-    #     """Check if the number of RAW datagrams loaded are integer multiples of the number of channels.
-    #     """
-    #     # Check line 312 of convert/ek60.py
-    #     # TODO: @ngkavin: fragment? complete this
+        return range_lengths, np.cumsum(np.insert(uni_cnt, 0, 0))
 
     def _match_ch_ping_time(self):
         # Match timestamp of each ping in power data with ping_time for each channel
@@ -279,114 +270,68 @@ class ParseEK(ParseBase):
         self.ch_ping_idx = {ch: np.searchsorted(self.ping_time, timestamp) for
                             ch, timestamp in self.ping_data_dict['timestamp'].items()}
 
-    def _clean_channel(self):
-        """Remove channels that do not record any pings.
-        """
-        # TODO Look at ek60 save only when all channels are present
-        # TODO: @ngkavin: what does this do?
-        if len(self.ch_ids) != len(self.recorded_ch_ids):
-            self.ch_ids = self.recorded_ch_ids
-
-    def _rectangularize(self, power_dict, angle_dict=None):
+    def _rectangularize(self, data_dict, is_power=True):
         """ Takes a potentially irregular dictionary with frequency as keys and returns
         a rectangular numpy array padded with nans.
         """
-        # TODO: @ngkavin: change _rectangularize to only operate on one type of data
-        #  and not try to deal with both power and angle data at the same time.
-
-        # TODO: @ngkavin: it is a bad idea to hide sonar model specific things
-        #  in a subfunction under a parent class -- you should do it in the child class,
-        #  and in this case it should NOT be in the function
-        INDEX2POWER = (10.0 * np.log10(2.0) / 256.0) if self.sonar_type == 'EK60' else 1
-
-        # Remove channels that do not record power data
-        power_dict = {k: v for k, v in power_dict.items() if v is not None}
         # Find where the range changes
-        uni_cnt_insert = self._find_range_group(power_dict)
+        range_lengths, uni_cnt_insert = self._find_range_group(data_dict)
         # Exit function if no power data is collected on any of the channels
         if uni_cnt_insert is None:
             return None, None
-        if angle_dict is not None:
-            angle_dict = {k: v for k, v in angle_dict.items() if v is not None}
 
         # TODO: @ngkavin:
         #  I think it will be cleaner to assemble one DataArray for each channel (pad the shorter pings with NaN),
         #  and then concat or merge along the frequency dimension with NaN padding
-        #  to direclty assemble a cube DataSet with ping_time x range_bin x frequency dimensions.
+        #  to directly assemble a cube DataSet with ping_time x range_bin x frequency dimensions.
         # Slice out which ping times correspond to which ping in each channel
-        ch_indices = [self.ch_ping_idx[ch] for ch in power_dict.keys()]
+        ch_indices = [self.ch_ping_idx[ch] for ch in data_dict.keys()]
 
         # Find the largest range length across channels and range groups
         largest_range = 0
-        for ch, power in power_dict.items():
+        for ch, power in data_dict.items():
             if ch is not None:
                 ch_size = len(max(power, key=len))
                 largest_range = ch_size if ch_size > largest_range else largest_range
-        assert max(self.range_lengths) <= largest_range
+        assert max(range_lengths) <= largest_range
         # Must define a power-type of either float32 or complex64 because np.nan cannot be int
-        power_type = np.complex64 if list(power_dict.values())[0][0].dtype == np.complex64 else np.float32
-        tmp_power = np.full((len(power_dict), len(self.ping_time),
-                             largest_range), np.nan, dtype=power_type)
-        tmp_angle = np.full((len(power_dict), len(self.ping_time),
-                            largest_range, 2), np.nan) if angle_dict is not None else None
+        power_type = np.complex64 if list(data_dict.values())[0][0].dtype == np.complex64 else np.float32
+        # Check if data is angle or power. Angle data has 1 extra dimension
+        if is_power:
+            tmp_data = np.full((len(data_dict), len(self.ping_time),
+                                largest_range), np.nan, dtype=power_type)
+        else:
+            tmp_data = np.full((len(data_dict), len(self.ping_time),
+                                largest_range, 2), np.nan)
         # Pad range groups and channels
-        for i in range(len(self.range_lengths)):
+        for i in range(len(range_lengths)):
             # List of all channels sliced into a range group
             grouped_indices = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
                                for ch in ch_indices]
-            grouped_power = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
-                             for ch in power_dict.values() if ch is not None]
-            if angle_dict is not None:
-                grouped_angle = [np.array(a[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
-                                 for a in angle_dict.values() if a is not None]
+            # Group pings by range length
+            grouped_data = [np.array(ch[uni_cnt_insert[i]:uni_cnt_insert[i + 1]])
+                            for ch in data_dict.values() if ch is not None]
 
-            for ch in range(len(grouped_power)):
-                # Fill in nan array with power data
-                tmp_power[ch, grouped_indices[ch], :grouped_power[ch].shape[1]] = grouped_power[ch]
-                # Fill in nan array with angle data
-                if angle_dict is not None:
-                    if grouped_angle[ch].ndim == 1:
+            for ch in range(len(grouped_data)):
+                # Exception occurs when only one channel records angle data.
+                # In that case, skip channel (filled with nan)
+                if not is_power:
+                    if grouped_data[ch].ndim == 1:
                         continue
-                    # Exception occurs when only one channel records angle data.
-                    # In that case, skip channel (filled with nan)
-                    tmp_angle[ch, grouped_indices[ch], :grouped_angle[ch].shape[1]] = grouped_angle[ch]
-        return tmp_power * INDEX2POWER, tmp_angle
+                # Fill in nan array with power/angle data
+                tmp_data[ch, grouped_indices[ch], :grouped_data[ch].shape[1]] = grouped_data[ch]
+        return tmp_data
 
     def _select_datagrams(self, params):
-        # TODO: @ngkavin: Why do you need this translation?
+        """ Translates user input into specific datagrams or ALL
+
+        Valid use cases:
         # get GPS info only (EK60, EK80)
         # ec.to_netcdf(data_type='GPS')
 
         # get configuration XML only (EK80)
-        # ec.to_netcdf(data_type='CONFIG_XML')
+        # ec.to_netcdf(data_type='CONFIG')
 
         # get environment XML only (EK80)
-        # ec.to_netcdf(data_type='ENV_XML')
-        def translate_to_dgram(s):
-            if s == 'ALL':
-                return ['ALL']
-            elif s == 'GPS':
-                # TODO: @ngkavin:
-                #  What you have breaks the class inheritance.
-                #  If you find yourself using sonar model specific things,
-                #  then that thing should be in the child class.
-                if self.sonar_type == 'EK60':
-                    return ['NME', 'GPS']
-                elif self.sonar_type == 'EK80':
-                    return ['NME', 'MRU', 'GPS']
-            elif s == 'CONFIG':
-                return ['CONFIG']
-            elif s == 'ENV':
-                return ['XML', 'ENV']
-            # TODO: @ngkavin:
-            #  'EXPORT' is not a good variable name as it does not reflect what this flag controls.
-            #  also explain in what circumstance EXPORT will be passed in?
-            elif s == 'EXPORT':
-                return ['EXPORT']
-        if isinstance(params, str):
-            dgrams = translate_to_dgram(params)
-        else:
-            dgrams = []
-            for p in params:
-                dgrams += translate_to_dgram(p)
-        return dgrams
+        # ec.to_netcdf(data_type='ENV')
+        """

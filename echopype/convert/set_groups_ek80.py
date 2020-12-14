@@ -15,6 +15,11 @@ class SetGroupsEK80(SetGroupsBase):
         """Actually save groups to file by calling the set methods.
         """
 
+        def set_beam_type_specific_groups(ch_ids, bb, path):
+            self.set_beam(ch_ids, bb=bb, path=path)
+            self.set_sonar(ch_ids, path=path)
+            self.set_vendor(ch_ids, bb=bb, path=path)
+
         self.set_toplevel(self.sonar_model)
         self.set_provenance()    # provenance group
 
@@ -29,29 +34,17 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
-        # TODO: @ngkavin: redundant
-        bb_ch_ids = self.convert_obj.bb_ch_ids
-        cw_ch_ids = self.convert_obj.cw_ch_ids
-        # TODO: @ngkavin: redundancy in if-else cases
         # If there is both bb and cw data
-        if bb_ch_ids and cw_ch_ids:
+        if self.convert_obj.bb_ch_ids and self.convert_obj.cw_ch_ids:
             new_path = self._copy_file(self.output_path)
-            self.set_beam(bb_ch_ids, bb=True, path=self.output_path)
-            self.set_sonar(bb_ch_ids, path=self.output_path)
-            self.set_vendor(bb_ch_ids, bb=True, path=self.output_path)
-            self.set_beam(cw_ch_ids, bb=False, path=new_path)
-            self.set_sonar(cw_ch_ids, path=new_path)
-            self.set_vendor(cw_ch_ids, bb=False, path=new_path)
+            set_beam_type_specific_groups(self.convert_obj.bb_ch_ids, bb=True, path=self.output_path)
+            set_beam_type_specific_groups(self.convert_obj.cw_ch_ids, bb=False, path=new_path)
         # If there is only bb data
-        elif bb_ch_ids:
-            self.set_beam(bb_ch_ids, bb=True, path=self.output_path)
-            self.set_sonar(bb_ch_ids, path=self.output_path)
-            self.set_vendor(bb_ch_ids, bb=True, path=self.output_path)
+        elif self.convert_obj.bb_ch_ids:
+            set_beam_type_specific_groups(self.convert_obj.bb_ch_ids, bb=True, path=self.output_path)
         # If there is only cw data
         else:
-            self.set_beam(cw_ch_ids, bb=False, path=self.output_path)
-            self.set_sonar(cw_ch_ids, path=self.output_path)
-            self.set_vendor(cw_ch_ids, bb=False, path=self.output_path)
+            set_beam_type_specific_groups(self.convert_obj.cw_ch_ids, bb=False, path=self.output_path)
 
     def set_env(self):
         """Set the Environment group.
@@ -162,12 +155,13 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Beam group.
         """
         config = self.convert_obj.config_datagram['configuration']
+        # Order channels based on config because channel ordering from ping_data_dict is not always the same
+        ping_data_channels = config.keys()
+        ch_idx = [ch_ids.index(ch) for ch in ping_data_channels if ch in ch_ids]
+        ch_ids = np.array(ch_ids)[ch_idx]
         freq = np.array([config[x]['transducer_frequency'] for x in ch_ids], dtype=int)
         tx_num = len(ch_ids)
         ping_num = len(self.convert_obj.ping_time)
-        # Order channels based on config because channel ordering from ping_data_dict is not always the same
-        ping_data_channels = self.convert_obj.ping_data_dict['frequency'].keys()
-        ch_idx = [ch_ids.index(ch) for ch in ping_data_channels if ch in ch_ids]
 
         # TODO How to determine if a CW data set is split beam or single beam, and how many splits?
         # TODO: @ngkavin: this line below doesn't make sense: many bb data have 4 channels also.
@@ -175,7 +169,7 @@ class SetGroupsEK80(SetGroupsBase):
         if bb:
             shape = (tx_num, ping_num, -1, max_splits)
             backscatter = self.convert_obj.ping_data_dict['complex'].reshape(shape)
-            backscatter = np.moveaxis(backscatter, 3, 1)
+            backscatter = np.moveaxis(backscatter, 3, 1)[ch_idx]
 
         # Loop through each transducer for channel-specific variables
         beam_dict = dict()
@@ -198,21 +192,20 @@ class SetGroupsEK80(SetGroupsBase):
                 beam_par[param][c_seq] = c.get(param, np.nan)
 
             beam_dict['gain_correction'][c_seq] = c['gain'][c_seq]
+            # Save parameters that are not floats
             beam_dict['wbt_software_version'].append(c['transceiver_software_version'])
             beam_dict['channel_id'].append(c['channel_id'])
             c_seq += 1
 
-        # Stack channels and order axis as: channel, quadrant, ping, range
-        # TODO: @ngkavin: change below to if-else testing the power data and frequency start/end combination
         if bb:
-            try:
+            # Check to see if instrument records complex power data without
+            # supplying the frequency start and end for every channel
+            if all(ch in self.convert_obj.ping_data_dict['frequency_start'] for ch in ch_ids):
                 freq_start = np.array([self.convert_obj.ping_data_dict['frequency_start'][x][0]
                                       for x in ch_ids], dtype=int)
                 freq_end = np.array([self.convert_obj.ping_data_dict['frequency_end'][x][0]
                                     for x in ch_ids], dtype=int)
-            # Exception occurs when instrument records complex power data without
-            # supplying the frequency start and end for every channel
-            except IndexError:
+            else:
                 freq_start = np.array([config[x].get('transducer_frequency_minimum', np.nan)
                                        for x in ch_ids], dtype=int)
                 freq_end = np.array([config[x].get('transducer_frequency_maximum', np.nan)
@@ -231,10 +224,6 @@ class SetGroupsEK80(SetGroupsBase):
                     np.array(list(self.convert_obj.ping_data_dict[param].values()))[ch]
             ping_param_dict[param] = tmp_arr
 
-        # Build other parameters
-        # beam_dict['non_quantitative_processing'] = np.array([0, ] * freq.size, dtype='int32')
-        # -- sample_time_offset is set to 2 for EK60 data, this value is NOT from sample_data['offset']
-        # beam_dict['sample_time_offset'] = np.array([2, ] * freq.size, dtype='int32')
 
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
@@ -295,25 +284,10 @@ class SetGroupsEK80(SetGroupsBase):
              'gain_correction': (['frequency'], beam_dict['gain_correction'],
                                  {'long_name': 'Gain correction',
                                   'units': 'dB'}),
-             # TODO: @ngkvain: any reason we are keeping the commented-out variables?
-            #  'non_quantitative_processing': (['frequency'], beam_dict['non_quantitative_processing'],
-            #                                  {'flag_meanings': 'no_non_quantitative_processing',
-            #                                   'flag_values': '0',
-            #                                   'long_name': 'Presence or not of non-quantitative '
-            #                                                'processing applied to the backscattering '
-            #                                                'data (sonar specific)'}),
              'sample_interval': (['frequency', 'ping_time'], ping_param_dict['sample_interval'],
                                  {'long_name': 'Interval between recorded raw data samples',
                                   'units': 's',
                                   'valid_min': 0.0}),
-            #  'sample_time_offset': (['frequency'], beam_dict['sample_time_offset'],
-            #                         {'long_name': 'Time offset that is subtracted from the timestamp '
-            #                                       'of each sample',
-            #                          'units': 's'}),
-            #  'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
-            #                         {'long_name': 'Nominal bandwidth of transmitted pulse',
-            #                          'units': 'Hz',
-            #                          'valid_min': 0.0}),
              'transmit_duration_nominal': (['frequency', 'ping_time'], ping_param_dict[pulse_length_name],
                                            {'long_name': 'Nominal bandwidth of transmitted pulse',
                                             'units': 's',
@@ -350,10 +324,10 @@ class SetGroupsEK80(SetGroupsBase):
         # Save broadband backscatter if present
         if bb:
             ds_bb = xr.Dataset(
-                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.real(backscatter)[ch_idx],
+                {'backscatter_r': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.real(backscatter),
                                    {'long_name': 'Real part of backscatter power',
                                     'units': 'V'}),
-                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter)[ch_idx],
+                 'backscatter_i': (['frequency', 'quadrant', 'ping_time', 'range_bin'], np.imag(backscatter),
                                    {'long_name': 'Imaginary part of backscatter power',
                                     'units': 'V'}),
                  'frequency_start': (['frequency'], freq_start,
@@ -406,6 +380,9 @@ class SetGroupsEK80(SetGroupsBase):
         # Below are specific to Simrad .raw files
         if 'wbt_software_version' in beam_dict:
             ds['wbt_software_version'] = ('frequency', beam_dict['wbt_software_version'])
+        # Coerce type of string variables
+        ds['channel_id'] = ds['channel_id'].astype('<U50')
+        ds['wbt_software_version'] = ds['wbt_software_version'].astype('<U10')
         # Save to file
         if self.save_ext == '.nc':
             nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
@@ -421,6 +398,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Save broadband calibration parameters
         config = self.convert_obj.config_datagram['configuration']
         cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
+        ds = xr.Dataset()
         if cal_ch_ids:
             full_ch_names = [f"{config[ch]['transceiver_type']} " +
                              f"{config[ch]['serial_number']}-" +
@@ -429,7 +407,7 @@ class SetGroupsEK80(SetGroupsBase):
             frequency = [config[ch]['calibration']['frequency'] for ch in cal_ch_ids]
             freq_coord = np.unique(np.hstack(frequency))
             tmp = np.full((len(frequency), len(freq_coord)), np.nan)
-            params = ['gain', 'impedence', 'phase', 'beamwidth_alongship', 'beamwidth_athwartship',
+            params = ['gain', 'impedance', 'phase', 'beamwidth_alongship', 'beamwidth_athwartship',
                       'angle_offset_alongship', 'angle_offset_athwartship']
             param_dict = {}
             for param in params:
@@ -446,7 +424,7 @@ class SetGroupsEK80(SetGroupsBase):
                     'frequency': (['frequency'], freq_coord,
                                   {'long_name': 'Transducer frequency', 'units': 'Hz'})
                 })
-        else:
+        if not bb:
             # Save pulse length and sa correction
             freq = [config[ch]['transducer_frequency'] for ch in ch_ids]
             pulse_length = np.array([config[ch]['pulse_duration'] for ch in ch_ids])
