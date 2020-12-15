@@ -179,15 +179,13 @@ class SetGroupsEK80(SetGroupsBase):
                                    for k in ch_ids])
         # Get the index of the channels listed in the configuration because it does not change across files
         # unlike the channels given in the ping_data_dict
-        ch_idx = [list(self.convert_obj.config_datagram['configuration'].keys()).index(ch) for ch in ch_ids]
-        ch_ids = np.array(ch_ids)[ch_idx]
+        ch_ids = [ch for ch in self.convert_obj.config_datagram['configuration'].keys() if ch in ch_ids]
         freq = np.array([self.convert_obj.config_datagram['configuration'][ch]['transducer_frequency']
                          for ch in ch_ids])
 
         ds = xr.Dataset(
             {
-                'channel_id': (['frequency'],
-                               list(self.convert_obj.config_datagram['configuration'].keys())),
+                'channel_id': (['frequency'], ch_ids),
                 'beamwidth_receive_alongship': (['frequency'], beam_params['beamwidth_receive_major'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'alongship axis of beam',
