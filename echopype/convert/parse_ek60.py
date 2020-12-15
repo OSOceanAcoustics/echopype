@@ -58,7 +58,10 @@ class ParseEK60(ParseEK):
                     if all(x is None for x in v):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
-                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v) * INDEX2POWER
+                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
+                        if data_type == 'power':
+                            self.ping_data_dict[data_type][k] = \
+                                self.ping_data_dict[data_type][k].astype('float32') * INDEX2POWER
 
     def _select_datagrams(self, params):
         # Translates user input into specific datagrams or ALL
