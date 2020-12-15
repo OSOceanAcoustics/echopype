@@ -10,8 +10,8 @@ class ParseEK60(ParseEK):
 
     def __init__(self, file, params):
         super().__init__(file, params)
-        self.sonar_type = 'EK60'
-        self.data_type = self._select_datagrams(params)
+
+        self.CON1_datagram = None
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60 echosounder.
@@ -21,7 +21,6 @@ class ParseEK60(ParseEK):
             # Read the CON0 configuration datagram. Only keep 1 if multiple files
             if self.config_datagram is None:
                 self.config_datagram = fid.read(1)
-                # TODO: @ngkavin: different from EK80 code, why?
                 self.config_datagram['timestamp'] = np.datetime64(
                     self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
                 self._print_status()
@@ -39,20 +38,33 @@ class ParseEK60(ParseEK):
             if next_datagram == 'CON1':
                 self.CON1_datagram = fid.read(1)
             else:
-                self.CON1_datagram = None   # TODO: @ngkavin: not initialized
+                self.CON1_datagram = None
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
         if 'ALL' in self.data_type:
-            # Make a regctangular array (when there is a switch of range_bin in the middle of a file
-            # or when range_bin size changes across channels)
-            # TODO: @ngkavin: change after _rectangularize() is updated
-            self._match_ch_ping_time()
-            self.ping_data_dict['power'], self.ping_data_dict['angle'] = self._rectangularize(
-                self.ping_data_dict['power'], self.ping_data_dict['angle'])
+            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
+            #  this will help merge data from all channels into a cube
+            for ch, val in self.ping_time.items():
+                self.ping_time[ch] = np.array(val)
 
-            # TODO: @ngkavin: converting to numpy array should be done in the parent class
-            #  since it's the same for both EK60 and EK80
-            self.nmea_time = np.array(self.nmea_time)
-            self.raw_nmea_string = np.array(self.raw_nmea_string)
+            # Manufacturer-specific power conversion factor
+            INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+
+            # Rectangularize all data and convert to numpy array indexed by channel
+            for data_type in ['power', 'angle']:
+                for k, v in self.ping_data_dict[data_type].items():
+                    if all(x is None for x in v):  # if no data in a particular channel
+                        self.ping_data_dict[data_type][k] = None
+                    else:
+                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v) * INDEX2POWER
+
+    def _select_datagrams(self, params):
+        # Translates user input into specific datagrams or ALL
+        if params == 'ALL':
+            return ['ALL']
+        elif params == 'GPS':
+            return ['NME', 'GPS']
+        else:
+            raise ValueError("Unknown data type", params)

@@ -164,4 +164,4 @@ class SetGroupsBase:
 
         location_time = (np.array(self.convert_obj.nmea['timestamp'])[idx_loc] -
                          np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if nmea_msg else [np.nan]
-        return lat, lon, location_time, nmea_msg
+        return lat, lon, location_time
