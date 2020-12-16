@@ -218,7 +218,7 @@ class Convert:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
 
-    def _fetch_cw_files(self, c, output_path):
+    def _construct_cw_file_path(self, c, output_path):
         if c.ch_ids['power'] and c.ch_ids['complex']:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_cw' + ext
@@ -267,7 +267,7 @@ class Convert:
         c = c(file, params=params)
         c.parse_raw()
         if self.sonar_model in ['EK80', 'EA640']:
-            self._fetch_cw_files(c, output_path)
+            self._construct_cw_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
