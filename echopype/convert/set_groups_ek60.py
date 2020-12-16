@@ -172,10 +172,6 @@ class SetGroupsEK60(SetGroupsBase):
     def set_beam(self):
         """Set the Beam group.
         """
-
-        # TODO: @ngkavin: Please make the code compatible with how self.ping_time is saved
-        #  and change the code below in the same style as the new SetGroupsEK80
-        # Collect variables
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         config = self.convert_obj.config_datagram

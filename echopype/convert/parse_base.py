@@ -144,7 +144,6 @@ class ParseEK(ParseBase):
 
             # Skip any datagram that the user does not want to save
 
-            # TODO: @ngkvain: what does this first if check do? Why don't you just check for 'ALL'?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
                'ALL' not in self.data_type):
                 continue
