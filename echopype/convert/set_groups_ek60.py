@@ -69,7 +69,9 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds['ping_time'] = (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                             ds.ping_time.attrs)})
 
         # save to file
         if self.save_ext == '.nc':
@@ -158,7 +160,9 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds['ping_time'] = (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                             ds.ping_time.attrs)})
 
         # save dataset to file with specified compression settings for all variables
         if self.save_ext == '.nc':
@@ -365,7 +369,9 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds['ping_time'] = (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                             ds.ping_time.attrs)})
 
         # Save dataset with optional compression for all data variables
         if self.save_ext == '.nc':
