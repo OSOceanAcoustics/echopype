@@ -1,5 +1,4 @@
 import os
-import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -100,8 +99,8 @@ def test_cw_bb():
 
     cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    # assert os.path.exists(cw_path)
-    # assert os.path.exists(nc_path)
+    assert os.path.exists(cw_path)
+    assert os.path.exists(nc_path)
     os.remove(cw_path)
     os.remove(nc_path)
 
