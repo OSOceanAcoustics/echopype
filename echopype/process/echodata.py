@@ -9,182 +9,200 @@ use Plot objects for visualization.
 """
 
 import os
-import glob
+import functools
+from ..utils import io
 import xarray as xr
-from ..utils import uwa
+
+DATA_TYPES = ['raw', 'Sv', 'Sv_clean', 'TS', 'MVBS']
 
 
-class EchoDataBase:
+class EchoData:
     """Echo data model base class.
     """
-    def __init__(self, raw_path,
+    class DataSetGet():
+        """A descriptor that handles data"""
+
+        def __set_name__(self, owner, name):
+            self.name = '_' + name
+
+        def __get__(self, instance, owner):
+            if getattr(instance, self.name) is None:
+                pass
+                print('Data has not been calibrated. '
+                      'Call `Process.calibrate(EchoData)` to calibrate.')
+            else:
+                return getattr(instance, self.name)
+
+        def __set__(self, instance, value):
+            setattr(instance, self.name, value)
+
+    class PathSetGet():
+        """A descriptor that handles data paths"""
+
+        def __set_name__(self, owner, name):
+            self.name = '_' + name
+
+        def __get__(self, instance, owner):
+            return getattr(instance, self.name)
+
+        def __set__(self, instance, value):
+            # TODO: Look at how a list of Sv would be saved
+            attr = self.name.split('_')[1]
+            instance._update_data_pointer(value, arr=attr)
+
+    for attr in DATA_TYPES:
+        vars()[attr] = DataSetGet()
+        vars()[attr + '_path'] = PathSetGet()
+
+    def __init__(self, raw_path=None,
                  Sv_path=None, Sv_clean_path=None,
                  TS_path=None, MVBS_path=None):
-        # Paths to files: can be netcdf or zarr
-        self.raw_path = raw_path
-        self._Sv_path = Sv_path
-        self.Sv_clean_path = Sv_clean_path
-        self.MVBS_path = MVBS_path
-        self.TS_path = TS_path
 
-        # Pointer to data
-        self._raw_backscatter = None
-        self._Sv = None
-        self._Sv_clean = None
-        self._MVBS = None
-        self._TS = None
+        self._file_format = None
+        # Data that is handled in Process
+        for attr in DATA_TYPES:
+            # Initialize data pointers and paths to files
+            setattr(self, '_' + attr, None)
+            setattr(self, '_' + attr + '_path', None)
+            files = eval(attr + '_path')
+            files = [files] if isinstance(files, str) else files
+            setattr(self, attr + '_path', files)
 
-        # Data parameters: mostly instrument-dependent
-        self.environment_parameters = {}
-        self.instrument_parameters = {}
+            # Set the file format
+            if self._file_format is None and files is not None:
+                if files[0].endswith('.nc'):
+                    self._file_format = 'netcdf4'
+                elif self.files[0].endswith('.zarr'):
+                    self._file_format = 'zarr'
+            # Initialize data pointers
+        self._sonar_model = None
+        self.range = None
 
-        # Initialize data pointers
-        self._init_data_pointer()
-
-    # TODO: Do we want to make raw_backscatter a property? maybe not?
-
-    # TODO: need to make Sv_clean, MVBS, TS all properties
-    #  seems that we can use a decorator to avoid too much repetitive code
     @property
-    def Sv(self):
-        if self._Sv is None:
-            print('Data has not been calibrated. '
-                  'Call `proc.calibrate(ed)` to calibrate data in `ed`.')
+    def sonar_model(self):
+        if self._sonar_model is None:
+            with xr.open_dataset(self.raw_path[0], engine=self._file_format) as ds:
+                self._sonar_model = ds.keywords
+        return self._sonar_model
+
+    def _check_key_param_consistency():
+        """Decorator to check if key params in the files for the specified group
+        to make sure the files can be opened together.
+        """
+        def wrapper(open_dataset):
+            functools.wraps(open_dataset)
+
+            def from_raw(ed):
+                if ed.raw_path is None:
+                    raise ValueError("No raw files to open")
+                else:
+                    try:
+                        return open_dataset(ed)
+                    except xr.MergeError as e:
+                        var = str(e).split("'")[1]
+                        raise ValueError(f"Files cannot be opened due to {var} changing across the files")
+            return from_raw
+        return wrapper
+
+    @_check_key_param_consistency()
+    def get_env_from_raw(self):
+        """Open the Environment group from raw data files.
+        """
+        return xr.open_mfdataset(self.raw_path, group='Environment', combine='nested',
+                                 concat_dim='ping_time', data_vars='minimal', engine=self._file_format)
+
+    @_check_key_param_consistency()
+    def get_vend_from_raw(self):
+        """Open the Vendor group from raw data files.
+        """
+        return xr.open_mfdataset(self.raw_path, group='Vendor', combine='by_coords',
+                                 data_vars='minimal', engine=self._file_format)
+
+    @_check_key_param_consistency()
+    def get_beam_from_raw(self):
+        """Open the Beam group from raw data files.
+        """
+        return xr.open_mfdataset(self.raw_path, group='Beam', combine='nested',
+                                 concat_dim='ping_time', data_vars='minimal', engine=self._file_format)
+
+    def _get_data_from_file(self, files):
+        """Open files with data in the top level like Sv, TS, and MVBS"""
+        try:
+            return xr.open_mfdataset(files, combine='nested', concat_dim='ping_time',
+                                     data_vars='minimal', engine=self._file_format)
+        except xr.MergeError as e:
+            var = str(e).split("'")[1]
+            raise ValueError(f"Files cannot be opened due to {var} changing across the files")
+
+    def _open(self, files, group=None):
+        """Opens a list of files. Called by update data pointer"""
+        if group == 'Beam':
+            # Opens the beam group of the raw file
+            return self.get_beam_from_raw()
         else:
-            return self._Sv
+            # Opens files with data in toplevel like Sv and TS
+            return self._get_data_from_file(files)
 
-    @Sv.setter
-    def Sv(self, val):
-        """Point self._Sv to the dataset opened by user.
-
-        Use case:
-            ed = EchoData(raw_path=[...])
-            ed.Sv = xr.open_mfdataset([some files containing Sv data])
-        """
-        self._Sv = val
-
-    # TODO: change below to use decorator
-    @property
-    def Sv_path(self):
-        return self._Sv_path
-
-    @Sv_path.setter
-    def Sv_path(self, val):
-        """Update self._Sv_path and point to the specified dataset.
-
-        Use case:
-            ed = EchoData(raw_path=[...])
-            ed.Sv_path = [some path of files containing Sv data]
-        """
-        self._Sv_path = val
-        self._update_data_pointer()
-
-    def _update_file_list(self, varname):
+    def _update_file_list(self, path, file_list):
         """Update the path specified by user to a list of all files to be opened together.
         """
         # If user passes in a list in self.X_path, use that list directly.
         # If user passes in a path to folder in self.X_path, index all files in the folder.
-        # Update self.varname to be the above list, probably by using setattr?
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1]
+            # Check for folder to paths
+            if ext == '':
+                setattr(self, file_list, io.get_files_from_dir(path))
+            # Check single file path
+            elif ext in ['.nc', '.zarr']:
+                setattr(self, file_list, path)
+            else:
+                raise ValueError("Unsupported file path")
+        else:
+            # Check for list of paths
+            if isinstance(path, list):
+                setattr(self, file_list, path)
+            else:
+                raise ValueError("Unsupported file path")
 
-    def _check_key_param_consistency(self):
-        """Check if key params in the files are identical so that
-        they can be opened together.
-
-        This function is instrument-dependent and should be inherited.
-        """
-        # TODO: throw an error if parameters are not consistent, which
-        #  can be caught in the calling function like self._init_pointer()
-
-    def _get_environment_parameters(self):
-        """Retrieve environment parameters from the raw data file.
-
-        This function can be instrument-dependent and may need to be inherited.
-        """
-        # TODO: the open_mfdataset below should be changed to something like _set_open_dataset
-        #  but also include a check for whether it is one file or multiple files
-        self.environment_parameters = xr.open_mfdataset(self.raw_path, group='Environment')
-
-    def _get_instrument_parameters(self):
-        """Retrieve instrument parameters from the raw data file.
-
-        This function can be instrument-dependent and may need to be inherited.
-        """
-
-    def _update_data_pointer(self, varname):
+    def _update_data_pointer(self, path, arr):
         """Update pointer to data for the specified type and path.
         """
-        # TODO: below is written for Sv, make it general and applicable to Sv_clean, MVBS, and TS
-        self._update_file_list('Sv')
-        try:
-            self.Sv = xr.open_mfdataset(self.Sv_path)
-        except:  # catch errors thrown from the above
-            raise
-
-    def _init_data_pointer(self):
-        """Initialize pointer to data if the path exists.
-        """
-        # Initialize pointer to raw data files
-        if self.raw_path is None:
-            raise ValueError('Please specify a path to nc or zarr files containing raw data.')
+        attr = '_' + arr
+        attr_path = attr + '_path'
+        if path is None:
+            setattr(self, attr, None)
+            setattr(self, attr_path, None)
         else:
-            # Get paths to files
-            self._update_file_list('raw_path')
-            try:
-                self._check_key_param_consistency()
-                self._raw_backscatter = xr.open_mfdataset(self.raw_path, group='Beam')
-                self._get_environment_parameters()
-                self._get_instrument_parameters()
-            except:  # catch errors thrown from any of the above
-                raise
+            self._update_file_list(path, attr_path)
+            group = 'Beam' if attr == '_raw' else None
+            # Lazy load data into instance variable ie. self.Sv, self.raw, etc
+            setattr(self, attr, self._open(getattr(self, attr_path), group=group))
 
-        # Initialize Sv, Sv_clean, MVBS, TS  # TODO: use the same procedure as shown below for Sv
-        if self.Sv_path is None:
-            self._Sv = None
+    def _save_dataset(self, ds, path, mode="w", save_format='zarr'):
+        """Save dataset to the appropriate formats.
+
+        A utility method to use the correct function to save the dataset,
+        based on the input file format.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            xarray dataset object
+        path : str
+            output file
+        """
+        if save_format == 'netcdf':
+            ds.to_netcdf(path, mode=mode)
+        elif save_format == 'zarr':
+            ds.to_zarr(path, mode=mode)
         else:
-            self._update_data_pointer('Sv')
+            raise ValueError("Unsupported save format " + save_format)
 
-
-class EchoDataAZFP(EchoDataBase):
-    """Echo data model for data from AZFP echosounder.
-    """
-    def __init__(self, raw_path):
+    def close(self):
+        """Close open datasets
         """
-        TODO: Where to put docstring for attributes?
-        `self.environment_parameters` is a dictionary that stores various environmental parameters.
-        For AZFP data, it includes the following keys:
-           salinity : [psu], user-defined
-           pressure : [psu], user-defined
-           temperature : [deg Celsius], unpacked from raw data files
-           sound_speed : [m/s], derived using AZFP formula
-           seawater_absorption : [db/m], derived using AZFP formula
-        """
-        super().__init__(raw_path)
-
-        # Get and set instrument-specific parameters
-        self.environment_parameters['salinity'] = None  # salinity [psu]
-        self.environment_parameters['pressure'] = None  # pressure [dbars] (~depth in meters)
-        self._get_environment_parameters()
-
-    def _get_environment_parameters(self):
-        """Retrieve environment parameters from the raw data file.
-        """
-        # TODO: the open_mfdataset below should be changed to something like _set_open_dataset()
-        #  but also include a check for whether it is one file or multiple files
-        # Read parameters stored in raw data
-        # TODO: fix this, now it points to a data set but it is a dict
-        self.environment_parameters = xr.open_mfdataset(self.raw_path, group='Environment')
-
-        # Calculate parameters needed for calibration
-        self.environment_parameters['sound_speed'] = (
-            uwa.calc_sound_speed(temperature=self.environment_parameters['temperature'],
-                                 salinity=self.environment_parameters['salinity'],
-                                 pressure=self.environment_parameters['pressure'],
-                                 formula_source='AZFP')
-        )
-        self.environment_parameters['seawater_absorption'] = (
-            uwa.calc_seawater_absorption(self._raw_backscatter['frequency'],  # make sure freq is in units [Hz]
-                                         temperature=self.environment_parameters['temperature'],
-                                         salinity=self.environment_parameters['salinity'],
-                                         pressure=self.environment_parameters['pressure'],
-                                         formula_source='AZFP')
-        )
+        for data_type in DATA_TYPES:
+            data = getattr(self, data_type)
+            if data is not None:
+                data.close()

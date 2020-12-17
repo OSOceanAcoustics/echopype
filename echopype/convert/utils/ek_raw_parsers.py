@@ -801,7 +801,20 @@ class SimradXMLParser(_SimradDatagramParser):
                             ValueError('Found >1 transducer under a single transceiver channel!')
                         else:   # should only have 1 transducer
                             tcvr_ch_xducer = tcvr_ch.find('Transducer')  # get Element of this xducer
-
+                            f_par = tcvr_ch_xducer.findall('FrequencyPar')
+                            # Save calibration parameters
+                            if f_par:
+                                cal_par = {
+                                    'frequency': np.array([int(f.attrib['Frequency']) for f in f_par]),
+                                    'gain': np.array([float(f.attrib['Gain']) for f in f_par]),
+                                    'impedance': np.array([int(f.attrib['Impedance']) for f in f_par]),
+                                    'phase': np.array([float(f.attrib['Phase']) for f in f_par]),
+                                    'beamwidth_alongship': np.array([float(f.attrib['BeamWidthAlongship']) for f in f_par]),
+                                    'beamwidth_athwartship': np.array([float(f.attrib['BeamWidthAthwartship']) for f in f_par]),
+                                    'angle_offset_alongship': np.array([float(f.attrib['AngleOffsetAlongship']) for f in f_par]),
+                                    'angle_offset_athwartship': np.array([float(f.attrib['AngleOffsetAthwartship']) for f in f_par])
+                                }
+                                data['configuration'][channel_id]['calibration'] = cal_par
                             #  add the transducer data to the config dict
                             dict_to_dict(tcvr_ch_xducer.attrib, data['configuration'][channel_id],
                                          self.transducer_parsing_options)
@@ -810,39 +823,40 @@ class SimradXMLParser(_SimradDatagramParser):
                         tcvr_ch_num = TCVR_CH_NUM_MATCHER.search(channel_id)[0]
 
                         # parse the Transducers section from the root
+                        # TODO Remove Transducers if doesnt exist
                         xducer = root.find('Transducers')
+                        if xducer is not None:
+                            # built occurrence lookup table for transducer name
+                            xducer_name_list = []
+                            for xducer_ch in xducer.iter('Transducer'):
+                                xducer_name_list.append(xducer_ch.attrib['TransducerName'])
 
-                        # built occurrence lookup table for transducer name
-                        xducer_name_list = []
-                        for xducer_ch in xducer.iter('Transducer'):
-                            xducer_name_list.append(xducer_ch.attrib['TransducerName'])
+                            # find matching transducer for this channel_id
+                            match_found = False
+                            for xducer_ch in xducer.iter('Transducer'):
+                                if not match_found:
+                                    xducer_ch_xml = xducer_ch.attrib
+                                    match_name = xducer_ch.attrib['TransducerName'] == \
+                                                tcvr_ch_xducer.attrib['TransducerName']
+                                    if xducer_ch.attrib['TransducerSerialNumber'] == '':
+                                        match_sn = False
+                                    else:
+                                        match_sn = xducer_ch.attrib['TransducerSerialNumber'] == \
+                                                tcvr_ch_xducer.attrib['SerialNumber']
+                                    match_tcvr = tcvr_ch_num in xducer_ch.attrib['TransducerCustomName']
 
-                        # find matching transducer for this channel_id
-                        match_found = False
-                        for xducer_ch in xducer.iter('Transducer'):
-                            if not match_found:
-                                xducer_ch_xml = xducer_ch.attrib
-                                match_name = xducer_ch.attrib['TransducerName'] == \
-                                             tcvr_ch_xducer.attrib['TransducerName']
-                                if xducer_ch.attrib['TransducerSerialNumber'] == '':
-                                    match_sn = False
-                                else:
-                                    match_sn = xducer_ch.attrib['TransducerSerialNumber'] == \
-                                               tcvr_ch_xducer.attrib['SerialNumber']
-                                match_tcvr = tcvr_ch_num in xducer_ch.attrib['TransducerCustomName']
+                                    # if find match add the transducer mounting details
+                                    if Counter(xducer_name_list)[xducer_ch.attrib['TransducerName']] > 1:
+                                        # if more than one transducer has the same name
+                                        # only check sn and transceiver unique number
+                                        match_found = match_sn or match_tcvr
+                                    else:
+                                        match_found = match_name or match_sn or match_tcvr
 
-                                # if find match add the transducer mounting details
-                                if Counter(xducer_name_list)[xducer_ch.attrib['TransducerName']] > 1:
-                                    # if more than one transducer has the same name
-                                    # only check sn and transceiver unique number
-                                    match_found = match_sn or match_tcvr
-                                else:
-                                    match_found = match_name or match_sn or match_tcvr
-
-                                # add transducer mounting details
-                                if match_found:
-                                    dict_to_dict(xducer_ch_xml, data['configuration'][channel_id],
-                                                 self.transducer_parsing_options)
+                                    # add transducer mounting details
+                                    if match_found:
+                                        dict_to_dict(xducer_ch_xml, data['configuration'][channel_id],
+                                                    self.transducer_parsing_options)
 
                         #  add the header data to the config dict
                         h = root.find('Header')

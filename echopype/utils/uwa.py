@@ -31,7 +31,6 @@ def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="M
         ss += -1.025e-2 * temperature * (salinity - 35) - 7.139e-13 * temperature * pressure ** 3
     elif formula_source == "AZFP":
         z = temperature / 10
-        # z = self.temperature / 10
         ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
               (salinity - 35.0) + (pressure / 1000) * (16.3 + 0.18 * (pressure / 1000)))
     else:

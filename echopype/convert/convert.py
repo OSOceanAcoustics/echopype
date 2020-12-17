@@ -3,13 +3,10 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
 import shutil
-import numpy as np
 import xarray as xr
-import netCDF4
 import zarr
-import dask
+import netCDF4
 from collections import MutableMapping
-
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -31,7 +28,7 @@ class Convert:
             # xml_path='ABC.xml'  # optional, for AZFP only
             )
 
-        # set parameters that may not already in source files
+        # set parameters that may not already be in source files
         ec.set_param({
             'platform_name': 'OOI',
             'platform_type': 'mooring'
@@ -59,11 +56,7 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
-        self.cw_files = []       # additional files created when setting groups (EK80 only)
-        self._source_path = None    # for convenience only, the path is included in source_file already;
-                                    # user should not interact with this directly
-        self._output_path = None    # for convenience only, the path is included in source_file already;
-                                    # user should not interact with this directly
+        self.output_cw_files = []          # additional files created when setting groups (EK80 only)
         self._conversion_params = {}    # a dictionary of conversion parameters,
                                         # the keys could be different for different echosounders.
                                         # This dictionary is set by the `set_param` method.
@@ -72,8 +65,7 @@ class Convert:
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
                                 # - 'XML' is valid for EK80 data only to indicate when only the XML
-                                #   condiguration header is exported.
-        self.extra_platform_data = None
+                                #   configuration header is exported.
         self.combine = False
         self.compress = True
         self.overwrite = False
@@ -139,21 +131,21 @@ class Convert:
         # Check if given files are valid
         if isinstance(file, str):
             file = [file]
-        try:
-            for p in file:
-                if not os.path.isfile(p):
-                    raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
-                if os.path.splitext(p)[1] != ext:
-                    raise ValueError("Not all files are in the same format.")
-        except TypeError:
-            raise ValueError("file must be string or list-like")
+        if not isinstance(file, list):
+            raise ValueError("file must be a string or list of strings")
+        for p in file:
+            if not os.path.isfile(p):
+                raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
+            if os.path.splitext(p)[1] != ext:
+
+                raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {p}")
 
         self.source_file = file
 
     def set_param(self, param_dict):
-        """Allow users to set, ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
-        and ```survey_name`` to be saved during the conversion. Extra values are saved to the top level.
-        ```nmea_gps_sentence``` can be specified to save specific messages in a nmea string.
+        """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
+        and ``survey_name`` to be saved during the conversion. Extra values are saved to the top level.
+        ``nmea_gps_sentence`` can be specified to save specific messages in a nmea string.
         nmea sentence Defaults to 'GGA'. Originally ['GGA', 'GLL', 'RMC'].
         """
         # Platform
@@ -181,8 +173,6 @@ class Convert:
                 raise ValueError("save_path must be a directory")
             else:
                 self.output_path = [store]
-        self.zarr_path = self.output_path.copy()
-        self.nc_path = None
 
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
@@ -228,19 +218,17 @@ class Convert:
         else:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
-        self.nc_path = [os.path.join(out_dir, f + '.nc') for f in files]
-        self.zarr_path = [os.path.join(out_dir, f + '.zarr') for f in files]
 
-    def _fetch_cw_files(self, c, output_path):
-        if c.bb_ch_ids and c.cw_ch_ids:
+    def _construct_cw_file_path(self, c, output_path):
+        if c.ch_ids['power'] and c.ch_ids['complex']:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_cw' + ext
-            self.cw_files.append(new_path)
+            self.output_cw_files.append(new_path)
 
     def _convert_indiv_file(self, file, output_path=None, save_ext=None):
         """Convert a single file.
         """
-        # use echosounder-specific object
+        # Use echosounder-specific object
         if self.sonar_model == 'EK60':
             c = ParseEK60
             sg = SetGroupsEK60
@@ -256,6 +244,8 @@ class Convert:
         else:
             raise ValueError("Unknown sonar model", self.sonar_model)
 
+        # Handle saving to cloud or local filesystem
+        # TODO: @ngkvain: You mean this took long before, what is the latest status?
         if isinstance(output_path, MutableMapping):
             if not self.overwrite:
                 if output_path.fs.exists(output_path.root):
@@ -263,28 +253,28 @@ class Convert:
                           "conversion not executed.")
                     return
             # output_path.fs.rm(output_path.root, recursive=True)
-
         else:
             # Check if file exists
             if os.path.exists(output_path) and self.overwrite:
                 # Remove the file if self.overwrite is true
                 print("          overwriting: " + output_path)
-                self._remove(output_path)
+                self._remove_files(output_path)
             if os.path.exists(output_path):
                 # Otherwise, skip saving
                 print(f"          ... this file has already been converted to {save_ext}, conversion not executed.")
                 return
 
+        # Actually parsing and saving file(s)
         c = c(file, params=params)
         c.parse_raw()
-        self.cw_files = self._fetch_cw_files(c, output_path) \
-            if self.sonar_model in ['EK80', 'EA640'] else self.cw_files
+        if self.sonar_model in ['EK80', 'EA640']:
+            self._construct_cw_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, save_ext=save_ext, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
 
     @staticmethod
-    def _remove(path):
+    def _remove_files(path):
         """Used to delete .nc or .zarr files"""
         if isinstance(path, MutableMapping):
             path.fs.rm(path.root, recursive=True)
@@ -295,11 +285,11 @@ class Convert:
             else:
                 os.remove(path)
 
-    def _path_list_to_str(self):
-        # Convert to string if only 1 output file
-        self.output_path = self.output_path[0] if len(self.output_path) == 1 else self.output_path
-        self.nc_path = self.nc_path[0] if self.nc_path is not None and len(self.nc_path) == 1 else self.nc_path
-        self.zarr_path = self.zarr_path[0] if len(self.zarr_path) == 1 else self.zarr_path[0]
+    @staticmethod
+    def _path_list_to_str(path):
+        # Takes a list of filepaths and if there is only 1 path, return that path as a string
+        if len(path) == 1:
+            return path[0]
 
     def combine_files(self, src_files=None, save_path=None, remove_orig=False):
         """Combine output files when self.combine=True.
@@ -322,188 +312,163 @@ class Convert:
             print("Combination did not occur as there is only 1 source file")
             return False
 
-        # TODO: WJ: check the now merged zarr engine for open_mfdataset
-        def open_mfzarr(files, group, combine='by_coords', data_vars='minimal',
-                        concat_dim='time', decode_times=False, compat='no_conflicts'):
-            def modify(task, group):
-                return task
-            # This is basically what open_mfdataset does
-            open_kwargs = dict(decode_cf=True, decode_times=decode_times)
-            open_tasks = [dask.delayed(xr.open_zarr)(f, group=group, **open_kwargs) for f in files]
-            tasks = [dask.delayed(modify)(task, group) for task in open_tasks]
-            datasets = dask.compute(tasks)  # get a list of xarray.Datasets
-            # Return combined data
-            if combine == 'by_coords':
-                combined = xr.combine_by_coords(datasets[0], data_vars=data_vars, compat=compat)
-            else:
-                combined = xr.combine_nested(datasets[0], concat_dim=concat_dim, data_vars=data_vars)
-            return combined
-
-        def set_open_dataset(save_path):
-            save_path = save_path.root if isinstance(save_path, MutableMapping) else save_path
-            ext = os.path.splitext(save_path)[1]
+        def get_filetype(file):
+            file = file.root if isinstance(file, MutableMapping) else file
+            ext = os.path.splitext(file)[1]
             if ext == '.nc':
-                return xr.open_dataset, xr.open_mfdataset, ext
+                return 'netcdf4'
             elif ext == '.zarr':
-                return xr.open_zarr, open_mfzarr, ext
+                return 'zarr'
 
-        def _save(ext, ds, path, mode, group=None):
-            # Allows saving both NetCDF and Zarr files from an xarray dataset
-            if ext == '.nc':
-                ds.to_netcdf(path=path, mode=mode, group=group)
-            elif ext == '.zarr':
-                ds.to_zarr(store=path, mode=mode, group=group)
-
-        def check_vendor_consistency(files):
-            filter_coeffs = []
-            for f in files:
-                with _open_dataset(f, group='Vendor') as ds:
-                    filter_coeffs.append(ds)
-            # Check to see if filter coefficients change across files. Raise error if it does
-            try:
-                xr.merge(filter_coeffs, combine_attrs='identical')
-            except xr.MergeError:
-                raise ValueError("Filter coefficients must be the same across the files being combined")
-            del filter_coeffs
-            return True
-
-        def split_bb_cw_files(files):
-            # Sorts the cw and bb files from EK80 into groups
-            if self.sonar_model in ['EK80', 'EA640']:
-                file_groups = [[], []]
-                for f in files:
-                    if '_cw' in f:
-                        file_groups[1].append(f)
-                    else:
-                        file_groups[0].append(f)
-            else:
-                file_groups = [files]
-            return file_groups
-
-        def _coerce(ds, group):
-            if self.sonar_model == 'EK80' or self.sonar_model == 'EK60':
-                if group == 'Beam':
+        def coerce(ds, group):
+            if group == 'Beam':
+                if self.sonar_model == 'EK80':
+                    ds['transceiver_software_version'] = ds['transceiver_software_version'].astype('<U10')
+                    ds['channel_id'] = ds['channel_id'].astype('<U50')
+                elif self.sonar_model == 'EK60':
                     ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
                     ds['channel_id'] = ds['channel_id'].astype('<U50')
 
-        src_files = self.output_path if src_files is None else src_files
-        file_groups = [src_files]
-
-        def get_combined_fname(path):
-            fname, ext = os.path.splitext(path)
-            return fname + '[combined]' + ext
-
-        if self.sonar_model in ['EK80', 'EA640']:
-            file_groups = split_bb_cw_files(src_files + self.cw_files)
-
+        # TODO: @ngkvain: factor out path handling to a separate function,
+        #  it can be absorbed into _validate_path as well.
+        #  Let's discuss this along with whether to have ..io.validate_path
         # Construct save path
-        # Handle saving to cloud storage
-        if isinstance(src_files[0], MutableMapping):
-            fs = src_files[0].fs
-            if save_path is None:
-                save_path = fs.get_mapper(get_combined_fname(src_files[0].root))
-            elif isinstance(save_path, MutableMapping):
-                fname, ext = os.path.splitext(save_path.root)
-                if ext == '':
-                    save_path = save_path.root + '/' + get_combined_fname(os.path.basename(src_files[0].root))
-                    save_path = fs.get_mapper(save_path)
-                elif ext != '.zarr':
-                    raise ValueError("save_path must be a zarr file")
+        def get_save_path(save_path, source_paths):
+            def get_combined_fname(path):
+                fname, ext = os.path.splitext(path)
+                return fname + '[combined]' + ext
+            # Handle saving to cloud storage
+            # Flags on whether the source or output is a path to an object store
+            cloud_src = isinstance(source_paths[0], MutableMapping)
+            cloud_save_path = isinstance(save_path, MutableMapping)
+            if cloud_src or cloud_save_path:
+                fs = source_paths[0].fs if cloud_src else save_path.fs
+                if save_path is None:
+                    save_path = fs.get_mapper(get_combined_fname(source_paths[0].root))
+                elif cloud_save_path:
+                    fname, ext = os.path.splitext(save_path.root)
+                    if ext == '':
+                        save_path = save_path.root + '/' + get_combined_fname(os.path.basename(source_paths[0].root))
+                        save_path = fs.get_mapper(save_path)
+                    elif ext != '.zarr':
+                        raise ValueError("save_path must be a zarr file")
+                else:
+                    raise ValueError("save_path must be a MutableMapping to a cloud store")
+            # Handle saving to local paths
             else:
-                raise ValueError("save_path must be a MutableMapping to a cloud store")
-        # Handle saving to local paths
-        else:
-            if save_path is None:
-                save_path = get_combined_fname(src_files[0])
-            elif isinstance(save_path, str):
-                fname, ext = os.path.splitext(save_path)
-                # If save_path is a directory. (It must exist due to validate_path)
-                if ext == '':
-                    save_path = os.path.join(save_path, get_combined_fname(os.path.basename(src_files[0])))
-                elif ext != '.nc' and ext != '.zarr':
-                    raise ValueError("save_path must be '.nc' or '.zarr'")
-            else:
-                raise ValueError("Invalid save_path")
+                if save_path is None:
+                    save_path = get_combined_fname(source_paths[0])
+                elif isinstance(save_path, str):
+                    fname, ext = os.path.splitext(save_path)
+                    # If save_path is a directory. (It must exist due to validate_path)
+                    if ext == '':
+                        save_path = os.path.join(save_path, get_combined_fname(os.path.basename(source_paths[0])))
+                    elif ext != '.nc' and ext != '.zarr':
+                        raise ValueError("save_path must be '.nc' or '.zarr'")
+                else:
+                    raise ValueError("Invalid save_path")
+            return save_path
 
-        # Get the correct xarray functions for opening datasets
-        _open_dataset, _open_mfdataset, ext = set_open_dataset(save_path)
-        combined_files = []
+        def perform_combination(input_paths, output_path, engine):
+            # Function that opens multiple file groups and writes to a single file
+            def save_file(engine, ds, path, mode, group=None):
+                # Allows saving both NetCDF and Zarr files from an xarray dataset
+                if engine == 'netcdf4':
+                    ds.to_netcdf(path=path, mode=mode, group=group)
+                elif engine == 'zarr':
+                    ds.to_zarr(store=path, mode=mode, group=group)
 
-        for i, file_group in enumerate(file_groups):
             print('combining files...')
-            # Append '_cw' to EK80 filepath if combining CW files
-            if i == 1:
-                fname, ext = os.path.splitext(save_path)
-                save_path = fname + '_cw' + ext
             # Open multiple files as one dataset of each group and save them into a single file
             # Combine Top-level
-            with _open_dataset(file_group[0]) as ds_top:
-                _save(ext, ds_top, save_path, 'w')
+            with xr.open_dataset(input_paths[0], engine=engine) as ds_top:
+                save_file(engine, ds_top, output_path, 'w')
+
             # Combine Provenance
-            with _open_dataset(file_group[0], group='Provenance') as ds_prov:
-                _save(ext, ds_prov, save_path, 'a', group='Provenance')
+            with xr.open_dataset(input_paths[0], group='Provenance', engine=engine) as ds_prov:
+                save_file(engine, ds_prov, output_path, 'a', group='Provenance')
+
             # Combine Sonar
-            with _open_dataset(file_group[0], group='Sonar') as ds_sonar:
-                _save(ext, ds_sonar, save_path, 'a', group='Sonar')
-            # Combine Beam
+            with xr.open_dataset(input_paths[0], group='Sonar', engine=engine) as ds_sonar:
+                save_file(engine, ds_sonar, output_path, 'a', group='Sonar')
+
             try:
-                with _open_mfdataset(file_group, group='Beam', decode_times=False,
-                                     combine='by_coords', data_vars='minimal') as ds_beam:
-                    _coerce(ds_beam, 'Beam')
-                    _save(ext, ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
-                          save_path, 'a', group='Beam')
+                # Combine Beam
+                with xr.open_mfdataset(input_paths, group='Beam', decode_times=False, combine='nested',
+                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
+                    coerce(ds_beam, 'Beam')
+                    save_file(engine, ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
+                              output_path, 'a', group='Beam')
+                # Combine Environment
+                # AZFP environment changes as a function of ping time
+                # TODO test for ek60
+                with xr.open_mfdataset(input_paths, group='Environment', combine='nested', concat_dim='ping_time',
+                                       data_vars='minimal', engine=engine) as ds_env:
+                    save_file(engine, ds_env, output_path, 'a', group='Environment')
+
+                # Combine Platform
+                # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+                if self.sonar_model == 'AZFP':
+                    with xr.open_mfdataset(input_paths, group='Platform', combine='by_coords',
+                                           compat='identical', engine=engine) as ds_plat:
+                        save_file(engine, ds_plat, output_path, 'a', group='Platform')
+                elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
+                    with xr.open_mfdataset(input_paths, group='Platform', decode_times=False, combine='nested',
+                                           concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
+                        if self.sonar_model in ['EK80', 'EA640']:
+                            save_file(engine, ds_plat.chunk({'location_time': 100, 'mru_time': 100}),
+                                      output_path, 'a', group='Platform')
+                        else:
+                            save_file(engine, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
+                                      output_path, 'a', group='Platform')
+                        # AZFP does not record NMEA data
+                        # TODO: Look into why decode times = True for beam does not error out
+                        with xr.open_mfdataset(input_paths, group='Platform/NMEA',
+                                               decode_times=False, data_vars='minimal',
+                                               combine='nested', concat_dim='location_time', engine=engine) as ds_nmea:
+                            save_file(engine, ds_nmea.chunk({'location_time': 100}).astype('str'),
+                                      output_path, 'a', group='Platform/NMEA')
+
+                # Combine sonar model-specific
+                if self.sonar_model == 'AZFP':
+                    with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
+                                           concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_vend:
+                        save_file(engine, ds_vend, output_path, 'a', group='Vendor')
+                elif self.sonar_model in ['EK80', 'EA640']:
+                    # EK60 does not have the "vendor specific" group
+                    with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
+                                           concat_dim='location_time', compat='no_conflicts',
+                                           data_vars='minimal', engine=engine) as ds_vend:
+                        coerce(ds_vend, 'Vendor')
+                        save_file(engine, ds_vend, output_path, 'a', group='Vendor')
+
             except xr.MergeError as e:
                 var = str(e).split("'")[1]
                 raise ValueError(f"Files cannot be combined due to {var} changing across the files")
-            # Combine Environment
-            # AZFP environment changes as a function of ping time
-            if self.sonar_model == 'AZFP':
-                with _open_mfdataset(file_group, group='Environment',
-                                     combine='by_coords', data_vars='minimal') as ds_env:
-                    _save(ext, ds_env, save_path, 'a', group='Environment')
-            else:
-                with _open_dataset(file_group[0], group='Environment') as ds_env:
-                    _save(ext, ds_env, save_path, 'a', group='Environment')
-            # Combine Platfrom
-            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-            if self.sonar_model == 'AZFP':
-                with _open_dataset(file_group[0], group='Platform') as ds_plat:
-                    _save(ext, ds_plat, save_path, 'a', group='Platform')
-            else:
-                with _open_mfdataset(file_group, group='Platform', decode_times=False,
-                                     combine='by_coords', data_vars='minimal') as ds_plat:
-                    _save(ext, ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
-                          save_path, 'a', group='Platform')
-            # Combine Sonar-specific
-            if self.sonar_model == 'AZFP':
-                # EK60 does not have the "vendor specific" group
-                with _open_mfdataset(file_group, group='Vendor',
-                                     combine='by_coords', data_vars='minimal') as ds_vend:
-                    _save(ext, ds_vend, save_path, 'a', group='Vendor')
-            if self.sonar_model in ['EK80', 'EK60', 'EA640']:
-                # AZFP does not record NMEA data
-                # TODO: Look into why decode times = True for beam does not error out
-                with _open_mfdataset(file_group, group='Platform/NMEA', decode_times=False,
-                                     combine='nested', concat_dim='time') as ds_nmea:
-                    _save(ext, ds_nmea.chunk({'location_time': 100}).astype('str'),
-                          save_path, 'a', group='Platform/NMEA')
-            if self.sonar_model in ['EK80', 'EA640']:
-                if check_vendor_consistency(file_group):
-                    # Save filter coefficients in EK80
-                    with _open_dataset(file_group[0], group='Vendor') as ds_vend:
-                        _save(ext, ds_vend, save_path, 'a', group='Vendor')
 
-            print("Files combined into", save_path)
-            combined_files.append(save_path)
-        # Delete files after combining
+            print("All input files combined into " + output_path)
+
+        src_files = self.output_path if src_files is None else src_files
+        save_path = get_save_path(save_path, src_files)
+        # Get the correct xarray functions for opening datasets
+        filetype = get_filetype(save_path)
+        perform_combination(src_files, save_path, filetype)
+        # Update output_path to be the combined path name
+        self.output_path = [save_path]
+        if self.output_cw_files:
+            # Append '_cw' to EK80 filepath if combining CW files
+            fname, ext = os.path.splitext(save_path)
+            save_path_cw = fname + '_cw' + ext
+            perform_combination(self.output_cw_files, save_path_cw, filetype)
+            self.output_path.append(save_path_cw)
+
+        # Delete individual files after combining
         if remove_orig:
-            for f in src_files + self.cw_files:
-                self._remove(f)
-        return combined_files
+            for f in src_files + self.output_cw_files:
+                self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
-        """Add in platform data (NMEA/GPS) to an existing NetCDF/Zarr file.
-
+        """
         Parameters
         ----------
         files : str / list
@@ -588,7 +553,7 @@ class Convert:
                 old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
                 new_dataset_filename = f + ".temp"
                 new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
-                new_dataset.groups.update({group_name : group for group_name, group in old_dataset.groups.items() if group_name != "Platform"})
+                new_dataset.groups.update({group_name: group for group_name, group in old_dataset.groups.items() if group_name != "Platform"})
                 new_dataset.sync()
                 old_dataset.close()
                 new_dataset.close()
@@ -601,27 +566,28 @@ class Convert:
                 del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
-    def to_netcdf(self, save_path=None, data_type='ALL', compress=True,
-                  combine=False, overwrite=False, parallel=False, extra_platform_data=None):
+    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, combine=False,
+                  overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to NetCDF format.
 
         Parameters
         ----------
         save_path : str
             path that converted .nc file will be saved
-        data_type : str {'ALL', 'GPS', 'CONFIG_XML', 'ENV_XML'}
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
         compress : bool
-            whether or not to preform compression on data variables
+            whether or not to perform compression on data variables
             Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
-        extra_platform_data : list
-            dataset containing platform (NMEA/GPS) data
         """
         self.data_type = data_type
         self.compress = compress
@@ -631,9 +597,9 @@ class Convert:
         self._validate_path('.nc', save_path)
         # Sequential or parallel conversion
         if not parallel:
-            for i, file in enumerate(self.source_file):
+            for idx, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[i], save_ext='.nc')
+                self._convert_indiv_file(file=file, output_path=self.output_path[idx], save_ext='.nc')
         else:
             # # use dask syntax but we'll probably use something else, like multiprocessing?
             # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
@@ -642,37 +608,35 @@ class Convert:
             # datasets = dask.compute(open_tasks)  # get a list of xarray.Datasets
             pass
 
-        self._path_list_to_str()
         # combine files if needed
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
-            if extra_platform_data is not None:
-                self.update_platform(files=[save_path], extra_platform_data=extra_platform_data)
-        else:
-            if extra_platform_data is not None:
-                self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+        if extra_platform_data is not None:
+            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+        self.output_path = self._path_list_to_str(self.output_path)
 
-    def to_zarr(self, save_path=None, data_type='ALL', compress=True,
-                combine=False, overwrite=False, parallel=False, extra_platform_data=None):
+    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False,
+                overwrite=False, parallel=False, extra_platform_data=None):
         """Convert a file or a list of files to zarr format.
 
         Parameters
         ----------
         save_path : str
             path that converted .zarr file will be saved
-        data_type : str {'ALL', 'GPS', 'CONFIG_XML', 'ENV_XML'}
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
         compress : bool
-            whether or not to preform compression on data variables
+            whether or not to perform compression on data variables
             Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
-        extra_platform_data : list
-            dataset containing platform (NMEA/GPS) data
         """
         self.data_type = data_type
         self.compress = compress
@@ -685,25 +649,22 @@ class Convert:
             self._validate_path('.zarr', save_path)
         # Sequential or parallel conversion
         if not parallel:
-            for i, file in enumerate(self.source_file):
+            for idx, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[i], save_ext='.zarr')
+                self._convert_indiv_file(file=file, output_path=self.output_path[idx], save_ext='.zarr')
         # else:
             # use dask syntax but we'll probably use something else, like multiprocessing?
             # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
 
-        self._path_list_to_str()
         # combine files if needed
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
-            if extra_platform_data is not None:
-                self.update_platform(files=[save_path], extra_platform_data=extra_platform_data)
-        else:
-            if extra_platform_data is not None:
-                self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+        if extra_platform_data is not None:
+            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+        self.output_path = self._path_list_to_str(self.output_path)
 
-    def to_xml(self, save_path=None, data_type='CONFIG_XML'):
-        """Save an xml file containing the condiguration of the transducer and transciever (EK80/EA640 only)
+    def to_xml(self, save_path=None, data_type='CONFIG'):
+        """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
 
         Parameters
         ----------
@@ -711,18 +672,29 @@ class Convert:
             path that converted .xml file will be saved
         type: str
             which XML to export
-            either 'CONFIG_XML' or 'ENV_XML'
+            either 'CONFIG' or 'ENV'
         """
+        # Check export parameters
         if self.sonar_model not in ['EK80', 'EA640']:
-            raise ValueError("Exporting to xml is not availible for " + self.sonar_model)
-        if data_type != 'CONFIG_XML' and data_type != 'ENV_XML':
-            raise ValueError(f"data_type must be either 'CONFIG_XML' or 'ENV_XML' not {data_type}")
+            raise ValueError("Exporting to xml is not available for " + self.sonar_model)
+        if data_type not in ['CONFIG', 'ENV']:
+            raise ValueError(f"data_type must be either 'CONFIG' or 'ENV' not {data_type}")
+
+        # Get export path
         self._validate_path('.xml', save_path)
-        for i, file in enumerate(self.source_file):
+
+        # Parse files
+        for idx, file in enumerate(self.source_file):
             # convert file one by one into path set by validate_path()
-            tmp = ParseEK80(file, params=[data_type, 'EXPORT'])
+            tmp = ParseEK80(file, params=[data_type, 'EXPORT_XML'])
             tmp.parse_raw()
-            with open(self.output_path[i], 'w') as xml_file:
-                data = tmp.config_datagram['xml'] if data_type == 'CONFIG_XML' else tmp.environment['xml']
+            with open(self.output_path[idx], 'w') as xml_file:
+                # Select between data types
+                if data_type == 'CONFIG':
+                    data = tmp.config_datagram['xml']
+                elif data_type == 'ENV':
+                    data = tmp.environment['xml']
+                else:
+                    raise ValueError("Unknown data type", data_type)
                 xml_file.write(data)
-        self._path_list_to_str()
+        self.output_path = self._path_list_to_str(self.output_path)

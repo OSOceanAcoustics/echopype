@@ -20,3 +20,4 @@ from .process import Process
 from .ek60 import ProcessEK60
 from .azfp import ProcessAZFP
 from .ek80 import ProcessEK80
+from .echodata import EchoData
