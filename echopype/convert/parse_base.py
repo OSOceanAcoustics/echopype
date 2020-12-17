@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
-NMEA_GPS_SENTECE = 'GGA'
+NMEA_GPS_SENTENCE = 'GGA'
 
 
 class ParseBase:
@@ -20,30 +20,35 @@ class ParseBase:
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
         """
-        # TODO: @ngkvain: do you have config_datagram for AZPF?
-        time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
-        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
-              f"time of first ping: {time}")
 
 
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self, file, params):  # TODO: @ngkvain: you pass in param from convert.py but it is not used
+    def __init__(self, file, params):
         super().__init__(file)
 
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = NMEA_GPS_SENTECE  # select GPS datagram in _set_platform_dict()
+        self.nmea_gps_sentence = NMEA_GPS_SENTENCE  # select GPS datagram in _set_platform_dict()
 
         # Class attributes
         self.config_datagram = None
+        self.ping_data_dict = defaultdict(lambda: defaultdict(list))
         self.ping_time = defaultdict(list)  # store ping time according to channel
-        self.nmea_time = []
-        self.raw_nmea_string = []
-        self.ping_data_dict = defaultdict()  # dictionary to store metadata
         self.num_range_bin_groups = None  # number of range_bin groups
         self.ch_ping_idx = []
+        self.data_type = self._select_datagrams(params)
+
+        self.nmea = defaultdict(list)   # Dictionary to store NMEA data(timestamp and string)
+        self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
+        self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
+        self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+
+    def _print_status(self):
+        time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
+        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
+              f"time of first ping: {time}")
 
     def parse_raw(self):
         """This method calls private functions to parse the raw data file.
@@ -121,11 +126,6 @@ class ParseEK(ParseBase):
              'xml': '<?xml version="1.0" encoding="utf-8"?>\r\n<Environment Depth="240" ... />\r\n</Environment>'}
         """
         num_datagrams_parsed = 0
-        tmp_num_ch_per_ping_parsed = 0  # number of channels of the same ping parsed
-                                        # this is used to control saving only pings
-                                        # that have all freq channels present
-        tmp_datagram_dict = []  # tmp list of datagrams, only saved to actual output
-                                # structure if data from all freq channels are present
 
         while True:
             try:
@@ -143,9 +143,7 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
-            # TODO: @ngkvain: Where is self.data_type initialized? I only see you pass in param, which is not used
 
-            # TODO: @ngkvain: what does this first if check do? Why don't you just check for 'ALL'?
             if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
                'ALL' not in self.data_type):
                 continue
@@ -159,44 +157,11 @@ class ParseEK(ParseBase):
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram['type'].startswith('RAW0'):
-                curr_ch_num = new_datagram['channel']
+                # Save channel-specific ping time. The channels are stored as 1-based indices
+                self.ping_time[new_datagram['channel']].append(new_datagram['timestamp'])
 
-                # Reset counter and storage for parsed number of channels
-                # if encountering datagram from the first channel
-                if curr_ch_num == 1:
-                    tmp_num_ch_per_ping_parsed = 0
-                    tmp_datagram_dict = []
-
-                # Save datagram temporarily before knowing if all freq channels are present
-                tmp_num_ch_per_ping_parsed += 1
-                tmp_datagram_dict.append(new_datagram)
-
-                # Actually save datagram when all freq channels are present
-                if np.all(np.array([curr_ch_num, tmp_num_ch_per_ping_parsed]) ==
-                          self.config_datagram['transceiver_count']):
-
-                    # TODO: @ngkavin: please change the saving of RAW0 datagram content and timestamp
-                    #  in the same style as RAW3 (i.e., save channel-specific ping time),
-                    #   - keeping all the ping_time
-                    #   - do not assume that all pings are transmitted simultaneously
-                    #   - do not assume that the pings from different channels come in a particular sequence.
-                    #  and make downstream changes in ParseEK60 and SetGroupsEK60 in the same style as
-                    #  the new SetGroupsEK80.set_beam.
-                    #  Note there are additional variables encoded in RAW0 compared to RAW3
-                    #  so you will have to change other groups in addition to Beam, but otherwise
-                    #  EK60 raw formats are very similar to EK80.
-                    # append ping time from first channel
-                    self.ping_time.append(tmp_datagram_dict[0]['timestamp'])
-                    for ch_seq in range(self.config_datagram['transceiver_count']):
-                        # If frequency matches for this channel, actually store data
-                        # Note all storage structure indices are 1-based since they are indexed by
-                        # the channel number as stored in config_datagram['transceivers'].keys()
-                        if self.config_datagram['transceivers'][ch_seq + 1]['frequency'] \
-                                == tmp_datagram_dict[ch_seq]['frequency']:
-                            self._append_channel_ping_data(tmp_datagram_dict[ch_seq])   # metadata per ping
-                        else:
-                            # TODO: need error-handling code here
-                            print('Frequency mismatch for data from the same channel number!')
+                # Append ping by ping data
+                self._append_channel_ping_data(new_datagram)
 
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram['type'].startswith('RAW3'):
@@ -205,28 +170,20 @@ class ParseEK(ParseBase):
                 if current_parameters['channel_id'] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # tmp_num_ch_per_ping_parsed += 1
-                if curr_ch_id not in self.recorded_ch_ids:
-                    self.recorded_ch_ids.append(curr_ch_id)
-
                 # Save channel-specific ping time
                 self.ping_time[curr_ch_id].append(new_datagram['timestamp'])
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
-                # if self.n_complex_dict[curr_ch_id] < 0:   # TODO: @ngkvain: why test <0 ?
-                #     self.n_complex_dict[curr_ch_id] = new_datagram['n_complex']  # update n_complex data
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram['type'].startswith('NME'):
-                # TODO: @ngkvain: change to use the same structure as mru,
-                #  so have a field for the nmea timestamp and a field for raw strings
-                self.nmea_time.append(new_datagram['timestamp'])
-                self.raw_nmea_string.append(new_datagram['nmea_string'])
+                self.nmea['timestamp'].append(new_datagram['timestamp'])
+                self.nmea['nmea_string'].append(new_datagram['nmea_string'])
 
             # MRU datagrams contain motion data for each ping for EK80
-            elif new_datagram['type'].startswith("MRU"):   # TODO: @ngkvain: is self.mru initialized somewhere?
+            elif new_datagram['type'].startswith("MRU"):
                 self.mru['heading'].append(new_datagram['heading'])
                 self.mru['pitch'].append(new_datagram['pitch'])
                 self.mru['roll'].append(new_datagram['roll'])
@@ -251,55 +208,65 @@ class ParseEK(ParseBase):
             elif new_datagram['type'].startswith('DEP'):
                 print('DEP datagram encountered.')
             else:
-                if 'ALL' in self.data_type:   # TODO: @ngkvain: why do you do this here?
-                    print("Unknown datagram type: " + str(new_datagram['type']))
+                print("Unknown datagram type: " + str(new_datagram['type']))
 
     def _append_channel_ping_data(self, datagram):
         """Append ping by ping data.
         """
         # TODO: do a thorough check with the convention and processing
         unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
-                   #'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
+                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
             if k not in unsaved:
                 self.ping_data_dict[k][ch_id].append(v)
 
+    @staticmethod
+    def pad_shorter_ping(data_list) -> np.ndarray:
+        """
+        Pad shorter ping with NaN: power, angle, complex samples.
+
+        Parameters
+        ----------
+        data_list : list
+            Power, angle, or complex samples for each channel from RAW3 datagram.
+            Each ping is one entry in the list.
+
+        Returns
+        -------
+        out_array : np.ndarray
+            Numpy array containing samplings from all pings.
+            The array is NaN-padded if some pings are of different lengths.
+        """
+        lens = np.array([len(item) for item in data_list])
+        if np.unique(lens).size != 1:  # if some pings have different lengths along range
+            if data_list[0].ndim == 2:
+                # Angle data have an extra dimension for alongship and athwartship samples
+                mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
+            else:
+                mask = lens[:, None] > np.arange(lens.max())
+            # Take care of problem of np.nan being implicitly "real"
+            if isinstance(data_list[0][0], (np.complex, np.complex64, np.complex128)):
+                out_array = np.full(mask.shape, np.nan + 0j)
+            else:
+                out_array = np.full(mask.shape, np.nan)
+
+            # Fill in values
+            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+        else:
+            out_array = np.array(data_list)
+        return out_array
+
     def _select_datagrams(self, params):
-        # TODO: @ngkavin: Why do you need this translation?
+        """ Translates user input into specific datagrams or ALL
+
+        Valid use cases:
         # get GPS info only (EK60, EK80)
         # ec.to_netcdf(data_type='GPS')
 
         # get configuration XML only (EK80)
-        # ec.to_netcdf(data_type='CONFIG_XML')
+        # ec.to_netcdf(data_type='CONFIG')
 
         # get environment XML only (EK80)
-        # ec.to_netcdf(data_type='ENV_XML')
-        def translate_to_dgram(s):
-            if s == 'ALL':
-                return ['ALL']
-            elif s == 'GPS':
-                # TODO: @ngkavin:
-                #  What you have breaks the class inheritance.
-                #  If you find yourself using sonar model specific things,
-                #  then that thing should be in the child class.
-                if self.sonar_type == 'EK60':
-                    return ['NME', 'GPS']
-                elif self.sonar_type == 'EK80':
-                    return ['NME', 'MRU', 'GPS']
-            elif s == 'CONFIG':
-                return ['CONFIG']
-            elif s == 'ENV':
-                return ['XML', 'ENV']
-            # TODO: @ngkavin:
-            #  'EXPORT' is not a good variable name as it does not reflect what this flag controls.
-            #  also explain in what circumstance EXPORT will be passed in?
-            elif s == 'EXPORT':
-                return ['EXPORT']
-        if isinstance(params, str):
-            dgrams = translate_to_dgram(params)
-        else:
-            dgrams = []
-            for p in params:
-                dgrams += translate_to_dgram(p)
-        return dgrams
+        # ec.to_netcdf(data_type='ENV')
+        """
