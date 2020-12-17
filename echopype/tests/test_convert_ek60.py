@@ -31,7 +31,7 @@ def test_convert_matlab():
     tmp.to_netcdf()
 
     # Read .nc file into an xarray DataArray
-    ds_beam = xr.open_dataset(tmp.nc_path, group='Beam')
+    ds_beam = xr.open_dataset(tmp.output_path, group='Beam')
 
     # Test dataset was created by exporting values from MATLAB EK60 parsing code
     with xr.open_dataset(test_path) as ds_test:
@@ -44,7 +44,7 @@ def test_convert_matlab():
         assert np.allclose(ds_test.alongship, alongship)        # Identical to MATLAB output to 1e-7
 
     ds_beam.close()
-    os.remove(tmp.nc_path)
+    os.remove(tmp.output_path)
     del tmp
 
 
@@ -57,10 +57,10 @@ def test_convert_power_echoview():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_power = np.stack(channels)
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
         assert np.allclose(test_power, ds_beam.backscatter_r[:, :10, 1:], atol=1e-10)
 
-    os.remove(tmp.nc_path)
+    os.remove(tmp.output_path)
 
 
 def test_convert_zarr():
@@ -68,11 +68,11 @@ def test_convert_zarr():
     tmp = Convert(file=raw_path, model='EK60')
     tmp.to_zarr()
 
-    ds_beam = xr.open_zarr(tmp.zarr_path, group='Beam')
+    ds_beam = xr.open_zarr(tmp.output_path, group='Beam')
     with xr.open_dataset(test_path) as ds_test:
         assert np.allclose(ds_test.power, ds_beam.backscatter_r)
 
-    shutil.rmtree(tmp.zarr_path, ignore_errors=True)    # Delete non-empty folder
+    shutil.rmtree(tmp.output_path, ignore_errors=True)    # Delete non-empty folder
 
 
 @pytest.mark.skip(reason='Too many raw files needed')
@@ -110,8 +110,8 @@ def test_save_to_gcloud():
     import gcsfs
     raw_paths = ['./echopype/test_data/ek60/set1/Winter2017-D20170115-T131932.raw',
                  './echopype/test_data/ek60/set1/Winter2017-D20170115-T134426.raw']
-    path = 'gcs://ngkavin-bucket1/'
-    fs = gcsfs.GCSFileSystem(token='C:/Users/Kavin/AppData/Roaming/gcloud/application_default_credentials.json')
+    path = 'gcs://"bucket name"/'
+    fs = gcsfs.GCSFileSystem(token='C:/Users/"user"/AppData/Roaming/gcloud/application_default_credentials.json')
     store = gcsfs.GCSMap(root=path, gcs=fs)
     tmp = Convert(file=raw_paths, model='EK60')
     tmp.to_zarr(save_path=store, overwrite=True, combine=True)

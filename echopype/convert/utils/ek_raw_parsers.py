@@ -807,7 +807,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                 cal_par = {
                                     'frequency': np.array([int(f.attrib['Frequency']) for f in f_par]),
                                     'gain': np.array([float(f.attrib['Gain']) for f in f_par]),
-                                    'impedence': np.array([int(f.attrib['Impedance']) for f in f_par]),
+                                    'impedance': np.array([int(f.attrib['Impedance']) for f in f_par]),
                                     'phase': np.array([float(f.attrib['Phase']) for f in f_par]),
                                     'beamwidth_alongship': np.array([float(f.attrib['BeamWidthAlongship']) for f in f_par]),
                                     'beamwidth_athwartship': np.array([float(f.attrib['BeamWidthAthwartship']) for f in f_par]),
