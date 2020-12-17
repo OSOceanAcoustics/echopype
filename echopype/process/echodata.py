@@ -198,3 +198,11 @@ class EchoData:
             ds.to_zarr(path, mode=mode)
         else:
             raise ValueError("Unsupported save format " + save_format)
+
+    def close(self):
+        """Close open datasets
+        """
+        for data_type in DATA_TYPES:
+            data = getattr(self, data_type)
+            if data is not None:
+                data.close()
