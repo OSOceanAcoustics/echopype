@@ -11,15 +11,6 @@ from .process_azfp import ProcessAZFP
 from .process_ek60 import ProcessEK60
 from .process_ek80 import ProcessEK80
 
-valid_env_params = ['water_salinity', 'water_temperature',
-                    'water_pressure', 'speed_of_sound_in_water', 'seawater_absorption']
-valid_cal_params = ['gain_correction', 'sa_correction', 'sample_interval', 'slope',
-                    'equivalent_beam_angle', 'transmit_power', 'transmit_duration_nominal',
-                    'EL', 'DS', 'TVR', 'VTX', 'Sv_offset']
-valid_proc_params = ['MVBS_source', 'MVBS_type', 'MVBS_ping_num', 'MVBS_time_interval',
-                     'MVBS_distance_interval', 'MVBS_range_bin_num', 'MVBS_range_interval',
-                     'noise_est_ping_num', 'noise_est_range_bin_num']
-
 
 class Process:
     """UI class for using process objects.
@@ -108,7 +99,7 @@ class Process:
 
     @env_params.setter
     def env_params(self, params):
-        self._env_params = self._check_valid_params(params, self._env_params, valid_env_params)
+        self._env_params = self._check_valid_params(params, self._env_params, self.get_valid_params('env'))
 
     @property
     def cal_params(self):
@@ -116,11 +107,11 @@ class Process:
 
     @cal_params.setter
     def cal_params(self, params):
-        self._cal_params = self._check_valid_params(params, self._cal_params, valid_cal_params)
+        self._cal_params = self._check_valid_params(params, self._cal_params, self.get_valid_params('cal'))
 
     @proc_params.setter
     def proc_params(self, params):
-        self._proc_params = self._check_valid_params(params, self._proc_params, valid_proc_params)
+        self._proc_params = self._check_valid_params(params, self._proc_params, self.get_valid_params('proc'))
 
     def _check_valid_params(self, params, current_params, valid_params):
         tmp_params = current_params.copy()
@@ -133,6 +124,39 @@ class Process:
             warnings.warn(msg)
         return current_params
 
+    def get_valid_params(self, param_type):
+        """Provides the parameters that the users can set.
+
+        Parameters
+        ----------
+        param_type : str
+            'env', 'cal', or 'proc' to get the valid environment, calibration, and process
+            parameters respectively.
+
+        Returns
+        -------
+        List of valid parameters of the selected type.
+        """
+        if param_type == 'env':
+            params = ['water_salinity', 'water_temperature',
+                      'water_pressure', 'speed_of_sound_in_water', 'seawater_absorption']
+
+        elif param_type == 'cal':
+            params = ['gain_correction', 'sample_interval',
+                      'equivalent_beam_angle', 'transmit_duration_nominal']
+            if self.sonar_model == 'AZFP':
+                params += ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset']
+            elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
+                params += ['transmit_power', 'sa_correction']
+                if self.sonar_model in ['EK80', 'EA640']:
+                    params += ['slope']
+
+        elif param_type == 'proc':
+            params = ['MVBS_source', 'MVBS_type', 'MVBS_ping_num',
+                      'MVBS_time_interval', 'MVBS_distance_interval', 'MVBS_range_bin_num',
+                      'MVBS_range_interval', 'noise_est_ping_num', 'noise_est_range_bin_num']
+        return params
+
     def init_env_params(self, ed, params={}):
         if 'water_salinity' not in params:
             params['water_salinity'] = 29.6     # Default salinity in ppt
@@ -143,7 +167,7 @@ class Process:
         ds_env = ed.get_env_from_raw()
         if 'water_temperature' not in params:
             if self.sonar_model == 'AZFP':
-                params['water_temperature'] = ds_env.temperature
+                params['water_temperature'] = ds_env.temperature.mean('ping_time')
             else:
                 params['water_temperature'] = 8.0   # Default temperature in Celsius
                 # print("Initialize using default water temperature of 8 Celsius")
@@ -157,38 +181,17 @@ class Process:
         self.env_params = params
 
         # Recalculate sound speed and absorption coefficient when environment parameters are changed
-        if 'speed_of_sound_in_water' not in self.env_params or 'seawater_absorption' not in self.env_params:
-            ss, sa = True, True
-            if self.sonar_model != 'AZFP':
-                ss = False
+        ss = True if 'speed_of_sound_in_water' not in self.env_params else False
+        sa = True if 'seawater_absorption' not in self.env_params else False
+        if ss or sa:
             self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
 
+    # TODO: make parameters a list
     def init_cal_params(self, ed, params={}):
-        def get_param_from_raw(current_params, param_list):
-            for param in param_list:
-                if param not in current_params:
-                    current_params[param] = ed.raw.get(param, None)
-            return current_params
-
-        # TODO: make parameters a list
-        # Get EK calibration parameters
-        if self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            ek_params = ['equivalent_beam_angle', 'transmit_power', 'sample_interval']
-            params = get_param_from_raw(ek_params)
-            # Get sa correction using the sa correction table and pulse length
-            if 'sa_correction' not in params:
-                params['sa_correction'] = self.process_obj.calc_sa_correction(ed)
-            # Get slope for EK80 and EA640
-            if self.sonar_model in ['EK80', 'EA640']:
-                if 'slope' not in params:
-                    params['slope'] = ed.raw.get('slope', None)
-        # Get AZFP calibration parameters
-        if self.sonar_model == 'AZFP':
-            azfp_params = ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset', 'transmit_duration_nominal']
-            params = get_param_from_raw(params, azfp_params)
-
-        shared_params = ['transmit_duration_nominal', 'equivalent_beam_angle']
-        params = get_param_from_raw(params, shared_params)
+        valid_params = self.get_valid_params('cal')
+        for param in valid_params:
+            if param not in params:
+                params[param] = ed.raw.get(param, None)
 
         self.cal_params = params
 
@@ -222,10 +225,11 @@ class Process:
         #                to perform the same operation.
         #                Method get_noise_estimates() would naturally be part of the remove_noise() operation.
         #
-        default_values = ['Sv', 'binned', 30, None,
-                          None, 1000, None,
-                          30, 1000]
-        for k, v in zip(valid_proc_params, default_values):
+        # TODO this might not be the best way to initialize the values
+        default_values = ['Sv', 'binned', 30,
+                          None, None, 1000,
+                          None, 30, 1000]
+        for k, v in zip(self.get_valid_params('proc'), default_values):
             if k not in params:
                 params[k] = v
         self.proc_params = params
@@ -375,11 +379,35 @@ class Process:
                                        save=save, save_path=save_path, save_format=save_format)
 
     def get_MVBS(self, ed, save=False, save_format='zarr'):
+        """Averages tiles in Sv
+
+        Parameters
+        ----------
+        ed : EchoData
+            EchoData object to operate on
+        save : bool
+        save_format : str
+
+        Returns
+        -------
+        Dataset Mean Volume Backscatter (MVBS)
+        """
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)
 
-    def remove_noise(self, ed=None, save=False, save_format='zarr'):
-        if ed is None:
-            pass
-            # TODO: print out the need for ed as an input argument
-        return self.process_obj.remove_noise(ed=ed, proc_params=self.proc_params, save=save, save_format=save_format)
+    def remove_noise(self, ed, save=False, save_format='zarr'):
+        """Removes noise from Sv data
+
+        Parameters
+        ----------
+        ed : EchoData
+            EchoData object to operate on
+        save : bool
+        save_format : str
+
+        Returns
+        -------
+        Dataset cleaned Sv (Sv_clean)
+        """
+        return self.process_obj.remove_noise(ed=ed, env_params=self.env_params,
+                                             proc_params=self.proc_params, save=save, save_format=save_format)
