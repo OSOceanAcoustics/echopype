@@ -257,8 +257,9 @@ class ParseEK(ParseBase):
     def _append_channel_ping_data(self, datagram):
         """Append ping by ping data.
         """
-        unsaved = ['channel', 'channel_id', 'offset', 'low_date', 'high_date', #'frequency',
-                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
+        # TODO: do a thorough check with the convention and processing
+        unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
+                   #'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
             if k not in unsaved:
