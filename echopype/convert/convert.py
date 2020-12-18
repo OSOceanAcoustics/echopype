@@ -71,6 +71,7 @@ class Convert:
         self.compress = True
         self.overwrite = False
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
+        # TODO: review the GGA choice
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
         self.set_source(file, model, xml_path)
@@ -440,6 +441,7 @@ class Convert:
                     with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
                                            concat_dim='location_time', compat='no_conflicts',
                                            data_vars='minimal', engine=engine) as ds_vend:
+                        # TODO: @ngkavin: what are the operations for Vendor in coerce?
                         coerce(ds_vend, 'Vendor')
                         save_file(engine, ds_vend, output_path, 'a', group='Vendor')
 

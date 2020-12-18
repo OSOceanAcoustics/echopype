@@ -155,8 +155,7 @@ class SetGroupsEK80(SetGroupsBase):
         """
         # Assemble Dataset for channel-specific Beam group variables
         params = [
-            'beam_width_alongship',
-            'beam_width_athwartship',
+            'beam_type',
             'beam_width_alongship',
             'beam_width_athwartship',
             'transducer_alpha_x',
@@ -173,12 +172,15 @@ class SetGroupsEK80(SetGroupsBase):
             'transceiver_software_version',
         ]
 
-        beam_params = defaultdict(lambda: np.zeros(shape=(len(ch_ids),), dtype='float32'))
+        beam_params = defaultdict()
         for param in params:
-            beam_params[param] = ([self.convert_obj.config_datagram['configuration'][k].get(param, np.nan)
-                                   for k in ch_ids])
+            beam_params[param] = ([self.convert_obj.config_datagram['configuration'][ch].get(param, np.nan)
+                                   for ch in ch_ids])
         # Get the index of the channels listed in the configuration because it does not change across files
         # unlike the channels given in the ping_data_dict
+        # TODO: Consider using a combination of channel_id + channel_id_short,
+        #  e.g., "WBT 717612-15 ES120-7C Serial No: 680" to make sure there is no conflict
+        #  when there are identical type of transducers (they will have different serial numbers)
         ch_ids = [ch for ch in self.convert_obj.config_datagram['configuration'].keys() if ch in ch_ids]
         freq = np.array([self.convert_obj.config_datagram['configuration'][ch]['transducer_frequency']
                          for ch in ch_ids])
@@ -186,39 +188,40 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {
                 'channel_id': (['frequency'], ch_ids),
-                'beamwidth_receive_alongship': (['frequency'], beam_params['beamwidth_receive_major'],
+                'beam_type': (['frequency'], beam_params['beam_type']),
+                'beamwidth_receive_alongship': (['frequency'], beam_params['beam_width_alongship'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'alongship axis of beam',
                                                  'units': 'arc_degree',
                                                  'valid_range': (0.0, 360.0)}),
-                'beamwidth_receive_athwartship': (['frequency'], beam_params['beamwidth_receive_minor'],
+                'beamwidth_receive_athwartship': (['frequency'], beam_params['beam_width_athwartship'],
                                                   {'long_name': 'Half power one-way receive beam width along '
                                                                 'athwartship axis of beam',
                                                    'units': 'arc_degree',
                                                    'valid_range': (0.0, 360.0)}),
-                'beamwidth_transmit_alongship': (['frequency'], beam_params['beamwidth_transmit_major'],
+                'beamwidth_transmit_alongship': (['frequency'], beam_params['beam_width_alongship'],
                                                  {'long_name': 'Half power one-way transmit beam width along '
                                                                'alongship axis of beam',
                                                   'units': 'arc_degree',
                                                   'valid_range': (0.0, 360.0)}),
-                'beamwidth_transmit_athwartship': (['frequency'], beam_params['beamwidth_transmit_minor'],
+                'beamwidth_transmit_athwartship': (['frequency'], beam_params['beam_width_athwartship'],
                                                    {'long_name': 'Half power one-way transmit beam width along '
                                                                  'athwartship axis of beam',
                                                     'units': 'arc_degree',
                                                     'valid_range': (0.0, 360.0)}),
-                'beam_direction_x': (['frequency'], beam_params['beam_direction_x'],
+                'beam_direction_x': (['frequency'], beam_params['transducer_alpha_x'],
                                      {'long_name': 'x-component of the vector that gives the pointing '
                                                    'direction of the beam, in sonar beam coordinate '
                                                    'system',
                                       'units': '1',
                                       'valid_range': (-1.0, 1.0)}),
-                'beam_direction_y': (['frequency'], beam_params['beam_direction_x'],
+                'beam_direction_y': (['frequency'], beam_params['transducer_alpha_y'],
                                      {'long_name': 'y-component of the vector that gives the pointing '
                                                    'direction of the beam, in sonar beam coordinate '
                                                    'system',
                                       'units': '1',
                                       'valid_range': (-1.0, 1.0)}),
-                'beam_direction_z': (['frequency'], beam_params['beam_direction_x'],
+                'beam_direction_z': (['frequency'], beam_params['transducer_alpha_z'],
                                      {'long_name': 'z-component of the vector that gives the pointing '
                                                    'direction of the beam, in sonar beam coordinate '
                                                    'system',
@@ -281,21 +284,21 @@ class SetGroupsEK80(SetGroupsBase):
         # Assemble coordinates and data variables
         ds_backscatter = []
         if bb:  # complex data (BB or CW)
-            for k in ch_ids:
-                num_transducer_sectors = np.unique(np.array(self.convert_obj.ping_data_dict['n_complex'][k]))
+            for ch in ch_ids:
+                num_transducer_sectors = np.unique(np.array(self.convert_obj.ping_data_dict['n_complex'][ch]))
                 if num_transducer_sectors.size > 1:
                     raise ValueError('Transducer sector number changes in the middle of the file!')
                 else:
                     num_transducer_sectors = num_transducer_sectors[0]
-                data_shape = self.convert_obj.ping_data_dict['complex'][k].shape
+                data_shape = self.convert_obj.ping_data_dict['complex'][ch].shape
                 data_shape = (data_shape[0], int(data_shape[1] / num_transducer_sectors), num_transducer_sectors)
-                data = self.convert_obj.ping_data_dict['complex'][k].reshape(data_shape)
+                data = self.convert_obj.ping_data_dict['complex'][ch].reshape(data_shape)
 
                 # CW data has pulse_duration, BB data has pulse_length
                 if 'pulse_length' in self.convert_obj.ping_data_dict:
-                    pulse_length = np.array(self.convert_obj.ping_data_dict['pulse_length'][k], dtype='float32')
+                    pulse_length = np.array(self.convert_obj.ping_data_dict['pulse_length'][ch], dtype='float32')
                 else:
-                    pulse_length = np.array(self.convert_obj.ping_data_dict['pulse_duration'][k], dtype='float32')
+                    pulse_length = np.array(self.convert_obj.ping_data_dict['pulse_duration'][ch], dtype='float32')
 
                 # Assemble ping by ping data
                 ds_tmp = xr.Dataset(
@@ -309,7 +312,7 @@ class SetGroupsEK80(SetGroupsBase):
                                           {'long_name': 'Imaginary part of backscatter power',
                                            'units': 'V'}),
                         'sample_interval': (['ping_time'],
-                                            self.convert_obj.ping_data_dict['sample_interval'][k],
+                                            self.convert_obj.ping_data_dict['sample_interval'][ch],
                                             {'long_name': 'Interval between recorded raw data samples',
                                              'units': 's',
                                              'valid_min': 0.0}),
@@ -319,14 +322,14 @@ class SetGroupsEK80(SetGroupsBase):
                                                        'units': 's',
                                                        'valid_min': 0.0}),
                         'transmit_power': (['ping_time'],
-                                           self.convert_obj.ping_data_dict['transmit_power'][k],
+                                           self.convert_obj.ping_data_dict['transmit_power'][ch],
                                            {'long_name': 'Nominal transmit power',
                                             'units': 'W',
                                             'valid_min': 0.0}),
-                        'slope': (['ping_time'], self.convert_obj.ping_data_dict['slope'][k],),
+                        'slope': (['ping_time'], self.convert_obj.ping_data_dict['slope'][ch],),
                     },
                     coords={
-                        'ping_time': (['ping_time'], self.convert_obj.ping_time[k],
+                        'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamp of each ping',
@@ -339,21 +342,21 @@ class SetGroupsEK80(SetGroupsBase):
 
                 # CW data encoded as complex samples do NOT have frequency_start and frequency_end
                 if 'frequency_start' in self.convert_obj.ping_data_dict.keys() and \
-                        self.convert_obj.ping_data_dict['frequency_start'][k]:
+                        self.convert_obj.ping_data_dict['frequency_start'][ch]:
                     ds_f_start_end = xr.Dataset(
                         {
                             'frequency_start': (['ping_time'],
-                                                self.convert_obj.ping_data_dict['frequency_start'][k],
+                                                self.convert_obj.ping_data_dict['frequency_start'][ch],
                                                 {'long_name': 'Starting frequency of the transducer',
                                                  'units': 'Hz'}),
                             'frequency_end': (['ping_time'],
-                                              self.convert_obj.ping_data_dict['frequency_end'][k],
+                                              self.convert_obj.ping_data_dict['frequency_end'][ch],
                                               {'long_name': 'Ending frequency of the transducer',
                                                'units': 'Hz'}),
 
                         },
                         coords={
-                            'ping_time': (['ping_time'], self.convert_obj.ping_time[k],
+                            'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
                                           {'axis': 'T',
                                            'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
@@ -366,7 +369,7 @@ class SetGroupsEK80(SetGroupsBase):
 
                 # Attach frequency dimension/coordinate
                 ds_tmp = ds_tmp.expand_dims(
-                    {'frequency': [self.convert_obj.config_datagram['configuration'][k]['transducer_frequency']]})
+                    {'frequency': [self.convert_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
                 ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
                     units='Hz',
                     long_name='Transducer frequency',
@@ -375,40 +378,40 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_backscatter.append(ds_tmp)
 
         else:  # power and angle data (CW)
-            for k in ch_ids:
-                data_shape = self.convert_obj.ping_data_dict['power'][k].shape
+            for ch in ch_ids:
+                data_shape = self.convert_obj.ping_data_dict['power'][ch].shape
                 ds_tmp = xr.Dataset(
                     {
                         'backscatter_r': (['ping_time', 'range_bin'],
-                                          self.convert_obj.ping_data_dict['power'][k],
+                                          self.convert_obj.ping_data_dict['power'][ch],
                                           {'long_name': 'Backscattering power',
                                            'units': 'dB'}),
                         'angle_athwartship': (['ping_time', 'range_bin'],
-                                              self.convert_obj.ping_data_dict['angle'][k][:, :, 0],
+                                              self.convert_obj.ping_data_dict['angle'][ch][:, :, 0],
                                               {'long_name': 'electrical athwartship angle'}),
                         'angle_alongship': (['ping_time', 'range_bin'],
-                                            self.convert_obj.ping_data_dict['angle'][k][:, :, 1],
+                                            self.convert_obj.ping_data_dict['angle'][ch][:, :, 1],
                                             {'long_name': 'electrical alongship angle'}),
                         'sample_interval': (['ping_time'],
-                                            self.convert_obj.ping_data_dict['sample_interval'][k],
+                                            self.convert_obj.ping_data_dict['sample_interval'][ch],
                                             {'long_name': 'Interval between recorded raw data samples',
                                              'units': 's',
                                              'valid_min': 0.0}),
                         'transmit_duration_nominal': (['ping_time'],
-                                                      self.convert_obj.ping_data_dict['pulse_duration'][k],
+                                                      self.convert_obj.ping_data_dict['pulse_duration'][ch],
                                                       {'long_name': 'Nominal bandwidth of transmitted pulse',
                                                        'units': 's',
                                                        'valid_min': 0.0}),
                         'transmit_power': (['ping_time'],
-                                           self.convert_obj.ping_data_dict['transmit_power'][k],
+                                           self.convert_obj.ping_data_dict['transmit_power'][ch],
                                            {'long_name': 'Nominal transmit power',
                                             'units': 'W',
                                             'valid_min': 0.0}),
                         'slope': (['ping_time'],
-                                  self.convert_obj.ping_data_dict['slope'][k]),
+                                  self.convert_obj.ping_data_dict['slope'][ch]),
                     },
                     coords={
-                        'ping_time': (['ping_time'], self.convert_obj.ping_time[k],
+                        'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamp of each ping',
@@ -419,7 +422,7 @@ class SetGroupsEK80(SetGroupsBase):
                 )
                 # Attach frequency dimension/coordinate
                 ds_tmp = ds_tmp.expand_dims(
-                    {'frequency': [self.convert_obj.config_datagram['configuration'][k]['transducer_frequency']]})
+                    {'frequency': [self.convert_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
                 ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
                     units='Hz',
                     long_name='Transducer frequency',
