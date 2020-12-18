@@ -1,9 +1,9 @@
 dask[array]
 matplotlib
-netCDF4
+netCDF4==1.5.5
 numpy
 pynmea2
 pytz
 scipy
-xarray
+xarray==0.16.2
 zarr

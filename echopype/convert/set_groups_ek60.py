@@ -199,6 +199,7 @@ class SetGroupsEK60(SetGroupsBase):
             'pos_z',
             'equivalent_beam_angle',
             'gpt_software_version',
+            'gain',
         ]
         beam_params = defaultdict()
         for param in params:
