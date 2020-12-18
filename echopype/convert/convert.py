@@ -20,19 +20,27 @@ from ..utils import io
 MODELS = {
     "AZFP": {
         "ext": ".01A",
-        "xml": True
+        "xml": True,
+        "parser": ParseAZFP,
+        "set_groups": SetGroupsAZFP,
     },
     "EK60": {
         "ext": ".raw",
-        "xml": False
+        "xml": False,
+        "parser": ParseEK60,
+        "set_groups": SetGroupsEK60
     },
     "EK80": {
         "ext": ".raw",
-        "xml": False
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80
     },
     "EA640": {
         "ext": ".raw",
-        "xml": False
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80
     }
 }
 
@@ -237,21 +245,18 @@ class Convert:
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
         """
+
+        if self.sonar_model not in MODELS:
+            raise ValueError(f"Unsupported sonar model: {model}\nMust be one of: {list(MODELS)}")
+        
         # Use echosounder-specific object
-        if self.sonar_model == 'EK60':
-            c = ParseEK60
-            sg = SetGroupsEK60
-            params = self.data_type
-        elif self.sonar_model in ['EK80', 'EA640']:
-            c = ParseEK80
-            sg = SetGroupsEK80
-            params = self.data_type
-        elif self.sonar_model == 'AZFP':
-            c = ParseAZFP
-            sg = SetGroupsAZFP
+        c = MODELS[self.sonar_model]['parser']
+        sg = MODELS[self.sonar_model]['set_groups']
+        
+        if MODELS[self.sonar_model]['xml']:
             params = self.xml_path
         else:
-            raise ValueError("Unknown sonar model", self.sonar_model)
+            params = self.data_type
 
         # Handle saving to cloud or local filesystem
         # TODO: @ngkvain: You mean this took long before, what is the latest status?
