@@ -79,7 +79,8 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    def __init__(self, file=None, model=None, xml_path=None):
+    def __init__(self, file=None, model=None,
+                 xml_path=None, storage_options={}):
         # Attributes
         self.sonar_model = None     # type of echosounder
         self.xml_path = ''          # path to xml file (AZFP only)
@@ -103,6 +104,7 @@ class Convert:
         # TODO: review the GGA choice
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
+        self.storage_options = storage_options
         self.set_source(file, model, xml_path)
 
     def __str__(self):
@@ -152,9 +154,11 @@ class Convert:
             file = [file]
         if not isinstance(file, list):
             raise ValueError("file must be a string or list of strings")
+        if not isinstance(self.storage_options, dict):
+            raise ValueError("storage options must be a dictionary")
 
         # Check files
-        files, xml = check_files(file, model, xml_path)
+        files, xml = check_files(file, model, xml_path, self.storage_options)
 
         self.source_file = files
         self.xml_path = xml
@@ -248,11 +252,11 @@ class Convert:
 
         if self.sonar_model not in MODELS:
             raise ValueError(f"Unsupported sonar model: {model}\nMust be one of: {list(MODELS)}")
-        
+
         # Use echosounder-specific object
         c = MODELS[self.sonar_model]['parser']
         sg = MODELS[self.sonar_model]['set_groups']
-        
+
         if MODELS[self.sonar_model]['xml']:
             params = self.xml_path
         else:
@@ -279,7 +283,7 @@ class Convert:
                 return
 
         # Actually parsing and saving file(s)
-        c = c(file, params=params)
+        c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
         if self.sonar_model in ['EK80', 'EA640']:
             self._construct_cw_file_path(c, output_path)
@@ -725,7 +729,7 @@ class Convert:
                 xml_file.write(data)
         self.output_path = self._path_list_to_str(self.output_path)
 
-def check_files(file, model, xml_path=None):
+def check_files(file, model, xml_path=None, storage_options={}):
     xml = ''
     if MODELS[model]["xml"]: 
         if not xml_path:
@@ -733,7 +737,7 @@ def check_files(file, model, xml_path=None):
         elif ".XML" not in xml_path.upper():
             raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
         
-        xmlmap = fsspec.get_mapper(xml_path)
+        xmlmap = fsspec.get_mapper(xml_path, **storage_options)
         if not xmlmap.fs.exists(xmlmap.root):
             raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
         
@@ -741,7 +745,7 @@ def check_files(file, model, xml_path=None):
         
         
     for f in file:
-        fsmap = fsspec.get_mapper(f)
+        fsmap = fsspec.get_mapper(f, **storage_options)
         ext = MODELS[model]["ext"]
         if not fsmap.fs.exists(fsmap.root):
             raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
