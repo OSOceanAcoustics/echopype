@@ -182,8 +182,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Additional coordinate variables added by echopype for storing data as a cube with
         # dimensions [frequency x ping_time x range_bin]
-        freq = np.array([config['transceivers'][x]['frequency']
-                        for x in config['transceivers'].keys()], dtype='float32')
+        freq = np.array([v['frequency'] for v in self.convert_obj.config_datagram['transceivers'].values()])
 
         # Loop through each transducer for channel-specific variables
         param_numerical = {"beamwidth_receive_major": "beamwidth_alongship",
