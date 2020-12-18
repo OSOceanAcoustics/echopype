@@ -10,10 +10,8 @@ from ..convert import Convert
 raw_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
 test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
-# raw_path = ['./echopype/test_data/azfp/set1/17033000.01A',     # Multiple files
-#                  './echopype/test_data/azfp/set1/17033001.01A',
-#                  './echopype/test_data/azfp/set1/17033002.01A',
-#                  './echopype/test_data/azfp/set1/17033003.01A']
+# raw_path = ['./echopype/test_data/azfp/set1/' + file
+#             for file in os.listdir('./echopype/test_data/azfp/set1')]
 # xml_path = './echopype/test_data/azfp/set1/17033000.XML'       # Multiple files
 csv_paths = ['./echopype/test_data/azfp/from_echoview/17082117-raw38.csv',    # EchoView exports
              './echopype/test_data/azfp/from_echoview/17082117-raw125.csv',
@@ -31,7 +29,7 @@ def test_convert_raw_matlab():
     ds_test = xr.open_dataset(test_path)
 
     # Test beam group
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
         # Test frequency
         assert np.array_equal(ds_test.frequency, ds_beam.frequency)
         # Test sea absorption
@@ -45,19 +43,19 @@ def test_convert_raw_matlab():
         assert np.array_equal(ds_test.backscatter, ds_beam.backscatter_r)
 
     # Test environment group
-    with xr.open_dataset(tmp.nc_path, group='Environment') as ds_env:
+    with xr.open_dataset(tmp.output_path, group='Environment') as ds_env:
         # Test temperature
         assert np.array_equal(ds_test.temperature, ds_env.temperature)
         # Test sound speed. 1 value is used because sound speed is the same across frequencies
         # assert ds_test.sound_speed == ds_env.sound_speed_indicative.values[0]
 
-    # with xr.open_dataset(tmp.nc_path, group="Vendor") as ds_vend:
+    # with xr.open_dataset(tmp.output_path, group="Vendor") as ds_vend:
     #     # Test battery values
     #     assert np.array_equal(ds_test.battery_main, ds_vend.battery_main)
     #     assert np.array_equal(ds_test.battery_tx, ds_vend.battery_tx)
 
     ds_test.close()
-    os.remove(tmp.nc_path)
+    os.remove(tmp.output_path)
     del tmp
 
 
@@ -73,10 +71,10 @@ def test_convert_raw_echoview():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
 
-    os.remove(tmp.nc_path)
+    os.remove(tmp.output_path)
 
 
 def test_convert_zarr():
@@ -88,10 +86,10 @@ def test_convert_zarr():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
-    with xr.open_zarr(tmp.zarr_path, group='Beam') as ds_beam:
+    with xr.open_zarr(tmp.output_path, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
 
-    shutil.rmtree(tmp.zarr_path)
+    shutil.rmtree(tmp.output_path)
 
 
 def test_validate_path():
