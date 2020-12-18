@@ -807,7 +807,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                 cal_par = {
                                     'frequency': np.array([int(f.attrib['Frequency']) for f in f_par]),
                                     'gain': np.array([float(f.attrib['Gain']) for f in f_par]),
-                                    'impedence': np.array([int(f.attrib['Impedance']) for f in f_par]),
+                                    'impedance': np.array([int(f.attrib['Impedance']) for f in f_par]),
                                     'phase': np.array([float(f.attrib['Phase']) for f in f_par]),
                                     'beamwidth_alongship': np.array([float(f.attrib['BeamWidthAlongship']) for f in f_par]),
                                     'beamwidth_athwartship': np.array([float(f.attrib['BeamWidthAthwartship']) for f in f_par]),
@@ -825,38 +825,38 @@ class SimradXMLParser(_SimradDatagramParser):
                         # parse the Transducers section from the root
                         # TODO Remove Transducers if doesnt exist
                         xducer = root.find('Transducers')
+                        if xducer is not None:
+                            # built occurrence lookup table for transducer name
+                            xducer_name_list = []
+                            for xducer_ch in xducer.iter('Transducer'):
+                                xducer_name_list.append(xducer_ch.attrib['TransducerName'])
 
-                        # built occurrence lookup table for transducer name
-                        xducer_name_list = []
-                        for xducer_ch in xducer.iter('Transducer'):
-                            xducer_name_list.append(xducer_ch.attrib['TransducerName'])
+                            # find matching transducer for this channel_id
+                            match_found = False
+                            for xducer_ch in xducer.iter('Transducer'):
+                                if not match_found:
+                                    xducer_ch_xml = xducer_ch.attrib
+                                    match_name = xducer_ch.attrib['TransducerName'] == \
+                                                tcvr_ch_xducer.attrib['TransducerName']
+                                    if xducer_ch.attrib['TransducerSerialNumber'] == '':
+                                        match_sn = False
+                                    else:
+                                        match_sn = xducer_ch.attrib['TransducerSerialNumber'] == \
+                                                tcvr_ch_xducer.attrib['SerialNumber']
+                                    match_tcvr = tcvr_ch_num in xducer_ch.attrib['TransducerCustomName']
 
-                        # find matching transducer for this channel_id
-                        match_found = False
-                        for xducer_ch in xducer.iter('Transducer'):
-                            if not match_found:
-                                xducer_ch_xml = xducer_ch.attrib
-                                match_name = xducer_ch.attrib['TransducerName'] == \
-                                             tcvr_ch_xducer.attrib['TransducerName']
-                                if xducer_ch.attrib['TransducerSerialNumber'] == '':
-                                    match_sn = False
-                                else:
-                                    match_sn = xducer_ch.attrib['TransducerSerialNumber'] == \
-                                               tcvr_ch_xducer.attrib['SerialNumber']
-                                match_tcvr = tcvr_ch_num in xducer_ch.attrib['TransducerCustomName']
+                                    # if find match add the transducer mounting details
+                                    if Counter(xducer_name_list)[xducer_ch.attrib['TransducerName']] > 1:
+                                        # if more than one transducer has the same name
+                                        # only check sn and transceiver unique number
+                                        match_found = match_sn or match_tcvr
+                                    else:
+                                        match_found = match_name or match_sn or match_tcvr
 
-                                # if find match add the transducer mounting details
-                                if Counter(xducer_name_list)[xducer_ch.attrib['TransducerName']] > 1:
-                                    # if more than one transducer has the same name
-                                    # only check sn and transceiver unique number
-                                    match_found = match_sn or match_tcvr
-                                else:
-                                    match_found = match_name or match_sn or match_tcvr
-
-                                # add transducer mounting details
-                                if match_found:
-                                    dict_to_dict(xducer_ch_xml, data['configuration'][channel_id],
-                                                 self.transducer_parsing_options)
+                                    # add transducer mounting details
+                                    if match_found:
+                                        dict_to_dict(xducer_ch_xml, data['configuration'][channel_id],
+                                                    self.transducer_parsing_options)
 
                         #  add the header data to the config dict
                         h = root.find('Header')

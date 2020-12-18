@@ -1,5 +1,4 @@
 import os
-import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -7,6 +6,10 @@ from ..convert import Convert
 
 raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
 raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)
+# raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
+#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
+#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091034.raw',
+#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091105.raw']
 power_test_path = ['./echopype/test_data/ek80/from_echoview/18kHz.power.csv',
                    './echopype/test_data/ek80/from_echoview/38kHz.power.csv',
                    './echopype/test_data/ek80/from_echoview/70kHz.power.csv',
@@ -29,8 +32,8 @@ def test_cw():
     tmp.to_netcdf()
 
     # Perform angle and power tests. Only 3 pings are tested in order to reduce the size of test datasets
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
-        # Angle test data was origininaly exported from EchoView as 1 csv file for each frequency.
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+        # Angle test data was originally exported from EchoView as 1 csv file for each frequency.
         # These files were combined and 3 pings were taken and saved as a single small csv file.
         df = pd.read_csv(angle_test_path, compression='gzip')
         # Test angles
@@ -64,12 +67,8 @@ def test_cw():
             test_power = pd.read_csv(f, delimiter=';').iloc[:, 13:].values
             assert np.allclose(test_power, power[i].dropna('range_bin'))
 
-    # Test saving zarr cw file
-    tmp.to_zarr()
-
     # Remove generated files
-    os.remove(tmp.nc_path)
-    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
+    os.remove(tmp.output_path)
 
 
 def test_bb():
@@ -81,30 +80,27 @@ def test_bb():
     bb_test_df = pd.read_csv(bb_power_test_path, header=None, skiprows=[0])
     bb_test_df_r = bb_test_df.iloc[::2, 14:]
     bb_test_df_i = bb_test_df.iloc[1::2, 14:]
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
-        backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean(axis=0)
-        backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean(axis=0)
+        backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean(axis=2)
+        backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean(axis=2)
         assert np.allclose(backscatter_r, bb_test_df_r)
         assert np.allclose(backscatter_i, bb_test_df_i)
 
-    # Test saving zarr bb file
-    tmp.to_zarr()
-
     # Remove generated files
-    os.remove(tmp.nc_path)
-    shutil.rmtree(tmp.zarr_path, ignore_errors=True)
+    os.remove(tmp.output_path)
 
 
 def test_cw_bb():
     # Test converting file that contains both cw and bb channels
+
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
     tmp.to_netcdf()
 
     cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    assert os.path.exists(cw_path)
-    assert os.path.exists(nc_path)
+    # assert os.path.exists(cw_path)
+    # assert os.path.exists(nc_path)
     os.remove(cw_path)
     os.remove(nc_path)
 
@@ -112,21 +108,21 @@ def test_cw_bb():
 def test_freq_subset():
     # Test converting file with multiple frequencies that do not record power data
     tmp = Convert(file=raw_path_2_f, model='EK80')
-    tmp.to_netcdf(overwrite=True)
+    tmp.to_netcdf()
     # Check if parsed output has the correct shape
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
-        assert ds_beam.backscatter_r.shape == (2, 4, 1, 191327)
-    os.remove(tmp.nc_path)
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+        assert ds_beam.backscatter_r.shape == (2, 2, 191327, 4)
+    os.remove(tmp.output_path)
 
 
 def test_xml():
     # Tests the exporting of the configuration xml as well as the environment xml
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_xml(data_type='CONFIG_XML')
+    tmp.to_xml(data_type='CONFIG')
     assert os.path.exists(tmp.output_path)
     os.remove(tmp.output_path)
 
-    tmp.to_xml(save_path='env.xml', data_type='ENV_XML')
+    tmp.to_xml(save_path='env.xml', data_type='ENV')
     assert os.path.exists(tmp.output_path)
     os.remove(tmp.output_path)
 
@@ -135,6 +131,6 @@ def test_EA640():
     # Test converting file in the EA640 format (similar structure to EK80)
     tmp = Convert(file=raw_path_EA640, model='EA640')
     tmp.to_netcdf(overwrite=True)
+    os.remove(tmp.output_path)
     tmp.to_xml()
-    os.remove(tmp.nc_path)
     os.remove(tmp.output_path)
