@@ -12,11 +12,12 @@ NMEA_GPS_SENTENCE = 'GGA'
 class ParseBase:
     """Parent class for all convert classes.
     """
-    def __init__(self, file):
+    def __init__(self, file, storage_options):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
         self.ping_time = []            # list to store ping time
+        self.storage_options = storage_options
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed.
@@ -26,8 +27,8 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders.
     """
-    def __init__(self, file, params):
-        super().__init__(file)
+    def __init__(self, file, storage_options, params):
+        super().__init__(file, storage_options)
 
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
