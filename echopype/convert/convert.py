@@ -7,6 +7,7 @@ import xarray as xr
 import numpy as np
 import zarr
 import netCDF4
+import fsspec
 from collections import MutableMapping
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
@@ -15,6 +16,25 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
+
+MODELS = {
+    "AZFP": {
+        "ext": ".01A",
+        "xml": True
+    },
+    "EK60": {
+        "ext": ".raw",
+        "xml": False
+    },
+    "EK80": {
+        "ext": ".raw",
+        "xml": False
+    },
+    "EA640": {
+        "ext": ".raw",
+        "xml": False
+    }
+}
 
 
 class Convert:
@@ -110,24 +130,12 @@ class Convert:
             print("Please specify the echosounder model")
             return
 
-        # TODO: Allow pointing directly a cloud data source
-        # Check if specified model is valid
-        if model == "AZFP":
-            ext = '.01A'
-            # Check for the xml file if dealing with an AZFP
-            if xml_path:
-                if '.XML' in xml_path.upper():
-                    if not os.path.isfile(xml_path):
-                        raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
-                else:
-                    raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
-                self.xml_path = xml_path
-            else:
-                raise ValueError("XML file is required for AZFP raw data")
-        elif model in ['EK60', 'EK80', 'EA640']:
-            ext = '.raw'
-        else:
-            raise ValueError(model + " is not a supported echosounder model")
+        # Uppercased model in case people use lowercase
+        model = model.upper()
+
+        # Check models
+        if model not in MODELS:
+            raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
 
         self.sonar_model = model
 
@@ -136,14 +144,12 @@ class Convert:
             file = [file]
         if not isinstance(file, list):
             raise ValueError("file must be a string or list of strings")
-        for p in file:
-            if not os.path.isfile(p):
-                raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
-            if os.path.splitext(p)[1] != ext:
 
-                raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {p}")
+        # Check files
+        files, xml = check_files(file, model, xml_path)
 
-        self.source_file = file
+        self.source_file = files
+        self.xml_path = xml
 
     def set_param(self, param_dict):
         """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
@@ -713,3 +719,29 @@ class Convert:
                     raise ValueError("Unknown data type", data_type)
                 xml_file.write(data)
         self.output_path = self._path_list_to_str(self.output_path)
+
+def check_files(file, model, xml_path=None):
+    xml = ''
+    if MODELS[model]["xml"]: 
+        if not xml_path:
+            raise ValueError("XML file is required for AZFP raw data")
+        elif ".XML" not in xml_path.upper():
+            raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
+        
+        xmlmap = fsspec.get_mapper(xml_path)
+        if not xmlmap.fs.exists(xmlmap.root):
+            raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
+        
+        xml = xml_path
+        
+        
+    for f in file:
+        fsmap = fsspec.get_mapper(f)
+        ext = MODELS[model]["ext"]
+        if not fsmap.fs.exists(fsmap.root):
+            raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
+        
+        if os.path.splitext(f)[1] != ext:
+            raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {f}")
+        
+    return file, xml
