@@ -204,8 +204,6 @@ class SetGroupsEK60(SetGroupsBase):
         for param in params:
             beam_params[param] = ([self.convert_obj.config_datagram['transceivers'][ch_seq].get(param, np.nan)
                                    for ch_seq in ch_ids])
-        # TODO: check where gain comes from
-        # TODO: encode pulse_length_table, gain_table, sa_correction_table in Vendor-specific group
 
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
         #  currently this factor is multiplied to the raw data before backscatter_r is saved.
@@ -279,15 +277,15 @@ class SetGroupsEK60(SetGroupsBase):
                                         {'long_name': 'z-axis distance from the platform coordinate system '
                                                       'origin to the sonar transducer',
                                          'units': 'm'}),
+                'gain_correction': (['frequency'], beam_params['gain'],
+                                    {'long_name': 'Gain correction',
+                                     'units': 'dB'}),
                 'gpt_software_version': (['frequency'], beam_params['gpt_software_version'])
                 # TODO: need to parse and store 'offset' from configuration datagram
                 # 'sample_time_offset': (['frequency'], np.array([2, ] * freq.size, dtype='int32'),
                 #                        {'long_name': 'Time offset that is subtracted from the timestamp '
                 #                                      'of each sample',
                 #                         'units': 's'}),
-                # 'gain_correction': (['frequency'], beam_params['gain'],
-                #                     {'long_name': 'Gain correction',
-                #                      'units': 'dB'}),
                 # 'non_quantitative_processing': (['frequency'], np.array([0, ] * freq.size, dtype='int32'),
                 #                                 {'flag_meanings': 'no_non_quantitative_processing',
                 #                                  'flag_values': '0',
