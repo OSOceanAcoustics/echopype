@@ -5,8 +5,8 @@ class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders.
     """
 
-    def __init__(self, file, params):
-        super().__init__(file, params)
+    def __init__(self, file, params, storage_options={}):
+        super().__init__(file, storage_options, params)
 
     def _select_datagrams(self, params):
         # Translates user input into specific datagrams or ALL
