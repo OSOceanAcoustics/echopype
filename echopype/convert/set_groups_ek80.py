@@ -86,8 +86,8 @@ class SetGroupsEK80(SetGroupsBase):
         lat, lon, location_time = self._parse_NMEA()
         # Convert MRU np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        mru_time = np.array(self.convert_obj.mru.get('timestamp', None))
-        mru_time = (mru_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
+        mru_time = self.convert_obj.mru.get('timestamp', None)
+        mru_time = (np.array(mru_time) - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
             mru_time is not None else [np.nan]
 
         # Assemble variables into a dataset
@@ -433,7 +433,9 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Convert np.datetime64 numbers to seconds since 1900-01-01
         #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds['ping_time'] = (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                             ds.ping_time.attrs)})
 
         # Save to file
         if self.save_ext == '.nc':
