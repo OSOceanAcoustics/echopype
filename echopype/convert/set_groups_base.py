@@ -35,13 +35,6 @@ class SetGroupsBase:
     def set_toplevel(self, sonar_model):
         """Set the top-level group.
         """
-        # Capture datetime from filename
-        # timestamp_pattern = re.compile(self.convert_obj.timestamp_pattern)
-        # raw_date_time = timestamp_pattern.match(os.path.basename(self.input_file))
-        # filedate = raw_date_time['date']
-        # filetime = raw_date_time['time']
-        # date_created = dt.strptime(filedate + '-' + filetime, '%Y%m%d-%H%M%S').isoformat() + 'Z'
-
         # Collect variables
         # Check if AZFP or EK
         if isinstance(self.convert_obj.ping_time, list):

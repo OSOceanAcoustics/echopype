@@ -24,12 +24,6 @@ class ParseEK60(ParseEK):
                 self.config_datagram['timestamp'] = np.datetime64(
                     self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
                 self._print_status()
-
-                self.ping_data_dict = defaultdict(lambda: defaultdict(list))
-                for ch_num in self.config_datagram['transceivers'].keys():
-                    self.ping_data_dict['frequency'][ch_num].append(
-                        self.config_datagram['transceivers'][ch_num]['frequency'])
-
             else:
                 fid.read(1)
 
