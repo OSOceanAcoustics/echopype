@@ -65,8 +65,8 @@ class Convert:
                                 # - default to 'ALL'
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
-                                # - 'XML' is valid for EK80 data only to indicate when only the XML
-                                #   configuration header is exported.
+                                # - 'CONFIG' and 'ENV' are valid for EK80 data only because EK80 provides
+                                #    configuration and environment information in the XML format
         self.combine = False
         self.compress = True
         self.overwrite = False
@@ -331,11 +331,9 @@ class Convert:
                     ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
                     ds['channel_id'] = ds['channel_id'].astype('<U50')
 
-        # TODO: @ngkvain: factor out path handling to a separate function,
-        #  it can be absorbed into _validate_path as well.
-        #  Let's discuss this along with whether to have ..io.validate_path
         # Construct save path
         def get_save_path(save_path, source_paths):
+
             def get_combined_fname(path):
                 fname, ext = os.path.splitext(path)
                 return fname + '[combined]' + ext
@@ -425,6 +423,7 @@ class Convert:
                                       output_path, 'a', group='Platform')
                         # AZFP does not record NMEA data
                         # TODO: Look into why decode times = True for beam does not error out
+                        # TODO: Why does the encoding information in SetGroups not read when opening datasets?
                         with xr.open_mfdataset(input_paths, group='Platform/NMEA',
                                                decode_times=False, data_vars='minimal',
                                                combine='nested', concat_dim='location_time', engine=engine) as ds_nmea:
@@ -441,8 +440,6 @@ class Convert:
                     with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
                                            concat_dim='location_time', compat='no_conflicts',
                                            data_vars='minimal', engine=engine) as ds_vend:
-                        # TODO: @ngkavin: what are the operations for Vendor in coerce?
-                        coerce(ds_vend, 'Vendor')
                         save_file(engine, ds_vend, output_path, 'a', group='Vendor')
 
             except xr.MergeError as e:
@@ -452,18 +449,18 @@ class Convert:
             print("All input files combined into " + output_path)
 
         src_files = self.output_path if src_files is None else src_files
-        save_path = get_save_path(save_path, src_files)
+        combined_save_path = get_save_path(save_path, src_files)
         # Get the correct xarray functions for opening datasets
-        filetype = get_filetype(save_path)
-        perform_combination(src_files, save_path, filetype)
+        filetype = get_filetype(combined_save_path)
+        perform_combination(src_files, combined_save_path, filetype)
         # Update output_path to be the combined path name
-        self.output_path = [save_path]
+        self.output_path = [combined_save_path]
         if self.output_cw_files:
             # Append '_cw' to EK80 filepath if combining CW files
-            fname, ext = os.path.splitext(save_path)
-            save_path_cw = fname + '_cw' + ext
-            perform_combination(self.output_cw_files, save_path_cw, filetype)
-            self.output_path.append(save_path_cw)
+            fname, ext = os.path.splitext(combined_save_path)
+            combined_save_path_cw = fname + '_cw' + ext
+            perform_combination(self.output_cw_files, combined_save_path_cw, filetype)
+            self.output_path.append(combined_save_path_cw)
 
         # Delete individual files after combining
         if remove_orig:
@@ -613,6 +610,8 @@ class Convert:
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
         """
         self.data_type = data_type
         self.compress = compress
@@ -662,6 +661,8 @@ class Convert:
             Defaults to ``False``
         parallel : bool
             whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
         """
         self.data_type = data_type
         self.compress = compress
