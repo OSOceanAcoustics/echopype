@@ -20,7 +20,7 @@ class SetGroupsEK60(SetGroupsBase):
         if 'ENV' in self.convert_obj.data_type:
             self.set_env()           # environment group
             return
-        elif 'GPS' in self.convert_obj.data_type:
+        elif 'NME' in self.convert_obj.data_type:
             self.set_platform()
             return
 
@@ -314,12 +314,6 @@ class SetGroupsEK60(SetGroupsBase):
                 {'backscatter_r': (['ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'][ch],
                                    {'long_name': 'Backscatter power',
                                     'units': 'dB'}),
-                 'angle_athwartship': (['ping_time', 'range_bin'],
-                                       self.convert_obj.ping_data_dict['angle'][ch][:, :, 0],
-                                       {'long_name': 'electrical athwartship angle'}),
-                 'angle_alongship': (['ping_time', 'range_bin'],
-                                     self.convert_obj.ping_data_dict['angle'][ch][:, :, 1],
-                                     {'long_name': 'electrical alongship angle'}),
                  'sample_interval': (['ping_time'],
                                      self.convert_obj.ping_data_dict['sample_interval'][ch],
                                      {'long_name': 'Interval between recorded raw data samples',
@@ -346,6 +340,19 @@ class SetGroupsEK60(SetGroupsBase):
                                        'standard_name': 'time',
                                        'units': 'seconds since 1900-01-01'}),
                         'range_bin': (['range_bin'], np.arange(data_shape[1]))})
+
+            # Set angle data if in split beam mode (beam_type == 1)
+            # because single beam mode (beam_type == 0) does not record angle data
+            if self.convert_obj.config_datagram['transceivers'][ch]['beam_type'] == 1:
+                ds_tmp = ds_tmp.assign(
+                    {
+                        'angle_athwartship': (['ping_time', 'range_bin'],
+                                              self.convert_obj.ping_data_dict['angle'][ch][:, :, 0],
+                                              {'long_name': 'electrical athwartship angle'}),
+                        'angle_alongship': (['ping_time', 'range_bin'],
+                                            self.convert_obj.ping_data_dict['angle'][ch][:, :, 1],
+                                            {'long_name': 'electrical alongship angle'}),
+                    })
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
