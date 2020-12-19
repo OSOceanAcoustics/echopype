@@ -25,7 +25,7 @@ class SetGroupsEK80(SetGroupsBase):
         if 'ENV' in self.convert_obj.data_type:
             self.set_env()           # environment group
             return
-        elif 'GPS' in self.convert_obj.data_type:
+        elif 'NME' in self.convert_obj.data_type:
             self.set_platform()
             return
 
@@ -155,7 +155,7 @@ class SetGroupsEK80(SetGroupsBase):
         """
         # Assemble Dataset for channel-specific Beam group variables
         params = [
-            'beam_type',
+            'transducer_beam_type',
             'beam_width_alongship',
             'beam_width_athwartship',
             'transducer_alpha_x',
@@ -188,7 +188,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {
                 'channel_id': (['frequency'], ch_ids),
-                'beam_type': (['frequency'], beam_params['beam_type']),
+                'beam_type': (['frequency'], beam_params['transducer_beam_type']),
                 'beamwidth_receive_alongship': (['frequency'], beam_params['beam_width_alongship'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'alongship axis of beam',
@@ -386,12 +386,6 @@ class SetGroupsEK80(SetGroupsBase):
                                           self.convert_obj.ping_data_dict['power'][ch],
                                           {'long_name': 'Backscattering power',
                                            'units': 'dB'}),
-                        'angle_athwartship': (['ping_time', 'range_bin'],
-                                              self.convert_obj.ping_data_dict['angle'][ch][:, :, 0],
-                                              {'long_name': 'electrical athwartship angle'}),
-                        'angle_alongship': (['ping_time', 'range_bin'],
-                                            self.convert_obj.ping_data_dict['angle'][ch][:, :, 1],
-                                            {'long_name': 'electrical alongship angle'}),
                         'sample_interval': (['ping_time'],
                                             self.convert_obj.ping_data_dict['sample_interval'][ch],
                                             {'long_name': 'Interval between recorded raw data samples',
@@ -420,6 +414,20 @@ class SetGroupsEK80(SetGroupsBase):
                         'range_bin': (['range_bin'], np.arange(data_shape[1])),
                     }
                 )
+
+                # Set angle data if in split beam mode (beam_type == 1)
+                # because single beam mode (beam_type == 0) does not record angle data
+                if self.convert_obj.config_datagram['configuration'][ch]['transducer_beam_type'] == 1:
+                    ds_tmp = ds_tmp.assign(
+                        {
+                            'angle_athwartship': (['ping_time', 'range_bin'],
+                                                  self.convert_obj.ping_data_dict['angle'][ch][:, :, 0],
+                                                  {'long_name': 'electrical athwartship angle'}),
+                            'angle_alongship': (['ping_time', 'range_bin'],
+                                                self.convert_obj.ping_data_dict['angle'][ch][:, :, 1],
+                                                {'long_name': 'electrical alongship angle'}),
+                        })
+
                 # Attach frequency dimension/coordinate
                 ds_tmp = ds_tmp.expand_dims(
                     {'frequency': [self.convert_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
