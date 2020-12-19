@@ -7,6 +7,7 @@ import numpy as np
 import zarr
 import netCDF4
 from .set_groups_base import SetGroupsBase
+from ..utils import io
 
 
 class SetGroupsAZFP(SetGroupsBase):
@@ -42,9 +43,9 @@ class SetGroupsAZFP(SetGroupsBase):
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
         # save to file
-        if self.save_ext == '.nc':
+        if self.engine == 'netcdf4':
             ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
-        elif self.save_ext == '.zarr':
+        elif self.engine == 'zarr':
             ds.to_zarr(store=self.output_path, mode='a', group='Environment')
 
     def set_platform(self):
@@ -53,11 +54,11 @@ class SetGroupsAZFP(SetGroupsBase):
         platform_dict = {'platform_name': self.ui_param['platform_name'],
                          'platform_type': self.ui_param['platform_type'],
                          'platform_code_ICES': self.ui_param['platform_code_ICES']}
-        if self.save_ext == '.nc':
+        if self.engine == 'netcdf4':
             with netCDF4.Dataset(self.output_path, 'a', format='NETCDF4') as ncfile:
                 plat = ncfile.createGroup('Platform')
                 [plat.setncattr(k, v) for k, v in platform_dict.items()]
-        elif self.save_ext == '.zarr':
+        elif self.engine == 'zarr':
             zarrfile = zarr.open(self.output_path, mode='a')
             plat = zarrfile.create_group('Platform')
             for k, v in platform_dict.items():
@@ -158,13 +159,10 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_c': parameters['Y_c'],
                                'tilt_Y_d': parameters['Y_d']})
 
-        if self.save_ext == '.nc':
-            nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
-            ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
+        # Save to file
+        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
+                     path=self.output_path, mode='a', engine=self.engine,
+                     group='Beam', compression_settings=self.compression_settings)
 
     def set_vendor(self):
         """Set the Vendor-specific group.
@@ -214,7 +212,6 @@ class SetGroupsAZFP(SetGroupsBase):
                 'number_of_channels': unpacked_data['num_chan']}
         )
 
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Vendor')
+        # Save to file
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+                     group='Vendor', compression_settings=self.compression_settings)

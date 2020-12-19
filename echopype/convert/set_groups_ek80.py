@@ -3,6 +3,7 @@ import shutil
 from collections import defaultdict
 import xarray as xr
 import numpy as np
+from ..utils import io
 from .set_groups_base import SetGroupsBase
 
 
@@ -63,11 +64,10 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})})
-        # save to file
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Environment')
+
+        # Save to file
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+                     group='Environment', compression_settings=self.compression_settings)
 
     def set_platform(self):
         """Set the Platform group.
@@ -141,14 +141,10 @@ class SetGroupsEK80(SetGroupsBase):
                    'drop_keel_offset': (self.convert_obj.environment['drop_keel_offset'] if
                                         hasattr(self.convert_obj.environment, 'drop_keel_offset') else np.nan)})
 
-        # Save to file
-        if self.save_ext == '.nc':
-            nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Platform', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'location_time': 100, 'mru_time': 100})
-            ds.to_zarr(store=self.output_path, mode='a', group='Platform', encoding=zarr_encoding)
+        # save to file
+        io.save_file(ds.chunk({'location_time': 100, 'mru_time': 100}),
+                     path=self.output_path, mode='a', engine=self.engine,
+                     group='Platform', compression_settings=self.compression_settings)
 
     def set_beam(self, ch_ids, bb, path):
         """Set the Beam group.
@@ -449,13 +445,9 @@ class SetGroupsEK80(SetGroupsBase):
                                              ds.ping_time.attrs)})
 
         # Save to file
-        if self.save_ext == '.nc':
-            nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=path, mode='a', group='Beam', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
-            ds.to_zarr(store=path, mode='a', group='Beam', encoding=zarr_encoding)
+        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
+                     path=path, mode='a', engine=self.engine,
+                     group='Beam', compression_settings=self.compression_settings)
 
     def set_vendor(self, ch_ids, bb, path):
         """Set the Vendor-specific group.
@@ -529,11 +521,10 @@ class SetGroupsEK80(SetGroupsBase):
         for k, v in decimation_factors.items():
             ds.attrs[k] = v
         ds.attrs['config_xml'] = self.convert_obj.config_datagram['xml']
-        # save to file
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=path, mode='a', group='Vendor')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=path, mode='a', group='Vendor')
+
+        # Save to file
+        io.save_file(ds, path=path, mode='a', engine=self.engine,
+                     group='Vendor', compression_settings=self.compression_settings)
 
     def set_sonar(self, ch_ids, path):
         config = self.convert_obj.config_datagram['configuration']
@@ -558,11 +549,9 @@ class SetGroupsEK80(SetGroupsBase):
                    'sonar_software_version': config[ch_ids[0]]['application_version'],
                    'sonar_type': 'echosounder'})
 
-        # save to file
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=path, mode='a', group='Sonar')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=path, mode='a', group='Sonar')
+        # Save to file
+        io.save_file(ds, path=path, mode='a', engine=self.engine,
+                     group='Sonar', compression_settings=self.compression_settings)
 
     def _copy_file(self, file):
         # Copy the current file into a new file with _cw appended to filename
