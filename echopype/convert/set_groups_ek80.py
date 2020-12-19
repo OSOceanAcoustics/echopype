@@ -415,7 +415,8 @@ class SetGroupsEK80(SetGroupsBase):
                     }
                 )
 
-                # Set angle data if split beam
+                # Set angle data if in split beam mode (beam_type == 1)
+                # because single beam mode (beam_type == 0) does not record angle data
                 if self.convert_obj.config_datagram['configuration'][ch]['transducer_beam_type'] == 1:
                     ds_tmp = ds_tmp.assign(
                         {
