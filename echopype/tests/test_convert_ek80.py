@@ -59,10 +59,9 @@ def test_cw():
                                minor.sel(frequency=f).dropna('range_bin'))
         # Test power
         # Echoview power data is exported with the following constant multiplied to it
-        POWER_FACTOR = 0.011758984205624266  # 10*log10(2)/256
-        power = ds_beam.backscatter_r * POWER_FACTOR
+        power = ds_beam.backscatter_r
         # single point error in original raw data. Read as -2000 by echopype and -999 by Echoview
-        power[3][4][13174] = -999
+        power[3, 4, 13174] = -999
         for i, f in enumerate(power_test_path):
             test_power = pd.read_csv(f, delimiter=';').iloc[:, 13:].values
             assert np.allclose(test_power, power[i].dropna('range_bin'))
