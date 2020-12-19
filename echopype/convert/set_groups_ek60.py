@@ -341,7 +341,8 @@ class SetGroupsEK60(SetGroupsBase):
                                        'units': 'seconds since 1900-01-01'}),
                         'range_bin': (['range_bin'], np.arange(data_shape[1]))})
 
-            # Set angle data if split beam
+            # Set angle data if in split beam mode (beam_type == 1)
+            # because single beam mode (beam_type == 0) does not record angle data
             if self.convert_obj.config_datagram['transceivers'][ch]['beam_type'] == 1:
                 ds_tmp = ds_tmp.assign(
                     {
