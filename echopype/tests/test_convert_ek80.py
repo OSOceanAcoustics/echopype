@@ -6,6 +6,7 @@ from ..convert import Convert
 
 raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
 raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)
+raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091034.raw',
@@ -17,9 +18,8 @@ power_test_path = ['./echopype/test_data/ek80/from_echoview/18kHz.power.csv',
                    './echopype/test_data/ek80/from_echoview/200kHz.power.csv']
 angle_test_path = './echopype/test_data/ek80/from_echoview/EK80_test_angles.csv'
 bb_power_test_path = './echopype/test_data/ek80/from_echoview/70 kHz raw power.complex.csv'
-raw_path = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
-            './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
-raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'
+# raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
+#              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 raw_path_2_f = './echopype/test_data/ek80/2019118 group2survey-D20191214-T081342.raw'
 raw_path_EA640 = './echopype/test_data/ek80/0001a-D20200321-T032026.raw'
 
@@ -98,8 +98,8 @@ def test_cw_bb():
 
     cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    # assert os.path.exists(cw_path)
-    # assert os.path.exists(nc_path)
+    assert os.path.exists(cw_path)
+    assert os.path.exists(nc_path)
     os.remove(cw_path)
     os.remove(nc_path)
 
@@ -129,7 +129,28 @@ def test_xml():
 def test_EA640():
     # Test converting file in the EA640 format (similar structure to EK80)
     tmp = Convert(file=raw_path_EA640, model='EA640')
-    tmp.to_netcdf(overwrite=True)
+    tmp.to_netcdf()
+    assert os.path.exists(tmp.output_path)
     os.remove(tmp.output_path)
     tmp.to_xml()
+    assert os.path.exists(tmp.output_path)
+    os.remove(tmp.output_path)
+
+
+def test_add_platform():
+    # Construct lat/lon dataset with fake data using a date range that includes
+    # the ping_time ranges of the raw EK80 file. 7 pings over 28.166 seconds.
+    # (2019-08-22T16:12:21.398000128 to 2019-08-22T16:12:49.564000256)
+    location_time = pd.date_range(start='2019-08-22T16:00:00.0',
+                                  end='2019-08-22T16:15:00.0', periods=100)
+    lat = np.random.rand(100)
+    lon = np.random.rand(100)
+    testing_ds = xr.Dataset({'lat': (['location_time'], lat),
+                             'lon': (['location_time'], lon)},
+                            coords={'location_time': (['location_time'], location_time)})
+    tmp = Convert(file=raw_path_cw, model='EK80')
+    tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
+    with xr.open_dataset(tmp.output_path, group='Platform') as ds_plat:
+        # Test if the slicing the location_time with the ping_time worked
+        assert len(ds_plat.location_time) == 3
     os.remove(tmp.output_path)
