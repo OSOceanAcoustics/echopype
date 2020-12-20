@@ -1,4 +1,5 @@
 from collections import defaultdict
+from .utils.ek_raw_io import RawSimradFile
 from .utils.ek_raw_io import SimradEOF
 from datetime import datetime as dt
 import numpy as np
@@ -37,7 +38,7 @@ class ParseEK(ParseBase):
         self.ping_data_dict = defaultdict(lambda: defaultdict(list))
         self.ping_time = defaultdict(list)  # store ping time according to channel
         self.num_range_bin_groups = None  # number of range_bin groups
-        self.ch_ping_idx = []
+        self.ch_ids = defaultdict(list)   # Stores the channel ids for each data type (power, angle, complex)
         self.data_type = self._select_datagrams(params)
 
         self.nmea = defaultdict(list)   # Dictionary to store NMEA data(timestamp and string)
@@ -45,14 +46,69 @@ class ParseEK(ParseBase):
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
 
+        self.CON1_datagram = None   # Holds the ME70 CON1 datagram
+
     def _print_status(self):
         time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
         print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
               f"time of first ping: {time}")
 
     def parse_raw(self):
-        """This method calls private functions to parse the raw data file.
+        """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders.
         """
+        with RawSimradFile(self.source_file, 'r') as fid:
+            self.config_datagram = fid.read(1)
+            self.config_datagram['timestamp'] = np.datetime64(
+                self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
+
+            # If exporting to XML file (EK80/EA640 only), print a message
+            if 'print_export_msg' in self.data_type:
+                if 'ENV' in self.data_type:
+                    xml_type = 'environment'
+                elif 'CONFIG' in self.data_type:
+                    xml_type = 'configuration'
+                print(f"{dt.now().strftime('%H:%M:%S')} exporting {xml_type} XML file")
+                # Don't parse anything else if only the config xml is required.
+                if 'CONFIG' in self.data_type:
+                    return
+            # If not exporting to XML, print the usual converting message
+            else:
+                self._print_status()
+
+            # Check if reading an ME70 file with a CON1 datagram.
+            next_datagram = fid.peek()
+            if next_datagram == 'CON1':
+                self.CON1_datagram = fid.read(1)
+            else:
+                self.CON1_datagram = None
+
+            # IDs of the channels found in the dataset
+            # self.ch_ids = list(self.config_datagram['configuration'].keys())
+
+            # Read the rest of datagrams
+            self._read_datagrams(fid)
+
+        if 'ALL' in self.data_type:
+            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
+            #  this will help merge data from all channels into a cube
+            for ch, val in self.ping_time.items():
+                self.ping_time[ch] = np.array(val)
+
+            # Manufacturer-specific power conversion factor
+            INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
+
+            # Rectangularize all data and convert to numpy array indexed by channel
+            for data_type in ['power', 'angle', 'complex']:
+                for k, v in self.ping_data_dict[data_type].items():
+                    if all(x is None for x in v):  # if no data in a particular channel
+                        self.ping_data_dict[data_type][k] = None
+                    else:
+                        # Sort bb and cw channels
+                        self.ch_ids[data_type].append(k)
+                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
+                        if data_type == 'power':
+                            self.ping_data_dict[data_type][k] = \
+                                self.ping_data_dict[data_type][k].astype('float32') * INDEX2POWER
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -152,6 +208,9 @@ class ParseEK(ParseBase):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
+                    # Don't parse anything else if only the environment xml is required.
+                    if 'ENV' in self.data_type:
+                        break
                 elif new_datagram['subtype'] == 'parameter' and ('ALL' in self.data_type):
                     current_parameters = new_datagram['parameter']
 
