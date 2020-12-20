@@ -5,6 +5,7 @@ import numpy as np
 import zarr
 import netCDF4
 from .._version import get_versions
+from ..utils import io
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
@@ -16,17 +17,22 @@ class SetGroupsBase:
     """Base class for saving groups to netcdf or zarr from echosounder data files.
     """
     def __init__(self, convert_obj, input_file, output_path, sonar_model=None,
-                 save_ext='.nc', compress=True, overwrite=True, params=None):
+                 engine='zarr', compress=True, overwrite=True, params=None):
         self.convert_obj = convert_obj   # a convert object ParseEK60/ParseAZFP/etc...
         self.sonar_model = sonar_model   # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.input_file = input_file
         self.output_path = output_path
-        self.save_ext = save_ext
+        self.engine = engine
         self.compress = compress
         self.overwrite = overwrite
         self.ui_param = params
-        self.NETCDF_COMPRESSION_SETTINGS = NETCDF_COMPRESSION_SETTINGS
-        self.ZARR_COMPRESSION_SETTINGS = ZARR_COMPRESSION_SETTINGS
+
+        if not self.compress:
+            self.compression_settings = None
+        elif self.engine == 'netcdf4':
+            self.compression_settings = NETCDF_COMPRESSION_SETTINGS
+        elif self.engine == 'zarr':
+            self.compression_settings = ZARR_COMPRESSION_SETTINGS
 
     def save(self):
         """Actually save groups to file by calling the set methods.
@@ -59,10 +65,10 @@ class SetGroupsBase:
             tl_dict[k] = v
 
         # Save
-        if self.save_ext == '.nc':
+        if self.engine == 'netcdf4':
             with netCDF4.Dataset(self.output_path, "w", format="NETCDF4") as ncfile:
                 [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
-        elif self.save_ext == '.zarr':
+        elif self.engine == 'zarr':
             zarrfile = zarr.open(self.output_path, mode="w")
             for k, v in tl_dict.items():
                 zarrfile.attrs[k] = v
@@ -78,11 +84,11 @@ class SetGroupsBase:
                      'conversion_time': dt.utcnow().isoformat(timespec='seconds') + 'Z',    # use UTC time
                      'src_filenames': self.input_file}
         # Save
-        if self.save_ext == '.nc':
+        if self.engine == 'netcdf4':
             with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
                 prov = ncfile.createGroup("Provenance")
                 [prov.setncattr(k, v) for k, v in prov_dict.items()]
-        elif self.save_ext == '.zarr':
+        elif self.engine == 'zarr':
             zarr_file = zarr.open(self.output_path, mode="a")
             prov = zarr_file.create_group('Provenance')
             for k, v in prov_dict.items():
@@ -98,13 +104,13 @@ class SetGroupsBase:
                                'sonar_software_name', 'sonar_software_version', 'sonar_type'), sonar_vals))
 
         # Save variables
-        if self.save_ext == '.nc':
+        if self.engine == 'netcdf4':
             with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
                 snr = ncfile.createGroup("Sonar")
                 # set group attributes
                 [snr.setncattr(k, v) for k, v in sonar_dict.items()]
 
-        elif self.save_ext == '.zarr':
+        elif self.engine == 'zarr':
             zarrfile = zarr.open(self.output_path, mode='a')
             snr = zarrfile.create_group('Sonar')
 
@@ -138,12 +144,8 @@ class SetGroupsBase:
             attrs={'description': 'All NMEA sensor datagrams'})
 
         # save to file
-        if self.save_ext == '.nc':
-            nc_encoding = {'location_time': NETCDF_COMPRESSION_SETTINGS} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Platform/NMEA', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {'location_time': ZARR_COMPRESSION_SETTINGS} if self.compress else {}
-            ds.to_zarr(store=self.output_path, mode='a', group='Platform/NMEA', encoding=zarr_encoding)
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+                     group='Platform/NMEA', compression_settings=self.compression_settings)
 
     def _parse_NMEA(self):
         """Get the lat and lon values from the raw nmea data"""

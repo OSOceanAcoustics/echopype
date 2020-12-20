@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 from collections import defaultdict
 from .set_groups_base import SetGroupsBase
+from ..utils import io
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -74,11 +75,9 @@ class SetGroupsEK60(SetGroupsBase):
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                              ds.ping_time.attrs)})
 
-        # save to file
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Environment')
+        # Save to file
+        io.save_file(ds.chunk({'ping_time': 100}),
+                     path=self.output_path, mode='a', engine=self.engine, group='Environment')
 
     def set_platform(self):
         """Set the Platform group.
@@ -92,6 +91,8 @@ class SetGroupsEK60(SetGroupsBase):
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         ch_ids = list(self.convert_obj.config_datagram['transceivers'].keys())
         ds_plat = []
+        # Get user defined water level (0 if undefined)
+        water_level = self.ui_param['water_level'] if self.ui_param['water_level'] is not None else 0
         # Loop over channels
         for ch in ch_ids:
             ds_tmp = xr.Dataset(
@@ -110,8 +111,7 @@ class SetGroupsEK60(SetGroupsBase):
                             'standard_name': 'platform_heave_angle',
                             'units': 'arc_degree',
                             'valid_range': (-90.0, 90.0)}),
-                 # Get user defined water level (0 if undefined)
-                 'water_level': ([], self.ui_param['water_level'],
+                 'water_level': ([], water_level,
                                  {'long_name': 'z-axis distance from the platform coordinate system '
                                                'origin to the sonar transducer',
                                   'units': 'm'})},
@@ -165,14 +165,10 @@ class SetGroupsEK60(SetGroupsBase):
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                              ds.ping_time.attrs)})
 
-        # save dataset to file with specified compression settings for all variables
-        if self.save_ext == '.nc':
-            nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Platform', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'location_time': 100, 'ping_time': 100})
-            ds.to_zarr(store=self.output_path, mode='w', group='Platform', encoding=zarr_encoding)
+        # Save to file
+        io.save_file(ds.chunk({'location_time': 100, 'ping_time': 100}),
+                     path=self.output_path, mode='a', engine=self.engine,
+                     group='Platform', compression_settings=self.compression_settings)
 
     def set_beam(self):
         """Set the Beam group.
@@ -373,14 +369,10 @@ class SetGroupsEK60(SetGroupsBase):
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                              ds.ping_time.attrs)})
 
-        # Save dataset with optional compression for all data variables
-        if self.save_ext == '.nc':
-            nc_encoding = {var: self.NETCDF_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds.to_netcdf(path=self.output_path, mode='a', group='Beam', encoding=nc_encoding)
-        elif self.save_ext == '.zarr':
-            zarr_encoding = {var: self.ZARR_COMPRESSION_SETTINGS for var in ds.data_vars} if self.compress else {}
-            ds = ds.chunk({'range_bin': 25000, 'ping_time': 100})
-            ds.to_zarr(store=self.output_path, mode='a', group='Beam', encoding=zarr_encoding)
+        # Save to file
+        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
+                     path=self.output_path, mode='a', engine=self.engine,
+                     group='Beam', compression_settings=self.compression_settings)
 
     def set_vendor(self):
         # Retrieve pulse length and sa correction
@@ -403,7 +395,6 @@ class SetGroupsEK60(SetGroupsBase):
                                'valid_min': 0.0}),
                 'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))})
 
-        if self.save_ext == '.nc':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Vendor')
-        elif self.save_ext == '.zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Vendor')
+        # Save to file
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+                     group='Vendor', compression_settings=self.compression_settings)
