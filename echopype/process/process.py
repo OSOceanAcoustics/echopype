@@ -335,7 +335,7 @@ class Process:
                 raise ValueError("Process parameters not initialized. Call init_proc_params() to initialize.")
 
     def get_Sv(self, ed, save=False, save_path=None, save_format='zarr'):
-        """Calibrates raw data
+        """Compute volumn backscattering strength (Sv) from raw data.
 
         Parameters
         ----------
@@ -356,26 +356,26 @@ class Process:
         return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
-    def get_TS(self, ed, save=False, save_path=None, save_format='zarr'):
-        """Calibrates raw data
+    def get_Sp(self, ed, save=False, save_path=None, save_format='zarr'):
+        """Compute point backscattering strength (Sp) from raw data.
 
         Parameters
         ----------
         ed : EchoData
             EchoData object to operate on
-        save : bool
+        save :å bool
         save_format : str
 
         Returns
         -------
-        Dataset of target strength (TS)
+        Dataset point backscattering strength (Sp)
         """
         # Check to see if required calibration and environment parameters were initialized
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
         self._check_model_echodata_match(ed)
         print(f"{dt.now().strftime('%H:%M:%S')}  calibrating data in {ed.raw_path}")
-        return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
+        return self.process_obj.get_Sp(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
     def get_MVBS(self, ed, save=False, save_format='zarr'):
@@ -390,7 +390,7 @@ class Process:
 
         Returns
         -------
-        Dataset Mean Volume Backscatter (MVBS)
+        Dataset Mean Volume Backscattering Strength (MVBS)
         """
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)

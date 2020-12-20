@@ -62,7 +62,7 @@ class ProcessBase:
         # Issue warning when subclass methods not available
         print('Calibration has not been implemented for this sonar model!')
 
-    def get_TS(self, ed, env_params, cal_params, save=True, save_format='zarr'):
+    def get_Sp(self, ed, env_params, cal_params, save=True, save_format='zarr'):
         """Base method to be overridden for calculating TS from raw backscatter data.
         """
         # Issue warning when subclass methods not available
