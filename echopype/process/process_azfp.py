@@ -80,7 +80,7 @@ class ProcessAZFP(ProcessBase):
             # TODO Add to docs
             ed.Sv = Sv
 
-    def get_TS(self, ed, env_params, cal_params, save=True, save_path=None, save_format='zarr'):
+    def get_Sp(self, ed, env_params, cal_params, save=True, save_path=None, save_format='zarr'):
         """Calibrate to get Target Strength (TS) from AZFP power data.
         """
         if ed.range is None:
