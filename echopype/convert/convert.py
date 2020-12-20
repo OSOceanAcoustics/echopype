@@ -469,6 +469,9 @@ class Convert:
         if extra_platform_data is None:
             return
         files = self.output_path if files is None else files
+        if not isinstance(files, list):
+            files = [files]
+        engine = io.get_file_format(files[0])
 
         # saildrone specific hack
         if "trajectory" in extra_platform_data:
@@ -485,18 +488,9 @@ class Convert:
         if not time_name:
             raise ValueError('Time dimension not found')
 
-        if not isinstance(files, list):
-            files = [files]
         for f in files:
-            ext = os.path.splitext(f)[-1]
-            if ext == ".nc":
-                ds_beam = xr.open_dataset(f, group="Beam")
-                ds_platform = xr.open_dataset(f, group="Platform")
-            elif ext == ".zarr":
-                ds_beam = xr.open_zarr(f, group="Beam")
-                ds_platform = xr.open_zarr(f, group="Platform")
-            else:
-                raise ValueError("Invalid file type (must be .nc or .zarr)")
+            ds_beam = xr.open_dataset(f, group="Beam", engine=engine)
+            ds_platform = xr.open_dataset(f, group="Platform", engine=engine)
 
             # only take data during ping times
             # start_time, end_time = min(ds_beam["ping_time"]), max(ds_beam["ping_time"])
@@ -558,20 +552,21 @@ class Convert:
             ds_platform.close()
             ds_beam.close()
 
-            if ext == ".nc":
+            if engine == "netcdf4":
                 # https://github.com/Unidata/netcdf4-python/issues/65
-                old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
+                # Copy groups over to temporary file
                 new_dataset_filename = f + ".temp"
-                new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
-                new_dataset.groups.update({group_name: group for group_name, group in
-                                          old_dataset.groups.items() if group_name != "Platform"})
-                new_dataset.sync()
-                old_dataset.close()
-                new_dataset.close()
+                groups = ['Provenance', 'Environment', 'Beam', 'Sonar', 'Vendor']
+                with xr.open_dataset(f) as ds_top:
+                    ds_top.to_netcdf(new_dataset_filename, mode='w')
+                for group in groups:
+                    with xr.open_dataset(f, group=group) as ds:
+                        ds.to_netcdf(new_dataset_filename, mode='a', group=group)
+                ds_platform.to_netcdf(new_dataset_filename, mode="a", group="Platform")
+                # Replace original file with temporary file
                 os.remove(f)
                 os.rename(new_dataset_filename, f)
-                ds_platform.to_netcdf(f, mode="a", group="Platform")
-            elif ext == ".zarr":
+            elif engine == "zarr":
                 # https://github.com/zarr-developers/zarr-python/issues/65
                 old_dataset = zarr.open_group(f, mode="a")
                 del old_dataset["Platform"]
