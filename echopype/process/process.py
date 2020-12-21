@@ -142,6 +142,8 @@ class Process:
                       'water_pressure', 'speed_of_sound_in_water', 'seawater_absorption']
 
         elif param_type == 'cal':
+            # TODO: @ngkavin: 'transmit_duration_nominal' and 'sample_interval'
+            #  are not a cal_param and should be read from data
             params = ['gain_correction', 'sample_interval',
                       'equivalent_beam_angle', 'transmit_duration_nominal']
             if self.sonar_model == 'AZFP':
