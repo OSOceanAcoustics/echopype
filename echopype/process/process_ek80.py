@@ -179,7 +179,7 @@ class ProcessEK80(ProcessEK):
             # calculate Sv
             Sv = (
                 10 * np.log10(prx) + 20 * np.log10(ranges) +
-                2 * env_params['seawater_absorption'] * ranges -
+                2 * env_params['absorption'] * ranges -
                 10 * np.log10(tx_power * la2[:, None] * c / (32 * np.pi * np.pi)) -
                 2 * Gfc - 10 * np.log10(tau_effective) - psifc
             )
@@ -187,7 +187,7 @@ class ProcessEK80(ProcessEK):
             # calculate TS
             TS = (
                 10 * np.log10(prx) + 40 * np.log10(ranges) +
-                2 * env_params['seawater_absorption'] * ranges -
+                2 * env_params['absorption'] * ranges -
                 10 * np.log10(tx_power * la2[:, None] / (16 * np.pi * np.pi)) -
                 2 * Gfc
             )

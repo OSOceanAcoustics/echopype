@@ -57,7 +57,7 @@ class ProcessAZFP(ProcessBase):
         Sv = (cal_params['EL'] - 2.5 / cal_params['DS'] +
               ed.raw.backscatter_r / (26214 * cal_params['DS']) -
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 20 * np.log10(ed.range) +
-              2 * env_params['seawater_absorption'] * ed.range -
+              2 * env_params['absorption'] * ed.range -
               10 * np.log10(0.5 * env_params['speed_of_sound_in_water'] *
                             cal_params['transmit_duration_nominal'] *
                             cal_params['equivalent_beam_angle']) + cal_params['Sv_offset'])
@@ -65,8 +65,12 @@ class ProcessAZFP(ProcessBase):
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
-        # Attached calculated range into the dataset
-        Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+        # Attached calculated range to the dataset
+        if ed.range.ndim == 2:
+            # Range does not have a ping time dimension when the temperature is a single value
+            Sv['range'] = (('frequency', 'ping_time'), ed.range)
+        else:
+            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
 
         # Save calibrated data into the calling instance and
         # to a separate .nc file in the same directory as the data
@@ -89,13 +93,16 @@ class ProcessAZFP(ProcessBase):
         TS = (cal_params['EL'] - 2.5 / cal_params['DS'] +
               ed.raw.backscatter_r / (26214 * cal_params['DS']) -
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 40 * np.log10(ed.range) +
-              2 * env_params['seawater_absorption'] * ed.range)
+              2 * env_params['absorption'] * ed.range)
 
         TS.name = "TS"
         TS = TS.to_dataset()
 
-        # Attached calculated range into the dataset
-        TS['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+        # Attached calculated range to the dataset
+        if ed.range.ndim == 2:
+            TS['range'] = (('frequency', 'range_bin'), ed.range)
+        else:
+            TS['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
 
         if save:
             # Update pointer in EchoData

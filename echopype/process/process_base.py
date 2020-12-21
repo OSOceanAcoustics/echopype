@@ -31,17 +31,17 @@ class ProcessBase:
         else:
             ValueError("Not sure how to update sound speed!")
 
-    def calc_seawater_absorption(self, ed, env_params, src, formula_source='FG'):
-        """Base method for calculating seawater absorption.
+    def calc_absorption(self, ed, env_params, src, formula_source='FG'):
+        """Base method for calculating water absorption.
         """
         if src != 'user':
             raise ValueError("'src' can only be 'user'")
         freq = ed.raw.frequency.astype(np.int64)  # should already be in unit [Hz]
-        return uwa.calc_seawater_absorption(freq,
-                                            temperature=env_params['water_temperature'],
-                                            salinity=env_params['water_salinity'],
-                                            pressure=env_params['water_pressure'],
-                                            formula_source=formula_source)
+        return uwa.calc_absorption(freq,
+                                   temperature=env_params['water_temperature'],
+                                   salinity=env_params['water_salinity'],
+                                   pressure=env_params['water_pressure'],
+                                   formula_source=formula_source)
 
     def calc_sample_thickness(self, ed):
         """Base method for calculating sample thickness.
@@ -94,7 +94,8 @@ class ProcessBase:
 
         return pings_per_tile, range_bins_per_tile
 
-    def get_MVBS(self, ed, env_params, cal_params, proc_params, save=True, save_format='zarr'):
+    def get_MVBS(self, ed, env_params, cal_params, proc_params,
+                 save=True, save_path=None, save_format='zarr'):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
         The calculation uses class attributes MVBS_ping_size and MVBS_range_bin_size to
@@ -119,27 +120,50 @@ class ProcessBase:
         #     - MVBS_range_bin_num:
         #     - MVBS_range_interval: can use .groupby.resample().mean() or .rolling().mean(),
         #                            based on the actual range in meter
-        #
+
+        # Check to see if the source exists. If it does, convert to linear domain
         if proc_params['MVBS_source'] in ['Sv', 'Sv_clean']:
-            Sv_linear = 10 ** (getattr(getattr(ed, proc_params['MVBS_source']), proc_params['MVBS_source']) / 10)
+            if getattr(ed, proc_params['MVBS_source']) is not None:
+                Sv_linear = 10 ** (getattr(ed, proc_params['MVBS_source']).Sv / 10)
+            else:
+                if proc_params['MVBS_source'] == 'Sv':
+                    raise ValueError("Sv data has not been found. Please calibrate with get_Sv")
+                else:
+                    raise ValueError("Sv_clean data has not been found. Please clean Sv data with remove_noise")
         else:
             raise ValueError("MVBS_source must be either Sv or Sv_clean")
 
         pings_per_tile, range_bins_per_tile = self._get_tile_params(ed, Sv_linear, env_params,
                                                                     cal_params, proc_params)
         if proc_params['MVBS_type'] == 'binned':
-            if len(np.unique(range_bins_per_tile)) == 1:
-                MVBS = 10 * np.log10(Sv_linear.coarsen(
-                    ping_time=pings_per_tile,
-                    range_bin=range_bins_per_tile,
-                    boundary='pad', keep_attrs=True).mean())
+            MVBS = Sv_linear.coarsen(
+                ping_time=pings_per_tile,
+                range_bin=range_bins_per_tile,
+                boundary='pad', keep_attrs=True).mean()
         elif proc_params['MVBS_type'] == 'rolling':
-            pass
+            # TODO: likely bad. Look into memory usage of rolling
+            # Assuming file size 100 mb and RAM 4 gb. Limits the memory usage when rolling
+            if pings_per_tile * range_bins_per_tile > 40:
+                Sv_linear = Sv_linear.load()
+            MVBS = Sv_linear.rolling(ping_time=pings_per_tile,
+                                     range_bin=range_bins_per_tile).mean(keep_attrs=True)
         else:
             raise ValueError("MVBS_type must be either binned or rolling")
-        return MVBS
+        # Convert to log domain
+        MVBS = 10 * np.log10(MVBS)
+        MVBS.name = 'MVBS'
+        MVBS = MVBS.to_dataset()
 
-    def remove_noise(self, ed, proc_params, save=True, save_format='zarr'):
+        if save:
+            # Update pointer in EchoData
+            MVBS_path = io.validate_proc_path(ed, '_MVBS', save_path)
+            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated TS to {MVBS_path}")
+            ed._save_dataset(MVBS, MVBS_path, mode="w", save_format=save_format)
+            ed.MVBS_path = MVBS_path
+        else:
+            ed.MVBS = MVBS
+
+    def remove_noise(self, ed, env_params, proc_params, save=True, save_format='zarr'):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -190,7 +214,6 @@ class ProcessEK(ProcessBase):
     def calc_sample_thickness(self, ed, env_params, cal_params):
         """Calculate sample thickness.
         """
-        # TODO: change to speed_of_sound_in_water
         return env_params['speed_of_sound_in_water'] * cal_params['sample_interval'] / 2
 
     def _cal_narrowband(self, ed, env_params, cal_params, cal_type,
@@ -203,7 +226,7 @@ class ProcessEK(ProcessBase):
             ed.range = self.calc_range(ed, env_params, cal_params)
         # Get TVG and absorption
         TVG = np.real(20 * np.log10(ed.range.where(ed.range >= 1, other=1)))
-        ABS = 2 * env_params['seawater_absorption'] * ed.range
+        ABS = 2 * env_params['absorption'] * ed.range
         if cal_type == 'Sv':
             # Print raw data nc file
 
