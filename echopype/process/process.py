@@ -422,5 +422,5 @@ class Process:
         -------
         Dataset cleaned Sv (Sv_clean)
         """
-        return self.process_obj.remove_noise(ed=ed, env_params=self.env_params,
+        return self.process_obj.remove_noise(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                              proc_params=self.proc_params, save=save, save_format=save_format)

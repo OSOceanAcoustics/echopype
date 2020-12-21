@@ -139,13 +139,55 @@ class ProcessBase:
             raise ValueError("MVBS_type must be either binned or rolling")
         return MVBS
 
-    def remove_noise(self, ed, proc_params, save=True, save_format='zarr'):
+    def remove_noise(self, ed, env_params, cal_params, proc_params={}, save=True, save_format='zarr'):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
         See method noise_estimates() for details of noise estimation.
         Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
         """
+        # TODO: @leewujung: incorporate an user-specified upper limit of noise level
+
+        # Place holder for proc_params
+        proc_params = {}
+        proc_params['noise_est_ping_num'] = 10
+        proc_params['noise_est_range_bin_num'] = 100
+        proc_params['SNR'] = 0
+
+        if ed.range is None:
+            ed.range = self.calc_range(ed, env_params, cal_params)
+
+        # Transmission loss
+        spreading_loss = 20 * np.log10(ed.range.where(ed.range >= 1, other=1))
+        absorption_loss = 2 * env_params['seawater_absorption'] * ed.range
+
+        # Noise estimates
+        power_cal = ed.Sv['Sv'] - spreading_loss - absorption_loss  # calibrated power
+        power_cal_binned_avg = 10 * np.log10(   # binned averages of calibrated power
+            (10 ** (power_cal / 10)).coarsen(
+                ping_time=proc_params['noise_est_ping_num'],
+                range_bin=proc_params['noise_est_range_bin_num'],
+                boundary='pad'
+            ).mean())
+        noise_est = power_cal_binned_avg.min(dim='range_bin')
+        noise_est['ping_time'] = power_cal['ping_time'][::proc_params['noise_est_ping_num']]
+        Sv_noise = (noise_est.reindex({'ping_time': power_cal['ping_time']}, method='ffill')  # forward fill empty index
+                    + spreading_loss + absorption_loss)
+
+        # Sv corrected for noise
+        Sv_corr = 10 * np.log10(10 ** (ed.Sv['Sv'] / 10) - 10 ** (Sv_noise / 10))
+        Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > proc_params['SNR'], other=np.nan)
+
+        Sv_corr.name = 'Sv_clean'
+        Sv_corr = Sv_corr.to_dataset()
+
+        # Attach calculated range into data set
+        Sv_corr['range'] = (('frequency', 'ping_time', 'range_bin'),
+                            ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+
+        # Save Sp into the calling instance and
+        #  to a separate zarr/nc file in the same directory as the data file
+        # TODO: @ngkavin: could you finish the file saving part of this?
 
     def get_noise_estimates(self, ed, proc_params, save=True, save_format='zarr'):
         """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
@@ -155,10 +197,6 @@ class ProcessBase:
         but this method can be used separately to determine the exact tile size for noise removal before
         noise removal is actually performed.
         """
-        # For EK60
-        # range = (ed.raw.range_bin * ed.raw.sample_interval * sound_speed / 2
-        #          - ed.raw.transmit_duration_nominal * sound_speed / 4)
-        # TVG =
 
     def db_diff(self, ed, proc_params, save=True, save_format='zarr'):
         """Perform dB-differencing (frequency-differencing) for specified thresholds.
@@ -229,8 +267,8 @@ class ProcessEK(ProcessBase):
             Sv['range'] = (('frequency', 'ping_time', 'range_bin'),
                            ed.range.transpose('frequency', 'ping_time', 'range_bin'))
 
-            # Save calibrated data into the calling instance and
-            #  to a separate .nc file in the same directory as the data filef.Sv = Sv
+            # Save Sv into the calling instance and
+            #  to a separate zarr/nc file in the same directory as the data file
             if save:
                 # Update pointer in EchoData
                 Sv_path = io.validate_proc_path(ed, '_Sv', save_path)
@@ -255,6 +293,8 @@ class ProcessEK(ProcessBase):
             Sp['range'] = (('frequency', 'ping_time', 'range_bin'),
                            ed.range.transpose('frequency','ping_time','range_bin'))
 
+            # Save Sp into the calling instance and
+            #  to a separate zarr/nc file in the same directory as the data file
             if save:
                 # Update pointer in EchoData
                 Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
