@@ -63,7 +63,7 @@ class ProcessBase:
         print('Calibration has not been implemented for this sonar model!')
 
     def get_Sp(self, ed, env_params, cal_params, save=True, save_format='zarr'):
-        """Base method to be overridden for calculating TS from raw backscatter data.
+        """Base method to be overridden for calculating Sp from raw backscatter data.
         """
         # Issue warning when subclass methods not available
         print('Calibration has not been implemented for this sonar model!')
@@ -147,7 +147,7 @@ class ProcessBase:
         Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
         """
 
-    def get_noise_estimates(self):
+    def get_noise_estimates(self, ed, proc_params, save=True, save_format='zarr'):
         """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
 
         The tiles here are defined by class attributes noise_est_range_bin_size and noise_est_ping_size.
@@ -155,6 +155,10 @@ class ProcessBase:
         but this method can be used separately to determine the exact tile size for noise removal before
         noise removal is actually performed.
         """
+        # For EK60
+        # range = (ed.raw.range_bin * ed.raw.sample_interval * sound_speed / 2
+        #          - ed.raw.transmit_duration_nominal * sound_speed / 4)
+        # TVG =
 
     def db_diff(self, ed, proc_params, save=True, save_format='zarr'):
         """Perform dB-differencing (frequency-differencing) for specified thresholds.
@@ -172,15 +176,15 @@ class ProcessEK(ProcessBase):
         ds_vend = ed.get_vend_from_raw()
 
         if 'sa_correction' not in ds_vend:
-            return
+            raise ValueError('sa_correction not found in raw data!')
 
         sa_correction_table = ds_vend.sa_correction
         pulse_length_table = ds_vend.pulse_length
-        pulse_length = np.unique(ed.raw.transmit_duration_nominal, axis=1).flatten()
+        unique_pulse_length = np.unique(ed.raw.transmit_duration_nominal, axis=1).squeeze()
 
-        if pulse_length.ndim > 1:
+        if unique_pulse_length.size != ds_vend.frequency.size:
             raise ValueError("Pulse length changes over time")
-        idx = [np.argwhere(np.isclose(pulse_length[i], pulse_length_table[i])).squeeze()
+        idx = [np.argwhere(np.isclose(unique_pulse_length[i], pulse_length_table[i])).squeeze()
                for i in range(pulse_length_table.shape[0])]
 
         sa_correction = np.array([ch[x] for ch, x in zip(sa_correction_table, np.array(idx))])
@@ -200,22 +204,26 @@ class ProcessEK(ProcessBase):
         # Derived params
         wavelength = env_params['speed_of_sound_in_water'] / ed.raw.frequency  # wavelength
         if ed.range is None:
+            # TODO: @ngkavin: use property in ed for setting range
             ed.range = self.calc_range(ed, env_params, cal_params)
-        # Get TVG and absorption
-        TVG = np.real(20 * np.log10(ed.range.where(ed.range >= 1, other=1)))
-        ABS = 2 * env_params['seawater_absorption'] * ed.range
-        if cal_type == 'Sv':
-            # Print raw data nc file
 
+        # Transmission loss
+        spreading_loss = 20 * np.log10(ed.range.where(ed.range >= 1, other=1))
+        absorption_loss = 2 * env_params['seawater_absorption'] * ed.range
+
+        if cal_type == 'Sv':
             # Calc gain
-            CSv = 10 * np.log10((cal_params['transmit_power'] * (10 ** (cal_params['gain_correction'] / 10)) ** 2 *
-                                wavelength ** 2 * env_params['speed_of_sound_in_water'] *
-                                cal_params['transmit_duration_nominal'] *
-                                10 ** (cal_params['equivalent_beam_angle'] / 10)) /
-                                (32 * np.pi ** 2))
+            # TODO: 'transmit_duration_nominal' should not be a cal_param but should be read from data
+            CSv = (10 * np.log10((cal_params['transmit_power']))
+                   + 2 * cal_params['gain_correction']
+                   + cal_params['equivalent_beam_angle']
+                   + 10 * np.log10(wavelength**2
+                                   * cal_params['transmit_duration_nominal']
+                                   * env_params['speed_of_sound_in_water']
+                                   / (32 * np.pi**2)) )
 
             # Calibration and echo integration
-            Sv = ed.raw.backscatter_r + TVG + ABS - CSv - 2 * cal_params['sa_correction']
+            Sv = ed.raw.backscatter_r + spreading_loss + absorption_loss - CSv - 2 * cal_params['sa_correction']
             Sv.name = 'Sv'
             Sv = Sv.to_dataset()
 
@@ -232,28 +240,26 @@ class ProcessEK(ProcessBase):
                 ed.Sv_path = Sv_path
             else:
                 ed.Sv = Sv
-        elif cal_type == 'TS':
-            # calculate TS
-            # Open data set for Environment and Beam groups
 
+        elif cal_type == 'Sp':
             # Calc gain
-            CSp = 10 * np.log10((cal_params['transmit_power'] *
-                                (10 ** (cal_params['gain_correction'] / 10)) ** 2 *
-                                wavelength ** 2) / (16 * np.pi ** 2))
+            CSp = (10 * np.log10(cal_params['transmit_power'])
+                   + 2 * cal_params['gain_correction']
+                   + 10 * np.log10(wavelength**2 / (16 * np.pi**2)) )
 
             # Calibration and echo integration
-            TS = ed.raw.backscatter_r + TVG * 2 + ABS - CSp
-            TS.name = 'TS'
-            TS = TS.to_dataset()
+            Sp = ed.raw.backscatter_r + spreading_loss * 2 + absorption_loss - CSp
+            Sp.name = 'Sp'
+            Sp = Sp.to_dataset()
 
             # Attach calculated range into data set
-            TS['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
 
             if save:
                 # Update pointer in EchoData
-                TS_path = io.validate_proc_path(ed, '_TS', save_path)
-                print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated TS to {TS_path}")
-                ed._save_dataset(TS, TS_path, mode="w", save_format=save_format)
-                ed.TS_path = TS_path
+                Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
+                print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
+                ed._save_dataset(Sp, Sp_path, mode="w", save_format=save_format)
+                ed.Sp_path = Sp_path
             else:
-                ed.TS = TS
+                ed.Sp = Sp
