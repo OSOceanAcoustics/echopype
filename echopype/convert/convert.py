@@ -6,8 +6,7 @@ import shutil
 import xarray as xr
 import numpy as np
 import zarr
-import netCDF4
-from collections import MutableMapping
+from collections.abc import MutableMapping
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
