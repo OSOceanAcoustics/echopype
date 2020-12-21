@@ -70,10 +70,8 @@ class EchoData:
 
             # Set the file format
             if self._file_format is None and files is not None:
-                if files[0].endswith('.nc'):
-                    self._file_format = 'netcdf4'
-                elif self.files[0].endswith('.zarr'):
-                    self._file_format = 'zarr'
+                self._file_format = io.get_file_format(files[0])
+
             # Initialize data pointers
         self._sonar_model = None
         self.range = None
@@ -86,8 +84,8 @@ class EchoData:
         return self._sonar_model
 
     def _check_key_param_consistency():
-        """Decorator to check if key params in the files for the specified group
-        to make sure the files can be opened together.
+        """Decorator to check if raw files can be opened together by
+         seeing if key parameters stay the same across files.
         """
         def wrapper(open_dataset):
             functools.wraps(open_dataset)
