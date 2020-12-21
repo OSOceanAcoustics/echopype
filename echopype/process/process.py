@@ -172,11 +172,11 @@ class Process:
                 params['water_temperature'] = 8.0   # Default temperature in Celsius
                 # print("Initialize using default water temperature of 8 Celsius")
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            if 'speed_of_sound_in_water' not in params or 'seawater_absorption' not in params:
-                if 'speed_of_sound_in_water' not in params:
-                    params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
-                if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
-                    params['seawater_absorption'] = ds_env.absorption_indicative
+            # TODO: @ngkavin: please double check that my deletion does not cause problems
+            if 'speed_of_sound_in_water' not in params:
+                params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
+            if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
+                params['seawater_absorption'] = ds_env.absorption_indicative
 
         self.env_params = params
 
@@ -189,9 +189,20 @@ class Process:
     # TODO: make parameters a list
     def init_cal_params(self, ed, params={}):
         valid_params = self.get_valid_params('cal')
-        for param in valid_params:
-            if param not in params:
+
+        # Parameters from the Beam group
+        param_from_ds_beam = ['gain_correction',
+                              'sample_interval',
+                              'equivalent_beam_angle',
+                              'transmit_duration_nominal',
+                              'transmit_power']
+        for param in param_from_ds_beam:
+            if param not in params and param in valid_params:
                 params[param] = ed.raw.get(param, None)
+
+        # Parameters that require additional computation
+        if 'sa_correction' in valid_params:
+            params['sa_correction'] = self.process_obj.calc_sa_correction(ed=ed)
 
         self.cal_params = params
 
