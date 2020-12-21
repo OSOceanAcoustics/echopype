@@ -77,3 +77,27 @@ def test_http_ek80_convert():
     assert ec.source_file[0] == ek80_path
 
     _file_export_checks(ec, model)
+
+
+def test_s3_ek60_convert():
+    model = 'EK60'
+    # http
+    ek60_path = 's3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw'
+
+    ec = Convert(ek60_path, model=model, storage_options={'anon': True})
+
+    assert ec.source_file[0] == ek60_path
+
+    _file_export_checks(ec, model)
+
+
+def test_s3_ek80_convert():
+    model = 'EK80'
+    # http
+    ek80_path = 's3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw'
+
+    ec = Convert(ek80_path, model=model, storage_options={'anon': True})
+
+    assert ec.source_file[0] == ek80_path
+
+    _file_export_checks(ec, model)
