@@ -80,28 +80,28 @@ class ProcessAZFP(ProcessBase):
             # TODO Add to docs
             ed.Sv = Sv
 
-    def get_TS(self, ed, env_params, cal_params, save=True, save_path=None, save_format='zarr'):
-        """Calibrate to get Target Strength (TS) from AZFP power data.
+    def get_Sp(self, ed, env_params, cal_params, save=True, save_path=None, save_format='zarr'):
+        """Calibrate to get point backscattering strength (Sp) from AZFP power data.
         """
         if ed.range is None:
             ed.range = self.calc_range(ed, env_params)
 
-        TS = (cal_params['EL'] - 2.5 / cal_params['DS'] +
+        Sp = (cal_params['EL'] - 2.5 / cal_params['DS'] +
               ed.raw.backscatter_r / (26214 * cal_params['DS']) -
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 40 * np.log10(ed.range) +
               2 * env_params['seawater_absorption'] * ed.range)
 
-        TS.name = "TS"
-        TS = TS.to_dataset()
+        Sp.name = "Sp"
+        Sp = Sp.to_dataset()
 
         # Attached calculated range into the dataset
-        TS['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+        Sp['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
 
         if save:
             # Update pointer in EchoData
-            TS_path = io.validate_proc_path(ed, '_TS', save_path)
-            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated TS to {TS_path}")
-            ed._save_dataset(TS, TS_path, mode="w", save_format=save_format)
-            ed.TS_path = TS_path
+            Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
+            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
+            ed._save_dataset(Sp, Sp_path, mode="w", save_format=save_format)
+            ed.Sp_path = Sp_path
         else:
-            ed.TS = TS
+            ed.Sp = Sp

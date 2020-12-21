@@ -2,7 +2,7 @@
 EchoData classes are data models that keep track of various types of data,
 such as those stored in the converted raw data files (raw backscatter,
 environmental parameters, instrument settings)
-or derived data variables (Sv, Sv_clean, MVBS, TS)
+or derived data variables (Sv, Sv_clean, MVBS, Sp)
 
 Users use Process objects to perform computation on EchoData objects and
 use Plot objects for visualization.
@@ -13,12 +13,12 @@ import functools
 from ..utils import io
 import xarray as xr
 
-DATA_TYPES = ['raw', 'Sv', 'Sv_clean', 'TS', 'MVBS']
-
 
 class EchoData:
     """Echo data model base class.
     """
+    DATA_TYPES = ['raw', 'Sv', 'Sv_clean', 'Sp', 'MVBS']
+
     class DataSetGet():
         """A descriptor that handles data"""
 
@@ -28,6 +28,7 @@ class EchoData:
         def __get__(self, instance, owner):
             if getattr(instance, self.name) is None:
                 pass
+                # TODO: @ngkavin: my ed objects print out 4 of the below msg when I initialize
                 print('Data has not been calibrated. '
                       'Call `Process.calibrate(EchoData)` to calibrate.')
             else:
@@ -56,11 +57,11 @@ class EchoData:
 
     def __init__(self, raw_path=None,
                  Sv_path=None, Sv_clean_path=None,
-                 TS_path=None, MVBS_path=None):
+                 Sp_path=None, MVBS_path=None):
 
         self._file_format = None
         # Data that is handled in Process
-        for attr in DATA_TYPES:
+        for attr in self.DATA_TYPES:
             # Initialize data pointers and paths to files
             setattr(self, '_' + attr, None)
             setattr(self, '_' + attr + '_path', None)
@@ -72,7 +73,7 @@ class EchoData:
             if self._file_format is None and files is not None:
                 if files[0].endswith('.nc'):
                     self._file_format = 'netcdf4'
-                elif self.files[0].endswith('.zarr'):
+                elif files[0].endswith('.zarr'):
                     self._file_format = 'zarr'
             # Initialize data pointers
         self._sonar_model = None
@@ -126,7 +127,7 @@ class EchoData:
                                  concat_dim='ping_time', data_vars='minimal', engine=self._file_format)
 
     def _get_data_from_file(self, files):
-        """Open files with data in the top level like Sv, TS, and MVBS"""
+        """Open files with data in the top level like Sv, Sp, and MVBS"""
         try:
             return xr.open_mfdataset(files, combine='nested', concat_dim='ping_time',
                                      data_vars='minimal', engine=self._file_format)
@@ -140,7 +141,7 @@ class EchoData:
             # Opens the beam group of the raw file
             return self.get_beam_from_raw()
         else:
-            # Opens files with data in toplevel like Sv and TS
+            # Opens files with data in toplevel like Sv and Sp
             return self._get_data_from_file(files)
 
     def _update_file_list(self, path, file_list):
@@ -179,7 +180,8 @@ class EchoData:
             # Lazy load data into instance variable ie. self.Sv, self.raw, etc
             setattr(self, attr, self._open(getattr(self, attr_path), group=group))
 
-    def _save_dataset(self, ds, path, mode="w", save_format='zarr'):
+    @staticmethod
+    def _save_dataset(ds, path, mode="w", save_format='zarr'):
         """Save dataset to the appropriate formats.
 
         A utility method to use the correct function to save the dataset,
@@ -202,7 +204,7 @@ class EchoData:
     def close(self):
         """Close open datasets
         """
-        for data_type in DATA_TYPES:
+        for data_type in self.DATA_TYPES:
             data = getattr(self, data_type)
             if data is not None:
                 data.close()
