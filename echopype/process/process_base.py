@@ -228,7 +228,8 @@ class ProcessEK(ProcessBase):
             Sv = Sv.to_dataset()
 
             # Attach calculated range into data set
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+            Sv['range'] = (('frequency', 'ping_time', 'range_bin'),
+                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
 
             # Save calibrated data into the calling instance and
             #  to a separate .nc file in the same directory as the data filef.Sv = Sv
@@ -253,7 +254,8 @@ class ProcessEK(ProcessBase):
             Sp = Sp.to_dataset()
 
             # Attach calculated range into data set
-            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+            Sp['range'] = (('frequency', 'ping_time', 'range_bin'),
+                           ed.range.transpose('frequency','ping_time','range_bin'))
 
             if save:
                 # Update pointer in EchoData

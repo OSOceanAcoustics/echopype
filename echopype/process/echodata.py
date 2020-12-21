@@ -28,6 +28,7 @@ class EchoData:
         def __get__(self, instance, owner):
             if getattr(instance, self.name) is None:
                 pass
+                # TODO: @ngkavin: my ed objects print out 4 of the below msg when I initialize
                 print('Data has not been calibrated. '
                       'Call `Process.calibrate(EchoData)` to calibrate.')
             else:
