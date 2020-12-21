@@ -1,7 +1,3 @@
-from collections import defaultdict
-from .utils.ek_raw_io import RawSimradFile
-from datetime import datetime as dt
-import numpy as np
 from .parse_base import ParseEK
 
 
@@ -12,51 +8,6 @@ class ParseEK80(ParseEK):
         super().__init__(file, params)
         self.environment = {}  # dictionary to store environment data
 
-        # List of all ch ids split into power [cw] and complex [bb]
-        self.ch_ids = defaultdict(list)
-
-    def parse_raw(self):
-        """Parse raw data file from Simrad EK80 echosounder.
-        """
-        with RawSimradFile(self.source_file, 'r') as fid:
-            self.config_datagram = fid.read(1)
-            self.config_datagram['timestamp'] = np.datetime64(
-                self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
-
-            if 'print_export_msg' in self.data_type:
-                if 'ENV' in self.data_type:
-                    xml_type = 'environment'
-                elif 'CONFIG' in self.data_type:
-                    xml_type = 'configuration'
-                print(f"{dt.now().strftime('%H:%M:%S')} exporting {xml_type} XML file")
-                # Don't parse anything else if only the configuration xml is required.
-                if xml_type == 'configuration':
-                    return
-            else:
-                self._print_status()
-
-            # IDs of the channels found in the dataset
-            # self.ch_ids = list(self.config_datagram['configuration'].keys())
-
-            # Read the rest of datagrams
-            self._read_datagrams(fid)
-
-        if 'ALL' in self.data_type:
-            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
-            #  this will help merge data from all channels into a cube
-            for ch, val in self.ping_time.items():
-                self.ping_time[ch] = np.array(val)
-
-            # Rectangularize all data and convert to numpy array indexed by channel
-            for data_type in ['power', 'angle', 'complex']:
-                for k, v in self.ping_data_dict[data_type].items():
-                    if all(x is None for x in v):  # if no data in a particular channel
-                        self.ping_data_dict[data_type][k] = None
-                    else:
-                        # Sort bb and cw channels
-                        self.ch_ids[data_type].append(k)
-                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
-
     def _select_datagrams(self, params):
         """ Translates user input into specific datagrams or ALL
         """
@@ -66,7 +17,7 @@ class ParseEK80(ParseEK):
             # The GPS flag indicates that only the NME and MRU datagrams are parsed.
             # It is kept in the list because it is used in SetGroups to flag that only the platform group is saved.
             elif s == 'GPS':
-                return ['NME', 'MRU', 'GPS']
+                return ['NME', 'MRU']
             # CONFIG flag indicates that only the configuration XML is parsed.
             # The XML flag is not needed because the configuration is always the first datagram parsed.
             elif s == 'CONFIG':
