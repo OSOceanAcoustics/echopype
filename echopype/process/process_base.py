@@ -70,25 +70,25 @@ class ProcessBase:
 
     def _get_tile_params(self, ed, da, env_params, cal_params, proc_params):
         # Get number of pings per tile
-        if proc_params['MVBS_time_interval'] is not None:
+        if 'time_interval' in proc_params['MVBS']:
             print("Averaging by time interval is not yet implemented")
             return
-        elif proc_params['MVBS_ping_num'] is not None:
-            pings_per_tile = proc_params['MVBS_ping_num']
+        elif 'ping_num' in proc_params['MVBS']:
+            pings_per_tile = proc_params['MVBS']['ping_num']
         else:
             raise ValueError("No ping tile size provided")
 
         # Get number of range_bins per tile
-        if proc_params['MVBS_distance_interval'] is not None:
+        if 'distance_interval' in proc_params['MVBS']:
             # TODO MVBS_distance_interval: can use .groupby().mean(),
             # based on distance calculated by lat/lon from Platform group,
             print("Averaging by distance interval is not yet implemented")
             return
-        elif proc_params['MVBS_range_interval'] is not None:
+        elif 'range_interval' in proc_params['MVBS']:
             print("Averaging by range inteval is not yet implemented")
             return
-        elif proc_params['MVBS_range_bin_num'] is not None:
-            range_bins_per_tile = proc_params['MVBS_range_bin_num']
+        elif 'range_bin_num' in proc_params['MVBS']:
+            range_bins_per_tile = proc_params['MVBS']['range_bin_num']
         else:
             raise ValueError("No range_bin tile size provided")
 
@@ -122,11 +122,11 @@ class ProcessBase:
         #                            based on the actual range in meter
 
         # Check to see if the source exists. If it does, convert to linear domain
-        if proc_params['MVBS_source'] in ['Sv', 'Sv_clean']:
-            if getattr(ed, proc_params['MVBS_source']) is not None:
-                Sv_linear = 10 ** (getattr(ed, proc_params['MVBS_source']).Sv / 10)
+        if proc_params['MVBS']['source'] in ['Sv', 'Sv_clean']:
+            if getattr(ed, proc_params['MVBS']['source']) is not None:
+                Sv_linear = 10 ** (getattr(ed, proc_params['MVBS']['source']).Sv / 10)
             else:
-                if proc_params['MVBS_source'] == 'Sv':
+                if proc_params['MVBS']['source'] == 'Sv':
                     raise ValueError("Sv data has not been found. Please calibrate with get_Sv")
                 else:
                     raise ValueError("Sv_clean data has not been found. Please clean Sv data with remove_noise")
@@ -135,12 +135,12 @@ class ProcessBase:
 
         pings_per_tile, range_bins_per_tile = self._get_tile_params(ed, Sv_linear, env_params,
                                                                     cal_params, proc_params)
-        if proc_params['MVBS_type'] == 'binned':
+        if proc_params['MVBS']['type'] == 'binned':
             MVBS = Sv_linear.coarsen(
                 ping_time=pings_per_tile,
                 range_bin=range_bins_per_tile,
                 boundary='pad', keep_attrs=True).mean()
-        elif proc_params['MVBS_type'] == 'rolling':
+        elif proc_params['MVBS']['type'] == 'rolling':
             # TODO: likely bad. Look into memory usage of rolling
             # Assuming file size 100 mb and RAM 4 gb. Limits the memory usage when rolling
             if pings_per_tile * range_bins_per_tile > 40:
@@ -172,35 +172,29 @@ class ProcessBase:
         """
         # TODO: @leewujung: incorporate an user-specified upper limit of noise level
 
-        # Place holder for proc_params
-        proc_params = {}
-        proc_params['noise_est_ping_num'] = 10
-        proc_params['noise_est_range_bin_num'] = 100
-        proc_params['SNR'] = 0
-
         if ed.range is None:
             ed.range = self.calc_range(ed, env_params, cal_params)
 
         # Transmission loss
         spreading_loss = 20 * np.log10(ed.range.where(ed.range >= 1, other=1))
-        absorption_loss = 2 * env_params['seawater_absorption'] * ed.range
+        absorption_loss = 2 * env_params['absorption'] * ed.range
 
         # Noise estimates
         power_cal = ed.Sv['Sv'] - spreading_loss - absorption_loss  # calibrated power
         power_cal_binned_avg = 10 * np.log10(   # binned averages of calibrated power
             (10 ** (power_cal / 10)).coarsen(
-                ping_time=proc_params['noise_est_ping_num'],
-                range_bin=proc_params['noise_est_range_bin_num'],
+                ping_time=proc_params['noise_est']['ping_num'],
+                range_bin=proc_params['noise_est']['range_bin_num'],
                 boundary='pad'
             ).mean())
         noise_est = power_cal_binned_avg.min(dim='range_bin')
-        noise_est['ping_time'] = power_cal['ping_time'][::proc_params['noise_est_ping_num']]
+        noise_est['ping_time'] = power_cal['ping_time'][::proc_params['noise_est']['ping_num']]
         Sv_noise = (noise_est.reindex({'ping_time': power_cal['ping_time']}, method='ffill')  # forward fill empty index
                     + spreading_loss + absorption_loss)
 
         # Sv corrected for noise
         Sv_corr = 10 * np.log10(10 ** (ed.Sv['Sv'] / 10) - 10 ** (Sv_noise / 10))
-        Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > proc_params['SNR'], other=np.nan)
+        Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > proc_params['noise_est']['SNR'], other=np.nan)
 
         Sv_corr.name = 'Sv_clean'
         Sv_corr = Sv_corr.to_dataset()
@@ -238,7 +232,7 @@ class ProcessEK(ProcessBase):
         ds_vend = ed.get_vend_from_raw()
 
         if 'sa_correction' not in ds_vend:
-            raise ValueError('sa_correction not found in raw data!')
+            return None
 
         sa_correction_table = ds_vend.sa_correction
         pulse_length_table = ds_vend.pulse_length
@@ -256,7 +250,7 @@ class ProcessEK(ProcessBase):
     def calc_sample_thickness(self, ed, env_params, cal_params):
         """Calculate sample thickness.
         """
-        return env_params['speed_of_sound_in_water'] * cal_params['sample_interval'] / 2
+        return env_params['speed_of_sound_in_water'] * ed.raw.sample_interval / 2
 
     def _cal_narrowband(self, ed, env_params, cal_params, cal_type,
                         save=True, save_path=None, save_format='zarr'):
@@ -269,7 +263,7 @@ class ProcessEK(ProcessBase):
 
         # Transmission loss
         spreading_loss = 20 * np.log10(ed.range.where(ed.range >= 1, other=1))
-        absorption_loss = 2 * env_params['seawater_absorption'] * ed.range
+        absorption_loss = 2 * env_params['absorption'] * ed.range
 
         if cal_type == 'Sv':
             # Calc gain
@@ -277,9 +271,9 @@ class ProcessEK(ProcessBase):
                    + 2 * cal_params['gain_correction']
                    + cal_params['equivalent_beam_angle']
                    + 10 * np.log10(wavelength**2
-                                   * cal_params['transmit_duration_nominal']
+                                   * ed.raw.transmit_duration_nominal
                                    * env_params['speed_of_sound_in_water']
-                                   / (32 * np.pi**2)) )
+                                   / (32 * np.pi**2)))
 
             # Calibration and echo integration
             Sv = ed.raw.backscatter_r + spreading_loss + absorption_loss - CSv - 2 * cal_params['sa_correction']

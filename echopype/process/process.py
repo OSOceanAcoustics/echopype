@@ -111,17 +111,33 @@ class Process:
 
     @proc_params.setter
     def proc_params(self, params):
-        self._proc_params = self._check_valid_params(params, self._proc_params, self.get_valid_params('proc'))
+        self._proc_params = self._check_valid_params(params, self._proc_params,
+                                                     self.get_valid_params('proc'), is_proc=True)
 
-    def _check_valid_params(self, params, current_params, valid_params):
+    def _check_valid_params(self, params, current_params, valid_params, is_proc=False):
         tmp_params = current_params.copy()
         tmp_params.update(params)
         # Removes invalid parameters
-        current_params = {k: v for k, v in tmp_params.items() if k in valid_params}
-        if tmp_params != current_params:
-            invalid = [k for k in params.keys() if k not in valid_params]
-            msg = f"{invalid} will not be used because they are not valid parameters."
-            warnings.warn(msg)
+        # Check proc parameters
+        msgs = []
+        if is_proc:
+            for process, param_dict in tmp_params.items():
+                if process in valid_params:
+                    current_params[process] = {k: v for k, v in param_dict.items() if k in valid_params[process]}
+                    if tmp_params[process] != current_params[process]:
+                        invalid = [k for k in params[process].keys() if k not in valid_params[process]]
+                        msgs.append(f"{invalid} will not be used because they are not valid parameters of '{process}'")
+                else:
+                    msgs.append(f"{process} will not be used because it is not a valid process.")
+        # Check cal and env parameters
+        else:
+            current_params = {k: v for k, v in tmp_params.items() if k in valid_params}
+            if tmp_params != current_params:
+                invalid = [k for k in params.keys() if k not in valid_params]
+                msgs.append(f"{invalid} will not be used because they are not valid parameters.")
+        if msgs:
+            for msg in msgs:
+                warnings.warn(msg)
         return current_params
 
     def get_valid_params(self, param_type):
@@ -135,17 +151,14 @@ class Process:
 
         Returns
         -------
-        List of valid parameters of the selected type.
+        List ('env', 'cal') or dictionary ('proc') of valid parameters of the selected type.
         """
         if param_type == 'env':
             params = ['water_salinity', 'water_temperature',
                       'water_pressure', 'speed_of_sound_in_water', 'absorption']
 
         elif param_type == 'cal':
-            # TODO: @ngkavin: 'transmit_duration_nominal' and 'sample_interval'
-            #  are not a cal_param and should be read from data
-            params = ['gain_correction', 'sample_interval',
-                      'equivalent_beam_angle', 'transmit_duration_nominal']
+            params = ['gain_correction', 'equivalent_beam_angle']
             if self.sonar_model == 'AZFP':
                 params += ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset']
             elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
@@ -154,9 +167,14 @@ class Process:
                     params += ['slope']
 
         elif param_type == 'proc':
-            params = ['MVBS_source', 'MVBS_type', 'MVBS_ping_num',
-                      'MVBS_time_interval', 'MVBS_distance_interval', 'MVBS_range_bin_num',
-                      'MVBS_range_interval', 'noise_est_ping_num', 'noise_est_range_bin_num']
+            params = {
+                'MVBS': ['source', 'type', 'ping_num',
+                         'time_interval', 'distance_interval', 'range_bin_num',
+                         'range_interval'],
+                'noise_est': ['ping_num', 'range_bin_num',
+                              'SNR']
+            }
+
         return params
 
     def init_env_params(self, ed, params={}):
@@ -238,15 +256,19 @@ class Process:
         #                to perform the same operation.
         #                Method get_noise_estimates() would naturally be part of the remove_noise() operation.
         #
-        # TODO this might not be the best way to initialize the values
-        # TODO make a dictionary of non none values. or https://docs.python.org/3/library/enum.html
-        default_values = ['Sv', 'binned', 30,
-                          None, None, 1000,
-                          None, 30, 1000]
-        default_dictionary = {}
-        for k, v in zip(self.get_valid_params('proc'), default_values):
-            if k not in params:
-                params[k] = v
+        default_dictionary = {'source': 'Sv',
+                              'type': 'binned',
+                              'ping_num': 10,
+                              'range_bin_num': 100}
+        for proccess, param_list in self.get_valid_params('proc').items():
+            if proccess not in params:
+                params[proccess] = {}
+            for param in param_list:
+                if param not in params and param in default_dictionary:
+                    params[proccess][param] = default_dictionary[param]
+
+        if 'SNR' not in params['noise_est']:
+            params['noise_est']['SNR'] = 0
         self.proc_params = params
 
     def recalculate_environment(self, ed, src='user', ss=True, sa=True):
