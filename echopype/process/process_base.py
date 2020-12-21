@@ -204,7 +204,6 @@ class ProcessEK(ProcessBase):
         # Derived params
         wavelength = env_params['speed_of_sound_in_water'] / ed.raw.frequency  # wavelength
         if ed.range is None:
-            # TODO: @ngkavin: use property in ed for setting range
             ed.range = self.calc_range(ed, env_params, cal_params)
 
         # Transmission loss
@@ -213,7 +212,6 @@ class ProcessEK(ProcessBase):
 
         if cal_type == 'Sv':
             # Calc gain
-            # TODO: 'transmit_duration_nominal' should not be a cal_param but should be read from data
             CSv = (10 * np.log10((cal_params['transmit_power']))
                    + 2 * cal_params['gain_correction']
                    + cal_params['equivalent_beam_angle']
