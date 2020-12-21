@@ -25,7 +25,7 @@ class ProcessEK80(ProcessEK):
             # Get various parameters
             Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
             delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
-            tau = cal_params['transmit_duration_nominal'].values
+            tau = ed.raw.transmit_duration_nominal.values
             tx_power = cal_params['transmit_power'].values
             slope = cal_params['slope'].values
 
@@ -143,7 +143,7 @@ class ProcessEK80(ProcessEK):
             ptxa_lazy = [dask.delayed(calc_effective_pulse_length)(i) for i in range(npings)]
             tau_constants.append(dask.compute(*ptxa_lazy))
 
-        tau_effective = tau_constants * cal_params['sample_interval']
+        tau_effective = tau_constants * ed.raw.sample_interval
         backscatter_compressed = xr.concat(backscatter_compressed, dim='frequency')
 
         return backscatter_compressed, tau_effective
@@ -249,7 +249,7 @@ class ProcessEK80(ProcessEK):
         range_bin = xr.DataArray(np.arange(range_bins), coords=[np.arange(range_bins)], dims=['range_bin']) if \
             range_bins is not None else ed.raw.range_bin
         st = self.calc_sample_thickness(ed, env_params, cal_params)
-        range_meter = st * range_bin - cal_params['transmit_duration_nominal'] * \
+        range_meter = st * range_bin - ed.raw.transmit_duration_nominal * \
             env_params['speed_of_sound_in_water'] / 2  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)
         return range_meter

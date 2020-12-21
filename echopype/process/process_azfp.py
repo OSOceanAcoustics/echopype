@@ -59,7 +59,7 @@ class ProcessAZFP(ProcessBase):
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 20 * np.log10(ed.range) +
               2 * env_params['absorption'] * ed.range -
               10 * np.log10(0.5 * env_params['speed_of_sound_in_water'] *
-                            cal_params['transmit_duration_nominal'] *
+                            ed.raw.transmit_duration_nominal *
                             cal_params['equivalent_beam_angle']) + cal_params['Sv_offset'])
 
         Sv.name = 'Sv'
