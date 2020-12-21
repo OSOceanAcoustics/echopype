@@ -40,12 +40,12 @@ class SetGroupsEK60(SetGroupsBase):
         for ch in ch_ids:
             ds_tmp = xr.Dataset({
                 'absorption_indicative': (['ping_time'],
-                                          self.convert_obj.ping_data_dict['sound_velocity'][ch],
+                                          self.convert_obj.ping_data_dict['absorption_coefficient'][ch],
                                           {'long_name': 'Indicative acoustic absorption',
                                            'units': 'dB/m',
                                            'valid_min': 0.0}),
                 'sound_speed_indicative': (['ping_time'],
-                                           self.convert_obj.ping_data_dict['absorption_coefficient'][ch],
+                                           self.convert_obj.ping_data_dict['sound_velocity'][ch],
                                            {'long_name': 'Indicative sound speed',
                                             'standard_name': 'speed_of_sound_in_sea_water',
                                             'units': 'm/s',
