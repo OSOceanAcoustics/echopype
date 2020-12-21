@@ -91,8 +91,15 @@ class SetGroupsEK60(SetGroupsBase):
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         ch_ids = list(self.convert_obj.config_datagram['transceivers'].keys())
         ds_plat = []
-        # Get user defined water level (0 if undefined)
-        water_level = self.ui_param['water_level'] if self.ui_param['water_level'] is not None else 0
+
+        if self.ui_param['water_level'] is not None:
+            water_level = self.ui_param['water_level']
+        else:
+            water_level = np.nan
+            print('WARNING: The water_level_draft was not in the file. Value '
+                  'set to None')
+
+        # Get user defined water level (Nan if undefined)
         # Loop over channels
         for ch in ch_ids:
             ds_tmp = xr.Dataset(

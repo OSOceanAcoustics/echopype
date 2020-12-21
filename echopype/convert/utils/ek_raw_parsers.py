@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from .ek_date_conversion import nt_to_unix
 
-TCVR_CH_NUM_MATCHER = re.compile('\d{6}-\w{1,2}')
+TCVR_CH_NUM_MATCHER = re.compile(r'\d{6}-\w{1,2}')
 
 __all__ = ['SimradNMEAParser', 'SimradDepthParser', 'SimradBottomParser',
             'SimradAnnotationParser', 'SimradConfigParser', 'SimradRawParser']
@@ -797,7 +797,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                      self.channel_parsing_options)
 
                         #  check if there are >1 transducer under a single transceiver channel
-                        if len(tcvr_ch.getchildren()) > 1:
+                        if len(list(tcvr_ch)) > 1:
                             ValueError('Found >1 transducer under a single transceiver channel!')
                         else:   # should only have 1 transducer
                             tcvr_ch_xducer = tcvr_ch.find('Transducer')  # get Element of this xducer
@@ -1001,7 +1001,7 @@ class SimradFILParser(_SimradDatagramParser):
             #  unpack the coefficients
             indx = self.header_size(version)
             block_size = data['n_coefficients'] * 8
-            data['coefficients'] = np.fromstring(raw_string[indx:indx + block_size], dtype='complex64')
+            data['coefficients'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='complex64')
 
         return data
 
@@ -1489,7 +1489,7 @@ class SimradRawParser(_SimradDatagramParser):
                 indx = self.header_size(version)
 
                 if int(data['mode']) & 0x1:
-                    data['power'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int16')
+                    data['power'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int16')
                     indx += block_size
                 else:
                     data['power'] = None
@@ -1518,13 +1518,13 @@ class SimradRawParser(_SimradDatagramParser):
                 indx = self.header_size(version)
 
                 if data['data_type'] & 0b1:
-                    data['power'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int16')
+                    data['power'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int16')
                     indx += block_size
                 else:
                     data['power'] = None
 
                 if data['data_type'] & 0b10:
-                    data['angle'] = np.fromstring(raw_string[indx:indx + block_size], dtype='int8')
+                    data['angle'] = np.frombuffer(raw_string[indx:indx + block_size], dtype='int8')
                     data['angle'] = data['angle'].reshape((-1, 2))
                     indx += block_size
                 else:
@@ -1546,7 +1546,7 @@ class SimradRawParser(_SimradDatagramParser):
                     #  determine the block size
                     block_size = data['count'] * data['n_complex'] * type_bytes
 
-                    data['complex'] = np.fromstring(raw_string[indx:indx + block_size], dtype=data['complex_dtype'])
+                    data['complex'] = np.frombuffer(raw_string[indx:indx + block_size], dtype=data['complex_dtype'])
                     data['complex'].dtype = np.complex64
                 else:
                     data['complex'] = None

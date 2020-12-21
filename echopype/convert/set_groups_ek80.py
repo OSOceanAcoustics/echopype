@@ -79,7 +79,7 @@ class SetGroupsEK80(SetGroupsBase):
         elif 'water_level_draft' in self.convert_obj.environment:
             water_level = self.convert_obj.environment['water_level_draft']
         else:
-            water_level = None
+            water_level = np.nan
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
@@ -342,11 +342,13 @@ class SetGroupsEK80(SetGroupsBase):
                     ds_f_start_end = xr.Dataset(
                         {
                             'frequency_start': (['ping_time'],
-                                                self.convert_obj.ping_data_dict['frequency_start'][ch],
+                                                np.array(self.convert_obj.ping_data_dict['frequency_start'][ch],
+                                                         dtype=int),
                                                 {'long_name': 'Starting frequency of the transducer',
                                                  'units': 'Hz'}),
                             'frequency_end': (['ping_time'],
-                                              self.convert_obj.ping_data_dict['frequency_end'][ch],
+                                              np.array(self.convert_obj.ping_data_dict['frequency_end'][ch],
+                                                       dtype=int),
                                               {'long_name': 'Ending frequency of the transducer',
                                                'units': 'Hz'}),
 

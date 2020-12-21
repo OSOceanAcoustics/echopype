@@ -325,7 +325,7 @@ class ParseAZFP(ParseBase):
                              self.unpacked_data['hour'][ping_num],
                              self.unpacked_data['minute'][ping_num],
                              int(self.unpacked_data['second'][ping_num] +
-                                 self.unpacked_data['hundredths'][ping_num] / 100)).replace(tzinfo=timezone.utc)))
+                                 self.unpacked_data['hundredths'][ping_num] / 100)).replace(tzinfo=None), '[ms]'))
         self.ping_time = ping_time
 
     @staticmethod

@@ -2,9 +2,7 @@
 echopype utilities for file handling
 """
 import os
-import functools
-import xarray as xr
-from collections import MutableMapping
+from collections.abc import MutableMapping
 
 
 # TODO: @ngkavin: if you are using this only for the process objects, this should not be here.
