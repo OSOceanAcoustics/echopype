@@ -22,12 +22,12 @@ class ProcessEK60(ProcessEK):
                                     save_format=save_format)
 
     def get_Sp(self, ed, env_params, cal_params=None, save=True, save_path=None, save_format='zarr'):
-        """Calibrate to get target strength (TS) from EK60 data.
+        """Calibrate to get point backscattering strength (Sp) from EK60 data.
         """
         return self._cal_narrowband(ed=ed,
                                     env_params=env_params,
                                     cal_params=cal_params,
-                                    cal_type='TS',
+                                    cal_type='Sp',
                                     save=save,
                                     save_path=save_path,
                                     save_format=save_format)
@@ -35,8 +35,8 @@ class ProcessEK60(ProcessEK):
     def calc_range(self, ed, env_params, cal_params):
         """Calculates range in meters.
         """
-        st = self.calc_sample_thickness(ed, env_params, cal_params)
-        range_meter = st * ed.raw.range_bin - \
-            self.tvg_correction_factor * st  # DataArray [frequency x range_bin]
+        sample_thickness = self.calc_sample_thickness(ed, env_params, cal_params)
+        range_meter = (ed.raw.range_bin
+                       - self.tvg_correction_factor - 1/2) * sample_thickness  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)
         return range_meter
