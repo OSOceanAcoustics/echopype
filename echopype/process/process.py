@@ -142,6 +142,8 @@ class Process:
                       'water_pressure', 'speed_of_sound_in_water', 'absorption']
 
         elif param_type == 'cal':
+            # TODO: @ngkavin: 'transmit_duration_nominal' and 'sample_interval'
+            #  are not a cal_param and should be read from data
             params = ['gain_correction', 'sample_interval',
                       'equivalent_beam_angle', 'transmit_duration_nominal']
             if self.sonar_model == 'AZFP':
@@ -172,11 +174,11 @@ class Process:
                 params['water_temperature'] = 8.0   # Default temperature in Celsius
                 # print("Initialize using default water temperature of 8 Celsius")
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            if 'speed_of_sound_in_water' not in params or 'absorption' not in params:
-                if 'speed_of_sound_in_water' not in params:
-                    params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
-                if 'absorption' not in params and self.sonar_model == 'EK60':
-                    params['absorption'] = ds_env.absorption_indicative
+            # TODO: @ngkavin: please double check that my deletion does not cause problems
+            if 'speed_of_sound_in_water' not in params:
+                params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
+            if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
+                params['seawater_absorption'] = ds_env.absorption_indicative
 
         self.env_params = params
 
@@ -189,9 +191,20 @@ class Process:
     # TODO: make parameters a list
     def init_cal_params(self, ed, params={}):
         valid_params = self.get_valid_params('cal')
-        for param in valid_params:
-            if param not in params:
+
+        # Parameters from the Beam group
+        param_from_ds_beam = ['gain_correction',
+                              'sample_interval',
+                              'equivalent_beam_angle',
+                              'transmit_duration_nominal',
+                              'transmit_power']
+        for param in param_from_ds_beam:
+            if param not in params and param in valid_params:
                 params[param] = ed.raw.get(param, None)
+
+        # Parameters that require additional computation
+        if 'sa_correction' in valid_params:
+            params['sa_correction'] = self.process_obj.calc_sa_correction(ed=ed)
 
         self.cal_params = params
 
@@ -337,7 +350,7 @@ class Process:
                 raise ValueError("Process parameters not initialized. Call init_proc_params() to initialize.")
 
     def get_Sv(self, ed, save=False, save_path=None, save_format='zarr'):
-        """Calibrates raw data
+        """Compute volume backscattering strength (Sv) from raw data.
 
         Parameters
         ----------
@@ -358,26 +371,26 @@ class Process:
         return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
-    def get_TS(self, ed, save=False, save_path=None, save_format='zarr'):
-        """Calibrates raw data
+    def get_Sp(self, ed, save=False, save_path=None, save_format='zarr'):
+        """Compute point backscattering strength (Sp) from raw data.
 
         Parameters
         ----------
         ed : EchoData
             EchoData object to operate on
-        save : bool
+        save :å bool
         save_format : str
 
         Returns
         -------
-        Dataset of target strength (TS)
+        Dataset point backscattering strength (Sp)
         """
         # Check to see if required calibration and environment parameters were initialized
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
         self._check_model_echodata_match(ed)
         print(f"{dt.now().strftime('%H:%M:%S')}  calibrating data in {ed.raw_path}")
-        return self.process_obj.get_TS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
+        return self.process_obj.get_Sp(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
     def get_MVBS(self, ed, save=False, save_format='zarr'):
@@ -392,7 +405,7 @@ class Process:
 
         Returns
         -------
-        Dataset Mean Volume Backscatter (MVBS)
+        Dataset Mean Volume Backscattering Strength (MVBS)
         """
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)
@@ -411,5 +424,5 @@ class Process:
         -------
         Dataset cleaned Sv (Sv_clean)
         """
-        return self.process_obj.remove_noise(ed=ed, env_params=self.env_params,
+        return self.process_obj.remove_noise(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                              proc_params=self.proc_params, save=save, save_format=save_format)

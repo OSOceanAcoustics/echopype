@@ -239,7 +239,7 @@ class ProcessEK80(ProcessEK):
         """
         self._choose_mode(ed)(ed, env_params, cal_params, 'Sv', save, save_path, save_format)
 
-    def get_TS(self, ed, env_params, cal_params,
+    def get_Sp(self, ed, env_params, cal_params,
                save=True, save_path=None, save_format='zarr'):
         """Calibrate to get target strength (TS) from EK80 data.
         """
