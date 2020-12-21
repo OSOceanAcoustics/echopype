@@ -139,7 +139,7 @@ class Process:
         """
         if param_type == 'env':
             params = ['water_salinity', 'water_temperature',
-                      'water_pressure', 'speed_of_sound_in_water', 'seawater_absorption']
+                      'water_pressure', 'speed_of_sound_in_water', 'absorption']
 
         elif param_type == 'cal':
             params = ['gain_correction', 'sample_interval',
@@ -167,22 +167,22 @@ class Process:
         ds_env = ed.get_env_from_raw()
         if 'water_temperature' not in params:
             if self.sonar_model == 'AZFP':
-                params['water_temperature'] = ds_env.temperature.mean('ping_time')
+                params['water_temperature'] = ds_env.temperature
             else:
                 params['water_temperature'] = 8.0   # Default temperature in Celsius
                 # print("Initialize using default water temperature of 8 Celsius")
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            if 'speed_of_sound_in_water' not in params or 'seawater_absorption' not in params:
+            if 'speed_of_sound_in_water' not in params or 'absorption' not in params:
                 if 'speed_of_sound_in_water' not in params:
                     params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
-                if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
-                    params['seawater_absorption'] = ds_env.absorption_indicative
+                if 'absorption' not in params and self.sonar_model == 'EK60':
+                    params['absorption'] = ds_env.absorption_indicative
 
         self.env_params = params
 
         # Recalculate sound speed and absorption coefficient when environment parameters are changed
         ss = True if 'speed_of_sound_in_water' not in self.env_params else False
-        sa = True if 'seawater_absorption' not in self.env_params else False
+        sa = True if 'absorption' not in self.env_params else False
         if ss or sa:
             self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
 
@@ -226,16 +226,18 @@ class Process:
         #                Method get_noise_estimates() would naturally be part of the remove_noise() operation.
         #
         # TODO this might not be the best way to initialize the values
+        # TODO make a dictionary of non none values. or https://docs.python.org/3/library/enum.html
         default_values = ['Sv', 'binned', 30,
                           None, None, 1000,
                           None, 30, 1000]
+        default_dictionary = {}
         for k, v in zip(self.get_valid_params('proc'), default_values):
             if k not in params:
                 params[k] = v
         self.proc_params = params
 
     def recalculate_environment(self, ed, src='user', ss=True, sa=True):
-        """Retrieves the speed of sound and seawater absorption
+        """Retrieves the speed of sound and absorption
 
         Parameters
         ----------
@@ -250,8 +252,8 @@ class Process:
                 self.process_obj.calc_sound_speed(ed, self.env_params, src, formula_source=formula_src)
         if sa:
             formula_src = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
-            self._env_params['seawater_absorption'] = \
-                self.process_obj.calc_seawater_absorption(ed, self.env_params, src, formula_source=formula_src)
+            self._env_params['absorption'] = \
+                self.process_obj.calc_absorption(ed, self.env_params, src, formula_source=formula_src)
 
     def _check_model_echodata_match(self, ed):
         """Check if sonar model corresponds with the type of data in EchoData object.
@@ -292,7 +294,7 @@ class Process:
 
         #  If not already specified by user, calculate sound speed and absorption
         self.env_params['speed_of_sound_in_water'] = self.process_obj.calc_sound_speed()
-        self.env_params['seawater_absorption'] = self.process_obj.calc_seawater_absorption()
+        self.env_params['absorption'] = self.process_obj.calc_absorption()
 
         # Calculate range
         self.process_obj.calc_range(ed)
