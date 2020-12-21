@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+import os
 import numpy as np
 import xarray as xr
 from ..utils import uwa
@@ -10,6 +11,38 @@ class ProcessBase:
     """
     def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
+
+    def validate_proc_path(ed, postfix, save_path=None):
+        """Creates a directory if it doesn't exist. Returns a valid save path.
+        """
+        # TODO: It might be better to merge this with convert validate_path
+        def _assemble_path():
+            file_in = os.path.basename(ed.raw_path[0])
+            file_name, file_ext = os.path.splitext(file_in)
+            return file_name + postfix + file_ext
+
+        if save_path is None:
+            save_dir = os.path.dirname(ed.raw_path[0])
+            file_out = _assemble_path()
+        else:
+            path_ext = os.path.splitext(save_path)[1]
+            # If given save_path is file, split into directory and file
+            if path_ext != '':
+                save_dir, file_out = os.path.split(save_path)
+                if save_dir == '':  # save_path is only a filename without directory
+                    save_dir = os.path.dirname(ed.raw_path)  # use directory from input file
+            # If given save_path is a directory, get a filename from input .nc file
+            else:
+                save_dir = save_path
+                file_out = _assemble_path()
+
+        # Create folder if not already exists
+        if save_dir == '':
+            save_dir = os.getcwd()
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+
+        return os.path.join(save_dir, file_out)
 
     def calc_sound_speed(self, ed, env_params=None, src='user', formula_source='Mackenzie'):
         """Base method for calculating sound speed.
@@ -68,33 +101,7 @@ class ProcessBase:
         # Issue warning when subclass methods not available
         print('Calibration has not been implemented for this sonar model!')
 
-    def _get_tile_params(self, ed, da, env_params, cal_params, proc_params):
-        # Get number of pings per tile
-        if 'time_interval' in proc_params['MVBS']:
-            print("Averaging by time interval is not yet implemented")
-            return
-        elif 'ping_num' in proc_params['MVBS']:
-            pings_per_tile = proc_params['MVBS']['ping_num']
-        else:
-            raise ValueError("No ping tile size provided")
-
-        # Get number of range_bins per tile
-        if 'distance_interval' in proc_params['MVBS']:
-            # TODO MVBS_distance_interval: can use .groupby().mean(),
-            # based on distance calculated by lat/lon from Platform group,
-            print("Averaging by distance interval is not yet implemented")
-            return
-        elif 'range_interval' in proc_params['MVBS']:
-            print("Averaging by range inteval is not yet implemented")
-            return
-        elif 'range_bin_num' in proc_params['MVBS']:
-            range_bins_per_tile = proc_params['MVBS']['range_bin_num']
-        else:
-            raise ValueError("No range_bin tile size provided")
-
-        return pings_per_tile, range_bins_per_tile
-
-    def get_MVBS(self, ed, env_params, cal_params, proc_params,
+    def get_MVBS(self, ed, env_params=None, cal_params=None, proc_params=None,
                  save=True, save_path=None, save_format='zarr'):
         """Calculate Mean Volume Backscattering Strength (MVBS).
 
@@ -133,20 +140,19 @@ class ProcessBase:
         else:
             raise ValueError("MVBS_source must be either Sv or Sv_clean")
 
-        pings_per_tile, range_bins_per_tile = self._get_tile_params(ed, Sv_linear, env_params,
-                                                                    cal_params, proc_params)
         if proc_params['MVBS']['type'] == 'binned':
             MVBS = Sv_linear.coarsen(
-                ping_time=pings_per_tile,
-                range_bin=range_bins_per_tile,
+                ping_time=proc_params['MVBS']['ping_num'],
+                range_bin=proc_params['MVBS']['range_bin_num'],
                 boundary='pad', keep_attrs=True).mean()
+            MVBS.coords['range_bin'] = ('range_bin', np.arange(MVBS['range_bin'].size))
         elif proc_params['MVBS']['type'] == 'rolling':
             # TODO: likely bad. Look into memory usage of rolling
             # Assuming file size 100 mb and RAM 4 gb. Limits the memory usage when rolling
-            if pings_per_tile * range_bins_per_tile > 40:
+            if proc_params['MVBS']['ping_num'] * proc_params['MVBS']['range_bin_num'] > 40:
                 Sv_linear = Sv_linear.load()
-            MVBS = Sv_linear.rolling(ping_time=pings_per_tile,
-                                     range_bin=range_bins_per_tile).mean(keep_attrs=True)
+            MVBS = Sv_linear.rolling(ping_time=proc_params['MVBS']['ping_num'],
+                                     range_bin=proc_params['MVBS']['range_bin_num']).mean(keep_attrs=True)
         else:
             raise ValueError("MVBS_type must be either binned or rolling")
         # Convert to log domain
@@ -157,7 +163,7 @@ class ProcessBase:
         if save:
             # Update pointer in EchoData
             MVBS_path = io.validate_proc_path(ed, '_MVBS', save_path)
-            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated TS to {MVBS_path}")
+            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated MVBS to {MVBS_path}")
             ed._save_dataset(MVBS, MVBS_path, mode="w", save_format=save_format)
             ed.MVBS_path = MVBS_path
         else:
@@ -229,6 +235,9 @@ class ProcessEK(ProcessBase):
         super().__init__(model)
 
     def calc_sa_correction(self, ed):
+        """ Calculate the sa correction from the sa correction table and the pulse length.
+        For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
+        """
         ds_vend = ed.get_vend_from_raw()
 
         if 'sa_correction' not in ds_vend:
@@ -299,7 +308,7 @@ class ProcessEK(ProcessBase):
             # Calc gain
             CSp = (10 * np.log10(cal_params['transmit_power'])
                    + 2 * cal_params['gain_correction']
-                   + 10 * np.log10(wavelength**2 / (16 * np.pi**2)) )
+                   + 10 * np.log10(wavelength**2 / (16 * np.pi**2)))
 
             # Calibration and echo integration
             Sp = ed.raw.backscatter_r + spreading_loss * 2 + absorption_loss - CSp
@@ -308,7 +317,7 @@ class ProcessEK(ProcessBase):
 
             # Attach calculated range into data set
             Sp['range'] = (('frequency', 'ping_time', 'range_bin'),
-                           ed.range.transpose('frequency','ping_time','range_bin'))
+                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
 
             # Save Sp into the calling instance and
             #  to a separate zarr/nc file in the same directory as the data file
