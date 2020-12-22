@@ -15,17 +15,22 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None):
     """Saves a dataset to netcdf or zarr depending on the engine
     If ``compression_settings`` are set, compress all variables with those settings"""
     encoding = {var: compression_settings for var in ds.data_vars} if compression_settings is not None else {}
-
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == 'netcdf4':
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding)
     elif engine == 'zarr':
         ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding)
+    else:
+        raise ValueError(f"{engine} is not a supported save format")
 
 
 def get_file_format(file):
     """Gets the file format (either Netcdf4 or Zarr) from the file extension"""
-    file = file.root if isinstance(file, MutableMapping) else file
+    if isinstance(file, list):
+        file = file[0]
+    elif isinstance(file, MutableMapping):
+        file = file.root
+
     if file.endswith('.nc'):
         return 'netcdf4'
     elif file.endswith('.zarr'):
