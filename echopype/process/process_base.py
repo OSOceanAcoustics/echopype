@@ -12,13 +12,19 @@ class ProcessBase:
     def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
 
-    def validate_proc_path(ed, postfix, save_path=None):
+    def validate_proc_path(self, ed, postfix, save_path=None, save_format='zarr'):
         """Creates a directory if it doesn't exist. Returns a valid save path.
         """
         # TODO: It might be better to merge this with convert validate_path
         def _assemble_path():
             file_in = os.path.basename(ed.raw_path[0])
-            file_name, file_ext = os.path.splitext(file_in)
+            file_name = os.path.splitext(file_in)[0]
+            if save_format == 'zarr':
+                file_ext = '.zarr'
+            elif save_format == 'netcdf4':
+                file_ext = '.nc'
+            else:
+                raise ValueError(f"Unsupported save format {save_format}")
             return file_name + postfix + file_ext
 
         if save_path is None:
@@ -162,14 +168,15 @@ class ProcessBase:
 
         if save:
             # Update pointer in EchoData
-            MVBS_path = io.validate_proc_path(ed, '_MVBS', save_path)
+            MVBS_path = self.validate_proc_path(ed, '_MVBS', save_path, save_format)
             print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated MVBS to {MVBS_path}")
-            ed._save_dataset(MVBS, MVBS_path, mode="w", save_format=save_format)
+            io.save_file(MVBS, MVBS_path, mode="w", engine=save_format)
             ed.MVBS_path = MVBS_path
         else:
             ed.MVBS = MVBS
 
-    def remove_noise(self, ed, env_params, cal_params, proc_params={}, save=True, save_format='zarr'):
+    def remove_noise(self, ed, env_params, cal_params, proc_params={},
+                     save=True, save_path=None, save_format='zarr'):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
@@ -209,9 +216,16 @@ class ProcessBase:
         Sv_corr['range'] = (('frequency', 'ping_time', 'range_bin'),
                             ed.range.transpose('frequency', 'ping_time', 'range_bin'))
 
-        # Save Sp into the calling instance and
+        # Save into the calling instance and
         #  to a separate zarr/nc file in the same directory as the data file
-        # TODO: @ngkavin: could you finish the file saving part of this?
+        if save:
+            # Update pointer in EchoData
+            Sv_clean_path = self.validate_proc_path(ed, '_Sv_clean', save_path, save_format)
+            print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv_clean to {Sv_clean_path}")
+            io.save_file(Sv_corr, Sv_clean_path, mode="w", engine=save_format)
+            ed.Sv_clean_path = Sv_clean_path
+        else:
+            ed.Sv_clean = Sv_corr
 
     def get_noise_estimates(self, ed, proc_params, save=True, save_format='zarr'):
         """Obtain noise estimates from the minimum mean calibrated power level along each column of tiles.
@@ -297,9 +311,9 @@ class ProcessEK(ProcessBase):
             #  to a separate zarr/nc file in the same directory as the data file
             if save:
                 # Update pointer in EchoData
-                Sv_path = io.validate_proc_path(ed, '_Sv', save_path)
+                Sv_path = self.validate_proc_path(ed, '_Sv', save_path, save_format)
                 print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv to {Sv_path}")
-                ed._save_dataset(Sv, Sv_path, mode="w", save_format=save_format)
+                io.save_file(Sv, Sv_path, mode="w", engine=save_format)
                 ed.Sv_path = Sv_path
             else:
                 ed.Sv = Sv
@@ -323,9 +337,9 @@ class ProcessEK(ProcessBase):
             #  to a separate zarr/nc file in the same directory as the data file
             if save:
                 # Update pointer in EchoData
-                Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
+                Sp_path = self.validate_proc_path(ed, '_Sp', save_path, save_format)
                 print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
-                ed._save_dataset(Sp, Sp_path, mode="w", save_format=save_format)
+                io.save_file(Sp, Sp_path, mode="w", engine=save_format)
                 ed.Sp_path = Sp_path
             else:
                 ed.Sp = Sp

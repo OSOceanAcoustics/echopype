@@ -77,9 +77,9 @@ class ProcessAZFP(ProcessBase):
         # to a separate .nc file in the same directory as the data
         if save:
             # Update pointer in EchoData
-            Sv_path = io.validate_proc_path(ed, '_Sv', save_path)
+            Sv_path = self.validate_proc_path(ed, '_Sv', save_path, save_format)
             print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv to {Sv_path}")
-            ed._save_dataset(Sv, Sv_path, mode="w", save_format=save_format)
+            io.save_file(Sv, Sv_path, mode="w", engine=save_format)
             ed.Sv_path = Sv_path
         else:
             # TODO Add to docs
@@ -108,9 +108,9 @@ class ProcessAZFP(ProcessBase):
 
         if save:
             # Update pointer in EchoData
-            Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
+            Sp_path = self.validate_proc_path(ed, '_Sp', save_path, save_format)
             print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
-            ed._save_dataset(Sp, Sp_path, mode="w", save_format=save_format)
+            io.save_file(Sp, Sp_path, mode="w", engine=save_format)
             ed.Sp_path = Sp_path
         else:
             ed.Sp = Sp
