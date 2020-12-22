@@ -12,6 +12,40 @@ from .process_ek60 import ProcessEK60
 from .process_ek80 import ProcessEK80
 
 
+class ParamDict(dict):
+    def __init__(self, valid_params, param_type, values={}):
+        self.valid_params = valid_params
+        self.param_type = param_type
+
+        self.update(values)
+
+    def __setitem__(self, key, value):
+        # Checks if keys are in the list of valid parameters before saving them
+
+        if self.param_type == 'process':
+            if key in self.valid_params:
+                if key not in self:
+                    # Initialize process parameters with empty list
+                    super().__setitem__(key, {})
+            else:
+                warnings.warn(f"{key} will be excluded from proc_params because it is not a valid process")
+                return
+            for param, val in value.items():
+                if param in self.valid_params[key]:
+                    super().__getitem__(key).__setitem__(param, val)
+                else:
+                    warnings.warn(f"{param} will be excluded because it is not a valid parameter of {key}")
+        else:
+            if key in self.valid_params:
+                super().update({key: value})
+            else:
+                warnings.warn(f"{key} will be excluded because it is not a valid {self.param_type} parameter")
+
+    def update(self, param_dict):
+        for k, v in param_dict.items():
+            self[k] = v
+
+
 class Process:
     """UI class for using process objects.
 
@@ -35,9 +69,9 @@ class Process:
         self.sonar_model = model   # type of echosounder
         self.process_obj = self.PROCESS_SONAR[model]   # process object to use
 
-        self._env_params = {}   # env parameters
-        self._cal_params = {}   # cal parameters, eg: equivalent beam width sa_correction for EK60
-        self._proc_params = {}  # proc parameters, eg: MVBS bin size
+        self._env_params = ParamDict(self.get_valid_params('env'), 'environment')
+        self._cal_params = ParamDict(self.get_valid_params('cal'), 'calibration')
+        self._proc_params = ParamDict(self.get_valid_params('proc'), 'process')
 
         if ed is not None:
             self.init_cal_params(ed)
@@ -97,48 +131,21 @@ class Process:
     def env_params(self):
         return self._env_params
 
-    @env_params.setter
-    def env_params(self, params):
-        self._env_params = self._check_valid_params(params, self._env_params, self.get_valid_params('env'))
-
     @property
     def cal_params(self):
         return self._cal_params
 
+    @env_params.setter
+    def env_params(self, params):
+        self._env_params = ParamDict(self.get_valid_params('env'), 'environment', params)
+
     @cal_params.setter
     def cal_params(self, params):
-        self._cal_params = self._check_valid_params(params, self._cal_params, self.get_valid_params('cal'))
+        self._cal_params = ParamDict(self.get_valid_params('cal'), 'calibration', params)
 
     @proc_params.setter
     def proc_params(self, params):
-        self._proc_params = self._check_valid_params(params, self._proc_params,
-                                                     self.get_valid_params('proc'), is_proc=True)
-
-    def _check_valid_params(self, params, current_params, valid_params, is_proc=False):
-        tmp_params = current_params.copy()
-        tmp_params.update(params)
-        # Removes invalid parameters
-        # Check proc parameters
-        msgs = []
-        if is_proc:
-            for process, param_dict in tmp_params.items():
-                if process in valid_params:
-                    current_params[process] = {k: v for k, v in param_dict.items() if k in valid_params[process]}
-                    if tmp_params[process] != current_params[process]:
-                        invalid = [k for k in params[process].keys() if k not in valid_params[process]]
-                        msgs.append(f"{invalid} will not be used because they are not valid parameters of '{process}'")
-                else:
-                    msgs.append(f"{process} will not be used because it is not a valid process.")
-        # Check cal and env parameters
-        else:
-            current_params = {k: v for k, v in tmp_params.items() if k in valid_params}
-            if tmp_params != current_params:
-                invalid = [k for k in params.keys() if k not in valid_params]
-                msgs.append(f"{invalid} will not be used because they are not valid parameters.")
-        if msgs:
-            for msg in msgs:
-                warnings.warn(msg)
-        return current_params
+        self._env_params = ParamDict(self.get_valid_params('proc'), 'process', params)
 
     def get_valid_params(self, param_type):
         """Provides the parameters that the users can set.
@@ -195,8 +202,8 @@ class Process:
             # TODO: @ngkavin: please double check that my deletion does not cause problems
             if 'speed_of_sound_in_water' not in params:
                 params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
-            if 'seawater_absorption' not in params and self.sonar_model == 'EK60':
-                params['seawater_absorption'] = ds_env.absorption_indicative
+            if 'absorption' not in params and self.sonar_model == 'EK60':
+                params['absorption'] = ds_env.absorption_indicative
 
         self.env_params = params
 
@@ -206,23 +213,18 @@ class Process:
         if ss or sa:
             self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
 
-    # TODO: make parameters a list
     def init_cal_params(self, ed, params={}):
         valid_params = self.get_valid_params('cal')
 
-        # Parameters from the Beam group
-        param_from_ds_beam = ['gain_correction',
-                              'sample_interval',
-                              'equivalent_beam_angle',
-                              'transmit_duration_nominal',
-                              'transmit_power']
-        for param in param_from_ds_beam:
-            if param not in params and param in valid_params:
-                params[param] = ed.raw.get(param, None)
-
         # Parameters that require additional computation
+        # For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
         if 'sa_correction' in valid_params:
             params['sa_correction'] = self.process_obj.calc_sa_correction(ed=ed)
+            valid_params.remove('sa_correction')
+
+        for param in valid_params:
+            if param not in params:
+                params[param] = ed.raw.get(param, None)
 
         self.cal_params = params
 
@@ -258,6 +260,7 @@ class Process:
         #
         default_dictionary = {'source': 'Sv',
                               'type': 'binned',
+                              'SNR': 0,
                               'ping_num': 10,
                               'range_bin_num': 100}
         for proccess, param_list in self.get_valid_params('proc').items():
@@ -267,9 +270,7 @@ class Process:
                 if param not in params and param in default_dictionary:
                     params[proccess][param] = default_dictionary[param]
 
-        if 'SNR' not in params['noise_est']:
-            params['noise_est']['SNR'] = 0
-        self.proc_params = params
+        self.proc_params.update(params)
 
     def recalculate_environment(self, ed, src='user', ss=True, sa=True):
         """Retrieves the speed of sound and absorption
@@ -283,11 +284,11 @@ class Process:
         """
         if ss:
             formula_src = 'AZFP' if self.sonar_model == 'AZFP' else 'Mackenzie'
-            self._env_params['speed_of_sound_in_water'] = \
+            self.env_params['speed_of_sound_in_water'] = \
                 self.process_obj.calc_sound_speed(ed, self.env_params, src, formula_source=formula_src)
         if sa:
             formula_src = 'AZFP' if self.sonar_model == 'AZFP' else 'FG'
-            self._env_params['absorption'] = \
+            self.env_params['absorption'] = \
                 self.process_obj.calc_absorption(ed, self.env_params, src, formula_source=formula_src)
 
     def _check_model_echodata_match(self, ed):
@@ -347,6 +348,7 @@ class Process:
             EchoData object to operate on
         save : bool
         save_format : str
+            either 'zarr' or 'netcdf4'
         """
 
         # Perform calibration
@@ -380,6 +382,7 @@ class Process:
             EchoData object to operate on
         save : bool
         save_format : str
+            either 'zarr' or 'netcdf4'
 
         Returns
         -------
@@ -400,8 +403,9 @@ class Process:
         ----------
         ed : EchoData
             EchoData object to operate on
-        save :å bool
+        save : bool
         save_format : str
+            either 'zarr' or 'netcdf4'
 
         Returns
         -------
@@ -424,11 +428,18 @@ class Process:
             EchoData object to operate on
         save : bool
         save_format : str
+            either 'zarr' or 'netcdf4'
 
         Returns
         -------
         Dataset Mean Volume Backscattering Strength (MVBS)
         """
+        # TODO: Change to checking env and cal as well when additional ways of averaging are implemented
+        if ed.Sv is None and ed.Sv_clean is None:
+            raise ValueError("Data has not been calibrated. "
+                             "Call `Process.calibrate(EchoData)` to calibrate.")
+        self._check_initialized(['proc'])
+        self._check_model_echodata_match(ed)
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)
 
@@ -441,10 +452,16 @@ class Process:
             EchoData object to operate on
         save : bool
         save_format : str
+            either 'zarr' or 'netcdf4'
 
         Returns
         -------
         Dataset cleaned Sv (Sv_clean)
         """
+        if ed.Sv is None:
+            raise ValueError("Data has not been calibrated. "
+                             "Call `Process.calibrate(EchoData)` to calibrate.")
+        self._check_initialized(['env', 'cal', 'proc'])
+        self._check_model_echodata_match(ed)
         return self.process_obj.remove_noise(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                              proc_params=self.proc_params, save=save, save_format=save_format)
