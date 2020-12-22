@@ -35,56 +35,27 @@ class ParseAZFP(ParseBase):
 
         # TODO: consider writing a ParamAZFPxml class for storing parameters
         px = xml.dom.minidom.parse(self.xml_path)
-        self.parameters['num_freq'] = int(get_value_by_tag_name('NumFreq'))
-        self.parameters['serial_number'] = int(get_value_by_tag_name('SerialNumber'))
-        self.parameters['burst_interval'] = float(get_value_by_tag_name('BurstInterval'))
-        self.parameters['pings_per_burst'] = int(get_value_by_tag_name('PingsPerBurst'))
-        self.parameters['average_burst_pings'] = int(get_value_by_tag_name('AverageBurstPings'))
+        int_params = {'NumFreq': 'num_freq', 'SerialNumber': 'serial_number',
+                      'BurstInterval': 'burst_interval',
+                      'PingsPerBurst': 'pings_per_burst', 'AverageBurstPings': 'average_burst_pings',
+                      'SensorsFlag': 'sensors_flag'}
+        float_params = ['ka', 'kb', 'kc', 'A', 'B', 'C',                            # Temperature coeffs
+                        'X_a', 'X_b', 'X_c', 'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d']     # Tilt coeffs]
+        freq_params = {'RangeSamples': 'range_samples', 'RangeAveragingSamples': 'range_averaging_samples',
+                       'DigRate': 'dig_rate', 'LockOutIndex': 'lockout_index',
+                       'Gain': 'gain', 'PulseLen': 'pulse_length', 'DS': 'DS',
+                       'EL': 'EL', 'TVR': 'TVR', 'VTX0': 'VTX', 'BP': 'BP'}
 
-        # Temperature coeff
-        self.parameters['ka'] = float(get_value_by_tag_name('ka'))
-        self.parameters['kb'] = float(get_value_by_tag_name('kb'))
-        self.parameters['kc'] = float(get_value_by_tag_name('kc'))
-        self.parameters['A'] = float(get_value_by_tag_name('A'))
-        self.parameters['B'] = float(get_value_by_tag_name('B'))
-        self.parameters['C'] = float(get_value_by_tag_name('C'))
-
-        # tilts
-        self.parameters['X_a'] = float(get_value_by_tag_name('X_a'))
-        self.parameters['X_b'] = float(get_value_by_tag_name('X_b'))
-        self.parameters['X_c'] = float(get_value_by_tag_name('X_c'))
-        self.parameters['X_d'] = float(get_value_by_tag_name('X_d'))
-        self.parameters['Y_a'] = float(get_value_by_tag_name('Y_a'))
-        self.parameters['Y_b'] = float(get_value_by_tag_name('Y_b'))
-        self.parameters['Y_c'] = float(get_value_by_tag_name('Y_c'))
-        self.parameters['Y_d'] = float(get_value_by_tag_name('Y_d'))
-
-        # Initializing fields for each transducer frequency
-        self.parameters['dig_rate'] = []
-        self.parameters['lock_out_index'] = []
-        self.parameters['gain'] = []
-        self.parameters['pulse_length'] = []
-        self.parameters['DS'] = []
-        self.parameters['EL'] = []
-        self.parameters['TVR'] = []
-        self.parameters['VTX'] = []
-        self.parameters['BP'] = []
-        self.parameters['range_samples'] = []
-        self.parameters['range_averaging_samples'] = []
-        # Get parameters for each transducer frequency
-        for ch in range(self.parameters['num_freq']):
-            self.parameters['range_samples'].append(int(get_value_by_tag_name('RangeSamples', ch)))
-            self.parameters['range_averaging_samples'].append(int(get_value_by_tag_name('RangeAveragingSamples', ch)))
-            self.parameters['dig_rate'].append(float(get_value_by_tag_name('DigRate', ch)))
-            self.parameters['lock_out_index'].append(float(get_value_by_tag_name('LockOutIndex', ch)))
-            self.parameters['gain'].append(float(get_value_by_tag_name('Gain', ch)))
-            self.parameters['pulse_length'].append(float(get_value_by_tag_name('PulseLen', ch)))
-            self.parameters['DS'].append(float(get_value_by_tag_name('DS', ch)))
-            self.parameters['EL'].append(float(get_value_by_tag_name('EL', ch)))
-            self.parameters['TVR'].append(float(get_value_by_tag_name('TVR', ch)))
-            self.parameters['VTX'].append(float(get_value_by_tag_name('VTX0', ch)))
-            self.parameters['BP'].append(float(get_value_by_tag_name('BP', ch)))
-        self.parameters['sensors_flag'] = float(get_value_by_tag_name('SensorsFlag'))
+        # Retreive integer parameters from the xml file
+        for old_name, new_name in int_params.items():
+            self.parameters[new_name] = int(get_value_by_tag_name(old_name))
+        # Retreive floating point parameters from the xml file
+        for param in float_params:
+            self.parameters[param] = float(get_value_by_tag_name(param))
+        # Retrieve frequency dependent parameters from the xml file
+        for old_name, new_name in freq_params.items():
+            self.parameters[new_name] = [float(get_value_by_tag_name(old_name, ch)) for
+                                         ch in range(self.parameters['num_freq'])]
 
     def parse_raw(self):
         """Parse raw data file from AZFP echosounder.
