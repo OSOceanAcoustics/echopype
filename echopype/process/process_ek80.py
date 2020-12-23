@@ -196,7 +196,7 @@ class ProcessEK80(ProcessEK):
         if cal_type == 'Sv':
             Sv.name = 'Sv'
             Sv = Sv.to_dataset()
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ranges)
+            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed, ranges))
             if save:
                 # Update pointer in EchoData
                 Sv_path = io.validate_proc_path(ed, '_Sv', save_path, save_format)
@@ -209,7 +209,7 @@ class ProcessEK80(ProcessEK):
         elif cal_type == 'Sp':
             Sp.name = 'Sp'
             Sp = Sp.to_dataset()
-            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), ranges)
+            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed, ranges))
             if save:
                 # Update pointer in EchoData
                 Sp_path = io.validate_proc_path(ed, '_Sp', save_path, save_format)

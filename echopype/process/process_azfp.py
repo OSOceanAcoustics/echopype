@@ -66,12 +66,7 @@ class ProcessAZFP(ProcessBase):
         Sv = Sv.to_dataset()
 
         # Attached calculated range to the dataset
-        if ed.range.ndim == 2:
-            # Range does not have a ping time dimension when the temperature is a single value
-            Sv['range'] = (('frequency', 'range_bin'), ed.range.transpose('frequency', 'range_bin'))
-        else:
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'),
-                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+        Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
         # Save calibrated data into the calling instance and
         # to a separate .nc file in the same directory as the data
@@ -100,11 +95,7 @@ class ProcessAZFP(ProcessBase):
         Sp = Sp.to_dataset()
 
         # Attached calculated range to the dataset
-        if ed.range.ndim == 2:
-            Sp['range'] = (('frequency', 'range_bin'), ed.range.transpose('frequency', 'range_bin'))
-        else:
-            Sp['range'] = (('frequency', 'ping_time', 'range_bin'),
-                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+        Sp['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
         if save:
             # Update pointer in EchoData

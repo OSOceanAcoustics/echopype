@@ -95,6 +95,19 @@ class ProcessBase:
         ed : EchoDataBase
         """
 
+    def _restructure_range(self, ed, ranges=None):
+        """Expands the range to include a ping_time dimension if it does not have one. (Uses first raw ping_time)
+        Reorders dimensions so that ranges has dimensions [frequency x ping_time x range_bin]
+        """
+        if ranges is None:
+            ranges = ed.range
+
+        if ranges.ndim == 2:
+            tmp_ranges = np.full_like(ed.raw.backscatter_r, np.nan, dtype=np.float32)
+            tmp_ranges[:, 0, :] = ranges.transpose('frequency', 'range_bin')
+            ranges = xr.DataArray(tmp_ranges, coords=ed.raw.coords)
+        return ranges.transpose('frequency', 'ping_time', 'range_bin')
+
     def get_Sv(self, ed, env_params, cal_params, save=True, save_format='zarr'):
         """Base method to be overridden for calculating Sv from raw backscatter data.
         """
@@ -213,8 +226,7 @@ class ProcessBase:
         Sv_corr = Sv_corr.to_dataset()
 
         # Attach calculated range into data set
-        Sv_corr['range'] = (('frequency', 'ping_time', 'range_bin'),
-                            ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+        Sv_corr['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
         # Save into the calling instance and
         #  to a separate zarr/nc file in the same directory as the data file
@@ -304,8 +316,7 @@ class ProcessEK(ProcessBase):
             Sv = Sv.to_dataset()
 
             # Attach calculated range into data set
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'),
-                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
             # Save Sv into the calling instance and
             #  to a separate zarr/nc file in the same directory as the data file
@@ -330,8 +341,7 @@ class ProcessEK(ProcessBase):
             Sp = Sp.to_dataset()
 
             # Attach calculated range into data set
-            Sp['range'] = (('frequency', 'ping_time', 'range_bin'),
-                           ed.range.transpose('frequency', 'ping_time', 'range_bin'))
+            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
             # Save Sp into the calling instance and
             #  to a separate zarr/nc file in the same directory as the data file
