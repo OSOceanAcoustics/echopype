@@ -7,9 +7,12 @@ Some operations are instrument-agnostic, such as obtaining MVBS or detecting bot
 """
 import warnings
 from datetime import datetime as dt
+import xarray as xr
+from ..utils import io
 from .process_azfp import ProcessAZFP
 from .process_ek60 import ProcessEK60
 from .process_ek80 import ProcessEK80
+from .echodata import EchoData
 
 
 class ParamDict(dict):
@@ -28,18 +31,21 @@ class ParamDict(dict):
                     # Initialize process parameters with empty list
                     super().__setitem__(key, {})
             else:
-                warnings.warn(f"{key} will be excluded from proc_params because it is not a valid process")
+                warnings.warn(f"{key} will be excluded from proc_params because it is not a valid process",
+                              stacklevel=2)
                 return
             for param, val in value.items():
                 if param in self.valid_params[key]:
                     super().__getitem__(key).__setitem__(param, val)
                 else:
-                    warnings.warn(f"{param} will be excluded because it is not a valid parameter of {key}")
+                    warnings.warn(f"{param} will be excluded because it is not a valid parameter of {key}",
+                                  stacklevel=2)
         else:
             if key in self.valid_params:
                 super().update({key: value})
             else:
-                warnings.warn(f"{key} will be excluded because it is not a valid {self.param_type} parameter")
+                warnings.warn(f"{key} will be excluded because it is not a valid {self.param_type} parameter",
+                              stacklevel=2)
 
     def update(self, param_dict):
         for k, v in param_dict.items():
@@ -66,6 +72,18 @@ class Process:
     }
 
     def __init__(self, model=None, ed=None):
+        # TODO: Used for backwards compatibility. Delete in future versions
+        if model.lower().endswith('.nc') or model.lower().endswith('.zarr'):
+            io._print_deprecation_warning("`Process` has changed. See docs for information on how to use "
+                                          "the new `Process` class. The old workflow will be removed "
+                                          "in a future version.")
+            raw = model
+            self._temp_ed = EchoData(raw)
+            engine = 'netcdf4' if model.lower().endswith('.nc') else 'zarr'
+            with xr.open_dataset(model, engine=engine) as ds_top:
+                model = ds_top.keywords
+            ed = self._temp_ed
+
         self.sonar_model = model   # type of echosounder
         self.process_obj = self.PROCESS_SONAR[model]   # process object to use
 
@@ -77,6 +95,48 @@ class Process:
             self.init_env_params(ed)
             self.init_cal_params(ed)
             self.init_proc_params()
+
+    # ---------------------------------------
+    # TODO: Accessing Sv/TS/MVBS/Sv_clean from process is for backwards compatibility and
+    # will be replaced with EchoData
+    @property
+    def Sv(self):
+        return self._temp_ed.Sv
+
+    @property
+    def TS(self):
+        io._print_deprecation_warning("TS has been renamed to Sp and so is deprecated.")
+        return self._temp_ed.Sp
+
+    @property
+    def Sv_clean(self):
+        return self._temp_ed.Sv_clean
+
+    @property
+    def MVBS(self):
+        return self._temp_ed.MVBS
+
+    @property
+    def Sv_path(self):
+        self._temp_ed.close()
+        return self._temp_ed.Sv_path
+
+    @property
+    def TS_path(self):
+        self._temp_ed.close()
+        io._print_deprecation_warning("TS has been renamed to Sp and so is deprecated.")
+        return self._temp_ed.Sp_path
+
+    @property
+    def Sv_clean_path(self):
+        self._temp_ed.close()
+        return self._temp_ed.Sv_clean_path
+
+    @property
+    def MVBS_path(self):
+        self._temp_ed.close()
+        return self._temp_ed.MVBS_path
+    # -----------------------------------------
 
     @property
     def proc_params(self):
@@ -201,9 +261,12 @@ class Process:
                 params['water_temperature'] = 8.0   # Default temperature in Celsius
                 # print("Initialize using default water temperature of 8 Celsius")
         if self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            # TODO: @ngkavin: please double check that my deletion does not cause problems
             if 'speed_of_sound_in_water' not in params:
                 params['speed_of_sound_in_water'] = ds_env.sound_speed_indicative
+                # Reindex arrays where environment ping_time does not match beam group ping_time
+                if len(params['speed_of_sound_in_water'].ping_time) != len(ed.raw.ping_time):
+                    params['speed_of_sound_in_water'] = \
+                        params['speed_of_sound_in_water'].reindex({'ping_time': ed.raw.ping_time}, method='ffill')
             if 'absorption' not in params and self.sonar_model == 'EK60':
                 params['absorption'] = ds_env.absorption_indicative
 
@@ -223,8 +286,11 @@ class Process:
         # Parameters that require additional computation
         # For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
         if 'sa_correction' in valid_params:
-            params['sa_correction'] = self.process_obj.calc_sa_correction(ed=ed)
+            params['sa_correction'] = self.process_obj.calc_cal_correction(ed=ed, param='sa_correction')
             valid_params.remove('sa_correction')
+        if 'gain_correction' in valid_params and 'gain_correction' not in ed.raw:
+            params['gain_correction'] = self.process_obj.calc_cal_correction(ed=ed, param='gain_correction')
+            valid_params.remove('gain_correction')
 
         for param in valid_params:
             if param not in params:
@@ -346,7 +412,7 @@ class Process:
         # Users then have the option to use ed.Sv.zarr() or other xarray function
         # to explore the data.
 
-    def calibrate(self, ed, save=True, save_path=None, save_format='zarr'):
+    def calibrate(self, ed=None, save=True, save_path=None, save_format='zarr'):
         """Calibrate raw data.
 
         Parameters
@@ -357,10 +423,34 @@ class Process:
         save_format : str
             either 'zarr' or 'netcdf4'
         """
-
+        # TODO: ed temporarily not required for backwards compatibility
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+                save_format = 'netcdf4'
+            else:
+                raise TypeError("`get_Sv` missing required EchoData object")
         # Perform calibration
         #  this operation should make an xarray Dataset in ed.Sv
         self.get_Sv(
+            ed,
+            save=save,
+            save_path=save_path,
+            save_format=save_format
+        )
+
+    # TODO: calibratie_TS added for backwards compatibility and will be deleted in the future
+    def calibrate_TS(self, ed=None, save=True, save_path=None, save_format='zarr'):
+        """Calibrate raw data.
+        """
+        io._print_deprecation_warning("`calibrate_TS` is deprecated. Use `get_Sp` instead.")
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+                save_format = 'netcdf4'
+            else:
+                raise TypeError("`get_Sp` missing required EchoData object")
+        self.get_Sp(
             ed,
             save=save,
             save_path=save_path,
@@ -380,7 +470,7 @@ class Process:
             if not self.proc_params:
                 raise ValueError("Process parameters not initialized. Call init_proc_params() to initialize.")
 
-    def get_Sv(self, ed, save=False, save_path=None, save_format='zarr'):
+    def get_Sv(self, ed=None, save=False, save_path=None, save_format='zarr'):
         """Compute volume backscattering strength (Sv) from raw data.
 
         Parameters
@@ -395,6 +485,13 @@ class Process:
         -------
         Dataset of volume backscatter (Sv)
         """
+        # TODO: ed temporarily not required for backwards compatibility
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+            else:
+                raise TypeError("`get_Sp` missing required EchoData object")
+
         # Check to see if required calibration and environment parameters were initialized
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
@@ -418,6 +515,13 @@ class Process:
         -------
         Dataset point backscattering strength (Sp)
         """
+        # TODO: ed temporarily not required for backwards compatibility
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+            else:
+                raise TypeError("`get_Sp` missing required EchoData object")
+
         # Check to see if required calibration and environment parameters were initialized
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
@@ -426,7 +530,7 @@ class Process:
         return self.process_obj.get_Sp(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
 
-    def get_MVBS(self, ed, save=False, save_format='zarr'):
+    def get_MVBS(self, ed=None, save=False, save_format='zarr'):
         """Averages tiles in Sv
 
         Parameters
@@ -441,6 +545,13 @@ class Process:
         -------
         Dataset Mean Volume Backscattering Strength (MVBS)
         """
+        # TODO: ed temporarily not required for backwards compatibility
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+            else:
+                raise TypeError("`get_MVBS` missing required EchoData object")
+
         # TODO: Change to checking env and cal as well when additional ways of averaging are implemented
         if ed.Sv is None and ed.Sv_clean is None:
             raise ValueError("Data has not been calibrated. "
@@ -450,7 +561,7 @@ class Process:
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)
 
-    def remove_noise(self, ed, save=False, save_format='zarr'):
+    def remove_noise(self, ed=None, save=False, save_format='zarr'):
         """Removes noise from Sv data
 
         Parameters
@@ -465,6 +576,12 @@ class Process:
         -------
         Dataset cleaned Sv (Sv_clean)
         """
+        # TODO: ed temporarily not required for backwards compatibility
+        if ed is None:
+            if hasattr(self, '_temp_ed'):
+                ed = self._temp_ed
+            else:
+                raise TypeError("`remove_noise` missing required EchoData object")
         if ed.Sv is None:
             raise ValueError("Data has not been calibrated. "
                              "Call `Process.calibrate(EchoData)` to calibrate.")

@@ -7,7 +7,7 @@ The current version supports:
 - Simrad EK80 echosounder ``.raw`` data
 - ASL Environmental Sciences AZFP echosounder ``.01A`` data
 """
-from .convert import Convert
+from .convert import Convert, ConvertEK80       # TODO remove ConvertEK80 in later version
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
 from .parse_azfp import ParseAZFP
