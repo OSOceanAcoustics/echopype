@@ -9,6 +9,10 @@ Contains low-level functions called by ./ek_raw_parsers.py
 from io import BufferedReader, FileIO, SEEK_SET, SEEK_CUR, SEEK_END
 import struct
 import logging
+
+import fsspec
+from fsspec.implementations.local import LocalFileSystem
+
 from . import ek_raw_parsers as parsers
 
 __all__ = ['RawSimradFile']
@@ -81,16 +85,22 @@ class RawSimradFile(BufferedReader):
                       }
 
 
-    def __init__(self, name, mode='rb', closefd=True, return_raw=False, buffer_size=1024*1024):
+    def __init__(self, name, mode='rb', closefd=True, 
+                 return_raw=False, buffer_size=1024*1024,
+                 storage_options={}):
 
         #  9-28-18 RHT: Changed RawSimradFile to implement BufferedReader instead of
         #  io.FileIO to increase performance.
 
         #  create a raw file object for the buffered reader
-        fio = FileIO(name, mode=mode, closefd=closefd)
+        fmap = fsspec.get_mapper(name, **storage_options)
+        if isinstance(fmap, LocalFileSystem):
+            fio = FileIO(name, mode=mode, closefd=closefd)
+        else:
+            fio = fmap.fs.open(fmap.root)
 
         #  initialize the superclass
-        BufferedReader.__init__(self, fio, buffer_size=buffer_size)
+        super().__init__(fio, buffer_size=buffer_size)
         self._current_dgram_offset = 0
         self._total_dgram_count = None
         self._return_raw = return_raw
@@ -106,7 +116,7 @@ class RawSimradFile(BufferedReader):
         Seeks a file by bytes instead of datagrams.
         '''
 
-        BufferedReader.seek(self, bytes_, whence)
+        super().seek(bytes_, whence)
 
 
     def _tell_bytes(self):
@@ -114,7 +124,7 @@ class RawSimradFile(BufferedReader):
         Returns the file pointer position in bytes.
         '''
 
-        return BufferedReader.tell(self)
+        return super().tell()
 
 
     def _read_dgram_size(self):
@@ -213,7 +223,7 @@ class RawSimradFile(BufferedReader):
         Reads raw bytes from the file
         '''
 
-        return BufferedReader.read(self, k)
+        return super().read(k)
 
 
     def _read_next_dgram(self):
