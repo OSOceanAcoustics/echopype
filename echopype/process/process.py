@@ -558,6 +558,7 @@ class Process:
                              "Call `Process.calibrate(EchoData)` to calibrate.")
         self._check_initialized(['proc'])
         self._check_model_echodata_match(ed)
+        print(f"{dt.now().strftime('%H:%M:%S')}  calculating MVBS for {self.proc_params['MVBS']['source']}")
         return self.process_obj.get_MVBS(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                          proc_params=self.proc_params, save=save, save_format=save_format)
 
@@ -587,5 +588,6 @@ class Process:
                              "Call `Process.calibrate(EchoData)` to calibrate.")
         self._check_initialized(['env', 'cal', 'proc'])
         self._check_model_echodata_match(ed)
+        print(f"{dt.now().strftime('%H:%M:%S')}  removing noise in Sv")
         return self.process_obj.remove_noise(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                              proc_params=self.proc_params, save=save, save_format=save_format)
