@@ -392,7 +392,7 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.Dataset(
             {
                 'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
-                'gain': (['frequency', 'pulse_length_bin'], gain),
+                'gain_correction': (['frequency', 'pulse_length_bin'], gain),
                 'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)
             },
             coords={

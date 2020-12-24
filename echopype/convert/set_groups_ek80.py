@@ -49,8 +49,9 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Environment group.
         """
         # Select the first available ping_time
-        ping_time = [(list(self.convert_obj.ping_time.values())[0][0] - np.datetime64('1900-01-01T00:00:00')) /
-                     np.timedelta64(1, 's')]
+        ping_time = np.array([(list(self.convert_obj.ping_time.values())[0][0].astype('datetime64[ns]') -
+                               np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')])
+
         # Collect variables
         ds = xr.Dataset({'temperature': (['ping_time'], [self.convert_obj.environment['temperature']]),
                          'depth': (['ping_time'], [self.convert_obj.environment['depth']]),
@@ -64,6 +65,9 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})})
+        # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+        #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+        #                                      ds.ping_time.attrs)})
 
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
@@ -475,14 +479,14 @@ class SetGroupsEK80(SetGroupsBase):
                 for i, ch in enumerate(cal_ch_ids):
                     indices = np.searchsorted(freq_coord, frequency[i])
                     param_val[i][indices] = config[ch]['calibration'][param]
-                param_dict[param] = (['channel', 'frequency'], param_val)
+                param_dict[param] = (['channel', 'frequency_spectrum'], param_val)
 
             ds = xr.Dataset(
                 data_vars=param_dict,
                 coords={
                     'channel': (['channel'], full_ch_names),
-                    'frequency': (['frequency'], freq_coord,
-                                  {'long_name': 'Transducer frequency', 'units': 'Hz'})
+                    'frequency': (['frequency_spectrum'], freq_coord,
+                                  {'long_name': 'Broadband frequency spectrum', 'units': 'Hz'})
                 })
         if not bb:
             # Save pulse length and sa correction
@@ -492,7 +496,7 @@ class SetGroupsEK80(SetGroupsBase):
             gain = [config[ch]['gain'] for ch in ch_ids]
             ds_pulse_length = xr.Dataset({
                 'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
-                'gain': (['frequency', 'pulse_length_bin'], gain),
+                'gain_correction': (['frequency', 'pulse_length_bin'], gain),
                 'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)},
                 coords={
                     'frequency': (['frequency'], freq,
