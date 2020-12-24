@@ -6,6 +6,7 @@ from datetime import timezone
 import math
 import numpy as np
 import os
+import fsspec
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = '\\w+.01A'
@@ -14,8 +15,8 @@ FILENAME_DATETIME_AZFP = '\\w+.01A'
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder.
     """
-    def __init__(self, file, params):
-        super().__init__(file)
+    def __init__(self, file, params, storage_options={}):
+        super().__init__(file, storage_options)
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_AZFP  # regex pattern used to grab datetime embedded in filename
         self.xml_path = params
@@ -32,9 +33,11 @@ class ParseAZFP(ParseBase):
         def get_value_by_tag_name(tag_name, element=0):
             """Returns the value in an XML tag given the tag name and the number of occurrences."""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
-
         # TODO: consider writing a ParamAZFPxml class for storing parameters
-        px = xml.dom.minidom.parse(self.xml_path)
+
+        xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
+        px = xml.dom.minidom.parse(xmlmap.fs.open(xmlmap.root))
+
         int_params = {'NumFreq': 'num_freq', 'SerialNumber': 'serial_number',
                       'BurstInterval': 'burst_interval',
                       'PingsPerBurst': 'pings_per_burst', 'AverageBurstPings': 'average_burst_pings',
@@ -88,8 +91,9 @@ class ParseAZFP(ParseBase):
 
         # Read xml file into dict
         self.load_AZFP_xml()
+        fmap = fsspec.get_mapper(self.source_file, **self.storage_options)
 
-        with open(self.source_file, 'rb') as file:
+        with fmap.fs.open(fmap.root, 'rb') as file:
             ping_num = 0
             eof = False
             while not eof:
