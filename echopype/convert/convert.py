@@ -69,6 +69,9 @@ class Convert:
             model = 'AZFP'
             io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
                                           "Specifying `model='AZFP'` and `xml_path` will be required in the future")
+        # Initialize old path names (replaced by output_path). Only filled if raw2nc/raw2zarr is called
+        self._zarr_path = None
+        self._nc_path = None
 
         # Attributes
         self.sonar_model = None     # type of echosounder
@@ -724,12 +727,14 @@ class Convert:
     @property
     def nc_path(self):
         io._print_deprecation_warning('`nc_path` is deprecated, Use `output_path` instead.')
-        return self._nc_path
+        path = self._nc_path if self._nc_path is not None else self.output_path
+        return path
 
     @property
     def zarr_path(self):
         io._print_deprecation_warning('`zarr_path` is deprecated, Use `output_path` instead.')
-        return self._zarr_path
+        path = self._zarr_path if self._zarr_path is not None else self.output_path
+        return path
 
     # TODO: Used for backwards compatibility. Delete in future versions
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
