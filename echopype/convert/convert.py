@@ -339,7 +339,7 @@ class Convert:
             # Combine Platform
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
             if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Platform', combine='by_coords',
+                with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
                                        compat='identical', engine=engine) as ds_plat:
                     io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
             elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
@@ -360,17 +360,10 @@ class Convert:
                         io.save_file(ds_nmea.chunk({'location_time': 100}).astype('str'),
                                      path=output_path, mode='a', engine=engine, group='Platform/NMEA')
 
-            # Combine sonar model-specific
-            if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_vend:
-                    io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
-            elif self.sonar_model in ['EK80', 'EA640']:
-                # EK60 does not have the "vendor specific" group
-                with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                       concat_dim='location_time', compat='no_conflicts',
-                                       data_vars='minimal', engine=engine) as ds_vend:
-                    io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
+            # Combine sonar-model specific
+            with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
+                                   compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
+                io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
 
         except xr.MergeError as e:
             var = str(e).split("'")[1]
@@ -554,6 +547,7 @@ class Convert:
             if engine == "netcdf4":
                 # https://github.com/Unidata/netcdf4-python/issues/65
                 # Copy groups over to temporary file
+                # TODO: Add in documentation: recommended to use Zarr if using add_platform
                 new_dataset_filename = f + ".temp"
                 groups = ['Provenance', 'Environment', 'Beam', 'Sonar', 'Vendor']
                 with xr.open_dataset(f) as ds_top:
