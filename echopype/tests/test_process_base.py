@@ -91,7 +91,7 @@ def test_remove_noise():
     pb.remove_noise(ed, env_params, cal_params, proc_params=proc_params)
     null = ed.Sv_clean.Sv_clean.isnull()
     # Test to see if the right number of points are removed before the range gets too large
-    assert np.count_nonzero(null[0, :, :50])
+    assert np.count_nonzero(null[0, :, :50]) == 6
 
 
 def test_get_MVBS():
@@ -142,3 +142,6 @@ def test_get_MVBS():
 
     data = 10 ** (ed.MVBS.MVBS / 10)                     # Convert to linear domain
     assert data.mean().round().values == normal_loc      # Value test
+
+    # TODO Add data that when corsened, produces a 12345... array for binned
+    # TODO new rolling test: calculate the rolling average and compare it to get_MVBS
