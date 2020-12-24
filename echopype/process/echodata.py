@@ -105,8 +105,8 @@ class EchoData:
     def get_vend_from_raw(self):
         """Open the Vendor group from raw data files.
         """
-        return xr.open_mfdataset(self.raw_path, group='Vendor', combine='by_coords',
-                                 data_vars='minimal', engine=self._file_format)
+        return xr.open_mfdataset(self.raw_path, group='Vendor', combine='nested',
+                                 compat='no_conflicts', data_vars='minimal', engine=self._file_format)
 
     @_check_key_param_consistency()
     def get_beam_from_raw(self):
