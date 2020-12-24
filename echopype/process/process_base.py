@@ -260,16 +260,22 @@ class ProcessEK(ProcessBase):
     def __init__(self, model=None):
         super().__init__(model)
 
-    def calc_sa_correction(self, ed):
+    def calc_cal_correction(self, ed, param='sa_correction'):
         """ Calculate the sa correction from the sa correction table and the pulse length.
         For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
         """
         ds_vend = ed.get_vend_from_raw()
 
-        if 'sa_correction' not in ds_vend:
+        if param not in ds_vend:
             return None
 
-        sa_correction_table = ds_vend.sa_correction
+        if param == 'sa_correction':
+            correction_table = ds_vend.sa_correction
+        elif param == 'gain_correction':
+            correction_table = ds_vend.gain_correction
+        else:
+            raise ValueError(f"Unknown parameter {param}")
+
         pulse_length_table = ds_vend.pulse_length
         unique_pulse_length = np.unique(ed.raw.transmit_duration_nominal, axis=1).squeeze()
 
@@ -278,9 +284,9 @@ class ProcessEK(ProcessBase):
         idx = [np.argwhere(np.isclose(unique_pulse_length[i], pulse_length_table[i])).squeeze()
                for i in range(pulse_length_table.shape[0])]
 
-        sa_correction = np.array([ch[x] for ch, x in zip(sa_correction_table, np.array(idx))])
+        correction = np.array([ch[x] for ch, x in zip(correction_table, np.array(idx))])
 
-        return xr.DataArray(sa_correction, dims='frequency').assign_coords(frequency=sa_correction_table.frequency)
+        return xr.DataArray(correction, dims='frequency').assign_coords(frequency=correction_table.frequency)
 
     def calc_sample_thickness(self, ed, env_params, cal_params):
         """Calculate sample thickness.
@@ -302,7 +308,7 @@ class ProcessEK(ProcessBase):
 
         if cal_type == 'Sv':
             # Calc gain
-            CSv = (10 * np.log10((cal_params['transmit_power']))
+            CSv = (10 * np.log10(cal_params['transmit_power'])
                    + 2 * cal_params['gain_correction']
                    + cal_params['equivalent_beam_angle']
                    + 10 * np.log10(wavelength**2
