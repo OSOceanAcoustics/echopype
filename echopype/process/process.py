@@ -74,8 +74,8 @@ class Process:
         self._proc_params = ParamDict(self.get_valid_params('proc'), 'process')
 
         if ed is not None:
-            self.init_cal_params(ed)
             self.init_env_params(ed)
+            self.init_cal_params(ed)
             self.init_proc_params()
 
     @property
@@ -184,7 +184,9 @@ class Process:
 
         return params
 
-    def init_env_params(self, ed, params={}):
+    def init_env_params(self, ed, params=None):
+        if params is None:
+            params = {}
         if 'water_salinity' not in params:
             params['water_salinity'] = 29.6     # Default salinity in ppt
             # print("Initialize using default water salinity of 29.6 ppt")
@@ -213,7 +215,9 @@ class Process:
         if ss or sa:
             self.recalculate_environment(ed, src='user', ss=ss, sa=sa)
 
-    def init_cal_params(self, ed, params={}):
+    def init_cal_params(self, ed, params=None):
+        if params is None:
+            params = {}
         valid_params = self.get_valid_params('cal')
 
         # Parameters that require additional computation
@@ -228,7 +232,8 @@ class Process:
 
         self.cal_params = params
 
-    def init_proc_params(self, params={}):
+    def init_proc_params(self, params=None):
+
         #   self.proc_params['MVBS'] = {k: v}
         # TODO: ngkavin: implement: get_MVBS() / remove_noise() / get_noise_estimates()
         # get_MVBS() related params:
@@ -258,6 +263,8 @@ class Process:
         #                to perform the same operation.
         #                Method get_noise_estimates() would naturally be part of the remove_noise() operation.
         #
+        if params is None:
+            params = {}
         default_dictionary = {'source': 'Sv',
                               'type': 'binned',
                               'SNR': 0,
