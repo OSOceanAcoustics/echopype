@@ -6,7 +6,7 @@ class ParseEK60(ParseEK):
     """
 
     def __init__(self, file, params, storage_options={}):
-        super().__init__(file, storage_options, params)
+        super().__init__(file, params, storage_options)
 
     def _select_datagrams(self, params):
         # Translates user input into specific datagrams or ALL
