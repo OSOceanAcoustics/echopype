@@ -5,7 +5,7 @@ class ParseEK80(ParseEK):
     """Class for converting data from Simrad EK80 echosounders.
     """
     def __init__(self, file, params, storage_options={}):
-        super().__init__(file, storage_options, params)
+        super().__init__(file, params, storage_options)
         self.environment = {}  # dictionary to store environment data
 
     def _select_datagrams(self, params):
