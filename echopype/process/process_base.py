@@ -188,8 +188,8 @@ class ProcessBase:
         else:
             ed.MVBS = MVBS
 
-    def remove_noise(self, ed, env_params, cal_params, proc_params={},
-                     save=True, save_path=None, save_format='zarr'):
+    def remove_noise(self, ed, env_params, cal_params, proc_params,
+                     save=False, save_path=None, save_format='zarr'):
         """Remove noise by using noise estimates obtained from the minimum mean calibrated power level
         along each column of tiles.
 
