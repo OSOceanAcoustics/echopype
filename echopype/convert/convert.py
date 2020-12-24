@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 import zarr
 from collections.abc import MutableMapping
+import fsspec
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -15,6 +16,33 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
+
+MODELS = {
+    "AZFP": {
+        "ext": ".01A",
+        "xml": True,
+        "parser": ParseAZFP,
+        "set_groups": SetGroupsAZFP,
+    },
+    "EK60": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK60,
+        "set_groups": SetGroupsEK60
+    },
+    "EK80": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80
+    },
+    "EA640": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80
+    }
+}
 
 
 # TODO: Used for backwards compatibility. Delete in future versions
@@ -57,7 +85,7 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    def __init__(self, file=None, model=None, xml_path=None):
+    def __init__(self, file=None, model=None, xml_path=None, storage_options=None):
         # TODO: Used for backwards compatibility. Delete in future versions
         warnings.simplefilter('always', DeprecationWarning)
         if model is None:
@@ -96,6 +124,7 @@ class Convert:
         # TODO: review the GGA choice
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
+        self.storage_options = storage_options if storage_options is not None else {}
         self.set_source(file, model, xml_path)
 
     def __str__(self):
@@ -131,24 +160,12 @@ class Convert:
             print("Please specify the echosounder model")
             return
 
-        # TODO: Allow pointing directly a cloud data source
-        # Check if specified model is valid
-        if model == "AZFP":
-            ext = '.01A'
-            # Check for the xml file if dealing with an AZFP
-            if xml_path:
-                if '.XML' in xml_path.upper():
-                    if not os.path.isfile(xml_path):
-                        raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
-                else:
-                    raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
-                self.xml_path = xml_path
-            else:
-                raise ValueError("XML file is required for AZFP raw data")
-        elif model in ['EK60', 'EK80', 'EA640']:
-            ext = '.raw'
-        else:
-            raise ValueError(model + " is not a supported echosounder model")
+        # Uppercased model in case people use lowercase
+        model = model.upper()
+
+        # Check models
+        if model not in MODELS:
+            raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
 
         self.sonar_model = model
 
@@ -157,14 +174,14 @@ class Convert:
             file = [file]
         if not isinstance(file, list):
             raise ValueError("file must be a string or list of strings")
-        for p in file:
-            if not os.path.isfile(p):
-                raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
-            if os.path.splitext(p)[1] != ext:
+        if not isinstance(self.storage_options, dict):
+            raise ValueError("storage options must be a dictionary")
 
-                raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {p}")
+        # Check files
+        files, xml = check_files(file, model, xml_path, self.storage_options)
 
-        self.source_file = file
+        self.source_file = files
+        self.xml_path = xml
 
     def set_param(self, param_dict):
         """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
@@ -252,21 +269,18 @@ class Convert:
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
         """
+
+        if self.sonar_model not in MODELS:
+            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\nMust be one of: {list(MODELS)}")
+
         # Use echosounder-specific object
-        if self.sonar_model == 'EK60':
-            c = ParseEK60
-            sg = SetGroupsEK60
-            params = self.data_type
-        elif self.sonar_model in ['EK80', 'EA640']:
-            c = ParseEK80
-            sg = SetGroupsEK80
-            params = self.data_type
-        elif self.sonar_model == 'AZFP':
-            c = ParseAZFP
-            sg = SetGroupsAZFP
+        c = MODELS[self.sonar_model]['parser']
+        sg = MODELS[self.sonar_model]['set_groups']
+
+        if MODELS[self.sonar_model]['xml']:
             params = self.xml_path
         else:
-            raise ValueError("Unknown sonar model", self.sonar_model)
+            params = self.data_type
 
         # Handle saving to cloud or local filesystem
         # TODO: @ngkvain: You mean this took long before, what is the latest status?
@@ -289,7 +303,7 @@ class Convert:
                 return
 
         # Actually parsing and saving file(s)
-        c = c(file, params=params)
+        c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
         if self.sonar_model in ['EK80', 'EA640']:
             self._construct_cw_file_path(c, output_path)
@@ -748,3 +762,29 @@ class Convert:
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
                      overwrite=overwrite)
         self._zarr_path = self.output_path
+
+
+def check_files(file, model, xml_path=None, storage_options={}):
+    xml = ''
+    if MODELS[model]["xml"]:
+        if not xml_path:
+            raise ValueError("XML file is required for AZFP raw data")
+        elif ".XML" not in xml_path.upper():
+            raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
+
+        xmlmap = fsspec.get_mapper(xml_path, **storage_options)
+        if not xmlmap.fs.exists(xmlmap.root):
+            raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
+
+        xml = xml_path
+
+    for f in file:
+        fsmap = fsspec.get_mapper(f, **storage_options)
+        ext = MODELS[model]["ext"]
+        if not fsmap.fs.exists(fsmap.root):
+            raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
+
+        if os.path.splitext(f)[1] != ext:
+            raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {f}")
+
+    return file, xml
