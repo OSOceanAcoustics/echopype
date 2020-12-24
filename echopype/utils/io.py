@@ -2,6 +2,7 @@
 echopype utilities for file handling
 """
 import os
+import warnings
 from collections.abc import MutableMapping
 
 
@@ -37,3 +38,10 @@ def get_file_format(file):
         return 'zarr'
     else:
         raise ValueError(f"Unsupported file format: {os.path.splitext(file)[1]}")
+
+
+warnings.simplefilter('always', DeprecationWarning)
+
+
+def _print_deprecation_warning(msg):
+    warnings.warn(msg, DeprecationWarning, 3)
