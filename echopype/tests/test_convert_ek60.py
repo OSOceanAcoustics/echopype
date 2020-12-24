@@ -14,7 +14,7 @@ csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power120.csv',
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power200.csv']
 # raw_paths = ['./echopype/test_data/ek60/set1/' + file
-#              for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
+            #  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
 # raw_path = ['./echopype/test_data/ek60/set2/' + file
 #                  for file in os.listdir('./echopype/test_data/ek60/set2')]    # 3 range lengths
 # Other data files
@@ -82,11 +82,11 @@ def test_combine():
 
     # Test combining while converting
     tmp = Convert(file=raw_paths[:4], model='EK60')
-    tmp.to_zarr(save_path=export_folder, overwrite=True, combine=True)
+    tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
 
     # Test combining after converting
     tmp = Convert(file=raw_paths[4:8], model='EK60')
-    tmp.to_zarr(save_path=export_folder, overwrite=True)
+    tmp.to_netcdf(save_path=export_folder, overwrite=True)
     tmp.combine_files(tmp.output_path)
 
     shutil.rmtree(export_folder)
