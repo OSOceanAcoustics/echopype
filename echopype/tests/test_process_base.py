@@ -98,10 +98,9 @@ def test_get_MVBS():
     """Test get_MVBS on a normal distribution"""
 
     # Parameters for fake data
-    nfreq, npings, nrange = 5, 100, 1000
-    normal_loc = 100
-    pn = 12         # number of pings to average over
-    rbn = 66        # number of range_bins to average over
+    nfreq, npings, nrange = 4, 40, 400
+    ping_num = 2             # number of pings to average over
+    range_bin_num = 3        # number of range_bins to average over
 
     # Create process object
     ed = EchoData()
@@ -109,7 +108,17 @@ def test_get_MVBS():
     pb = ProcessBase()
 
     np.random.seed(0)
-    data = np.random.normal(loc=normal_loc, scale=10, size=(nfreq, npings, nrange))
+
+    # Construct data with values that increase every ping_num and range_bin_num
+    # so that when binned get_MVBS is performed, the result is a smaller array
+    # that increases by 1 for each row and column
+    data = np.zeros((nfreq, npings, nrange))
+    for p_i, ping in enumerate(range(0, npings, ping_num)):
+        for r_i, rb in enumerate(range(0, nrange, range_bin_num)):
+            data[0, ping:ping + ping_num, rb:rb + range_bin_num] += r_i + p_i
+    for f in range(nfreq):
+        data[f] = data[0]
+
     data_log = 10 * np.log10(data)      # Convert to log domain
     freq_index = np.arange(nfreq)
     ping_index = np.arange(npings)
@@ -123,8 +132,8 @@ def test_get_MVBS():
     proc_params = {
         'MVBS': {
             'source': 'Sv',
-            'ping_num': pn,
-            'range_bin_num': rbn,
+            'ping_num': ping_num,
+            'range_bin_num': range_bin_num,
             'type': 'binned'}
     }
     # Binned MVBS test
@@ -132,16 +141,34 @@ def test_get_MVBS():
     shape = (nfreq, npings / proc_params['MVBS']['ping_num'], nrange / proc_params['MVBS']['range_bin_num'])
     assert np.all(ed.MVBS.MVBS.shape == np.ceil(shape))  # Shape test
 
-    data = 10 ** (ed.MVBS.MVBS / 10)                     # Convert to linear domain
-    assert data.mean().round().values == normal_loc      # Value test
+    data_test = (10 ** (ed.MVBS.MVBS / 10)).values.round().astype(int)    # Convert to linear domain
+
+    assert np.all(data_test[0, 0, :] == np.arange(nrange / range_bin_num))      # Value test along range_bin
+    assert np.all(data_test[0, :, 0] == np.arange(npings / ping_num))           # Value test along ping time
 
     # Rolling MVBS test
     proc_params['MVBS']['type'] = 'rolling'
     pb.get_MVBS(ed, proc_params=proc_params)
     assert ed.MVBS.MVBS.shape == (nfreq, npings, nrange)  # Shape test
 
-    data = 10 ** (ed.MVBS.MVBS / 10)                     # Convert to linear domain
-    assert data.mean().round().values == normal_loc      # Value test
+    data_test = (10 ** (ed.MVBS.MVBS / 10))
 
-    # TODO Add data that when corsened, produces a 12345... array for binned
-    # TODO new rolling test: calculate the rolling average and compare it to get_MVBS
+    # Value test along range_bin
+    roll_avg_range = []
+    # Manually calculate moving average along the range_bin dimension
+    for idx in range(len(data[0, 0, :])):
+        if idx < range_bin_num - 1:
+            roll_avg_range.append(np.nan)
+            continue
+        roll_avg_range.append(data[0, 0, idx - range_bin_num + 1:idx + 1].mean())
+    assert np.allclose(roll_avg_range, data_test.dropna('ping_time', 'all').values[0, 0, :], equal_nan=True)
+
+    # Value test along ping_time
+    roll_avg_ping = []
+    # Manually calculate moving average along the ping_time dimension
+    for idx in range(len(data[0, :, 0])):
+        if idx < ping_num - 1:
+            roll_avg_ping.append(np.nan)
+            continue
+        roll_avg_ping.append(data[0, idx - ping_num + 1:idx + 1, 0].mean())
+    assert np.allclose(roll_avg_ping, data_test.dropna('range_bin', 'all').values[0, :, 0], equal_nan=True)
