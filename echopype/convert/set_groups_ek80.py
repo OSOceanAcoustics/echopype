@@ -19,17 +19,22 @@ class SetGroupsEK80(SetGroupsBase):
             self.set_sonar(ch_ids, path=path)
             self.set_vendor(ch_ids, bb=bb, path=path)
 
-        self.set_toplevel(self.sonar_model)
-        self.set_provenance()    # provenance group
-
         # Save environment only
         if 'ENV' in self.convert_obj.data_type:
-            self.set_env()           # environment group
+            self.set_toplevel(self.sonar_model, date_created=self.convert_obj.environment['timestamp'])
+            self.set_provenance()
+            self.set_env(env_only=True)
             return
+        # Save NMEA/MRU data only
         elif 'NME' in self.convert_obj.data_type:
+            self.set_toplevel(self.sonar_model, date_created=self.convert_obj.nmea['timestamp'][0])
+            self.set_provenance()
             self.set_platform()
             return
 
+        # Save all groups
+        self.set_toplevel(self.sonar_model)
+        self.set_provenance()    # provenance group
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
@@ -45,11 +50,16 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             set_beam_type_specific_groups(self.convert_obj.ch_ids['power'], bb=False, path=self.output_path)
 
-    def set_env(self):
+    def set_env(self, env_only=False):
         """Set the Environment group.
         """
+        # If only saving environment group, there is no ping_time so use timestamp of environment datagram
+        if env_only:
+            ping_time = self.convert_obj.environment['timestamp']
+        else:
+            ping_time = list(self.convert_obj.ping_time.values())[0][0]
         # Select the first available ping_time
-        ping_time = np.array([(list(self.convert_obj.ping_time.values())[0][0].astype('datetime64[ns]') -
+        ping_time = np.array([(ping_time.astype('datetime64[ns]') -
                                np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')])
 
         # Collect variables
