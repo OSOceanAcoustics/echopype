@@ -129,8 +129,8 @@ def test_calibration_ek60_echoview():
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_Sv = np.stack(channels)
     # Echoview data is missing 1 range. Also the first few ranges are handled differently
-    assert np.allclose(test_Sv[:, :, 7:], ed.Sv.Sv[:, :10, 8:], atol=1e-8)
-
+    assert np.allclose(test_Sv[:, :, 7:],
+                       ed.Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
     ed.close()
     os.remove(ed.Sv_path)
     os.remove(tmp.output_path)

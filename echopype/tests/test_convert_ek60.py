@@ -58,7 +58,10 @@ def test_convert_power_echoview():
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_power = np.stack(channels)
     with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
-        assert np.allclose(test_power, ds_beam.backscatter_r[:, :10, 1:], atol=1e-10)
+        assert np.allclose(
+            test_power,
+            ds_beam.backscatter_r.isel(ping_time=slice(None, 10), range_bin=slice(1, None)),
+            atol=1e-10)
 
     os.remove(tmp.output_path)
 

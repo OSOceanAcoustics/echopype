@@ -72,8 +72,8 @@ def test_remove_noise():
     pb.remove_noise(ed, env_params, cal_params, proc_params=proc_params)
 
     # Test if noise points are are nan
-    assert np.isnan(ed.Sv_clean.Sv_clean[0][0][30])
-    assert np.isnan(ed.Sv_clean.Sv_clean[0][0][60])
+    assert np.isnan(ed.Sv_clean.Sv_clean.isel(frequency=0, ping_time=0, range_bin=30))
+    assert np.isnan(ed.Sv_clean.Sv_clean.isel(frequency=0, ping_time=0, range_bin=60))
 
     # Test remove noise on a normal distribution
     np.random.seed(1)
@@ -91,7 +91,7 @@ def test_remove_noise():
     pb.remove_noise(ed, env_params, cal_params, proc_params=proc_params)
     null = ed.Sv_clean.Sv_clean.isnull()
     # Test to see if the right number of points are removed before the range gets too large
-    assert np.count_nonzero(null[0, :, :50]) == 6
+    assert np.count_nonzero(null.isel(frequency=0, range_bin=slice(None, 50))) == 6
 
 
 def test_get_MVBS():
@@ -106,8 +106,6 @@ def test_get_MVBS():
     ed = EchoData()
     ed._raw_path = [ek60_raw_path]
     pb = ProcessBase()
-
-    np.random.seed(0)
 
     # Construct data with values that increase every ping_num and range_bin_num
     # so that when binned get_MVBS is performed, the result is a smaller array
@@ -141,10 +139,11 @@ def test_get_MVBS():
     shape = (nfreq, npings / proc_params['MVBS']['ping_num'], nrange / proc_params['MVBS']['range_bin_num'])
     assert np.all(ed.MVBS.MVBS.shape == np.ceil(shape))  # Shape test
 
-    data_test = (10 ** (ed.MVBS.MVBS / 10)).values.round().astype(int)    # Convert to linear domain
-
-    assert np.all(data_test[0, 0, :] == np.arange(nrange / range_bin_num))      # Value test along range_bin
-    assert np.all(data_test[0, :, 0] == np.arange(npings / ping_num))           # Value test along ping time
+    data_test = (10 ** (ed.MVBS.MVBS / 10)).round().astype(int)    # Convert to linear domain
+    # Test values along range_bin
+    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(nrange / range_bin_num))
+    # Test values along ping time
+    assert np.all(data_test.isel(frequency=0, range_bin=0) == np.arange(npings / ping_num))
 
     # Rolling MVBS test
     proc_params['MVBS']['type'] = 'rolling'
@@ -161,7 +160,8 @@ def test_get_MVBS():
             roll_avg_range.append(np.nan)
             continue
         roll_avg_range.append(data[0, 0, idx - range_bin_num + 1:idx + 1].mean())
-    assert np.allclose(roll_avg_range, data_test.dropna('ping_time', 'all').values[0, 0, :], equal_nan=True)
+    assert np.allclose(roll_avg_range,
+                       data_test.dropna('ping_time', 'all').isel(frequency=0, ping_time=0), equal_nan=True)
 
     # Value test along ping_time
     roll_avg_ping = []
@@ -171,4 +171,5 @@ def test_get_MVBS():
             roll_avg_ping.append(np.nan)
             continue
         roll_avg_ping.append(data[0, idx - ping_num + 1:idx + 1, 0].mean())
-    assert np.allclose(roll_avg_ping, data_test.dropna('range_bin', 'all').values[0, :, 0], equal_nan=True)
+    assert np.allclose(roll_avg_ping,
+                       data_test.dropna('range_bin', 'all').isel(frequency=0, range_bin=0), equal_nan=True)
