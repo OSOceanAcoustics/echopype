@@ -47,6 +47,7 @@ MODELS = {
 
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
+    # TODO: use warnings.warn directly, not sure why we need an additional layer of abstraction
     io._print_deprecation_warning("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead")
     return Convert(file=_filename, model='EK80')
 
@@ -86,7 +87,8 @@ class Convert:
         ec.to_netcdf(data_type='ENV_XML')
     """
     def __init__(self, file=None, model=None, xml_path=None, storage_options=None):
-        # TODO: Used for backwards compatibility. Delete in future versions
+        # TODO: Used for backwards compatibility. Delete in future versions (all the way to self._nc_apth)
+        # TODO: use warnings.warn directly below
         warnings.simplefilter('always', DeprecationWarning)
         if model is None:
             model = 'EK60'
@@ -107,6 +109,9 @@ class Convert:
                                     # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None     # input file path or list of input file paths
         self.output_path = None     # converted file path or list of converted file paths
+        # TODO: change output_cw_files to something like output_powerangle_files
+        #  since the difference is in the data type (complex vs power/angle)
+        #  instead of the signal type (BB vs CW)
         self.output_cw_files = []          # additional files created when setting groups (EK80 only)
         self._conversion_params = {}    # a dictionary of conversion parameters,
                                         # the keys could be different for different echosounders.
@@ -120,8 +125,9 @@ class Convert:
         self.combine = False
         self.compress = True
         self.overwrite = False
+        # TODO: can remove timestamp_pattern as we now use config datagram time as file creation time
         self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
-        # TODO: review the GGA choice
+        # TODO: remove the GGA default choice and add message code as another data variable in the nc group
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
@@ -133,7 +139,7 @@ class Convert:
         Print out should include: source file name, source folder location, echosounder model.
         """
         if self.sonar_model is None:
-            return "empty echopype convert object (call set_source)"
+            return "empty echopype Convert object (call set_source to set sonar model and files to convert)"
         else:
             return (f"echopype {self.sonar_model} convert object\n" +
                     f"\tsource filename: {[os.path.basename(f) for f in self.source_file]}\n" +
@@ -143,7 +149,7 @@ class Convert:
         return self.__str__()
 
     def set_source(self, file, model, xml_path=None):
-        """Set source and echosounder model
+        """Set source file(s) and echosounder model.
 
         Parameters
         ----------
@@ -154,6 +160,14 @@ class Convert:
         xml_path : str
             path to xml file required for AZFP conversion
         """
+        # TODO: some logic problem in here?
+        #  users will always need to specify BOTH file and model to convert files,
+        #  The second elif should really be else and then if model is None
+        #  We want to test the opposite case (has model but no file) too.
+        #  Desired behaviour:
+        #     ec = echopype.Convert() --> no messages
+        #     ec = echopype.Convert(file=[somefiles]) --> ask to specify model
+        #     ec = echopype.Convert(model=MODEL) --> ask to specify file(s)
         if file is None:
             return
         elif file is not None and model is None:
@@ -169,19 +183,23 @@ class Convert:
 
         self.sonar_model = model
 
-        # Check if given files are valid
-        if isinstance(file, str):
+        # Check if given files and storage_options are valid
+        # TODO: see #229 for accepting Path object
+        if isinstance(file, str):  # convert single file path to list
             file = [file]
+        # TODO: seems that we need better testing for types;
+        #  not sure why we still need this after the explicit conversion in the above
         if not isinstance(file, list):
             raise ValueError("file must be a string or list of strings")
         if not isinstance(self.storage_options, dict):
             raise ValueError("storage options must be a dictionary")
 
-        # Check files
-        files, xml = check_files(file, model, xml_path, self.storage_options)
+        # Check file type and existence
+        # TODO: note the file vs files potential confusion
+        file_chk, xml_chk = check_files(file, model, xml_path, self.storage_options)
 
-        self.source_file = files
-        self.xml_path = xml
+        self.source_file = file_chk
+        self.xml_path = xml_chk
 
     def set_param(self, param_dict):
         """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
@@ -738,12 +756,14 @@ class Convert:
                 xml_file.write(data)
         self.output_path = self._path_list_to_str(self.output_path)
 
+    # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def nc_path(self):
         io._print_deprecation_warning('`nc_path` is deprecated, Use `output_path` instead.')
         path = self._nc_path if self._nc_path is not None else self.output_path
         return path
 
+    # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def zarr_path(self):
         io._print_deprecation_warning('`zarr_path` is deprecated, Use `output_path` instead.')
@@ -757,6 +777,7 @@ class Convert:
                        overwrite=overwrite)
         self._nc_path = self.output_path
 
+    # TODO: Used for backwards compatibility. Delete in future versions
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         io._print_deprecation_warning("`raw2zarr` is deprecated, use `to_zarr` instead.")
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
@@ -765,11 +786,11 @@ class Convert:
 
 
 def check_files(file, model, xml_path=None, storage_options={}):
-    xml = ''
-    if MODELS[model]["xml"]:
+
+    if MODELS[model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
-            raise ValueError("XML file is required for AZFP raw data")
-        elif ".XML" not in xml_path.upper():
+            raise ValueError(f"XML file is required for {model} raw data")
+        elif ".XML" not in os.path.splitext(xml_path)[1].upper():
             raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
 
         xmlmap = fsspec.get_mapper(xml_path, **storage_options)
@@ -777,6 +798,8 @@ def check_files(file, model, xml_path=None, storage_options={}):
             raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
 
         xml = xml_path
+    else:
+        xml = ''
 
     for f in file:
         fsmap = fsspec.get_mapper(f, **storage_options)
