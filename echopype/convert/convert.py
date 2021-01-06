@@ -124,7 +124,8 @@ class Convert:
         self.compress = True
         self.overwrite = False
         # TODO: remove the GGA default choice and add message code as another data variable in the nc group
-        self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
+        self.nmea_gps_sentence = ['GGA', 'GLL', 'RMC']  # select NMEA sentences to save into converted file,
+                                                        # default is to save all containing lat/lon info
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
         self.set_source(file, model, xml_path)

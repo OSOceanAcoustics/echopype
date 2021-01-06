@@ -86,21 +86,24 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        lat, lon, location_time = self._parse_NMEA()
+        location_time, msg_type, lat, lon = self._parse_NMEA()
 
         # Add in NMEA location information if it exists
         if len(location_time) > 0:
             ds = xr.Dataset(
-                {'latitude': (['location_time'], lat,
-                              {'long_name': 'Platform latitude',
-                               'standard_name': 'latitude',
-                               'units': 'degrees_north',
-                               'valid_range': (-90.0, 90.0)}),
-                 'longitude': (['location_time'], lon,
-                               {'long_name': 'Platform longitude',
-                                'standard_name': 'longitude',
-                                'units': 'degrees_east',
-                                'valid_range': (-180.0, 180.0)})},
+                {
+                    'latitude': (['location_time'], lat,
+                                 {'long_name': 'Platform latitude',
+                                  'standard_name': 'latitude',
+                                  'units': 'degrees_north',
+                                  'valid_range': (-90.0, 90.0)}),
+                    'longitude': (['location_time'], lon,
+                                  {'long_name': 'Platform longitude',
+                                   'standard_name': 'longitude',
+                                   'units': 'degrees_east',
+                                   'valid_range': (-180.0, 180.0)}),
+                    'sentence_type': (['location_time'], msg_type)
+                },
                 coords={'location_time': (['location_time'], location_time,
                                           {'axis': 'T',
                                            'calendar': 'gregorian',
@@ -121,7 +124,7 @@ class SetGroupsEK60(SetGroupsBase):
             else:
                 water_level = np.nan
                 print('WARNING: The water_level_draft was not in the file. Value '
-                      'set to None')
+                      'set to None.')
 
             ds_plat = []
             # Get user defined water level (Nan if undefined)
@@ -168,15 +171,19 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_plat.append(ds_tmp)
 
             # Merge data from all channels
+            # TODO: for current test data we see all pitch/roll/heave are the same for all freq channels
+            #  consider only saving those from the first channel
             ds_plat = xr.merge(ds_plat)
+
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs='override')
 
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ds = ds_plat.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-                                        np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                       ds.ping_time.attrs)}).chunk({'ping_time': 100})
+            ds = ds.assign_coords({'ping_time': (['ping_time'],
+                                                 (ds['ping_time'] -
+                                                  np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                                 ds.ping_time.attrs)}).chunk({'ping_time': 100})
 
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
