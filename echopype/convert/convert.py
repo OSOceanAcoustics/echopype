@@ -104,19 +104,17 @@ class Convert:
         self._nc_path = None
 
         # Attributes
-        self.sonar_model = None     # type of echosounder
-        self.xml_path = ''          # path to xml file (AZFP only)
-                                    # users will get an error if try to set this directly for EK60 or EK80 data
-        self.source_file = None     # input file path or list of input file paths
-        self.output_path = None     # converted file path or list of converted file paths
-        # TODO: change output_cw_files to something like output_powerangle_files
-        #  since the difference is in the data type (complex vs power/angle)
-        #  instead of the signal type (BB vs CW)
-        self.output_cw_files = []          # additional files created when setting groups (EK80 only)
-        self._conversion_params = {}    # a dictionary of conversion parameters,
-                                        # the keys could be different for different echosounders.
-                                        # This dictionary is set by the `set_param` method.
-        self.data_type = 'ALL'      # type of data to be converted into netcdf or zarr.
+        self.sonar_model = None  # type of echosounder
+        self.xml_path = ''       # path to xml file (AZFP only)
+                                 # users will get an error if try to set this directly for EK60 or EK80 data
+        self.source_file = None  # input file path or list of input file paths
+        self.output_path = None  # converted file path or list of converted file paths
+        self.output_power_files = []  # additional files containing only power or power+angle data (EK80 only)
+                                      # regular EK80 files contain complex data
+        self._conversion_params = {}  # a dictionary of conversion parameters,
+                                      # the keys could be different for different echosounders.
+                                      # This dictionary is set by the `set_param` method.
+        self.data_type = 'ALL'  # type of data to be converted into netcdf or zarr.
                                 # - default to 'ALL'
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
@@ -125,8 +123,6 @@ class Convert:
         self.combine = False
         self.compress = True
         self.overwrite = False
-        # TODO: can remove timestamp_pattern as we now use config datagram time as file creation time
-        self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
         # TODO: remove the GGA default choice and add message code as another data variable in the nc group
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
@@ -287,12 +283,11 @@ class Convert:
             files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
         self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
 
-    def _construct_cw_file_path(self, c, output_path):
-        # TODO: change _cw to _powerangle
+    def _construct_power_file_path(self, c, output_path):
         if c.ch_ids['power'] and c.ch_ids['complex']:
             fname, ext = os.path.splitext(output_path)
-            new_path = fname + '_cw' + ext
-            self.output_cw_files.append(new_path)
+            new_path = fname + '_power' + ext
+            self.output_power_files.append(new_path)
 
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
@@ -335,7 +330,7 @@ class Convert:
         c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
         if self.sonar_model in ['EK80', 'EA640']:
-            self._construct_cw_file_path(c, output_path)
+            self._construct_power_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, engine=engine, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
@@ -517,17 +512,17 @@ class Convert:
         # Update output_path to be the combined path name
         self.output_path = [combined_save_path]
 
-        # Combine _cw files if they exist
-        if self.output_cw_files:
-            # Append '_cw' to EK80 filepath if combining CW files
+        # Combine _power files if they exist
+        if self.output_power_files:
+            # Append '_power' to EK80 filepath if combining power or power+angle files
             fname, ext = os.path.splitext(combined_save_path)
-            combined_save_path_cw = fname + '_cw' + ext
-            self._perform_combination(self.output_cw_files, combined_save_path_cw, engine)
-            self.output_path.append(combined_save_path_cw)
+            combined_save_path_power = fname + '_power' + ext
+            self._perform_combination(self.output_power_files, combined_save_path_power, engine)
+            self.output_path.append(combined_save_path_power)
 
         # Delete individual files after combining
         if remove_orig:
-            for f in indiv_files + self.output_cw_files:
+            for f in indiv_files + self.output_power_files:
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
