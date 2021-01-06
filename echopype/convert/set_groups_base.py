@@ -18,6 +18,7 @@ class SetGroupsBase:
     """
     def __init__(self, convert_obj, input_file, output_path, sonar_model=None,
                  engine='zarr', compress=True, overwrite=True, params=None):
+        # TODO: Change convert_obj to parse_obj
         self.convert_obj = convert_obj   # a convert object ParseEK60/ParseAZFP/etc...
         self.sonar_model = sonar_model   # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.input_file = input_file
@@ -38,11 +39,13 @@ class SetGroupsBase:
         """Actually save groups to file by calling the set methods.
         """
 
+    # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None):
         """Set the top-level group.
         """
         # Collect variables
         if date_created is None:
+            # TODO: change below to use time of config datagram
             # Check if AZFP or EK
             if isinstance(self.convert_obj.ping_time, list):
                 date_created = self.convert_obj.ping_time[0]
