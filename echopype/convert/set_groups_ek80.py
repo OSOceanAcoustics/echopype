@@ -97,7 +97,7 @@ class SetGroupsEK80(SetGroupsBase):
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
-        lat, lon, location_time = self._parse_NMEA()
+        location_time, msg_type, lat, lon = self._parse_NMEA()
         # Convert MRU np.datetime64 numbers to seconds since 1900-01-01
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         mru_time = self.convert_obj.mru.get('timestamp', None)
@@ -106,36 +106,38 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Assemble variables into a dataset
         ds = xr.Dataset(
-            {'pitch': (['mru_time'], np.array(self.convert_obj.mru.get('pitch', [np.nan])),
-                       {'long_name': 'Platform pitch',
-                        'standard_name': 'platform_pitch_angle',
-                        'units': 'arc_degree',
-                        'valid_range': (-90.0, 90.0)}),
-             'roll': (['mru_time'], np.array(self.convert_obj.mru.get('roll', [np.nan])),
-                      {'long_name': 'Platform roll',
-                       'standard_name': 'platform_roll_angle',
-                       'units': 'arc_degree',
-                       'valid_range': (-90.0, 90.0)}),
-             'heave': (['mru_time'], np.array(self.convert_obj.mru.get('heave', [np.nan])),
-                       {'long_name': 'Platform heave',
-                        'standard_name': 'platform_heave_angle',
-                        'units': 'arc_degree',
-                        'valid_range': (-90.0, 90.0)}),
-             'latitude': (['location_time'], lat,
-                          {'long_name': 'Platform latitude',
-                           'standard_name': 'latitude',
-                           'units': 'degrees_north',
+            {
+                'pitch': (['mru_time'], np.array(self.convert_obj.mru.get('pitch', [np.nan])),
+                          {'long_name': 'Platform pitch',
+                           'standard_name': 'platform_pitch_angle',
+                           'units': 'arc_degree',
                            'valid_range': (-90.0, 90.0)}),
-             'longitude': (['location_time'], lon,
-                           {'long_name': 'Platform longitude',
-                            'standard_name': 'longitude',
-                            'units': 'degrees_east',
-                            'valid_range': (-180.0, 180.0)}),
-             'water_level': ([], water_level,
-                             {'long_name': 'z-axis distance from the platform coordinate system '
-                                           'origin to the sonar transducer',
-                              'units': 'm'})
-             },
+                'roll': (['mru_time'], np.array(self.convert_obj.mru.get('roll', [np.nan])),
+                         {'long_name': 'Platform roll',
+                          'standard_name': 'platform_roll_angle',
+                          'units': 'arc_degree',
+                          'valid_range': (-90.0, 90.0)}),
+                'heave': (['mru_time'], np.array(self.convert_obj.mru.get('heave', [np.nan])),
+                          {'long_name': 'Platform heave',
+                           'standard_name': 'platform_heave_angle',
+                           'units': 'arc_degree',
+                           'valid_range': (-90.0, 90.0)}),
+                'latitude': (['location_time'], lat,
+                             {'long_name': 'Platform latitude',
+                              'standard_name': 'latitude',
+                              'units': 'degrees_north',
+                              'valid_range': (-90.0, 90.0)}),
+                'longitude': (['location_time'], lon,
+                              {'long_name': 'Platform longitude',
+                               'standard_name': 'longitude',
+                               'units': 'degrees_east',
+                               'valid_range': (-180.0, 180.0)}),
+                'sentence_type': (['location_time'], msg_type),
+                'water_level': ([], water_level,
+                                {'long_name': 'z-axis distance from the platform coordinate system '
+                                              'origin to the sonar transducer',
+                                 'units': 'm'})
+            },
             coords={'mru_time': (['mru_time'], mru_time,
                                  {'axis': 'T',
                                   'calendar': 'gregorian',
