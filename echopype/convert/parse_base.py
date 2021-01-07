@@ -6,7 +6,6 @@ import numpy as np
 import os
 
 FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
-NMEA_GPS_SENTENCE = 'GGA'
 
 
 class ParseBase:
@@ -15,7 +14,6 @@ class ParseBase:
     def __init__(self, file, storage_options):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
         self.ping_time = []            # list to store ping time
         self.storage_options = storage_options
 
@@ -32,7 +30,6 @@ class ParseEK(ParseBase):
 
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = NMEA_GPS_SENTENCE  # select GPS datagram in _set_platform_dict()
 
         # Class attributes
         self.config_datagram = None

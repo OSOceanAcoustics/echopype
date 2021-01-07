@@ -571,8 +571,20 @@ class SetGroupsEK80(SetGroupsBase):
         io.save_file(ds, path=path, mode='a', engine=self.engine,
                      group='Sonar', compression_settings=self.compression_settings)
 
+    # TODO: the overwriting message should not be here,
+    #  the assembling filename part also should not be here
+    #  symptom:
+    #  >>> from echopype import Convert
+    #  >>> raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
+    #  >>> tmp = Convert(file=raw_path_bb_cw, model='EK80')
+    #  >>> tmp.to_netcdf(save_path='/Users/wu-jung/Downloads', overwrite=True)
+    #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113.nc
+    #  17:14:00 converting file Summer2018--D20180905-T033113.raw, time of first ping: 2018-Sep-05 03:31:13
+    #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113_cw.nc
     def _copy_file(self, file):
         # Copy the current file into a new file with _cw appended to filename
+        # TODO: here the _cw (_power) filename should be passed down from the convert object
+        #  instead of being made on the fly. This is a bug.
         fname, ext = os.path.splitext(file)
         new_path = fname + '_cw' + ext
         if os.path.exists(new_path):

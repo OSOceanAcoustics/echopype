@@ -44,6 +44,8 @@ MODELS = {
     }
 }
 
+NMEA_SENTENCE_DEFAULT = ['GGA', 'GLL', 'RMC']
+
 
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
@@ -109,7 +111,7 @@ class Convert:
                                  # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None  # input file path or list of input file paths
         self.output_path = None  # converted file path or list of converted file paths
-        self.output_power_files = []  # additional files containing only power or power+angle data (EK80 only)
+        self.output_path_power = []  # additional files containing only power or power+angle data (EK80 only)
                                       # regular EK80 files contain complex data
         self._conversion_params = {}  # a dictionary of conversion parameters,
                                       # the keys could be different for different echosounders.
@@ -123,9 +125,6 @@ class Convert:
         self.combine = False
         self.compress = True
         self.overwrite = False
-        # TODO: remove the GGA default choice and add message code as another data variable in the nc group
-        self.nmea_gps_sentence = ['GGA', 'GLL', 'RMC']  # select NMEA sentences to save into converted file,
-                                                        # default is to save all containing lat/lon info
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
         self.set_source(file, model, xml_path)
@@ -198,21 +197,27 @@ class Convert:
         self.xml_path = xml_chk
 
     def set_param(self, param_dict):
-        """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
-        and ``survey_name`` to be saved during the conversion. Extra values are saved to the top level.
-        ``nmea_gps_sentence`` can be specified to save specific messages in a nmea string.
-        nmea sentence Defaults to 'GGA'. Originally ['GGA', 'GLL', 'RMC'].
+        """Allow users to set parameters to be stored in the converted files.
+
+        The default set of parameters include:
+        ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
+        (to be stored in the Platform group),
+        and ``survey_name`` (to be stored in the Top-level group).
+
+        ``nmea_gps_sentence`` is used to select specific NMEA sentences,  defaults ['GGA', 'GLL', 'RMC'].
+
+        Other parameters will be saved to the top level.
         """
         # TODO: revise docstring, give examples.
         # TODO: need to check and return valid/invalid params as done for Process
-        # Platform
+        # Parameters for the Platform group
         self._conversion_params['platform_name'] = param_dict.get('platform_name', '')
         self._conversion_params['platform_code_ICES'] = param_dict.get('platform_code_ICES', '')
         self._conversion_params['platform_type'] = param_dict.get('platform_type', '')
         self._conversion_params['water_level'] = param_dict.get('water_level', None)
-        # TODO: remove selection of NMEA sentences
-        self._conversion_params['nmea_gps_sentence'] = param_dict.get('nmea_gps_sentence', 'GGA')
-        # Top level
+        self._conversion_params['nmea_gps_sentence'] = param_dict.get('nmea_gps_sentence', NMEA_SENTENCE_DEFAULT)
+
+        # Parameters for the Top-level group
         self._conversion_params['survey_name'] = param_dict.get('survey_name', '')
         for k, v in param_dict.items():
             if k not in self._conversion_params:
@@ -288,7 +293,7 @@ class Convert:
         if c.ch_ids['power'] and c.ch_ids['complex']:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_power' + ext
-            self.output_power_files.append(new_path)
+            self.output_path_power.append(new_path)
 
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
@@ -514,16 +519,18 @@ class Convert:
         self.output_path = [combined_save_path]
 
         # Combine _power files if they exist
-        if self.output_power_files:
+        if self.output_path_power:
             # Append '_power' to EK80 filepath if combining power or power+angle files
             fname, ext = os.path.splitext(combined_save_path)
             combined_save_path_power = fname + '_power' + ext
-            self._perform_combination(self.output_power_files, combined_save_path_power, engine)
+            self._perform_combination(self.output_path_power, combined_save_path_power, engine)
+            # TODO: the below behavior is different from the case where the files are not combined
+            #  self.output_path in the case when combine=False does not contain the _power filename
             self.output_path.append(combined_save_path_power)
 
         # Delete individual files after combining
         if remove_orig:
-            for f in indiv_files + self.output_power_files:
+            for f in indiv_files + self.output_path_power:
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
