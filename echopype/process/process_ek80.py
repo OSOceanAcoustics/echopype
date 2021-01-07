@@ -21,65 +21,65 @@ class ProcessEK80(ProcessEK):
         """Generate transmit signal as replica for pulse compression.
         """
         # Retrieve filter coefficients
-        with xr.open_dataset(ed.raw_path, group="Vendor", engine=ed._file_format) as ds_fil:
-            # Get various parameters
-            Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
-            delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
-            tau = cal_params['transmit_duration_nominal'].values
-            tx_power = cal_params['transmit_power'].values
-            slope = cal_params['slope'].values
+        ds_fil = ed.get_vend_from_raw()
+        # Get various parameters
+        Ztrd = 75  # Transducer quadrant nominal impedance [Ohms] (Supplied by Simrad)
+        delta = 1 / 1.5e6   # Hard-coded EK80 sample interval
+        tau = ed.raw.transmit_duration_nominal.values
+        tx_power = cal_params['transmit_power'].values
+        slope = cal_params['slope'].values
 
-            # Find indexes with a unique transmitted signal.
-            # Get outer product of 3 parameters
-            beam_params = np.einsum('i,j,k->ijk', tau[0], slope[0], tx_power[0])
-            # Get diagonal of 3D matrix
-            _, unique_signal_idx, counts = np.unique(beam_params[np.diag_indices(tau.shape[1], ndim=3)],
-                                                     return_index=True, return_counts=True)
-            # Re order beam parameters because np.unique sorts the output
-            sort_idx = np.argsort(unique_signal_idx)
-            unique_signal_idx = unique_signal_idx[sort_idx]
-            counts = counts[sort_idx]
-            tau = tau[:, unique_signal_idx]
-            tx_power = tx_power[:, unique_signal_idx]
-            slope = slope[:, unique_signal_idx]
+        # Find indexes with a unique transmitted signal.
+        # Get outer product of 3 parameters
+        beam_params = np.einsum('i,j,k->ijk', tau[0], slope[0], tx_power[0])
+        # Get diagonal of 3D matrix
+        _, unique_signal_idx, counts = np.unique(beam_params[np.diag_indices(tau.shape[1], ndim=3)],
+                                                 return_index=True, return_counts=True)
+        # Re order beam parameters because np.unique sorts the output
+        sort_idx = np.argsort(unique_signal_idx)
+        unique_signal_idx = unique_signal_idx[sort_idx]
+        counts = counts[sort_idx]
+        tau = tau[:, unique_signal_idx]
+        tx_power = tx_power[:, unique_signal_idx]
+        slope = slope[:, unique_signal_idx]
 
-            amp = np.sqrt((tx_power / 4) * (2 * Ztrd))
-            f0 = ed.raw.frequency_start.values
-            f1 = ed.raw.frequency_end.values
-            ch_ids = ed.raw.channel_id.values
+        amp = np.sqrt((tx_power / 4) * (2 * Ztrd))
+        f0 = ed.raw.frequency_start.values[:, unique_signal_idx]
+        f1 = ed.raw.frequency_end.values[:, unique_signal_idx]
+        ch_ids = ed.raw.channel_id.values
 
-            ytx = []
-            # Loop over each unique transmit signal
-            for txi in range(tau.shape[1]):
-                ytx_ping = []
-                # Create transmit signal
-                for ch in range(ed.raw.frequency.size):
-                    t = np.arange(0, tau[ch][txi], delta)
-                    nt = len(t)
-                    nwtx = (int(2 * np.floor(slope[ch][txi] * nt)))
-                    wtx_tmp = np.hanning(nwtx)
-                    nwtxh = (int(np.round(nwtx / 2)))
-                    wtx = np.concatenate([wtx_tmp[0:nwtxh], np.ones((nt - nwtx)), wtx_tmp[nwtxh:]])
-                    y_tmp = amp[ch][txi] * signal.chirp(t, f0[ch], tau[ch][txi], f1[ch]) * wtx
-                    # The transmit signal must have a max amplitude of 1
-                    y = (y_tmp / np.max(np.abs(y_tmp)))
+        ytx = []
+        # Loop over each unique transmit signal
+        for txi in range(tau.shape[1]):
+            ytx_ping = []
+            # Create transmit signal
+            for ch in range(ed.raw.frequency.size):
+                t = np.arange(0, tau[ch][txi], delta)
+                nt = len(t)
+                nwtx = (int(2 * np.floor(slope[ch][txi] * nt)))
+                wtx_tmp = np.hanning(nwtx)
+                nwtxh = (int(np.round(nwtx / 2)))
+                wtx = np.concatenate([wtx_tmp[0:nwtxh], np.ones((nt - nwtx)), wtx_tmp[nwtxh:]])
+                y_tmp = amp[ch][txi] * signal.chirp(t, f0[ch][txi], tau[ch][txi], f1[ch][txi]) * wtx
+                # The transmit signal must have a max amplitude of 1
+                y = (y_tmp / np.max(np.abs(y_tmp)))
 
-                    # filter and decimation
-                    wbt_fil = ds_fil.attrs[ch_ids[ch] + '_WBT_filter_r'] + 1j * \
-                        ds_fil.attrs[ch_ids[ch] + "_WBT_filter_i"]
-                    pc_fil = ds_fil.attrs[ch_ids[ch] + '_PC_filter_r'] + 1j * \
-                        ds_fil.attrs[ch_ids[ch] + '_PC_filter_i']
+                # filter and decimation
+                wbt_fil = ds_fil.attrs[ch_ids[ch] + '_WBT_filter_r'] + 1j * \
+                    ds_fil.attrs[ch_ids[ch] + "_WBT_filter_i"]
+                pc_fil = ds_fil.attrs[ch_ids[ch] + '_PC_filter_r'] + 1j * \
+                    ds_fil.attrs[ch_ids[ch] + '_PC_filter_i']
 
-                    # Apply WBT filter and downsample
-                    ytx_tmp = np.convolve(y, wbt_fil)
-                    ytx_tmp = ytx_tmp[0::ds_fil.attrs[ch_ids[ch] + "_WBT_decimation"]]
+                # Apply WBT filter and downsample
+                ytx_tmp = np.convolve(y, wbt_fil)
+                ytx_tmp = ytx_tmp[0::ds_fil.attrs[ch_ids[ch] + "_WBT_decimation"]]
 
-                    # Apply PC filter and downsample
-                    ytx_tmp = np.convolve(ytx_tmp, pc_fil)
-                    ytx_tmp = ytx_tmp[0::ds_fil.attrs[ch_ids[ch] + "_PC_decimation"]]
-                    ytx_ping.append(ytx_tmp)
-                    del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
-                ytx.extend([ytx_ping for n in range(counts[txi])])
+                # Apply PC filter and downsample
+                ytx_tmp = np.convolve(ytx_tmp, pc_fil)
+                ytx_tmp = ytx_tmp[0::ds_fil.attrs[ch_ids[ch] + "_PC_decimation"]]
+                ytx_ping.append(ytx_tmp)
+                del nwtx, wtx_tmp, nwtxh, wtx, y_tmp, y, ytx_tmp
+            ytx.extend([ytx_ping for n in range(counts[txi])])
 
             return np.array(ytx).T
 
@@ -143,7 +143,7 @@ class ProcessEK80(ProcessEK):
             ptxa_lazy = [dask.delayed(calc_effective_pulse_length)(i) for i in range(npings)]
             tau_constants.append(dask.compute(*ptxa_lazy))
 
-        tau_effective = tau_constants * cal_params['sample_interval']
+        tau_effective = tau_constants * ed.raw.sample_interval
         backscatter_compressed = xr.concat(backscatter_compressed, dim='frequency')
 
         return backscatter_compressed, tau_effective
@@ -164,7 +164,7 @@ class ProcessEK80(ProcessEK):
         psifc = cal_params['equivalent_beam_angle'] + 20 * np.log10(f_nominal / f_center)
         la2 = (c / f_center) ** 2
         Sv = []
-        TS = []
+        Sp = []
 
         # Take absolute value of complex backscatter
         prx = np.abs(backscatter_compressed)
@@ -179,15 +179,15 @@ class ProcessEK80(ProcessEK):
             # calculate Sv
             Sv = (
                 10 * np.log10(prx) + 20 * np.log10(ranges) +
-                2 * env_params['seawater_absorption'] * ranges -
+                2 * env_params['absorption'] * ranges -
                 10 * np.log10(tx_power * la2[:, None] * c / (32 * np.pi * np.pi)) -
                 2 * Gfc - 10 * np.log10(tau_effective) - psifc
             )
         else:
-            # calculate TS
-            TS = (
+            # calculate Sp
+            Sp = (
                 10 * np.log10(prx) + 40 * np.log10(ranges) +
-                2 * env_params['seawater_absorption'] * ranges -
+                2 * env_params['absorption'] * ranges -
                 10 * np.log10(tx_power * la2[:, None] / (16 * np.pi * np.pi)) -
                 2 * Gfc
             )
@@ -196,28 +196,28 @@ class ProcessEK80(ProcessEK):
         if cal_type == 'Sv':
             Sv.name = 'Sv'
             Sv = Sv.to_dataset()
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ranges)
+            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed, ranges))
             if save:
                 # Update pointer in EchoData
-                Sv_path = io.validate_proc_path(ed, '_Sv', save_path)
+                Sv_path = io.validate_proc_path(ed, '_Sv', save_path, save_format)
                 print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv to {Sv_path}")
-                ed._save_dataset(Sv, Sv_path, mode="w", save_format=save_format)
+                io.save_file(Sv, Sv_path, mode="w", engine=save_format)
                 ed.Sv_path = Sv_path
             else:
                 ed.Sv = Sv
-        # Save TS calibrated data
-        elif cal_type == 'TS':
-            TS.name = 'TS'
-            TS = TS.to_dataset()
-            TS['range'] = (('frequency', 'ping_time', 'range_bin'), ranges)
+        # Save Sp calibrated data
+        elif cal_type == 'Sp':
+            Sp.name = 'Sp'
+            Sp = Sp.to_dataset()
+            Sp['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed, ranges))
             if save:
                 # Update pointer in EchoData
-                TS_path = io.validate_proc_path(ed, '_TS', save_path)
-                print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated TS to {TS_path}")
-                ed._save_dataset(TS, TS_path, mode="w", save_format=save_format)
-                ed.TS_path = TS_path
+                Sp_path = io.validate_proc_path(ed, '_Sp', save_path, save_format)
+                print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
+                io.save_file(Sp, Sp_path, mode="w", engine=save_format)
+                ed.Sp_path = Sp_path
             else:
-                ed.TS = TS
+                ed.Sp = Sp
 
     def _choose_mode(self, ed):
         """Choose which calibration mode to use.
@@ -241,15 +241,15 @@ class ProcessEK80(ProcessEK):
 
     def get_Sp(self, ed, env_params, cal_params,
                save=True, save_path=None, save_format='zarr'):
-        """Calibrate to get target strength (TS) from EK80 data.
+        """Calibrate to get target strength (Sp) from EK80 data.
         """
-        self._choose_mode(ed)(ed, env_params, cal_params, 'TS', save, save_path, save_format)
+        self._choose_mode(ed)(ed, env_params, cal_params, 'Sp', save, save_path, save_format)
 
     def calc_range(self, ed, env_params, cal_params, range_bins=None):
         range_bin = xr.DataArray(np.arange(range_bins), coords=[np.arange(range_bins)], dims=['range_bin']) if \
             range_bins is not None else ed.raw.range_bin
         st = self.calc_sample_thickness(ed, env_params, cal_params)
-        range_meter = st * range_bin - cal_params['transmit_duration_nominal'] * \
+        range_meter = st * range_bin - ed.raw.transmit_duration_nominal * \
             env_params['speed_of_sound_in_water'] / 2  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)
         return range_meter

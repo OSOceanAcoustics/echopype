@@ -14,7 +14,7 @@ csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power120.csv',
              './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Power200.csv']
 # raw_paths = ['./echopype/test_data/ek60/set1/' + file
-#              for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
+            #  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
 # raw_path = ['./echopype/test_data/ek60/set2/' + file
 #                  for file in os.listdir('./echopype/test_data/ek60/set2')]    # 3 range lengths
 # Other data files
@@ -58,7 +58,10 @@ def test_convert_power_echoview():
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_power = np.stack(channels)
     with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
-        assert np.allclose(test_power, ds_beam.backscatter_r[:, :10, 1:], atol=1e-10)
+        assert np.allclose(
+            test_power,
+            ds_beam.backscatter_r.isel(ping_time=slice(None, 10), range_bin=slice(1, None)),
+            atol=1e-10)
 
     os.remove(tmp.output_path)
 
@@ -82,11 +85,11 @@ def test_combine():
 
     # Test combining while converting
     tmp = Convert(file=raw_paths[:4], model='EK60')
-    tmp.to_zarr(save_path=export_folder, overwrite=True, combine=True)
+    tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
 
     # Test combining after converting
     tmp = Convert(file=raw_paths[4:8], model='EK60')
-    tmp.to_zarr(save_path=export_folder, overwrite=True)
+    tmp.to_netcdf(save_path=export_folder, overwrite=True)
     tmp.combine_files(tmp.output_path)
 
     shutil.rmtree(export_folder)

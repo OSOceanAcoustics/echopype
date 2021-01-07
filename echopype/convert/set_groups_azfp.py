@@ -42,11 +42,8 @@ class SetGroupsAZFP(SetGroupsBase):
                                  'units': 'seconds since 1970-01-01'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
-        # save to file
-        if self.engine == 'netcdf4':
-            ds.to_netcdf(path=self.output_path, mode='a', group='Environment')
-        elif self.engine == 'zarr':
-            ds.to_zarr(store=self.output_path, mode='a', group='Environment')
+        # Save to file
+        io.save_file(ds, path=self.output_path, mode='a', group='Environment', engine=self.engine)
 
     def set_platform(self):
         """Set the Platform group.

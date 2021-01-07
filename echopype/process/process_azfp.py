@@ -57,24 +57,24 @@ class ProcessAZFP(ProcessBase):
         Sv = (cal_params['EL'] - 2.5 / cal_params['DS'] +
               ed.raw.backscatter_r / (26214 * cal_params['DS']) -
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 20 * np.log10(ed.range) +
-              2 * env_params['seawater_absorption'] * ed.range -
+              2 * env_params['absorption'] * ed.range -
               10 * np.log10(0.5 * env_params['speed_of_sound_in_water'] *
-                            cal_params['transmit_duration_nominal'] *
+                            ed.raw.transmit_duration_nominal *
                             cal_params['equivalent_beam_angle']) + cal_params['Sv_offset'])
 
         Sv.name = 'Sv'
         Sv = Sv.to_dataset()
 
-        # Attached calculated range into the dataset
-        Sv['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+        # Attached calculated range to the dataset
+        Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
         # Save calibrated data into the calling instance and
         # to a separate .nc file in the same directory as the data
         if save:
             # Update pointer in EchoData
-            Sv_path = io.validate_proc_path(ed, '_Sv', save_path)
+            Sv_path = self.validate_proc_path(ed, '_Sv', save_path, save_format)
             print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv to {Sv_path}")
-            ed._save_dataset(Sv, Sv_path, mode="w", save_format=save_format)
+            io.save_file(Sv, Sv_path, mode="w", engine=save_format)
             ed.Sv_path = Sv_path
         else:
             # TODO Add to docs
@@ -89,19 +89,19 @@ class ProcessAZFP(ProcessBase):
         Sp = (cal_params['EL'] - 2.5 / cal_params['DS'] +
               ed.raw.backscatter_r / (26214 * cal_params['DS']) -
               cal_params['TVR'] - 20 * np.log10(cal_params['VTX']) + 40 * np.log10(ed.range) +
-              2 * env_params['seawater_absorption'] * ed.range)
+              2 * env_params['absorption'] * ed.range)
 
         Sp.name = "Sp"
         Sp = Sp.to_dataset()
 
-        # Attached calculated range into the dataset
-        Sp['range'] = (('frequency', 'ping_time', 'range_bin'), ed.range)
+        # Attached calculated range to the dataset
+        Sp['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
 
         if save:
             # Update pointer in EchoData
-            Sp_path = io.validate_proc_path(ed, '_Sp', save_path)
+            Sp_path = self.validate_proc_path(ed, '_Sp', save_path, save_format)
             print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
-            ed._save_dataset(Sp, Sp_path, mode="w", save_format=save_format)
+            io.save_file(Sp, Sp_path, mode="w", engine=save_format)
             ed.Sp_path = Sp_path
         else:
             ed.Sp = Sp
