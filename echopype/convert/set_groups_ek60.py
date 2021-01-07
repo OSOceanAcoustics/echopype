@@ -146,7 +146,7 @@ class SetGroupsEK60(SetGroupsBase):
                                 'standard_name': 'platform_heave_angle',
                                 'units': 'arc_degree',
                                 'valid_range': (-90.0, 90.0)}),
-                     'water_level': ([], water_level,
+                     'water_level': (['ping_time'], self.convert_obj.ping_data_dict['transducer_depth'][ch],
                                      {'long_name': 'z-axis distance from the platform coordinate system '
                                                    'origin to the sonar transducer',
                                       'units': 'm'})},
