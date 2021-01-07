@@ -14,17 +14,18 @@ class SetGroupsEK60(SetGroupsBase):
         # filename must have timestamp that matches self.timestamp_pattern
         sonar_values = ('Simrad', self.convert_obj.config_datagram['sounder_name'],
                         '', '', self.convert_obj.config_datagram['version'], 'echosounder')
+
+        # Save only up to the platform group if the user selects "GPS"
+        if 'NME' in self.convert_obj.data_type:
+            self.set_toplevel('EK60', date_created=self.convert_obj.nmea['timestamp'][0])
+            self.set_provenance()
+            self.set_sonar(sonar_values)
+            self.set_platform(NMEA_only=True)
+            return
+
         self.set_toplevel('EK60')
         self.set_provenance()           # provenance group
         self.set_sonar(sonar_values)    # sonar group
-
-        if 'ENV' in self.convert_obj.data_type:
-            self.set_env()           # environment group
-            return
-        elif 'NME' in self.convert_obj.data_type:
-            self.set_platform()
-            return
-
         self.set_env()              # environment group
         self.set_platform()         # platform group
         self.set_beam()             # beam group
@@ -79,7 +80,7 @@ class SetGroupsEK60(SetGroupsBase):
         io.save_file(ds.chunk({'ping_time': 100}),
                      path=self.output_path, mode='a', engine=self.engine, group='Environment')
 
-    def set_platform(self):
+    def set_platform(self, NMEA_only=False):
         """Set the Platform group.
         """
 
@@ -87,60 +88,9 @@ class SetGroupsEK60(SetGroupsBase):
         # Read lat/long from NMEA datagram
         lat, lon, location_time = self._parse_NMEA()
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ch_ids = list(self.convert_obj.config_datagram['transceivers'].keys())
-        ds_plat = []
-        # Get user defined water level (0 if undefined)
-        water_level = self.ui_param['water_level'] if self.ui_param['water_level'] is not None else 0
-        # Loop over channels
-        for ch in ch_ids:
-            ds_tmp = xr.Dataset(
-                {'pitch': (['ping_time'], self.convert_obj.ping_data_dict['pitch'][ch],
-                           {'long_name': 'Platform pitch',
-                            'standard_name': 'platform_pitch_angle',
-                            'units': 'arc_degree',
-                            'valid_range': (-90.0, 90.0)}),
-                 'roll': (['ping_time'], self.convert_obj.ping_data_dict['roll'][ch],
-                          {'long_name': 'Platform roll',
-                           'standard_name': 'platform_roll_angle',
-                           'units': 'arc_degree',
-                           'valid_range': (-90.0, 90.0)}),
-                 'heave': (['ping_time'], self.convert_obj.ping_data_dict['heave'][ch],
-                           {'long_name': 'Platform heave',
-                            'standard_name': 'platform_heave_angle',
-                            'units': 'arc_degree',
-                            'valid_range': (-90.0, 90.0)}),
-                 'water_level': ([], water_level,
-                                 {'long_name': 'z-axis distance from the platform coordinate system '
-                                               'origin to the sonar transducer',
-                                  'units': 'm'})},
-                coords={'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
-                                      {'axis': 'T',
-                                       'calendar': 'gregorian',
-                                       'long_name': 'Timestamps for position datagrams',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})},
-                attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
-                       'platform_name': self.ui_param['platform_name'],
-                       'platform_type': self.ui_param['platform_type']})
-
-            # Attach frequency dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
-                {'frequency': [self.convert_obj.config_datagram['transceivers'][ch]['frequency']]})
-            ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
-                units='Hz',
-                long_name='Transducer frequency',
-                valid_min=0.0,
-            )
-            ds_plat.append(ds_tmp)
-
-        # Merge data from all channels
-        ds = xr.merge(ds_plat)
-
         # Add in NMEA location information if it exists
         if len(location_time) > 0:
-            ds_loc = xr.Dataset(
+            ds = xr.Dataset(
                 {'latitude': (['location_time'], lat,
                               {'long_name': 'Platform latitude',
                                'standard_name': 'latitude',
@@ -157,17 +107,79 @@ class SetGroupsEK60(SetGroupsBase):
                                            'long_name': 'Timestamps for NMEA position datagrams',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})})
-            ds = xr.merge([ds, ds_loc], combine_attrs='override')
+            ds = ds.chunk({'location_time': 100})
+        else:
+            ds = xr.Dataset()
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                             ds.ping_time.attrs)})
+        if not NMEA_only:
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ch_ids = list(self.convert_obj.config_datagram['transceivers'].keys())
+
+            if self.ui_param['water_level'] is not None:
+                water_level = self.ui_param['water_level']
+            else:
+                water_level = np.nan
+                print('WARNING: The water_level_draft was not in the file. Value '
+                      'set to None')
+
+            ds_plat = []
+            # Get user defined water level (Nan if undefined)
+            # Loop over channels
+            for ch in ch_ids:
+                ds_tmp = xr.Dataset(
+                    {'pitch': (['ping_time'], self.convert_obj.ping_data_dict['pitch'][ch],
+                               {'long_name': 'Platform pitch',
+                                'standard_name': 'platform_pitch_angle',
+                                'units': 'arc_degree',
+                                'valid_range': (-90.0, 90.0)}),
+                     'roll': (['ping_time'], self.convert_obj.ping_data_dict['roll'][ch],
+                              {'long_name': 'Platform roll',
+                               'standard_name': 'platform_roll_angle',
+                               'units': 'arc_degree',
+                               'valid_range': (-90.0, 90.0)}),
+                     'heave': (['ping_time'], self.convert_obj.ping_data_dict['heave'][ch],
+                               {'long_name': 'Platform heave',
+                                'standard_name': 'platform_heave_angle',
+                                'units': 'arc_degree',
+                                'valid_range': (-90.0, 90.0)}),
+                     'water_level': ([], water_level,
+                                     {'long_name': 'z-axis distance from the platform coordinate system '
+                                                   'origin to the sonar transducer',
+                                      'units': 'm'})},
+                    coords={'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
+                                          {'axis': 'T',
+                                           'calendar': 'gregorian',
+                                           'long_name': 'Timestamps for position datagrams',
+                                           'standard_name': 'time',
+                                           'units': 'seconds since 1900-01-01'})},
+                    attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
+                           'platform_name': self.ui_param['platform_name'],
+                           'platform_type': self.ui_param['platform_type']})
+
+                # Attach frequency dimension/coordinate
+                ds_tmp = ds_tmp.expand_dims(
+                    {'frequency': [self.convert_obj.config_datagram['transceivers'][ch]['frequency']]})
+                ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
+                    units='Hz',
+                    long_name='Transducer frequency',
+                    valid_min=0.0,
+                )
+                ds_plat.append(ds_tmp)
+
+            # Merge data from all channels
+            ds_plat = xr.merge(ds_plat)
+            # Merge with NMEA data
+            ds = xr.merge([ds, ds_plat], combine_attrs='override')
+
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ds = ds_plat.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+                                        np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                       ds.ping_time.attrs)}).chunk({'ping_time': 100})
 
         # Save to file
-        io.save_file(ds.chunk({'location_time': 100, 'ping_time': 100}),
-                     path=self.output_path, mode='a', engine=self.engine,
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
                      group='Platform', compression_settings=self.compression_settings)
 
     def set_beam(self):
@@ -385,7 +397,7 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.Dataset(
             {
                 'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
-                'gain': (['frequency', 'pulse_length_bin'], gain),
+                'gain_correction': (['frequency', 'pulse_length_bin'], gain),
                 'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)
             },
             coords={

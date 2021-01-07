@@ -38,18 +38,19 @@ class SetGroupsBase:
         """Actually save groups to file by calling the set methods.
         """
 
-    def set_toplevel(self, sonar_model):
+    def set_toplevel(self, sonar_model, date_created=None):
         """Set the top-level group.
         """
         # Collect variables
-        # Check if AZFP or EK
-        if isinstance(self.convert_obj.ping_time, list):
-            date_created = self.convert_obj.ping_time[0]
-        else:
-            pt = []
-            for v in self.convert_obj.ping_time.values():
-                pt.append(v[0])
-            date_created = np.sort(pt)[0]
+        if date_created is None:
+            # Check if AZFP or EK
+            if isinstance(self.convert_obj.ping_time, list):
+                date_created = self.convert_obj.ping_time[0]
+            else:
+                pt = []
+                for v in self.convert_obj.ping_time.values():
+                    pt.append(v[0])
+                date_created = np.sort(pt)[0]
 
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,

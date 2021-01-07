@@ -10,9 +10,8 @@ from ..convert import Convert
 raw_path = './echopype/test_data/azfp/17082117.01A'     # Standard test
 xml_path = './echopype/test_data/azfp/17041823.XML'     # Standard test
 test_path = './echopype/test_data/azfp/from_matlab/17082117.nc'
-# raw_path = ['./echopype/test_data/azfp/set1/' + file
-#             for file in os.listdir('./echopype/test_data/azfp/set1')]
-# xml_path = './echopype/test_data/azfp/set1/17033000.XML'       # Multiple files
+raw_paths = ['./echopype/test_data/azfp/set1/' + file
+             for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
 csv_paths = ['./echopype/test_data/azfp/from_echoview/17082117-raw38.csv',    # EchoView exports
              './echopype/test_data/azfp/from_echoview/17082117-raw125.csv',
              './echopype/test_data/azfp/from_echoview/17082117-raw200.csv',
@@ -90,6 +89,20 @@ def test_convert_zarr():
         assert np.array_equal(test_power, ds_beam.backscatter_r)
 
     shutil.rmtree(tmp.output_path)
+
+
+def test_combine():
+    """Test combining multiple raw files"""
+    export_folder = './echopype/test_data/azfp/export/'
+
+    # Test combining while converting
+    tmp = Convert(file=raw_paths[1:5], model='AZFP', xml_path=raw_paths[0])
+    tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
+
+    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+        # Test if the concatenation along ping time worked
+        assert len(ds_beam.ping_time) == 960
+    shutil.rmtree(export_folder)
 
 
 def test_validate_path():

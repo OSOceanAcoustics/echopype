@@ -210,6 +210,7 @@ class ParseEK(ParseBase):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
                     self.environment = new_datagram['environment']
                     self.environment['xml'] = new_datagram['xml']
+                    self.environment['timestamp'] = new_datagram['timestamp']
                     # Don't parse anything else if only the environment xml is required.
                     if 'ENV' in self.data_type:
                         break

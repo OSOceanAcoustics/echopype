@@ -36,7 +36,8 @@ class ProcessEK60(ProcessEK):
         """Calculates range in meters.
         """
         sample_thickness = self.calc_sample_thickness(ed, env_params, cal_params)
-        range_meter = (ed.raw.range_bin
-                       - self.tvg_correction_factor - 1/2) * sample_thickness  # DataArray [frequency x range_bin]
+        # TODO Check with the AFSC about the half angle difference
+        range_meter = (ed.raw.range_bin -
+                       self.tvg_correction_factor) * sample_thickness  # DataArray [frequency x range_bin]
         range_meter = range_meter.where(range_meter > 0, other=0)
         return range_meter

@@ -26,13 +26,7 @@ class EchoData:
             self.name = '_' + name
 
         def __get__(self, instance, owner):
-            if getattr(instance, self.name) is None:
-                pass
-                # TODO: @ngkavin: my ed objects print out 4 of the below msg when I initialize
-                print('Data has not been calibrated. '
-                      'Call `Process.calibrate(EchoData)` to calibrate.')
-            else:
-                return getattr(instance, self.name)
+            return getattr(instance, self.name)
 
         def __set__(self, instance, value):
             setattr(instance, self.name, value)
@@ -47,9 +41,7 @@ class EchoData:
             return getattr(instance, self.name)
 
         def __set__(self, instance, value):
-            # TODO: Look at how a list of Sv would be saved
-            attr = self.name.split('_')[1]
-            instance._update_data_pointer(value, arr=attr)
+            instance._update_data_pointer(value, attr_path=self.name)
 
     for attr in DATA_TYPES:
         vars()[attr] = DataSetGet()
@@ -71,11 +63,8 @@ class EchoData:
 
             # Set the file format
             if self._file_format is None and files is not None:
-                if files[0].endswith('.nc'):
-                    self._file_format = 'netcdf4'
-                elif files[0].endswith('.zarr'):
-                    self._file_format = 'zarr'
-            # Initialize data pointers
+                self._file_format = io.get_file_format(files[0])
+
         self._sonar_model = None
         self.range = None
 
@@ -87,8 +76,8 @@ class EchoData:
         return self._sonar_model
 
     def _check_key_param_consistency():
-        """Decorator to check if key params in the files for the specified group
-        to make sure the files can be opened together.
+        """Decorator to check if raw files can be opened together by
+         seeing if key parameters stay the same across files.
         """
         def wrapper(open_dataset):
             functools.wraps(open_dataset)
@@ -116,8 +105,8 @@ class EchoData:
     def get_vend_from_raw(self):
         """Open the Vendor group from raw data files.
         """
-        return xr.open_mfdataset(self.raw_path, group='Vendor', combine='by_coords',
-                                 data_vars='minimal', engine=self._file_format)
+        return xr.open_mfdataset(self.raw_path, group='Vendor', combine='nested',
+                                 compat='no_conflicts', data_vars='minimal', engine=self._file_format)
 
     @_check_key_param_consistency()
     def get_beam_from_raw(self):
@@ -128,9 +117,10 @@ class EchoData:
 
     def _get_data_from_file(self, files):
         """Open files with data in the top level like Sv, Sp, and MVBS"""
+        engine = io.get_file_format(files)
         try:
             return xr.open_mfdataset(files, combine='nested', concat_dim='ping_time',
-                                     data_vars='minimal', engine=self._file_format)
+                                     data_vars='minimal', engine=engine)
         except xr.MergeError as e:
             var = str(e).split("'")[1]
             raise ValueError(f"Files cannot be opened due to {var} changing across the files")
@@ -166,11 +156,10 @@ class EchoData:
             else:
                 raise ValueError("Unsupported file path")
 
-    def _update_data_pointer(self, path, arr):
+    def _update_data_pointer(self, path, attr_path):
         """Update pointer to data for the specified type and path.
         """
-        attr = '_' + arr
-        attr_path = attr + '_path'
+        attr = '_'.join(attr_path.split('_')[:-1])
         if path is None:
             setattr(self, attr, None)
             setattr(self, attr_path, None)
@@ -179,27 +168,6 @@ class EchoData:
             group = 'Beam' if attr == '_raw' else None
             # Lazy load data into instance variable ie. self.Sv, self.raw, etc
             setattr(self, attr, self._open(getattr(self, attr_path), group=group))
-
-    @staticmethod
-    def _save_dataset(ds, path, mode="w", save_format='zarr'):
-        """Save dataset to the appropriate formats.
-
-        A utility method to use the correct function to save the dataset,
-        based on the input file format.
-
-        Parameters
-        ----------
-        ds : xr.Dataset
-            xarray dataset object
-        path : str
-            output file
-        """
-        if save_format == 'netcdf':
-            ds.to_netcdf(path, mode=mode)
-        elif save_format == 'zarr':
-            ds.to_zarr(path, mode=mode)
-        else:
-            raise ValueError("Unsupported save format " + save_format)
 
     def close(self):
         """Close open datasets

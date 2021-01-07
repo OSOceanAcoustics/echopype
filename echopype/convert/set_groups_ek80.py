@@ -19,17 +19,22 @@ class SetGroupsEK80(SetGroupsBase):
             self.set_sonar(ch_ids, path=path)
             self.set_vendor(ch_ids, bb=bb, path=path)
 
-        self.set_toplevel(self.sonar_model)
-        self.set_provenance()    # provenance group
-
         # Save environment only
         if 'ENV' in self.convert_obj.data_type:
-            self.set_env()           # environment group
+            self.set_toplevel(self.sonar_model, date_created=self.convert_obj.environment['timestamp'])
+            self.set_provenance()
+            self.set_env(env_only=True)
             return
+        # Save NMEA/MRU data only
         elif 'NME' in self.convert_obj.data_type:
+            self.set_toplevel(self.sonar_model, date_created=self.convert_obj.nmea['timestamp'][0])
+            self.set_provenance()
             self.set_platform()
             return
 
+        # Save all groups
+        self.set_toplevel(self.sonar_model)
+        self.set_provenance()    # provenance group
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
@@ -45,12 +50,18 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             set_beam_type_specific_groups(self.convert_obj.ch_ids['power'], bb=False, path=self.output_path)
 
-    def set_env(self):
+    def set_env(self, env_only=False):
         """Set the Environment group.
         """
+        # If only saving environment group, there is no ping_time so use timestamp of environment datagram
+        if env_only:
+            ping_time = self.convert_obj.environment['timestamp']
+        else:
+            ping_time = list(self.convert_obj.ping_time.values())[0][0]
         # Select the first available ping_time
-        ping_time = [(list(self.convert_obj.ping_time.values())[0][0] - np.datetime64('1900-01-01T00:00:00')) /
-                     np.timedelta64(1, 's')]
+        ping_time = np.array([(ping_time.astype('datetime64[ns]') -
+                               np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')])
+
         # Collect variables
         ds = xr.Dataset({'temperature': (['ping_time'], [self.convert_obj.environment['temperature']]),
                          'depth': (['ping_time'], [self.convert_obj.environment['depth']]),
@@ -64,6 +75,9 @@ class SetGroupsEK80(SetGroupsBase):
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
                                            'units': 'seconds since 1900-01-01'})})
+        # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
+        #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+        #                                      ds.ping_time.attrs)})
 
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
@@ -79,7 +93,7 @@ class SetGroupsEK80(SetGroupsBase):
         elif 'water_level_draft' in self.convert_obj.environment:
             water_level = self.convert_obj.environment['water_level_draft']
         else:
-            water_level = None
+            water_level = np.nan
             print('WARNING: The water_level_draft was not in the file. Value '
                   'set to None')
 
@@ -342,11 +356,13 @@ class SetGroupsEK80(SetGroupsBase):
                     ds_f_start_end = xr.Dataset(
                         {
                             'frequency_start': (['ping_time'],
-                                                self.convert_obj.ping_data_dict['frequency_start'][ch],
+                                                np.array(self.convert_obj.ping_data_dict['frequency_start'][ch],
+                                                         dtype=int),
                                                 {'long_name': 'Starting frequency of the transducer',
                                                  'units': 'Hz'}),
                             'frequency_end': (['ping_time'],
-                                              self.convert_obj.ping_data_dict['frequency_end'][ch],
+                                              np.array(self.convert_obj.ping_data_dict['frequency_end'][ch],
+                                                       dtype=int),
                                               {'long_name': 'Ending frequency of the transducer',
                                                'units': 'Hz'}),
 
@@ -473,14 +489,14 @@ class SetGroupsEK80(SetGroupsBase):
                 for i, ch in enumerate(cal_ch_ids):
                     indices = np.searchsorted(freq_coord, frequency[i])
                     param_val[i][indices] = config[ch]['calibration'][param]
-                param_dict[param] = (['channel', 'frequency'], param_val)
+                param_dict[param] = (['channel', 'frequency_spectrum'], param_val)
 
             ds = xr.Dataset(
                 data_vars=param_dict,
                 coords={
                     'channel': (['channel'], full_ch_names),
-                    'frequency': (['frequency'], freq_coord,
-                                  {'long_name': 'Transducer frequency', 'units': 'Hz'})
+                    'frequency': (['frequency_spectrum'], freq_coord,
+                                  {'long_name': 'Broadband frequency spectrum', 'units': 'Hz'})
                 })
         if not bb:
             # Save pulse length and sa correction
@@ -490,7 +506,7 @@ class SetGroupsEK80(SetGroupsBase):
             gain = [config[ch]['gain'] for ch in ch_ids]
             ds_pulse_length = xr.Dataset({
                 'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
-                'gain': (['frequency', 'pulse_length_bin'], gain),
+                'gain_correction': (['frequency', 'pulse_length_bin'], gain),
                 'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)},
                 coords={
                     'frequency': (['frequency'], freq,

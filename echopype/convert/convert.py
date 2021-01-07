@@ -3,12 +3,12 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
 import shutil
+import warnings
 import xarray as xr
 import numpy as np
 import zarr
-import netCDF4
+from collections.abc import MutableMapping
 import fsspec
-from collections import MutableMapping
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -45,6 +45,12 @@ MODELS = {
 }
 
 
+# TODO: Used for backwards compatibility. Delete in future versions
+def ConvertEK80(_filename=""):
+    io._print_deprecation_warning("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead")
+    return Convert(file=_filename, model='EK80')
+
+
 class Convert:
     """UI class for using convert objects.
 
@@ -79,8 +85,22 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    def __init__(self, file=None, model=None,
-                 xml_path=None, storage_options={}):
+    def __init__(self, file=None, model=None, xml_path=None, storage_options=None):
+        # TODO: Used for backwards compatibility. Delete in future versions
+        warnings.simplefilter('always', DeprecationWarning)
+        if model is None:
+            model = 'EK60'
+            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
+                                          "Specifying `model='EK60'` will be required in the future.")
+        elif model is not None and model.lower().endswith('.xml'):
+            xml_path = model
+            model = 'AZFP'
+            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
+                                          "Specifying `model='AZFP'` and `xml_path` will be required in the future")
+        # Initialize old path names (replaced by output_path). Only filled if raw2nc/raw2zarr is called
+        self._zarr_path = None
+        self._nc_path = None
+
         # Attributes
         self.sonar_model = None     # type of echosounder
         self.xml_path = ''          # path to xml file (AZFP only)
@@ -104,7 +124,7 @@ class Convert:
         # TODO: review the GGA choice
         self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
-        self.storage_options = storage_options
+        self.storage_options = storage_options if storage_options is not None else {}
         self.set_source(file, model, xml_path)
 
     def __str__(self):
@@ -251,7 +271,7 @@ class Convert:
         """
 
         if self.sonar_model not in MODELS:
-            raise ValueError(f"Unsupported sonar model: {model}\nMust be one of: {list(MODELS)}")
+            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\nMust be one of: {list(MODELS)}")
 
         # Use echosounder-specific object
         c = MODELS[self.sonar_model]['parser']
@@ -355,7 +375,7 @@ class Convert:
             # Combine Platform
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
             if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Platform', combine='by_coords',
+                with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
                                        compat='identical', engine=engine) as ds_plat:
                     io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
             elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
@@ -376,17 +396,10 @@ class Convert:
                         io.save_file(ds_nmea.chunk({'location_time': 100}).astype('str'),
                                      path=output_path, mode='a', engine=engine, group='Platform/NMEA')
 
-            # Combine sonar model-specific
-            if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_vend:
-                    io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
-            elif self.sonar_model in ['EK80', 'EA640']:
-                # EK60 does not have the "vendor specific" group
-                with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                       concat_dim='location_time', compat='no_conflicts',
-                                       data_vars='minimal', engine=engine) as ds_vend:
-                    io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
+            # Combine sonar-model specific
+            with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
+                                   compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
+                io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
 
         except xr.MergeError as e:
             var = str(e).split("'")[1]
@@ -484,6 +497,9 @@ class Convert:
         if extra_platform_data is None:
             return
         files = self.output_path if files is None else files
+        if not isinstance(files, list):
+            files = [files]
+        engine = io.get_file_format(files[0])
 
         # saildrone specific hack
         if "trajectory" in extra_platform_data:
@@ -500,18 +516,9 @@ class Convert:
         if not time_name:
             raise ValueError('Time dimension not found')
 
-        if not isinstance(files, list):
-            files = [files]
         for f in files:
-            ext = os.path.splitext(f)[-1]
-            if ext == ".nc":
-                ds_beam = xr.open_dataset(f, group="Beam")
-                ds_platform = xr.open_dataset(f, group="Platform")
-            elif ext == ".zarr":
-                ds_beam = xr.open_zarr(f, group="Beam")
-                ds_platform = xr.open_zarr(f, group="Platform")
-            else:
-                raise ValueError("Invalid file type (must be .nc or .zarr)")
+            ds_beam = xr.open_dataset(f, group="Beam", engine=engine)
+            ds_platform = xr.open_dataset(f, group="Platform", engine=engine)
 
             # only take data during ping times
             # start_time, end_time = min(ds_beam["ping_time"]), max(ds_beam["ping_time"])
@@ -573,20 +580,22 @@ class Convert:
             ds_platform.close()
             ds_beam.close()
 
-            if ext == ".nc":
+            if engine == "netcdf4":
                 # https://github.com/Unidata/netcdf4-python/issues/65
-                old_dataset = netCDF4.Dataset(f, mode="r", diskless=True)
+                # Copy groups over to temporary file
+                # TODO: Add in documentation: recommended to use Zarr if using add_platform
                 new_dataset_filename = f + ".temp"
-                new_dataset = netCDF4.Dataset(new_dataset_filename, mode="w")
-                new_dataset.groups.update({group_name: group for group_name, group in
-                                          old_dataset.groups.items() if group_name != "Platform"})
-                new_dataset.sync()
-                old_dataset.close()
-                new_dataset.close()
+                groups = ['Provenance', 'Environment', 'Beam', 'Sonar', 'Vendor']
+                with xr.open_dataset(f) as ds_top:
+                    ds_top.to_netcdf(new_dataset_filename, mode='w')
+                for group in groups:
+                    with xr.open_dataset(f, group=group) as ds:
+                        ds.to_netcdf(new_dataset_filename, mode='a', group=group)
+                ds_platform.to_netcdf(new_dataset_filename, mode="a", group="Platform")
+                # Replace original file with temporary file
                 os.remove(f)
                 os.rename(new_dataset_filename, f)
-                ds_platform.to_netcdf(f, mode="a", group="Platform")
-            elif ext == ".zarr":
+            elif engine == "zarr":
                 # https://github.com/zarr-developers/zarr-python/issues/65
                 old_dataset = zarr.open_group(f, mode="a")
                 del old_dataset["Platform"]
@@ -729,28 +738,53 @@ class Convert:
                 xml_file.write(data)
         self.output_path = self._path_list_to_str(self.output_path)
 
+    @property
+    def nc_path(self):
+        io._print_deprecation_warning('`nc_path` is deprecated, Use `output_path` instead.')
+        path = self._nc_path if self._nc_path is not None else self.output_path
+        return path
+
+    @property
+    def zarr_path(self):
+        io._print_deprecation_warning('`zarr_path` is deprecated, Use `output_path` instead.')
+        path = self._zarr_path if self._zarr_path is not None else self.output_path
+        return path
+
+    # TODO: Used for backwards compatibility. Delete in future versions
+    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
+        io._print_deprecation_warning("`raw2nc` is deprecated, use `to_netcdf` instead.")
+        self.to_netcdf(save_path=save_path, compress=compress, combine=combine_opt,
+                       overwrite=overwrite)
+        self._nc_path = self.output_path
+
+    def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
+        io._print_deprecation_warning("`raw2zarr` is deprecated, use `to_zarr` instead.")
+        self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
+                     overwrite=overwrite)
+        self._zarr_path = self.output_path
+
+
 def check_files(file, model, xml_path=None, storage_options={}):
     xml = ''
-    if MODELS[model]["xml"]: 
+    if MODELS[model]["xml"]:
         if not xml_path:
             raise ValueError("XML file is required for AZFP raw data")
         elif ".XML" not in xml_path.upper():
             raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
-        
+
         xmlmap = fsspec.get_mapper(xml_path, **storage_options)
         if not xmlmap.fs.exists(xmlmap.root):
             raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
-        
+
         xml = xml_path
-        
-        
+
     for f in file:
         fsmap = fsspec.get_mapper(f, **storage_options)
         ext = MODELS[model]["ext"]
         if not fsmap.fs.exists(fsmap.root):
             raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
-        
+
         if os.path.splitext(f)[1] != ext:
             raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {f}")
-        
+
     return file, xml
