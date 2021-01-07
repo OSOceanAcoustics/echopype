@@ -165,9 +165,10 @@ class SetGroupsBase:
                 lon.append(ss.longitude if hasattr(ss, 'longitude') else np.nan)
                 location_time.append(ss_time)
                 msg_type.append(ss.sentence_type)
-        lat = np.array(lat) if lat else np.nan
-        lon = np.array(lon) if lon else np.nan
+        lat = np.array(lat) if lat else [np.nan]
+        lon = np.array(lon) if lon else [np.nan]
         location_time = (np.array(location_time) -
-                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+                         np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if location_time else [np.nan]
+        msg_type = msg_type if msg_type else [np.nan]
 
         return location_time, msg_type, lat, lon
