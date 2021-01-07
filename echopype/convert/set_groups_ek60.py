@@ -88,31 +88,28 @@ class SetGroupsEK60(SetGroupsBase):
         # Read lat/long from NMEA datagram
         location_time, msg_type, lat, lon = self._parse_NMEA()
 
-        # Add in NMEA location information if it exists
-        if len(location_time) > 0:
-            ds = xr.Dataset(
-                {
-                    'latitude': (['location_time'], lat,
-                                 {'long_name': 'Platform latitude',
-                                  'standard_name': 'latitude',
-                                  'units': 'degrees_north',
-                                  'valid_range': (-90.0, 90.0)}),
-                    'longitude': (['location_time'], lon,
-                                  {'long_name': 'Platform longitude',
-                                   'standard_name': 'longitude',
-                                   'units': 'degrees_east',
-                                   'valid_range': (-180.0, 180.0)}),
-                    'sentence_type': (['location_time'], msg_type)
-                },
-                coords={'location_time': (['location_time'], location_time,
-                                          {'axis': 'T',
-                                           'calendar': 'gregorian',
-                                           'long_name': 'Timestamps for NMEA position datagrams',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})})
-            ds = ds.chunk({'location_time': 100})
-        else:
-            ds = xr.Dataset()
+        # NMEA dataset: variables filled with nan if do not exist
+        ds = xr.Dataset(
+            {
+                'latitude': (['location_time'], lat,
+                             {'long_name': 'Platform latitude',
+                              'standard_name': 'latitude',
+                              'units': 'degrees_north',
+                              'valid_range': (-90.0, 90.0)}),
+                'longitude': (['location_time'], lon,
+                              {'long_name': 'Platform longitude',
+                               'standard_name': 'longitude',
+                               'units': 'degrees_east',
+                               'valid_range': (-180.0, 180.0)}),
+                'sentence_type': (['location_time'], msg_type)
+            },
+            coords={'location_time': (['location_time'], location_time,
+                                      {'axis': 'T',
+                                       'calendar': 'gregorian',
+                                       'long_name': 'Timestamps for NMEA position datagrams',
+                                       'standard_name': 'time',
+                                       'units': 'seconds since 1900-01-01'})})
+        ds = ds.chunk({'location_time': 100})
 
         if not NMEA_only:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -126,9 +123,8 @@ class SetGroupsEK60(SetGroupsBase):
                 print('WARNING: The water_level_draft was not in the file. Value '
                       'set to None.')
 
+            # Loop over channels and merge all
             ds_plat = []
-            # Get user defined water level (Nan if undefined)
-            # Loop over channels
             for ch in ch_ids:
                 ds_tmp = xr.Dataset(
                     {'pitch': (['ping_time'], self.convert_obj.ping_data_dict['pitch'][ch],
@@ -326,28 +322,32 @@ class SetGroupsEK60(SetGroupsBase):
         for ch in ch_ids:
             data_shape = self.convert_obj.ping_data_dict['power'][ch].shape
             ds_tmp = xr.Dataset(
-                {'backscatter_r': (['ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'][ch],
-                                   {'long_name': 'Backscatter power',
-                                    'units': 'dB'}),
-                 'sample_interval': (['ping_time'],
-                                     self.convert_obj.ping_data_dict['sample_interval'][ch],
-                                     {'long_name': 'Interval between recorded raw data samples',
-                                      'units': 's',
-                                      'valid_min': 0.0}),
-                 'transmit_bandwidth': (['ping_time'],
-                                        self.convert_obj.ping_data_dict['bandwidth'][ch],
-                                        {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                         'units': 'Hz',
+                {
+                    'backscatter_r': (['ping_time', 'range_bin'], self.convert_obj.ping_data_dict['power'][ch],
+                                      {'long_name': 'Backscatter power',
+                                       'units': 'dB'}),
+                    'sample_interval': (['ping_time'],
+                                        self.convert_obj.ping_data_dict['sample_interval'][ch],
+                                        {'long_name': 'Interval between recorded raw data samples',
+                                         'units': 's',
                                          'valid_min': 0.0}),
-                 'transmit_duration_nominal': (['ping_time'], self.convert_obj.ping_data_dict['pulse_length'][ch],
-                                               {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                                             'units': 's',
-                                                'valid_min': 0.0}),
-                 'transmit_power': (['ping_time'],
-                                    self.convert_obj.ping_data_dict['transmit_power'][ch],
-                                    {'long_name': 'Nominal transmit power',
-                                     'units': 'W',
-                                     'valid_min': 0.0})},
+                    'transmit_bandwidth': (['ping_time'],
+                                           self.convert_obj.ping_data_dict['bandwidth'][ch],
+                                           {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                            'units': 'Hz',
+                                            'valid_min': 0.0}),
+                    'transmit_duration_nominal': (['ping_time'], self.convert_obj.ping_data_dict['pulse_length'][ch],
+                                                  {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                                   'units': 's',
+                                                   'valid_min': 0.0}),
+                    'transmit_power': (['ping_time'],
+                                       self.convert_obj.ping_data_dict['transmit_power'][ch],
+                                       {'long_name': 'Nominal transmit power',
+                                        'units': 'W',
+                                        'valid_min': 0.0}),
+                    'data_type': (['ping_time'], self.convert_obj.ping_data_dict['mode'][ch],
+                                  {'long_name': 'recorded data type (1-power only, 2-angle only 3-power and angle)'})
+                },
                 coords={'ping_time': (['ping_time'], self.convert_obj.ping_time[ch],
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
@@ -356,6 +356,8 @@ class SetGroupsEK60(SetGroupsBase):
                                        'units': 'seconds since 1900-01-01'}),
                         'range_bin': (['range_bin'], np.arange(data_shape[1]))})
 
+            # TODO: below needs to be changed to use self.convert_obj.ping_data_dict['mode'][ch] == 3
+            #  1 = Power only, 2 = Angle only 3 = Power & Angle
             # Set angle data if in split beam mode (beam_type == 1)
             # because single beam mode (beam_type == 0) does not record angle data
             if self.convert_obj.config_datagram['transceivers'][ch]['beam_type'] == 1:

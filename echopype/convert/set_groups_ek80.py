@@ -104,7 +104,7 @@ class SetGroupsEK80(SetGroupsBase):
         mru_time = (np.array(mru_time) - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
             mru_time is not None else [np.nan]
 
-        # Assemble variables into a dataset
+        # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
                 'pitch': (['mru_time'], np.array(self.convert_obj.mru.get('pitch', [np.nan])),
@@ -154,6 +154,7 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                    'platform_name': self.ui_param['platform_name'],
                    'platform_type': self.ui_param['platform_type'],
+                   # TODO: check what this 'drop_keel_offset' is
                    'drop_keel_offset': (self.convert_obj.environment['drop_keel_offset'] if
                                         hasattr(self.convert_obj.environment, 'drop_keel_offset') else np.nan)})
 
