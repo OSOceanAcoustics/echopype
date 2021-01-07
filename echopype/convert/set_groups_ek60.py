@@ -116,12 +116,13 @@ class SetGroupsEK60(SetGroupsBase):
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ch_ids = list(self.convert_obj.config_datagram['transceivers'].keys())
 
-            if self.ui_param['water_level'] is not None:
-                water_level = self.ui_param['water_level']
-            else:
-                water_level = np.nan
-                print('WARNING: The water_level_draft was not in the file. Value '
-                      'set to None.')
+            # TODO: consider allow users to set water_level like in EK80?
+            # if self.ui_param['water_level'] is not None:
+            #     water_level = self.ui_param['water_level']
+            # else:
+            #     water_level = np.nan
+            #     print('WARNING: The water_level_draft was not in the file. Value '
+            #           'set to None.')
 
             # Loop over channels and merge all
             ds_plat = []

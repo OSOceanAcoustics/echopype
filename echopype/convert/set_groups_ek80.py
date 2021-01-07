@@ -94,8 +94,8 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = self.convert_obj.environment['water_level_draft']
         else:
             water_level = np.nan
-            print('WARNING: The water_level_draft was not in the file. Value '
-                  'set to None')
+            print('WARNING: The water_level_draft was not in the file. '
+                  'Value set to NaN.')
 
         location_time, msg_type, lat, lon = self._parse_NMEA()
         # Convert MRU np.datetime64 numbers to seconds since 1900-01-01
