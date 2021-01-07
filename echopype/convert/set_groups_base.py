@@ -160,7 +160,7 @@ class SetGroupsBase:
         msg_type = []
         for ss, ss_time in zip([pynmea2.parse(msg) for msg in self.convert_obj.nmea['nmea_string']],
                                self.convert_obj.nmea['timestamp']):
-            if ss.sentence_type in self.convert_obj.nmea_gps_sentence:
+            if ss.sentence_type in self.ui_param['nmea_gps_sentence']:
                 lat.append(ss.latitude if hasattr(ss, 'latitude') else np.nan)
                 lon.append(ss.longitude if hasattr(ss, 'longitude') else np.nan)
                 location_time.append(ss_time)
