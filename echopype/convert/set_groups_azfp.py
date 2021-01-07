@@ -17,7 +17,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """Actually save groups to file by calling the set methods.
         """
         sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                        int(self.convert_obj.unpacked_data['serial_number']),
+                        int(self.parser_obj.unpacked_data['serial_number']),
                         'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
         self.set_toplevel("AZFP")
         self.set_env()
@@ -31,9 +31,9 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications
-        ping_time = (self.convert_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = (self.parser_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
         # ping_time = self.convert_obj.ping_time
-        ds = xr.Dataset({'temperature': (['ping_time'], self.convert_obj.unpacked_data['temperature'])},
+        ds = xr.Dataset({'temperature': (['ping_time'], self.parser_obj.unpacked_data['temperature'])},
                         coords={'ping_time': (['ping_time'], ping_time,
                                 {'axis': 'T',
                                  'calendar': 'gregorian',
@@ -64,18 +64,18 @@ class SetGroupsAZFP(SetGroupsBase):
     def set_beam(self):
         """Set the Beam group.
         """
-        unpacked_data = self.convert_obj.unpacked_data
-        parameters = self.convert_obj.parameters
+        unpacked_data = self.parser_obj.unpacked_data
+        parameters = self.parser_obj.parameters
         anc = np.array(unpacked_data['ancillary'])   # convert to np array for easy slicing
         dig_rate = unpacked_data['dig_rate']         # dim: freq
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
-        ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         # Build variables in the output xarray Dataset
         N = []   # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
-            Sv_offset[ich] = self.convert_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
+            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))
 
@@ -164,9 +164,9 @@ class SetGroupsAZFP(SetGroupsBase):
     def set_vendor(self):
         """Set the Vendor-specific group.
         """
-        unpacked_data = self.convert_obj.unpacked_data
+        unpacked_data = self.parser_obj.unpacked_data
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
-        ping_time = (self.convert_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
         ds = xr.Dataset({
             'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
