@@ -273,12 +273,12 @@ class ParseEK(ParseBase):
         """Append ping by ping data.
         """
         # TODO: do a thorough check with the convention and processing
-        unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
-                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
+        # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
+        #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
-            if k not in unsaved:
-                self.ping_data_dict[k][ch_id].append(v)
+            # if k not in unsaved:
+            self.ping_data_dict[k][ch_id].append(v)
 
     @staticmethod
     def pad_shorter_ping(data_list) -> np.ndarray:
