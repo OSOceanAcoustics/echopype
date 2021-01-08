@@ -181,7 +181,7 @@ class Convert:
             # Check file extension and existence
             file_chk, xml_chk = self.check_files(file, model, xml_path, self.storage_options)
 
-            self.source_file = file_chk
+            self.source_file = file_chk  # this is always a list
             self.xml_path = xml_chk
         else:
             print('Please specify paths to raw data files.')
@@ -253,48 +253,47 @@ class Convert:
             Either a directory or a file. If none then the save path is the same as the raw file.
         file_format : str {'.nc', '.zarr'}
         """
+        def assemble_out_path():
+            return [os.path.join(out_dir, os.path.splitext(os.path.basename(ff))[0]+file_format)
+                    for ff in self.source_file]
 
-        filenames = self.source_file
-
-        # TODO: clean up the redundant logic below
-        #  check if save_path is a dir first:
-        #       if yes set out_dir and assemble filename,
-        #       if not (then it's path to a file) check filename extension and set out_dir
-        #  check if out_dir exists and if not create it
-        #  assemble self.output_path (a single file or a list of files depending on self.source_file)
-        #  Not sure atm if this is always a list?
-        # Default output directory taken from first input file
-        out_dir = os.path.dirname(filenames[0])
-        if save_path is not None:
-            dirname, fname = os.path.split(save_path)
-            basename, path_ext = os.path.splitext(fname)
-            if path_ext != file_format and path_ext != '':
-                raise ValueError("Saving {file_format} file but save path is to a {path_ext} file")
-            if path_ext != '.nc' and path_ext != '.zarr' and path_ext != '.xml' and path_ext != '':
-                raise ValueError("File format must be .nc, .zarr, or .xml")
-            # Check if save_path is a file or a directory
-            if path_ext == '':   # if a directory
+        if save_path is None:
+            # Default output directory taken from first input file
+            out_dir = os.path.dirname(self.source_file[0])
+            out_path = assemble_out_path()
+        else:
+            # If a folder then need to assemble full file paths
+            if os.path.isdir(save_path):
                 out_dir = save_path
-            elif len(filenames) == 1:
-                if dirname != '':
-                    out_dir = dirname
-            else:  # if a file
-                raise ValueError("save_path must be a directory")
+                out_path = assemble_out_path()
+            # If a path then need to extract folder and assemble full file path
+            else:
+                # Extract output folder
+                out_dir = os.path.dirname(save_path)
+
+                # Error checking for file format
+                save_fname_ext = os.path.basename(save_path)
+                save_fname, save_ftype = os.path.splitext(save_fname_ext)
+                if save_ftype != file_format:
+                    raise ValueError(f"Saving {file_format} file but save_path set to a {save_ftype} file")
+                if save_ftype not in ['.nc', '.zarr', '.xml']:
+                    raise ValueError("save_path format must be .nc, .zarr, or .xml")
+
+                # Take care of the case when a single save_path is given but there are >1 source_file
+                if len(self.source_file) > 1:
+                    out_path = assemble_out_path()
+                else:  # only 1 source_file
+                    out_path = [save_path]  # make output_path always a list
 
         # Create folder if save_path does not exist already
         if not os.path.exists(out_dir):
             try:
                 os.mkdir(out_dir)
-            # Raise error if save_path is not a folder
             except FileNotFoundError:
                 raise ValueError("Specified save_path is not valid.")
 
-        # Store output filenames
-        if save_path is not None and not os.path.isdir(save_path):
-            files = [os.path.basename(basename)]
-        else:
-            files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
-        self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
+        # Store output path
+        self.output_path = out_path
 
     def _construct_power_file_path(self, c, output_path):
         if c.ch_ids['power'] and c.ch_ids['complex']:
