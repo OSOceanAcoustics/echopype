@@ -4,6 +4,7 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 import os
 import shutil
 import warnings
+from pathlib import Path
 import xarray as xr
 import numpy as np
 import zarr
@@ -156,45 +157,44 @@ class Convert:
         xml_path : str
             path to xml file required for AZFP conversion
         """
-        # TODO: some logic problem in here?
-        #  users will always need to specify BOTH file and model to convert files,
-        #  The second elif should really be else and then if model is None
-        #  We want to test the opposite case (has model but no file) too.
-        #  Desired behaviour:
-        #     ec = echopype.Convert() --> no messages
-        #     ec = echopype.Convert(file=[somefiles]) --> ask to specify model
-        #     ec = echopype.Convert(model=MODEL) --> ask to specify file(s)
-        if file is None:
-            return
-        elif file is not None and model is None:
-            print("Please specify the echosounder model")
+        if (model is None) and (file is None):
+            print('Please specify paths to raw data files and the sonar model.')
             return
 
-        # Uppercased model in case people use lowercase
-        model = model.upper()
+        # Check paths and file types
+        if file is not None:
+            # Make file always a list
+            if not isinstance(file, list):
+                file = [file]
 
-        # Check models
-        if model not in MODELS:
-            raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+            # Check for path type
+            if not all(isinstance(elem, str) for elem in file):
+                raise ValueError("file must be a string or a list of string")
 
-        self.sonar_model = model
+            # Check file extension and existence
+            file_chk, xml_chk = self.check_files(file, model, xml_path, self.storage_options)
 
-        # Check if given files and storage_options are valid
-        # TODO: see #229 for accepting Path object
-        if isinstance(file, str):  # convert single file path to list
-            file = [file]
-        # TODO: seems that we need better testing for types;
-        #  not sure why we still need this after the explicit conversion in the above
-        if not isinstance(file, list):
-            raise ValueError("file must be a string or list of strings")
-        if not isinstance(self.storage_options, dict):
-            raise ValueError("storage options must be a dictionary")
+            self.source_file = file_chk
+            self.xml_path = xml_chk
+        else:
+            print('Please specify paths to raw data files.')
 
-        # Check file type and existence
-        file_chk, xml_chk = self.check_files(file, model, xml_path, self.storage_options)
+        # Set sonar model type
+        if model is not None:
+            # Uppercased model in case people use lowercase
+            model = model.upper()
 
-        self.source_file = file_chk
-        self.xml_path = xml_chk
+            # Check models
+            if model not in MODELS:
+                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+
+            self.sonar_model = model
+        else:
+            # TODO: this currently does not happen because we default to model='EK60'
+            #  when not specified to be consistent with previous behavior.
+            #  Remember to take this out later.
+            # Ask user to provide model
+            print('Please specify the sonar model.')
 
     def set_param(self, param_dict):
         """Allow users to set parameters to be stored in the converted files.
@@ -815,6 +815,8 @@ class Convert:
         else:
             xml = ''
 
+        # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
+        #  to add compatibility for pathlib.Path objects for local paths
         for f in file:
             fsmap = fsspec.get_mapper(f, **storage_options)
             ext = MODELS[model]["ext"]
