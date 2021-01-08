@@ -4,7 +4,6 @@ UI class for converting raw data from different echosounders to netcdf or zarr.
 import os
 import shutil
 import warnings
-from pathlib import Path
 import xarray as xr
 import numpy as np
 import zarr
@@ -17,6 +16,10 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
+
+
+warnings.simplefilter('always', DeprecationWarning)
+
 
 MODELS = {
     "AZFP": {
@@ -51,7 +54,8 @@ NMEA_SENTENCE_DEFAULT = ['GGA', 'GLL', 'RMC']
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
     # TODO: use warnings.warn directly, not sure why we need an additional layer of abstraction
-    io._print_deprecation_warning("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead")
+    warnings.warn("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead.",
+                  DeprecationWarning, 2)
     return Convert(file=_filename, model='EK80')
 
 
@@ -89,19 +93,22 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    def __init__(self, file=None, model=None, xml_path=None, storage_options=None):
-        # TODO: Used for backwards compatibility. Delete in future versions (all the way to self._nc_apth)
-        # TODO: use warnings.warn directly below
-        warnings.simplefilter('always', DeprecationWarning)
+    def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         if model is None:
-            model = 'EK60'
-            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
-                                          "Specifying `model='EK60'` will be required in the future.")
-        elif model is not None and model.lower().endswith('.xml'):
-            xml_path = model
-            model = 'AZFP'
-            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
-                                          "Specifying `model='AZFP'` and `xml_path` will be required in the future")
+            if xml_path is None:
+                model = 'EK60'
+                warnings.warn("Current behavior is to default model='EK60' when no XML file is passed in as argument. "
+                              "Specifying model='EK60' will be required in the future, "
+                              "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
+                              DeprecationWarning, 2)
+            else:
+                xml_path = model
+                model = 'AZFP'
+                warnings.warn("Current behavior is to set model='AZFP' when an XML file is passed in as argument. "
+                              "Specifying model='AZFP' will be required in the future.",
+                              DeprecationWarning, 2)
+
+        # TODO: Remove _zarr_path and _nc_path in the future. These are for backwards compatibility.
         # Initialize old path names (replaced by output_path). Only filled if raw2nc/raw2zarr is called
         self._zarr_path = None
         self._nc_path = None
@@ -831,27 +838,27 @@ class Convert:
     # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def nc_path(self):
-        io._print_deprecation_warning('`nc_path` is deprecated, Use `output_path` instead.')
+        warnings.warn("`nc_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
         path = self._nc_path if self._nc_path is not None else self.output_path
         return path
 
     # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def zarr_path(self):
-        io._print_deprecation_warning('`zarr_path` is deprecated, Use `output_path` instead.')
+        warnings.warn("`zarr_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
         path = self._zarr_path if self._zarr_path is not None else self.output_path
         return path
 
     # TODO: Used for backwards compatibility. Delete in future versions
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        io._print_deprecation_warning("`raw2nc` is deprecated, use `to_netcdf` instead.")
+        warnings.warn("`raw2nc` is deprecated, use `to_netcdf` instead.", DeprecationWarning, 2)
         self.to_netcdf(save_path=save_path, compress=compress, combine=combine_opt,
                        overwrite=overwrite)
         self._nc_path = self.output_path
 
     # TODO: Used for backwards compatibility. Delete in future versions
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        io._print_deprecation_warning("`raw2zarr` is deprecated, use `to_zarr` instead.")
+        warnings.warn("`raw2zarr` is deprecated, use `to_zarr` instead.", DeprecationWarning, 2)
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
                      overwrite=overwrite)
         self._zarr_path = self.output_path
