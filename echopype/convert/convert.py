@@ -118,9 +118,9 @@ class Convert:
         self.xml_path = ''       # path to xml file (AZFP only)
                                  # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None  # input file path or list of input file paths
-        self.output_path = None  # converted file path or list of converted file paths
-        self.output_path_power = []  # additional files containing only power or power+angle data (EK80 only)
-                                      # regular EK80 files contain complex data
+        self.output_file = None  # converted file path or list of converted file paths
+        self.output_file_power = []  # additional files containing only power or power+angle data (EK80 only)
+                                     # regular EK80 files contain complex data
         self._conversion_params = {}  # a dictionary of conversion parameters,
                                       # the keys could be different for different echosounders.
                                       # This dictionary is set by the `set_param` method.
@@ -237,12 +237,12 @@ class Convert:
         if ext == '':
             files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
                      for f in self.source_file]
-            self.output_path = [fs.get_mapper(f) for f in files]
+            self.output_file = [fs.get_mapper(f) for f in files]
         elif ext == '.zarr':
             if len(self.source_file) > 1:
                 raise ValueError("save_path must be a directory")
             else:
-                self.output_path = [store]
+                self.output_file = [store]
 
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
@@ -293,13 +293,13 @@ class Convert:
                 raise ValueError("Specified save_path is not valid.")
 
         # Store output path
-        self.output_path = out_path
+        self.output_file = out_path
 
     def _construct_power_file_path(self, c, output_path):
         if c.ch_ids['power'] and c.ch_ids['complex']:
             fname, ext = os.path.splitext(output_path)
             new_path = fname + '_power' + ext
-            self.output_path_power.append(new_path)
+            self.output_file_power.append(new_path)
 
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
@@ -512,7 +512,7 @@ class Convert:
 
         # self.output path contains individual files to be combined if
         #  they have just been converted using this object
-        indiv_files = self.output_path if indiv_files is None else indiv_files
+        indiv_files = self.output_file if indiv_files is None else indiv_files
 
         # Construct the final combined save path
         combined_save_path = self._get_combined_save_path(save_path, indiv_files)
@@ -522,21 +522,21 @@ class Convert:
         self._perform_combination(indiv_files, combined_save_path, engine)
 
         # Update output_path to be the combined path name
-        self.output_path = [combined_save_path]
+        self.output_file = [combined_save_path]
 
         # Combine _power files if they exist
-        if self.output_path_power:
+        if self.output_file_power:
             # Append '_power' to EK80 filepath if combining power or power+angle files
             fname, ext = os.path.splitext(combined_save_path)
             combined_save_path_power = fname + '_power' + ext
-            self._perform_combination(self.output_path_power, combined_save_path_power, engine)
+            self._perform_combination(self.output_file_power, combined_save_path_power, engine)
             # TODO: the below behavior is different from the case where the files are not combined
             #  self.output_path in the case when combine=False does not contain the _power filename
-            self.output_path.append(combined_save_path_power)
+            self.output_file.append(combined_save_path_power)
 
         # Delete individual files after combining
         if remove_orig:
-            for f in indiv_files + self.output_path_power:
+            for f in indiv_files + self.output_file_power:
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
@@ -551,7 +551,7 @@ class Convert:
         # self.extra_platform data passed into to_netcdf or from another function
         if extra_platform_data is None:
             return
-        files = self.output_path if files is None else files
+        files = self.output_file if files is None else files
         if not isinstance(files, list):
             files = [files]
         engine = io.get_file_format(files[0])
@@ -692,7 +692,7 @@ class Convert:
         if not parallel:
             for idx, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[idx], engine='netcdf4')
+                self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='netcdf4')
         else:
             # # use dask syntax but we'll probably use something else, like multiprocessing?
             # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
@@ -707,10 +707,10 @@ class Convert:
 
         # Attached platform data
         if extra_platform_data is not None:
-            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+            self.update_platform(files=self.output_file, extra_platform_data=extra_platform_data)
 
         # Tidy up output_path
-        self.output_path = self._path_list_to_str(self.output_path)
+        self.output_file = self._path_list_to_str(self.output_file)
 
     def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False,
                 overwrite=False, parallel=False, extra_platform_data=None):
@@ -751,7 +751,7 @@ class Convert:
         if not parallel:
             for idx, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[idx], engine='zarr')
+                self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='zarr')
         # else:
             # use dask syntax but we'll probably use something else, like multiprocessing?
             # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
@@ -762,10 +762,10 @@ class Convert:
 
         # Attached platform data
         if extra_platform_data is not None:
-            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
+            self.update_platform(files=self.output_file, extra_platform_data=extra_platform_data)
 
         # Tidy up output_path
-        self.output_path = self._path_list_to_str(self.output_path)
+        self.output_file = self._path_list_to_str(self.output_file)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
         """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
@@ -793,7 +793,7 @@ class Convert:
             # convert file one by one into path set by validate_path()
             tmp = ParseEK80(file, params=[data_type, 'EXPORT_XML'])
             tmp.parse_raw()
-            with open(self.output_path[idx], 'w') as xml_file:
+            with open(self.output_file[idx], 'w') as xml_file:
                 # Select between data types
                 if data_type == 'CONFIG':
                     data = tmp.config_datagram['xml']
@@ -802,7 +802,7 @@ class Convert:
                 else:
                     raise ValueError("Unknown data type", data_type)
                 xml_file.write(data)
-        self.output_path = self._path_list_to_str(self.output_path)
+        self.output_file = self._path_list_to_str(self.output_file)
 
     @staticmethod
     def check_files(file, model, xml_path=None, storage_options={}):
@@ -838,14 +838,14 @@ class Convert:
     @property
     def nc_path(self):
         warnings.warn("`nc_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
-        path = self._nc_path if self._nc_path is not None else self.output_path
+        path = self._nc_path if self._nc_path is not None else self.output_file
         return path
 
     # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def zarr_path(self):
         warnings.warn("`zarr_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
-        path = self._zarr_path if self._zarr_path is not None else self.output_path
+        path = self._zarr_path if self._zarr_path is not None else self.output_file
         return path
 
     # TODO: Used for backwards compatibility. Delete in future versions
@@ -853,11 +853,11 @@ class Convert:
         warnings.warn("`raw2nc` is deprecated, use `to_netcdf` instead.", DeprecationWarning, 2)
         self.to_netcdf(save_path=save_path, compress=compress, combine=combine_opt,
                        overwrite=overwrite)
-        self._nc_path = self.output_path
+        self._nc_path = self.output_file
 
     # TODO: Used for backwards compatibility. Delete in future versions
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         warnings.warn("`raw2zarr` is deprecated, use `to_zarr` instead.", DeprecationWarning, 2)
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
                      overwrite=overwrite)
-        self._zarr_path = self.output_path
+        self._zarr_path = self.output_file
