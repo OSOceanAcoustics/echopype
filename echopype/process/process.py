@@ -15,6 +15,9 @@ from .process_ek80 import ProcessEK80
 from .echodata import EchoData
 
 
+warnings.simplefilter('always', DeprecationWarning)
+
+
 class ParamDict(dict):
     def __init__(self, valid_params, param_type, values={}):
         self.valid_params = valid_params
@@ -74,9 +77,9 @@ class Process:
     def __init__(self, model=None, ed=None):
         # TODO: Used for backwards compatibility. Delete in future versions
         if model.lower().endswith('.nc') or model.lower().endswith('.zarr'):
-            io._print_deprecation_warning("`Process` has changed. See docs for information on how to use "
-                                          "the new `Process` class. The old workflow will be removed "
-                                          "in a future version.")
+            warnings.warn("`Process` has changed. See docs for information on how to use "
+                          "the new `Process` class. The old workflow will be removed "
+                          "in a future version.", DeprecationWarning, 3)
             raw = model
             self._temp_ed = EchoData(raw)
             engine = 'netcdf4' if model.lower().endswith('.nc') else 'zarr'
@@ -105,7 +108,7 @@ class Process:
 
     @property
     def TS(self):
-        io._print_deprecation_warning("TS has been renamed to Sp and so is deprecated.")
+        warnings.warn("TS has been renamed to Sp and so is deprecated.", DeprecationWarning, 3)
         return self._temp_ed.Sp
 
     @property
@@ -124,7 +127,7 @@ class Process:
     @property
     def TS_path(self):
         self._temp_ed.close()
-        io._print_deprecation_warning("TS has been renamed to Sp and so is deprecated.")
+        warnings.warn("TS_path has been renamed to Sp_path and so is deprecated.", DeprecationWarning, 3)
         return self._temp_ed.Sp_path
 
     @property
@@ -443,7 +446,7 @@ class Process:
     def calibrate_TS(self, ed=None, save=True, save_path=None, save_format='zarr'):
         """Calibrate raw data.
         """
-        io._print_deprecation_warning("`calibrate_TS` is deprecated. Use `get_Sp` instead.")
+        warnings.warn("`calibrate_TS` is deprecated. Use `get_Sp` instead.", DeprecationWarning, 3)
         if ed is None:
             if hasattr(self, '_temp_ed'):
                 ed = self._temp_ed
