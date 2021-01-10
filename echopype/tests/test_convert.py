@@ -80,22 +80,6 @@ def test_validate_path_multiple_source():
     os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
 
 
-import os
-import glob
-os_path = sorted(glob.glob(os.path.join('./echopype/test_data/ek60/EK60*.raw')))
-single_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
-tmp_single = Convert(single_path)
-tmp_multiple = Convert(os_path)
-tmp_single._validate_path(file_format='.zarr')
-tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads')
-tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.nc')
-tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.zarr')
-tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.zarr')
-tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.nc')
-tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads')
-tmp_multiple._validate_path(file_format='.zarr')
-tmp_multiple.output_path
-
 def _converted_group_checker(model, engine, out_file):
     groups = ['Environment', 'Platform', 'Provenance', 'Sonar']
     if model in ['EK60', 'EK80']:
