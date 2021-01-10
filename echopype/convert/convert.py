@@ -230,6 +230,7 @@ class Convert:
             if k not in self._conversion_params:
                 self._conversion_params[k] = v
 
+    # TODO: combine _validate_path and _validate_object_store
     def _validate_object_store(self, store):
         fs = store.fs
         root = store.root

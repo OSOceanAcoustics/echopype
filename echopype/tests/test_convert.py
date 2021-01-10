@@ -1,5 +1,5 @@
 import os
-imort glob
+import glob
 import fsspec
 import shutil
 import numpy as np
