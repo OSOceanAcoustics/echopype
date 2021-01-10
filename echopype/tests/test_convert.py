@@ -1,4 +1,6 @@
 import os
+imort glob
+import fsspec
 import shutil
 import numpy as np
 import xarray as xr
@@ -7,7 +9,92 @@ from ..convert import Convert
 
 
 # TODO: add test for Convert._validate_path
+def test_validate_path_single_source():
+    single_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+    fsmap = fsspec.get_mapper(single_path)
+    single_dir = os.path.dirname(fsmap.root)
+    single_fname = os.path.splitext(os.path.basename(fsmap.root))[0]
+    tmp_single = Convert(single_path, model='EK60')
 
+    # if no output path is given
+    tmp_single._validate_path(file_format='.zarr')
+    assert tmp_single.output_file == [os.path.join(single_dir, single_fname+'.zarr')]
+
+    # if an output folder is given, below works with and without the slash at the end
+    test_save_path = './echopype/test_data/dump/'
+    tmp_single._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_single.output_file == [os.path.join(fsmap_tmp.root, single_fname+'.zarr')]
+    os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+
+    # if an output filename is given
+    test_save_path = './echopype/test_data/dump/tmp.zarr'
+    tmp_single._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_single.output_file == [fsmap_tmp.root]
+    os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+
+    # force output file extension to the called type (here .zarr)
+    test_save_path = './echopype/test_data/dump/tmp.nc'
+    tmp_single._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_single.output_file == [os.path.splitext(fsmap_tmp.root)[0] + '.zarr']
+    os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+
+
+def test_validate_path_multiple_source():
+    mult_path = glob.glob('./echopype/test_data/ek60/*.raw')
+    fsmap = fsspec.get_mapper(mult_path[0])
+    mult_dir = os.path.dirname(fsmap.root)
+    tmp_mult = Convert(mult_path, model='EK60')
+
+    # if no output path is given
+    tmp_mult._validate_path(file_format='.zarr')
+    assert tmp_mult.output_file == [os.path.join(mult_dir, os.path.splitext(os.path.basename(f))[0]+'.zarr')
+                                    for f in mult_path]
+
+    # if an output folder is given, below works with and without the slash at the end
+    test_save_path = './echopype/test_data/dump/'
+    tmp_mult._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_mult.output_file == [os.path.join(fsmap_tmp.root, os.path.splitext(os.path.basename(f))[0]+'.zarr')
+                                    for f in mult_path]
+    os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+
+    # if an output filename is given: only use the directory
+    test_save_path = './echopype/test_data/dump/tmp.zarr'
+    tmp_mult._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_mult.output_file == [os.path.join(os.path.dirname(fsmap_tmp.root),
+                                                 os.path.splitext(os.path.basename(f))[0]+'.zarr')
+                                    for f in mult_path]
+    os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+
+    # force output file extension to the called type (here .zarr)
+    test_save_path = './echopype/test_data/dump/tmp.nc'
+    tmp_mult._validate_path(file_format='.zarr', save_path=test_save_path)
+    fsmap_tmp = fsspec.get_mapper(test_save_path)
+    assert tmp_mult.output_file == [os.path.join(os.path.dirname(fsmap_tmp.root),
+                                                 os.path.splitext(os.path.basename(f))[0] + '.zarr')
+                                    for f in mult_path]
+    os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+
+
+import os
+import glob
+os_path = sorted(glob.glob(os.path.join('./echopype/test_data/ek60/EK60*.raw')))
+single_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+tmp_single = Convert(single_path)
+tmp_multiple = Convert(os_path)
+tmp_single._validate_path(file_format='.zarr')
+tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads')
+tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.nc')
+tmp_single._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.zarr')
+tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.zarr')
+tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads/test.nc')
+tmp_multiple._validate_path(file_format='.zarr', save_path='/Users/wu-jung/Downloads')
+tmp_multiple._validate_path(file_format='.zarr')
+tmp_multiple.output_path
 
 def _converted_group_checker(model, engine, out_file):
     groups = ['Environment', 'Platform', 'Provenance', 'Sonar']
