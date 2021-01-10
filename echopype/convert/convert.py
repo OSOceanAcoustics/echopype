@@ -253,40 +253,33 @@ class Convert:
             Either a directory or a file. If none then the save path is the same as the raw file.
         file_format : str {'.nc', '.zarr'}
         """
-        def assemble_out_path():
-            return [os.path.join(out_dir, os.path.splitext(os.path.basename(ff))[0]+file_format)
-                    for ff in self.source_file]
-
         if save_path is None:
             # Default output directory taken from first input file
-            out_dir = os.path.dirname(self.source_file[0])
-            out_path = assemble_out_path()
+            fsmap = fsspec.get_mapper(self.source_file[0])
+            fs = fsmap.fs
+            out_dir = os.path.dirname(fsmap.root)
+            out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                        for f in self.source_file]
         else:
-            # If a folder then need to assemble full file paths
-            if os.path.isdir(save_path):
-                out_dir = save_path
-                out_path = assemble_out_path()
-            # If a path then need to extract folder and assemble full file path
-            else:
-                # Extract output folder
-                out_dir = os.path.dirname(save_path)
-
-                # Error checking for file format
-                save_fname_ext = os.path.basename(save_path)
-                save_fname, save_ftype = os.path.splitext(save_fname_ext)
-                if save_ftype != file_format:
-                    raise ValueError(f"Saving {file_format} file but save_path set to a {save_ftype} file")
-                if save_ftype not in ['.nc', '.zarr', '.xml']:
-                    raise ValueError("save_path format must be .nc, .zarr, or .xml")
-
-                # Take care of the case when a single save_path is given but there are >1 source_file
-                if len(self.source_file) > 1:
-                    out_path = assemble_out_path()
-                else:  # only 1 source_file
-                    out_path = [save_path]  # make output_path always a list
+            fsmap = fsspec.get_mapper(save_path)
+            fs = fsmap.fs
+            root = fsmap.root
+            fname, ext = os.path.splitext(root)
+            if ext == '':  # directory
+                out_dir = fname
+                out_path = [root + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                            for f in self.source_file]
+            else:  # file
+                out_dir = os.path.dirname(root)
+                if len(self.source_file) > 1:  # get dirname and assemble path
+                    out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                                for f in self.source_file]
+                else:
+                    # force file_format to conform
+                    out_path = [os.path.join(out_dir, fname + file_format)]
 
         # Create folder if save_path does not exist already
-        if not os.path.exists(out_dir):
+        if not fs.exists(out_dir):
             try:
                 os.mkdir(out_dir)
             except FileNotFoundError:
