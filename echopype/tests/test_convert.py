@@ -6,6 +6,9 @@ import pandas as pd
 from ..convert import Convert
 
 
+# TODO: add test for Convert._validate_path
+
+
 def _converted_group_checker(model, engine, out_file):
     groups = ['Environment', 'Platform', 'Provenance', 'Sonar']
     if model in ['EK60', 'EK80']:
