@@ -293,7 +293,7 @@ class Convert:
                 raise ValueError("Specified save_path is not valid.")
 
         # Store output path
-        self.output_file = out_path
+        self.output_file = out_path  # output_path is always a list
 
     def _construct_power_file_path(self, c, output_path):
         if c.ch_ids['power'] and c.ch_ids['complex']:
@@ -306,18 +306,29 @@ class Convert:
         """
 
         if self.sonar_model not in MODELS:
-            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\nMust be one of: {list(MODELS)}")
+            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\n"
+                             f"Must be one of: {list(MODELS)}")
 
         # Use echosounder-specific object
         c = MODELS[self.sonar_model]['parser']
         sg = MODELS[self.sonar_model]['set_groups']
 
-        # TODO: the if-else below only works for the AZFP vs EK constrast, need revision in the future
+        # TODO: the if-else below only works for the AZFP vs EK contrast,
+        #  but is brittle since it is abusing params by using it implicitly
         if MODELS[self.sonar_model]['xml']:
             params = self.xml_path
         else:
             params = self.data_type
 
+        # TODO: the file checking below can happen outside of _convert_indiv_file
+        #  The message printout is currently is in a weird sequence:
+        #  >>> from echopype import Convert
+        #  >>> raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
+        #  >>> tmp = Convert(file=raw_path_bb_cw, model='EK80')
+        #  >>> tmp.to_netcdf(save_path='/Users/wu-jung/Downloads', overwrite=True)
+        #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113.nc
+        #  17:14:00 converting file Summer2018--D20180905-T033113.raw, time of first ping: 2018-Sep-05 03:31:13
+        #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113_cw.nc
         # Handle saving to cloud or local filesystem
         # TODO: @ngkvain: You mean this took long before, what is the latest status?
         if isinstance(output_path, MutableMapping):
@@ -342,6 +353,8 @@ class Convert:
         c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
         if self.sonar_model in ['EK80', 'EA640']:
+            # TODO: use the constructed _power paths in sg,
+            #  currently the filenames are constructed in there again
             self._construct_power_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, engine=engine, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
@@ -359,6 +372,7 @@ class Convert:
             else:
                 os.remove(path)
 
+    # TODO: can take this out if we force output_path to always be a list
     @staticmethod
     def _path_list_to_str(path):
         """Takes a list of filepaths and if there is only 1 path, return that path as a string.
@@ -686,7 +700,10 @@ class Convert:
         self.combine = combine
         self.overwrite = overwrite
 
+        # Assemble output file names and path
         self._validate_path('.nc', save_path)
+
+        # TODO: check for file existence and overwrite operation here
 
         # Sequential or parallel conversion
         if not parallel:
@@ -694,12 +711,9 @@ class Convert:
                 # convert file one by one into path set by validate_path()
                 self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='netcdf4')
         else:
-            # # use dask syntax but we'll probably use something else, like multiprocessing?
-            # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
-            #                                                      output_path=self.output_path[i], engine='.nc')
-            #               for i, file in enumerate(self.source_file)]
-            # datasets = dask.compute(open_tasks)  # get a list of xarray.Datasets
-            pass
+            # TODO: add parallel conversion code here
+            print('Parallel conversion is not yet implemented. Use parallel=False.')
+            return
 
         # Combine files if needed
         if self.combine:
@@ -752,9 +766,10 @@ class Convert:
             for idx, file in enumerate(self.source_file):
                 # convert file one by one into path set by validate_path()
                 self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='zarr')
-        # else:
-            # use dask syntax but we'll probably use something else, like multiprocessing?
-            # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
+        else:
+            # TODO: add parallel conversion code here
+            print('Parallel conversion is not yet implemented. Use parallel=False.')
+            return
 
         # Combine files if needed
         if self.combine:

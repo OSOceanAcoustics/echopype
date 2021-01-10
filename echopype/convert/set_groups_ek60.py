@@ -228,6 +228,8 @@ class SetGroupsEK60(SetGroupsBase):
                 'channel_id': (['frequency'], beam_params['channel_id']),
                 'beam_type': ('frequency', beam_params['beam_type'],
                               {'long_name': 'type of transducer (0-single, 1-split)'}),
+                # TODO: check EK60 data spec:
+                #  the beamwidths provided are most likely 2-way beamwidth so below needs to change
                 'beamwidth_receive_alongship': (['frequency'], beam_params['beamwidth_alongship'],
                                                 {'long_name': 'Half power one-way receive beam width along '
                                                               'alongship axis of beam',
@@ -293,6 +295,7 @@ class SetGroupsEK60(SetGroupsBase):
                 'gain_correction': (['frequency'], beam_params['gain'],
                                     {'long_name': 'Gain correction',
                                      'units': 'dB'}),
+                # TODO: currently it seems to be encoded as
                 'gpt_software_version': (['frequency'], beam_params['gpt_software_version'])
                 # TODO: need to parse and store 'offset' from configuration datagram
                 # 'sample_time_offset': (['frequency'], np.array([2, ] * freq.size, dtype='int32'),
