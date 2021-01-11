@@ -14,10 +14,10 @@ class SetGroupsEK80(SetGroupsBase):
         """Actually save groups to file by calling the set methods.
         """
 
-        def set_beam_type_specific_groups(ch_ids, bb, path):
-            self.set_beam(ch_ids, bb=bb, path=path)
-            self.set_sonar(ch_ids, path=path)
-            self.set_vendor(ch_ids, bb=bb, path=path)
+        # def set_beam_type_specific_groups(ch_ids, bb, path):
+        #     self.set_beam(ch_ids, bb=bb, path=path)
+        #     self.set_sonar(ch_ids, path=path)
+        #     self.set_vendor(ch_ids, bb=bb, path=path)
 
         # Save environment only
         if 'ENV' in self.parser_obj.data_type:
@@ -38,17 +38,22 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
-        # If there is both bb and cw data
-        if self.parser_obj.ch_ids['complex'] and self.parser_obj.ch_ids['power']:
-            new_path = self._copy_file(self.output_path)
-            set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
-            set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=new_path)
-        # If there is only bb data
-        elif self.parser_obj.ch_ids['complex']:
-            set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
-        # If there is only cw data
-        else:
-            set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=self.output_path)
+
+        self.set_beam()
+        self.set_sonar(ch_ids, path=path)
+        self.set_vendor(ch_ids, bb=bb, path=path)
+
+        # # If there is both bb and cw data
+        # if self.parser_obj.ch_ids['complex'] and self.parser_obj.ch_ids['power']:
+        #     new_path = self._copy_file(self.output_path)
+        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
+        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=new_path)
+        # # If there is only bb data
+        # elif self.parser_obj.ch_ids['complex']:
+        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
+        # # If there is only cw data
+        # else:
+        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=self.output_path)
 
     def set_env(self, env_only=False):
         """Set the Environment group.
@@ -163,65 +168,37 @@ class SetGroupsEK80(SetGroupsBase):
                      path=self.output_path, mode='a', engine=self.engine,
                      group='Platform', compression_settings=self.compression_settings)
 
-    def set_beam(self, ch_ids, bb, path):
-        """Set the Beam group.
-        """
-        # Assemble Dataset for channel-specific Beam group variables
-        params = [
-            'transducer_beam_type',
-            'beam_width_alongship',
-            'beam_width_athwartship',
-            'transducer_alpha_x',
-            'transducer_alpha_y',
-            'transducer_alpha_z',
-            'angle_offset_alongship',
-            'angle_offset_athwartship',
-            'angle_sensitivity_alongship',
-            'angle_sensitivity_athwartship',
-            'transducer_offset_x',
-            'transducer_offset_y',
-            'transducer_offset_z',
-            'equivalent_beam_angle',
-            'transceiver_software_version',
-        ]
+    def _assemble_ds_ping_invariant(self, params, data_type):
+        """Assemble Dataset for either complex or power/angle data in the Beam group.
 
-        beam_params = defaultdict()
-        for param in params:
-            beam_params[param] = ([self.parser_obj.config_datagram['configuration'][ch].get(param, np.nan)
-                                   for ch in ch_ids])
-        # Get the index of the channels listed in the configuration because it does not change across files
-        # unlike the channels given in the ping_data_dict
-        # TODO: Consider using a combination of channel_id + channel_id_short,
-        #  e.g., "WBT 717612-15 ES120-7C Serial No: 680" to make sure there is no conflict
-        #  when there are identical type of transducers (they will have different serial numbers)
-        ch_ids = [ch for ch in self.parser_obj.config_datagram['configuration'].keys() if ch in ch_ids]
+        Parameters
+        ----------
+        data_type : str
+            'complex' or 'power'
+        params : dict
+            beam parameters that do not change across ping
+        """
+        ch_ids = self.parser_obj.ch_ids[data_type]
         freq = np.array([self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']
                          for ch in ch_ids])
-
+        beam_params = defaultdict()
+        for param in params:
+            beam_params[param] = [self.parser_obj.config_datagram['configuration'][ch].get(param, np.nan)
+                                  for ch in ch_ids]
         ds = xr.Dataset(
             {
                 'channel_id': (['frequency'], ch_ids),
                 'beam_type': (['frequency'], beam_params['transducer_beam_type']),
-                'beamwidth_receive_alongship': (['frequency'], beam_params['beam_width_alongship'],
-                                                {'long_name': 'Half power one-way receive beam width along '
-                                                              'alongship axis of beam',
-                                                 'units': 'arc_degree',
-                                                 'valid_range': (0.0, 360.0)}),
-                'beamwidth_receive_athwartship': (['frequency'], beam_params['beam_width_athwartship'],
-                                                  {'long_name': 'Half power one-way receive beam width along '
-                                                                'athwartship axis of beam',
-                                                   'units': 'arc_degree',
-                                                   'valid_range': (0.0, 360.0)}),
-                'beamwidth_transmit_alongship': (['frequency'], beam_params['beam_width_alongship'],
-                                                 {'long_name': 'Half power one-way transmit beam width along '
-                                                               'alongship axis of beam',
+                'beamwidth_twoway_alongship': (['frequency'], beam_params['beam_width_alongship'],
+                                               {'long_name': 'Half power two-way beam width along '
+                                                             'alongship axis of beam',
+                                                'units': 'arc_degree',
+                                                'valid_range': (0.0, 360.0)}),
+                'beamwidth_twoway_athwartship': (['frequency'], beam_params['beam_width_athwartship'],
+                                                 {'long_name': 'Half power two-way beam width along '
+                                                               'athwartship axis of beam',
                                                   'units': 'arc_degree',
                                                   'valid_range': (0.0, 360.0)}),
-                'beamwidth_transmit_athwartship': (['frequency'], beam_params['beam_width_athwartship'],
-                                                   {'long_name': 'Half power one-way transmit beam width along '
-                                                                 'athwartship axis of beam',
-                                                    'units': 'arc_degree',
-                                                    'valid_range': (0.0, 360.0)}),
                 'beam_direction_x': (['frequency'], beam_params['transducer_alpha_x'],
                                      {'long_name': 'x-component of the vector that gives the pointing '
                                                    'direction of the beam, in sonar beam coordinate '
@@ -278,195 +255,229 @@ class SetGroupsEK80(SetGroupsBase):
             }
         )
 
-        # TODO: Check convention to see what to do with the variables below:
-        #  'non_quantitative_processing': (['frequency'], beam_dict['non_quantitative_processing'],
-        #                                  {'flag_meanings': 'no_non_quantitative_processing',
-        #                                   'flag_values': '0',
-        #                                   'long_name': 'Presence or not of non-quantitative '
-        #                                                'processing applied to the backscattering '
-        #                                                'data (sonar specific)'}),
-        #  'sample_time_offset': (['frequency'], beam_dict['sample_time_offset'],
-        #                         {'long_name': 'Time offset that is subtracted from the timestamp '
-        #                                       'of each sample',
-        #                          'units': 's'}),
-        #  'transmit_bandwidth': (['frequency'], tx_sig['transmit_bandwidth'],
-        #                         {'long_name': 'Nominal bandwidth of transmitted pulse',
-        #                          'units': 'Hz',
-        #                          'valid_min': 0.0}),
+        return ds
 
-        # Assemble coordinates and data variables
-        ds_backscatter = []
-        if bb:  # complex data (BB or CW)
-            for ch in ch_ids:
-                num_transducer_sectors = np.unique(np.array(self.parser_obj.ping_data_dict['n_complex'][ch]))
-                if num_transducer_sectors.size > 1:
-                    raise ValueError('Transducer sector number changes in the middle of the file!')
-                else:
-                    num_transducer_sectors = num_transducer_sectors[0]
-                data_shape = self.parser_obj.ping_data_dict['complex'][ch].shape
-                data_shape = (data_shape[0], int(data_shape[1] / num_transducer_sectors), num_transducer_sectors)
-                data = self.parser_obj.ping_data_dict['complex'][ch].reshape(data_shape)
+    def _assemble_ds_complex(self, ch):
+        num_transducer_sectors = np.unique(np.array(self.parser_obj.ping_data_dict['n_complex'][ch]))
+        if num_transducer_sectors.size > 1:  # this is not supposed to happen
+            raise ValueError('Transducer sector number changes in the middle of the file!')
+        else:
+            num_transducer_sectors = num_transducer_sectors[0]
+        data_shape = self.parser_obj.ping_data_dict['complex'][ch].shape
+        data_shape = (data_shape[0], int(data_shape[1] / num_transducer_sectors), num_transducer_sectors)
+        data = self.parser_obj.ping_data_dict['complex'][ch].reshape(data_shape)
 
-                # CW data has pulse_duration, BB data has pulse_length
-                if 'pulse_length' in self.parser_obj.ping_data_dict:
-                    pulse_length = np.array(self.parser_obj.ping_data_dict['pulse_length'][ch], dtype='float32')
-                else:
-                    pulse_length = np.array(self.parser_obj.ping_data_dict['pulse_duration'][ch], dtype='float32')
+        ds_tmp = xr.Dataset(
+            {
+                'backscatter_r': (['ping_time', 'range_bin', 'quadrant'],
+                                  np.real(data),
+                                  {'long_name': 'Real part of backscatter power',
+                                   'units': 'V'}),
+                'backscatter_i': (['ping_time', 'range_bin', 'quadrant'],
+                                  np.imag(data),
+                                  {'long_name': 'Imaginary part of backscatter power',
+                                   'units': 'V'}),
+            },
+            coords={
+                'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
+                              {'axis': 'T',
+                               'calendar': 'gregorian',
+                               'long_name': 'Timestamp of each ping',
+                               'standard_name': 'time',
+                               'units': 'seconds since 1900-01-01'}),
+                'range_bin': (['range_bin'], np.arange(data_shape[1])),
+                'quadrant': (['quadrant'], np.arange(num_transducer_sectors)),
+            }
+        )
 
-                # Assemble ping by ping data
-                ds_tmp = xr.Dataset(
-                    {
-                        'backscatter_r': (['ping_time', 'range_bin', 'quadrant'],
-                                          np.real(data),
-                                          {'long_name': 'Real part of backscatter power',
-                                           'units': 'V'}),
-                        'backscatter_i': (['ping_time', 'range_bin', 'quadrant'],
-                                          np.imag(data),
-                                          {'long_name': 'Imaginary part of backscatter power',
-                                           'units': 'V'}),
-                        'sample_interval': (['ping_time'],
-                                            self.parser_obj.ping_data_dict['sample_interval'][ch],
-                                            {'long_name': 'Interval between recorded raw data samples',
-                                             'units': 's',
-                                             'valid_min': 0.0}),
-                        'transmit_duration_nominal': (['ping_time'],
-                                                      pulse_length,
-                                                      {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                                       'units': 's',
-                                                       'valid_min': 0.0}),
-                        'transmit_power': (['ping_time'],
-                                           self.parser_obj.ping_data_dict['transmit_power'][ch],
-                                           {'long_name': 'Nominal transmit power',
-                                            'units': 'W',
-                                            'valid_min': 0.0}),
-                        'slope': (['ping_time'], self.parser_obj.ping_data_dict['slope'][ch],),
-                    },
-                    coords={
-                        'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
-                                      {'axis': 'T',
-                                       'calendar': 'gregorian',
-                                       'long_name': 'Timestamp of each ping',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'}),
-                        'range_bin': (['range_bin'], np.arange(data_shape[1])),
-                        'quadrant': (['quadrant'], np.arange(num_transducer_sectors)),
-                    }
-                )
+        # CW data encoded as complex samples do NOT have frequency_start and frequency_end
+        if 'frequency_start' in self.parser_obj.ping_data_dict.keys() and \
+                self.parser_obj.ping_data_dict['frequency_start'][ch]:
+            ds_f_start_end = xr.Dataset(
+                {
+                    'frequency_start': (['ping_time'],
+                                        np.array(self.parser_obj.ping_data_dict['frequency_start'][ch],
+                                                 dtype=int),
+                                        {'long_name': 'Starting frequency of the transducer',
+                                         'units': 'Hz'}),
+                    'frequency_end': (['ping_time'],
+                                      np.array(self.parser_obj.ping_data_dict['frequency_end'][ch],
+                                               dtype=int),
+                                      {'long_name': 'Ending frequency of the transducer',
+                                       'units': 'Hz'}),
 
-                # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-                if 'frequency_start' in self.parser_obj.ping_data_dict.keys() and \
-                        self.parser_obj.ping_data_dict['frequency_start'][ch]:
-                    ds_f_start_end = xr.Dataset(
-                        {
-                            'frequency_start': (['ping_time'],
-                                                np.array(self.parser_obj.ping_data_dict['frequency_start'][ch],
-                                                         dtype=int),
-                                                {'long_name': 'Starting frequency of the transducer',
-                                                 'units': 'Hz'}),
-                            'frequency_end': (['ping_time'],
-                                              np.array(self.parser_obj.ping_data_dict['frequency_end'][ch],
-                                                       dtype=int),
-                                              {'long_name': 'Ending frequency of the transducer',
-                                               'units': 'Hz'}),
+                },
+                coords={
+                    'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
+                                  {'axis': 'T',
+                                   'calendar': 'gregorian',
+                                   'long_name': 'Timestamp of each ping',
+                                   'standard_name': 'time',
+                                   'units': 'seconds since 1900-01-01'}),
+                }
+            )
+            ds_tmp = xr.merge([ds_tmp, ds_f_start_end],
+                              combine_attrs='override')  # override keeps the Dataset attributes
 
-                        },
-                        coords={
-                            'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
-                                          {'axis': 'T',
-                                           'calendar': 'gregorian',
-                                           'long_name': 'Timestamp of each ping',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'}),
-                        }
-                    )
-                    ds_tmp = xr.merge([ds_tmp, ds_f_start_end],
-                                      combine_attrs='override')  # override keeps the Dataset attributes
+        return ds_tmp
 
-                # Attach frequency dimension/coordinate
-                ds_tmp = ds_tmp.expand_dims(
-                    {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
-                ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
-                    units='Hz',
-                    long_name='Transducer frequency',
-                    valid_min=0.0,
-                )
-                ds_backscatter.append(ds_tmp)
+    def _assemble_ds_power(self, ch):
+        data_shape = self.parser_obj.ping_data_dict['power'][ch].shape
+        ds_tmp = xr.Dataset(
+            {
+                'backscatter_power': (['ping_time', 'range_bin'],
+                                      self.parser_obj.ping_data_dict['power'][ch],
+                                      {'long_name': 'Backscattering power',
+                                       'units': 'dB'}),
+            },
+            coords={
+                'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
+                              {'axis': 'T',
+                               'calendar': 'gregorian',
+                               'long_name': 'Timestamp of each ping',
+                               'standard_name': 'time',
+                               'units': 'seconds since 1900-01-01'}),
+                'range_bin': (['range_bin'], np.arange(data_shape[1])),
+            }
+        )
 
-        else:  # power and angle data (CW)
-            for ch in ch_ids:
-                data_shape = self.parser_obj.ping_data_dict['power'][ch].shape
-                ds_tmp = xr.Dataset(
-                    {
-                        'backscatter_r': (['ping_time', 'range_bin'],
-                                          self.parser_obj.ping_data_dict['power'][ch],
-                                          {'long_name': 'Backscattering power',
-                                           'units': 'dB'}),
-                        'sample_interval': (['ping_time'],
-                                            self.parser_obj.ping_data_dict['sample_interval'][ch],
-                                            {'long_name': 'Interval between recorded raw data samples',
-                                             'units': 's',
-                                             'valid_min': 0.0}),
-                        'transmit_duration_nominal': (['ping_time'],
-                                                      self.parser_obj.ping_data_dict['pulse_duration'][ch],
-                                                      {'long_name': 'Nominal bandwidth of transmitted pulse',
-                                                       'units': 's',
-                                                       'valid_min': 0.0}),
-                        'transmit_power': (['ping_time'],
-                                           self.parser_obj.ping_data_dict['transmit_power'][ch],
-                                           {'long_name': 'Nominal transmit power',
-                                            'units': 'W',
-                                            'valid_min': 0.0}),
-                        'slope': (['ping_time'],
-                                  self.parser_obj.ping_data_dict['slope'][ch]),
-                    },
-                    coords={
-                        'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
-                                      {'axis': 'T',
-                                       'calendar': 'gregorian',
-                                       'long_name': 'Timestamp of each ping',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'}),
-                        'range_bin': (['range_bin'], np.arange(data_shape[1])),
-                    }
-                )
+        # If angle data exist
+        if ch in self.parser_obj.ch_ids['angle']:
+            ds_tmp = ds_tmp.assign(
+                {
+                    'angle_athwartship': (['ping_time', 'range_bin'],
+                                          self.parser_obj.ping_data_dict['angle'][ch][:, :, 0],
+                                          {'long_name': 'electrical athwartship angle'}),
+                    'angle_alongship': (['ping_time', 'range_bin'],
+                                        self.parser_obj.ping_data_dict['angle'][ch][:, :, 1],
+                                        {'long_name': 'electrical alongship angle'}),
+                })
 
-                # Set angle data if in split beam mode (beam_type == 1)
-                # because single beam mode (beam_type == 0) does not record angle data
-                if self.parser_obj.config_datagram['configuration'][ch]['transducer_beam_type'] == 1:
-                    ds_tmp = ds_tmp.assign(
-                        {
-                            'angle_athwartship': (['ping_time', 'range_bin'],
-                                                  self.parser_obj.ping_data_dict['angle'][ch][:, :, 0],
-                                                  {'long_name': 'electrical athwartship angle'}),
-                            'angle_alongship': (['ping_time', 'range_bin'],
-                                                self.parser_obj.ping_data_dict['angle'][ch][:, :, 1],
-                                                {'long_name': 'electrical alongship angle'}),
-                        })
+        return ds_tmp
 
-                # Attach frequency dimension/coordinate
-                ds_tmp = ds_tmp.expand_dims(
-                    {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
-                ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
-                    units='Hz',
-                    long_name='Transducer frequency',
-                    valid_min=0.0,
-                )
-                ds_backscatter.append(ds_tmp)
+    def _assemble_ds_common(self, ch, range_bin_size):
+        """Variables common to complex and power/angle data.
+        """
+        # pulse duration may have different names
+        if 'pulse_length' in self.parser_obj.ping_data_dict:
+            pulse_length = np.array(self.parser_obj.ping_data_dict['pulse_length'][ch], dtype='float32')
+        else:
+            pulse_length = np.array(self.parser_obj.ping_data_dict['pulse_duration'][ch], dtype='float32')
+
+        ds_common = xr.Dataset(
+            {
+                'sample_interval': (['ping_time'],
+                                    self.parser_obj.ping_data_dict['sample_interval'][ch],
+                                    {'long_name': 'Interval between recorded raw data samples',
+                                     'units': 's',
+                                     'valid_min': 0.0}),
+                'transmit_power': (['ping_time'],
+                                   self.parser_obj.ping_data_dict['transmit_power'][ch],
+                                   {'long_name': 'Nominal transmit power',
+                                    'units': 'W',
+                                    'valid_min': 0.0}),
+                'transmit_duration_nominal': (['ping_time'], pulse_length,
+                                              {'long_name': 'Nominal bandwidth of transmitted pulse',
+                                               'units': 's',
+                                               'valid_min': 0.0}),
+                'slope': (['ping_time'], self.parser_obj.ping_data_dict['slope'][ch],),
+            },
+            coords={
+                'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
+                              {'axis': 'T',
+                               'calendar': 'gregorian',
+                               'long_name': 'Timestamp of each ping',
+                               'standard_name': 'time',
+                               'units': 'seconds since 1900-01-01'}),
+                'range_bin': (['range_bin'], np.arange(range_bin_size)),
+            }
+        )
+        return ds_common
+
+    def set_beam(self):
+        """Set the Beam group.
+        """
+        # Assemble ping-invariant beam data variables
+        params = [
+            'transducer_beam_type',
+            'beam_width_alongship',
+            'beam_width_athwartship',
+            'transducer_alpha_x',
+            'transducer_alpha_y',
+            'transducer_alpha_z',
+            'angle_offset_alongship',
+            'angle_offset_athwartship',
+            'angle_sensitivity_alongship',
+            'angle_sensitivity_athwartship',
+            'transducer_offset_x',
+            'transducer_offset_y',
+            'transducer_offset_z',
+            'equivalent_beam_angle',
+            'transceiver_software_version',
+        ]
+        ds_invariant_complex = self._assemble_ds_ping_invariant(params, 'complex')
+        ds_invariant_power = self._assemble_ds_ping_invariant(params, 'power')
+
+        # TODO: add if-else to check if channels with complex or power/angle exist
+        # TODO: can consolidate below to make things cleaner
+        # Assemble complex dataset
+        ds_complex = []
+        for ch in self.parser_obj.ch_ids['complex']:
+            ds_tmp = self._assemble_ds_complex(ch)
+            ds_common = self._assemble_ds_common(ch, ds_tmp.range_bin.size)
+            ds_tmp = xr.merge([ds_tmp, ds_common],
+                              combine_attrs='override')  # override keeps the Dataset attributes
+            # Attach frequency dimension/coordinate
+            ds_tmp = ds_tmp.expand_dims(
+                {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
+            ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
+                units='Hz',
+                long_name='Transducer frequency',
+                valid_min=0.0,
+            )
+            ds_complex.append(ds_tmp)
+
+        # Assemble power dataset
+        ds_power = []
+        for ch in self.parser_obj.ch_ids['power']:
+            ds_tmp = self._assemble_ds_power(ch)
+            ds_common = self._assemble_ds_common(ch, ds_tmp.range_bin.size)
+            ds_tmp = xr.merge([ds_tmp, ds_common],
+                              combine_attrs='override')  # override keeps the Dataset attributes
+            # Attach frequency dimension/coordinate
+            ds_tmp = ds_tmp.expand_dims(
+                {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
+            ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
+                units='Hz',
+                long_name='Transducer frequency',
+                valid_min=0.0,
+            )
+            ds_power.append(ds_tmp)
 
         # Merge data from all channels
-        ds_merge = xr.merge(ds_backscatter)
-        ds = xr.merge([ds, ds_merge], combine_attrs='override')  # override keeps the Dataset attributes
+        def merge_save(ds_combine, ds_type):
+            ds_combine = xr.merge(ds_combine)
+            if ds_type == 'complex':
+                ds_combine = xr.merge([ds_invariant_complex, ds_combine],
+                                      combine_attrs='override')  # override keeps the Dataset attributes
+            else:
+                ds_combine = xr.merge([ds_invariant_power, ds_combine],
+                                      combine_attrs='override')  # override keeps the Dataset attributes
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ds_combine = ds_combine.assign_coords({'ping_time': (['ping_time'], (ds_combine['ping_time'] -
+                                                 np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                                                 ds_combine.ping_time.attrs)})
+            # Save to file
+            group_name = 'Beam' if ds_type == 'complex' else 'Beam_power'
+            io.save_file(ds_combine.chunk({'range_bin': 25000, 'ping_time': 100}),
+                         path=self.output_path, mode='a', engine=self.engine,
+                         group=group_name, compression_settings=self.compression_settings)
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                             ds.ping_time.attrs)})
-
-        # Save to file
-        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
-                     path=path, mode='a', engine=self.engine,
-                     group='Beam', compression_settings=self.compression_settings)
+        if len(ds_complex) > 0:
+            merge_save(ds_complex, 'complex')
+        if len(ds_power) > 0:
+            merge_save(ds_power, 'power')
 
     def set_vendor(self, ch_ids, bb, path):
         """Set the Vendor-specific group.
