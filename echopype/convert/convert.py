@@ -671,9 +671,9 @@ class Convert:
         # TODO: probably can combine both the remote and local cases below once
         #  _validate_path and _validate_object_store are combined
         # Assemble output file names and path
-        if convert_type == '.nc':
+        if convert_type == 'netcdf4':
             self._validate_path('.nc', save_path)
-        elif convert_type == '.zarr':
+        elif convert_type == 'zarr':
             if isinstance(save_path, MutableMapping):
                 self._validate_object_store(save_path)
             else:
@@ -696,7 +696,7 @@ class Convert:
         if not parallel:
             for src_f, out_f in zip(self.source_file, self.output_file):
                 if out_f in exist_list and not self.overwrite:
-                    print(f"{dt.now().strftime('%H:%M:%S')}  {src_f} has already been converted to netcdf. "
+                    print(f"{dt.now().strftime('%H:%M:%S')}  {src_f} has already been converted to {convert_type}. "
                           f"Conversion not executed.")
                     continue
                 else:
@@ -704,7 +704,7 @@ class Convert:
                         print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
                     else:
                         print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
-                    self._convert_indiv_file(file=src_f, output_path=out_f, engine='netcdf4')
+                    self._convert_indiv_file(file=src_f, output_path=out_f, engine=convert_type)
         else:
             # TODO: add parallel conversion
             print('Parallel conversion is not yet implemented. Use parallel=False.')
@@ -722,10 +722,10 @@ class Convert:
         self.output_file = self._path_list_to_str(self.output_file)
 
     def to_netcdf(self, **kwargs):
-        return self._to_file('.nc', **kwargs)
+        return self._to_file('netcdf4', **kwargs)
 
     def to_zarr(self, **kwargs):
-        return self._to_file('.zarr', **kwargs)
+        return self._to_file('zarr', **kwargs)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
         """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
