@@ -192,7 +192,7 @@ class ParseAZFP(ParseBase):
                        int(self.unpacked_data['second'][0] + self.unpacked_data['hundredths'][0] / 100))
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         pathstr, xml_name = os.path.split(self.xml_path)
-        print(f"{dt.now().strftime('%H:%M:%S')} converting file {filename} with {xml_name}, "
+        print(f"{dt.now().strftime('%H:%M:%S')}  parsing file {filename} with {xml_name}, "
               f"time of first ping: {timestr}")
 
     def _split_header(self, raw, header_unpacked):
