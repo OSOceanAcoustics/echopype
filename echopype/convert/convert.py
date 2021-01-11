@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 import zarr
 from collections.abc import MutableMapping
+from datetime import datetime as dt
 import fsspec
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
@@ -313,35 +314,6 @@ class Convert:
             params = self.xml_path
         else:
             params = self.data_type
-
-        # TODO: the file checking below can happen outside of _convert_indiv_file
-        #  The message printout is currently is in a weird sequence:
-        #  >>> from echopype import Convert
-        #  >>> raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
-        #  >>> tmp = Convert(file=raw_path_bb_cw, model='EK80')
-        #  >>> tmp.to_netcdf(save_path='/Users/wu-jung/Downloads', overwrite=True)
-        #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113.nc
-        #  17:14:00 converting file Summer2018--D20180905-T033113.raw, time of first ping: 2018-Sep-05 03:31:13
-        #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113_cw.nc
-        # Handle saving to cloud or local filesystem
-        # TODO: @ngkvain: You mean this took long before, what is the latest status?
-        if isinstance(output_path, MutableMapping):
-            if not self.overwrite:
-                if output_path.fs.exists(output_path.root):
-                    print(f"          ... this file has already been converted to {engine}, " +
-                          "conversion not executed.")
-                    return
-            # output_path.fs.rm(output_path.root, recursive=True)
-        else:
-            # Check if file exists
-            if os.path.exists(output_path) and self.overwrite:
-                # Remove the file if self.overwrite is true
-                print("          overwriting: " + output_path)
-                self._remove_files(output_path)
-            if os.path.exists(output_path):
-                # Otherwise, skip saving
-                print(f"          ... this file has already been converted to {engine}, conversion not executed.")
-                return
 
         # Actually parsing and saving file(s)
         c = c(file, params=params, storage_options=self.storage_options)
@@ -697,15 +669,34 @@ class Convert:
         # Assemble output file names and path
         self._validate_path('.nc', save_path)
 
-        # TODO: check for file existence and overwrite operation here
+        # Get all existing files
+        exist_list = []
+        fs = fsspec.get_mapper(self.output_file[0]).fs  # get file system
+        for out_f in self.output_file:
+            # TODO: probably can combine both cases here once
+            #  _validate_path and _validate_object_store are combined
+            if isinstance(out_f, MutableMapping):  # output is remote
+                if fs.exists(out_f.root):
+                    exist_list.append(out_f)
+            else:  # output is local
+                if fs.exists(out_f):
+                    exist_list.append(out_f)
 
         # Sequential or parallel conversion
         if not parallel:
-            for idx, file in enumerate(self.source_file):
-                # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='netcdf4')
+            for src_f, out_f in zip(self.source_file, self.output_file):
+                if out_f in exist_list and not self.overwrite:
+                    print(f"{dt.now().strftime('%H:%M:%S')}  {src_f} has already been converted to netcdf. "
+                          f"Conversion not executed.")
+                    continue
+                else:
+                    if out_f in exist_list:
+                        print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
+                    else:
+                        print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
+                    self._convert_indiv_file(file=src_f, output_path=out_f, engine='netcdf4')
         else:
-            # TODO: add parallel conversion code here
+            # TODO: add parallel conversion
             print('Parallel conversion is not yet implemented. Use parallel=False.')
             return
 

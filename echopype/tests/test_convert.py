@@ -8,7 +8,6 @@ import pandas as pd
 from ..convert import Convert
 
 
-# TODO: add test for Convert._validate_path
 def test_validate_path_single_source():
     single_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
     fsmap = fsspec.get_mapper(single_path)
