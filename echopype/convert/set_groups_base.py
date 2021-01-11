@@ -9,8 +9,10 @@ from ..utils import io
 ECHOPYPE_VERSION = get_versions()['version']
 del get_versions
 
-NETCDF_COMPRESSION_SETTINGS = {'zlib': True, 'complevel': 4}
-ZARR_COMPRESSION_SETTINGS = {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+COMPRESSION_SETTINGS = {
+    'netcdf4': {'zlib': True, 'complevel': 4},
+    'zarr': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+}
 
 
 class SetGroupsBase:
@@ -30,10 +32,8 @@ class SetGroupsBase:
 
         if not self.compress:
             self.compression_settings = None
-        elif self.engine == 'netcdf4':
-            self.compression_settings = NETCDF_COMPRESSION_SETTINGS
-        elif self.engine == 'zarr':
-            self.compression_settings = ZARR_COMPRESSION_SETTINGS
+        else:
+            self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
     def save(self):
         """Actually save groups to file by calling the set methods.
