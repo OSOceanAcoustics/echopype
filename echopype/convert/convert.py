@@ -636,14 +636,16 @@ class Convert:
                 del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
-    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, combine=False,
-                  overwrite=False, parallel=False, extra_platform_data=None):
-        """Convert a file or a list of files to NetCDF format.
+    def _to_file(self, convert_type, save_path=None, data_type='ALL', compress=True, combine=False,
+                 overwrite=False, parallel=False, extra_platform_data=None):
+        """Convert a file or a list of files to netCDF or zarr.
 
         Parameters
         ----------
         save_path : str
             path that converted .nc file will be saved
+        convert_type : str
+            type of converted file, '.nc' or '.zarr'
         data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
@@ -666,15 +668,23 @@ class Convert:
         self.combine = combine
         self.overwrite = overwrite
 
+        # TODO: probably can combine both the remote and local cases below once
+        #  _validate_path and _validate_object_store are combined
         # Assemble output file names and path
-        self._validate_path('.nc', save_path)
+        if convert_type == '.nc':
+            self._validate_path('.nc', save_path)
+        elif convert_type == '.zarr':
+            if isinstance(save_path, MutableMapping):
+                self._validate_object_store(save_path)
+            else:
+                self._validate_path('.zarr', save_path)
+        else:
+            raise ValueError('Unknown type to convert file to!')
 
         # Get all existing files
         exist_list = []
         fs = fsspec.get_mapper(self.output_file[0]).fs  # get file system
         for out_f in self.output_file:
-            # TODO: probably can combine both cases here once
-            #  _validate_path and _validate_object_store are combined
             if isinstance(out_f, MutableMapping):  # output is remote
                 if fs.exists(out_f.root):
                     exist_list.append(out_f)
@@ -711,61 +721,11 @@ class Convert:
         # Tidy up output_path
         self.output_file = self._path_list_to_str(self.output_file)
 
-    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False,
-                overwrite=False, parallel=False, extra_platform_data=None):
-        """Convert a file or a list of files to zarr format.
+    def to_netcdf(self, **kwargs):
+        return self._to_file('.nc', **kwargs)
 
-        Parameters
-        ----------
-        save_path : str
-            path that converted .zarr file will be saved
-        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
-            select specific datagrams to save (EK60 and EK80 only)
-            Defaults to ``ALL``
-        compress : bool
-            whether or not to perform compression on data variables
-            Defaults to ``True``
-        combine : bool
-            whether or not to combine all converted individual files into one file
-            Defaults to ``False``
-        overwrite : bool
-            whether or not to overwrite existing files
-            Defaults to ``False``
-        parallel : bool
-            whether or not to use parallel processing. (Not yet implemented)
-        extra_platform_data : Dataset
-            The dataset containing the platform information to be added to the output
-        """
-        self.data_type = data_type
-        self.compress = compress
-        self.combine = combine
-        self.overwrite = overwrite
-
-        if isinstance(save_path, MutableMapping):
-            self._validate_object_store(save_path)
-        else:
-            self._validate_path('.zarr', save_path)
-
-        # Sequential or parallel conversion
-        if not parallel:
-            for idx, file in enumerate(self.source_file):
-                # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_file[idx], engine='zarr')
-        else:
-            # TODO: add parallel conversion code here
-            print('Parallel conversion is not yet implemented. Use parallel=False.')
-            return
-
-        # Combine files if needed
-        if self.combine:
-            self.combine_files(save_path=save_path, remove_orig=True)
-
-        # Attached platform data
-        if extra_platform_data is not None:
-            self.update_platform(files=self.output_file, extra_platform_data=extra_platform_data)
-
-        # Tidy up output_path
-        self.output_file = self._path_list_to_str(self.output_file)
+    def to_zarr(self, **kwargs):
+        return self._to_file('.zarr', **kwargs)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
         """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
