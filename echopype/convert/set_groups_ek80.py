@@ -40,7 +40,7 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_nmea()          # platform/NMEA group
 
         self.set_beam()
-        self.set_sonar(ch_ids, path=path)
+        self.set_sonar()
         self.set_vendor(ch_ids, bb=bb, path=path)
 
         # # If there is both bb and cw data
@@ -556,31 +556,36 @@ class SetGroupsEK80(SetGroupsBase):
         io.save_file(ds, path=path, mode='a', engine=self.engine,
                      group='Vendor', compression_settings=self.compression_settings)
 
-    def set_sonar(self, ch_ids, path):
+    def set_sonar(self):
         config = self.parser_obj.config_datagram['configuration']
         # channels['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
         #                                   for x in self.ch_ids], dtype='float32')
 
         # Collect unique variables
-        frequency = []
-        serial_number = []
-        model = []
+        params = ['transducer_frequency',
+                  'serial_number',
+                  'transducer_name',
+                  'application_name',
+                  'application_version']
+        var = defaultdict(list)
         for ch_id, data in config.items():
-            frequency.append(data['transducer_frequency'])
-            serial_number.append(data['serial_number'])
-            model.append(data['transducer_name'])
+            for param in params:
+                var[param].append(data[param])
+
         # Create dataset
         ds = xr.Dataset(
-            {'serial_number': (['frequency'], serial_number),
-             'sonar_model': (['frequency'], model)},
-            coords={'frequency': frequency},
+            {
+                'serial_number': (['frequency'], var['serial_number']),
+                'sonar_model': (['frequency'], var['transducer_name']),
+                'sonar_software_name': (['frequency'], var['application_name']),  # identical for all channels
+                'sonar_software_version': (['frequency'], var['application_version']),  # identical for all channels
+            },
+            coords={'frequency': var['transducer_frequency']},
             attrs={'sonar_manufacturer': 'Simrad',
-                   'sonar_software_name': config[ch_ids[0]]['application_name'],
-                   'sonar_software_version': config[ch_ids[0]]['application_version'],
                    'sonar_type': 'echosounder'})
 
         # Save to file
-        io.save_file(ds, path=path, mode='a', engine=self.engine,
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
                      group='Sonar', compression_settings=self.compression_settings)
 
     # TODO: the overwriting message should not be here,
