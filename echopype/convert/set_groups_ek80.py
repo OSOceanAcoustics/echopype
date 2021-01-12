@@ -169,7 +169,7 @@ class SetGroupsEK80(SetGroupsBase):
                      group='Platform', compression_settings=self.compression_settings)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
-        """Assemble Dataset for either complex or power/angle data in the Beam group.
+        """Assemble dataset for ping-invariant params in the Beam group.
 
         Parameters
         ----------
@@ -397,6 +397,28 @@ class SetGroupsEK80(SetGroupsBase):
     def set_beam(self):
         """Set the Beam group.
         """
+
+        def merge_save(ds_combine, ds_type, group_name):
+            """Merge data from all complex or all power/angle channels
+            """
+            ds_combine = xr.merge(ds_combine)
+            if ds_type == 'complex':
+                ds_combine = xr.merge([ds_invariant_complex, ds_combine],
+                                      combine_attrs='override')  # override keeps the Dataset attributes
+            else:
+                ds_combine = xr.merge([ds_invariant_power, ds_combine],
+                                      combine_attrs='override')  # override keeps the Dataset attributes
+            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
+            ds_combine = ds_combine.assign_coords(
+                {'ping_time': (['ping_time'], (ds_combine['ping_time']
+                                               - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                               ds_combine.ping_time.attrs)})
+            # Save to file
+            io.save_file(ds_combine.chunk({'range_bin': 25000, 'ping_time': 100}),
+                         path=self.output_path, mode='a', engine=self.engine,
+                         group=group_name, compression_settings=self.compression_settings)
+
         # Assemble ping-invariant beam data variables
         params = [
             'transducer_beam_type',
@@ -415,69 +437,44 @@ class SetGroupsEK80(SetGroupsBase):
             'equivalent_beam_angle',
             'transceiver_software_version',
         ]
-        ds_invariant_complex = self._assemble_ds_ping_invariant(params, 'complex')
-        ds_invariant_power = self._assemble_ds_ping_invariant(params, 'power')
 
-        # TODO: add if-else to check if channels with complex or power/angle exist
-        # TODO: can consolidate below to make things cleaner
-        # Assemble complex dataset
+        # Assemble dataset for ping-invariant params
+        if self.parser_obj.ch_ids['complex']:
+            ds_invariant_complex = self._assemble_ds_ping_invariant(params, 'complex')
+        if self.parser_obj.ch_ids['power']:
+            ds_invariant_power = self._assemble_ds_ping_invariant(params, 'power')
+
+        # Assemble dataset for backscatter data and other ping-by-ping data
         ds_complex = []
-        for ch in self.parser_obj.ch_ids['complex']:
-            ds_tmp = self._assemble_ds_complex(ch)
-            ds_common = self._assemble_ds_common(ch, ds_tmp.range_bin.size)
-            ds_tmp = xr.merge([ds_tmp, ds_common],
-                              combine_attrs='override')  # override keeps the Dataset attributes
-            # Attach frequency dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
-                {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
-            ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
-                units='Hz',
-                long_name='Transducer frequency',
-                valid_min=0.0,
-            )
-            ds_complex.append(ds_tmp)
-
-        # Assemble power dataset
         ds_power = []
-        for ch in self.parser_obj.ch_ids['power']:
-            ds_tmp = self._assemble_ds_power(ch)
-            ds_common = self._assemble_ds_common(ch, ds_tmp.range_bin.size)
-            ds_tmp = xr.merge([ds_tmp, ds_common],
-                              combine_attrs='override')  # override keeps the Dataset attributes
+        for ch in self.parser_obj.config_datagram['configuration'].keys():
+            if ch in self.parser_obj.ch_ids['complex']:
+                ds_data = self._assemble_ds_complex(ch)
+            else:
+                ds_data = self._assemble_ds_power(ch)
+            ds_common = self._assemble_ds_common(ch, ds_data.range_bin.size)
+            ds_data = xr.merge([ds_data, ds_common],
+                               combine_attrs='override')  # override keeps the Dataset attributes
             # Attach frequency dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
+            ds_data = ds_data.expand_dims(
                 {'frequency': [self.parser_obj.config_datagram['configuration'][ch]['transducer_frequency']]})
-            ds_tmp['frequency'] = ds_tmp['frequency'].assign_attrs(
+            ds_data['frequency'] = ds_data['frequency'].assign_attrs(
                 units='Hz',
                 long_name='Transducer frequency',
                 valid_min=0.0,
             )
-            ds_power.append(ds_tmp)
-
-        # Merge data from all channels
-        def merge_save(ds_combine, ds_type):
-            ds_combine = xr.merge(ds_combine)
-            if ds_type == 'complex':
-                ds_combine = xr.merge([ds_invariant_complex, ds_combine],
-                                      combine_attrs='override')  # override keeps the Dataset attributes
+            if ch in self.parser_obj.ch_ids['complex']:
+                ds_complex.append(ds_data)
             else:
-                ds_combine = xr.merge([ds_invariant_power, ds_combine],
-                                      combine_attrs='override')  # override keeps the Dataset attributes
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
-            #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ds_combine = ds_combine.assign_coords({'ping_time': (['ping_time'], (ds_combine['ping_time'] -
-                                                 np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                                 ds_combine.ping_time.attrs)})
-            # Save to file
-            group_name = 'Beam' if ds_type == 'complex' else 'Beam_power'
-            io.save_file(ds_combine.chunk({'range_bin': 25000, 'ping_time': 100}),
-                         path=self.output_path, mode='a', engine=self.engine,
-                         group=group_name, compression_settings=self.compression_settings)
+                ds_power.append(ds_data)
 
+        # Merge and save group: will have at least one of complex and power data, or both
         if len(ds_complex) > 0:
-            merge_save(ds_complex, 'complex')
-        if len(ds_power) > 0:
-            merge_save(ds_power, 'power')
+            merge_save(ds_complex, 'complex', group_name='Beam')
+            if len(ds_power) > 0:
+                merge_save(ds_power, 'power', group_name='Beam_power')
+        else:
+            merge_save(ds_power, 'power', group_name='Beam')
 
     def set_vendor(self, ch_ids, bb, path):
         """Set the Vendor-specific group.
