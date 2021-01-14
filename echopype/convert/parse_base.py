@@ -102,7 +102,7 @@ class ParseEK(ParseBase):
                     if all(x is None for x in v):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
-                        # Sort bb and cw channels
+                        # Sort complex and power/angle channels
                         self.ch_ids[data_type].append(k)
                         self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
                         if data_type == 'power':

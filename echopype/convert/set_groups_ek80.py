@@ -325,10 +325,10 @@ class SetGroupsEK80(SetGroupsBase):
         data_shape = self.parser_obj.ping_data_dict['power'][ch].shape
         ds_tmp = xr.Dataset(
             {
-                'backscatter_power': (['ping_time', 'range_bin'],
-                                      self.parser_obj.ping_data_dict['power'][ch],
-                                      {'long_name': 'Backscattering power',
-                                       'units': 'dB'}),
+                'backscatter_r': (['ping_time', 'range_bin'],
+                                  self.parser_obj.ping_data_dict['power'][ch],
+                                  {'long_name': 'Backscattering power',
+                                   'units': 'dB'}),
             },
             coords={
                 'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
@@ -452,6 +452,8 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_data = self._assemble_ds_complex(ch)
             elif ch in self.parser_obj.ch_ids['power']:
                 ds_data = self._assemble_ds_power(ch)
+            else:  # skip for channels containing no data
+                continue
             ds_common = self._assemble_ds_common(ch, ds_data.range_bin.size)
             ds_data = xr.merge([ds_data, ds_common],
                                combine_attrs='override')  # override keeps the Dataset attributes
@@ -468,7 +470,9 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power.append(ds_data)
 
-        # Merge and save group: will have at least one of complex and power data, or both
+        # Merge and save group:
+        #  if both complex and power data exist: complex data in Beam group and power data in Beam_power
+        #  if only one type of data exist: data in Beam group
         if len(ds_complex) > 0:
             merge_save(ds_complex, 'complex', group_name='Beam')
             if len(ds_power) > 0:
