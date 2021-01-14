@@ -94,20 +94,17 @@ def test_cw_bb():
     # Test converting file that contains both cw and bb channels
 
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_netcdf()
+    tmp.to_netcdf(compress=False)
 
-    cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    assert os.path.exists(cw_path)
     assert os.path.exists(nc_path)
-    os.remove(cw_path)
     os.remove(nc_path)
 
 
 def test_freq_subset():
     # Test converting file with multiple frequencies that do not record power data
     tmp = Convert(file=raw_path_2_f, model='EK80')
-    tmp.to_netcdf()
+    tmp.to_netcdf(compress=False)
     # Check if parsed output has the correct shape
     with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         assert ds_beam.backscatter_r.shape == (2, 2, 191327, 4)
