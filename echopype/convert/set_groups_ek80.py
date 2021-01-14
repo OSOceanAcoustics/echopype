@@ -450,7 +450,7 @@ class SetGroupsEK80(SetGroupsBase):
         for ch in self.parser_obj.config_datagram['configuration'].keys():
             if ch in self.parser_obj.ch_ids['complex']:
                 ds_data = self._assemble_ds_complex(ch)
-            else:
+            elif ch in self.parser_obj.ch_ids['power']:
                 ds_data = self._assemble_ds_power(ch)
             ds_common = self._assemble_ds_common(ch, ds_data.range_bin.size)
             ds_data = xr.merge([ds_data, ds_common],
@@ -479,9 +479,35 @@ class SetGroupsEK80(SetGroupsBase):
     def set_vendor(self):
         """Set the Vendor-specific group.
         """
-        # Save broadband calibration parameters
         config = self.parser_obj.config_datagram['configuration']
-        # cal_ch_ids = [ch for ch in config.keys() if 'calibration' in config[ch]]  # channels with cal params
+
+        # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
+        table_params = ['transducer_frequency', 'pulse_duration', 'sa_correction', 'gain']
+        param_dict = defaultdict(list)
+        for k, v in config.items():
+            for p in table_params:
+                param_dict[p].append(v[p])
+        for p in param_dict.keys():
+            param_dict[p] = np.array(param_dict[p])
+
+        # Param size check
+        if not param_dict['pulse_duration'].shape == param_dict['sa_correction'].shape == param_dict['gain'].shape:
+            raise ValueError('Narrowband calibration parameters dimension mismatch!')
+
+        ds_table = xr.Dataset(
+            {
+                'sa_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['sa_correction'])),
+                'gain_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['gain'])),
+                'pulse_length': (['frequency', 'pulse_length_bin'], np.array(param_dict['pulse_duration'])),
+            },
+            coords={
+                'frequency': (['frequency'], param_dict['transducer_frequency'],
+                              {'units': 'Hz',
+                               'long_name': 'Transducer frequency',
+                               'valid_min': 0.0}),
+                'pulse_length_bin': (['pulse_length_bin'], np.arange(param_dict['pulse_duration'].shape[1]))
+            }
+        )
 
         # Broadband calibration parameters: use the zero padding approach
         cal_ch_ids = [ch for ch in config.keys() if 'calibration' in config[ch]]  # channels with cal params
@@ -496,62 +522,46 @@ class SetGroupsEK80(SetGroupsBase):
                                'angle_offset_alongship', 'angle_offset_athwartship']
             param_dict = {}
             for p in cal_params:
-                param_dict[p] = (['frequency_cal'], config[ch_id]['calibration'][p])
+                param_dict[p] = (['cal_frequency'], config[ch_id]['calibration'][p])
             ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
-                    'frequency_cal': (['frequency_cal'], config[ch_id]['calibration']['frequency'],
+                    'cal_frequency': (['cal_frequency'], config[ch_id]['calibration']['frequency'],
                                       {'long_name': 'Frequency of calibration parameter', 'units': 'Hz'})
                 })
-            ds_ch = ds_ch.expand_dims({'channel': [ch_id]})
-            ds_ch['channel'] = ds_ch['channel'].assign_attrs(long_name='Channel full name')
+            ds_ch = ds_ch.expand_dims({'cal_channel_id': [ch_id]})
+            ds_ch['cal_channel_id'].attrs['long_name'] = 'ID of channels containing broadband calibration information'
             ds_cal.append(ds_ch)
         ds_cal = xr.merge(ds_cal)
-
-        # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
-        table_params = ['transducer_frequency', 'pulse_duration', 'sa_correction', 'gain']
-        param_dict = defaultdict(list)
-        for k, v in config.items():
-            for p in table_params:
-                param_dict[p].append(v[p])
-        ds_table = xr.Dataset(
-            {
-                'sa_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['sa_correction'])),
-                'gain_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['gain'])),
-                'pulse_length': (['frequency', 'pulse_length_bin'], np.array(param_dict['pulse_duration'])),
-            },
-            coords={
-                'frequency': (['frequency'], param_dict['transducer_frequency'],
-                              {'units': 'Hz',
-                               'long_name': 'Transducer frequency',
-                               'valid_min': 0.0}),
-                'pulse_length_bin': (['pulse_length_bin'], np.arange(len(config)))
-            }
-        )
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()
         decimation_factors = dict()
         for ch in self.parser_obj.ch_ids['power'] + self.parser_obj.ch_ids['complex']:
-            # Coefficients for wide band transceiver
-            coeffs[f'{ch}_WBT_filter'] = self.parser_obj.fil_coeffs[ch][1]
-            # Coefficients for pulse compression
-            coeffs[f'{ch}_PC_filter'] = self.parser_obj.fil_coeffs[ch][2]
-            decimation_factors[f'{ch}_WBT_decimation'] = self.parser_obj.fil_df[ch][1]
-            decimation_factors[f'{ch}_PC_decimation'] = self.parser_obj.fil_df[ch][2]
+            # filter coeffs and decimation factor for wide band transceiver (WBT)
+            coeffs[f'{ch} WBT filter'] = self.parser_obj.fil_coeffs[ch][1]
+            decimation_factors[f'{ch} WBT decimation'] = self.parser_obj.fil_df[ch][1]
+            # filter coeffs and decimation factor for pulse compression (PC)
+            coeffs[f'{ch} PC filter'] = self.parser_obj.fil_coeffs[ch][2]
+            decimation_factors[f'{ch} PC decimation'] = self.parser_obj.fil_df[ch][2]
 
-        # Assemble variables into dataset
+        # Assemble everything into a Dataset
+        ds = xr.merge([ds_table, ds_cal])
+
+        # Save filter coefficients as real and imaginary parts as attributes
         for k, v in coeffs.items():
-            # Save filter coefficients as real and imaginary parts as attributes
             ds.attrs[k + '_r'] = np.real(v)
             ds.attrs[k + '_i'] = np.imag(v)
-            # Save decimation factors as attributes
+
+        # Save decimation factors as attributes
         for k, v in decimation_factors.items():
             ds.attrs[k] = v
+
+        # Save the entire config XML in vendor group in case of info loss
         ds.attrs['config_xml'] = self.parser_obj.config_datagram['xml']
 
         # Save to file
-        io.save_file(ds, path=path, mode='a', engine=self.engine,
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
                      group='Vendor', compression_settings=self.compression_settings)
 
     def set_sonar(self):
