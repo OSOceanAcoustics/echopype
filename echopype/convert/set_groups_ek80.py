@@ -41,7 +41,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         self.set_beam()
         self.set_sonar()
-        self.set_vendor(ch_ids, bb=bb, path=path)
+        self.set_vendor()
 
         # # If there is both bb and cw data
         # if self.parser_obj.ch_ids['complex'] and self.parser_obj.ch_ids['power']:
@@ -476,57 +476,58 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             merge_save(ds_power, 'power', group_name='Beam')
 
-    def set_vendor(self, ch_ids, bb, path):
+    def set_vendor(self):
         """Set the Vendor-specific group.
         """
         # Save broadband calibration parameters
         config = self.parser_obj.config_datagram['configuration']
-        cal_ch_ids = [ch for ch in ch_ids if 'calibration' in config[ch]]
-        # Select the first available ping_time
-        ds = xr.Dataset()
-        if cal_ch_ids:
-            full_ch_names = [f"{config[ch]['transceiver_type']} " +
-                             f"{config[ch]['serial_number']}-" +
-                             f"{config[ch]['hw_channel_configuration']} " +
-                             f"{config[ch]['channel_id_short']}" for ch in cal_ch_ids]
-            frequency = [config[ch]['calibration']['frequency'] for ch in cal_ch_ids]
-            freq_coord = np.unique(np.hstack(frequency))
-            tmp = np.full((len(frequency), len(freq_coord)), np.nan)
-            params = ['gain', 'impedance', 'phase', 'beamwidth_alongship', 'beamwidth_athwartship',
-                      'angle_offset_alongship', 'angle_offset_athwartship']
-            param_dict = {}
-            for param in params:
-                param_val = tmp.copy()
-                for i, ch in enumerate(cal_ch_ids):
-                    indices = np.searchsorted(freq_coord, frequency[i])
-                    param_val[i][indices] = config[ch]['calibration'][param]
-                param_dict[param] = (['channel', 'frequency_spectrum'], param_val)
+        # cal_ch_ids = [ch for ch in config.keys() if 'calibration' in config[ch]]  # channels with cal params
 
-            ds = xr.Dataset(
+        # Broadband calibration parameters: use the zero padding approach
+        cal_ch_ids = [ch for ch in config.keys() if 'calibration' in config[ch]]  # channels with cal params
+        ds_cal = []
+        for ch_id in cal_ch_ids:
+            # TODO: consider using the full_ch_name below in place of channel id (ch_id)
+            # full_ch_name = (f"{config[ch]['transceiver_type']} " +
+            #                 f"{config[ch]['serial_number']}-" +
+            #                 f"{config[ch]['hw_channel_configuration']} " +
+            #                 f"{config[ch]['channel_id_short']}")
+            cal_params = ['gain', 'impedance', 'phase', 'beamwidth_alongship', 'beamwidth_athwartship',
+                               'angle_offset_alongship', 'angle_offset_athwartship']
+            param_dict = {}
+            for p in cal_params:
+                param_dict[p] = (['frequency_cal'], config[ch_id]['calibration'][p])
+            ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
-                    'channel': (['channel'], full_ch_names),
-                    'frequency': (['frequency_spectrum'], freq_coord,
-                                  {'long_name': 'Broadband frequency spectrum', 'units': 'Hz'})
+                    'frequency_cal': (['frequency_cal'], config[ch_id]['calibration']['frequency'],
+                                      {'long_name': 'Frequency of calibration parameter', 'units': 'Hz'})
                 })
-        if not bb:
-            # Save pulse length and sa correction
-            freq = [config[ch]['transducer_frequency'] for ch in ch_ids]
-            pulse_length = np.array([config[ch]['pulse_duration'] for ch in ch_ids])
-            sa_correction = [config[ch]['sa_correction'] for ch in ch_ids]
-            gain = [config[ch]['gain'] for ch in ch_ids]
-            ds_pulse_length = xr.Dataset({
-                'sa_correction': (['frequency', 'pulse_length_bin'], sa_correction),
-                'gain_correction': (['frequency', 'pulse_length_bin'], gain),
-                'pulse_length': (['frequency', 'pulse_length_bin'], pulse_length)},
-                coords={
-                    'frequency': (['frequency'], freq,
-                                  {'units': 'Hz',
-                                   'long_name': 'Transducer frequency',
-                                   'valid_min': 0.0}),
-                    'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))
-            })
-            ds = xr.merge([ds, ds_pulse_length])
+            ds_ch = ds_ch.expand_dims({'channel': [ch_id]})
+            ds_ch['channel'] = ds_ch['channel'].assign_attrs(long_name='Channel full name')
+            ds_cal.append(ds_ch)
+        ds_cal = xr.merge(ds_cal)
+
+        # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
+        table_params = ['transducer_frequency', 'pulse_duration', 'sa_correction', 'gain']
+        param_dict = defaultdict(list)
+        for k, v in config.items():
+            for p in table_params:
+                param_dict[p].append(v[p])
+        ds_table = xr.Dataset(
+            {
+                'sa_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['sa_correction'])),
+                'gain_correction': (['frequency', 'pulse_length_bin'], np.array(param_dict['gain'])),
+                'pulse_length': (['frequency', 'pulse_length_bin'], np.array(param_dict['pulse_duration'])),
+            },
+            coords={
+                'frequency': (['frequency'], param_dict['transducer_frequency'],
+                              {'units': 'Hz',
+                               'long_name': 'Transducer frequency',
+                               'valid_min': 0.0}),
+                'pulse_length_bin': (['pulse_length_bin'], np.arange(len(config)))
+            }
+        )
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()
