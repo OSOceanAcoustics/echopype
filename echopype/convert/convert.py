@@ -120,8 +120,6 @@ class Convert:
                                  # users will get an error if try to set this directly for EK60 or EK80 data
         self.source_file = None  # input file path or list of input file paths
         self.output_file = None  # converted file path or list of converted file paths
-        self.output_file_power = []  # additional files containing only power or power+angle data (EK80 only)
-                                     # regular EK80 files contain complex data
         self._conversion_params = {}  # a dictionary of conversion parameters,
                                       # the keys could be different for different echosounders.
                                       # This dictionary is set by the `set_param` method.
@@ -290,12 +288,6 @@ class Convert:
         # Store output path
         self.output_file = out_path  # output_path is always a list
 
-    def _construct_power_file_path(self, c, output_path):
-        if c.ch_ids['power'] and c.ch_ids['complex']:
-            fname, ext = os.path.splitext(output_path)
-            new_path = fname + '_power' + ext
-            self.output_file_power.append(new_path)
-
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
         """
@@ -318,10 +310,6 @@ class Convert:
         # Actually parsing and saving file(s)
         c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
-        if self.sonar_model in ['EK80', 'EA640']:
-            # TODO: use the constructed _power paths in sg,
-            #  currently the filenames are constructed in there again
-            self._construct_power_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, engine=engine, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
@@ -504,6 +492,7 @@ class Convert:
         # Update output_path to be the combined path name
         self.output_file = [combined_save_path]
 
+        # TODO: remove this section when reviewing since there is no longer additional _power files
         # Combine _power files if they exist
         if self.output_file_power:
             # Append '_power' to EK80 filepath if combining power or power+angle files
