@@ -409,7 +409,7 @@ class Convert:
         print("All input files combined into " + output_path)
 
     @staticmethod
-    def _get_combined_save_path(save_path, source_paths):
+    def _get_combined_save_path(source_paths):
         def get_combined_fname(path):
             fname, ext = os.path.splitext(path)
             return fname + '__combined' + ext
@@ -422,6 +422,10 @@ class Convert:
 
     def combine_files(self, indiv_files=None, save_path=None, remove_orig=True):
         """Combine output files when self.combine=True.
+
+        `combine_files` can be called to combine files that have just be converted
+        by the current instance of Convert (those listed in self.output_path)
+        or files that were previously converted (specified in `indiv_files`).
 
         Parameters
         ----------
@@ -441,7 +445,7 @@ class Convert:
             print("Combination did not occur as there is only 1 source file")
             return False
 
-        # self.output path contains individual files to be combined if
+        # self.output_path contains individual files to be combined if
         #  they have just been converted using this object
         indiv_files = self.output_file if indiv_files is None else indiv_files
 
