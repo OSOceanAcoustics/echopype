@@ -7,6 +7,8 @@ import warnings
 import xarray as xr
 import numpy as np
 import zarr
+from fsspec.mapping import FSMap
+from fsspec.implementations.local import LocalFileSystem
 from collections.abc import MutableMapping
 from datetime import datetime as dt
 import fsspec
@@ -316,8 +318,8 @@ class Convert:
     @staticmethod
     def _remove_files(path):
         """Used to delete .nc or .zarr files"""
-        if isinstance(path, MutableMapping):
-            path.fs.rm(path.root, recursive=True)
+        if isinstance(path, FSMap):
+            path.fs.delete(path.root, recursive=True)
         else:
             fname, ext = os.path.splitext(path)
             if ext == '.zarr':
@@ -407,42 +409,15 @@ class Convert:
         print("All input files combined into " + output_path)
 
     @staticmethod
-    def _get_combined_save_path(save_path, indiv_paths):
+    def _get_combined_save_path(save_path, source_paths):
         def get_combined_fname(path):
             fname, ext = os.path.splitext(path)
-            return fname + '_combined' + ext
+            return fname + '__combined' + ext
 
-        # Handle saving to cloud storage
-        # Flags on whether the source or output is a path to an object store
-        cloud_src = isinstance(indiv_paths[0], MutableMapping)
-        cloud_save_path = isinstance(save_path, MutableMapping)
-        if cloud_src or cloud_save_path:
-            fs = indiv_paths[0].fs if cloud_src else save_path.fs
-            if save_path is None:
-                save_path = fs.get_mapper(get_combined_fname(indiv_paths[0].root))
-            elif cloud_save_path:
-                fname, ext = os.path.splitext(save_path.root)
-                if ext == '':
-                    save_path = save_path.root + '/' + get_combined_fname(os.path.basename(indiv_paths[0].root))
-                    save_path = fs.get_mapper(save_path)
-                elif ext != '.zarr':
-                    raise ValueError("save_path must be a zarr file")
-            else:
-                raise ValueError("save_path must be a MutableMapping to a cloud store")
-        # Handle saving to local paths
-        else:
-            # TODO: clean up logic here
-            if save_path is None:
-                save_path = get_combined_fname(indiv_paths[0])
-            elif isinstance(save_path, str):
-                fname, ext = os.path.splitext(save_path)
-                # If save_path is a directory. (It must exist due to validate_path)
-                if ext == '':  # TODO: check using isdir
-                    save_path = os.path.join(save_path, get_combined_fname(os.path.basename(indiv_paths[0])))
-                elif ext != '.nc' and ext != '.zarr':
-                    raise ValueError("save_path must be '.nc' or '.zarr'")
-            else:
-                raise ValueError("Invalid save_path")
+        sample_file = source_paths[0]
+        save_path = get_combined_fname(sample_file.root) if isinstance(sample_file, FSMap) else get_combined_fname(sample_file)
+        if isinstance(sample_file, FSMap) and not isinstance(sample_file.fs, LocalFileSystem):
+            return sample_file.fs.get_mapper(save_path)
         return save_path
 
     def combine_files(self, indiv_files=None, save_path=None, remove_orig=True):
@@ -471,29 +446,22 @@ class Convert:
         indiv_files = self.output_file if indiv_files is None else indiv_files
 
         # Construct the final combined save path
-        combined_save_path = self._get_combined_save_path(save_path, indiv_files)
+        if save_path is not None:
+            # TODO: we need to check validity/permission of the user-specified save_path here
+            combined_save_path = save_path
+        else:
+            combined_save_path = self._get_combined_save_path(save_path, indiv_files)
 
         # Get the correct xarray functions for opening datasets
         engine = io.get_file_format(combined_save_path)
         self._perform_combination(indiv_files, combined_save_path, engine)
 
         # Update output_path to be the combined path name
-        self.output_file = [combined_save_path]
-
-        # TODO: remove this section when reviewing since there is no longer additional _power files
-        # Combine _power files if they exist
-        if self.output_file_power:
-            # Append '_power' to EK80 filepath if combining power or power+angle files
-            fname, ext = os.path.splitext(combined_save_path)
-            combined_save_path_power = fname + '_power' + ext
-            self._perform_combination(self.output_file_power, combined_save_path_power, engine)
-            # TODO: the below behavior is different from the case where the files are not combined
-            #  self.output_path in the case when combine=False does not contain the _power filename
-            self.output_file.append(combined_save_path_power)
+        self.output_file = combined_save_path
 
         # Delete individual files after combining
         if remove_orig:
-            for f in indiv_files + self.output_file_power:
+            for f in indiv_files :
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
