@@ -54,7 +54,6 @@ NMEA_SENTENCE_DEFAULT = ['GGA', 'GLL', 'RMC']
 
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
-    # TODO: use warnings.warn directly, not sure why we need an additional layer of abstraction
     warnings.warn("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead.",
                   DeprecationWarning, 2)
     return Convert(file=_filename, model='EK80')
@@ -307,7 +306,7 @@ class Convert:
         else:
             params = self.data_type
 
-        # Actually parsing and saving file(s)
+        # Actually parsing and saving file
         c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
         sg = sg(c, input_file=file, output_path=output_path, engine=engine, compress=self.compress,
@@ -325,17 +324,6 @@ class Convert:
                 shutil.rmtree(path)
             else:
                 os.remove(path)
-
-    # TODO: can take this out if we force output_path to always be a list
-    @staticmethod
-    def _path_list_to_str(path):
-        """Takes a list of filepaths and if there is only 1 path, return that path as a string.
-        Otherwise returns the list of filepaths
-        """
-        if len(path) == 1:
-            return path[0]
-        else:
-            return path
 
     def _perform_combination(self, input_paths, output_path, engine):
         """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
@@ -751,7 +739,10 @@ class Convert:
                 else:
                     raise ValueError("Unknown data type", data_type)
                 xml_file.write(data)
-        self.output_file = self._path_list_to_str(self.output_file)
+
+        # If only one output file make it a string instead of a list
+        if len(self.output_file) == 1:
+            self.output_file = self.output_file[0]
 
     @staticmethod
     def check_files(file, model, xml_path=None, storage_options={}):
@@ -783,28 +774,25 @@ class Convert:
 
         return file, xml
 
-    # TODO: Used for backwards compatibility. Delete in future versions
+    # TODO: Remove below in future versions. They are for supporting old API calls.
     @property
     def nc_path(self):
         warnings.warn("`nc_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
         path = self._nc_path if self._nc_path is not None else self.output_file
         return path
 
-    # TODO: Used for backwards compatibility. Delete in future versions
     @property
     def zarr_path(self):
         warnings.warn("`zarr_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
         path = self._zarr_path if self._zarr_path is not None else self.output_file
         return path
 
-    # TODO: Used for backwards compatibility. Delete in future versions
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         warnings.warn("`raw2nc` is deprecated, use `to_netcdf` instead.", DeprecationWarning, 2)
         self.to_netcdf(save_path=save_path, compress=compress, combine=combine_opt,
                        overwrite=overwrite)
         self._nc_path = self.output_file
 
-    # TODO: Used for backwards compatibility. Delete in future versions
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         warnings.warn("`raw2zarr` is deprecated, use `to_zarr` instead.", DeprecationWarning, 2)
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
