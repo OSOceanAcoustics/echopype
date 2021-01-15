@@ -441,20 +441,22 @@ class Convert:
         -------
         True or False depending on whether or not the combination was successful
         """
-        if len(self.source_file) < 2:
-            print("Combination did not occur as there is only 1 source file")
-            return False
-
         # self.output_path contains individual files to be combined if
         #  they have just been converted using this object
         indiv_files = self.output_file if indiv_files is None else indiv_files
+
+        if isinstance(indiv_files, str):
+            indiv_files = [indiv_files]
+        if len(indiv_files) < 2:
+            print("Combination did not occur as there is only one source file.")
+            return True
 
         # Construct the final combined save path
         if save_path is not None:
             # TODO: we need to check validity/permission of the user-specified save_path here
             combined_save_path = save_path
         else:
-            combined_save_path = self._get_combined_save_path(save_path, indiv_files)
+            combined_save_path = self._get_combined_save_path(indiv_files)
 
         # Get the correct xarray functions for opening datasets
         engine = io.get_file_format(combined_save_path)
