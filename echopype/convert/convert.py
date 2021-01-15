@@ -667,8 +667,9 @@ class Convert:
         if extra_platform_data is not None:
             self.update_platform(files=self.output_file, extra_platform_data=extra_platform_data)
 
-        # Tidy up output_path
-        self.output_file = self._path_list_to_str(self.output_file)
+        # If only one output file make it a string instead of a list
+        if len(self.output_file) == 1:
+            self.output_file = self.output_file[0]
 
     def to_netcdf(self, **kwargs):
         return self._to_file('netcdf4', **kwargs)
