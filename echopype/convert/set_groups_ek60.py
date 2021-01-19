@@ -23,6 +23,7 @@ class SetGroupsEK60(SetGroupsBase):
             self.set_platform(NMEA_only=True)
             return
 
+        # TODO: Specifically pass in date_created here
         self.set_toplevel('EK60')
         self.set_provenance()           # provenance group
         self.set_sonar(sonar_values)    # sonar group

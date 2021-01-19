@@ -44,6 +44,8 @@ class SetGroupsBase:
         """Set the top-level group.
         """
         # Collect variables
+        # TODO: Change SetGroupsEK60/EK80/AZFP to pass date_created specifically,
+        #  instead of grabbing from parser object depending on sonar object
         if date_created is None:
             # TODO: change below to use time of config datagram
             # Check if AZFP or EK
