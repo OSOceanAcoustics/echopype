@@ -1,3 +1,7 @@
+"""
+This file contains functions used by Convert.combine_files().
+"""
+
 import os
 import shutil
 from datetime import datetime as dt
@@ -6,7 +10,6 @@ from fsspec.implementations.local import LocalFileSystem
 import xarray as xr
 from .._version import get_versions
 from ..utils import io
-
 
 ECHOPYPE_VERSION = get_versions()['version']
 
@@ -53,6 +56,7 @@ def assemble_combined_provenance(input_paths):
 def perform_combination(sonar_model, input_paths, output_path, engine):
     """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
     """
+
     def coerce_type(ds, group):
         if group == 'Beam':
             if sonar_model == 'EK80':
@@ -137,4 +141,3 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
     # TODO: print out which group combination errors out and raise appropriate error
 
     print("All input files combined into " + output_path)
-
