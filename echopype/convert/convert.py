@@ -53,6 +53,11 @@ MODELS = {
 
 NMEA_SENTENCE_DEFAULT = ['GGA', 'GLL', 'RMC']
 
+DEFAULT_CHUNK_SIZE = {
+    'range_bin': 25000,
+    'ping_time': 2500
+}
+
 
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
@@ -342,69 +347,78 @@ class Convert:
         print('combining files...')
         # Open multiple files as one dataset of each group and save them into a single file
 
-        # TODO: decide if ok to just use data from first file
-        # Combine Top-level group
+        # TODO: add in the documentation that the Top-level and Sonar groups are
+        #  combined by taking values (attributes) from the first file
+        # Combine Top-level group, use values from the first file
         with xr.open_dataset(input_paths[0], engine=engine) as ds_top:
             io.save_file(ds_top, path=output_path, mode='w', engine=engine)
 
-        # Combine Provenance group
+        # TODO: need to construct new Provenance group
+        #  use the current time and put all input_paths as src_filenames
+        #  Basically the provenance should be related to the combined file and not the individual files
+        # Combine Provenance group,
         with xr.open_dataset(input_paths[0], group='Provenance', engine=engine) as ds_prov:
             io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
 
-        # Combine Sonar group
+        # TODO: should use merge and require combine_attrs=identical, in theory this can be done using
+        #  xr.open_mfdataset(input_paths, group='Sonar', combine='nested', engine=engine, combine_attrs='identical')
+        #  but combine_attrs does not seem to be passed to open_mfdataset automatically from xr.combine_nested
+        # Combine Sonar group, use values from the first file
         with xr.open_dataset(input_paths[0], group='Sonar', engine=engine) as ds_sonar:
             io.save_file(ds_sonar, path=output_path, mode='a', engine=engine, group='Sonar')
 
-        try:
-            # TODO: check combine='nested' and concat_dim='ping_time' behavior,
-            #  check output coordinates given data_vars='minimal'
-            # Combine Beam
-            with xr.open_mfdataset(input_paths, group='Beam', decode_times=False, combine='nested',
-                                   concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
-                coerce_type(ds_beam, 'Beam')
-                io.save_file(ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),  # TODO: look into chunking again
-                             path=output_path, mode='a', engine=engine, group='Beam')
+        # TODO: for the cases when there are pings going backward in time,
+        #  we will need to clean up data before calling merge.
+        #  Right now we force it to only combine files with nicely monotonically varying ping_time.
+        # Combine Beam
+        with xr.open_mfdataset(input_paths, group='Beam',
+                               concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
+            coerce_type(ds_beam, 'Beam')
+            io.save_file(ds_beam.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+                                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),  # these chunk sizes are ad-hoc
+                         path=output_path, mode='a', engine=engine, group='Beam')
 
-            # Combine Environment group
-            # AZFP environment changes as a function of ping time
-            with xr.open_mfdataset(input_paths, group='Environment', combine='nested', concat_dim='ping_time',
-                                   data_vars='minimal', engine=engine) as ds_env:
-                io.save_file(ds_env.chunk({'ping_time': 100}),
-                             path=output_path, mode='a', engine=engine, group='Environment')
+        # TODO: EK60 files current combine out of the box since env variables have a ping_time dimension.
+        #  Check EK80 files to make sure the ping_time dimension will concat correctly.
+        # Combine Environment group
+        with xr.open_mfdataset(input_paths, group='Environment',
+                               concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_env:
+            io.save_file(ds_env.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                         path=output_path, mode='a', engine=engine, group='Environment')
 
-            # Combine Platform group
-            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-            if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
-                                       compat='identical', engine=engine) as ds_plat:
-                    io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
-            elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
-                with xr.open_mfdataset(input_paths, group='Platform', decode_times=False, combine='nested',
-                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
-                    if self.sonar_model in ['EK80', 'EA640']:
-                        io.save_file(ds_plat.chunk({'location_time': 100, 'mru_time': 100}),
-                                     path=output_path, mode='a', engine=engine, group='Platform')
-                    else:
-                        io.save_file(ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
-                                     path=output_path, mode='a', engine=engine, group='Platform')
-                    # AZFP does not record NMEA data
-                    # TODO: Look into why decode times = True for beam does not error out
-                    # TODO: Why does the encoding information in SetGroups not read when opening datasets?
-                    with xr.open_mfdataset(input_paths, group='Platform/NMEA',
-                                           decode_times=False, data_vars='minimal',
-                                           combine='nested', concat_dim='location_time', engine=engine) as ds_nmea:
-                        io.save_file(ds_nmea.chunk({'location_time': 100}).astype('str'),
-                                     path=output_path, mode='a', engine=engine, group='Platform/NMEA')
+        # Combine Platform group
+        # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
+        # TODO: check AZFP platform: shouldn't the AZFP platform coordinates just be empty?
+        if self.sonar_model == 'AZFP':
+            with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
+                                   compat='identical', engine=engine) as ds_plat:
+                io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
+        elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
+            # Platform group
+            with xr.open_mfdataset(input_paths, group='Platform',
+                                   concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
+                if self.sonar_model in ['EK80', 'EA640']:
+                    io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                                                'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                                 path=output_path, mode='a', engine=engine, group='Platform')
+                else:
+                    io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                                 path=output_path, mode='a', engine=engine, group='Platform')
+            # Platform/NMEA group
+            with xr.open_mfdataset(input_paths, group='Platform/NMEA',
+                                   concat_dim='location_time', data_vars='minimal', engine=engine) as ds_nmea:
+                io.save_file(ds_nmea.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time']}).astype('str'),
+                             path=output_path, mode='a', engine=engine, group='Platform/NMEA')
 
-            # Combine Vendor-specific group
-            # TODO: double check this works with AZFP data as data variables change with ping_time
-            with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                   compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
-                io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
+        # Combine Vendor-specific group
+        # TODO: double check this works with AZFP data as data variables change with ping_time
+        with xr.open_mfdataset(input_paths, group='Vendor',
+                               combine='nested',  # nested since this is more like merge and no dim to concat
+                               compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
+            io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
 
-        except xr.MergeError as e:
-            var = str(e).split("'")[1]
-            raise ValueError(f"Files cannot be combined due to {var} changing across the files")
+        # TODO: print out which group combination errors out and raise appropriate error
 
         print("All input files combined into " + output_path)
 
@@ -420,7 +434,7 @@ class Convert:
             return sample_file.fs.get_mapper(save_path)
         return save_path
 
-    def combine_files(self, indiv_files=None, save_path=None, remove_orig=True):
+    def combine_files(self, indiv_files=None, save_path=None, remove_indiv_files=True):
         """Combine output files when self.combine=True.
 
         `combine_files` can be called to combine files that have just be converted
@@ -433,7 +447,7 @@ class Convert:
             List of NetCDF or Zarr files to combine
         save_path : str
             Either a directory or a file. If none, use the name of the first ``src_file``
-        remove_orig : bool
+        remove_indiv_files : bool
             Whether or not to remove the files in ``indiv_files``
             Defaults to ``True``
 
@@ -466,8 +480,8 @@ class Convert:
         self.output_file = combined_save_path
 
         # Delete individual files after combining
-        if remove_orig:
-            for f in indiv_files :
+        if remove_indiv_files:
+            for f in indiv_files:
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
@@ -663,7 +677,7 @@ class Convert:
 
         # Combine files if needed
         if self.combine:
-            self.combine_files(save_path=save_path, remove_orig=True)
+            self.combine_files(save_path=save_path, remove_indiv_files=True)
 
         # Attached platform data
         if extra_platform_data is not None:
