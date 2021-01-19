@@ -322,7 +322,7 @@ class Convert:
         sg.save()
 
     @staticmethod
-    def _remove_files(path):
+    def _remove_indiv_files(path):
         """Used to delete .nc or .zarr files"""
         if isinstance(path, FSMap):
             path.fs.delete(path.root, recursive=True)
@@ -333,7 +333,8 @@ class Convert:
             else:
                 os.remove(path)
 
-    def _assemble_combine_provenance(self, input_paths):
+    @staticmethod
+    def _assemble_combine_provenance(input_paths):
         prov_dict = {'conversion_software_name': 'echopype',
                      'conversion_software_version': ECHOPYPE_VERSION,
                      'conversion_time': dt.utcnow().isoformat(timespec='seconds') + 'Z',  # use UTC time
@@ -370,9 +371,11 @@ class Convert:
         ds_prov = self._assemble_combine_provenance(input_paths)
         io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
 
-        # TODO: for the cases when there are pings going backward in time,
-        #  we will need to clean up data before calling merge.
-        #  Right now we force it to only combine files with nicely monotonically varying ping_time.
+        # TODO: Put the following in docs:
+        #  Right now we follow xr.combine_by_coords default to only combine files
+        #  with nicely monotonically varying ping_time/location_time/mru_time.
+        #  However we know there are lots of problems with pings going backward in time for EK60/EK80 files,
+        #  and we will need to clean up data before calling merge.
         # Combine Beam
         with xr.open_mfdataset(input_paths, group='Beam',
                                concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
@@ -381,8 +384,6 @@ class Convert:
                                         'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),  # these chunk sizes are ad-hoc
                          path=output_path, mode='a', engine=engine, group='Beam')
 
-        # TODO: EK60 files current combine out of the box since env variables have a ping_time dimension.
-        #  Check EK80 files to make sure the ping_time dimension will concat correctly.
         # Combine Environment group
         with xr.open_mfdataset(input_paths, group='Environment',
                                concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_env:
@@ -396,19 +397,23 @@ class Convert:
             with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
                                    compat='identical', engine=engine) as ds_plat:
                 io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
-        elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
-            # Platform group
+        elif self.sonar_model in ['EK80', 'EA640']:
             with xr.open_mfdataset(input_paths, group='Platform',
-                                   concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
-                if self.sonar_model in ['EK80', 'EA640']:
+                                   concat_dim=['location_time', 'mru_time'],
+                                   data_vars='minimal', engine=engine) as ds_plat:
                     io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
                                                 'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                                  path=output_path, mode='a', engine=engine, group='Platform')
-                else:
-                    io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
-                                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                                 path=output_path, mode='a', engine=engine, group='Platform')
-            # Platform/NMEA group
+        elif self.sonar_model in ['EK60']:
+            with xr.open_mfdataset(input_paths, group='Platform',
+                                   concat_dim=['location_time', 'ping_time'],
+                                   data_vars='minimal', engine=engine) as ds_plat:
+                io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                                            'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                             path=output_path, mode='a', engine=engine, group='Platform')
+
+        # Combine Platform/NMEA group
+        if self.sonar_model in ['EK60', 'EK80', 'EA640']:
             with xr.open_mfdataset(input_paths, group='Platform/NMEA',
                                    concat_dim='location_time', data_vars='minimal', engine=engine) as ds_nmea:
                 io.save_file(ds_nmea.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time']}).astype('str'),
@@ -485,7 +490,7 @@ class Convert:
         # Delete individual files after combining
         if remove_indiv_files:
             for f in indiv_files:
-                self._remove_files(f)
+                self._remove_indiv_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
         """
