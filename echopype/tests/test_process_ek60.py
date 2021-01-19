@@ -120,7 +120,7 @@ def test_calibration_ek60_echoview():
     tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
-    ed = EchoData(raw_path=tmp.output_path)
+    ed = EchoData(raw_path=tmp.output_file)
     proc = Process(model='EK60', ed=ed)
     proc.calibrate(ed, save=True, save_format='netcdf4')
 
@@ -133,7 +133,7 @@ def test_calibration_ek60_echoview():
                        ed.Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
     ed.close()
     os.remove(ed.Sv_path)
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_calibrate():
@@ -143,7 +143,7 @@ def test_calibrate():
     tmp = Convert(ek60_raw_path, model='EK60')
     tmp.to_netcdf()
     # Overwrite beam group with array of 1
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         backscatter_r = np.full_like(ds_beam.backscatter_r, 1)
         freq = ds_beam.backscatter_r.frequency
         ping_time = ds_beam.ping_time
@@ -154,14 +154,14 @@ def test_calibrate():
                                                ('range_bin', range_bin)])
     data.name = 'backscatter_r'
     ds = data.to_dataset()
-    ds.to_netcdf(tmp.output_path, mode='a', group='Beam')
+    ds.to_netcdf(tmp.output_file, mode='a', group='Beam')
 
     # Run Sv calibration on array of 1
-    ed = EchoData(tmp.output_path)
+    ed = EchoData(tmp.output_file)
     proc = Process('EK60', ed)
     proc.calibrate(ed)
     # Check if Sv is strictly increasing by differentiating along range
     assert np.all(np.diff(ed.Sv.Sv) >= 0)
 
     ed.close()
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)

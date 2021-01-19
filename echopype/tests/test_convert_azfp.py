@@ -28,7 +28,7 @@ def test_convert_raw_matlab():
     ds_test = xr.open_dataset(test_path)
 
     # Test beam group
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         # Test frequency
         assert np.array_equal(ds_test.frequency, ds_beam.frequency)
         # Test sea absorption
@@ -42,7 +42,7 @@ def test_convert_raw_matlab():
         assert np.array_equal(ds_test.backscatter, ds_beam.backscatter_r)
 
     # Test environment group
-    with xr.open_dataset(tmp.output_path, group='Environment') as ds_env:
+    with xr.open_dataset(tmp.output_file, group='Environment') as ds_env:
         # Test temperature
         assert np.array_equal(ds_test.temperature, ds_env.temperature)
         # Test sound speed. 1 value is used because sound speed is the same across frequencies
@@ -54,7 +54,7 @@ def test_convert_raw_matlab():
     #     assert np.array_equal(ds_test.battery_tx, ds_vend.battery_tx)
 
     ds_test.close()
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
     del tmp
 
 
@@ -70,10 +70,10 @@ def test_convert_raw_echoview():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
 
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_convert_zarr():
@@ -85,10 +85,10 @@ def test_convert_zarr():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
-    with xr.open_zarr(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_zarr(tmp.output_file, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
 
-    shutil.rmtree(tmp.output_path)
+    shutil.rmtree(tmp.output_file)
 
 
 def test_combine():
@@ -99,7 +99,7 @@ def test_combine():
     tmp = Convert(file=raw_paths[1:5], model='AZFP', xml_path=raw_paths[0])
     tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
 
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         # Test if the concatenation along ping time worked
         assert len(ds_beam.ping_time) == 960
     shutil.rmtree(export_folder)
@@ -120,18 +120,18 @@ def test_validate_path():
     # Test saving
     # save_path is None
     tmp._validate_path(file_format='.nc')
-    compare_paths(tmp.output_path[0], raw_path[:-3] + 'nc')
+    compare_paths(tmp.output_file[0], raw_path[:-3] + 'nc')
     # save_path is directory
     tmp._validate_path(file_format='.nc', save_path=directory)
-    compare_paths(tmp.output_path[0], os.path.join(directory, new_filename))
+    compare_paths(tmp.output_file[0], os.path.join(directory, new_filename))
     # Check if the requested folder is created
     assert os.path.exists(directory)
     # save_path is just a filename
     tmp._validate_path(file_format='.nc', save_path=filename)
-    compare_paths(tmp.output_path[0], os.path.join(base_dir, filename))
+    compare_paths(tmp.output_file[0], os.path.join(base_dir, filename))
     # save_path is a file path
     tmp._validate_path(file_format='.nc', save_path=file_path)
-    compare_paths(tmp.output_path[0], file_path)
+    compare_paths(tmp.output_file[0], file_path)
     # save_path is a file that does not match the extension of file_format (should fail)
     try:
         tmp._validate_path(file_format='.zarr', save_path=file_path)
