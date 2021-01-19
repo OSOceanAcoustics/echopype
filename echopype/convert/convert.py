@@ -7,7 +7,10 @@ import warnings
 import xarray as xr
 import numpy as np
 import zarr
+from fsspec.mapping import FSMap
+from fsspec.implementations.local import LocalFileSystem
 from collections.abc import MutableMapping
+from datetime import datetime as dt
 import fsspec
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
@@ -16,6 +19,10 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
+
+
+warnings.simplefilter('always', DeprecationWarning)
+
 
 MODELS = {
     "AZFP": {
@@ -44,10 +51,13 @@ MODELS = {
     }
 }
 
+NMEA_SENTENCE_DEFAULT = ['GGA', 'GLL', 'RMC']
+
 
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
-    io._print_deprecation_warning("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead")
+    warnings.warn("`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead.",
+                  DeprecationWarning, 2)
     return Convert(file=_filename, model='EK80')
 
 
@@ -85,33 +95,36 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    def __init__(self, file=None, model=None, xml_path=None, storage_options=None):
-        # TODO: Used for backwards compatibility. Delete in future versions
-        warnings.simplefilter('always', DeprecationWarning)
+    def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         if model is None:
-            model = 'EK60'
-            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
-                                          "Specifying `model='EK60'` will be required in the future.")
-        elif model is not None and model.lower().endswith('.xml'):
-            xml_path = model
-            model = 'AZFP'
-            io._print_deprecation_warning("Automatically inferring the echosounder model is deprecated. "
-                                          "Specifying `model='AZFP'` and `xml_path` will be required in the future")
+            if xml_path is None:
+                model = 'EK60'
+                warnings.warn("Current behavior is to default model='EK60' when no XML file is passed in as argument. "
+                              "Specifying model='EK60' will be required in the future, "
+                              "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
+                              DeprecationWarning, 2)
+            else:
+                xml_path = model
+                model = 'AZFP'
+                warnings.warn("Current behavior is to set model='AZFP' when an XML file is passed in as argument. "
+                              "Specifying model='AZFP' will be required in the future.",
+                              DeprecationWarning, 2)
+
+        # TODO: Remove _zarr_path and _nc_path in the future. These are for backwards compatibility.
         # Initialize old path names (replaced by output_path). Only filled if raw2nc/raw2zarr is called
         self._zarr_path = None
         self._nc_path = None
 
         # Attributes
-        self.sonar_model = None     # type of echosounder
-        self.xml_path = ''          # path to xml file (AZFP only)
-                                    # users will get an error if try to set this directly for EK60 or EK80 data
-        self.source_file = None     # input file path or list of input file paths
-        self.output_path = None     # converted file path or list of converted file paths
-        self.output_cw_files = []          # additional files created when setting groups (EK80 only)
-        self._conversion_params = {}    # a dictionary of conversion parameters,
-                                        # the keys could be different for different echosounders.
-                                        # This dictionary is set by the `set_param` method.
-        self.data_type = 'ALL'      # type of data to be converted into netcdf or zarr.
+        self.sonar_model = None  # type of echosounder
+        self.xml_path = ''       # path to xml file (AZFP only)
+                                 # users will get an error if try to set this directly for EK60 or EK80 data
+        self.source_file = None  # input file path or list of input file paths
+        self.output_file = None  # converted file path or list of converted file paths
+        self._conversion_params = {}  # a dictionary of conversion parameters,
+                                      # the keys could be different for different echosounders.
+                                      # This dictionary is set by the `set_param` method.
+        self.data_type = 'ALL'  # type of data to be converted into netcdf or zarr.
                                 # - default to 'ALL'
                                 # - 'GPS' are valid for EK60 and EK80 to indicate only GPS related data
                                 #   (lat/lon and roll/heave/pitch) are exported.
@@ -120,9 +133,6 @@ class Convert:
         self.combine = False
         self.compress = True
         self.overwrite = False
-        self.timestamp_pattern = ''  # regex pattern for timestamp encoded in filename
-        # TODO: review the GGA choice
-        self.nmea_gps_sentence = 'GGA'  # select GPS datagram in _set_platform_dict(), default to 'GGA'
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
         self.set_source(file, model, xml_path)
@@ -133,7 +143,7 @@ class Convert:
         Print out should include: source file name, source folder location, echosounder model.
         """
         if self.sonar_model is None:
-            return "empty echopype convert object (call set_source)"
+            return "empty echopype Convert object (call set_source to set sonar model and files to convert)"
         else:
             return (f"echopype {self.sonar_model} convert object\n" +
                     f"\tsource filename: {[os.path.basename(f) for f in self.source_file]}\n" +
@@ -143,7 +153,7 @@ class Convert:
         return self.__str__()
 
     def set_source(self, file, model, xml_path=None):
-        """Set source and echosounder model
+        """Set source file(s) and echosounder model.
 
         Parameters
         ----------
@@ -154,53 +164,73 @@ class Convert:
         xml_path : str
             path to xml file required for AZFP conversion
         """
-        if file is None:
-            return
-        elif file is not None and model is None:
-            print("Please specify the echosounder model")
+        if (model is None) and (file is None):
+            print('Please specify paths to raw data files and the sonar model.')
             return
 
-        # Uppercased model in case people use lowercase
-        model = model.upper()
+        # Check paths and file types
+        if file is not None:
+            # Make file always a list
+            if not isinstance(file, list):
+                file = [file]
 
-        # Check models
-        if model not in MODELS:
-            raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+            # Check for path type
+            if not all(isinstance(elem, str) for elem in file):
+                raise ValueError("file must be a string or a list of string")
 
-        self.sonar_model = model
+            # Check file extension and existence
+            file_chk, xml_chk = self.check_files(file, model, xml_path, self.storage_options)
 
-        # Check if given files are valid
-        if isinstance(file, str):
-            file = [file]
-        if not isinstance(file, list):
-            raise ValueError("file must be a string or list of strings")
-        if not isinstance(self.storage_options, dict):
-            raise ValueError("storage options must be a dictionary")
+            self.source_file = file_chk  # this is always a list
+            self.xml_path = xml_chk
+        else:
+            print('Please specify paths to raw data files.')
 
-        # Check files
-        files, xml = check_files(file, model, xml_path, self.storage_options)
+        # Set sonar model type
+        if model is not None:
+            # Uppercased model in case people use lowercase
+            model = model.upper()
 
-        self.source_file = files
-        self.xml_path = xml
+            # Check models
+            if model not in MODELS:
+                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+
+            self.sonar_model = model
+        else:
+            # TODO: this currently does not happen because we default to model='EK60'
+            #  when not specified to be consistent with previous behavior.
+            #  Remember to take this out later.
+            # Ask user to provide model
+            print('Please specify the sonar model.')
 
     def set_param(self, param_dict):
-        """Allow users to set ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``,
-        and ``survey_name`` to be saved during the conversion. Extra values are saved to the top level.
-        ``nmea_gps_sentence`` can be specified to save specific messages in a nmea string.
-        nmea sentence Defaults to 'GGA'. Originally ['GGA', 'GLL', 'RMC'].
+        """Allow users to set parameters to be stored in the converted files.
+
+        The default set of parameters include:
+        ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
+        (to be stored in the Platform group),
+        and ``survey_name`` (to be stored in the Top-level group).
+
+        ``nmea_gps_sentence`` is used to select specific NMEA sentences,  defaults ['GGA', 'GLL', 'RMC'].
+
+        Other parameters will be saved to the top level.
         """
-        # Platform
+        # TODO: revise docstring, give examples.
+        # TODO: need to check and return valid/invalid params as done for Process
+        # Parameters for the Platform group
         self._conversion_params['platform_name'] = param_dict.get('platform_name', '')
         self._conversion_params['platform_code_ICES'] = param_dict.get('platform_code_ICES', '')
         self._conversion_params['platform_type'] = param_dict.get('platform_type', '')
         self._conversion_params['water_level'] = param_dict.get('water_level', None)
-        self._conversion_params['nmea_gps_sentence'] = param_dict.get('nmea_gps_sentence', 'GGA')
-        # Top level
+        self._conversion_params['nmea_gps_sentence'] = param_dict.get('nmea_gps_sentence', NMEA_SENTENCE_DEFAULT)
+
+        # Parameters for the Top-level group
         self._conversion_params['survey_name'] = param_dict.get('survey_name', '')
         for k, v in param_dict.items():
             if k not in self._conversion_params:
                 self._conversion_params[k] = v
 
+    # TODO: combine _validate_path and _validate_object_store
     def _validate_object_store(self, store):
         fs = store.fs
         root = store.root
@@ -208,12 +238,12 @@ class Convert:
         if ext == '':
             files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
                      for f in self.source_file]
-            self.output_path = [fs.get_mapper(f) for f in files]
+            self.output_file = [fs.get_mapper(f) for f in files]
         elif ext == '.zarr':
             if len(self.source_file) > 1:
                 raise ValueError("save_path must be a directory")
             else:
-                self.output_path = [store]
+                self.output_file = [store]
 
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
@@ -224,89 +254,63 @@ class Convert:
             Either a directory or a file. If none then the save path is the same as the raw file.
         file_format : str {'.nc', '.zarr'}
         """
-
-        filenames = self.source_file
-
-        # Default output directory taken from first input file
-        out_dir = os.path.dirname(filenames[0])
-        if save_path is not None:
-            dirname, fname = os.path.split(save_path)
-            basename, path_ext = os.path.splitext(fname)
-            if path_ext != file_format and path_ext != '':
-                raise ValueError("Saving {file_format} file but save path is to a {path_ext} file")
-            if path_ext != '.nc' and path_ext != '.zarr' and path_ext != '.xml' and path_ext != '':
-                raise ValueError("File format must be .nc, .zarr, or .xml")
-            # Check if save_path is a file or a directory
-            if path_ext == '':   # if a directory
-                out_dir = save_path
-            elif len(filenames) == 1:
-                if dirname != '':
-                    out_dir = dirname
-            else:  # if a file
-                raise ValueError("save_path must be a directory")
+        if save_path is None:
+            # Default output directory taken from first input file
+            fsmap = fsspec.get_mapper(self.source_file[0])
+            fs = fsmap.fs
+            out_dir = os.path.dirname(fsmap.root)
+            out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                        for f in self.source_file]
+        else:
+            fsmap = fsspec.get_mapper(save_path)
+            fs = fsmap.fs
+            root = fsmap.root
+            fname, ext = os.path.splitext(root)
+            if ext == '':  # directory
+                out_dir = fname
+                out_path = [root + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                            for f in self.source_file]
+            else:  # file
+                out_dir = os.path.dirname(root)
+                if len(self.source_file) > 1:  # get dirname and assemble path
+                    out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                                for f in self.source_file]
+                else:
+                    # force file_format to conform
+                    out_path = [os.path.join(out_dir, fname + file_format)]
 
         # Create folder if save_path does not exist already
-        if not os.path.exists(out_dir):
+        if not fs.exists(out_dir):
             try:
                 os.mkdir(out_dir)
-            # Raise error if save_path is not a folder
             except FileNotFoundError:
-                raise ValueError("A valid save directory was not given.")
+                raise ValueError("Specified save_path is not valid.")
 
-        # Store output filenames
-        if save_path is not None and not os.path.isdir(save_path):
-            files = [os.path.basename(basename)]
-        else:
-            files = [os.path.splitext(os.path.basename(f))[0] for f in filenames]
-        self.output_path = [os.path.join(out_dir, f + file_format) for f in files]
-
-    def _construct_cw_file_path(self, c, output_path):
-        if c.ch_ids['power'] and c.ch_ids['complex']:
-            fname, ext = os.path.splitext(output_path)
-            new_path = fname + '_cw' + ext
-            self.output_cw_files.append(new_path)
+        # Store output path
+        self.output_file = out_path  # output_path is always a list
 
     def _convert_indiv_file(self, file, output_path=None, engine=None):
         """Convert a single file.
         """
 
         if self.sonar_model not in MODELS:
-            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\nMust be one of: {list(MODELS)}")
+            raise ValueError(f"Unsupported sonar model: {self.sonar_model}\n"
+                             f"Must be one of: {list(MODELS)}")
 
         # Use echosounder-specific object
         c = MODELS[self.sonar_model]['parser']
         sg = MODELS[self.sonar_model]['set_groups']
 
+        # TODO: the if-else below only works for the AZFP vs EK contrast,
+        #  but is brittle since it is abusing params by using it implicitly
         if MODELS[self.sonar_model]['xml']:
             params = self.xml_path
         else:
             params = self.data_type
 
-        # Handle saving to cloud or local filesystem
-        # TODO: @ngkvain: You mean this took long before, what is the latest status?
-        if isinstance(output_path, MutableMapping):
-            if not self.overwrite:
-                if output_path.fs.exists(output_path.root):
-                    print(f"          ... this file has already been converted to {engine}, " +
-                          "conversion not executed.")
-                    return
-            # output_path.fs.rm(output_path.root, recursive=True)
-        else:
-            # Check if file exists
-            if os.path.exists(output_path) and self.overwrite:
-                # Remove the file if self.overwrite is true
-                print("          overwriting: " + output_path)
-                self._remove_files(output_path)
-            if os.path.exists(output_path):
-                # Otherwise, skip saving
-                print(f"          ... this file has already been converted to {engine}, conversion not executed.")
-                return
-
-        # Actually parsing and saving file(s)
+        # Actually parsing and saving file
         c = c(file, params=params, storage_options=self.storage_options)
         c.parse_raw()
-        if self.sonar_model in ['EK80', 'EA640']:
-            self._construct_cw_file_path(c, output_path)
         sg = sg(c, input_file=file, output_path=output_path, engine=engine, compress=self.compress,
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
@@ -314,8 +318,8 @@ class Convert:
     @staticmethod
     def _remove_files(path):
         """Used to delete .nc or .zarr files"""
-        if isinstance(path, MutableMapping):
-            path.fs.rm(path.root, recursive=True)
+        if isinstance(path, FSMap):
+            path.fs.delete(path.root, recursive=True)
         else:
             fname, ext = os.path.splitext(path)
             if ext == '.zarr':
@@ -323,20 +327,10 @@ class Convert:
             else:
                 os.remove(path)
 
-    @staticmethod
-    def _path_list_to_str(path):
-        """Takes a list of filepaths and if there is only 1 path, return that path as a string.
-        Otherwise returns the list of filepaths
-        """
-        if len(path) == 1:
-            return path[0]
-        else:
-            return path
-
     def _perform_combination(self, input_paths, output_path, engine):
-        """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file
+        """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
         """
-        def coerce(ds, group):
+        def coerce_type(ds, group):
             if group == 'Beam':
                 if self.sonar_model == 'EK80':
                     ds['transceiver_software_version'] = ds['transceiver_software_version'].astype('<U10')
@@ -347,32 +341,38 @@ class Convert:
 
         print('combining files...')
         # Open multiple files as one dataset of each group and save them into a single file
-        # Combine Top-level
+
+        # TODO: decide if ok to just use data from first file
+        # Combine Top-level group
         with xr.open_dataset(input_paths[0], engine=engine) as ds_top:
             io.save_file(ds_top, path=output_path, mode='w', engine=engine)
-        # Combine Provenance
+
+        # Combine Provenance group
         with xr.open_dataset(input_paths[0], group='Provenance', engine=engine) as ds_prov:
             io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
 
-        # Combine Sonar
+        # Combine Sonar group
         with xr.open_dataset(input_paths[0], group='Sonar', engine=engine) as ds_sonar:
             io.save_file(ds_sonar, path=output_path, mode='a', engine=engine, group='Sonar')
 
         try:
+            # TODO: check combine='nested' and concat_dim='ping_time' behavior,
+            #  check output coordinates given data_vars='minimal'
             # Combine Beam
             with xr.open_mfdataset(input_paths, group='Beam', decode_times=False, combine='nested',
                                    concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
-                coerce(ds_beam, 'Beam')
-                io.save_file(ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),
+                coerce_type(ds_beam, 'Beam')
+                io.save_file(ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),  # TODO: look into chunking again
                              path=output_path, mode='a', engine=engine, group='Beam')
-            # Combine Environment
+
+            # Combine Environment group
             # AZFP environment changes as a function of ping time
             with xr.open_mfdataset(input_paths, group='Environment', combine='nested', concat_dim='ping_time',
                                    data_vars='minimal', engine=engine) as ds_env:
                 io.save_file(ds_env.chunk({'ping_time': 100}),
                              path=output_path, mode='a', engine=engine, group='Environment')
 
-            # Combine Platform
+            # Combine Platform group
             # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
             if self.sonar_model == 'AZFP':
                 with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
@@ -396,7 +396,8 @@ class Convert:
                         io.save_file(ds_nmea.chunk({'location_time': 100}).astype('str'),
                                      path=output_path, mode='a', engine=engine, group='Platform/NMEA')
 
-            # Combine sonar-model specific
+            # Combine Vendor-specific group
+            # TODO: double check this works with AZFP data as data variables change with ping_time
             with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
                                    compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
                 io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
@@ -408,80 +409,65 @@ class Convert:
         print("All input files combined into " + output_path)
 
     @staticmethod
-    def _get_combined_save_path(save_path, source_paths):
+    def _get_combined_save_path(source_paths):
         def get_combined_fname(path):
             fname, ext = os.path.splitext(path)
-            return fname + '[combined]' + ext
-        # Handle saving to cloud storage
-        # Flags on whether the source or output is a path to an object store
-        cloud_src = isinstance(source_paths[0], MutableMapping)
-        cloud_save_path = isinstance(save_path, MutableMapping)
-        if cloud_src or cloud_save_path:
-            fs = source_paths[0].fs if cloud_src else save_path.fs
-            if save_path is None:
-                save_path = fs.get_mapper(get_combined_fname(source_paths[0].root))
-            elif cloud_save_path:
-                fname, ext = os.path.splitext(save_path.root)
-                if ext == '':
-                    save_path = save_path.root + '/' + get_combined_fname(os.path.basename(source_paths[0].root))
-                    save_path = fs.get_mapper(save_path)
-                elif ext != '.zarr':
-                    raise ValueError("save_path must be a zarr file")
-            else:
-                raise ValueError("save_path must be a MutableMapping to a cloud store")
-        # Handle saving to local paths
-        else:
-            if save_path is None:
-                save_path = get_combined_fname(source_paths[0])
-            elif isinstance(save_path, str):
-                fname, ext = os.path.splitext(save_path)
-                # If save_path is a directory. (It must exist due to validate_path)
-                if ext == '':
-                    save_path = os.path.join(save_path, get_combined_fname(os.path.basename(source_paths[0])))
-                elif ext != '.nc' and ext != '.zarr':
-                    raise ValueError("save_path must be '.nc' or '.zarr'")
-            else:
-                raise ValueError("Invalid save_path")
+            return fname + '__combined' + ext
+
+        sample_file = source_paths[0]
+        save_path = get_combined_fname(sample_file.root) if isinstance(sample_file, FSMap) else get_combined_fname(sample_file)
+        if isinstance(sample_file, FSMap) and not isinstance(sample_file.fs, LocalFileSystem):
+            return sample_file.fs.get_mapper(save_path)
         return save_path
 
-    def combine_files(self, src_files=None, save_path=None, remove_orig=False):
+    def combine_files(self, indiv_files=None, save_path=None, remove_orig=True):
         """Combine output files when self.combine=True.
+
+        `combine_files` can be called to combine files that have just be converted
+        by the current instance of Convert (those listed in self.output_path)
+        or files that were previously converted (specified in `indiv_files`).
 
         Parameters
         ----------
-        src_files : list
+        indiv_files : list
             List of NetCDF or Zarr files to combine
         save_path : str
             Either a directory or a file. If none, use the name of the first ``src_file``
         remove_orig : bool
-            Whether or not to remove the files in ``src_files``
-            Defaults to ``False``
+            Whether or not to remove the files in ``indiv_files``
+            Defaults to ``True``
 
         Returns
         -------
         True or False depending on whether or not the combination was successful
         """
-        if len(self.source_file) < 2:
-            print("Combination did not occur as there is only 1 source file")
-            return False
+        # self.output_path contains individual files to be combined if
+        #  they have just been converted using this object
+        indiv_files = self.output_file if indiv_files is None else indiv_files
 
-        src_files = self.output_path if src_files is None else src_files
-        combined_save_path = self._get_combined_save_path(save_path, src_files)
+        if isinstance(indiv_files, str):
+            indiv_files = [indiv_files]
+        if len(indiv_files) < 2:
+            print("Combination did not occur as there is only one source file.")
+            return True
+
+        # Construct the final combined save path
+        if save_path is not None:
+            # TODO: we need to check validity/permission of the user-specified save_path here
+            combined_save_path = save_path
+        else:
+            combined_save_path = self._get_combined_save_path(indiv_files)
+
         # Get the correct xarray functions for opening datasets
-        filetype = io.get_file_format(combined_save_path)
-        self._perform_combination(src_files, combined_save_path, filetype)
+        engine = io.get_file_format(combined_save_path)
+        self._perform_combination(indiv_files, combined_save_path, engine)
+
         # Update output_path to be the combined path name
-        self.output_path = [combined_save_path]
-        if self.output_cw_files:
-            # Append '_cw' to EK80 filepath if combining CW files
-            fname, ext = os.path.splitext(combined_save_path)
-            combined_save_path_cw = fname + '_cw' + ext
-            self._perform_combination(self.output_cw_files, combined_save_path_cw, filetype)
-            self.output_path.append(combined_save_path_cw)
+        self.output_file = combined_save_path
 
         # Delete individual files after combining
         if remove_orig:
-            for f in src_files + self.output_cw_files:
+            for f in indiv_files :
                 self._remove_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
@@ -496,7 +482,7 @@ class Convert:
         # self.extra_platform data passed into to_netcdf or from another function
         if extra_platform_data is None:
             return
-        files = self.output_path if files is None else files
+        files = self.output_file if files is None else files
         if not isinstance(files, list):
             files = [files]
         engine = io.get_file_format(files[0])
@@ -601,14 +587,16 @@ class Convert:
                 del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
-    def to_netcdf(self, save_path=None, data_type='ALL', compress=True, combine=False,
-                  overwrite=False, parallel=False, extra_platform_data=None):
-        """Convert a file or a list of files to NetCDF format.
+    def _to_file(self, convert_type, save_path=None, data_type='ALL', compress=True, combine=False,
+                 overwrite=False, parallel=False, extra_platform_data=None):
+        """Convert a file or a list of files to netCDF or zarr.
 
         Parameters
         ----------
         save_path : str
             path that converted .nc file will be saved
+        convert_type : str
+            type of converted file, '.nc' or '.zarr'
         data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
@@ -631,76 +619,65 @@ class Convert:
         self.combine = combine
         self.overwrite = overwrite
 
-        self._validate_path('.nc', save_path)
+        # TODO: probably can combine both the remote and local cases below once
+        #  _validate_path and _validate_object_store are combined
+        # Assemble output file names and path
+        if convert_type == 'netcdf4':
+            self._validate_path('.nc', save_path)
+        elif convert_type == 'zarr':
+            if isinstance(save_path, MutableMapping):
+                self._validate_object_store(save_path)
+            else:
+                self._validate_path('.zarr', save_path)
+        else:
+            raise ValueError('Unknown type to convert file to!')
+
+        # Get all existing files
+        exist_list = []
+        fs = fsspec.get_mapper(self.output_file[0]).fs  # get file system
+        for out_f in self.output_file:
+            if isinstance(out_f, MutableMapping):  # output is remote
+                if fs.exists(out_f.root):
+                    exist_list.append(out_f)
+            else:  # output is local
+                if fs.exists(out_f):
+                    exist_list.append(out_f)
+
         # Sequential or parallel conversion
         if not parallel:
-            for idx, file in enumerate(self.source_file):
-                # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[idx], engine='netcdf4')
+            for src_f, out_f in zip(self.source_file, self.output_file):
+                if out_f in exist_list and not self.overwrite:
+                    print(f"{dt.now().strftime('%H:%M:%S')}  {src_f} has already been converted to {convert_type}. "
+                          f"Conversion not executed.")
+                    continue
+                else:
+                    if out_f in exist_list:
+                        print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
+                    else:
+                        print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
+                    self._convert_indiv_file(file=src_f, output_path=out_f, engine=convert_type)
         else:
-            # # use dask syntax but we'll probably use something else, like multiprocessing?
-            # open_tasks = [dask.delayed(self._convert_indiv_file)(file=file,
-            #                                                      output_path=self.output_path[i], engine='.nc')
-            #               for i, file in enumerate(self.source_file)]
-            # datasets = dask.compute(open_tasks)  # get a list of xarray.Datasets
-            pass
+            # TODO: add parallel conversion
+            print('Parallel conversion is not yet implemented. Use parallel=False.')
+            return
 
-        # combine files if needed
+        # Combine files if needed
         if self.combine:
             self.combine_files(save_path=save_path, remove_orig=True)
+
+        # Attached platform data
         if extra_platform_data is not None:
-            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
-        self.output_path = self._path_list_to_str(self.output_path)
+            self.update_platform(files=self.output_file, extra_platform_data=extra_platform_data)
 
-    def to_zarr(self, save_path=None, data_type='ALL', compress=True, combine=False,
-                overwrite=False, parallel=False, extra_platform_data=None):
-        """Convert a file or a list of files to zarr format.
+        # If only one output file make it a string instead of a list
+        if len(self.output_file) == 1:
+            self.output_file = self.output_file[0]
 
-        Parameters
-        ----------
-        save_path : str
-            path that converted .zarr file will be saved
-        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
-            select specific datagrams to save (EK60 and EK80 only)
-            Defaults to ``ALL``
-        compress : bool
-            whether or not to perform compression on data variables
-            Defaults to ``True``
-        combine : bool
-            whether or not to combine all converted individual files into one file
-            Defaults to ``False``
-        overwrite : bool
-            whether or not to overwrite existing files
-            Defaults to ``False``
-        parallel : bool
-            whether or not to use parallel processing. (Not yet implemented)
-        extra_platform_data : Dataset
-            The dataset containing the platform information to be added to the output
-        """
-        self.data_type = data_type
-        self.compress = compress
-        self.combine = combine
-        self.overwrite = overwrite
+    def to_netcdf(self, **kwargs):
+        return self._to_file('netcdf4', **kwargs)
 
-        if isinstance(save_path, MutableMapping):
-            self._validate_object_store(save_path)
-        else:
-            self._validate_path('.zarr', save_path)
-        # Sequential or parallel conversion
-        if not parallel:
-            for idx, file in enumerate(self.source_file):
-                # convert file one by one into path set by validate_path()
-                self._convert_indiv_file(file=file, output_path=self.output_path[idx], engine='zarr')
-        # else:
-            # use dask syntax but we'll probably use something else, like multiprocessing?
-            # delayed(self._convert_indiv_file(file=file, path=save_path, output_format='netcdf'))
-
-        # combine files if needed
-        if self.combine:
-            self.combine_files(save_path=save_path, remove_orig=True)
-        if extra_platform_data is not None:
-            self.update_platform(files=self.output_path, extra_platform_data=extra_platform_data)
-        self.output_path = self._path_list_to_str(self.output_path)
+    def to_zarr(self, **kwargs):
+        return self._to_file('zarr', **kwargs)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
         """Save an xml file containing the configuration of the transducer and transceiver (EK80/EA640 only)
@@ -717,9 +694,10 @@ class Convert:
         if self.sonar_model not in ['EK80', 'EA640']:
             raise ValueError("Exporting to xml is not available for " + self.sonar_model)
         if data_type not in ['CONFIG', 'ENV']:
-            raise ValueError(f"data_type must be either 'CONFIG' or 'ENV' not {data_type}")
+            raise ValueError(f"data_type must be either 'CONFIG' or 'ENV'")
 
         # Get export path
+        # TODO: this currently only works for local path, need to add the cloud part
         self._validate_path('.xml', save_path)
 
         # Parse files
@@ -727,7 +705,7 @@ class Convert:
             # convert file one by one into path set by validate_path()
             tmp = ParseEK80(file, params=[data_type, 'EXPORT_XML'])
             tmp.parse_raw()
-            with open(self.output_path[idx], 'w') as xml_file:
+            with open(self.output_file[idx], 'w') as xml_file:
                 # Select between data types
                 if data_type == 'CONFIG':
                     data = tmp.config_datagram['xml']
@@ -736,55 +714,62 @@ class Convert:
                 else:
                     raise ValueError("Unknown data type", data_type)
                 xml_file.write(data)
-        self.output_path = self._path_list_to_str(self.output_path)
 
+        # If only one output file make it a string instead of a list
+        if len(self.output_file) == 1:
+            self.output_file = self.output_file[0]
+
+    @staticmethod
+    def check_files(file, model, xml_path=None, storage_options={}):
+
+        if MODELS[model]["xml"]:  # if this sonar model expects an XML file
+            if not xml_path:
+                raise ValueError(f"XML file is required for {model} raw data")
+            elif ".XML" not in os.path.splitext(xml_path)[1].upper():
+                raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
+
+            xmlmap = fsspec.get_mapper(xml_path, **storage_options)
+            if not xmlmap.fs.exists(xmlmap.root):
+                raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
+
+            xml = xml_path
+        else:
+            xml = ''
+
+        # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
+        #  to add compatibility for pathlib.Path objects for local paths
+        for f in file:
+            fsmap = fsspec.get_mapper(f, **storage_options)
+            ext = MODELS[model]["ext"]
+            if not fsmap.fs.exists(fsmap.root):
+                raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
+
+            if os.path.splitext(f)[1] != ext:
+                raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {f}")
+
+        return file, xml
+
+    # TODO: Remove below in future versions. They are for supporting old API calls.
     @property
     def nc_path(self):
-        io._print_deprecation_warning('`nc_path` is deprecated, Use `output_path` instead.')
-        path = self._nc_path if self._nc_path is not None else self.output_path
+        warnings.warn("`nc_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
+        path = self._nc_path if self._nc_path is not None else self.output_file
         return path
 
     @property
     def zarr_path(self):
-        io._print_deprecation_warning('`zarr_path` is deprecated, Use `output_path` instead.')
-        path = self._zarr_path if self._zarr_path is not None else self.output_path
+        warnings.warn("`zarr_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
+        path = self._zarr_path if self._zarr_path is not None else self.output_file
         return path
 
-    # TODO: Used for backwards compatibility. Delete in future versions
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        io._print_deprecation_warning("`raw2nc` is deprecated, use `to_netcdf` instead.")
+        warnings.warn("`raw2nc` is deprecated, use `to_netcdf` instead.", DeprecationWarning, 2)
         self.to_netcdf(save_path=save_path, compress=compress, combine=combine_opt,
                        overwrite=overwrite)
-        self._nc_path = self.output_path
+        self._nc_path = self.output_file
 
     def raw2zarr(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
-        io._print_deprecation_warning("`raw2zarr` is deprecated, use `to_zarr` instead.")
+        warnings.warn("`raw2zarr` is deprecated, use `to_zarr` instead.", DeprecationWarning, 2)
         self.to_zarr(save_path=save_path, compress=compress, combine=combine_opt,
                      overwrite=overwrite)
-        self._zarr_path = self.output_path
-
-
-def check_files(file, model, xml_path=None, storage_options={}):
-    xml = ''
-    if MODELS[model]["xml"]:
-        if not xml_path:
-            raise ValueError("XML file is required for AZFP raw data")
-        elif ".XML" not in xml_path.upper():
-            raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
-
-        xmlmap = fsspec.get_mapper(xml_path, **storage_options)
-        if not xmlmap.fs.exists(xmlmap.root):
-            raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
-
-        xml = xml_path
-
-    for f in file:
-        fsmap = fsspec.get_mapper(f, **storage_options)
-        ext = MODELS[model]["ext"]
-        if not fsmap.fs.exists(fsmap.root):
-            raise FileNotFoundError(f"There is no file named {os.path.basename(f)}")
-
-        if os.path.splitext(f)[1] != ext:
-            raise ValueError(f"Not all files are in the same format. Expecting a {ext} file but got {f}")
-
-    return file, xml
+        self._zarr_path = self.output_file
