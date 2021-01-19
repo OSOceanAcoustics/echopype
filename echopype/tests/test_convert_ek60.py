@@ -90,7 +90,7 @@ def test_combine():
     # Test combining after converting
     tmp = Convert(file=raw_paths[4:8], model='EK60')
     tmp.to_netcdf(save_path=export_folder, overwrite=True)
-    tmp.combine_files(tmp.output_file, remove_indiv_files=False)
+    tmp.combine_files(tmp.output_file, remove_indiv=False)
 
     shutil.rmtree(export_folder)
 
