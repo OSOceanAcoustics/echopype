@@ -19,10 +19,11 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
-
+from .._version import get_versions
 
 warnings.simplefilter('always', DeprecationWarning)
 
+ECHOPYPE_VERSION = get_versions()['version']
 
 MODELS = {
     "AZFP": {
@@ -332,6 +333,14 @@ class Convert:
             else:
                 os.remove(path)
 
+    def _assemble_combine_provenance(self, input_paths):
+        prov_dict = {'conversion_software_name': 'echopype',
+                     'conversion_software_version': ECHOPYPE_VERSION,
+                     'conversion_time': dt.utcnow().isoformat(timespec='seconds') + 'Z',  # use UTC time
+                     'src_filenames': input_paths}
+        ds = xr.Dataset()
+        return ds.assign_attrs(prov_dict)
+
     def _perform_combination(self, input_paths, output_path, engine):
         """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
         """
@@ -353,19 +362,13 @@ class Convert:
         with xr.open_dataset(input_paths[0], engine=engine) as ds_top:
             io.save_file(ds_top, path=output_path, mode='w', engine=engine)
 
-        # TODO: need to construct new Provenance group
-        #  use the current time and put all input_paths as src_filenames
-        #  Basically the provenance should be related to the combined file and not the individual files
-        # Combine Provenance group,
-        with xr.open_dataset(input_paths[0], group='Provenance', engine=engine) as ds_prov:
-            io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
-
-        # TODO: should use merge and require combine_attrs=identical, in theory this can be done using
-        #  xr.open_mfdataset(input_paths, group='Sonar', combine='nested', engine=engine, combine_attrs='identical')
-        #  but combine_attrs does not seem to be passed to open_mfdataset automatically from xr.combine_nested
         # Combine Sonar group, use values from the first file
         with xr.open_dataset(input_paths[0], group='Sonar', engine=engine) as ds_sonar:
             io.save_file(ds_sonar, path=output_path, mode='a', engine=engine, group='Sonar')
+
+        # Combine Provenance group,
+        ds_prov = self._assemble_combine_provenance(input_paths)
+        io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
 
         # TODO: for the cases when there are pings going backward in time,
         #  we will need to clean up data before calling merge.
