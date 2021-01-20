@@ -1,10 +1,9 @@
-import os
-import shutil
 from collections import defaultdict
 import xarray as xr
 import numpy as np
 from ..utils import io
 from .set_groups_base import SetGroupsBase
+from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -173,7 +172,8 @@ class SetGroupsEK80(SetGroupsBase):
                                         hasattr(self.parser_obj.environment, 'drop_keel_offset') else np.nan)})
 
         # save to file
-        io.save_file(ds.chunk({'location_time': 100, 'mru_time': 100}),
+        io.save_file(ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                               'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                      path=self.output_path, mode='a', engine=self.engine,
                      group='Platform', compression_settings=self.compression_settings)
 
@@ -424,7 +424,8 @@ class SetGroupsEK80(SetGroupsBase):
                                                - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                ds_combine.ping_time.attrs)})
             # Save to file
-            io.save_file(ds_combine.chunk({'range_bin': 25000, 'ping_time': 100}),
+            io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+                                           'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                          path=self.output_path, mode='a', engine=self.engine,
                          group=group_name, compression_settings=self.compression_settings)
 

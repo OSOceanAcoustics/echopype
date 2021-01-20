@@ -3,7 +3,6 @@ from datetime import datetime as dt
 import xarray as xr
 import numpy as np
 import zarr
-import netCDF4
 from .._version import get_versions
 from ..utils import io
 ECHOPYPE_VERSION = get_versions()['version']
@@ -12,6 +11,11 @@ del get_versions
 COMPRESSION_SETTINGS = {
     'netcdf4': {'zlib': True, 'complevel': 4},
     'zarr': {'compressor': zarr.Blosc(cname='zstd', clevel=3, shuffle=2)}
+}
+
+DEFAULT_CHUNK_SIZE = {
+    'range_bin': 25000,
+    'ping_time': 2500
 }
 
 
@@ -69,7 +73,7 @@ class SetGroupsBase:
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
-        io.save_file(ds, path=self.output_path, group='Provenance', mode='w', engine=self.engine)
+        io.save_file(ds, path=self.output_path, group='Provenance', mode='a', engine=self.engine)
 
     def set_env(self):
         """Set the Environment group.
