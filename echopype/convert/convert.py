@@ -16,7 +16,7 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
-from .convert_combine import get_combined_save_path, remove_indiv_files, perform_combination
+from ..convert import convert_combine as combine_fcn
 
 
 warnings.simplefilter('always', DeprecationWarning)
@@ -348,11 +348,11 @@ class Convert:
             # TODO: we need to check validity/permission of the user-specified save_path here
             combined_save_path = save_path
         else:
-            combined_save_path = get_combined_save_path(indiv_files)
+            combined_save_path = combine_fcn.get_combined_save_path(indiv_files)
 
         # Get the correct xarray functions for opening datasets
         engine = io.get_file_format(combined_save_path)
-        perform_combination(self.sonar_model, indiv_files, combined_save_path, engine)
+        combine_fcn.perform_combination(self.sonar_model, indiv_files, combined_save_path, engine)
 
         # Update output_path to be the combined path name
         self.output_file = combined_save_path
@@ -360,7 +360,7 @@ class Convert:
         # Delete individual files after combining
         if remove_indiv:
             for f in indiv_files:
-                remove_indiv_files(f)
+                combine_fcn.remove_indiv_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
         """
