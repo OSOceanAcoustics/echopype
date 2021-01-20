@@ -177,23 +177,26 @@ class SetGroupsAZFP(SetGroupsBase):
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
 
-        ds = xr.Dataset({
-            'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
-            'lockout_index': (['frequency'], unpacked_data['lockout_index']),
-            'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
-            'number_of_samples_per_average_bin': (['frequency'], unpacked_data['range_samples_per_bin']),
-            'board_number': (['frequency'], unpacked_data['board_num']),
-            'data_type': (['frequency'], unpacked_data['data_type']),
-            'ping_status': (['ping_time'], unpacked_data['ping_status']),
-            'number_of_acquired_pings': (['ping_time'], unpacked_data['num_acq_pings']),
-            'first_ping': (['ping_time'], unpacked_data['first_ping']),
-            'last_ping': (['ping_time'], unpacked_data['last_ping']),
-            'data_error': (['ping_time'], unpacked_data['data_error']),
-            'sensor_flag': (['ping_time'], unpacked_data['sensor_flag']),
-            'ancillary': (['ping_time', 'ancillary_len'], unpacked_data['ancillary']),
-            'ad_channels': (['ping_time', 'ad_len'], unpacked_data['ad']),
-            'battery_main': (['ping_time'], unpacked_data['battery_main']),
-            'battery_tx': (['ping_time'], unpacked_data['battery_tx'])},
+        ds = xr.Dataset(
+            {
+                'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
+                'lockout_index': (['frequency'], unpacked_data['lockout_index']),
+                'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
+                'number_of_samples_per_average_bin': (['frequency'], unpacked_data['range_samples_per_bin']),
+                'board_number': (['frequency'], unpacked_data['board_num']),
+                'data_type': (['frequency'], unpacked_data['data_type']),
+                'ping_status': (['ping_time'], unpacked_data['ping_status']),
+                'number_of_acquired_pings': (['ping_time'], unpacked_data['num_acq_pings']),
+                'first_ping': (['ping_time'], unpacked_data['first_ping']),
+                'last_ping': (['ping_time'], unpacked_data['last_ping']),
+                'data_error': (['ping_time'], unpacked_data['data_error']),
+                'sensor_flag': (['ping_time'], unpacked_data['sensor_flag']),
+                'ancillary': (['ping_time', 'ancillary_len'], unpacked_data['ancillary']),
+                'ad_channels': (['ping_time', 'ad_len'], unpacked_data['ad']),
+                'battery_main': (['ping_time'], unpacked_data['battery_main']),
+                'battery_tx': (['ping_time'], unpacked_data['battery_tx']),
+                'profile_number': (['ping_time'], unpacked_data['profile_number']),
+            },
             coords={
                 'frequency': (['frequency'], freq,
                               {'units': 'Hz',
@@ -208,7 +211,6 @@ class SetGroupsAZFP(SetGroupsBase):
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
                 'profile_flag': unpacked_data['profile_flag'],
-                'profile_number': unpacked_data['profile_number'],
                 'burst_interval': unpacked_data['burst_int'],
                 'ping_per_profile': unpacked_data['ping_per_profile'],
                 'average_pings_flag': unpacked_data['avg_pings'],
