@@ -3,6 +3,7 @@ echopype utilities for file handling
 """
 import os
 from collections.abc import MutableMapping
+from fsspec import FSMap
 
 
 def get_files_from_dir(folder):
@@ -37,3 +38,22 @@ def get_file_format(file):
         return 'zarr'
     else:
         raise ValueError(f"Unsupported file format: {os.path.splitext(file)[1]}")
+
+
+def check_file_permissions(FILE_DIR):
+    try:
+        if isinstance(FILE_DIR, FSMap):
+            base_dir = os.path.dirname(FILE_DIR.root)
+            TEST_FILE = os.path.join(base_dir, ".permission_test")
+            with FILE_DIR.fs.open(TEST_FILE, "w") as f:
+                f.write("testing\n")
+            FILE_DIR.fs.delete(TEST_FILE)
+        else:
+            TEST_FILE = os.path.join(FILE_DIR, ".permission_test")
+            with open(TEST_FILE, "w") as f:
+                f.write("testing\n")
+            os.remove(TEST_FILE)
+        return True
+    except Exception as e:  # pragma: no cover
+        print(e)
+        return False
