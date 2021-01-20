@@ -66,8 +66,7 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
                 ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
                 ds['channel_id'] = ds['channel_id'].astype('<U50')
 
-    print('combining files...')
-    # Open multiple files as one dataset of each group and save them into a single file
+    print(f"{dt.now().strftime('%H:%M:%S')}  combining files...")
 
     # TODO: add in the documentation that the Top-level and Sonar groups are
     #  combined by taking values (attributes) from the first file
@@ -140,4 +139,4 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
 
     # TODO: print out which group combination errors out and raise appropriate error
 
-    print("All input files combined into " + output_path)
+    print(f"{dt.now().strftime('%H:%M:%S')}  all files combined into {output_path}")
