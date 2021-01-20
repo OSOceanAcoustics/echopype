@@ -2,13 +2,10 @@
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
 import os
-import shutil
 import warnings
 import xarray as xr
 import numpy as np
 import zarr
-from fsspec.mapping import FSMap
-from fsspec.implementations.local import LocalFileSystem
 from collections.abc import MutableMapping
 from datetime import datetime as dt
 import fsspec
@@ -19,10 +16,10 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from ..utils import io
+from ..convert import convert_combine as combine_fcn
 
 
 warnings.simplefilter('always', DeprecationWarning)
-
 
 MODELS = {
     "AZFP": {
@@ -315,112 +312,7 @@ class Convert:
                 overwrite=self.overwrite, params=self._conversion_params, sonar_model=self.sonar_model)
         sg.save()
 
-    @staticmethod
-    def _remove_files(path):
-        """Used to delete .nc or .zarr files"""
-        if isinstance(path, FSMap):
-            path.fs.delete(path.root, recursive=True)
-        else:
-            fname, ext = os.path.splitext(path)
-            if ext == '.zarr':
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
-
-    def _perform_combination(self, input_paths, output_path, engine):
-        """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
-        """
-        def coerce_type(ds, group):
-            if group == 'Beam':
-                if self.sonar_model == 'EK80':
-                    ds['transceiver_software_version'] = ds['transceiver_software_version'].astype('<U10')
-                    ds['channel_id'] = ds['channel_id'].astype('<U50')
-                elif self.sonar_model == 'EK60':
-                    ds['gpt_software_version'] = ds['gpt_software_version'].astype('<U10')
-                    ds['channel_id'] = ds['channel_id'].astype('<U50')
-
-        print('combining files...')
-        # Open multiple files as one dataset of each group and save them into a single file
-
-        # TODO: decide if ok to just use data from first file
-        # Combine Top-level group
-        with xr.open_dataset(input_paths[0], engine=engine) as ds_top:
-            io.save_file(ds_top, path=output_path, mode='w', engine=engine)
-
-        # Combine Provenance group
-        with xr.open_dataset(input_paths[0], group='Provenance', engine=engine) as ds_prov:
-            io.save_file(ds_prov, path=output_path, mode='a', engine=engine, group='Provenance')
-
-        # Combine Sonar group
-        with xr.open_dataset(input_paths[0], group='Sonar', engine=engine) as ds_sonar:
-            io.save_file(ds_sonar, path=output_path, mode='a', engine=engine, group='Sonar')
-
-        try:
-            # TODO: check combine='nested' and concat_dim='ping_time' behavior,
-            #  check output coordinates given data_vars='minimal'
-            # Combine Beam
-            with xr.open_mfdataset(input_paths, group='Beam', decode_times=False, combine='nested',
-                                   concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_beam:
-                coerce_type(ds_beam, 'Beam')
-                io.save_file(ds_beam.chunk({'range_bin': 25000, 'ping_time': 100}),  # TODO: look into chunking again
-                             path=output_path, mode='a', engine=engine, group='Beam')
-
-            # Combine Environment group
-            # AZFP environment changes as a function of ping time
-            with xr.open_mfdataset(input_paths, group='Environment', combine='nested', concat_dim='ping_time',
-                                   data_vars='minimal', engine=engine) as ds_env:
-                io.save_file(ds_env.chunk({'ping_time': 100}),
-                             path=output_path, mode='a', engine=engine, group='Environment')
-
-            # Combine Platform group
-            # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-            if self.sonar_model == 'AZFP':
-                with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
-                                       compat='identical', engine=engine) as ds_plat:
-                    io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
-            elif self.sonar_model in ['EK60', 'EK80', 'EA640']:
-                with xr.open_mfdataset(input_paths, group='Platform', decode_times=False, combine='nested',
-                                       concat_dim='ping_time', data_vars='minimal', engine=engine) as ds_plat:
-                    if self.sonar_model in ['EK80', 'EA640']:
-                        io.save_file(ds_plat.chunk({'location_time': 100, 'mru_time': 100}),
-                                     path=output_path, mode='a', engine=engine, group='Platform')
-                    else:
-                        io.save_file(ds_plat.chunk({'location_time': 100, 'ping_time': 100}),
-                                     path=output_path, mode='a', engine=engine, group='Platform')
-                    # AZFP does not record NMEA data
-                    # TODO: Look into why decode times = True for beam does not error out
-                    # TODO: Why does the encoding information in SetGroups not read when opening datasets?
-                    with xr.open_mfdataset(input_paths, group='Platform/NMEA',
-                                           decode_times=False, data_vars='minimal',
-                                           combine='nested', concat_dim='location_time', engine=engine) as ds_nmea:
-                        io.save_file(ds_nmea.chunk({'location_time': 100}).astype('str'),
-                                     path=output_path, mode='a', engine=engine, group='Platform/NMEA')
-
-            # Combine Vendor-specific group
-            # TODO: double check this works with AZFP data as data variables change with ping_time
-            with xr.open_mfdataset(input_paths, group='Vendor', combine='nested',
-                                   compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
-                io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
-
-        except xr.MergeError as e:
-            var = str(e).split("'")[1]
-            raise ValueError(f"Files cannot be combined due to {var} changing across the files")
-
-        print("All input files combined into " + output_path)
-
-    @staticmethod
-    def _get_combined_save_path(source_paths):
-        def get_combined_fname(path):
-            fname, ext = os.path.splitext(path)
-            return fname + '__combined' + ext
-
-        sample_file = source_paths[0]
-        save_path = get_combined_fname(sample_file.root) if isinstance(sample_file, FSMap) else get_combined_fname(sample_file)
-        if isinstance(sample_file, FSMap) and not isinstance(sample_file.fs, LocalFileSystem):
-            return sample_file.fs.get_mapper(save_path)
-        return save_path
-
-    def combine_files(self, indiv_files=None, save_path=None, remove_orig=True):
+    def combine_files(self, indiv_files=None, save_path=None, remove_indiv=True):
         """Combine output files when self.combine=True.
 
         `combine_files` can be called to combine files that have just be converted
@@ -433,7 +325,7 @@ class Convert:
             List of NetCDF or Zarr files to combine
         save_path : str
             Either a directory or a file. If none, use the name of the first ``src_file``
-        remove_orig : bool
+        remove_indiv : bool
             Whether or not to remove the files in ``indiv_files``
             Defaults to ``True``
 
@@ -456,19 +348,19 @@ class Convert:
             # TODO: we need to check validity/permission of the user-specified save_path here
             combined_save_path = save_path
         else:
-            combined_save_path = self._get_combined_save_path(indiv_files)
+            combined_save_path = combine_fcn.get_combined_save_path(indiv_files)
 
         # Get the correct xarray functions for opening datasets
         engine = io.get_file_format(combined_save_path)
-        self._perform_combination(indiv_files, combined_save_path, engine)
+        combine_fcn.perform_combination(self.sonar_model, indiv_files, combined_save_path, engine)
 
         # Update output_path to be the combined path name
         self.output_file = combined_save_path
 
         # Delete individual files after combining
-        if remove_orig:
-            for f in indiv_files :
-                self._remove_files(f)
+        if remove_indiv:
+            for f in indiv_files:
+                combine_fcn.remove_indiv_files(f)
 
     def update_platform(self, files=None, extra_platform_data=None):
         """
@@ -663,7 +555,7 @@ class Convert:
 
         # Combine files if needed
         if self.combine:
-            self.combine_files(save_path=save_path, remove_orig=True)
+            self.combine_files(save_path=save_path, remove_indiv=True)
 
         # Attached platform data
         if extra_platform_data is not None:
