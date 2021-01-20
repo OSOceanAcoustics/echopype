@@ -19,7 +19,8 @@ class SetGroupsAZFP(SetGroupsBase):
         sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
                         int(self.parser_obj.unpacked_data['serial_number']),
                         'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
-        self.set_toplevel("AZFP")
+        # TODO: check if there is any earlier time than the first ping_time for AZFP
+        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.ping_time[0])
         self.set_env()
         self.set_provenance()
         self.set_platform()

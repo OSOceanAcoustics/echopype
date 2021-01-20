@@ -20,7 +20,6 @@ class SetGroupsBase:
     """
     def __init__(self, parser_obj, input_file, output_path, sonar_model=None,
                  engine='zarr', compress=True, overwrite=True, params=None):
-        # TODO: Change convert_obj to parse_obj
         self.parser_obj = parser_obj   # parser object ParseEK60/ParseAZFP/etc...
         self.sonar_model = sonar_model   # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.input_file = input_file
@@ -44,19 +43,6 @@ class SetGroupsBase:
         """Set the top-level group.
         """
         # Collect variables
-        # TODO: Change SetGroupsEK60/EK80/AZFP to pass date_created specifically,
-        #  instead of grabbing from parser object depending on sonar object
-        if date_created is None:
-            # TODO: change below to use time of config datagram
-            # Check if AZFP or EK
-            if isinstance(self.parser_obj.ping_time, list):
-                date_created = self.parser_obj.ping_time[0]
-            else:
-                pt = []
-                for v in self.parser_obj.ping_time.values():
-                    pt.append(v[0])
-                date_created = np.sort(pt)[0]
-
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,
                    'sonar_convention_authority': 'ICES',
@@ -66,20 +52,10 @@ class SetGroupsBase:
                    'title': '',
                    'date_created': np.datetime_as_string(date_created, 's') + 'Z',
                    'survey_name': self.ui_param['survey_name']}
-        # Add any extra user defined values
-        for k, v in list(self.ui_param.items())[5:]:
-            tl_dict[k] = v
-
         # Save
-        if self.engine == 'netcdf4':
-            with netCDF4.Dataset(self.output_path, "w", format="NETCDF4") as ncfile:
-                [ncfile.setncattr(k, v) for k, v in tl_dict.items()]
-        elif self.engine == 'zarr':
-            zarrfile = zarr.open(self.output_path, mode="w")
-            for k, v in tl_dict.items():
-                zarrfile.attrs[k] = v
-        else:
-            raise ValueError("Unsupported file format")
+        ds = xr.Dataset()
+        ds = ds.assign_attrs(tl_dict)
+        io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
 
     def set_provenance(self):
         """Set the Provenance group.

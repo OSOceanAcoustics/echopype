@@ -33,7 +33,7 @@ class SetGroupsEK80(SetGroupsBase):
             return
 
         # Save all groups
-        self.set_toplevel(self.sonar_model)
+        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
         self.set_provenance()    # provenance group
         self.set_env()           # environment group
         self.set_platform()      # platform group
