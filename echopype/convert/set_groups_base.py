@@ -66,17 +66,9 @@ class SetGroupsBase:
                      'conversion_time': dt.utcnow().isoformat(timespec='seconds') + 'Z',    # use UTC time
                      'src_filenames': self.input_file}
         # Save
-        if self.engine == 'netcdf4':
-            with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
-                prov = ncfile.createGroup("Provenance")
-                [prov.setncattr(k, v) for k, v in prov_dict.items()]
-        elif self.engine == 'zarr':
-            zarr_file = zarr.open(self.output_path, mode="a")
-            prov = zarr_file.create_group('Provenance')
-            for k, v in prov_dict.items():
-                prov.attrs[k] = v
-        else:
-            raise ValueError("Unsupported file format")
+        ds = xr.Dataset()
+        ds = ds.assign_attrs(prov_dict)
+        io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
 
     def set_sonar(self, sonar_vals):
         """Set the Sonar group.
