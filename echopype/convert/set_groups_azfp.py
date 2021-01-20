@@ -16,24 +16,20 @@ class SetGroupsAZFP(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-        sonar_values = ('ASL Environmental Sciences', 'Acoustic Zooplankton Fish Profiler',
-                        int(self.parser_obj.unpacked_data['serial_number']),
-                        'Based on AZFP Matlab Toolbox', '1.4', 'echosounder')
         # TODO: check if there is any earlier time than the first ping_time for AZFP
         self.set_toplevel(self.sonar_model, date_created=self.parser_obj.ping_time[0])
-        self.set_env()
         self.set_provenance()
+        self.set_env()
         self.set_platform()
-        self.set_sonar(sonar_values)
+        self.set_sonar()
         self.set_beam()
         self.set_vendor()
 
     def set_env(self):
         """Set the Environment group.
         """
-        # TODO Look at why this cannot be encoded without the modifications
+        # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
         ping_time = (self.parser_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
-        # ping_time = self.convert_obj.ping_time
         ds = xr.Dataset({'temperature': (['ping_time'], self.parser_obj.unpacked_data['temperature'])},
                         coords={'ping_time': (['ping_time'], ping_time,
                                 {'axis': 'T',
@@ -45,6 +41,23 @@ class SetGroupsAZFP(SetGroupsBase):
                                'units': "C"})
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', group='Environment', engine=self.engine)
+
+    def set_sonar(self):
+        """Set the Sonar group.
+        """
+        # Assemble sonar group dictionary
+        sonar_dict = {
+            'sonar_manufacturer': 'ASL Environmental Sciences',
+            'sonar_model': 'Acoustic Zooplankton Fish Profiler',
+            'sonar_serial_number': int(self.parser_obj.unpacked_data['serial_number']),
+            'sonar_software_name': 'Based on AZFP Matlab Toolbox',
+            'sonar_software_version': '1.4',
+            'sonar_type': 'echosounder'
+        }
+        # Save
+        ds = xr.Dataset()
+        ds = ds.assign_attrs(sonar_dict)
+        io.save_file(ds, path=self.output_path, group='Sonar', mode='w', engine=self.engine)
 
     def set_platform(self):
         """Set the Platform group.

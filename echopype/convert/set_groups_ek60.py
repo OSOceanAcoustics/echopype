@@ -11,22 +11,18 @@ class SetGroupsEK60(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-        # filename must have timestamp that matches self.timestamp_pattern
-        sonar_values = ('Simrad', self.parser_obj.config_datagram['sounder_name'],
-                        '', '', self.parser_obj.config_datagram['version'], 'echosounder')
-
         # Save only up to the platform group if the user selects "GPS"
         if 'NME' in self.parser_obj.data_type:
             self.set_toplevel('EK60', date_created=self.parser_obj.nmea['timestamp'][0])
             self.set_provenance()
-            self.set_sonar(sonar_values)
+            self.set_sonar(sonar_dict)
             self.set_platform(NMEA_only=True)
             return
 
         # TODO: Specifically pass in date_created here
         self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
-        self.set_provenance()           # provenance group
-        self.set_sonar(sonar_values)    # sonar group
+        self.set_provenance()       # provenance group
+        self.set_sonar()            # sonar group
         self.set_env()              # environment group
         self.set_platform()         # platform group
         self.set_beam()             # beam group
@@ -80,6 +76,23 @@ class SetGroupsEK60(SetGroupsBase):
         # Save to file
         io.save_file(ds.chunk({'ping_time': 100}),
                      path=self.output_path, mode='a', engine=self.engine, group='Environment')
+
+    def set_sonar(self):
+        """Set the Sonar group.
+        """
+        # Assemble sonar group dictionary
+        sonar_dict = {
+            'sonar_manufacturer': 'Simrad',
+            'sonar_model': self.parser_obj.config_datagram['sounder_name'],
+            'sonar_serial_number': '',
+            'sonar_software_name': '',
+            'sonar_software_version': self.parser_obj.config_datagram['version'],
+            'sonar_type': 'echosounder'
+        }
+        # Save
+        ds = xr.Dataset()
+        ds = ds.assign_attrs(sonar_dict)
+        io.save_file(ds, path=self.output_path, group='Sonar', mode='w', engine=self.engine)
 
     def set_platform(self, NMEA_only=False):
         """Set the Platform group.

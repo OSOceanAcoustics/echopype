@@ -37,6 +37,7 @@ class SetGroupsBase:
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
+        pass
 
     # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None):
@@ -68,28 +69,17 @@ class SetGroupsBase:
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
-        io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
+        io.save_file(ds, path=self.output_path, group='Provenance', mode='w', engine=self.engine)
 
-    def set_sonar(self, sonar_vals):
+    def set_env(self):
+        """Set the Environment group.
+        """
+        pass
+
+    def set_sonar(self):
         """Set the Sonar group.
         """
-        # Collect variables
-        sonar_dict = dict(zip(('sonar_manufacturer', 'sonar_model', 'sonar_serial_number',
-                               'sonar_software_name', 'sonar_software_version', 'sonar_type'), sonar_vals))
-
-        # Save variables
-        if self.engine == 'netcdf4':
-            with netCDF4.Dataset(self.output_path, "a", format="NETCDF4") as ncfile:
-                snr = ncfile.createGroup("Sonar")
-                # set group attributes
-                [snr.setncattr(k, v) for k, v in sonar_dict.items()]
-
-        elif self.engine == 'zarr':
-            zarrfile = zarr.open(self.output_path, mode='a')
-            snr = zarrfile.create_group('Sonar')
-
-            for k, v in sonar_dict.items():
-                snr.attrs[k] = v
+        pass
 
     def set_nmea(self):
         """Set the Platform/NMEA group.
