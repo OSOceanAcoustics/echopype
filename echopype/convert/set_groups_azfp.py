@@ -28,7 +28,7 @@ class SetGroupsAZFP(SetGroupsBase):
         self.set_beam()
         self.set_vendor()
 
-    def set_env(self, ):
+    def set_env(self):
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications
