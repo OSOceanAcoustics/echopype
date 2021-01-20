@@ -9,6 +9,7 @@ import zarr
 from collections.abc import MutableMapping
 from datetime import datetime as dt
 import fsspec
+from fsspec.implementations.local import LocalFileSystem
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -132,6 +133,7 @@ class Convert:
         self.overwrite = False
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
+        self._output_storage_options = {}
         self.set_source(file, model, xml_path)
 
     def __str__(self):
@@ -253,13 +255,13 @@ class Convert:
         """
         if save_path is None:
             # Default output directory taken from first input file
-            fsmap = fsspec.get_mapper(self.source_file[0])
+            fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
             fs = fsmap.fs
             out_dir = os.path.dirname(fsmap.root)
             out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
                         for f in self.source_file]
         else:
-            fsmap = fsspec.get_mapper(save_path)
+            fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)
             fs = fsmap.fs
             root = fsmap.root
             fname, ext = os.path.splitext(root)
@@ -277,9 +279,16 @@ class Convert:
                     out_path = [os.path.join(out_dir, fname + file_format)]
 
         # Create folder if save_path does not exist already
-        if not fs.exists(out_dir):
+        fsmap = fsspec.get_mapper(out_dir, **self._output_storage_options)
+        if file_format == '.nc' and not isinstance(fs, LocalFileSystem):
+            raise ValueError("Only local filesystem allowed for NetCDF output.")
+        else:
             try:
-                os.mkdir(out_dir)
+                has_permission = io.check_file_permissions(fsmap)
+                if has_permission:
+                    fs.mkdir(fsmap.root)
+                else:
+                    raise PermissionError(f"Writing to {out_dir} is not permitted.")
             except FileNotFoundError:
                 raise ValueError("Specified save_path is not valid.")
 
