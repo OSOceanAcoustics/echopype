@@ -10,13 +10,9 @@ from fsspec.implementations.local import LocalFileSystem
 import xarray as xr
 from .._version import get_versions
 from ..utils import io
+from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 ECHOPYPE_VERSION = get_versions()['version']
-
-DEFAULT_CHUNK_SIZE = {
-    'range_bin': 25000,
-    'ping_time': 2500
-}
 
 
 def get_combined_save_path(source_paths):
@@ -56,6 +52,7 @@ def assemble_combined_provenance(input_paths):
 def perform_combination(sonar_model, input_paths, output_path, engine):
     """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
     """
+    # TODO: there should be compression option for the combined file too...
 
     def coerce_type(ds, group):
         if group == 'Beam':
@@ -102,25 +99,24 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
                      path=output_path, mode='a', engine=engine, group='Environment')
 
     # Combine Platform group
-    # The platform group for AZFP does not have coordinates, so it must be handled differently from EK60
-    # TODO: check AZFP platform: shouldn't the AZFP platform coordinates just be empty?
     if sonar_model == 'AZFP':
-        with xr.open_mfdataset(input_paths, group='Platform', combine='nested',
+        with xr.open_mfdataset(input_paths, group='Platform',
+                               combine='nested',  # nested since this is more like merge and no dim to concat
                                compat='identical', engine=engine) as ds_plat:
             io.save_file(ds_plat, path=output_path, mode='a', engine=engine, group='Platform')
+    elif sonar_model == 'EK60':
+        with xr.open_mfdataset(input_paths, group='Platform',
+                               concat_dim=['location_time', 'ping_time'],
+                               data_vars='minimal', engine=engine) as ds_plat:
+            io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                         path=output_path, mode='a', engine=engine, group='Platform')
     elif sonar_model in ['EK80', 'EA640']:
         with xr.open_mfdataset(input_paths, group='Platform',
                                concat_dim=['location_time', 'mru_time'],
                                data_vars='minimal', engine=engine) as ds_plat:
             io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
                                         'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                         path=output_path, mode='a', engine=engine, group='Platform')
-    elif sonar_model in ['EK60']:
-        with xr.open_mfdataset(input_paths, group='Platform',
-                               concat_dim=['location_time', 'ping_time'],
-                               data_vars='minimal', engine=engine) as ds_plat:
-            io.save_file(ds_plat.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
-                                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                          path=output_path, mode='a', engine=engine, group='Platform')
 
     # Combine Platform/NMEA group
@@ -131,11 +127,16 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
                          path=output_path, mode='a', engine=engine, group='Platform/NMEA')
 
     # Combine Vendor-specific group
-    # TODO: double check this works with AZFP data as data variables change with ping_time
-    with xr.open_mfdataset(input_paths, group='Vendor',
-                           combine='nested',  # nested since this is more like merge and no dim to concat
-                           compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
-        io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
+    if sonar_model == 'AZFP':
+        with xr.open_mfdataset(input_paths, group='Vendor',
+                               concat_dim=['ping_time', 'frequency'],
+                               data_vars='minimal', engine=engine) as ds_vend:
+            io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
+    else:
+        with xr.open_mfdataset(input_paths, group='Vendor',
+                               combine='nested',  # nested since this is more like merge and no dim to concat
+                               compat='no_conflicts', data_vars='minimal', engine=engine) as ds_vend:
+            io.save_file(ds_vend, path=output_path, mode='a', engine=engine, group='Vendor')
 
     # TODO: print out which group combination errors out and raise appropriate error
 
