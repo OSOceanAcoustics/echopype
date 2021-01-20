@@ -24,7 +24,7 @@ class SetGroupsEK60(SetGroupsBase):
             return
 
         # TODO: Specifically pass in date_created here
-        self.set_toplevel('EK60')
+        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
         self.set_provenance()           # provenance group
         self.set_sonar(sonar_values)    # sonar group
         self.set_env()              # environment group
