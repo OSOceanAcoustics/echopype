@@ -1,13 +1,11 @@
 """
 Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
-import os
 import xarray as xr
 import numpy as np
-import zarr
-import netCDF4
 from .set_groups_base import SetGroupsBase
 from ..utils import io
+from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsAZFP(SetGroupsBase):
@@ -40,7 +38,8 @@ class SetGroupsAZFP(SetGroupsBase):
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
         # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', group='Environment', engine=self.engine)
+        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                     path=self.output_path, mode='a', group='Environment', engine=self.engine)
 
     def set_sonar(self):
         """Set the Sonar group.
@@ -57,7 +56,7 @@ class SetGroupsAZFP(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
-        io.save_file(ds, path=self.output_path, group='Sonar', mode='w', engine=self.engine)
+        io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
 
     def set_platform(self):
         """Set the Platform group.
@@ -65,15 +64,10 @@ class SetGroupsAZFP(SetGroupsBase):
         platform_dict = {'platform_name': self.ui_param['platform_name'],
                          'platform_type': self.ui_param['platform_type'],
                          'platform_code_ICES': self.ui_param['platform_code_ICES']}
-        if self.engine == 'netcdf4':
-            with netCDF4.Dataset(self.output_path, 'a', format='NETCDF4') as ncfile:
-                plat = ncfile.createGroup('Platform')
-                [plat.setncattr(k, v) for k, v in platform_dict.items()]
-        elif self.engine == 'zarr':
-            zarrfile = zarr.open(self.output_path, mode='a')
-            plat = zarrfile.create_group('Platform')
-            for k, v in platform_dict.items():
-                plat.attrs[k] = v
+        # Save
+        ds = xr.Dataset()
+        ds = ds.assign_attrs(platform_dict)
+        io.save_file(ds, path=self.output_path, group='Platform', mode='a', engine=self.engine)
 
     def set_beam(self):
         """Set the Beam group.
@@ -171,7 +165,8 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_d': parameters['Y_d']})
 
         # Save to file
-        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
+        io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+                               'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                      path=self.output_path, mode='a', engine=self.engine,
                      group='Beam', compression_settings=self.compression_settings)
 
@@ -224,5 +219,6 @@ class SetGroupsAZFP(SetGroupsBase):
         )
 
         # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                     path=self.output_path, mode='a', engine=self.engine,
                      group='Vendor', compression_settings=self.compression_settings)

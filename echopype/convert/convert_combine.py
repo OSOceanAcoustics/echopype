@@ -10,13 +10,9 @@ from fsspec.implementations.local import LocalFileSystem
 import xarray as xr
 from .._version import get_versions
 from ..utils import io
+from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 ECHOPYPE_VERSION = get_versions()['version']
-
-DEFAULT_CHUNK_SIZE = {
-    'range_bin': 25000,
-    'ping_time': 2500
-}
 
 
 def get_combined_save_path(source_paths):
@@ -56,6 +52,7 @@ def assemble_combined_provenance(input_paths):
 def perform_combination(sonar_model, input_paths, output_path, engine):
     """Opens a list of Netcdf/Zarr files as a single dataset and saves it to a single file.
     """
+    # TODO: there should be compression option for the combined file too...
 
     def coerce_type(ds, group):
         if group == 'Beam':

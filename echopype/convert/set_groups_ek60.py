@@ -3,6 +3,7 @@ import numpy as np
 from collections import defaultdict
 from .set_groups_base import SetGroupsBase
 from ..utils import io
+from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -15,7 +16,7 @@ class SetGroupsEK60(SetGroupsBase):
         if 'NME' in self.parser_obj.data_type:
             self.set_toplevel('EK60', date_created=self.parser_obj.nmea['timestamp'][0])
             self.set_provenance()
-            self.set_sonar(sonar_dict)
+            self.set_sonar()
             self.set_platform(NMEA_only=True)
             return
 
@@ -74,7 +75,7 @@ class SetGroupsEK60(SetGroupsBase):
                                              ds.ping_time.attrs)})
 
         # Save to file
-        io.save_file(ds.chunk({'ping_time': 100}),
+        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                      path=self.output_path, mode='a', engine=self.engine, group='Environment')
 
     def set_sonar(self):
@@ -92,7 +93,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
-        io.save_file(ds, path=self.output_path, group='Sonar', mode='w', engine=self.engine)
+        io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
 
     def set_platform(self, NMEA_only=False):
         """Set the Platform group.
@@ -123,7 +124,7 @@ class SetGroupsEK60(SetGroupsBase):
                                        'long_name': 'Timestamps for NMEA position datagrams',
                                        'standard_name': 'time',
                                        'units': 'seconds since 1900-01-01'})})
-        ds = ds.chunk({'location_time': 100})
+        ds = ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
         if not NMEA_only:
             # Convert np.datetime64 numbers to seconds since 1900-01-01
@@ -191,10 +192,10 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Convert np.datetime64 numbers to seconds since 1900-01-01
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ds = ds.assign_coords({'ping_time': (['ping_time'],
-                                                 (ds['ping_time'] -
-                                                  np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                                 ds.ping_time.attrs)}).chunk({'ping_time': 100})
+            ds = ds.assign_coords({
+                'ping_time': (['ping_time'],
+                              (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
+                              ds.ping_time.attrs)}).chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
@@ -309,19 +310,7 @@ class SetGroupsEK60(SetGroupsBase):
                 'gain_correction': (['frequency'], beam_params['gain'],
                                     {'long_name': 'Gain correction',
                                      'units': 'dB'}),
-                # TODO: currently it seems to be encoded as
                 'gpt_software_version': (['frequency'], beam_params['gpt_software_version'])
-                # TODO: need to parse and store 'offset' from configuration datagram
-                # 'sample_time_offset': (['frequency'], np.array([2, ] * freq.size, dtype='int32'),
-                #                        {'long_name': 'Time offset that is subtracted from the timestamp '
-                #                                      'of each sample',
-                #                         'units': 's'}),
-                # 'non_quantitative_processing': (['frequency'], np.array([0, ] * freq.size, dtype='int32'),
-                #                                 {'flag_meanings': 'no_non_quantitative_processing',
-                #                                  'flag_values': '0',
-                #                                  'long_name': 'Presence or not of non-quantitative '
-                #                                               'processing applied to the backscattering '
-                #                                               'data (sonar specific)'}),
             },
             coords={
                 'frequency': (['frequency'], freq,
@@ -409,7 +398,8 @@ class SetGroupsEK60(SetGroupsBase):
                                              ds.ping_time.attrs)})
 
         # Save to file
-        io.save_file(ds.chunk({'range_bin': 25000, 'ping_time': 100}),
+        io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+                               'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
                      path=self.output_path, mode='a', engine=self.engine,
                      group='Beam', compression_settings=self.compression_settings)
 
