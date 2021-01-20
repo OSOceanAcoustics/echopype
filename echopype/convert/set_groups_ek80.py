@@ -13,12 +13,6 @@ class SetGroupsEK80(SetGroupsBase):
     def save(self):
         """Actually save groups to file by calling the set methods.
         """
-
-        # def set_beam_type_specific_groups(ch_ids, bb, path):
-        #     self.set_beam(ch_ids, bb=bb, path=path)
-        #     self.set_sonar(ch_ids, path=path)
-        #     self.set_vendor(ch_ids, bb=bb, path=path)
-
         # Save environment only
         if 'ENV' in self.parser_obj.data_type:
             self.set_toplevel(self.sonar_model, date_created=self.parser_obj.environment['timestamp'])
@@ -38,22 +32,9 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_env()           # environment group
         self.set_platform()      # platform group
         self.set_nmea()          # platform/NMEA group
-
         self.set_beam()
         self.set_sonar()
         self.set_vendor()
-
-        # # If there is both bb and cw data
-        # if self.parser_obj.ch_ids['complex'] and self.parser_obj.ch_ids['power']:
-        #     new_path = self._copy_file(self.output_path)
-        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
-        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=new_path)
-        # # If there is only bb data
-        # elif self.parser_obj.ch_ids['complex']:
-        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['complex'], bb=True, path=self.output_path)
-        # # If there is only cw data
-        # else:
-        #     set_beam_type_specific_groups(self.parser_obj.ch_ids['power'], bb=False, path=self.output_path)
 
     def set_env(self, env_only=False):
         """Set the Environment group.
@@ -87,6 +68,34 @@ class SetGroupsEK80(SetGroupsBase):
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
                      group='Environment', compression_settings=self.compression_settings)
+
+    def set_sonar(self):
+        # Collect unique variables
+        params = ['transducer_frequency',
+                  'serial_number',
+                  'transducer_name',
+                  'application_name',
+                  'application_version']
+        var = defaultdict(list)
+        for ch_id, data in self.parser_obj.config_datagram['configuration'].items():
+            for param in params:
+                var[param].append(data[param])
+
+        # Create dataset
+        ds = xr.Dataset(
+            {
+                'serial_number': (['frequency'], var['serial_number']),
+                'sonar_model': (['frequency'], var['transducer_name']),
+                'sonar_software_name': (['frequency'], var['application_name']),  # identical for all channels
+                'sonar_software_version': (['frequency'], var['application_version']),  # identical for all channels
+            },
+            coords={'frequency': var['transducer_frequency']},
+            attrs={'sonar_manufacturer': 'Simrad',
+                   'sonar_type': 'echosounder'})
+
+        # Save to file
+        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+                     group='Sonar', compression_settings=self.compression_settings)
 
     def set_platform(self):
         """Set the Platform group.
@@ -567,63 +576,3 @@ class SetGroupsEK80(SetGroupsBase):
         # Save to file
         io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
                      group='Vendor', compression_settings=self.compression_settings)
-
-    def set_sonar(self):
-        config = self.parser_obj.config_datagram['configuration']
-        # channels['frequency'] = np.array([self.config_datagram['configuration'][x]['transducer_frequency']
-        #                                   for x in self.ch_ids], dtype='float32')
-
-        # Collect unique variables
-        params = ['transducer_frequency',
-                  'serial_number',
-                  'transducer_name',
-                  'application_name',
-                  'application_version']
-        var = defaultdict(list)
-        for ch_id, data in config.items():
-            for param in params:
-                var[param].append(data[param])
-
-        # Create dataset
-        ds = xr.Dataset(
-            {
-                'serial_number': (['frequency'], var['serial_number']),
-                'sonar_model': (['frequency'], var['transducer_name']),
-                'sonar_software_name': (['frequency'], var['application_name']),  # identical for all channels
-                'sonar_software_version': (['frequency'], var['application_version']),  # identical for all channels
-            },
-            coords={'frequency': var['transducer_frequency']},
-            attrs={'sonar_manufacturer': 'Simrad',
-                   'sonar_type': 'echosounder'})
-
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Sonar', compression_settings=self.compression_settings)
-
-    # TODO: the overwriting message should not be here,
-    #  the assembling filename part also should not be here
-    #  symptom:
-    #  >>> from echopype import Convert
-    #  >>> raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
-    #  >>> tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    #  >>> tmp.to_netcdf(save_path='/Users/wu-jung/Downloads', overwrite=True)
-    #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113.nc
-    #  17:14:00 converting file Summer2018--D20180905-T033113.raw, time of first ping: 2018-Sep-05 03:31:13
-    #            overwriting: /Users/wu-jung/Downloads/Summer2018--D20180905-T033113_cw.nc
-    def _copy_file(self, file):
-        # Copy the current file into a new file with _cw appended to filename
-        # TODO: here the _cw (_power) filename should be passed down from the convert object
-        #  instead of being made on the fly. This is a bug.
-        fname, ext = os.path.splitext(file)
-        new_path = fname + '_cw' + ext
-        if os.path.exists(new_path):
-            print("          overwriting: " + new_path)
-            if ext == '.zarr':
-                shutil.rmtree(new_path)
-            elif ext == '.nc':
-                os.remove(new_path)
-        if ext == '.zarr':
-            shutil.copytree(file, new_path)
-        elif ext == '.nc':
-            shutil.copyfile(file, new_path)
-        return new_path
