@@ -255,6 +255,7 @@ class Convert:
         file_format : str {'.nc', '.zarr'}
         """
         if save_path is None:
+            warnings.warn("save_path is not provided")
             fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
             fs = fsmap.fs
 
@@ -273,6 +274,7 @@ class Convert:
                 # Check permission, raise exception if no permission
                 io.check_file_permissions(out_dir)
 
+            warnings.warn(f"Resulting converted file(s) will be available at {str(out_dir)}")
             out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
                         for f in self.source_file]
 
