@@ -272,8 +272,9 @@ class Convert:
 
                 # Check permission, raise exception if no permission
                 io.check_file_permissions(out_dir)
-                out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
-                            for f in self.source_file]
+
+            out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
+                        for f in self.source_file]
 
         else:
             fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)

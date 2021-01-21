@@ -4,6 +4,7 @@ import fsspec
 import shutil
 import xarray as xr
 import pytest
+from pathlib import Path
 from ..convert import Convert
 
 
@@ -11,7 +12,10 @@ from ..convert import Convert
 @pytest.mark.parametrize("file_format", [".zarr"])
 @pytest.mark.parametrize(
     "input_path",
-    ["./echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw"],
+    [
+        "./echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+    ],
 )
 @pytest.mark.parametrize(
     "output_save_path",
@@ -51,17 +55,30 @@ def test_validate_path_single_source(
             ]
         os.rmdir(os.path.dirname(tmp_single.output_file[0]))
     else:
-        # if no output path is given
-        assert tmp_single.output_file == [
-            os.path.join(single_dir, single_fname + '.zarr')
-        ]
+        if input_path.startswith('https') or input_path.startswith('s3'):
+            current_dir = Path.cwd()
+            temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
+            assert tmp_single.output_file == [
+                str(temp_dir.joinpath(Path(single_fname + '.zarr')))
+            ]
+            os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+        else:
+            # if no output path is given
+            assert tmp_single.output_file == [
+                os.path.join(single_dir, single_fname + '.zarr')
+            ]
 
 
 @pytest.mark.parametrize("model", ["EK60"])
 @pytest.mark.parametrize("file_format", [".zarr"])
 @pytest.mark.parametrize(
     "input_path",
-    ["./echopype/test_data/ek60/*.raw"],
+    [
+        "./echopype/test_data/ek60/*.raw",
+        [
+            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw',
+        ],
+    ],
 )
 @pytest.mark.parametrize(
     "output_save_path",
@@ -75,7 +92,10 @@ def test_validate_path_single_source(
 def test_validate_path_multiple_source(
     model, file_format, input_path, output_save_path
 ):
-    mult_path = glob.glob(input_path)
+    if isinstance(input_path, str):
+        mult_path = glob.glob(input_path)
+    else:
+        mult_path = input_path
     fsmap = fsspec.get_mapper(mult_path[0])
     mult_dir = os.path.dirname(fsmap.root)
     tmp_mult = Convert(mult_path, model='EK60')
@@ -105,13 +125,29 @@ def test_validate_path_multiple_source(
             ]
         os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
     else:
-        # if no output path is given
-        assert tmp_mult.output_file == [
-            os.path.join(
-                mult_dir, os.path.splitext(os.path.basename(f))[0] + '.zarr'
-            )
-            for f in mult_path
-        ]
+        if input_path[0].startswith('https') or input_path[0].startswith('s3'):
+            current_dir = Path.cwd()
+            temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
+            assert tmp_mult.output_file == [
+                str(
+                    temp_dir.joinpath(
+                        Path(
+                            os.path.splitext(os.path.basename(f))[0] + '.zarr'
+                        )
+                    )
+                )
+                for f in mult_path
+            ]
+            os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+        else:
+            # if no output path is given
+            assert tmp_mult.output_file == [
+                os.path.join(
+                    mult_dir,
+                    os.path.splitext(os.path.basename(f))[0] + '.zarr',
+                )
+                for f in mult_path
+            ]
 
 
 def _check_file_group(data_file, engine, groups):
