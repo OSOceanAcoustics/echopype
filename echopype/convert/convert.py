@@ -6,6 +6,7 @@ import warnings
 import xarray as xr
 import numpy as np
 import zarr
+from pathlib import Path
 from collections.abc import MutableMapping
 from datetime import datetime as dt
 import fsspec
@@ -254,12 +255,26 @@ class Convert:
         file_format : str {'.nc', '.zarr'}
         """
         if save_path is None:
-            # Default output directory taken from first input file
             fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
             fs = fsmap.fs
-            out_dir = os.path.dirname(fsmap.root)
-            out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
-                        for f in self.source_file]
+
+            if not isinstance(fs, LocalFileSystem):
+                # Defaults to Echopype directory if source is not localfile system
+                current_dir = Path.cwd()
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(current_dir)
+                out_dir = current_dir.joinpath(Path('temp_echopype_output'))
+                if not out_dir.exists():
+                    out_dir.mkdir(parents=True)
+            else:
+                # Default output directory taken from first input file
+                out_dir = Path(fsmap.root).parent.absolute()
+
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(out_dir)
+                out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
+                            for f in self.source_file]
+
         else:
             fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)
             fs = fsmap.fs
@@ -279,16 +294,14 @@ class Convert:
                     out_path = [os.path.join(out_dir, fname + file_format)]
 
         # Create folder if save_path does not exist already
-        fsmap = fsspec.get_mapper(out_dir, **self._output_storage_options)
+        fsmap = fsspec.get_mapper(str(out_dir), **self._output_storage_options)
         if file_format == '.nc' and not isinstance(fs, LocalFileSystem):
             raise ValueError("Only local filesystem allowed for NetCDF output.")
         else:
             try:
-                has_permission = io.check_file_permissions(fsmap)
-                if has_permission:
-                    fs.mkdir(fsmap.root)
-                else:
-                    raise PermissionError(f"Writing to {out_dir} is not permitted.")
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(fsmap)
+                fs.mkdir(fsmap.root)
             except FileNotFoundError:
                 raise ValueError("Specified save_path is not valid.")
 
