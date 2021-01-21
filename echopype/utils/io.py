@@ -4,6 +4,7 @@ echopype utilities for file handling
 import os
 from collections.abc import MutableMapping
 from fsspec import FSMap
+from pathlib import Path
 
 
 def get_files_from_dir(folder):
@@ -48,12 +49,14 @@ def check_file_permissions(FILE_DIR):
             with FILE_DIR.fs.open(TEST_FILE, "w") as f:
                 f.write("testing\n")
             FILE_DIR.fs.delete(TEST_FILE)
+        elif isinstance(FILE_DIR, Path):
+            TEST_FILE = FILE_DIR.joinpath(Path('.permission_test'))
+            TEST_FILE.write_text("testing\n")
+            TEST_FILE.unlink(missing_ok=True)
         else:
             TEST_FILE = os.path.join(FILE_DIR, ".permission_test")
             with open(TEST_FILE, "w") as f:
                 f.write("testing\n")
             os.remove(TEST_FILE)
-        return True
-    except Exception as e:  # pragma: no cover
-        print(e)
-        return False
+    except Exception:
+        raise PermissionError("Writing to specified path is not permitted.")
