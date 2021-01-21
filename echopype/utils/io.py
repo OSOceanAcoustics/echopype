@@ -30,7 +30,7 @@ def get_file_format(file):
     """Gets the file format (either Netcdf4 or Zarr) from the file extension"""
     if isinstance(file, list):
         file = file[0]
-    elif isinstance(file, MutableMapping):
+    elif isinstance(file, FSMap):
         file = file.root
 
     if file.endswith('.nc'):
