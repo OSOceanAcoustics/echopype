@@ -231,21 +231,6 @@ class Convert:
             if k not in self._conversion_params:
                 self._conversion_params[k] = v
 
-    # TODO: combine _validate_path and _validate_object_store
-    def _validate_object_store(self, store):
-        fs = store.fs
-        root = store.root
-        fname, ext = os.path.splitext(root)
-        if ext == '':
-            files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
-                     for f in self.source_file]
-            self.output_file = [fs.get_mapper(f) for f in files]
-        elif ext == '.zarr':
-            if len(self.source_file) > 1:
-                raise ValueError("save_path must be a directory")
-            else:
-                self.output_file = [store]
-
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
 
@@ -547,30 +532,24 @@ class Convert:
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
+        self._output_storage_options = storage_options
 
-        # TODO: probably can combine both the remote and local cases below once
-        #  _validate_path and _validate_object_store are combined
         # Assemble output file names and path
         if convert_type == 'netcdf4':
             self._validate_path('.nc', save_path)
         elif convert_type == 'zarr':
-            if isinstance(save_path, MutableMapping):
-                self._validate_object_store(save_path)
-            else:
-                self._validate_path('.zarr', save_path)
+            self._validate_path('.zarr', save_path)
         else:
             raise ValueError('Unknown type to convert file to!')
+        
 
         # Get all existing files
         exist_list = []
-        fs = fsspec.get_mapper(self.output_file[0]).fs  # get file system
+        fs = fsspec.get_mapper(self.output_file[0], **self._output_storage_options).fs  # get file system
         for out_f in self.output_file:
-            if isinstance(out_f, MutableMapping):  # output is remote
-                if fs.exists(out_f.root):
-                    exist_list.append(out_f)
-            else:  # output is local
-                if fs.exists(out_f):
-                    exist_list.append(out_f)
+            if fs.exists(out_f):
+                print(out_f)
+                exist_list.append(out_f)
 
         # Sequential or parallel conversion
         if not parallel:
@@ -584,11 +563,14 @@ class Convert:
                         print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
                     else:
                         print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
-                    self._convert_indiv_file(file=src_f, output_path=out_f, engine=convert_type)
+                    self._convert_indiv_file(
+                        file=src_f,
+                        output_path=fsspec.get_mapper(out_f, **self._output_storage_options),
+                        engine=convert_type
+                    )
         else:
             # TODO: add parallel conversion
-            print('Parallel conversion is not yet implemented. Use parallel=False.')
-            return
+            raise NotImplementedError('Parallel conversion is not yet implemented. Use parallel=False.')
 
         # Combine files if needed
         if self.combine:
