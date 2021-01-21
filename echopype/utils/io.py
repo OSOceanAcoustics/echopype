@@ -45,6 +45,8 @@ def check_file_permissions(FILE_DIR):
     try:
         if isinstance(FILE_DIR, FSMap):
             base_dir = os.path.dirname(FILE_DIR.root)
+            if not base_dir:
+                base_dir = FILE_DIR.root
             TEST_FILE = os.path.join(base_dir, ".permission_test")
             with FILE_DIR.fs.open(TEST_FILE, "w") as f:
                 f.write("testing\n")
