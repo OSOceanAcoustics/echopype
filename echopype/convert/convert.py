@@ -168,6 +168,23 @@ class Convert:
             print('Please specify paths to raw data files and the sonar model.')
             return
 
+        # Set sonar model type
+        if model is not None:
+            # Uppercased model in case people use lowercase
+            model = model.upper()
+
+            # Check models
+            if model not in MODELS:
+                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+
+            self.sonar_model = model
+        else:
+            # TODO: this currently does not happen because we default to model='EK60'
+            #  when not specified to be consistent with previous behavior.
+            #  Remember to take this out later.
+            # Ask user to provide model
+            print('Please specify the sonar model.')
+
         # Check paths and file types
         if file is not None:
             # Make file always a list
@@ -186,22 +203,6 @@ class Convert:
         else:
             print('Please specify paths to raw data files.')
 
-        # Set sonar model type
-        if model is not None:
-            # Uppercased model in case people use lowercase
-            model = model.upper()
-
-            # Check models
-            if model not in MODELS:
-                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
-
-            self.sonar_model = model
-        else:
-            # TODO: this currently does not happen because we default to model='EK60'
-            #  when not specified to be consistent with previous behavior.
-            #  Remember to take this out later.
-            # Ask user to provide model
-            print('Please specify the sonar model.')
 
     def set_param(self, param_dict):
         """Allow users to set parameters to be stored in the converted files.
@@ -281,20 +282,26 @@ class Convert:
         else:
             fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)
             fs = fsmap.fs
-            root = fsmap.root
+
+            # Use the full path such as s3://... if it's not local, otherwise use root
+            if isinstance(fs, LocalFileSystem):
+                root = fsmap.root
+            else:
+                root = save_path
+
             fname, ext = os.path.splitext(root)
             if ext == '':  # directory
                 out_dir = fname
-                out_path = [root + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                out_path = [os.path.join(root, os.path.splitext(os.path.basename(f))[0] + file_format)
                             for f in self.source_file]
             else:  # file
                 out_dir = os.path.dirname(root)
                 if len(self.source_file) > 1:  # get dirname and assemble path
-                    out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                    out_path = [os.path.join(out_dir, os.path.splitext(os.path.basename(f))[0] + file_format)
                                 for f in self.source_file]
                 else:
                     # force file_format to conform
-                    out_path = [os.path.join(out_dir, fname + file_format)]
+                    out_path = [os.path.join(out_dir, os.path.splitext(os.path.basename(fname))[0] + file_format)]
 
         # Create folder if save_path does not exist already
         fsmap = fsspec.get_mapper(str(out_dir), **self._output_storage_options)
@@ -304,7 +311,10 @@ class Convert:
             try:
                 # Check permission, raise exception if no permission
                 io.check_file_permissions(fsmap)
-                fs.mkdir(fsmap.root)
+                if isinstance(fs, LocalFileSystem):
+                    # Only make directory if local file system
+                    # otherwise it will just create the object path
+                    fs.mkdir(fsmap.root)
             except FileNotFoundError:
                 raise ValueError("Specified save_path is not valid.")
 
