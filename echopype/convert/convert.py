@@ -489,7 +489,7 @@ class Convert:
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
     def _to_file(self, convert_type, save_path=None, data_type='ALL', compress=True, combine=False,
-                 overwrite=False, parallel=False, extra_platform_data=None):
+                 overwrite=False, parallel=False, extra_platform_data=None, storage_options={}, **kwargs):
         """Convert a file or a list of files to netCDF or zarr.
 
         Parameters
@@ -514,6 +514,8 @@ class Convert:
             whether or not to use parallel processing. (Not yet implemented)
         extra_platform_data : Dataset
             The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
         """
         self.data_type = data_type
         self.compress = compress
@@ -575,9 +577,59 @@ class Convert:
             self.output_file = self.output_file[0]
 
     def to_netcdf(self, **kwargs):
+        """Convert a file or a list of files to netCDF.
+
+        Parameters
+        ----------
+        save_path : str
+            path that converted .nc file will be saved
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
+            select specific datagrams to save (EK60 and EK80 only)
+            Defaults to ``ALL``
+        compress : bool
+            whether or not to perform compression on data variables
+            Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
+        overwrite : bool
+            whether or not to overwrite existing files
+            Defaults to ``False``
+        parallel : bool
+            whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
+        """
         return self._to_file('netcdf4', **kwargs)
 
     def to_zarr(self, **kwargs):
+        """Convert a file or a list of files to zarr.
+
+        Parameters
+        ----------
+        save_path : str
+            path that converted .nc file will be saved
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
+            select specific datagrams to save (EK60 and EK80 only)
+            Defaults to ``ALL``
+        compress : bool
+            whether or not to perform compression on data variables
+            Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
+        overwrite : bool
+            whether or not to overwrite existing files
+            Defaults to ``False``
+        parallel : bool
+            whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
+        """
         return self._to_file('zarr', **kwargs)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
