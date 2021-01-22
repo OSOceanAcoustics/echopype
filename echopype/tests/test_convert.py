@@ -141,6 +141,14 @@ def test_validate_path_single_source(
 def test_validate_path_multiple_source(
     model, file_format, input_path, output_save_path, minio_bucket
 ):
+    output_storage_options = {}
+    if output_save_path and output_save_path.startswith('s3://'):
+        output_storage_options = dict(
+            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
+            key='minioadmin',
+            secret='minioadmin',
+        )
+
     if isinstance(input_path, str):
         mult_path = glob.glob(input_path)
     else:
@@ -148,6 +156,7 @@ def test_validate_path_multiple_source(
     fsmap = fsspec.get_mapper(mult_path[0])
     mult_dir = os.path.dirname(fsmap.root)
     tmp_mult = Convert(mult_path, model='EK60')
+    tmp_mult._output_storage_options = output_storage_options
 
     tmp_mult._validate_path(
         file_format=file_format, save_path=output_save_path
@@ -168,7 +177,9 @@ def test_validate_path_multiple_source(
                 ]
             elif output_save_path.endswith('.zarr'):
                 # if an output filename is given: only use the directory
-                assert tmp_mult.output_file == [os.path.abspath(output_save_path)]
+                assert tmp_mult.output_file == [
+                    os.path.abspath(output_save_path)
+                ]
             elif output_save_path.endswith('.nc'):
                 # force output file extension to the called type (here .zarr)
                 assert tmp_mult.output_file == [
@@ -220,6 +231,107 @@ def test_validate_path_multiple_source(
             ]
 
 
+@pytest.mark.parametrize("model", ["EK60"])
+@pytest.mark.parametrize(
+    "input_path",
+    [
+        "./echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+        "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+        [
+            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw',
+            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190843.raw',
+        ],
+    ],
+)
+@pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
+@pytest.mark.parametrize(
+    "output_save_path",
+    [
+        None,
+        "./echopype/test_data/dump/",
+        "./echopype/test_data/dump/tmp.zarr",
+        "./echopype/test_data/dump/tmp.nc",
+        "s3://ooi-raw-data/dump/",
+        "s3://ooi-raw-data/dump/tmp.zarr",
+        "s3://ooi-raw-data/dump/tmp.nc",
+    ],
+)
+@pytest.mark.parametrize("combine_files", [False])
+def test_convert_ek60(
+    model,
+    input_path,
+    export_engine,
+    output_save_path,
+    combine_files,
+    minio_bucket,
+):
+    output_storage_options = {}
+    ipath = input_path
+    if isinstance(input_path, list):
+        ipath = input_path[0]
+
+    input_storage_options = {'anon': True} if ipath.startswith('s3://') else {}
+    if output_save_path and output_save_path.startswith('s3://'):
+        output_storage_options = dict(
+            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
+            key='minioadmin',
+            secret='minioadmin',
+        )
+
+    ec = Convert(
+        file=input_path, model=model, storage_options=input_storage_options
+    )
+
+    if (
+        export_engine == 'netcdf4'
+        and output_save_path is not None
+        and output_save_path.startswith('s3://')
+    ):
+        return
+    ec._to_file(
+        convert_type=export_engine,
+        save_path=output_save_path,
+        overwrite=True,
+        combine=combine_files,
+        storage_options=output_storage_options,
+    )
+
+    _check_output_files(export_engine, ec.output_file, output_storage_options)
+
+
+def _check_output_files(engine, output_files, storage_options):
+    groups = [
+        'Provenance',
+        'Environment',
+        'Beam',
+        'Sonar',
+        'Vendor',
+        'Platform',
+    ]
+    if isinstance(output_files, list):
+        fs = fsspec.get_mapper(output_files[0], **storage_options).fs
+        for f in output_files:
+            if engine == 'zarr':
+                _check_file_group(
+                    fs.get_mapper(f), engine, groups
+                )
+                fs.delete(f, recursive=True)
+            else:
+                _check_file_group(f, engine, groups)
+                fs.delete(f)
+    else:
+        fs = fsspec.get_mapper(output_files, **storage_options).fs
+        if engine == 'zarr':
+            _check_file_group(
+                fs.get_mapper(output_files), engine, groups
+            )
+            fs.delete(output_files, recursive=True)
+        else:
+            _check_file_group(output_files, engine, groups)
+            fs.delete(output_files)
+
+
 def _check_file_group(data_file, engine, groups):
     for g in groups:
         ds = xr.open_dataset(data_file, engine=engine, group=g)
@@ -227,150 +339,119 @@ def _check_file_group(data_file, engine, groups):
         assert isinstance(ds, xr.Dataset) is True
 
 
-def _converted_group_checker(model, engine, out_file, multiple_files):
-    groups = ['Environment', 'Platform', 'Provenance', 'Sonar']
-    if model in ['EK60', 'EK80']:
-        groups = groups + ['Beam', 'Vendor']
+# def _converted_group_checker(engine, out_file, multiple_files):
+#     groups = [
+#         'Provenance',
+#         'Environment',
+#         'Beam',
+#         'Sonar',
+#         'Vendor',
+#         'Platform',
+#     ]
 
-    if multiple_files:
-        dirname = os.path.abspath(out_file)
-        out_files = [os.path.join(dirname, f) for f in os.listdir(dirname)]
-        for data_file in out_files:
-            _check_file_group(data_file, engine, groups)
-    else:
-        _check_file_group(out_file, engine, groups)
-
-
-def _file_export_checks(ec, model, export_engine, multiple_files):
-    if export_engine == "netcdf4":
-        out_file = f"./test_{model.lower()}.nc"
-        if multiple_files:
-            out_file = out_file.replace(".nc", "")
-        ec.to_netcdf(save_path=out_file, overwrite=True)
-    elif export_engine == "zarr":
-        out_file = f"./test_{model.lower()}.zarr"
-        if multiple_files:
-            out_file = out_file.replace(".zarr", "")
-        ec.to_zarr(save_path=out_file, overwrite=True)
-
-    _converted_group_checker(
-        model=model,
-        engine=export_engine,
-        out_file=out_file,
-        multiple_files=multiple_files,
-    )
-
-    # Cleanup
-    if os.path.isfile(out_file):
-        os.unlink(out_file)
-    else:
-        shutil.rmtree(out_file)
+#     if multiple_files:
+#         dirname = os.path.abspath(out_file)
+#         out_files = [os.path.join(dirname, f) for f in os.listdir(dirname)]
+#         for data_file in out_files:
+#             _check_file_group(data_file, engine, groups)
+#     else:
+#         _check_file_group(out_file, engine, groups)
 
 
-@pytest.mark.skip()
-@pytest.mark.parametrize("model", ["AZFP"])
-@pytest.mark.parametrize(
-    "file",
-    [
-        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A"
-    ],
-)
-@pytest.mark.parametrize(
-    "xml_path",
-    [
-        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML"
-    ],
-)
-@pytest.mark.parametrize("storage_options", [{'anon': True}])
-@pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
-def test_convert_azfp(model, file, xml_path, storage_options, export_engine):
-    if isinstance(file, str):
-        multiple_files = False
-        if not file.startswith("s3://"):
-            storage_options = {}
-    else:
-        multiple_files = True
-        if not file[0].startswith("s3://"):
-            storage_options = {}
+# def _file_export_checks(ec, model, export_engine, multiple_files):
+#     if export_engine == "netcdf4":
+#         out_file = f"./test_{model.lower()}.nc"
+#         if multiple_files:
+#             out_file = out_file.replace(".nc", "")
+#         ec.to_netcdf(save_path=out_file, overwrite=True)
+#     elif export_engine == "zarr":
+#         out_file = f"./test_{model.lower()}.zarr"
+#         if multiple_files:
+#             out_file = out_file.replace(".zarr", "")
+#         ec.to_zarr(save_path=out_file, overwrite=True)
 
-    ec = Convert(
-        file=file,
-        model=model,
-        xml_path=xml_path,
-        storage_options=storage_options,
-    )
+#     _converted_group_checker(
+#         model=model,
+#         engine=export_engine,
+#         out_file=out_file,
+#         multiple_files=multiple_files,
+#     )
 
-    if multiple_files:
-        assert sorted(ec.source_file) == sorted(file)
-    else:
-        assert ec.source_file[0] == file
-    assert ec.xml_path == xml_path
-
-    _file_export_checks(ec, model, export_engine, multiple_files)
+#     # Cleanup
+#     if os.path.isfile(out_file):
+#         os.unlink(out_file)
+#     else:
+#         shutil.rmtree(out_file)
 
 
-@pytest.mark.skip()
-@pytest.mark.parametrize("model", ["EK60"])
-@pytest.mark.parametrize(
-    "file",
-    [
-        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
-        "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
-        [
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw',
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190843.raw',
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T212409.raw',
-        ],
-    ],
-)
-@pytest.mark.parametrize("storage_options", [{'anon': True}])
-@pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
-def test_convert_ek60(model, file, storage_options, export_engine):
-    if isinstance(file, str):
-        multiple_files = False
-        if not file.startswith("s3://"):
-            storage_options = {}
-    else:
-        multiple_files = True
-        if not file[0].startswith("s3://"):
-            storage_options = {}
+# @pytest.mark.skip()
+# @pytest.mark.parametrize("model", ["AZFP"])
+# @pytest.mark.parametrize(
+#     "file",
+#     [
+#         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A"
+#     ],
+# )
+# @pytest.mark.parametrize(
+#     "xml_path",
+#     [
+#         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML"
+#     ],
+# )
+# @pytest.mark.parametrize("storage_options", [{'anon': True}])
+# @pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
+# def test_convert_azfp(model, file, xml_path, storage_options, export_engine):
+#     if isinstance(file, str):
+#         multiple_files = False
+#         if not file.startswith("s3://"):
+#             storage_options = {}
+#     else:
+#         multiple_files = True
+#         if not file[0].startswith("s3://"):
+#             storage_options = {}
 
-    ec = Convert(file=file, model=model, storage_options=storage_options)
+#     ec = Convert(
+#         file=file,
+#         model=model,
+#         xml_path=xml_path,
+#         storage_options=storage_options,
+#     )
 
-    if multiple_files:
-        assert sorted(ec.source_file) == sorted(file)
-    else:
-        assert ec.source_file[0] == file
+#     if multiple_files:
+#         assert sorted(ec.source_file) == sorted(file)
+#     else:
+#         assert ec.source_file[0] == file
+#     assert ec.xml_path == xml_path
 
-    _file_export_checks(ec, model, export_engine, multiple_files)
+#     _file_export_checks(ec, model, export_engine, multiple_files)
 
 
-@pytest.mark.skip()
-@pytest.mark.parametrize("model", ["EK80"])
-@pytest.mark.parametrize(
-    "file",
-    [
-        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
-        "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
-    ],
-)
-@pytest.mark.parametrize("storage_options", [{'anon': True}])
-@pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
-def test_convert_ek80(model, file, storage_options, export_engine):
-    if isinstance(file, str):
-        multiple_files = False
-        if not file.startswith("s3://"):
-            storage_options = {}
-    else:
-        multiple_files = True
-        if not file[0].startswith("s3://"):
-            storage_options = {}
+# @pytest.mark.skip()
+# @pytest.mark.parametrize("model", ["EK80"])
+# @pytest.mark.parametrize(
+#     "file",
+#     [
+#         "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
+#         "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
+#     ],
+# )
+# @pytest.mark.parametrize("storage_options", [{'anon': True}])
+# @pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
+# def test_convert_ek80(model, file, storage_options, export_engine):
+#     if isinstance(file, str):
+#         multiple_files = False
+#         if not file.startswith("s3://"):
+#             storage_options = {}
+#     else:
+#         multiple_files = True
+#         if not file[0].startswith("s3://"):
+#             storage_options = {}
 
-    ec = Convert(file=file, model=model, storage_options=storage_options)
+#     ec = Convert(file=file, model=model, storage_options=storage_options)
 
-    if multiple_files:
-        assert sorted(ec.source_file) == sorted(file)
-    else:
-        assert ec.source_file[0] == file
+#     if multiple_files:
+#         assert sorted(ec.source_file) == sorted(file)
+#     else:
+#         assert ec.source_file[0] == file
 
-    _file_export_checks(ec, model, export_engine, multiple_files)
+#     _file_export_checks(ec, model, export_engine, multiple_files)

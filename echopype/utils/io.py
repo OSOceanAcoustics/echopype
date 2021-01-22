@@ -2,7 +2,6 @@
 echopype utilities for file handling
 """
 import os
-from collections.abc import MutableMapping
 from fsspec import FSMap
 from pathlib import Path
 
