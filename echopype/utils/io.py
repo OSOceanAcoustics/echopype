@@ -2,6 +2,7 @@
 echopype utilities for file handling
 """
 import os
+import sys
 from fsspec import FSMap
 from pathlib import Path
 
@@ -53,7 +54,12 @@ def check_file_permissions(FILE_DIR):
         elif isinstance(FILE_DIR, Path):
             TEST_FILE = FILE_DIR.joinpath(Path('.permission_test'))
             TEST_FILE.write_text("testing\n")
-            TEST_FILE.unlink(missing_ok=True)
+
+            # Do python version check since missing_ok is for python 3.9 and up
+            if sys.version_info >= (3, 9):
+                TEST_FILE.unlink(missing_ok=True)
+            else:
+                TEST_FILE.unlink()
         else:
             TEST_FILE = os.path.join(FILE_DIR, ".permission_test")
             with open(TEST_FILE, "w") as f:
