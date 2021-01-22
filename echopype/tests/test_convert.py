@@ -250,7 +250,9 @@ def test_validate_path_multiple_source(
     )
 
     if output_save_path is not None:
-        fsmap_tmp = fsspec.get_mapper(output_save_path)
+        fsmap_tmp = fsspec.get_mapper(
+            output_save_path, **output_storage_options
+        )
         fs = fsmap_tmp.fs
         if not output_save_path.startswith('s3'):
             if output_save_path.endswith('/'):
