@@ -243,9 +243,9 @@ class Convert:
         if save_path is None:
             warnings.warn("save_path is not provided")
             fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
-            fs = fsmap.fs
+            input_fs = fsmap.fs
 
-            if not isinstance(fs, LocalFileSystem):
+            if not isinstance(input_fs, LocalFileSystem):
                 # Defaults to Echopype directory if source is not localfile system
                 current_dir = Path.cwd()
                 # Check permission, raise exception if no permission
@@ -266,10 +266,10 @@ class Convert:
 
         else:
             fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)
-            fs = fsmap.fs
+            output_fs = fsmap.fs
 
             # Use the full path such as s3://... if it's not local, otherwise use root
-            if isinstance(fs, LocalFileSystem):
+            if isinstance(output_fs, LocalFileSystem):
                 root = fsmap.root
             else:
                 root = save_path
@@ -290,6 +290,7 @@ class Convert:
 
         # Create folder if save_path does not exist already
         fsmap = fsspec.get_mapper(str(out_dir), **self._output_storage_options)
+        fs = fsmap.fs
         if file_format == '.nc' and not isinstance(fs, LocalFileSystem):
             raise ValueError("Only local filesystem allowed for NetCDF output.")
         else:
@@ -499,6 +500,12 @@ class Convert:
                 del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
+    def _normalize_path(self, out_f, convert_type):
+        if convert_type == 'zarr':
+            return fsspec.get_mapper(out_f, **self._output_storage_options)
+        elif convert_type == 'netcdf4':
+            return out_f
+
     def _to_file(self, convert_type, save_path=None, data_type='ALL', compress=True, combine=False,
                  overwrite=False, parallel=False, extra_platform_data=None, storage_options={}, **kwargs):
         """Convert a file or a list of files to netCDF or zarr.
@@ -508,7 +515,7 @@ class Convert:
         save_path : str
             path that converted .nc file will be saved
         convert_type : str
-            type of converted file, '.nc' or '.zarr'
+            type of converted file, 'netcdf4' or 'zarr'
         data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
@@ -548,7 +555,6 @@ class Convert:
         fs = fsspec.get_mapper(self.output_file[0], **self._output_storage_options).fs  # get file system
         for out_f in self.output_file:
             if fs.exists(out_f):
-                print(out_f)
                 exist_list.append(out_f)
 
         # Sequential or parallel conversion
@@ -565,7 +571,7 @@ class Convert:
                         print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
                     self._convert_indiv_file(
                         file=src_f,
-                        output_path=fsspec.get_mapper(out_f, **self._output_storage_options),
+                        output_path=self._normalize_path(out_f, convert_type),
                         engine=convert_type
                     )
         else:
