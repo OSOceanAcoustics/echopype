@@ -6,9 +6,11 @@ import warnings
 import xarray as xr
 import numpy as np
 import zarr
+from pathlib import Path
 from collections.abc import MutableMapping
 from datetime import datetime as dt
 import fsspec
+from fsspec.implementations.local import LocalFileSystem
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
@@ -132,6 +134,7 @@ class Convert:
         self.overwrite = False
         self.set_param({})      # Initialize parameters with empty strings
         self.storage_options = storage_options if storage_options is not None else {}
+        self._output_storage_options = {}
         self.set_source(file, model, xml_path)
 
     def __str__(self):
@@ -165,6 +168,23 @@ class Convert:
             print('Please specify paths to raw data files and the sonar model.')
             return
 
+        # Set sonar model type
+        if model is not None:
+            # Uppercased model in case people use lowercase
+            model = model.upper()
+
+            # Check models
+            if model not in MODELS:
+                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
+
+            self.sonar_model = model
+        else:
+            # TODO: this currently does not happen because we default to model='EK60'
+            #  when not specified to be consistent with previous behavior.
+            #  Remember to take this out later.
+            # Ask user to provide model
+            print('Please specify the sonar model.')
+
         # Check paths and file types
         if file is not None:
             # Make file always a list
@@ -183,22 +203,6 @@ class Convert:
         else:
             print('Please specify paths to raw data files.')
 
-        # Set sonar model type
-        if model is not None:
-            # Uppercased model in case people use lowercase
-            model = model.upper()
-
-            # Check models
-            if model not in MODELS:
-                raise ValueError(f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}")
-
-            self.sonar_model = model
-        else:
-            # TODO: this currently does not happen because we default to model='EK60'
-            #  when not specified to be consistent with previous behavior.
-            #  Remember to take this out later.
-            # Ask user to provide model
-            print('Please specify the sonar model.')
 
     def set_param(self, param_dict):
         """Allow users to set parameters to be stored in the converted files.
@@ -227,21 +231,6 @@ class Convert:
             if k not in self._conversion_params:
                 self._conversion_params[k] = v
 
-    # TODO: combine _validate_path and _validate_object_store
-    def _validate_object_store(self, store):
-        fs = store.fs
-        root = store.root
-        fname, ext = os.path.splitext(root)
-        if ext == '':
-            files = [root + '/' + os.path.splitext(os.path.basename(f))[0] + '.zarr'
-                     for f in self.source_file]
-            self.output_file = [fs.get_mapper(f) for f in files]
-        elif ext == '.zarr':
-            if len(self.source_file) > 1:
-                raise ValueError("save_path must be a directory")
-            else:
-                self.output_file = [store]
-
     def _validate_path(self, file_format, save_path=None):
         """Assemble output file names and path.
 
@@ -252,34 +241,66 @@ class Convert:
         file_format : str {'.nc', '.zarr'}
         """
         if save_path is None:
-            # Default output directory taken from first input file
-            fsmap = fsspec.get_mapper(self.source_file[0])
-            fs = fsmap.fs
-            out_dir = os.path.dirname(fsmap.root)
-            out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+            warnings.warn("save_path is not provided")
+            fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
+            input_fs = fsmap.fs
+
+            if not isinstance(input_fs, LocalFileSystem):
+                # Defaults to Echopype directory if source is not localfile system
+                current_dir = Path.cwd()
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(current_dir)
+                out_dir = current_dir.joinpath(Path('temp_echopype_output'))
+                if not out_dir.exists():
+                    out_dir.mkdir(parents=True)
+            else:
+                # Default output directory taken from first input file
+                out_dir = Path(fsmap.root).parent.absolute()
+
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(out_dir)
+
+            warnings.warn(f"Resulting converted file(s) will be available at {str(out_dir)}")
+            out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
                         for f in self.source_file]
+
         else:
-            fsmap = fsspec.get_mapper(save_path)
-            fs = fsmap.fs
-            root = fsmap.root
+            fsmap = fsspec.get_mapper(save_path, **self._output_storage_options)
+            output_fs = fsmap.fs
+
+            # Use the full path such as s3://... if it's not local, otherwise use root
+            if isinstance(output_fs, LocalFileSystem):
+                root = fsmap.root
+            else:
+                root = save_path
+
             fname, ext = os.path.splitext(root)
             if ext == '':  # directory
                 out_dir = fname
-                out_path = [root + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                out_path = [os.path.join(root, os.path.splitext(os.path.basename(f))[0] + file_format)
                             for f in self.source_file]
             else:  # file
                 out_dir = os.path.dirname(root)
                 if len(self.source_file) > 1:  # get dirname and assemble path
-                    out_path = [out_dir + '/' + os.path.splitext(os.path.basename(f))[0] + file_format
+                    out_path = [os.path.join(out_dir, os.path.splitext(os.path.basename(f))[0] + file_format)
                                 for f in self.source_file]
                 else:
                     # force file_format to conform
-                    out_path = [os.path.join(out_dir, fname + file_format)]
+                    out_path = [os.path.join(out_dir, os.path.splitext(os.path.basename(fname))[0] + file_format)]
 
         # Create folder if save_path does not exist already
-        if not fs.exists(out_dir):
+        fsmap = fsspec.get_mapper(str(out_dir), **self._output_storage_options)
+        fs = fsmap.fs
+        if file_format == '.nc' and not isinstance(fs, LocalFileSystem):
+            raise ValueError("Only local filesystem allowed for NetCDF output.")
+        else:
             try:
-                os.mkdir(out_dir)
+                # Check permission, raise exception if no permission
+                io.check_file_permissions(fsmap)
+                if isinstance(fs, LocalFileSystem):
+                    # Only make directory if local file system
+                    # otherwise it will just create the object path
+                    fs.mkdir(fsmap.root)
             except FileNotFoundError:
                 raise ValueError("Specified save_path is not valid.")
 
@@ -479,8 +500,14 @@ class Convert:
                 del old_dataset["Platform"]
                 ds_platform.to_zarr(f, mode="a", group="Platform")
 
+    def _normalize_path(self, out_f, convert_type):
+        if convert_type == 'zarr':
+            return fsspec.get_mapper(out_f, **self._output_storage_options)
+        elif convert_type == 'netcdf4':
+            return out_f
+
     def _to_file(self, convert_type, save_path=None, data_type='ALL', compress=True, combine=False,
-                 overwrite=False, parallel=False, extra_platform_data=None):
+                 overwrite=False, parallel=False, extra_platform_data=None, storage_options={}, **kwargs):
         """Convert a file or a list of files to netCDF or zarr.
 
         Parameters
@@ -488,7 +515,7 @@ class Convert:
         save_path : str
             path that converted .nc file will be saved
         convert_type : str
-            type of converted file, '.nc' or '.zarr'
+            type of converted file, 'netcdf4' or 'zarr'
         data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
             select specific datagrams to save (EK60 and EK80 only)
             Defaults to ``ALL``
@@ -505,35 +532,30 @@ class Convert:
             whether or not to use parallel processing. (Not yet implemented)
         extra_platform_data : Dataset
             The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
         """
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
         self.overwrite = overwrite
+        self._output_storage_options = storage_options
 
-        # TODO: probably can combine both the remote and local cases below once
-        #  _validate_path and _validate_object_store are combined
         # Assemble output file names and path
         if convert_type == 'netcdf4':
             self._validate_path('.nc', save_path)
         elif convert_type == 'zarr':
-            if isinstance(save_path, MutableMapping):
-                self._validate_object_store(save_path)
-            else:
-                self._validate_path('.zarr', save_path)
+            self._validate_path('.zarr', save_path)
         else:
             raise ValueError('Unknown type to convert file to!')
+        
 
         # Get all existing files
         exist_list = []
-        fs = fsspec.get_mapper(self.output_file[0]).fs  # get file system
+        fs = fsspec.get_mapper(self.output_file[0], **self._output_storage_options).fs  # get file system
         for out_f in self.output_file:
-            if isinstance(out_f, MutableMapping):  # output is remote
-                if fs.exists(out_f.root):
-                    exist_list.append(out_f)
-            else:  # output is local
-                if fs.exists(out_f):
-                    exist_list.append(out_f)
+            if fs.exists(out_f):
+                exist_list.append(out_f)
 
         # Sequential or parallel conversion
         if not parallel:
@@ -547,11 +569,14 @@ class Convert:
                         print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
                     else:
                         print(f"{dt.now().strftime('%H:%M:%S')}  converting {out_f}")
-                    self._convert_indiv_file(file=src_f, output_path=out_f, engine=convert_type)
+                    self._convert_indiv_file(
+                        file=src_f,
+                        output_path=self._normalize_path(out_f, convert_type),
+                        engine=convert_type
+                    )
         else:
             # TODO: add parallel conversion
-            print('Parallel conversion is not yet implemented. Use parallel=False.')
-            return
+            raise NotImplementedError('Parallel conversion is not yet implemented. Use parallel=False.')
 
         # Combine files if needed
         if self.combine:
@@ -566,9 +591,59 @@ class Convert:
             self.output_file = self.output_file[0]
 
     def to_netcdf(self, **kwargs):
+        """Convert a file or a list of files to netCDF.
+
+        Parameters
+        ----------
+        save_path : str
+            path that converted .nc file will be saved
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
+            select specific datagrams to save (EK60 and EK80 only)
+            Defaults to ``ALL``
+        compress : bool
+            whether or not to perform compression on data variables
+            Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
+        overwrite : bool
+            whether or not to overwrite existing files
+            Defaults to ``False``
+        parallel : bool
+            whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
+        """
         return self._to_file('netcdf4', **kwargs)
 
     def to_zarr(self, **kwargs):
+        """Convert a file or a list of files to zarr.
+
+        Parameters
+        ----------
+        save_path : str
+            path that converted .nc file will be saved
+        data_type : str {'ALL', 'GPS', 'CONFIG', 'ENV'}
+            select specific datagrams to save (EK60 and EK80 only)
+            Defaults to ``ALL``
+        compress : bool
+            whether or not to perform compression on data variables
+            Defaults to ``True``
+        combine : bool
+            whether or not to combine all converted individual files into one file
+            Defaults to ``False``
+        overwrite : bool
+            whether or not to overwrite existing files
+            Defaults to ``False``
+        parallel : bool
+            whether or not to use parallel processing. (Not yet implemented)
+        extra_platform_data : Dataset
+            The dataset containing the platform information to be added to the output
+        storage_options : dict
+            Additional keywords to pass to the filesystem class.
+        """
         return self._to_file('zarr', **kwargs)
 
     def to_xml(self, save_path=None, data_type='CONFIG'):
