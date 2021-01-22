@@ -1,6 +1,5 @@
 import os
 
-from numpy.core.numeric import NaN
 import xarray as xr
 import numpy as np
 
