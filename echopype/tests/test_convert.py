@@ -1,11 +1,45 @@
 import os
 import glob
 import fsspec
-import shutil
 import xarray as xr
 import pytest
 from pathlib import Path
 from ..convert import Convert
+
+
+def _check_file_group(data_file, engine, groups):
+    for g in groups:
+        ds = xr.open_dataset(data_file, engine=engine, group=g)
+
+        assert isinstance(ds, xr.Dataset) is True
+
+
+def _check_output_files(engine, output_files, storage_options):
+    groups = [
+        'Provenance',
+        'Environment',
+        'Beam',
+        'Sonar',
+        'Vendor',
+        'Platform',
+    ]
+    if isinstance(output_files, list):
+        fs = fsspec.get_mapper(output_files[0], **storage_options).fs
+        for f in output_files:
+            if engine == 'zarr':
+                _check_file_group(fs.get_mapper(f), engine, groups)
+                fs.delete(f, recursive=True)
+            else:
+                _check_file_group(f, engine, groups)
+                fs.delete(f)
+    else:
+        fs = fsspec.get_mapper(output_files, **storage_options).fs
+        if engine == 'zarr':
+            _check_file_group(fs.get_mapper(output_files), engine, groups)
+            fs.delete(output_files, recursive=True)
+        else:
+            _check_file_group(output_files, engine, groups)
+            fs.delete(output_files)
 
 
 @pytest.fixture(scope="session")
@@ -300,43 +334,79 @@ def test_convert_ek60(
     _check_output_files(export_engine, ec.output_file, output_storage_options)
 
 
-def _check_output_files(engine, output_files, storage_options):
-    groups = [
-        'Provenance',
-        'Environment',
-        'Beam',
-        'Sonar',
-        'Vendor',
-        'Platform',
-    ]
-    if isinstance(output_files, list):
-        fs = fsspec.get_mapper(output_files[0], **storage_options).fs
-        for f in output_files:
-            if engine == 'zarr':
-                _check_file_group(
-                    fs.get_mapper(f), engine, groups
-                )
-                fs.delete(f, recursive=True)
-            else:
-                _check_file_group(f, engine, groups)
-                fs.delete(f)
-    else:
-        fs = fsspec.get_mapper(output_files, **storage_options).fs
-        if engine == 'zarr':
-            _check_file_group(
-                fs.get_mapper(output_files), engine, groups
-            )
-            fs.delete(output_files, recursive=True)
-        else:
-            _check_file_group(output_files, engine, groups)
-            fs.delete(output_files)
+@pytest.mark.parametrize("model", ["azfp"])
+@pytest.mark.parametrize(
+    "input_path",
+    [
+        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A",
+    ],
+)
+@pytest.mark.parametrize(
+    "xml_path",
+    [
+        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML",
+    ],
+)
+@pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
+@pytest.mark.parametrize(
+    "output_save_path",
+    [
+        None,
+        "./echopype/test_data/dump/",
+        "./echopype/test_data/dump/tmp.zarr",
+        "./echopype/test_data/dump/tmp.nc",
+        "s3://ooi-raw-data/dump/",
+        "s3://ooi-raw-data/dump/tmp.zarr",
+        "s3://ooi-raw-data/dump/tmp.nc",
+    ],
+)
+@pytest.mark.parametrize("combine_files", [False])
+def test_convert_azfp(
+    model,
+    input_path,
+    xml_path,
+    export_engine,
+    output_save_path,
+    combine_files,
+    minio_bucket,
+):
+    output_storage_options = {}
+    ipath = input_path
+    if isinstance(input_path, list):
+        ipath = input_path[0]
 
+    input_storage_options = {'anon': True} if ipath.startswith('s3://') else {}
+    if output_save_path and output_save_path.startswith('s3://'):
+        output_storage_options = dict(
+            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
+            key='minioadmin',
+            secret='minioadmin',
+        )
 
-def _check_file_group(data_file, engine, groups):
-    for g in groups:
-        ds = xr.open_dataset(data_file, engine=engine, group=g)
+    ec = Convert(
+        file=input_path,
+        xml_path=xml_path,
+        model=model,
+        storage_options=input_storage_options,
+    )
 
-        assert isinstance(ds, xr.Dataset) is True
+    assert ec.xml_path == xml_path
+
+    if (
+        export_engine == 'netcdf4'
+        and output_save_path is not None
+        and output_save_path.startswith('s3://')
+    ):
+        return
+    ec._to_file(
+        convert_type=export_engine,
+        save_path=output_save_path,
+        overwrite=True,
+        combine=combine_files,
+        storage_options=output_storage_options,
+    )
+
+    _check_output_files(export_engine, ec.output_file, output_storage_options)
 
 
 # def _converted_group_checker(engine, out_file, multiple_files):
@@ -382,48 +452,6 @@ def _check_file_group(data_file, engine, groups):
 #         os.unlink(out_file)
 #     else:
 #         shutil.rmtree(out_file)
-
-
-# @pytest.mark.skip()
-# @pytest.mark.parametrize("model", ["AZFP"])
-# @pytest.mark.parametrize(
-#     "file",
-#     [
-#         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A"
-#     ],
-# )
-# @pytest.mark.parametrize(
-#     "xml_path",
-#     [
-#         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML"
-#     ],
-# )
-# @pytest.mark.parametrize("storage_options", [{'anon': True}])
-# @pytest.mark.parametrize("export_engine", ["netcdf4", "zarr"])
-# def test_convert_azfp(model, file, xml_path, storage_options, export_engine):
-#     if isinstance(file, str):
-#         multiple_files = False
-#         if not file.startswith("s3://"):
-#             storage_options = {}
-#     else:
-#         multiple_files = True
-#         if not file[0].startswith("s3://"):
-#             storage_options = {}
-
-#     ec = Convert(
-#         file=file,
-#         model=model,
-#         xml_path=xml_path,
-#         storage_options=storage_options,
-#     )
-
-#     if multiple_files:
-#         assert sorted(ec.source_file) == sorted(file)
-#     else:
-#         assert ec.source_file[0] == file
-#     assert ec.xml_path == xml_path
-
-#     _file_export_checks(ec, model, export_engine, multiple_files)
 
 
 # @pytest.mark.skip()
