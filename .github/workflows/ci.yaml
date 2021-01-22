@@ -1,0 +1,74 @@
+name: Test CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+      - class-redesign
+
+env:
+  CONDA_ENV: echopype
+
+jobs:
+  test:
+    name: ${{ matrix.python-version }}-build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+    services:
+      minio:
+        image: cormorack/minioci
+        ports:
+          - 9000:9000
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: Get cache key of git-lfs files
+        id: git-lfs
+        run: echo "::set-output name=sha256::$(git lfs ls-files | openssl dgst -sha256)"
+      - name: Cache lfs
+        uses: actions/cache@v2
+        with:
+          path: .git/lfs
+          key: ${{ steps.git-lfs.outputs.sha256 }}
+      - name: Cache conda
+        uses: actions/cache@v2
+        env:
+          # Increase this value to reset cache if .ci_helpers/py${{ matrix.python-version }}.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('.ci_helpers/py${{ matrix.python-version }}.yml') }}
+      - name: setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: ${{ env.CONDA_ENV }}
+          environment-file: .ci_helpers/py${{ matrix.python-version }}.yml
+          python-version: ${{ matrix.python-version }}
+          auto-activate-base: false
+          use-only-tar-bz2: true
+      - name: print conda env
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+      - name: install dev tools
+        shell: bash -l {0}
+        run: |
+          conda install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+      - name: install echopype
+        shell: bash -l {0}
+        run: |
+          python -m pip install -e .
+      - name: Running Convert Tests
+        shell: bash -l {0}
+        run: |
+          python -m pytest --log-cli-level=WARNING --verbose echopype/tests/test_convert.py

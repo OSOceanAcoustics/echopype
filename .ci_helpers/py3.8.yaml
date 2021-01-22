@@ -1,0 +1,18 @@
+name: echopype
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - dask
+  - matplotlib
+  - netCDF4==1.5.5
+  - numpy
+  - pynmea2
+  - pytz
+  - scipy
+  - xarray==0.16.2
+  - zarr
+  - fsspec>=0.8
+  - requests
+  - aiohttp
+  - s3fs==0.5.2
