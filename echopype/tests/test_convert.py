@@ -52,6 +52,17 @@ def _check_output_files(engine, output_files, storage_options):
             fs.delete(output_files)
 
 
+def _download_file(source_url, target_url):
+    fs = fsspec.filesystem('file')
+    if not fs.exists(os.path.dirname(target_url)):
+        fs.mkdir(os.path.dirname(target_url))
+
+    if not fs.exists(target_url):
+        with fsspec.open(source_url, mode="rb") as source:
+            with fs.open(target_url, mode="wb") as target:
+                target.write(source.read())
+
+
 @pytest.fixture(scope="session")
 def minio_bucket():
     bucket_name = 'ooi-raw-data'
@@ -65,6 +76,38 @@ def minio_bucket():
     )
     if not fs.exists(bucket_name):
         fs.mkdir(bucket_name)
+
+
+@pytest.fixture(scope="session")
+def download_files():
+    ek60_source = 'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw'
+    ek80_source = 'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw'
+    azfp_source = 'https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A'
+    azfp_xml_source = 'https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML'
+
+    ek60_path = os.path.join(
+        './echopype/test_data/ek60/ncei-wcsd',
+        os.path.basename(ek60_source),
+    )
+    ek80_path = os.path.join(
+        './echopype/test_data/ek80/ncei-wcsd',
+        os.path.basename(ek80_source),
+    )
+    azfp_path = os.path.join(
+        './echopype/test_data/azfp/ooi', os.path.basename(azfp_source)
+    )
+    azfp_xml_path = os.path.join(
+        './echopype/test_data/azfp/ooi', os.path.basename(azfp_xml_source)
+    )
+    download_paths = [
+        (ek60_source, ek60_path),
+        (ek80_source, ek80_path),
+        (azfp_source, azfp_path),
+        (azfp_xml_source, azfp_xml_path),
+    ]
+
+    for p in download_paths:
+        _download_file(*p)
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -309,6 +352,7 @@ def test_convert_ek60(
     output_save_path,
     combine_files,
     minio_bucket,
+    download_files,
 ):
     output_storage_options = {}
     ipath = input_path
@@ -348,12 +392,14 @@ def test_convert_ek60(
 @pytest.mark.parametrize(
     "input_path",
     [
+        "./echopype/test_data/azfp/ooi/17032923.01A",
         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A",
     ],
 )
 @pytest.mark.parametrize(
     "xml_path",
     [
+        "./echopype/test_data/azfp/ooi/17032922.XML",
         "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML",
     ],
 )
@@ -379,6 +425,7 @@ def test_convert_azfp(
     output_save_path,
     combine_files,
     minio_bucket,
+    download_files,
 ):
     output_storage_options = {}
     ipath = input_path
@@ -449,6 +496,7 @@ def test_convert_ek80(
     output_save_path,
     combine_files,
     minio_bucket,
+    download_files,
 ):
     output_storage_options = {}
     ipath = input_path
