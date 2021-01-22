@@ -10,10 +10,10 @@ from .set_groups_base import SetGroupsBase
 class SetGroupsAd2cp(SetGroupsBase):
     def write(self, ds: xr.Dataset, group: str):
         # TODO: when to use "w" or "a"?
-        if self.overwrite:
-            mode = "w"
-        else:
+        if os.path.exists(self.output_path):
             mode = "a"
+        else:
+            mode = "w"
         ds.to_netcdf(path=self.output_path, mode=mode, group=group)
 
     def save(self):
