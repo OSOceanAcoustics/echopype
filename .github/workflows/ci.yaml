@@ -42,11 +42,11 @@ jobs:
       - name: Cache conda
         uses: actions/cache@v2
         env:
-          # Increase this value to reset cache if .ci_helpers/py${{ matrix.python-version }}.yml has not changed
+          # Increase this value to reset cache if .ci_helpers/py${{ matrix.python-version }}.yaml has not changed
           CACHE_NUMBER: 0
         with:
           path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('.ci_helpers/py${{ matrix.python-version }}.yml') }}
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('.ci_helpers/py${{ matrix.python-version }}.yaml') }}
       - name: setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
