@@ -32,7 +32,7 @@ def test_cw():
     tmp.to_netcdf()
 
     # Perform angle and power tests. Only 3 pings are tested in order to reduce the size of test datasets
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         # Angle test data was originally exported from EchoView as 1 csv file for each frequency.
         # These files were combined and 3 pings were taken and saved as a single small csv file.
         df = pd.read_csv(angle_test_path, compression='gzip')
@@ -67,7 +67,7 @@ def test_cw():
             assert np.allclose(test_power, power[i].dropna('range_bin'))
 
     # Remove generated files
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_bb():
@@ -79,7 +79,7 @@ def test_bb():
     bb_test_df = pd.read_csv(bb_power_test_path, header=None, skiprows=[0])
     bb_test_df_r = bb_test_df.iloc[::2, 14:]
     bb_test_df_i = bb_test_df.iloc[1::2, 14:]
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
         backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean(axis=2)
         backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean(axis=2)
@@ -87,54 +87,51 @@ def test_bb():
         assert np.allclose(backscatter_i, bb_test_df_i)
 
     # Remove generated files
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_cw_bb():
     # Test converting file that contains both cw and bb channels
 
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_netcdf()
+    tmp.to_netcdf(compress=False)
 
-    cw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113_cw.nc'
     nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    assert os.path.exists(cw_path)
     assert os.path.exists(nc_path)
-    os.remove(cw_path)
     os.remove(nc_path)
 
 
 def test_freq_subset():
     # Test converting file with multiple frequencies that do not record power data
     tmp = Convert(file=raw_path_2_f, model='EK80')
-    tmp.to_netcdf()
+    tmp.to_netcdf(compress=False)
     # Check if parsed output has the correct shape
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         assert ds_beam.backscatter_r.shape == (2, 2, 191327, 4)
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_xml():
     # Tests the exporting of the configuration xml as well as the environment xml
     tmp = Convert(file=raw_path_bb_cw, model='EK80')
     tmp.to_xml(data_type='CONFIG')
-    assert os.path.exists(tmp.output_path)
-    os.remove(tmp.output_path)
+    assert os.path.exists(tmp.output_file)
+    os.remove(tmp.output_file)
 
     tmp.to_xml(save_path='env.xml', data_type='ENV')
-    assert os.path.exists(tmp.output_path)
-    os.remove(tmp.output_path)
+    assert os.path.exists(tmp.output_file)
+    os.remove(tmp.output_file)
 
 
 def test_EA640():
     # Test converting file in the EA640 format (similar structure to EK80)
     tmp = Convert(file=raw_path_EA640, model='EA640')
     tmp.to_netcdf()
-    assert os.path.exists(tmp.output_path)
-    os.remove(tmp.output_path)
+    assert os.path.exists(tmp.output_file)
+    os.remove(tmp.output_file)
     tmp.to_xml()
-    assert os.path.exists(tmp.output_path)
-    os.remove(tmp.output_path)
+    assert os.path.exists(tmp.output_file)
+    os.remove(tmp.output_file)
 
 
 def test_add_platform():
@@ -150,7 +147,7 @@ def test_add_platform():
                             coords={'location_time': (['location_time'], location_time)})
     tmp = Convert(file=raw_path_cw, model='EK80')
     tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
-    with xr.open_dataset(tmp.output_path, group='Platform') as ds_plat:
+    with xr.open_dataset(tmp.output_file, group='Platform') as ds_plat:
         # Test if the slicing the location_time with the ping_time worked
         assert len(ds_plat.location_time) == 3
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)

@@ -29,7 +29,7 @@ def test_process_AZFP_matlab():
     tmp_convert = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     tmp_convert.to_netcdf(overwrite=False)
 
-    ed = EchoData(raw_path=tmp_convert.output_path)
+    ed = EchoData(raw_path=tmp_convert.output_file)
     proc = Process(model='AZFP', ed=ed)
     # Matlab uses averaged temperature
     proc.env_params['water_temperature'] = proc.env_params['water_temperature'].mean('ping_time')
@@ -51,7 +51,7 @@ def test_process_AZFP_matlab():
     Sv_test.close()
     Sp_test.close()
     ed.close()
-    os.remove(tmp_convert.output_path)
+    os.remove(tmp_convert.output_file)
     os.remove(ed.Sv_path)
     os.remove(ed.Sp_path)
     os.remove(ed.Sv_clean_path)
@@ -66,7 +66,7 @@ def test_multiple_raw():
     tmp = Convert(file=azfp_multi_paths[1:5], model='AZFP', xml_path=azfp_multi_paths[0])
     tmp.to_netcdf(save_path=export_folder)
 
-    ed = EchoData(raw_path=tmp.output_path)
+    ed = EchoData(raw_path=tmp.output_file)
     proc = Process(model='AZFP', ed=ed)
     proc.get_Sv(ed, save=True, save_format='netcdf4')
 
