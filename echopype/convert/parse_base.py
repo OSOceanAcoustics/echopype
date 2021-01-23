@@ -6,7 +6,6 @@ import numpy as np
 import os
 
 FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw'
-NMEA_GPS_SENTENCE = 'GGA'
 
 
 class ParseBase:
@@ -15,7 +14,6 @@ class ParseBase:
     def __init__(self, file, storage_options):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = None  # select GPS datagram in _set_platform_dict()
         self.ping_time = []            # list to store ping time
         self.storage_options = storage_options
 
@@ -32,7 +30,6 @@ class ParseEK(ParseBase):
 
         # Parent class attributes
         self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
-        self.nmea_gps_sentence = NMEA_GPS_SENTENCE  # select GPS datagram in _set_platform_dict()
 
         # Class attributes
         self.config_datagram = None
@@ -51,7 +48,7 @@ class ParseEK(ParseBase):
 
     def _print_status(self):
         time = self.config_datagram['timestamp'].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
-        print(f"{dt.now().strftime('%H:%M:%S')} converting file {os.path.basename(self.source_file)}, "
+        print(f"{dt.now().strftime('%H:%M:%S')}  parsing file {os.path.basename(self.source_file)}, "
               f"time of first ping: {time}")
 
     def parse_raw(self):
@@ -105,7 +102,7 @@ class ParseEK(ParseBase):
                     if all(x is None for x in v):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
-                        # Sort bb and cw channels
+                        # Sort complex and power/angle channels
                         self.ch_ids[data_type].append(k)
                         self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
                         if data_type == 'power':
@@ -276,12 +273,12 @@ class ParseEK(ParseBase):
         """Append ping by ping data.
         """
         # TODO: do a thorough check with the convention and processing
-        unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
-                   'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
+        # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
+        #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram['channel_id'] if 'channel_id' in datagram else datagram['channel']
         for k, v in datagram.items():
-            if k not in unsaved:
-                self.ping_data_dict[k][ch_id].append(v)
+            # if k not in unsaved:
+            self.ping_data_dict[k][ch_id].append(v)
 
     @staticmethod
     def pad_shorter_ping(data_list) -> np.ndarray:
