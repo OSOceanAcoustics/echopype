@@ -31,7 +31,7 @@ def test_convert_matlab():
     tmp.to_netcdf()
 
     # Read .nc file into an xarray DataArray
-    ds_beam = xr.open_dataset(tmp.output_path, group='Beam')
+    ds_beam = xr.open_dataset(tmp.output_file, group='Beam')
 
     # Test dataset was created by exporting values from MATLAB EK60 parsing code
     with xr.open_dataset(test_path) as ds_test:
@@ -44,7 +44,7 @@ def test_convert_matlab():
         assert np.allclose(ds_test.alongship, alongship)        # Identical to MATLAB output to 1e-7
 
     ds_beam.close()
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
     del tmp
 
 
@@ -57,13 +57,13 @@ def test_convert_power_echoview():
     for file in csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_power = np.stack(channels)
-    with xr.open_dataset(tmp.output_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         assert np.allclose(
             test_power,
             ds_beam.backscatter_r.isel(ping_time=slice(None, 10), range_bin=slice(1, None)),
             atol=1e-10)
 
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
 
 
 def test_convert_zarr():
@@ -71,11 +71,11 @@ def test_convert_zarr():
     tmp = Convert(file=raw_path, model='EK60')
     tmp.to_zarr()
 
-    ds_beam = xr.open_zarr(tmp.output_path, group='Beam')
+    ds_beam = xr.open_zarr(tmp.output_file, group='Beam')
     with xr.open_dataset(test_path) as ds_test:
         assert np.allclose(ds_test.power, ds_beam.backscatter_r)
 
-    shutil.rmtree(tmp.output_path, ignore_errors=True)    # Delete non-empty folder
+    shutil.rmtree(tmp.output_file, ignore_errors=True)    # Delete non-empty folder
 
 
 @pytest.mark.skip(reason='Too many raw files needed')
@@ -90,7 +90,7 @@ def test_combine():
     # Test combining after converting
     tmp = Convert(file=raw_paths[4:8], model='EK60')
     tmp.to_netcdf(save_path=export_folder, overwrite=True)
-    tmp.combine_files(tmp.output_path)
+    tmp.combine_files(tmp.output_file, remove_indiv=False)
 
     shutil.rmtree(export_folder)
 
