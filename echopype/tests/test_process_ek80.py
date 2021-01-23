@@ -19,12 +19,12 @@ def test_broadband_calibration():
     tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
-    ed = EchoData(raw_path=tmp.output_path)
+    ed = EchoData(raw_path=tmp.output_file)
     proc = Process(model='EK80', ed=ed)
     proc.calibrate(ed, save=True, save_format='netcdf4')
 
     ed.close()
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
     os.remove(ed.Sv_path)
 
 
@@ -33,11 +33,11 @@ def test_narrowband_calibration():
     tmp = Convert(file=ek80_cw_path, model='EK80')
     tmp.to_netcdf()
 
-    ed = EchoData(raw_path=tmp.output_path)
+    ed = EchoData(raw_path=tmp.output_file)
     proc = Process(model='EK80', ed=ed)
     proc.get_Sv(ed, save=True)
     proc.remove_noise(ed)
 
     ed.close()
     shutil.rmtree(ed.Sv_path)
-    os.remove(tmp.output_path)
+    os.remove(tmp.output_file)
