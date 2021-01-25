@@ -59,11 +59,11 @@ class EchoData:
             setattr(self, '_' + attr + '_path', None)
             files = eval(attr + '_path')
             files = [files] if isinstance(files, str) else files
-            setattr(self, attr + '_path', files)
-
             # Set the file format
             if self._file_format is None and files is not None:
                 self._file_format = io.get_file_format(files[0])
+            # Sets pointer to filepath and lazy load data
+            setattr(self, attr + '_path', files)
 
         self._sonar_model = None
         self.range = None
