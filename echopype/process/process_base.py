@@ -6,12 +6,17 @@ from ..utils import uwa
 from ..utils import io
 
 
+# TODO: separate out calibration in its own clas since once we get to Sv
+#  the processing is uniform across all sonar models
+
+
 class ProcessBase:
     """Class for processing sonar data.
     """
     def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
 
+    # TODO: update this using the latest corresponding methods in convert
     def validate_proc_path(self, ed, postfix, save_path=None, save_format='zarr'):
         """Creates a directory if it doesn't exist. Returns a valid save path.
         """
@@ -95,6 +100,7 @@ class ProcessBase:
         ed : EchoDataBase
         """
 
+    # TODO: can remove if we rearrange dimension in calc_range
     def _restructure_range(self, ed, ranges=None):
         """Expands the range to include a ping_time dimension if it does not have one. (Uses first raw ping_time)
         Reorders dimensions so that ranges has dimensions [frequency x ping_time x range_bin]
@@ -260,33 +266,39 @@ class ProcessEK(ProcessBase):
     def __init__(self, model=None):
         super().__init__(model)
 
-    def calc_cal_correction(self, ed, param='sa_correction'):
-        """ Calculate the sa correction from the sa correction table and the pulse length.
-        For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
+    @staticmethod
+    def get_power_cal_params(ed, param='sa_correction'):
+        """Get calibration parameters for power/angle data.
         """
+        # TODO: need to test with EK80 power/angle data
+        #  currently this has only been tested with EK60 data
         ds_vend = ed.get_vend_from_raw()
 
         if param not in ds_vend:
             return None
 
-        if param == 'sa_correction':
-            correction_table = ds_vend.sa_correction
-        elif param == 'gain_correction':
-            correction_table = ds_vend.gain_correction
-        else:
+        if param not in ['sa_correction', 'gain_correction']:
             raise ValueError(f"Unknown parameter {param}")
 
-        pulse_length_table = ds_vend.pulse_length
-        unique_pulse_length = np.unique(ed.raw.transmit_duration_nominal, axis=1).squeeze()
+        # Drop NaN ping_time for transmit_duration_nominal
+        if np.any(np.isnan(ed.raw['transmit_duration_nominal'])):
+            # TODO: resolve performance warning:
+            #  /Users/wu-jung/miniconda3/envs/echopype_jan2021/lib/python3.8/site-packages/xarray/core/indexing.py:1369:
+            #  PerformanceWarning: Slicing is producing a large chunk. To accept the large
+            #  chunk and silence this warning, set the option
+            #      >>> with dask.config.set(**{'array.slicing.split_large_chunks': False}):
+            #      ...     array[indexer]
+            #  To avoid creating the large chunks, set the option
+            #      >>> with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+            #      ...     array[indexer]
+            #    return self.array[key]
+            ed.raw = ed.raw.dropna(dim='ping_time', how='any', subset=['transmit_duration_nominal'])
 
-        if unique_pulse_length.size != ds_vend.frequency.size:
-            raise ValueError("Pulse length changes over time")
-        idx = [np.argwhere(np.isclose(unique_pulse_length[i], pulse_length_table[i])).squeeze()
-               for i in range(pulse_length_table.shape[0])]
+        # Find index with correct pulse length
+        unique_pulse_length = np.unique(ed.raw['transmit_duration_nominal'], axis=1)
+        idx_wanted = np.abs(ds_vend['pulse_length'] - unique_pulse_length).argmin(dim='pulse_length_bin')
 
-        correction = np.array([ch[x] for ch, x in zip(correction_table, np.array(idx))])
-
-        return xr.DataArray(correction, dims='frequency').assign_coords(frequency=correction_table.frequency)
+        return ds_vend.sa_correction.sel(pulse_length_bin=idx_wanted).drop('pulse_length_bin')
 
     def calc_sample_thickness(self, ed, env_params, cal_params):
         """Calculate sample thickness.
@@ -298,7 +310,7 @@ class ProcessEK(ProcessBase):
         """Calibrate narrowband data from EK60 and EK80.
         """
         # Derived params
-        wavelength = env_params['speed_of_sound_in_water'] / ed.raw.frequency  # wavelength
+        wavelength = env_params['speed_of_sound_in_water'] / ed.raw['frequency']  # wavelength
         if ed.range is None:
             ed.range = self.calc_range(ed, env_params, cal_params)
 
@@ -317,12 +329,12 @@ class ProcessEK(ProcessBase):
                                    / (32 * np.pi**2)))
 
             # Calibration and echo integration
-            Sv = ed.raw.backscatter_r + spreading_loss + absorption_loss - CSv - 2 * cal_params['sa_correction']
+            Sv = ed.raw['backscatter_r'] + spreading_loss + absorption_loss - CSv - 2 * cal_params['sa_correction']
             Sv.name = 'Sv'
             Sv = Sv.to_dataset()
 
-            # Attach calculated range into data set
-            Sv['range'] = (('frequency', 'ping_time', 'range_bin'), self._restructure_range(ed))
+            # Attach calculated range (with units meter) into data set
+            Sv = Sv.merge(ed.range)
 
             # Save Sv into the calling instance and
             #  to a separate zarr/nc file in the same directory as the data file
