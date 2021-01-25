@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from ..utils import uwa
 from ..utils import io
-
+from ..convert.set_groups_base import DEFAULT_CHUNK_SIZE
 
 class ProcessBase:
     """Class for processing sonar data.
@@ -330,7 +330,8 @@ class ProcessEK(ProcessBase):
                 # Update pointer in EchoData
                 Sv_path = self.validate_proc_path(ed, '_Sv', save_path, save_format)
                 print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sv to {Sv_path}")
-                io.save_file(Sv, Sv_path, mode="w", engine=save_format)
+                io.save_file(Sv.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                             Sv_path, mode="w", engine=save_format)
                 ed.Sv_path = Sv_path
             else:
                 ed.Sv = Sv
@@ -355,7 +356,8 @@ class ProcessEK(ProcessBase):
                 # Update pointer in EchoData
                 Sp_path = self.validate_proc_path(ed, '_Sp', save_path, save_format)
                 print(f"{dt.now().strftime('%H:%M:%S')}  saving calibrated Sp to {Sp_path}")
-                io.save_file(Sp, Sp_path, mode="w", engine=save_format)
+                io.save_file(Sp.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+                             Sp_path, mode="w", engine=save_format)
                 ed.Sp_path = Sp_path
             else:
                 ed.Sp = Sp
