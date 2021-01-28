@@ -1,30 +1,30 @@
 import numpy as np
-from ..process.echodata_new import EchoDataNew
+import xarray as xr
 from ..utils import uwa
+
+ENV_PARAMS = (
+    'temperature', 'salinity', 'pressure',
+    'sound_speed', 'sound_absorption'
+)
+
+CAL_PARAMS = {
+    'EK': ('sa_correction', 'gain_correction', 'equivalent_beam_angle'),
+    'AZFP': ('EL', 'DS', 'TVR', 'VTX', 'equivalent_beam_angle', 'Sv_offset')
+}
 
 
 class CalibrateBase:
     """Class to handle calibration for all sonar models.
     """
 
-    ENV_PARAMS = (
-        'temperature', 'salinity', 'pressure',
-        'sound_speed', 'sound_absorption'
-    )
-
     def __init__(self, echodata, range_meter=None):
-        """
-
-        Parameters
-        ----------
-        echodata : EchoDataNew
-        """
         self.sonar_model = None
         self._range_meter = range_meter
 
         self.echodata = echodata
 
-        self.env_params = dict.fromkeys(self.ENV_PARAMS)
+        # initialize all env params to None
+        self.env_params = dict.fromkeys(ENV_PARAMS)
 
     @property
     def range_meter(self):
@@ -54,22 +54,17 @@ class CalibrateBase:
     def get_Sv(self):
         pass
 
-    # def calc_sound_speed(self):
-    #     pass
-    #
-    # def calc_sound_absorption(self):
-    #     pass
+    def get_Sp(self):
+        pass
 
 
 class CalibrateEK(CalibrateBase):
-
-    CAL_PARAMS = ('sa_correction', 'gain_correction', 'equivalent_beam_angle')
 
     def __init__(self, echodata):
         super().__init__(echodata)
 
         # cal params specific to EK echosounders
-        self.cal_params = dict.fromkeys(self.CAL_PARAMS)
+        self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
 
     def _get_vend_power_cal_params(self, param):
         """Get cal parameters stored in the Vendor group.
@@ -187,28 +182,33 @@ class CalibrateEK60(CalibrateEK):
     def get_env_params(self, env_params):
         """Set env params using user inputs or values from data file.
 
-        In cases when temperature, salinity, and pressure values are input by the user simultaneously,
-        the sound speed and absorption are re-calculated.
+        EK60 file by default contains only sound speed and absorption.
+        In cases when temperature, salinity, and pressure values are supplied
+        by the user simultaneously, the sound speed and absorption are re-calculated.
 
         Parameters
         ----------
         env_params : dict
         """
-        # Re-calculate environment parameters if user passes in CTD values
+        # Re-calculate environment parameters if user supply all env variables
         if ('temperature' in env_params) and ('salinity' in env_params) and ('pressure' in env_params):
-            self.env_params['sound_speed'] = uwa.calc_sound_speed(env_params['temperature'],
-                                                                  env_params['salinity'],
-                                                                  env_params['pressure'])
+            for p in ['temperature', 'salinity', 'pressure']:
+                self.env_params[p] = env_params[p]
+            self.env_params['sound_speed'] = uwa.calc_sound_speed(self.env_params['temperature'],
+                                                                  self.env_params['salinity'],
+                                                                  self.env_params['pressure'])
             self.env_params['sound_absorption'] = uwa.calc_absorption(self.echodata.raw_beam['frequency'],
-                                                                      env_params['temperature'],
-                                                                      env_params['salinity'],
-                                                                      env_params['pressure'])
+                                                                      self.env_params['temperature'],
+                                                                      self.env_params['salinity'],
+                                                                      self.env_params['pressure'])
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
-            self.env_params['sound_speed'] = env_params.get('sound_speed',
-                                                            self.echodata.raw_env['sound_speed_indicative'])
-            self.env_params['sound_absorption'] = env_params.get('absorption',
-                                                                 self.echodata.raw_env['absorption_indicative'])
+            self.env_params['sound_speed'] = (env_params['sound_speed']
+                                              if 'sound_speed' in env_params
+                                              else self.echodata.raw_env['sound_speed_indicative'])
+            self.env_params['sound_absorption'] = (env_params['sound_absorption']
+                                                   if 'sound_absorption' in env_params
+                                                   else self.echodata.raw_env['absorption_indicative'])
 
     def get_cal_params(self, cal_params):
         """Set cal params using user inputs or values from data file.
@@ -217,12 +217,16 @@ class CalibrateEK60(CalibrateEK):
         ----------
         cal_params : dict
         """
-        self.cal_params['sa_correction'] = cal_params.get('sa_correction',
-                                                          self._get_vend_power_cal_params('sa_correction'))
-        self.cal_params['gain_correction'] = cal_params.get('gain_correction',
-                                                            self._get_vend_power_cal_params('gain_correction'))
-        self.cal_params['equivalent_beam_angle'] = cal_params.get('equivalent_beam_angle',
-                                                                  self.echodata.raw_beam['gain_correction'])
+        # Params from the Vendor group
+        params_from_vend = ['sa_correction', 'gain_correction']
+        for p in params_from_vend:
+            # substitute if None in user input
+            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.raw_vend[p]
+
+        # Other params
+        self.cal_params['equivalent_beam_angle'] = (cal_params['equivalent_beam_angle']
+                                                    if 'equivalent_beam_angle' in cal_params
+                                                    else self.echodata.raw_beam['equivalent_beam_angle'])
 
     def get_Sv(self):
         return self._cal_power(cal_type='Sv')
@@ -236,4 +240,129 @@ class CalibrateAZFP(CalibrateBase):
     def __init__(self, echodata):
         super().__init__(echodata)
 
-    # def get_Sv(self):
+        # cal params specific to AZFP
+        self.cal_params = dict.fromkeys(CAL_PARAMS['AZFP'])
+
+    def get_cal_params(self, cal_params):
+        """Set cal params using user inputs or values from data file.
+
+        Parameters
+        ----------
+        cal_params : dict
+        """
+        # Params from the Vendor group
+        params_from_vend = ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset']
+        for p in params_from_vend:
+            # substitute if None in user input
+            self.cal_params[p] = cal_params[p] if cal_params[p] else self.echodata.raw_vend[p]
+
+        # Other params
+        self.cal_params['equivalent_beam_angle'] = (cal_params['equivalent_beam_angle']
+                                                    if cal_params['equivalent_beam_angle']
+                                                    else self.echodata.raw_beam['equivalent_beam_angle'])
+
+    def get_env_params(self, env_params):
+        """Set cal params using user inputs or values from data file.
+
+        Parameters
+        ----------
+        env_params : dict
+        """
+        # Temperature comes from either user input or data file
+        self.env_params['temperature'] = (env_params['temperature']
+                                          if env_params['temperature']
+                                          else self.echodata.raw_env['temperature'])
+
+        # Salinity and pressure always come from user input
+        if (not env_params['salinity']) or (not env_params['pressure']):
+            raise ReferenceError('Please supply both salinity and pressure in env_params.')
+        else:
+            self.env_params['salinity'] = env_params['salinity']
+            self.env_params['pressure'] = env_params['pressure']
+
+        # Always calculate sound speed and absorption
+        self.env_params['sound_speed'] = uwa.calc_sound_speed(self.env_params['temperature'],
+                                                              self.env_params['salinity'],
+                                                              self.env_params['pressure'])
+        self.env_params['sound_absorption'] = uwa.calc_absorption(self.echodata.raw_beam['frequency'],
+                                                                  self.env_params['temperature'],
+                                                                  self.env_params['salinity'],
+                                                                  self.env_params['pressure'])
+
+    def calc_range_meter(self):
+        """Calculate range in meter using AZFP formula.
+        """
+        # TODO: double check the implementation below against reference manual
+        # TODO: make sure the dimensions work out
+
+        range_samples = self.echodata.raw_vend['number_of_samples_per_average_bin']
+        dig_rate = self.echodata.raw_vend['digitization_rate']
+        lockout_index = self.echodata.raw_vend['lockout_index']
+        sound_speed = self.env_params['sound_speed']
+        bins_to_avg = 1   # keep this in ref of AZFP matlab code, set to 1 since we want to calculate from raw data
+
+        # Below is from LoadAZFP.m, the output is effectively range_bin+1 when bins_to_avg=1
+        range_mod = xr.DataArray(np.arange(1, len(self.echodata.raw_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
+                                 coords=[('range_bin', self.echodata.raw_beam.range_bin)])
+
+        # Calculate range using parameters for each freq
+        range_meter = (lockout_index / (2 * dig_rate) * sound_speed + sound_speed / 4 *
+                       (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
+                        self.echodata.raw_beam['transmit_duration_nominal']))
+
+        # TODO: tilt is only relevant when calculating "depth" but "range" is general,
+        #  this correction should be done outside of the functions.
+        #  Probably the best is to show in a notebook and mentioned in doc,
+        #  since AZFP mooring cage has a 15 deg tilt.
+        # if tilt_corrected:
+        #     range_meter = self.echodata.raw_beam.cos_tilt_mag.mean() * range_meter
+
+        return range_meter
+
+    def _cal_power(self, cal_type):
+        """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
+
+        The calibration formula used here is documented in eq.(9) on p.85
+        of GU-100-AZFP-01-R50 Operator's Manual.
+        Note a Sv_offset factor that varies depending on frequency is used
+        in the calibration as documented on p.90.
+        See calc_Sv_offset() in convert/azfp.py
+        """
+        range_meter = self.calc_range_meter()
+
+        if cal_type == 'Sv':
+            out = (self.cal_params['EL']
+                   - 2.5 / self.cal_params['DS']
+                   + self.echodata.raw_beam.backscatter_r / (26214 * self.cal_params['DS'])
+                   - self.cal_params['TVR']
+                   - 20 * np.log10(self.cal_params['VTX'])
+                   + 20 * np.log10(range_meter)
+                   + 2 * self.env_params['sound_absorption'] * range_meter
+                   - 10 * np.log10(0.5 * self.env_params['sound_speed'] *
+                                   self.echodata.raw_beam['transmit_duration_nominal'] *
+                                   self.cal_params['equivalent_beam_angle']) + self.cal_params['Sv_offset'])
+            out.name = 'Sv'
+
+        elif cal_type == 'Sp':
+            out = (self.cal_params['EL']
+                   - 2.5 / self.cal_params['DS']
+                   + self.echodata.raw_beam.backscatter_r / (26214 * self.cal_params['DS'])
+                   - self.cal_params['TVR']
+                   - 20 * np.log10(self.cal_params['VTX'])
+                   + 40 * np.log10(range_meter)
+                   + 2 * self.env_params['sound_absorption'] * range_meter)
+            out.name = 'Sp'
+        else:
+            raise ValueError('cal_type not recognized!')
+
+        # Attach calculated range (with units meter) into data set
+        out = out.to_dataset()
+        out = out.merge(range_meter)
+
+        return out
+
+    def get_Sv(self):
+        return self._cal_power(cal_type='Sv')
+
+    def get_Sp(self):
+        return self._cal_power(cal_type='Sp')

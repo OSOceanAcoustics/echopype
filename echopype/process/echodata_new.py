@@ -1,10 +1,10 @@
 from pathlib import Path
 import xarray as xr
-from ..calibrate.calibrate import CalibrateEK60
+from ..calibrate.calibrate import CalibrateEK60, CalibrateAZFP
 
 CALIBRATOR = {
     'EK60': CalibrateEK60,
-    # 'AZFP': CalibrateAZFP
+    'AZFP': CalibrateAZFP
 }
 
 
