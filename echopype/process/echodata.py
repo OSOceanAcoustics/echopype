@@ -59,11 +59,11 @@ class EchoData:
             setattr(self, '_' + attr + '_path', None)
             files = eval(attr + '_path')
             files = [files] if isinstance(files, str) else files
-            setattr(self, attr + '_path', files)
-
             # Set the file format
             if self._file_format is None and files is not None:
                 self._file_format = io.get_file_format(files[0])
+            # Sets pointer to filepath and lazy load data
+            setattr(self, attr + '_path', files)
 
         self._sonar_model = None
         self.range = None
@@ -94,6 +94,12 @@ class EchoData:
             return from_raw
         return wrapper
 
+    # TODO: overarching changes needed:
+    #  - basic cleaning of data to drop NaN pings before going forward for calibration etc
+    #  - cannot use combine='nested' but should force to have monotonically varying ping_time
+    #  - see convert/convert_combine.py for handling different sonar models
+
+
     @_check_key_param_consistency()
     def get_env_from_raw(self):
         """Open the Environment group from raw data files.
@@ -112,6 +118,8 @@ class EchoData:
     def get_beam_from_raw(self):
         """Open the Beam group from raw data files.
         """
+        # TODO: self._file_format is empty when this is called (so reading from .zarr fails),
+        #  there must be some logic or sequence error when _open and the calling methods are called
         return xr.open_mfdataset(self.raw_path, group='Beam', combine='nested',
                                  concat_dim='ping_time', data_vars='minimal', engine=self._file_format)
 
