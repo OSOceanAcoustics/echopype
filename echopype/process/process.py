@@ -101,7 +101,8 @@ class Process:
 
     # ---------------------------------------
     # TODO: Accessing Sv/TS/MVBS/Sv_clean from process is for backwards compatibility and
-    # will be replaced with EchoData
+    #  will be replaced with EchoData
+    # TODO: this is currently NOT working
     @property
     def Sv(self):
         return self._temp_ed.Sv
@@ -289,10 +290,10 @@ class Process:
         # Parameters that require additional computation
         # For EK80 BB mode, there is no sa correction table so the sa correction is saved as none
         if 'sa_correction' in valid_params:
-            params['sa_correction'] = self.process_obj.calc_cal_correction(ed=ed, param='sa_correction')
+            params['sa_correction'] = self.process_obj.get_power_cal_params(ed=ed, param='sa_correction')
             valid_params.remove('sa_correction')
         if 'gain_correction' in valid_params and 'gain_correction' not in ed.raw:
-            params['gain_correction'] = self.process_obj.calc_cal_correction(ed=ed, param='gain_correction')
+            params['gain_correction'] = self.process_obj.get_power_cal_params(ed=ed, param='gain_correction')
             valid_params.remove('gain_correction')
 
         for param in valid_params:
@@ -389,6 +390,7 @@ class Process:
         """
         # Check if we already have range calculated from .calibrate()
         # and if so we can just get range from there instead of re-calculating.
+        # TODO: actually do the above, currently the range is forced to be calculated
 
         # Check if sonar model matches
         self._check_model_echodata_match(ed)
@@ -499,6 +501,7 @@ class Process:
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
         self._check_model_echodata_match(ed)
+        # TODO: below print out the "[" and "]" when there is only one file
         print(f"{dt.now().strftime('%H:%M:%S')}  calibrating data in {ed.raw_path}")
         return self.process_obj.get_Sv(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
@@ -529,6 +532,7 @@ class Process:
         self._check_initialized(['env', 'cal'])
         # Check to see if the data in the raw file matches the calibration function to be used
         self._check_model_echodata_match(ed)
+        # TODO: below print out the "[" and "]" when there is only one file
         print(f"{dt.now().strftime('%H:%M:%S')}  calibrating data in {ed.raw_path}")
         return self.process_obj.get_Sp(ed=ed, env_params=self.env_params, cal_params=self.cal_params,
                                        save=save, save_path=save_path, save_format=save_format)
