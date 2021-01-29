@@ -1,14 +1,15 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import xarray as xr
 from ..convert import Convert
 from ..process import EchoDataNew
 
-ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
-ek60_csv_path = Path('./echopype/test_data/ek60/from_echoview/')
-
 
 def test_get_Sv_ek60_echoview():
+    ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'  # Constant ranges
+    ek60_csv_path = Path('./echopype/test_data/ek60/from_echoview/')
+
     # Convert file
     c = Convert(ek60_raw_path, model='EK60')
     c.to_netcdf(overwrite=True)
@@ -29,3 +30,28 @@ def test_get_Sv_ek60_echoview():
                        echodata.Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
     Path(c.output_file).unlink()
+
+
+def test_get_Sv_azfp():
+    azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
+    azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
+
+    # Test data generated from AZFP Matlab code
+    azfp_test_Sv_path = './echopype/test_data/azfp/from_matlab/17082117_Sv.nc'
+    # azfp_test_TS_path = './echopype/test_data/azfp/from_matlab/17082117_TS.nc'
+
+    # Convert to .nc file
+    c = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
+    c.to_netcdf(overwrite=True)
+
+    # Calibrate to get Sv and TS
+    with xr.open_dataset(c.output_file, group='Environment') as ds_env:
+        avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
+    echodata = EchoDataNew(raw_path=c.output_file)
+    echodata.get_Sv(env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
+
+    # Load Matlab outputs and test
+    Sv_test = xr.open_dataset(azfp_test_Sv_path)
+    # Sp_test = xr.open_dataset(azfp_test_TS_path)
+
+    assert np.allclose(Sv_test.Sv, echodata.Sv.Sv, atol=1e-15)
