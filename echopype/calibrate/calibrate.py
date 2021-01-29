@@ -193,13 +193,13 @@ class CalibrateEK60(CalibrateEK):
         if ('temperature' in env_params) and ('salinity' in env_params) and ('pressure' in env_params):
             for p in ['temperature', 'salinity', 'pressure']:
                 self.env_params[p] = env_params[p]
-            self.env_params['sound_speed'] = uwa.calc_sound_speed(self.env_params['temperature'],
-                                                                  self.env_params['salinity'],
-                                                                  self.env_params['pressure'])
-            self.env_params['sound_absorption'] = uwa.calc_absorption(self.echodata.raw_beam['frequency'],
-                                                                      self.env_params['temperature'],
-                                                                      self.env_params['salinity'],
-                                                                      self.env_params['pressure'])
+            self.env_params['sound_speed'] = uwa.calc_sound_speed(temperature=self.env_params['temperature'],
+                                                                  salinity=self.env_params['salinity'],
+                                                                  pressure=self.env_params['pressure'])
+            self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.raw_beam['frequency'],
+                                                                      temperature=self.env_params['temperature'],
+                                                                      salinity=self.env_params['salinity'],
+                                                                      pressure=self.env_params['pressure'])
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
             self.env_params['sound_speed'] = (env_params['sound_speed']
@@ -274,13 +274,15 @@ class CalibrateAZFP(CalibrateBase):
             self.env_params['pressure'] = env_params['pressure']
 
         # Always calculate sound speed and absorption
-        self.env_params['sound_speed'] = uwa.calc_sound_speed(self.env_params['temperature'],
-                                                              self.env_params['salinity'],
-                                                              self.env_params['pressure'])
-        self.env_params['sound_absorption'] = uwa.calc_absorption(self.echodata.raw_beam['frequency'],
-                                                                  self.env_params['temperature'],
-                                                                  self.env_params['salinity'],
-                                                                  self.env_params['pressure'])
+        self.env_params['sound_speed'] = uwa.calc_sound_speed(temperature=self.env_params['temperature'],
+                                                              salinity=self.env_params['salinity'],
+                                                              pressure=self.env_params['pressure'],
+                                                              formula_source='AZFP')
+        self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.raw_beam['frequency'],
+                                                                  temperature=self.env_params['temperature'],
+                                                                  salinity=self.env_params['salinity'],
+                                                                  pressure=self.env_params['pressure'],
+                                                                  formula_source='AZFP')
 
     def calc_range_meter(self):
         """Calculate range in meter using AZFP formula.
