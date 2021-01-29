@@ -117,25 +117,16 @@ class ParseAd2cp(ParseBase):
         self.ds = None
 
     def parse_raw(self):
-        # i = 0
         with open(self.source_file[0], "rb") as f:
             while True:
                 try:
                     self.packets.append(Ad2cpDataPacket(f, self.burst_average_data_record_version))
                 except NoMorePackets:
                     break
-                # else:
-                #     i += 1
-                #     print(i)
-                #     print(self.packets[0].data["id"])
-
-        # self.ds = xr.Dataset(coords={"time": []}, attrs={"string_data": dict()})
         self.ds = None
         string_data = dict()
 
         # TODO: burst, average, and echosounder now have different range_bins
-
-
         def fix_dims(original, correct_shape: List[int]) -> np.ndarray:
             original = np.array(original).astype(float)
             padding_amount = [max(correct_shape[i] - original.shape[i], 0)
@@ -157,12 +148,7 @@ class ParseAd2cp(ParseBase):
                 max_range_bin = max_range_bin_burst_count
             else:
                 max_range_bin = max_range_bin_average_count
-            # if "echo_sounder_data_included" in packet.data and packet.data["echo_sounder_data_included"]:
             if "echo_sounder_data" in packet.data:
-                # current_len = len(packet.data["echo_sounder_data"])
-                # if current_len < max_range_bin_echo_sounder_count:
-                #     print(packet.data["echo_sounder_data"])
-                #     packet.data["echo_sounder_data"] += [np.nan] * (max_range_bin_echo_sounder_count - current_len)
                 packet.data["echo_sounder_data"] = fix_dims(packet.data["echo_sounder_data"], [max_range_bin_echo_sounder_count])
 
                 # TODO: this shouldn't be here
@@ -173,34 +159,8 @@ class ParseAd2cp(ParseBase):
                 if field in packet.data:
                     packet.data[field] = fix_dims(packet.data[field], [max_beam_count, max_range_bin])
 
-        # fill packets with missing beams with nans up to the max beam count
-        # TODO: this is awful
-        # for packet in self.packets:
-        #     for field_name, field_value in packet.data.items():
-        #         if isinstance(field_value, np.ndarray):
-        #             # if field_name in ("echo_sounder_data", "percentage_good_data"):
-        #             #     print(field_name)
-        #             #     print(field_value)
-        #             #     raise SystemExit
-
-        #             if field_name in ("echo_sounder_data", "percentage_good_data"):
-        #                 # print(max_range_bin_echo_sounder_count - field_value.size)
-        #                 if field_value.size < max_range_bin_echo_sounder_count:
-        #                     packet.data[field_name] = np.concatenate((field_value, [np.nan] * (max_range_bin_echo_sounder_count - field_value.size)))
-        #             else:
-        #                 if len(field_value[0]) < max_range_bin_count:
-        #                     field_value = [np.concatenate(
-        #                         (beam, [np.nan] * (max_range_bin_count - len(field_value[0])))) for beam in field_value]
-        #                     packet.data[field_name] = np.array(field_value)
-        #                 if len(field_value) < max_beam_count:
-        #                     field_value = np.concatenate(
-        #                         (field_value, [[np.nan] * max_range_bin_count for _ in range(max_beam_count - len(field_value))]))
-        #                     packet.data[field_name] = np.array(field_value)
-
         for packet in self.packets:
             if packet.data_record_type == DataRecordType.STRING:
-                # self.ds.attrs["string_data"][packet.data["string_data_id"]
-                #                         ] = packet.data["string_data"]
                 string_data[packet.data["string_data_id"]] = packet.data["string_data"]
             else:
                 if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
@@ -219,8 +179,6 @@ class ParseAd2cp(ParseBase):
                     coords={"time": [packet.timestamp],
                             time: [packet.timestamp]}
                 )
-                # print(self.ds)
-                # print(new_packet)
                 if self.ds is None:
                     self.ds = new_packet
                 else:
@@ -228,36 +186,10 @@ class ParseAd2cp(ParseBase):
                         new_packet,
                         self.ds
                     ], dim="time")
-                    # try:
-                    #     self.ds = xr.concat([
-                    #         new_packet,
-                    #         self.ds
-                    #     ], dim="time")
-                    # except Exception as e:
-                    #     print(self.ds)
-                    #     print(new_packet)
-                    #     raise e from None
-                    # try:
-                    #     self.ds = xr.concat([
-                    #         new_packet,
-                    #         self.ds
-                    #     ], dim="time")
-                    # except:
-                        # pass
-                        # print(self.ds)
-                        # print(new_packet)
-                        # print(packet.data.get("num_echo_sounder_cells"))
-                        # raise SystemExit
-
-                # self.ds = xr.merge([
-                #     self.ds,
-                #     new_packet
-                # ], compat="override", combine_attrs="override")
         if self.ds is None:
             self.ds = xr.Dataset(attrs={"string_data": dict()})
         else:
             self.ds.attrs["string_data"] = string_data
-
 
         # print(self.ds)
 
@@ -352,10 +284,6 @@ class Ad2cpDataPacket:
         raw_data_record = self._read_data(f, self.data_record_format)
         calculated_checksum = self.checksum(raw_data_record)
         expected_checksum = self.data["data_record_checksum"]
-        # if calculated_checksum != expected_checksum:
-        #     print(self.data["data_record_size"])
-        #     print(len(raw_data_record))
-        #     print(self.data["num_cells"])
         assert calculated_checksum == expected_checksum, f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"
 
     def _read_data(self, f: BinaryIO, data_format: List[Field]) -> bytes:
@@ -463,13 +391,6 @@ class Ad2cpDataPacket:
                 self.data["velocity_data_included"] = self.data["configuration"] & 0b0000_0000_0010_0000
                 self.data["amplitude_data_included"] = self.data["configuration"] & 0b0000_0000_0100_0000
                 self.data["correlation_data_included"] = self.data["configuration"] & 0b0000_0000_1000_0000
-                # self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001 > 0
-                # self.data["temperature_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0010 > 0
-                # self.data["compass_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0100 > 0
-                # self.data["tilt_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_1000 > 0
-                # self.data["velocity_data_included"] = self.data["configuration"] & 0b0000_0000_0010_0000 > 0
-                # self.data["amplitude_data_included"] = self.data["configuration"] & 0b0000_0000_0100_0000 > 0
-                # self.data["correlation_data_included"] = self.data["configuration"] & 0b0000_0000_1000_0000 > 0
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
@@ -492,25 +413,10 @@ class Ad2cpDataPacket:
                 self.data["ahrs_data_included"] = self.data["configuration"] & 0b0001_0000_0000_0000
                 self.data["percentage_good_data_included"] = self.data["configuration"] & 0b0010_0000_0000_0000
                 self.data["std_dev_data_included"] = self.data["configuration"] & 0b0100_0000_0000_0000
-                # self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001 > 0
-                # self.data["temperature_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0010 > 0
-                # self.data["compass_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0100 > 0
-                # self.data["tilt_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_1000 > 0
-                # self.data["velocity_data_included"] = self.data["configuration"] & 0b0000_0000_0010_0000 > 0
-                # self.data["amplitude_data_included"] = self.data["configuration"] & 0b0000_0000_0100_0000 > 0
-                # self.data["correlation_data_included"] = self.data["configuration"] & 0b0000_0000_1000_0000 > 0
-                # self.data["altimeter_data_included"] = self.data["configuration"] & 0b0000_0001_0000_0000 > 0
-                # self.data["altimeter_raw_data_included"] = self.data["configuration"] & 0b0000_0010_0000_0000 > 0
-                # self.data["ast_data_included"] = self.data["configuration"] & 0b0000_0100_0000_0000 > 0
-                # self.data["echo_sounder_data_included"] = self.data["configuration"] & 0b0000_1000_0000_0000 > 0
-                # self.data["ahrs_data_included"] = self.data["configuration"] & 0b0001_0000_0000_0000 > 0
-                # self.data["percentage_good_data_included"] = self.data["configuration"] & 0b0010_0000_0000_0000 > 0
-                # self.data["std_dev_data_included"] = self.data["configuration"] & 0b0100_0000_0000_0000 > 0
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = np.nan
                 self.data["coordinate_system"] = np.nan
                 self.data["num_beams"] = np.nan
-
                 self.data["num_echo_sounder_cells"] = np.nan
                 self.data["echo_sounder_frequency"] = np.nan
                 self.data["echo_sounder_data"] = []
@@ -544,13 +450,6 @@ class Ad2cpDataPacket:
                 self.data["velocity_data_included"] = self.data["data"]["configuration"] & 0b0000_0000_0010_0000
                 self.data["distance_data_included"] = self.data["data"]["configuration"] & 0b0000_0001_0000_0000
                 self.data["figure_of_merit_data_included"] = self.data["data"]["configuration"] & 0b0000_0010_0000_0000
-                # self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001 > 0
-                # self.data["temperature_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0010 > 0
-                # self.data["compass_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0100 > 0
-                # self.data["tilt_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_1000 > 0
-                # self.data["velocity_data_included"] = self.data["data"]["configuration"] & 0b0000_0000_0010_0000 > 0
-                # self.data["distance_data_included"] = self.data["data"]["configuration"] & 0b0000_0001_0000_0000 > 0
-                # self.data["figure_of_merit_data_included"] = self.data["data"]["configuration"] & 0b0000_0010_0000_0000 > 0
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
