@@ -249,16 +249,10 @@ class CalibrateAZFP(CalibrateBase):
         ----------
         cal_params : dict
         """
-        # Params from the Vendor group
-        params_from_vend = ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset']
-        for p in params_from_vend:
+        # Params from the Beam group
+        for p in ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset', 'equivalent_beam_angle']:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if cal_params[p] else self.echodata.raw_vend[p]
-
-        # Other params
-        self.cal_params['equivalent_beam_angle'] = (cal_params['equivalent_beam_angle']
-                                                    if cal_params['equivalent_beam_angle']
-                                                    else self.echodata.raw_beam['equivalent_beam_angle'])
+            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.raw_beam[p]
 
     def get_env_params(self, env_params):
         """Set cal params using user inputs or values from data file.
@@ -308,6 +302,7 @@ class CalibrateAZFP(CalibrateBase):
         range_meter = (lockout_index / (2 * dig_rate) * sound_speed + sound_speed / 4 *
                        (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
                         self.echodata.raw_beam['transmit_duration_nominal']))
+        range_meter.name = 'range'  # add name to facilitate xr.merge
 
         # TODO: tilt is only relevant when calculating "depth" but "range" is general,
         #  this correction should be done outside of the functions.
@@ -321,35 +316,30 @@ class CalibrateAZFP(CalibrateBase):
     def _cal_power(self, cal_type):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
 
-        The calibration formula used here is documented in eq.(9) on p.85
-        of GU-100-AZFP-01-R50 Operator's Manual.
+        The calibration formulae used here is based on Appendix G in
+        the GU-100-AZFP-01-R50 Operator's Manual.
         Note a Sv_offset factor that varies depending on frequency is used
         in the calibration as documented on p.90.
         See calc_Sv_offset() in convert/azfp.py
         """
         range_meter = self.calc_range_meter()
+        spreading_loss = 20 * np.log10(range_meter)
+        absorption_loss = 2 * self.env_params['sound_absorption'] * range_meter
+        SL = self.cal_params['TVR'] + 20 * np.log10(self.cal_params['VTX'])  # eq.(2)
+        a = self.cal_params['DS']  # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
+        EL = self.cal_params['EL'] - 2.5 / a + self.echodata.raw_beam.backscatter_r / (26214 * a)  # eq.(5)
 
         if cal_type == 'Sv':
-            out = (self.cal_params['EL']
-                   - 2.5 / self.cal_params['DS']
-                   + self.echodata.raw_beam.backscatter_r / (26214 * self.cal_params['DS'])
-                   - self.cal_params['TVR']
-                   - 20 * np.log10(self.cal_params['VTX'])
-                   + 20 * np.log10(range_meter)
-                   + 2 * self.env_params['sound_absorption'] * range_meter
+            # eq.(9)
+            out = (EL - SL + spreading_loss + absorption_loss
                    - 10 * np.log10(0.5 * self.env_params['sound_speed'] *
                                    self.echodata.raw_beam['transmit_duration_nominal'] *
                                    self.cal_params['equivalent_beam_angle']) + self.cal_params['Sv_offset'])
             out.name = 'Sv'
 
         elif cal_type == 'Sp':
-            out = (self.cal_params['EL']
-                   - 2.5 / self.cal_params['DS']
-                   + self.echodata.raw_beam.backscatter_r / (26214 * self.cal_params['DS'])
-                   - self.cal_params['TVR']
-                   - 20 * np.log10(self.cal_params['VTX'])
-                   + 40 * np.log10(range_meter)
-                   + 2 * self.env_params['sound_absorption'] * range_meter)
+            # eq.(10)
+            out = (EL - SL + 2 * spreading_loss + absorption_loss)
             out.name = 'Sp'
         else:
             raise ValueError('cal_type not recognized!')
