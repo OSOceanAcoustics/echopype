@@ -4,9 +4,6 @@ import struct
 import math
 
 import numpy as np
-from numpy.core.numeric import NaN
-import xarray as xr
-from xarray.core.dataset import DataVariables
 
 from .parse_base import ParseBase
 
@@ -127,142 +124,6 @@ class ParseAd2cp(ParseBase):
                     self.packets.append(Ad2cpDataPacket(f, self.burst_average_data_record_version))
                 except NoMorePackets:
                     break
-        # self.ds = None
-        # string_data = dict()
-
-        # burst_packets = []
-        # average_packets = []
-        # echosounder_packets = []
-        # for packet in self.packets:
-        #     if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
-        #         burst_packets.append(packet)
-        #     elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
-        #         average_packets.append(packet)
-        #     elif packet.data_record_type == DataRecordType.ECHOSOUNDER:
-        #         echosounder_packets.append(packet)
-        
-        # def make_dataset(packets: List[Ad2cpDataPacket], time_dim: str) -> Optional[xr.Dataset]:
-        #     for i in range(len(packets)):
-        #         packet = packets[i]
-        #         data_vars = dict()
-        #         for field_name, field_value in packet.data.items():
-        #             # TODO might not work with altimeter_spare
-        #             # add dimension names to data vars for xarray
-        #             dims = Field.dimensions(field_name, packet.data_record_type)
-        #             if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
-        #                 if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
-        #                     field_name += "_burst"
-        #                 elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
-        #                     field_name += "_average"
-        #             data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value])
-        #         new_packet = xr.Dataset(
-        #             data_vars=data_vars,
-        #             coords={"time": [packet.timestamp],
-        #             time_dim: [packet.timestamp]}
-        #         )
-
-        #         # modify in place to reduce memory consumption
-        #         packets[i] = new_packet
-        #     if len(packets) > 0:
-        #         return xr.concat(packets, dim="time")
-        #     else:
-        #         return None
-
-        # burst_ds = make_dataset(burst_packets, time_dim="time_burst")
-        # average_ds = make_dataset(average_packets, time_dim="time_average")
-        # echosounder_ds = make_dataset(echosounder_packets, time_dim="time_echosounder")
-
-        # datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds) if ds]
-        # self.ds = xr.merge(datasets)
-        # print(xr.combine_by_coords(datasets, data_vars="all", coords="all"))
-
-        # if burst_ds:
-        #     print(burst_ds["time"].data)
-        # if average_ds:
-        #     print(average_ds["time"].data)
-        # if echosounder_ds:
-        #     print(echosounder_ds["time"].data)
-        # print(burst_ds)
-        # print(average_ds)
-        # print(echosounder_ds)
-
-        # TODO: burst, average, and echosounder now have different range_bins
-        # def fix_dims(original, correct_shape: List[int]) -> np.ndarray:
-        #     original = np.array(original).astype(float)
-        #     padding_amount = [max(correct_shape[i] - original.shape[i], 0)
-        #                     for i in range(len(correct_shape))]
-        #     # print(padding_amount, original, correct_shape)
-        #     return np.pad(original, list(zip([0] * len(padding_amount), padding_amount)), mode="constant", constant_values=np.nan)
-
-        # max_beam_count = max(
-        #     self.packets, key=lambda p: p.data.get("num_beams", 0)).data.get("num_beams", 0)
-        # max_range_bin_burst_count = max(
-        #     self.packets, key=lambda p: p.data.get("num_cells", 0) if p.is_burst() else 0).data.get("num_cells", 0)
-        # max_range_bin_average_count = max(
-        #     self.packets, key=lambda p: p.data.get("num_cells", 0) if p.is_average() else 0).data.get("num_cells", 0)
-        # max_range_bin_echo_sounder_count = max(
-        #     self.packets, key=lambda p: p.data.get("num_echo_sounder_cells", 0)).data.get("num_echo_sounder_cells", 0)
-        # # print(max_range_bin_echo_sounder_count)
-        # for packet in self.packets:
-        #     if packet.is_burst():
-        #         max_range_bin = max_range_bin_burst_count
-        #     else:
-        #         max_range_bin = max_range_bin_average_count
-        #     if "echo_sounder_data" in packet.data:
-        #         packet.data["echo_sounder_data"] = fix_dims(packet.data["echo_sounder_data"], [max_range_bin_echo_sounder_count])
-
-        #         # TODO: this shouldn't be here
-        #         packet.data["velocity_data"] = fix_dims([[], []], [max_beam_count, max_range_bin_echo_sounder_count])
-        #         packet.data["amplitude_data"] = fix_dims([[], []], [max_beam_count, max_range_bin_echo_sounder_count])
-        #         packet.data["correlation_data"] = fix_dims([[], []], [max_beam_count, max_range_bin_echo_sounder_count])
-        #     for field in ("velocity_data", "amplitude_data", "correlation_data"):
-        #         if field in packet.data:
-        #             packet.data[field] = fix_dims(packet.data[field], [max_beam_count, max_range_bin])
-
-        # for packet in self.packets:
-        #     if packet.data_record_type == DataRecordType.STRING:
-        #         string_data[packet.data["string_data_id"]] = packet.data["string_data"]
-        #     else:
-        #         if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
-        #             time = "time_burst"
-        #         elif packet.data_record_type == DataRecordType.ECHOSOUNDER:
-        #             time = "time_echosounder"
-        #         else:
-        #             time = "time_average"
-        #         data_vars = dict()
-        #         for field_name, field_value in packet.data.items():
-        #             # TODO might not work with altimeter_spare
-        #             # add dimension names to data vars for xarray
-        #             data_vars[field_name] = (tuple(dim.value for dim in Field.dimensions(
-        #                 field_name, packet.data_record_type)), [field_value])
-
-        #         try:
-        #             new_packet = xr.Dataset(
-        #                 data_vars=data_vars,
-        #                 coords={"time": [packet.timestamp],
-        #                         time: [packet.timestamp]}
-        #             )
-        #         except Exception as e:
-        #             print(data_vars)
-        #             raise e from None
-        #         if self.ds is None:
-        #             self.ds = new_packet
-        #         else:
-        #             try:
-        #                 self.ds = xr.concat([
-        #                     new_packet,
-        #                     self.ds
-        #                 ], dim="time")
-        #             except Exception as e:
-        #                 print("OLD DATASET\n", self.ds)
-        #                 print("NEW DATASET\n", new_packet)
-        #                 raise e from None
-        # if self.ds is None:
-        #     self.ds = xr.Dataset(attrs={"string_data": dict()})
-        # else:
-        #     self.ds.attrs["string_data"] = string_data
-
-        # print(self.ds)
 
 class Ad2cpDataPacket:
     def __init__(self, f: BinaryIO, burst_average_data_record_version: BurstAverageDataRecordVersion):
@@ -485,13 +346,6 @@ class Ad2cpDataPacket:
                 self.data["percentage_good_data_included"] = self.data["configuration"] & 0b0010_0000_0000_0000
                 self.data["std_dev_data_included"] = self.data["configuration"] & 0b0100_0000_0000_0000
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
-                self.data["num_cells"] = np.nan
-                self.data["coordinate_system"] = np.nan
-                self.data["num_beams"] = np.nan
-                self.data["num_echo_sounder_cells"] = np.nan
-                self.data["echo_sounder_frequency"] = np.nan
-                self.data["echo_sounder_data"] = []
-
                 if self.data["echo_sounder_data_included"]:
                     self.data["num_echo_sounder_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"]
                 else:
@@ -501,9 +355,6 @@ class Ad2cpDataPacket:
                     self.data["num_beams"] = (
                         self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "ambiguity_velocity_or_echo_sounder_frequency":
-                self.data["echo_sounder_frequency"] = np.nan
-                self.data["ambiguity_velocity"] = np.nan
-                
                 if self.data["echo_sounder_data_included"]:
                     # This is specified as "echo sounder frequency", but the description technically
                     # says "number of echo sounder cells". It is probably the frequency and not the number of cells

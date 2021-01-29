@@ -1,11 +1,11 @@
 import os
-from typing import BinaryIO, Union, Callable, List, Optional, Any, Dict
+from typing import List, Optional
 
 import xarray as xr
 import numpy as np
 
 from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import DataRecordType, Field, Dimension, Ad2cpDataPacket
+from .parse_ad2cp import DataRecordType, Field, Ad2cpDataPacket
 from ..utils import io
 
 
@@ -16,7 +16,6 @@ class SetGroupsAd2cp(SetGroupsBase):
         else:
             mode = "w"
         io.save_file(ds=ds, path=self.output_path, mode=mode, engine=self.engine, group=group)
-        # ds.to_netcdf(path=self.output_path, mode=mode, group=group)
 
     def save(self):
         self.combine_packets()
@@ -68,14 +67,12 @@ class SetGroupsAd2cp(SetGroupsBase):
                 return None
 
         burst_ds = make_dataset(burst_packets, time_dim="time_burst")
-        # print(burst_ds)
         average_ds = make_dataset(average_packets, time_dim="time_average")
-        # print(average_ds)
         echosounder_ds = make_dataset(echosounder_packets, time_dim="time_echosounder")
-        # print(echosounder_ds)
 
         datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds) if ds]
         self.ds = xr.merge(datasets)
+        # TODO: where to put string data in output?
         self.ds.attrs["string_data"] = string_data
 
     def set_environment(self):
