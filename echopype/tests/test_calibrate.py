@@ -4,6 +4,7 @@ import pandas as pd
 import xarray as xr
 from ..convert import Convert
 from ..process import EchoDataNew
+from ..calibrate import calibrate
 
 
 def test_get_Sv_ek60_echoview():
@@ -16,7 +17,7 @@ def test_get_Sv_ek60_echoview():
 
     # Calibrate to get Sv
     echodata = EchoDataNew(raw_path=c.output_file)
-    echodata.get_Sv()
+    ds_Sv = calibrate(echodata)
 
     # Compare with EchoView outputs
     channels = []
@@ -27,7 +28,7 @@ def test_get_Sv_ek60_echoview():
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
     assert np.allclose(test_Sv[:, :, 7:],
-                       echodata.Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+                       ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
     Path(c.output_file).unlink()
 
@@ -48,10 +49,12 @@ def test_get_Sv_azfp():
     with xr.open_dataset(c.output_file, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
     echodata = EchoDataNew(raw_path=c.output_file)
-    echodata.get_Sv(env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
+    ds_Sv = calibrate(echodata, env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
 
     # Load Matlab outputs and test
     Sv_test = xr.open_dataset(azfp_test_Sv_path)
     # Sp_test = xr.open_dataset(azfp_test_TS_path)
 
-    assert np.allclose(Sv_test.Sv, echodata.Sv.Sv, atol=1e-15)
+    assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
+
+    Path(c.output_file).unlink()

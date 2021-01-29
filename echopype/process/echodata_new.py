@@ -2,11 +2,6 @@ from pathlib import Path
 import xarray as xr
 from ..calibrate.calibrate import CalibrateEK60, CalibrateAZFP
 
-CALIBRATOR = {
-    'EK60': CalibrateEK60,
-    'AZFP': CalibrateAZFP
-}
-
 
 class EchoDataNew:
     """Echo data model class for handling multiple variables/files
@@ -49,16 +44,3 @@ class EchoDataNew:
             return xr.open_zarr(filepath, group=group)
         else:
             raise ValueError('Input file type not supported!')
-
-    def get_Sv(self, env_params=None, cal_params=None):
-        # Set up calibration object
-        cal_obj = CALIBRATOR[self.sonar_model](self)
-        if env_params is None:
-            env_params = {}
-        cal_obj.get_env_params(env_params)
-        if cal_params is None:
-            cal_params = {}
-        cal_obj.get_cal_params(cal_params)
-
-        # Perform calibration
-        self.Sv = cal_obj.get_Sv()
