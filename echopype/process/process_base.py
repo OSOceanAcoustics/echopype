@@ -298,7 +298,7 @@ class ProcessEK(ProcessBase):
         unique_pulse_length = np.unique(ed.raw['transmit_duration_nominal'], axis=1)
         idx_wanted = np.abs(ds_vend['pulse_length'] - unique_pulse_length).argmin(dim='pulse_length_bin')
 
-        return ds_vend.sa_correction.sel(pulse_length_bin=idx_wanted).drop('pulse_length_bin')
+        return ds_vend[param].sel(pulse_length_bin=idx_wanted).drop('pulse_length_bin')
 
     def calc_sample_thickness(self, ed, env_params, cal_params):
         """Calculate sample thickness.
