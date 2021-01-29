@@ -103,7 +103,7 @@ class CalibrateEK(CalibrateBase):
         unique_pulse_length = np.unique(self.echodata.raw_beam['transmit_duration_nominal'], axis=1)
         idx_wanted = np.abs(ds_vend['pulse_length'] - unique_pulse_length).argmin(dim='pulse_length_bin')
 
-        return ds_vend.sa_correction.sel(pulse_length_bin=idx_wanted).drop('pulse_length_bin')
+        return ds_vend[param].sel(pulse_length_bin=idx_wanted).drop('pulse_length_bin')
 
     def _cal_power(self, cal_type):
         """Calibrate narrowband data from EK60 and EK80.
@@ -174,7 +174,6 @@ class CalibrateEK60(CalibrateEK):
         # TODO Check with the AFSC about the half sample difference
         range_meter = (self.echodata.raw_beam.range_bin
                        - self.tvg_correction_factor) * sample_thickness  # [frequency x range_bin]
-        range_meter = range_meter.where(range_meter > 0, other=0)
         range_meter = range_meter.transpose('frequency', 'ping_time', 'range_bin')  # conform with backscatter dim order
         range_meter.name = 'range'  # add name to facilitate xr.merge
         return range_meter
@@ -221,7 +220,7 @@ class CalibrateEK60(CalibrateEK):
         params_from_vend = ['sa_correction', 'gain_correction']
         for p in params_from_vend:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.raw_vend[p]
+            self.cal_params[p] = cal_params[p] if p in cal_params else self._get_vend_power_cal_params(p)
 
         # Other params
         self.cal_params['equivalent_beam_angle'] = (cal_params['equivalent_beam_angle']
