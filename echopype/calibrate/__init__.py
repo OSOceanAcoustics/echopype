@@ -1,1 +1,1 @@
-from .calibrate import CalibrateAZFP, CalibrateEK60
+from .calibrate import calibrate
