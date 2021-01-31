@@ -25,7 +25,14 @@ class EchoDataNew:
         if Sv_path:
             self.Sv = self._open_data_file(Sv_path)
 
-        # TODO: change this to something following to best practices.
+        # EK80 data may have a Beam_power group if both complex and power data exist.
+        if self.sonar_model == 'EK80':
+            try:
+                self.raw_beam_power =self._open_data_file(raw_path, group='Beam_power')
+            except OSError:
+                pass
+
+        # TODO: change this to something following best practices.
         #  Need something for user to set Sv from outside by either
         #  passing in Sv directly or supplying a file path
         self.paths = {
