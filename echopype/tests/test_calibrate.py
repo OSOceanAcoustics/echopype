@@ -2,9 +2,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
-from ..convert import Convert
-from ..process import EchoDataNew
-from ..calibrate import calibrate
+from ... import echopype as ep
 
 
 def test_get_Sv_ek60_echoview():
@@ -12,12 +10,12 @@ def test_get_Sv_ek60_echoview():
     ek60_csv_path = Path('./echopype/test_data/ek60/from_echoview/')
 
     # Convert file
-    c = Convert(ek60_raw_path, model='EK60')
+    c = ep.Convert(ek60_raw_path, model='EK60')
     c.to_netcdf(overwrite=True)
 
     # Calibrate to get Sv
-    echodata = EchoDataNew(raw_path=c.output_file)
-    ds_Sv = calibrate(echodata)
+    echodata = ep.EchoDataNew(raw_path=c.output_file)
+    ds_Sv = ep.calibrate.get_Sv(echodata)
 
     # Compare with EchoView outputs
     channels = []
@@ -42,14 +40,15 @@ def test_get_Sv_azfp():
     # azfp_test_TS_path = './echopype/test_data/azfp/from_matlab/17082117_TS.nc'
 
     # Convert to .nc file
-    c = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
+    c = ep.Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     c.to_netcdf(overwrite=True)
 
     # Calibrate to get Sv and TS
     with xr.open_dataset(c.output_file, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
-    echodata = EchoDataNew(raw_path=c.output_file)
-    ds_Sv = calibrate(echodata, env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
+    echodata = ep.EchoDataNew(raw_path=c.output_file)
+    ds_Sv = ep.calibrate.get_Sv(echodata,
+                                env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
 
     # Load Matlab outputs and test
     Sv_test = xr.open_dataset(azfp_test_Sv_path)
