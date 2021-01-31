@@ -13,25 +13,6 @@ CAL_PARAMS = {
 }
 
 
-def calibrate(echodata, env_params=None, cal_params=None, range_meter=None):
-    CALIBRATOR = {
-        'EK60': CalibrateEK60,
-        'AZFP': CalibrateAZFP
-    }
-
-    # Set up calibration object
-    cal_obj = CALIBRATOR[echodata.sonar_model](echodata)
-    if env_params is None:
-        env_params = {}
-    cal_obj.get_env_params(env_params)
-    if cal_params is None:
-        cal_params = {}
-    cal_obj.get_cal_params(cal_params)
-
-    # Perform calibration
-    return cal_obj.get_Sv()
-
-
 class CalibrateBase:
     """Class to handle calibration for all sonar models.
     """
