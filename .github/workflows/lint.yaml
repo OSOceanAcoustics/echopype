@@ -2,10 +2,14 @@ name: Lint code
 
 on:
   push:
+    paths-ignore:
+      - .ci_helpers/docker/**
   pull_request:
     branches:
       - master
       - class-redesign
+    paths-ignore:
+      - .ci_helpers/docker/**
 
 jobs:
   lint-test:
