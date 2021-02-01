@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import signal
 import xarray as xr
 from ..utils import uwa
 
@@ -17,30 +18,13 @@ class CalibrateBase:
     """Class to handle calibration for all sonar models.
     """
 
-    def __init__(self, echodata, range_meter=None):
+    def __init__(self, echodata):
         self.sonar_model = None
-        self._range_meter = range_meter
-
+        self.range_meter = None
         self.echodata = echodata
 
         # initialize all env params to None
         self.env_params = dict.fromkeys(ENV_PARAMS)
-
-    @property
-    def range_meter(self):
-        return self._range_meter
-
-    @range_meter.setter
-    def range_meter(self, val):
-        self._range_meter = val
-
-    @range_meter.getter
-    def range_meter(self):
-        if self._range_meter is None:
-            self._range_meter = self.calc_range_meter()
-            return self._range_meter
-        else:
-            return self._range_meter
 
     def get_env_params(self, **kwargs):
         pass
@@ -48,7 +32,14 @@ class CalibrateBase:
     def get_cal_params(self, **kwargs):
         pass
 
-    def calc_range_meter(self):
+    def calc_range_meter(self, **kwargs):
+        """Calculate range in units meter.
+
+        Returns
+        -------
+        range_meter : xr.DataArray
+            range in units meter
+        """
         pass
 
     def get_Sv(self, **kwargs):
@@ -66,7 +57,41 @@ class CalibrateEK(CalibrateBase):
         # cal params specific to EK echosounders
         self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
 
-    def _get_vend_power_cal_params(self, param):
+    def calc_range_meter(self, waveform_mode, tvg_correction_factor):
+        """
+        Parameters
+        ----------
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
+        tvg_correction_factor : int
+            - 2 for CW-mode power samples
+            - 0 for CW-mode complex samples
+
+        Returns
+        -------
+        range_meter : xr.DataArray
+            range in units meter
+        """
+        if waveform_mode == 'CW':
+            sample_thickness = self.echodata.raw_beam['sample_interval'] * self.env_params['sound_speed'] / 2
+            # TODO: Check with the AFSC about the half sample difference
+            range_meter = (self.echodata.raw_beam.range_bin
+                           - tvg_correction_factor) * sample_thickness  # [frequency x range_bin]
+        elif waveform_mode == 'BB':
+            shift = self.echodata.raw_beam['transmit_duration_nominal']  # based on Lar Anderson's Matlab code
+            range_meter = ((self.echodata.raw_beam.range_bin * self.echodata.raw_beam['sample_interval']
+                            - shift) * self.env_params['sound_speed'] / 2)
+        else:
+            raise ValueError('Input waveform_mode not recognized!')
+
+        # make order of dims conform with the order of backscatter data
+        range_meter = range_meter.transpose('frequency', 'ping_time', 'range_bin')
+        range_meter.name = 'range'  # add name to facilitate xr.merge
+
+        return range_meter
+
+    def _get_vend_cal_params_power(self, param):
         """Get cal parameters stored in the Vendor group.
 
         Parameters
@@ -116,7 +141,7 @@ class CalibrateEK(CalibrateBase):
         params_from_vend = ['sa_correction', 'gain_correction']
         for p in params_from_vend:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if p in cal_params else self._get_vend_power_cal_params(p)
+            self.cal_params[p] = cal_params[p] if p in cal_params else self._get_vend_cal_params_power(p)
 
         # Other params
         self.cal_params['equivalent_beam_angle'] = (cal_params['equivalent_beam_angle']
@@ -195,16 +220,9 @@ class CalibrateEK60(CalibrateEK):
 
     def __init__(self, echodata):
         super().__init__(echodata)
-        self.tvg_correction_factor = 2
 
-    def calc_range_meter(self):
-        sample_thickness = self.echodata.raw_beam['sample_interval'] * self.env_params['sound_speed'] / 2
-        # TODO Check with the AFSC about the half sample difference
-        range_meter = (self.echodata.raw_beam.range_bin
-                       - self.tvg_correction_factor) * sample_thickness  # [frequency x range_bin]
-        range_meter = range_meter.transpose('frequency', 'ping_time', 'range_bin')  # conform with backscatter dim order
-        range_meter.name = 'range'  # add name to facilitate xr.merge
-        return range_meter
+        # default to CW mode recorded as power samples
+        self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
 
     def get_env_params(self, env_params):
         """Get env params using user inputs or values from data file.
@@ -245,6 +263,9 @@ class CalibrateEK60(CalibrateEK):
 
 
 class CalibrateEK80(CalibrateEK):
+    fs = 1.5e6  # default full sampling frequency [Hz]
+    z_et = 75
+    z_er = 1000
 
     def __init__(self, echodata):
         super().__init__(echodata)
@@ -295,6 +316,124 @@ class CalibrateEK80(CalibrateEK):
                                          temperature=self.env_params['temperature'],
                                          salinity=self.env_params['salinity'],
                                          pressure=self.env_params['pressure']))
+
+    def _get_vend_cal_params_complex(self, channel_id, filter_name, param_type):
+        """Get filter coefficients stored in the Vendor group attributes.
+
+        Parameters
+        ----------
+        channel_id : str
+            channel id for which the param to be retrieved
+        filter_name : str
+            name of filter coefficients to retrieve
+        param_type : str
+            'coeff' or 'decimation'
+        """
+        if param_type == 'coeff':
+            v_real = self.echodata.raw_vend.attrs['%s %s filter_r' % (channel_id, filter_name)]
+            v_imag = self.echodata.raw_vend.attrs['%s %s filter_i' % (channel_id, filter_name)]
+            return v_real + 1j * v_imag
+        else:
+            return self.echodata.raw_vend.attrs['%s %s decimation' % (channel_id, filter_name)]
+
+    def _tapered_chirp(self, transmit_duration_nominal, slope, transmit_power, frequency_start, frequency_end):
+        """Create a baseline chirp template.
+        """
+        t = np.arange(0, transmit_duration_nominal, 1 / self.fs)
+        nwtx = (int(2 * np.floor(slope * t.size)))  # length of tapering window
+        wtx_tmp = np.hanning(nwtx)  # hanning window
+        nwtxh = (int(np.round(nwtx / 2)))  # half length of the hanning window
+        wtx = np.concatenate([wtx_tmp[0:nwtxh],
+                              np.ones((t.size - nwtx)),
+                              wtx_tmp[nwtxh:]])  # assemble full tapering window
+        y_tmp = (np.sqrt((transmit_power / 4) * (2 * self.z_et))  # amplitude
+                 * signal.chirp(t, frequency_start, t[-1], frequency_end)
+                 * wtx)  # taper and scale linear chirp
+        return y_tmp / np.max(np.abs(y_tmp)), t  # amp has no actual effect
+
+    def _filter_decimate_chirp(self, y, ch_id):
+        """Filter and decimate the chirp template.
+
+        Parameters
+        ----------
+        y : np.array
+            chirp from _tapered_chirp
+        ch_id : str
+            channel_id to select the right coefficients and factors
+        """
+        # filter coefficients and decimation factor
+        wbt_fil = self._get_vend_cal_params_complex(ch_id, 'WBT', 'coeff')
+        pc_fil = self._get_vend_cal_params_complex(ch_id, 'PC', 'coeff')
+        wbt_decifac = self._get_vend_cal_params_complex(ch_id, 'WBT', 'decimation')
+        pc_decifac = self._get_vend_cal_params_complex(ch_id, 'PC', 'decimation')
+
+        # WBT filter and decimation
+        ytx_wbt = signal.convolve(y, wbt_fil)
+        ytx_wbt_deci = ytx_wbt[0::wbt_decifac]
+
+        # PC filter and decimation
+        ytx_pc = signal.convolve(ytx_wbt_deci, pc_fil)
+        ytx_pc_deci = ytx_pc[0::pc_decifac]
+        ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / self.fs * wbt_decifac * pc_decifac
+
+        return ytx_pc_deci, ytx_pc_deci_time
+
+    def get_transmit_chirp(self):
+        """Reconstruct transmit signal.
+        """
+        # Make sure it is BB mode data
+        if ('frequency_start' not in self.echodata.raw_beam) or ('frequency_end' not in self.echodata.raw_beam):
+            raise TypeError('File does not contain BB mode complex samples!')
+
+        y_all = {}
+        y_time_all = {}
+        for freq in self.echodata.raw_beam.frequency.values:
+            # TODO: currently only deal with the case with a fixed tx key param values within a channel
+            tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
+                              'frequency_start', 'frequency_end']
+            tx_params = {}
+            for p in tx_param_names:
+                tx_params[p] = np.unique(self.echodata.raw_beam[p].sel(frequency=freq))
+                if tx_params[p].size != 1:
+                    raise TypeError('File contains changing %s!' % p)
+            y_tmp, _ = self._tapered_chirp(**tx_params)
+
+            # Filter and decimate chirp template
+            channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
+            y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
+
+            y_all[channel_id] = y_tmp
+            y_time_all[channel_id] = y_tmp_time
+
+        return y_all, y_time_all
+
+    def compress_pulse(self, chirp):
+        """Perform pulse compression on the backscatter data.
+
+        Parameters
+        ----------
+        chirp : np.ndarray
+            transmit chirp replica indexed by channel_id
+        """
+        backscatter = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_r']
+
+        pc_all = []
+        for freq in self.echodata.raw_beam.frequency.values:
+            backscatter_freq = (backscatter.sel(frequency=freq)
+                                .dropna(dim='range_bin', how='all')
+                                .dropna(dim='quadrant', how='all')
+                                .dropna(dim='ping_time'))
+            channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
+            replica = xr.DataArray(np.flipud(np.conj(chirp[channel_id])), dims='window')
+            # Convolution via rolling
+            pc = backscatter_freq.rolling(range_bin=replica.size).construct('window').dot(replica)
+            # Expand dimension and add name to allow merge
+            pc = pc.expand_dims(dim='frequency')
+            pc.name = 'pulse_compressed_output'
+            pc_all.append(pc)
+        pc_merge = xr.merge(pc_all)
+
+        return pc_merge
 
     def _cal_complex(self, cal_type):
         return 1
@@ -349,10 +488,13 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute Sv and combine data sets if both Sv and Sv_complex are calculated
         if flag_power:
+            self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
             ds_Sv = self._cal_power(cal_type='Sv', use_raw_beam_power=use_raw_beam_power)
         else:
             ds_Sv = xr.Dataset()
         if flag_complex:
+            # TODO: here we deal first with only BB mode encoded in complex samples.
+            #  Add CW mode encoded in complex samples later.
             ds_Sv_complex = self._cal_complex(cal_type='Sv')
         else:
             ds_Sv_complex = xr.Dataset()

@@ -1,6 +1,5 @@
 from pathlib import Path
 import xarray as xr
-from ..calibrate.calibrate import CalibrateEK60, CalibrateAZFP
 
 
 class EchoDataNew:
@@ -28,7 +27,7 @@ class EchoDataNew:
         # EK80 data may have a Beam_power group if both complex and power data exist.
         if self.sonar_model == 'EK80':
             try:
-                self.raw_beam_power =self._open_data_file(raw_path, group='Beam_power')
+                self.raw_beam_power = self._open_data_file(raw_path, group='Beam_power')
             except OSError:
                 pass
 
