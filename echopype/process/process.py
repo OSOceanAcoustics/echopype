@@ -140,6 +140,14 @@ class Process:
     def MVBS_path(self):
         self._temp_ed.close()
         return self._temp_ed.MVBS_path
+
+    @property
+    def sample_thickness(self):
+        return self.process_obj.calc_sample_thickness(self._temp_ed, self.env_params, self.cal_params)
+
+    @property
+    def tvg_correction_factor(self):
+        return self.process_obj.tvg_correction_factor
     # -----------------------------------------
 
     @property
@@ -432,6 +440,7 @@ class Process:
         if ed is None:
             if hasattr(self, '_temp_ed'):
                 ed = self._temp_ed
+                save = False
                 save_format = 'netcdf4'
             else:
                 raise TypeError("`get_Sv` missing required EchoData object")
@@ -452,6 +461,7 @@ class Process:
         if ed is None:
             if hasattr(self, '_temp_ed'):
                 ed = self._temp_ed
+                save = False
                 save_format = 'netcdf4'
             else:
                 raise TypeError("`get_Sp` missing required EchoData object")
