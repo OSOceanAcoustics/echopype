@@ -2,51 +2,7 @@ import numpy as np
 from scipy import signal
 import xarray as xr
 from ..utils import uwa
-
-ENV_PARAMS = (
-    'temperature', 'salinity', 'pressure',
-    'sound_speed', 'sound_absorption'
-)
-
-CAL_PARAMS = {
-    'EK': ('sa_correction', 'gain_correction', 'equivalent_beam_angle'),
-    'AZFP': ('EL', 'DS', 'TVR', 'VTX', 'equivalent_beam_angle', 'Sv_offset')
-}
-
-
-class CalibrateBase:
-    """Class to handle calibration for all sonar models.
-    """
-
-    def __init__(self, echodata):
-        self.sonar_model = None
-        self.range_meter = None
-        self.echodata = echodata
-
-        # initialize all env params to None
-        self.env_params = dict.fromkeys(ENV_PARAMS)
-
-    def get_env_params(self, **kwargs):
-        pass
-
-    def get_cal_params(self, **kwargs):
-        pass
-
-    def calc_range_meter(self, **kwargs):
-        """Calculate range in units meter.
-
-        Returns
-        -------
-        range_meter : xr.DataArray
-            range in units meter
-        """
-        pass
-
-    def get_Sv(self, **kwargs):
-        pass
-
-    def get_Sp(self, **kwargs):
-        pass
+from .calibrate_base import CalibrateBase, CAL_PARAMS
 
 
 class CalibrateEK(CalibrateBase):
@@ -330,9 +286,11 @@ class CalibrateEK80(CalibrateEK):
             'coeff' or 'decimation'
         """
         if param_type == 'coeff':
-            v_real = self.echodata.raw_vend.attrs['%s %s filter_r' % (channel_id, filter_name)]
-            v_imag = self.echodata.raw_vend.attrs['%s %s filter_i' % (channel_id, filter_name)]
-            return v_real + 1j * v_imag
+            v = (self.echodata.raw_vend.attrs['%s %s filter_r' % (channel_id, filter_name)]
+                 + 1j * self.echodata.raw_vend.attrs['%s %s filter_i' % (channel_id, filter_name)])
+            if v.size == 1:
+                v = np.expand_dims(v, axis=0)  # expand dims for convolution
+            return v
         else:
             return self.echodata.raw_vend.attrs['%s %s decimation' % (channel_id, filter_name)]
 
@@ -415,7 +373,7 @@ class CalibrateEK80(CalibrateEK):
         chirp : np.ndarray
             transmit chirp replica indexed by channel_id
         """
-        backscatter = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_r']
+        backscatter = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_i']
 
         pc_all = []
         for freq in self.echodata.raw_beam.frequency.values:
@@ -424,13 +382,30 @@ class CalibrateEK80(CalibrateEK):
                                 .dropna(dim='quadrant', how='all')
                                 .dropna(dim='ping_time'))
             channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
-            replica = xr.DataArray(np.flipud(np.conj(chirp[channel_id])), dims='window')
-            # Convolution via rolling
-            pc = backscatter_freq.rolling(range_bin=replica.size).construct('window').dot(replica)
+            replica = xr.DataArray(np.conj(chirp[channel_id]), dims='window')
+            # Pulse compression via rolling
+            pc = (backscatter_freq.rolling(range_bin=replica.size).construct('window').dot(replica)
+                  / np.linalg.norm(chirp[channel_id]) ** 2)
             # Expand dimension and add name to allow merge
             pc = pc.expand_dims(dim='frequency')
             pc.name = 'pulse_compressed_output'
             pc_all.append(pc)
+
+            # # Old code to compare with
+            # tmp_b = backscatter[0].dropna('range_bin', how='all')  # remove quadrants that are nans across all samples
+            # tmp_b = tmp_b.dropna('quadrant', how='all')  # remove samples that are nans across all quadrants
+            # tmp_y = np.flipud(np.conj(chirp[channel_id]))  # replica
+            #
+            # pc = xr.apply_ufunc(
+            #     lambda m: np.apply_along_axis(
+            #         lambda m: signal.convolve(m, tmp_y, mode='full'), axis=2, arr=m
+            #     ),
+            #     tmp_b,
+            #     input_core_dims=[['range_bin']],
+            #     output_core_dims=[['range_bin']],
+            #     exclude_dims={'range_bin'},
+            # ) / np.linalg.norm(chirp[channel_id]) ** 2
+
         pc_merge = xr.merge(pc_all)
 
         return pc_merge
@@ -487,6 +462,7 @@ class CalibrateEK80(CalibrateEK):
                     raise TypeError('EchoData does not contain complex samples!')  # user selects the wrong mode
 
         # Compute Sv and combine data sets if both Sv and Sv_complex are calculated
+        # TODO: need to figure out what to do with the different types of range_meter in EK80 data
         if flag_power:
             self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
             ds_Sv = self._cal_power(cal_type='Sv', use_raw_beam_power=use_raw_beam_power)
@@ -498,6 +474,6 @@ class CalibrateEK80(CalibrateEK):
             ds_Sv_complex = self._cal_complex(cal_type='Sv')
         else:
             ds_Sv_complex = xr.Dataset()
-        ds_combine = xr.merge((ds_Sv, ds_Sv_complex))
+        # ds_combine = xr.merge([ds_Sv, ds_Sv_complex])
 
-        return ds_combine
+        # return ds_combine

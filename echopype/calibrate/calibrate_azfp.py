@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
-from .calibrate import CalibrateBase
-from .calibrate import CAL_PARAMS
+from .calibrate_ek import CalibrateBase
+from .calibrate_ek import CAL_PARAMS
 from ..utils import uwa
 
 
@@ -12,6 +12,8 @@ class CalibrateAZFP(CalibrateBase):
 
         # cal params specific to AZFP
         self.cal_params = dict.fromkeys(CAL_PARAMS['AZFP'])
+
+        self.range_meter = self.calc_range_meter()
 
     def get_cal_params(self, cal_params):
         """Get cal params using user inputs or values from data file.
@@ -95,9 +97,8 @@ class CalibrateAZFP(CalibrateBase):
         in the calibration as documented on p.90.
         See calc_Sv_offset() in convert/azfp.py
         """
-        range_meter = self.calc_range_meter()
-        spreading_loss = 20 * np.log10(range_meter)
-        absorption_loss = 2 * self.env_params['sound_absorption'] * range_meter
+        spreading_loss = 20 * np.log10(self.range_meter)
+        absorption_loss = 2 * self.env_params['sound_absorption'] * self.range_meter
         SL = self.cal_params['TVR'] + 20 * np.log10(self.cal_params['VTX'])  # eq.(2)
         a = self.cal_params['DS']  # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
         EL = self.cal_params['EL'] - 2.5 / a + self.echodata.raw_beam.backscatter_r / (26214 * a)  # eq.(5)
@@ -119,7 +120,7 @@ class CalibrateAZFP(CalibrateBase):
 
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
-        out = out.merge(range_meter)
+        out = out.merge(self.range_meter)
 
         return out
 
