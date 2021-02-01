@@ -103,7 +103,6 @@ class Convert:
                               "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
                               DeprecationWarning, 2)
             else:
-                xml_path = model
                 model = 'AZFP'
                 warnings.warn("Current behavior is to set model='AZFP' when an XML file is passed in as argument. "
                               "Specifying model='AZFP' will be required in the future.",
@@ -548,7 +547,7 @@ class Convert:
             self._validate_path('.zarr', save_path)
         else:
             raise ValueError('Unknown type to convert file to!')
-        
+
 
         # Get all existing files
         exist_list = []
@@ -728,6 +727,33 @@ class Convert:
         warnings.warn("`zarr_path` is deprecated, Use `output_path` instead.", DeprecationWarning, 2)
         path = self._zarr_path if self._zarr_path is not None else self.output_file
         return path
+
+    @property
+    def platform_name(self):
+        return self._conversion_params['platform_name']
+
+    @property
+    def platform_type(self):
+        return self._conversion_params['platform_name']
+
+    @property
+    def platform_code_ICES(self):
+        return self._conversion_params['platform_name']
+
+    @platform_name.setter
+    def platform_name(self, val):
+        warnings.warn("`platform_name` is deprecated, set attributes with `set_param` instead.", DeprecationWarning, 2)
+        self._conversion_params['platform_name'] = val
+
+    @platform_name.setter
+    def platform_type(self, val):
+        warnings.warn("`platform_type` is deprecated, set attributes with `set_param` instead.", DeprecationWarning, 2)
+        self._conversion_params['platform_type'] = val
+
+    @platform_name.setter
+    def platform_code_ICES(self, val):
+        warnings.warn("`platform_code_ICES` is deprecated, set attributes with `set_param` instead.", DeprecationWarning, 2)
+        self._conversion_params['platform_code_ICES'] = val
 
     def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         warnings.warn("`raw2nc` is deprecated, use `to_netcdf` instead.", DeprecationWarning, 2)
