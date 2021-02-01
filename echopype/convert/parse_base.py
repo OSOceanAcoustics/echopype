@@ -183,10 +183,20 @@ class ParseEK(ParseBase):
         num_datagrams_parsed = 0
 
         while True:
+            # Skip parsing datagrams that the user did not ask for
+            if 'ALL' not in self.data_type:
+                try:
+                    # Peek file to check the type
+                    dgram_type = fid.peek()['type']
+                except SimradEOF:
+                    break
+                # Skip unused types
+                if not any(dgram_type.startswith(dgram) for dgram in self.data_type):
+                    fid.skip()
+                    continue
+
             try:
-                # TODO: @ngkvain: what I need in the code to not PARSE the raw0/3 datagram
-                #  when users only want CONFIG or ENV, but the way this is implemented
-                #  the raw0/3 datagrams are still parsed, you are just not saving them
+                # Parse files
                 new_datagram = fid.read(1)
 
             except SimradEOF:
@@ -197,11 +207,6 @@ class ParseEK(ParseBase):
 
             num_datagrams_parsed += 1
 
-            # Skip any datagram that the user does not want to save
-
-            if (not any(new_datagram['type'].startswith(dgram) for dgram in self.data_type) and
-               'ALL' not in self.data_type):
-                continue
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram['type'].startswith("XML"):
                 if new_datagram['subtype'] == 'environment' and ('ENV' in self.data_type or 'ALL' in self.data_type):
@@ -211,7 +216,7 @@ class ParseEK(ParseBase):
                     # Don't parse anything else if only the environment xml is required.
                     if 'ENV' in self.data_type:
                         break
-                elif new_datagram['subtype'] == 'parameter' and ('ALL' in self.data_type):
+                elif new_datagram['subtype'] == 'parameter' and 'ALL' in self.data_type:
                     current_parameters = new_datagram['parameter']
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
