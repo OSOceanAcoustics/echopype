@@ -2,10 +2,11 @@ name: Test CI
 
 on:
   push:
+    paths-ignore:
+      - '.ci_helpers/docker/**'
   pull_request:
-    branches:
-      - master
-      - class-redesign
+    paths-ignore:
+      - '.ci_helpers/docker/**'
 
 env:
   CONDA_ENV: echopype
