@@ -48,6 +48,13 @@ if echopype was cloned first, then pull the files from Git LFS by running:
 
    $ git lfs fetch
 
+If no files are fetched, specify the names of the target remote and branch. 
+For example, for the ``upstream`` remote and ``mybranch`` branch:
+
+.. code-block:: console
+
+   $ git lfs fetch -all upstream mybranch
+
 .. note::
    Echopype has recently migrated to using Git LFS which required removing the large
    datasets from the history. It is recommended that those who have previously forked
