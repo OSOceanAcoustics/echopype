@@ -1,4 +1,5 @@
-from .calibrate import CalibrateAZFP, CalibrateEK60, CalibrateEK80
+from .calibrate_ek import CalibrateEK60, CalibrateEK80
+from .calibrate_azfp import CalibrateAZFP
 
 CALIBRATOR = {
     'EK60': CalibrateEK60,
