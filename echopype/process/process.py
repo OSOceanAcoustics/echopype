@@ -505,7 +505,7 @@ class Process:
             if hasattr(self, '_temp_ed'):
                 ed = self._temp_ed
             else:
-                raise TypeError("`get_Sp` missing required EchoData object")
+                raise TypeError("`get_Sv` missing required EchoData object")
 
         # Check to see if required calibration and environment parameters were initialized
         self._check_initialized(['env', 'cal'])
