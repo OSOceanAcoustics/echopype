@@ -87,6 +87,60 @@ beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
    https://jarednielsen.com/learn-git-fork-pull-request/
 
 
+File access options 
+~~~~~~~~~~~~~~~~~~~
+
+ ability for echopype Convert object to read and parse raw files located in any filesystem listed here. 
+ (https://github.com/intake/filesystem_spec/blob/master/fsspec/registry.py#L88-L185)
+ OR: https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations
+
+``storage_options`` attribute is added to the class to allow user to pass in keyword arguments for any of fsspec file system.
+
+
+An AWS profile named 'ncei_wcsda' must be set in the stored credentials file, ~/.aws/credentials
+
+aws_profile_name = 'ncei_wcsda'
+aws_session = aiobotocore.AioSession(profile=aws_profile_name)
+FS = fsspec.filesystem('s3', session=aws_session)
+
+Location on AWS: s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/
+
+bucket = "ncei-wcsd-archive"
+
+
+rawdirpath = "data/raw/Bell_M._Shimada/SH1707/EK60"
+
+rawpth = "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+
+epconv = echopype.Convert(rawpth, model='EK60', storage_options={'anon': True})
+
+import aiobotocore
+import fsspec
+
+aws_session = aiobotocore.AioSession(profile='ooi_don')
+fs = fsspec.filesystem('s3', session=aws_session)
+
+ds = xr.open_zarr(
+    store=fsspec.get_mapper(
+        "s3://ooi-raw-data/CE04OSPS-PC01B-05-ZPLSCB102/OOI-D20150808-T000000.zarr", 
+        session=aws_session),
+    group='Beam'
+)
+
+
+"s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+input_path = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+ec = Convert(
+      file=input_path, model=model, storage_options=input_storage_options
+   )
+
+output_storage_options = dict(
+   client_kwargs=dict(endpoint_url='http://localhost:9000/'),
+   key='minioadmin',
+   secret='minioadmin',
+)
+
+
 Conversion operation
 ~~~~~~~~~~~~~~~~~~~~
 
