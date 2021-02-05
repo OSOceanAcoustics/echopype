@@ -115,7 +115,6 @@ class ParseAd2cp(ParseBase):
         super().__init__(args, kwargs)
         self.burst_average_data_record_version = burst_average_data_record_version
         self.packets = []
-        self.ds = None
 
     def parse_raw(self):
         with open(self.source_file[0], "rb") as f:
