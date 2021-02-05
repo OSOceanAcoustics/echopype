@@ -16,11 +16,13 @@ profile.html
 dask-worker-space/
 toolbox
 *.nc
+!*.base.nc
 *.raw
 *.csv
 *.01A
 *.zarr
 *.xml
+*.json
 ek60/
 azfp/
 temp_echopype_output/
