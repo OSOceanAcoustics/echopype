@@ -91,7 +91,7 @@ class Field:
                     return [Dimension.TIME, Dimension.BEAM, Dimension.RANGE_BIN_BURST]
                 elif data_record_type == DataRecordType.ECHOSOUNDER:
                     return [Dimension.TIME, Dimension.BEAM, Dimension.RANGE_BIN_ECHOSOUNDER]
-            elif field_name == "echo_sounder_data":
+            elif field_name == "echosounder_data":
                 return [Dimension.TIME, Dimension.RANGE_BIN_ECHOSOUNDER]
             elif field_name == "percentage_good_data":
                 if data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
@@ -341,28 +341,28 @@ class Ad2cpDataPacket:
                 self.data["altimeter_data_included"] = self.data["configuration"] & 0b0000_0001_0000_0000
                 self.data["altimeter_raw_data_included"] = self.data["configuration"] & 0b0000_0010_0000_0000
                 self.data["ast_data_included"] = self.data["configuration"] & 0b0000_0100_0000_0000
-                self.data["echo_sounder_data_included"] = self.data["configuration"] & 0b0000_1000_0000_0000
+                self.data["echosounder_data_included"] = self.data["configuration"] & 0b0000_1000_0000_0000
                 self.data["ahrs_data_included"] = self.data["configuration"] & 0b0001_0000_0000_0000
                 self.data["percentage_good_data_included"] = self.data["configuration"] & 0b0010_0000_0000_0000
                 self.data["std_dev_data_included"] = self.data["configuration"] & 0b0100_0000_0000_0000
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
-                if self.data["echo_sounder_data_included"]:
-                    self.data["num_echo_sounder_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"]
+                if self.data["echosounder_data_included"]:
+                    self.data["num_echosounder_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"]
                 else:
                     self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                     self.data["coordinate_system"] = (
                         self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_1100_0000_0000) >> 10
                     self.data["num_beams"] = (
                         self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
-            elif field_name == "ambiguity_velocity_or_echo_sounder_frequency":
-                if self.data["echo_sounder_data_included"]:
+            elif field_name == "ambiguity_velocity_or_echosounder_frequency":
+                if self.data["echosounder_data_included"]:
                     # This is specified as "echo sounder frequency", but the description technically
                     # says "number of echo sounder cells". It is probably the frequency and not the number of cells
                     # because the number of cells already replaces the data in "num_beams_and_coordinate_system_and_num_cells"
                     # when an echo sounder is present
-                    self.data["echo_sounder_frequency"] = self.data["ambiguity_velocity_or_echo_sounder_frequency"]
+                    self.data["echosounder_frequency"] = self.data["ambiguity_velocity_or_echosounder_frequency"]
                 else:
-                    self.data["ambiguity_velocity"] = self.data["ambiguity_velocity_or_echo_sounder_frequency"]
+                    self.data["ambiguity_velocity"] = self.data["ambiguity_velocity_or_echosounder_frequency"]
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
@@ -500,7 +500,7 @@ class Ad2cpDataPacket:
         F("accelerometer_raw_x_axis", 2, SIGNED_INTEGER),
         F("accelerometer_raw_y_axis", 2, SIGNED_INTEGER),
         F("accelerometer_raw_z_axis", 2, SIGNED_INTEGER),
-        F("ambiguity_velocity_or_echo_sounder_frequency", 2, UNSIGNED_INTEGER),
+        F("ambiguity_velocity_or_echosounder_frequency", 2, UNSIGNED_INTEGER),
         F("dataset_description", 2, UNSIGNED_INTEGER),
         F("transmit_energy", 2, UNSIGNED_INTEGER),
         F("velocity_scaling", 1, SIGNED_INTEGER),
@@ -570,12 +570,12 @@ class Ad2cpDataPacket:
             field_exists_predicate=lambda self: self.data["altimeter_raw_data_included"],
         ),
         F(
-            "echo_sounder_data",
+            "echosounder_data",
             2,
             UNSIGNED_INTEGER,
             # field_shape=lambda self: [self.data.get("num_cells", 0)],
-            field_shape=lambda self: [self.data.get("num_echo_sounder_cells", 0)],
-            field_exists_predicate=lambda self: self.data["echo_sounder_data_included"]
+            field_shape=lambda self: [self.data.get("num_echosounder_cells", 0)],
+            field_exists_predicate=lambda self: self.data["echosounder_data_included"]
         ),
         F("ahrs_rotation_matrix_m11", 4, FLOAT,
           field_exists_predicate=lambda self: self.data["ahrs_data_included"]),
