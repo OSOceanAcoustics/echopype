@@ -26,6 +26,7 @@ Documentation
 **Getting Started**
 
 * :doc:`why`
+* :doc:`installation`
 
 .. toctree::
    :maxdepth: 2
@@ -33,10 +34,12 @@ Documentation
    :caption: Getting Started
 
    why
+   installation
 
 **User Guide**
 
-* :doc:`usage`
+* :doc:`convert`
+* :doc:`process`
 * :doc:`data-format`
 
 .. toctree::
@@ -44,7 +47,8 @@ Documentation
    :hidden:
    :caption: User Guide
 
-   usage
+   convert
+   process
    data-format
 
 **Help & Reference**
