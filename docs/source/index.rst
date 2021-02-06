@@ -54,6 +54,7 @@ Documentation
 **Help & Reference**
 
 * :doc:`api`
+* :doc:`whats-new`
 * :doc:`resources`
 
 .. toctree::
@@ -62,6 +63,7 @@ Documentation
    :caption: Help & Reference
 
    api
+   whats-new
    resources
 
 
