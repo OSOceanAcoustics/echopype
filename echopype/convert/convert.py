@@ -242,9 +242,7 @@ class Convert:
         """
         if save_path is None:
             warnings.warn("save_path is not provided")
-            fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
 
-            # Defaults to Echopype directory if source is not localfile system
             current_dir = Path.cwd()
             # Check permission, raise exception if no permission
             io.check_file_permissions(current_dir)
