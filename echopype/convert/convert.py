@@ -613,6 +613,7 @@ class Convert:
             Defaults to ``True``
         combine : bool
             whether or not to combine all converted individual files into one file
+            (Not yet implemented)
             Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
@@ -627,8 +628,19 @@ class Convert:
         self.data_type = data_type
         self.compress = compress
         self.combine = combine
+        self.parallel = parallel
         self.overwrite = overwrite
         self._output_storage_options = storage_options
+
+        # Attribute checking for not implemented functions.
+        if self.combine:
+            raise NotImplementedError(
+                "Files combining is not yet implemented."
+            )
+        if self.parallel:
+            raise NotImplementedError(
+                "Parallel conversion is not yet implemented."
+            )
 
         # Assemble output file names and path
         if convert_type == "netcdf4":
