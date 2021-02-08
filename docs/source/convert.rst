@@ -21,7 +21,7 @@ beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
 .. _Pull requests:
    https://jarednielsen.com/learn-git-fork-pull-request/
 
-Below, the ``echopype`` package will be imported as follows:
+In the examples below, the ``echopype`` package will be imported as follows:
 
 .. code-block:: python
 
@@ -48,7 +48,7 @@ This will generate a ``FILENAME.nc`` file in the same directory as
 the original ``FILENAME.raw`` file.
 
 .. warning::
-   Versions of echopype up to and prior to 0.4.1 used ``raw2nc`` and ``raw2zarr``
+   Versions of echopype prior to 0.5.0 used ``raw2nc`` and ``raw2zarr``
    in order to convert to netCDF or Zarr files respectively. These methods have
    been renamed to ``to_netcdf`` and ``to_zarr``.
 
@@ -130,7 +130,7 @@ A file on a web server can be readily accessed by specifying the file url:
 
 .. code-block:: python
 
-   raw_file_url = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+   raw_file_url = "https://mybucket.s3-us-west-2.amazonaws.com/my/dir/D20170615-T190214.raw"
    ec = ep.Convert(raw_file_url, model='EK60')
 
 AWS S3 access
@@ -138,11 +138,11 @@ AWS S3 access
 
 A file on an AWS S3 "bucket" can be accessed by specifying the S3 path that starts
 with "s3://" and using the ``storage_options`` argument. For a publicly accessible 
-file ("anonymous") on a bucket called ``ncei-wcsd-archive``:
+file ("anonymous") on a bucket called ``mybucket``:
 
 .. code-block:: python
 
-   s3_path = "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+   s3_path = "s3://mybucket/my/dir/D20170615-T190214.raw"
    ec = ep.Convert(
       s3_path, model='EK60', 
       storage_options={'anon': True}
@@ -159,7 +159,8 @@ through ``storage_options`` keywords:
    )
 
 or via a credentials file stored in the default AWS credentials file 
-(``~/.aws/credentials``). For ``profile`` "ncei_wcsda" found in the credential file:
+(``~/.aws/credentials``). For ``profile`` "myprofilename" found in 
+the credential file:
 
 **NOTE: THIS NEEDS TO BE TESTED!**
 
@@ -167,7 +168,7 @@ or via a credentials file stored in the default AWS credentials file
 
    import aiobotocore
    import fsspec
-   aws_session = aiobotocore.AioSession(profile='ooi_don')
+   aws_session = aiobotocore.AioSession(profile='myprofilename')
    fs = fsspec.filesystem('s3', session=aws_session)
    ec = ep.Convert(
       s3_path, model='EK60', 
@@ -175,8 +176,8 @@ or via a credentials file stored in the default AWS credentials file
    )
 
 
-More conversion options
------------------------
+File export options
+-------------------
 
 There are optional arguments that you can pass into ``Convert.to_netcdf()``
 that may come in handy.
