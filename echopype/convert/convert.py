@@ -243,22 +243,14 @@ class Convert:
         if save_path is None:
             warnings.warn("save_path is not provided")
             fsmap = fsspec.get_mapper(self.source_file[0], **self.storage_options)
-            input_fs = fsmap.fs
 
-            if not isinstance(input_fs, LocalFileSystem):
-                # Defaults to Echopype directory if source is not localfile system
-                current_dir = Path.cwd()
-                # Check permission, raise exception if no permission
-                io.check_file_permissions(current_dir)
-                out_dir = current_dir.joinpath(Path('temp_echopype_output'))
-                if not out_dir.exists():
-                    out_dir.mkdir(parents=True)
-            else:
-                # Default output directory taken from first input file
-                out_dir = Path(fsmap.root).parent.absolute()
-
-                # Check permission, raise exception if no permission
-                io.check_file_permissions(out_dir)
+            # Defaults to Echopype directory if source is not localfile system
+            current_dir = Path.cwd()
+            # Check permission, raise exception if no permission
+            io.check_file_permissions(current_dir)
+            out_dir = current_dir.joinpath(Path('temp_echopype_output'))
+            if not out_dir.exists():
+                out_dir.mkdir(parents=True)
 
             warnings.warn(f"Resulting converted file(s) will be available at {str(out_dir)}")
             out_path = [str(out_dir.joinpath(Path(os.path.splitext(Path(f).name)[0] + file_format)))
