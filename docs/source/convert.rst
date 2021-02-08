@@ -1,7 +1,6 @@
 Convert raw files
 =================
 
-
 Supported file types
 --------------------
 
@@ -22,59 +21,11 @@ beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
 .. _Pull requests:
    https://jarednielsen.com/learn-git-fork-pull-request/
 
+Below, the ``echopype`` package will be imported as follows:
 
-File access options 
--------------------
+.. code-block:: python
 
- ability for echopype Convert object to read and parse raw files located in any filesystem listed here. 
- (https://github.com/intake/filesystem_spec/blob/master/fsspec/registry.py#L88-L185)
- OR: https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations
-
-``storage_options`` attribute is added to the class to allow user to pass in keyword arguments for any of fsspec file system.
-
-
-An AWS profile named 'ncei_wcsda' must be set in the stored credentials file, ~/.aws/credentials
-
-aws_profile_name = 'ncei_wcsda'
-aws_session = aiobotocore.AioSession(profile=aws_profile_name)
-FS = fsspec.filesystem('s3', session=aws_session)
-
-Location on AWS: s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/
-
-bucket = "ncei-wcsd-archive"
-
-
-rawdirpath = "data/raw/Bell_M._Shimada/SH1707/EK60"
-
-rawpth = "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
-
-epconv = echopype.Convert(rawpth, model='EK60', storage_options={'anon': True})
-
-import aiobotocore
-import fsspec
-
-aws_session = aiobotocore.AioSession(profile='ooi_don')
-fs = fsspec.filesystem('s3', session=aws_session)
-
-ds = xr.open_zarr(
-    store=fsspec.get_mapper(
-        "s3://ooi-raw-data/CE04OSPS-PC01B-05-ZPLSCB102/OOI-D20150808-T000000.zarr", 
-        session=aws_session),
-    group='Beam'
-)
-
-
-"s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
-input_path = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
-ec = Convert(
-      file=input_path, model=model, storage_options=input_storage_options
-   )
-
-output_storage_options = dict(
-   client_kwargs=dict(endpoint_url='http://localhost:9000/'),
-   key='minioadmin',
-   secret='minioadmin',
-)
+    import echopype as ep
 
 
 Conversion operation
@@ -88,14 +39,12 @@ use the parameter ``model`` to indicate the echosounder type,
 since there is no specific information in the extension ``.raw``
 that include information about the echosounder type:
 
-
 .. code-block:: python
 
-    from echopype import Convert
-    dc = Convert('FILENAME.raw', model='EK80')  # for EK80 file
+    dc = ep.Convert('FILENAME.raw', model='EK80')  # for EK80 file
     dc.to_netcdf()
 
-This will generate a  ``FILENAME.nc`` file in the same directory as
+This will generate a ``FILENAME.nc`` file in the same directory as
 the original ``FILENAME.raw`` file.
 
 .. warning::
@@ -103,24 +52,15 @@ the original ``FILENAME.raw`` file.
    in order to convert to netCDF or Zarr files respectively. These methods have
    been renamed to ``to_netcdf`` and ``to_zarr``.
 
-.. note::
-   The water level should be specified using ``dc.water_level = 'some value'``
-   if the value is known. Otherwise, the water level will be saved as
-   ``None`` if it is not already recorded by the instrument.
-
-
 For data files from the AZFP echosounder, the conversion requires an
 extra ``.XML`` file along with the ``.01A`` data file. The ``.XML`` file
 contains a lot of metadata needed for unpacking the binary data files.
 Typically one single ``.XML`` file is associated with all files from the
-same deployment.
-
-This can be done by:
+same deployment. This can be done by:
 
 .. code-block:: python
 
-    from echopype import Convert
-    dc = Convert('FILENAME.01A', model='AZFP', xml_path='XMLFILENAME.xml')
+    dc = ep.Convert('FILENAME.01A', model='AZFP', xml_path='XMLFILENAME.xml')
     dc.to_netcdf()
 
 Before calling ``to_netcdf()`` or ``to_zarr()`` to create netCDF or Zarr
@@ -149,6 +89,91 @@ the platform code from the
       raw file, so it is a good idea to clear it from memory once done with
       conversion.
 
+.. note::
+   The water level should be specified using ``dc.water_level = 'some value'``
+   if the value is known. Otherwise, the water level will be saved as
+   ``None`` if it is not already recorded by the instrument.
+
+
+File access options 
+-------------------
+
+Specifying multiple files
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``ep.Convert`` can accept a list of file paths pointing to multiple files. 
+For example:
+
+.. code-block:: python
+
+   raw_file_paths = [
+      './raw_data_files/file_01.raw',
+      './raw_data_files/file_02.raw'
+   ]
+   dc = ep.Convert(raw_file_paths, model='EK60')
+
+``ep.Convert`` can also accept paths to files on remote systems such as ``http`` 
+(a file on a web server) and cloud object storage such as Amazon Web Services (AWS) S3. 
+This capability is provided by the `fsspec <https://filesystem-spec.readthedocs.io>`_ 
+package, and all file systems implemented by ``fsspec`` are supported; 
+a list of file systems is available on the 
+`fsspec registry documentation <https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations>`_.
+
+.. warning::
+   ``fsspec``-based access from file locations other than a local file system was 
+   introduced in version 0.5.0
+
+https access
+~~~~~~~~~~~~
+
+A file on a web server can be readily accessed by specifying the file url:
+
+.. code-block:: python
+
+   raw_file_url = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+   ec = ep.Convert(raw_file_url, model='EK60')
+
+AWS S3 access
+~~~~~~~~~~~~~
+
+A file on an AWS S3 "bucket" can be accessed by specifying the S3 path that starts
+with "s3://" and using the ``storage_options`` argument. For a publicly accessible 
+file ("anonymous") on a bucket called ``ncei-wcsd-archive``:
+
+.. code-block:: python
+
+   s3_path = "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
+   ec = ep.Convert(
+      s3_path, model='EK60', 
+      storage_options={'anon': True}
+   )
+
+If the file is not publicly accessible, the credentials can be specified explicitly
+through ``storage_options`` keywords:
+
+.. code-block:: python
+
+   ec = ep.Convert(
+      s3_path, model='EK60', 
+      storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
+   )
+
+or via a credentials file stored in the default AWS credentials file 
+(``~/.aws/credentials``). For ``profile`` "ncei_wcsda" found in the credential file:
+
+**NOTE: THIS NEEDS TO BE TESTED!**
+
+.. code-block:: python
+
+   import aiobotocore
+   import fsspec
+   aws_session = aiobotocore.AioSession(profile='ooi_don')
+   fs = fsspec.filesystem('s3', session=aws_session)
+   ec = ep.Convert(
+      s3_path, model='EK60', 
+      storage_options={'session': aws_session}
+   )
+
 
 More conversion options
 -----------------------
@@ -167,7 +192,7 @@ that may come in handy.
      raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
                       './raw_data_files/file_02.raw',
                       ...]
-     dc = Convert(raw_file_path, model='EK60')             # create a Convert object
+     dc = ep.Convert(raw_file_path, model='EK60')          # create a Convert object
      dc.to_netcdf(save_path='./unpacked_files')            # set the output directory
 
   Each input file will be converted to individual ``.nc`` files and
@@ -180,7 +205,7 @@ that may come in handy.
      raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
                       './raw_data_files/file_02.raw',
                       ...]
-     dc = Convert(raw_file_path, model='EK60')         # create a Convert object
+     dc = ep.Convert(raw_file_path, model='EK60')      # create a Convert object
      dc.to_netcdf(combine=True,                        # combine all input files when unpacking
                   save_path='./unpacked_files/combined_file.nc')
 
