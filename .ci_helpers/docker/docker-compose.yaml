@@ -1,0 +1,25 @@
+# For local development only to spin up services to test against
+version: "3"
+services:
+  minio:
+    build:
+      context: ../../.ci_helpers/docker
+      dockerfile: ./minioci.dockerfile
+    image: cormorack/minioci:latest
+    ports:
+      - 9000:9000
+    networks:
+      - echopypenetwork
+  httpserver:
+    build:
+      context: ../../.ci_helpers/docker
+      dockerfile: ./http-ep.dockerfile
+    image: cormorack/http-ep:latest
+    ports:
+      - 8080:80
+    networks:
+      - echopypenetwork
+
+networks:
+  echopypenetwork:
+      
