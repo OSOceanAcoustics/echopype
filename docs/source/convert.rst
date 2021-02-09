@@ -95,13 +95,13 @@ the platform code from the
    ``None`` if it is not already recorded by the instrument.
 
 
-File access options 
--------------------
+File access
+-----------
 
 Specifying multiple files
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``ep.Convert`` can accept a list of file paths pointing to multiple files. 
+``Convert`` can accept a list of file paths pointing to multiple files. 
 For example:
 
 .. code-block:: python
@@ -112,11 +112,11 @@ For example:
    ]
    dc = ep.Convert(raw_file_paths, model='EK60')
 
-``ep.Convert`` can also accept paths to files on remote systems such as ``http`` 
+``Convert`` can also accept paths to files on remote systems such as ``http`` 
 (a file on a web server) and cloud object storage such as Amazon Web Services (AWS) S3. 
 This capability is provided by the `fsspec <https://filesystem-spec.readthedocs.io>`_ 
 package, and all file systems implemented by ``fsspec`` are supported; 
-a list of file systems is available on the 
+a list of these file systems is available on the 
 `fsspec registry documentation <https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations>`_.
 
 .. warning::
@@ -126,15 +126,20 @@ a list of file systems is available on the
 https access
 ~~~~~~~~~~~~
 
-A file on a web server can be readily accessed by specifying the file url:
+A file on a web server can be accessed by specifying the file url:
 
 .. code-block:: python
 
-   raw_file_url = "https://mybucket.s3-us-west-2.amazonaws.com/my/dir/D20170615-T190214.raw"
+   raw_file_url = "https://mydomain.com/my/dir/D20170615-T190214.raw"
    ec = ep.Convert(raw_file_url, model='EK60')
 
 AWS S3 access
 ~~~~~~~~~~~~~
+
+.. note::
+
+   These instructions should apply to other object storage providers such as 
+   Google Cloud and Azure, but have only been tested on AWS S3.
 
 A file on an AWS S3 "bucket" can be accessed by specifying the S3 path that starts
 with "s3://" and using the ``storage_options`` argument. For a publicly accessible 
@@ -142,9 +147,9 @@ file ("anonymous") on a bucket called ``mybucket``:
 
 .. code-block:: python
 
-   s3_path = "s3://mybucket/my/dir/D20170615-T190214.raw"
+   raw_file_s3path = "s3://mybucket/my/dir/D20170615-T190214.raw"
    ec = ep.Convert(
-      s3_path, model='EK60', 
+      raw_file_s3path, model='EK60', 
       storage_options={'anon': True}
    )
 
@@ -154,7 +159,7 @@ through ``storage_options`` keywords:
 .. code-block:: python
 
    ec = ep.Convert(
-      s3_path, model='EK60', 
+      raw_file_s3path, model='EK60', 
       storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
    )
 
@@ -167,58 +172,93 @@ the credential file:
 .. code-block:: python
 
    import aiobotocore
-   import fsspec
    aws_session = aiobotocore.AioSession(profile='myprofilename')
-   fs = fsspec.filesystem('s3', session=aws_session)
    ec = ep.Convert(
-      s3_path, model='EK60', 
+      raw_file_s3path, model='EK60', 
       storage_options={'session': aws_session}
    )
 
 
-File export options
--------------------
+File export
+-----------
 
-There are optional arguments that you can pass into ``Convert.to_netcdf()``
-that may come in handy.
+``Convert.to_netcdf()`` and ``Convert.to_zarr()`` accept 
+convenient optional arguments. The examples below apply equally to
+``Convert.to_netcdf()`` and ``Convert.to_zarr()``, except as noted.
 
-- Save converted files into another folder:
+**TODO:** Say something about the new default export directory, ``tmp_echopype_output`` (?)
 
-  By default the converted ``.nc`` files are saved into the same folder as
-  the input files. This can be changed by setting ``save_path`` to path to
-  a directory.
+Save converted files into another folder
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  .. code-block:: python
+By default the converted ``.nc`` and ``.zarr`` files are saved into 
+the same folder as the input files. This can be changed by setting 
+``save_path`` to a directory path.
 
-     raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
-                      './raw_data_files/file_02.raw',
-                      ...]
-     dc = ep.Convert(raw_file_path, model='EK60')          # create a Convert object
-     dc.to_netcdf(save_path='./unpacked_files')            # set the output directory
+.. code-block:: python
 
-  Each input file will be converted to individual ``.nc`` files and
-  stored in the specified directory.
+   raw_file_paths = [                                 # a list of raw data files
+      './raw_data_files/dir1/file_01.raw',
+      './raw_data_files/dir2/file_02.raw'
+   ]
+   ec = ep.Convert(raw_file_paths, model='EK60')      # create a Convert object
+   ec.to_netcdf(save_path='./unpacked_files')         # set the output directory
 
-- Combine multiple raw data files into one ``.nc`` file when unpacking:
+In this example, each input file will be converted to an individual ``.nc`` file
+and stored in the specified directory.
 
-  .. code-block:: python
+Combine multiple raw files into one converted file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-     raw_file_path = ['./raw_data_files/file_01.raw',   # a list of raw data files
-                      './raw_data_files/file_02.raw',
-                      ...]
-     dc = ep.Convert(raw_file_path, model='EK60')      # create a Convert object
-     dc.to_netcdf(combine=True,                        # combine all input files when unpacking
-                  save_path='./unpacked_files/combined_file.nc')
+.. code-block:: python
 
-.. warning::
-   The ``combine_opt`` argument used in the old ``raw2nc()`` method
-   (up to echopype version 0.4.1) has been renamed to ``combine`` in the 
-   updated ``to_netcdf`` method.
+   raw_file_paths = [                                 # a list of raw data files
+      './raw_data_files/dir1/file_01.raw',
+      './raw_data_files/dir2/file_02.raw'
+   ]
+   ec = ep.Convert(raw_file_paths, model='EK60')      # create a Convert object
+   ec.to_zarr(
+      combine=True,                                   # combine all input files when unpacking
+      save_path='./unpacked_files/combined_file.zarr'
+   )
 
-
-``save_path`` has to be given explicitly when combining multiple files.
+``save_path`` has to be specified explicitly when combining multiple files.
 If ``save_path`` is only a filename instead of a full path,
 the combined output file will be saved in the same folder as the raw data files.
+
+Save to AWS S3
+~~~~~~~~~~~~~~
+
+.. note::
+
+   These instructions should apply to other object storage providers such as 
+   Google Cloud and Azure, but have only been tested on AWS S3.
+
+.. warning::
+   Saving to S3 was introduced in version 0.5.0.
+
+Converted files can be saved directly into an AWS S3 bucket by specifying ``storage_options``
+as done with input files (see above, "AWS S3 access"). The example below illustrates a 
+fully remote processing pipeline, reading raw files from a web server and saving the converted, 
+combined zarr dataset to S3. Writing netCDF to S3 is currently not supported.
+
+**TODO:** Add information about how to specify chunking and what the default chunking scheme is. 
+Plus, this needs testing.
+
+
+.. code-block:: python
+
+      raw_file_urls = [
+         'http://mydomain.com/from1/file_01.raw',
+         'http://mydomain.com/from2/file_02.raw'
+      ]
+      ec = ep.Convert(raw_file_urls, model='EK60')
+      ec.to_zarr(
+         combine=True,
+         overwrite=True,
+         save_path='s3://mybucket/to/combined_file.zarr',
+         storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
+      )
 
 
 Non-uniform data
