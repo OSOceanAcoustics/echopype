@@ -52,11 +52,13 @@ jobs:
           echo "RCLONE_DRIVE_SCOPE=drive" >> $GITHUB_ENV
           echo "RCLONE_CONFIG_GDRIVE_TYPE=drive" >> $GITHUB_ENV
       - name: Check rclone works
+        shell: bash
         run: |
           rclone ls gdrive:
       - name: Delete test_data
         run: rm -rf ./echopype/test_data
       - name: Get test data
+        shell: bash
         run: |
           rclone copy gdrive: ./echopype/test_data
       - name: Setup Python
