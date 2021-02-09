@@ -17,6 +17,9 @@ services:
     image: cormorack/http-ep:latest
     ports:
       - 8080:80
+    environment:
+      - GOOGLE_SERVICE_JSON=${GOOGLE_SERVICE_JSON}
+      - TEST_DATA_FOLDER_ID=${TEST_DATA_FOLDER_ID}
     networks:
       - echopypenetwork
 
