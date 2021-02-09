@@ -20,14 +20,51 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
+Documentation
+-------------
+
+**Getting Started**
+
+* :doc:`why`
+* :doc:`installation`
+
 .. toctree::
    :maxdepth: 2
+   :hidden:
+   :caption: Getting Started
 
    why
-   usage
+   installation
+
+**User Guide**
+
+* :doc:`convert`
+* :doc:`process`
+* :doc:`data-format`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: User Guide
+
+   convert
+   process
    data-format
-   resources
+
+**Help & Reference**
+
+* :doc:`api`
+* :doc:`whats-new`
+* :doc:`resources`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Help & Reference
+
    api
+   whats-new
+   resources
 
 
 Contributors
