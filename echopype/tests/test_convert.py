@@ -65,18 +65,31 @@ def _download_file(source_url, target_url):
 
 @pytest.fixture(scope="session")
 def minio_bucket():
+    common_storage_options = dict(
+        client_kwargs=dict(endpoint_url='http://localhost:9000/'),
+        key='minioadmin',
+        secret='minioadmin',
+    )
     bucket_name = 'ooi-raw-data'
     fs = fsspec.filesystem(
         's3',
-        **dict(
-            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
-            key='minioadmin',
-            secret='minioadmin',
-        ),
+        **common_storage_options,
     )
+    test_data = 'data'
+    if not fs.exists(test_data):
+        fs.mkdir(test_data)
+
     if not fs.exists(bucket_name):
         fs.mkdir(bucket_name)
 
+    # Load test data into bucket
+    test_data_path = Path(__file__).parent.parent.joinpath(Path('test_data'))
+    for d in test_data_path.iterdir():
+        final_path = str(Path(test_data).joinpath(d.name))
+        source_path = str(d)
+        fs.put(source_path, final_path, recursive=True)
+
+    return common_storage_options
 
 @pytest.fixture(scope="session")
 def download_files():
@@ -116,7 +129,7 @@ def download_files():
     "input_path",
     [
         "./echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
-        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+        "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
     ],
 )
 @pytest.mark.parametrize(
@@ -143,7 +156,6 @@ def test_validate_path_single_source(
             secret='minioadmin',
         )
     fsmap = fsspec.get_mapper(input_path)
-    single_dir = os.path.dirname(fsmap.root)
     single_fname = os.path.splitext(os.path.basename(fsmap.root))[0]
     tmp_single = Convert(input_path, model=model)
     tmp_single._output_storage_options = output_storage_options
@@ -188,18 +200,12 @@ def test_validate_path_single_source(
                 ]
             fs.delete(tmp_single.output_file[0])
     else:
-        if input_path.startswith('https') or input_path.startswith('s3'):
-            current_dir = Path.cwd()
-            temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
-            assert tmp_single.output_file == [
-                str(temp_dir.joinpath(Path(single_fname + '.zarr')))
-            ]
-            os.rmdir(os.path.dirname(tmp_single.output_file[0]))
-        else:
-            # if no output path is given
-            assert tmp_single.output_file == [
-                os.path.join(single_dir, single_fname + '.zarr')
-            ]
+        current_dir = Path.cwd()
+        temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
+        assert tmp_single.output_file == [
+            str(temp_dir.joinpath(Path(single_fname + '.zarr')))
+        ]
+        os.rmdir(os.path.dirname(tmp_single.output_file[0]))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -209,7 +215,7 @@ def test_validate_path_single_source(
     [
         "./echopype/test_data/ek60/*.raw",
         [
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw',
+            'http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw',
         ],
     ],
 )
@@ -240,8 +246,6 @@ def test_validate_path_multiple_source(
         mult_path = glob.glob(input_path)
     else:
         mult_path = input_path
-    fsmap = fsspec.get_mapper(mult_path[0])
-    mult_dir = os.path.dirname(fsmap.root)
     tmp_mult = Convert(mult_path, model='EK60')
     tmp_mult._output_storage_options = output_storage_options
 
@@ -295,29 +299,19 @@ def test_validate_path_multiple_source(
                 ]
             fs.delete(tmp_mult.output_file[0])
     else:
-        if input_path[0].startswith('https') or input_path[0].startswith('s3'):
-            current_dir = Path.cwd()
-            temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
-            assert tmp_mult.output_file == [
-                str(
-                    temp_dir.joinpath(
-                        Path(
-                            os.path.splitext(os.path.basename(f))[0] + '.zarr'
-                        )
+        current_dir = Path.cwd()
+        temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
+        assert tmp_mult.output_file == [
+            str(
+                temp_dir.joinpath(
+                    Path(
+                        os.path.splitext(os.path.basename(f))[0] + '.zarr'
                     )
                 )
-                for f in mult_path
-            ]
-            os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
-        else:
-            # if no output path is given
-            assert tmp_mult.output_file == [
-                os.path.join(
-                    mult_dir,
-                    os.path.splitext(os.path.basename(f))[0] + '.zarr',
-                )
-                for f in mult_path
-            ]
+            )
+            for f in mult_path
+        ]
+        os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -325,11 +319,10 @@ def test_validate_path_multiple_source(
     "input_path",
     [
         "./echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
-        "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw",
+        "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
         [
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw',
-            'https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190843.raw',
+            'http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw',
+            'http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190843.raw',
         ],
     ],
 )
@@ -354,20 +347,16 @@ def test_convert_ek60(
     output_save_path,
     combine_files,
     minio_bucket,
-    download_files,
 ):
+    common_storage_options = minio_bucket
     output_storage_options = {}
     ipath = input_path
     if isinstance(input_path, list):
         ipath = input_path[0]
 
-    input_storage_options = {'anon': True} if ipath.startswith('s3://') else {}
+    input_storage_options = common_storage_options if ipath.startswith('s3://') else {}
     if output_save_path and output_save_path.startswith('s3://'):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
-            key='minioadmin',
-            secret='minioadmin',
-        )
+        output_storage_options = common_storage_options
 
     ec = Convert(
         file=input_path, model=model, storage_options=input_storage_options
@@ -395,14 +384,14 @@ def test_convert_ek60(
     "input_path",
     [
         "./echopype/test_data/azfp/ooi/17032923.01A",
-        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A",
+        "http://localhost:8080/data/azfp/ooi/17032923.01A",
     ],
 )
 @pytest.mark.parametrize(
     "xml_path",
     [
         "./echopype/test_data/azfp/ooi/17032922.XML",
-        "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML",
+        "http://localhost:8080/data/azfp/ooi/17032922.XML",
     ],
 )
 @pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
@@ -427,20 +416,16 @@ def test_convert_azfp(
     output_save_path,
     combine_files,
     minio_bucket,
-    download_files,
 ):
+    common_storage_options = minio_bucket
     output_storage_options = {}
     ipath = input_path
     if isinstance(input_path, list):
         ipath = input_path[0]
 
-    input_storage_options = {'anon': True} if ipath.startswith('s3://') else {}
+    input_storage_options = common_storage_options if ipath.startswith('s3://') else {}
     if output_save_path and output_save_path.startswith('s3://'):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
-            key='minioadmin',
-            secret='minioadmin',
-        )
+        output_storage_options = common_storage_options
 
     ec = Convert(
         file=input_path,
@@ -473,8 +458,8 @@ def test_convert_azfp(
     "input_path",
     [
         "./echopype/test_data/ek80/ncei-wcsd/D20170826-T205615.raw",
-        "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
-        "s3://ncei-wcsd-archive/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
+        "http://localhost:8080/data/ek80/ncei-wcsd/D20170826-T205615.raw",
+        "s3://data/ek80/ncei-wcsd/D20170826-T205615.raw",
     ],
 )
 @pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
@@ -498,20 +483,16 @@ def test_convert_ek80(
     output_save_path,
     combine_files,
     minio_bucket,
-    download_files,
 ):
+    common_storage_options = minio_bucket
     output_storage_options = {}
     ipath = input_path
     if isinstance(input_path, list):
         ipath = input_path[0]
 
-    input_storage_options = {'anon': True} if ipath.startswith('s3://') else {}
+    input_storage_options = common_storage_options if ipath.startswith('s3://') else {}
     if output_save_path and output_save_path.startswith('s3://'):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url='http://localhost:9000/'),
-            key='minioadmin',
-            secret='minioadmin',
-        )
+        output_storage_options = common_storage_options
 
     ec = Convert(
         file=input_path, model=model, storage_options=input_storage_options
