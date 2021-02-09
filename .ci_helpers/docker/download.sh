@@ -1,33 +1,26 @@
-#!/bin/sh
+#!/bin/bash
+
+set -e
 
 # ==== ONLY EDIT WITHIN THIS BLOCK =====
 BASE_PATH=/usr/local/apache2
 DATA_PATH=${BASE_PATH}/htdocs/data
 
-git clone https://github.com/OSOceanAcoustics/echopype.git
-cd echopype
-git checkout class-redesign
-ln -s ${BASE_PATH}/echopype/echopype/test_data ${DATA_PATH}
+if [ -n "$GOOGLE_SERVICE_JSON" ]
+then 
+    echo ${GOOGLE_SERVICE_JSON} > "google-echopype.json"
+    SERVICE_ACCOUNT_FILE=$(realpath google-echopype.json)
+    export RCLONE_DRIVE_SERVICE_ACCOUNT_FILE=${SERVICE_ACCOUNT_FILE}
+fi
 
-# ek60_source='https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw'
-# echo "Downloading ${ek60_source}"
-# ek60_name=$(basename $ek60_source)
-# wget -O ${DATA_PATH}/${ek60_name} $ek60_source
+if [ -n "$TEST_DATA_FOLDER_ID" ]
+then 
+    export RCLONE_DRIVE_ROOT_FOLDER_ID=${TEST_DATA_FOLDER_ID}
+fi
+export RCLONE_DRIVE_SCOPE=drive
+export RCLONE_CONFIG_GDRIVE_TYPE=drive
 
-# ek80_source='https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw'
-# echo "Downloading ${ek80_source}"
-# ek80_name=$(basename $ek80_source)
-# wget -O ${DATA_PATH}/${ek80_name} $ek80_source
-
-# azfp_source='https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A'
-# echo "Downloading ${azfp_source}"
-# azfp_name=$(basename $azfp_source)
-# wget -O ${DATA_PATH}/${azfp_name} $azfp_source
-
-# azfp_xml_source='https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML'
-# echo "Downloading ${azfp_xml_source}"
-# azfp_xml_name=$(basename $azfp_xml_source)
-# wget -O ${DATA_PATH}/${azfp_xml_name} $azfp_xml_source
+rclone copy gdrive: ${DATA_PATH}
 
 # ==== ONLY EDIT WITHIN THIS BLOCK =====
 
