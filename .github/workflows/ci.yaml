@@ -50,6 +50,9 @@ jobs:
           echo "RCLONE_DRIVE_ROOT_FOLDER_ID=${{ secrets.TEST_DATA_FOLDER_ID }}" >> $GITHUB_ENV
           echo "RCLONE_DRIVE_SCOPE=drive" >> $GITHUB_ENV
           echo "RCLONE_CONFIG_GDRIVE_TYPE=drive" >> $GITHUB_ENV
+      - name: Check rclone works
+        run: |
+          rclone ls gdrive:
       - name: Delete test_data
         run: rm -rf ./echopype/test_data
       - name: Get test data
