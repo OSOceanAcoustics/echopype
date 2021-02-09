@@ -29,23 +29,34 @@ jobs:
         image: cormorack/minioci
         ports:
           - 9000:9000
+      httpserver:
+        image: cormorack/http-ep
+        ports:
+          - 8080:80
     steps:
       - uses: actions/checkout@v2
-        with:
-          lfs: true
+      - name: Install rclone
+        run: sudo apt-get install --yes rclone
+      - name: Write google service account file
+        run: |
+          echo ${{ secrets.GOOGLE_SERVICE_JSON }} > "google-echopype.json"
+      - name: Set rclone environment variables
+        run: |
+          SERVICE_ACCOUNT_FILE=$(realpath google-echopype.json)
+          echo "RCLONE_DRIVE_SERVICE_ACCOUNT_FILE=${SERVICE_ACCOUNT_FILE}" >> $GITHUB_ENV
+          echo "RCLONE_DRIVE_ROOT_FOLDER_ID=${{ secrets.TEST_DATA_FOLDER_ID }}" >> $GITHUB_ENV
+          echo "RCLONE_DRIVE_SCOPE=drive" >> $GITHUB_ENV
+          echo "RCLONE_CONFIG_GDRIVE_TYPE=drive" >> $GITHUB_ENV
+      - name: Delete test_data
+        run: rm -rf ./echopype/test_data
+      - name: Get test data
+        run: |
+          rclone copy gdrive: ./echopype/test_data
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - name: Get cache key of git-lfs files
-        id: git-lfs
-        run: echo "::set-output name=sha256::$(git lfs ls-files | openssl dgst -sha256)"
-      - name: Cache lfs
-        uses: actions/cache@v2
-        with:
-          path: .git/lfs
-          key: ${{ steps.git-lfs.outputs.sha256 }}
       - name: Cache conda
         uses: actions/cache@v2
         env:
