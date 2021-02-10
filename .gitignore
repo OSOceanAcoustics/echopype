@@ -22,7 +22,8 @@ toolbox
 *.01A
 *.zarr
 *.xml
-*.json
 ek60/
 azfp/
 temp_echopype_output/
+
+ad2cp-test/*
