@@ -2,16 +2,19 @@ name: Test CI
 
 on:
   push:
-    paths-ignore:
-      - '.ci_helpers/docker/**'
-  pull_request:
-    paths-ignore:
-      - '.ci_helpers/docker/**'
+    branches:
+      - master
+      - class-redesign
+    paths-ignore: [".ci_helpers/docker/**"]
+  pull_request_target:
+    branches:
+      - master
+      - class-redesign
+    paths-ignore: [".ci_helpers/docker/**"]
+  workflow_dispatch:
 
 env:
   CONDA_ENV: echopype
-  GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
-  TEST_DATA_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
 
 jobs:
   test:
