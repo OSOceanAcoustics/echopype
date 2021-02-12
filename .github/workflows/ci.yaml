@@ -7,9 +7,6 @@ on:
       - class-redesign
     paths-ignore: [".ci_helpers/docker/**"]
   pull_request_target:
-    branches:
-      - master
-      - class-redesign
     paths-ignore: [".ci_helpers/docker/**"]
   workflow_dispatch:
 
