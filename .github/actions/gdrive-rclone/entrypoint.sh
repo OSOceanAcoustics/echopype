@@ -8,7 +8,7 @@ export RCLONE_DRIVE_ROOT_FOLDER_ID=${ROOT_FOLDER_ID}
 export RCLONE_DRIVE_SCOPE=drive
 export RCLONE_CONFIG_GDRIVE_TYPE=drive
 
-echo ${GOOGLE_SERVICE_JSON} > ${RCLONE_DRIVE_SERVICE_ACCOUNT_FILE}
+echo ${GOOGLE_SERVICE_JSON} | jq . > ${RCLONE_DRIVE_SERVICE_ACCOUNT_FILE}
 
 # Little check to make sure we can list from google drive
 rclone ls gdrive:
