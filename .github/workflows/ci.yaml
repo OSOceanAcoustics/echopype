@@ -32,12 +32,9 @@ jobs:
         ports:
           - 9000:9000
       httpserver:
-        image: cormorack/http-ep
+        image: httpd:2.4
         ports:
           - 8080:80
-        options: >-
-          -e GOOGLE_SERVICE_JSON
-          -e TEST_DATA_FOLDER_ID
     steps:
       - uses: actions/checkout@v2
       - name: Retrieve test data
@@ -45,6 +42,12 @@ jobs:
         env:
           GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
           ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
+      - name: Copying test data to http server
+        run: |
+          docker cp -L ./echopype/test_data ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data
+
+          # Check data endpoint
+          curl http://localhost:8080/data/
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
