@@ -10,6 +10,8 @@ on:
 
 env:
   CONDA_ENV: echopype
+  GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
+  TEST_DATA_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
 
 jobs:
   test:
@@ -33,9 +35,9 @@ jobs:
         image: cormorack/http-ep
         ports:
           - 8080:80
-        env:
-          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
-          TEST_DATA_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
+        options: >-
+          -e GOOGLE_SERVICE_JSON
+          -e TEST_DATA_FOLDER_ID
     steps:
       - uses: actions/checkout@v2
       - name: Retrieve test data
