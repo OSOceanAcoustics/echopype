@@ -7,6 +7,8 @@ on:
       - class-redesign
     paths-ignore: [".ci_helpers/docker/**"]
   pull_request_target:
+    paths-ignore: [".ci_helpers/docker/**", "**/ci.yaml"]
+  pull_request:
     paths-ignore: [".ci_helpers/docker/**"]
   workflow_dispatch:
 
