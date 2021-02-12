@@ -21,6 +21,9 @@ then
     echo "Copying new test data from google drive"
     rclone copy gdrive: $TEST_DATA_FOLDER
     echo "Done"
+    
+    chmod -R ugoa+w $TEST_DATA_FOLDER
+    ls -lah $TEST_DATA_FOLDER
 else
     echo "${TEST_DATA_FOLDER} not found"
 fi

@@ -11,15 +11,14 @@ services:
     networks:
       - echopypenetwork
   httpserver:
-    build:
-      context: ../../.ci_helpers/docker
-      dockerfile: ./http-ep.dockerfile
-    image: cormorack/http-ep:latest
+    # NOTE ====================================
+    # For httpserver test data,
+    # it needs to be copied to the docker container
+    # docker cp -L ./echopype/test_data docker_httpserver_1:/usr/local/apache2/htdocs/data
+    # =====================================
+    image: httpd:2.4
     ports:
       - 8080:80
-    environment:
-      - GOOGLE_SERVICE_JSON=${GOOGLE_SERVICE_JSON}
-      - TEST_DATA_FOLDER_ID=${TEST_DATA_FOLDER_ID}
     networks:
       - echopypenetwork
 
