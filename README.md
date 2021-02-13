@@ -5,15 +5,31 @@
 # Echopype
 
 <a href="https://travis-ci.org/OSOceanAcoustics/echopype">
-<img src="https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master"/>
+  <img src="https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master"/>
 </a>
 
 <a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
-<img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
+  <img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
+</a>
+
+<a href="https://pypi.org/project/echopype/">
+  <img src="https://img.shields.io/pypi/v/echopype.svg"/>
+</a>
+
+<a href="https://anaconda.org/conda-forge/echopype">
+  <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
 </a>
 
 <a href="https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master">
-<img src="https://mybinder.org/badge_logo.svg"/>
+  <img src="https://mybinder.org/badge_logo.svg"/>
+</a>
+
+<a href="https://doi.org/10.5281/zenodo.4066742">
+  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4066742.svg" alt="DOI">
+</a>
+
+<a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
+  <img alt="GitHub License" src="https://img.shields.io/github/license/OSOceanAcoustics/echopype">
 </a>
 
 
