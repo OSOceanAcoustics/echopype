@@ -171,6 +171,8 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def set_vendor_specific(self):
         attrs = {
+            # TODO: offset of data is only relevant to the raw data format
+            # (says how many bytes the data is from the header)
             "offset_of_data": self.ds.get("offset_of_data"),
             "pressure_sensor_valid": self.ds.get("pressure_sensor_valid"),
             "temperature_sensor_valid": self.ds.get("temperature_sensor_valid"),
