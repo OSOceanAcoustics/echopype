@@ -17,6 +17,7 @@ dask-worker-space/
 toolbox
 *.nc
 !*.base.nc
+!*.ad2cp.nc
 *.raw
 *.csv
 *.01A
