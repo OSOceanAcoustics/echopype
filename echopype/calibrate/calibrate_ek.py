@@ -340,8 +340,23 @@ class CalibrateEK80(CalibrateEK):
 
         return ytx_pc_deci, ytx_pc_deci_time
 
+    @staticmethod
+    def _get_tau_effective(ytx, fs):
+        """Compute effective pulse length.
+
+        Parameters
+        ----------
+        ytx :array
+            transmit signal
+        fs : float
+            sampling frequency of the decimated (recorded) signal
+        """
+        ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
+        ptxa = abs(ytxa) ** 2
+        return ptxa.sum() / (ptxa.max() * fs)
+
     def get_transmit_chirp(self):
-        """Reconstruct transmit signal.
+        """Reconstruct transmit signal and compute effective pulse length.
         """
         # Make sure it is BB mode data
         if ('frequency_start' not in self.echodata.raw_beam) or ('frequency_end' not in self.echodata.raw_beam):
@@ -349,6 +364,7 @@ class CalibrateEK80(CalibrateEK):
 
         y_all = {}
         y_time_all = {}
+        tau_effective = {}
         for freq in self.echodata.raw_beam.frequency.values:
             # TODO: currently only deal with the case with a fixed tx key param values within a channel
             tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
@@ -362,12 +378,15 @@ class CalibrateEK80(CalibrateEK):
 
             # Filter and decimate chirp template
             channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
+            fs = 1 / self.echodata.raw_beam.sel(frequency=freq)['sample_interval'].values
             y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
+            tau_effective_tmp = self._get_tau_effective(y_tmp, fs)
 
             y_all[channel_id] = y_tmp
             y_time_all[channel_id] = y_tmp_time
+            tau_effective[channel_id] = tau_effective_tmp
 
-        return y_all, y_time_all
+        return y_all, y_time_all, tau_effective
 
     def compress_pulse(self, chirp):
         """Perform pulse compression on the backscatter data.
