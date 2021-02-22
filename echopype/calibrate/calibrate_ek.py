@@ -36,8 +36,12 @@ class CalibrateEK(CalibrateBase):
                            - tvg_correction_factor) * sample_thickness  # [frequency x range_bin]
         elif waveform_mode == 'BB':
             shift = self.echodata.raw_beam['transmit_duration_nominal']  # based on Lar Anderson's Matlab code
-            range_meter = ((self.echodata.raw_beam.range_bin * self.echodata.raw_beam['sample_interval']
-                            - shift) * self.env_params['sound_speed'] / 2)
+            # TODO: once we allow putting in arbitrary sound_speed, change below to use linearly-interpolated values
+            range_meter = ((self.echodata.raw_beam.range_bin * self.echodata.raw_beam['sample_interval'] - shift)
+                           * self.env_params['sound_speed'].reindex({'ping_time': self.echodata.raw_beam.ping_time},
+                                                                    'nearest') / 2)
+            # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
+            #  need to ask why and see if necessary here
         else:
             raise ValueError('Input waveform_mode not recognized!')
 
@@ -471,6 +475,7 @@ class CalibrateEK80(CalibrateEK):
         if flag_complex:
             # TODO: here we deal first with only BB mode encoded in complex samples.
             #  Add CW mode encoded in complex samples later.
+            self.range_meter = self.calc_range_meter(waveform_mode='BB', tvg_correction_factor=0)
             ds_Sv_complex = self._cal_complex(cal_type='Sv')
         else:
             ds_Sv_complex = xr.Dataset()
