@@ -2,7 +2,13 @@
 
 set -e
 
-mkdir /opt/rclone_temp
+if [ -d "/opt/rclone_temp" ]
+then
+    echo "/opt/rclone_temp found."
+else
+    echo "creating /opt/rclone_temp"
+    mkdir /opt/rclone_temp
+fi
 export RCLONE_DRIVE_SERVICE_ACCOUNT_FILE="/opt/rclone_temp/google-echopype.json"
 export RCLONE_DRIVE_ROOT_FOLDER_ID=${ROOT_FOLDER_ID}
 export RCLONE_DRIVE_SCOPE=drive
