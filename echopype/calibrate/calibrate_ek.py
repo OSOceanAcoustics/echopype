@@ -341,19 +341,19 @@ class CalibrateEK80(CalibrateEK):
         return ytx_pc_deci, ytx_pc_deci_time
 
     @staticmethod
-    def _get_tau_effective(ytx, fs):
+    def _get_tau_effective(ytx, fs_deci):
         """Compute effective pulse length.
 
         Parameters
         ----------
         ytx :array
             transmit signal
-        fs : float
+        fs_deci : float
             sampling frequency of the decimated (recorded) signal
         """
         ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
         ptxa = abs(ytxa) ** 2
-        return ptxa.sum() / (ptxa.max() * fs)
+        return ptxa.sum() / (ptxa.max() * fs_deci)
 
     def get_transmit_chirp(self):
         """Reconstruct transmit signal and compute effective pulse length.
@@ -378,9 +378,9 @@ class CalibrateEK80(CalibrateEK):
 
             # Filter and decimate chirp template
             channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
-            fs = 1 / self.echodata.raw_beam.sel(frequency=freq)['sample_interval'].values
+            fs_deci = 1 / self.echodata.raw_beam.sel(frequency=freq)['sample_interval'].values
             y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
-            tau_effective_tmp = self._get_tau_effective(y_tmp, fs)
+            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci)
 
             y_all[channel_id] = y_tmp
             y_time_all[channel_id] = y_tmp_time
@@ -434,7 +434,62 @@ class CalibrateEK80(CalibrateEK):
         return pc_merge
 
     def _cal_complex(self, cal_type):
-        return 1
+
+        # pulse compression
+        chirp, _, tau_effective = self.get_transmit_chirp()
+        pc = self.compress_pulse(chirp)
+
+        prx_bb = (
+                self.echodata.raw_beam.quadrant.size
+                * np.abs(pc.mean(dim='quadrant')) ** 2
+                / (2 * np.sqrt(2)) ** 2
+                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                / self.z_et
+        )
+
+        # Derived params
+        sound_speed = self.env_params['sound_speed'].reindex({'ping_time': self.echodata.raw_beam['ping_time']},
+                                                             'nearest')
+        wavelength = sound_speed / self.echodata.raw_beam['frequency']
+        range_meter = self.range_meter
+        freq_center = (self.echodata.raw_beam['frequency_start'] + self.echodata.raw_beam['frequency_end']) / 2
+        freq_nominal = self.echodata.raw_beam.frequency
+        # gain = self.echodata.raw_vend['gain']
+        gain = 27
+
+        # Transmission loss
+        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
+        absorption_loss = 2 * self.env_params['sound_absorption'].reindex(
+            {'ping_time': self.echodata.raw_beam['ping_time']}, 'nearest') * range_meter
+
+        if cal_type == 'Sv':
+            psifc = self.echodata.raw_beam['equivalent_beam_angle'] + 10 * np.log10(freq_nominal / freq_center)
+            tau_effective = xr.DataArray(data=list(tau_effective.values()),
+                                         coords=[self.echodata.raw_beam.frequency,
+                                                 self.echodata.raw_beam.ping_time],
+                                         dims=['frequency', 'ping_time'])
+            out = (10 * np.log10(prx_bb)
+                   + spreading_loss + absorption_loss
+                   - 10 * np.log10(wavelength ** 2
+                                   * self.echodata.raw_beam['transmit_power']
+                                   * sound_speed
+                                   / (32 * np.pi ** 2))
+                   - 2 * gain - 10 * np.log10(tau_effective) - psifc)
+            out = out.rename_vars({'pulse_compressed_output': 'Sv'})
+
+        elif cal_type == 'Sp':
+            out = (10 * np.log10(prx_bb)
+                   + 2 * spreading_loss + absorption_loss
+                   - 10 * np.log10(wavelength ** 2
+                                   * self.echodata.raw_beam['transmit_power']
+                                   / (16 * np.pi ** 2))
+                   - 2 * gain)
+            out = out.rename_vars({'pulse_compressed_output': 'Sp'})
+
+        # Attach calculated range (with units meter) into data set
+        out = out.merge(range_meter)
+
+        return out
 
     def get_Sv(self, mode=None):
         """Compute volume backscattering strength (Sv).
