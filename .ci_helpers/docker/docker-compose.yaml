@@ -17,10 +17,23 @@ services:
     # docker cp -L ./echopype/test_data docker_httpserver_1:/usr/local/apache2/htdocs/data
     # =====================================
     image: httpd:2.4
+    depends_on:
+      - rclone
     ports:
       - 8080:80
     networks:
       - echopypenetwork
+  rclone:
+    build:
+      context: ../../.github/actions/gdrive-rclone
+      dockerfile: ./Dockerfile
+    image: gdrive-rclone
+    environment:
+      - GITHUB_WORKSPACE=/data/echopype
+      - GOOGLE_SERVICE_JSON=${GOOGLE_SERVICE_JSON}
+      - ROOT_FOLDER_ID=${TEST_DATA_FOLDER_ID}
+    volumes:
+      - ../../../echopype:/data/echopype:consistent
 
 networks:
   echopypenetwork:
