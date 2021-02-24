@@ -341,7 +341,7 @@ class CalibrateEK80(CalibrateEK):
         return ytx_pc_deci, ytx_pc_deci_time
 
     @staticmethod
-    def _get_tau_effective(ytx, fs_deci):
+    def _get_tau_effective(ytx, fs_deci, waveform_mode):
         """Compute effective pulse length.
 
         Parameters
@@ -350,13 +350,27 @@ class CalibrateEK80(CalibrateEK):
             transmit signal
         fs_deci : float
             sampling frequency of the decimated (recorded) signal
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
         """
-        ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
-        ptxa = abs(ytxa) ** 2
-        return ptxa.sum() / (ptxa.max() * fs_deci)
+        if waveform_mode == 'BB':
+            ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
+            ptxa = abs(ytxa) ** 2
+        elif waveform_mode == 'CW':
+            ptxa = np.abs(ytx) ** 2  # energy of transmit signal
+        else:
+            raise ValueError('Input waveform_mode not recognized!')
+        return ptxa.sum() / (ptxa.max() * fs_deci)  # TODO: verify fs_deci = 1.5e6 in spheroid data sets
 
-    def get_transmit_chirp(self):
+    def get_transmit_chirp(self, waveform_mode):
         """Reconstruct transmit signal and compute effective pulse length.
+
+        Parameters
+        ----------
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
         """
         # Make sure it is BB mode data
         if ('frequency_start' not in self.echodata.raw_beam) or ('frequency_end' not in self.echodata.raw_beam):
@@ -380,7 +394,7 @@ class CalibrateEK80(CalibrateEK):
             channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
             fs_deci = 1 / self.echodata.raw_beam.sel(frequency=freq)['sample_interval'].values
             y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
-            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci)
+            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci, waveform_mode=waveform_mode)
 
             y_all[channel_id] = y_tmp
             y_time_all[channel_id] = y_tmp_time
@@ -414,56 +428,65 @@ class CalibrateEK80(CalibrateEK):
             pc.name = 'pulse_compressed_output'
             pc_all.append(pc)
 
-            # # Old code to compare with
-            # tmp_b = backscatter[0].dropna('range_bin', how='all')  # remove quadrants that are nans across all samples
-            # tmp_b = tmp_b.dropna('quadrant', how='all')  # remove samples that are nans across all quadrants
-            # tmp_y = np.flipud(np.conj(chirp[channel_id]))  # replica
-            #
-            # pc = xr.apply_ufunc(
-            #     lambda m: np.apply_along_axis(
-            #         lambda m: signal.convolve(m, tmp_y, mode='full'), axis=2, arr=m
-            #     ),
-            #     tmp_b,
-            #     input_core_dims=[['range_bin']],
-            #     output_core_dims=[['range_bin']],
-            #     exclude_dims={'range_bin'},
-            # ) / np.linalg.norm(chirp[channel_id]) ** 2
-
         pc_merge = xr.merge(pc_all)
 
         return pc_merge
 
-    def _cal_complex(self, cal_type):
+    def _cal_complex(self, cal_type, waveform_mode):
+        """Calibrate complex data from EK80.
+
+        Parameters
+        ----------
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'Sp' for calculating point backscattering strength
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
+        """
 
         # pulse compression
         chirp, _, tau_effective = self.get_transmit_chirp()
         pc = self.compress_pulse(chirp)
-
-        prx_bb = (
-                self.echodata.raw_beam.quadrant.size
-                * np.abs(pc.mean(dim='quadrant')) ** 2
-                / (2 * np.sqrt(2)) ** 2
-                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                / self.z_et
-        )
+        prx_bb = (self.echodata.raw_beam.quadrant.size
+                  * np.abs(pc.mean(dim='quadrant')) ** 2
+                  / (2 * np.sqrt(2)) ** 2
+                  * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                  / self.z_et)
 
         # Derived params
         sound_speed = self.env_params['sound_speed'].reindex({'ping_time': self.echodata.raw_beam['ping_time']},
                                                              'nearest')
-        wavelength = sound_speed / self.echodata.raw_beam['frequency']
         range_meter = self.range_meter
-        freq_center = (self.echodata.raw_beam['frequency_start'] + self.echodata.raw_beam['frequency_end']) / 2
         freq_nominal = self.echodata.raw_beam.frequency
-        # gain = self.echodata.raw_vend['gain']
+        if waveform_mode == 'BB':
+            freq_center = (self.echodata.raw_beam['frequency_start'] + self.echodata.raw_beam['frequency_end']) / 2
+            wavelength = sound_speed / freq_center
+        elif waveform_mode == 'CW':
+            wavelength = sound_speed / freq_nominal
+        else:
+            raise ValueError('Input waveform_mode not recognized!')
+        # gain = self.echodata.raw_vend['gain']  # TODO: need to interpolate gain to at freq_center
         gain = 27
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
+        # TODO: Check udpates of sound_absorption uses freq_center instead of freq_nominal
         absorption_loss = 2 * self.env_params['sound_absorption'].reindex(
             {'ping_time': self.echodata.raw_beam['ping_time']}, 'nearest') * range_meter
 
+        # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
+        #  Is this due to the use of 'single' in matlab code?
         if cal_type == 'Sv':
-            psifc = self.echodata.raw_beam['equivalent_beam_angle'] + 10 * np.log10(freq_nominal / freq_center)
+            # get equivalent beam angle
+            if waveform_mode == 'BB':
+                psifc = self.echodata.raw_beam['equivalent_beam_angle'] + 10 * np.log10(freq_nominal / freq_center)
+            elif waveform_mode == 'CW':
+                psifc = self.echodata.raw_beam['equivalent_beam_angle']
+            else:
+                raise ValueError('Input waveform_mode not recognized!')
+
+            # effective pulse length
             tau_effective = xr.DataArray(data=list(tau_effective.values()),
                                          coords=[self.echodata.raw_beam.frequency,
                                                  self.echodata.raw_beam.ping_time],
@@ -485,6 +508,8 @@ class CalibrateEK80(CalibrateEK):
                                    / (16 * np.pi ** 2))
                    - 2 * gain)
             out = out.rename_vars({'pulse_compressed_output': 'Sp'})
+        else:
+            raise ValueError('cal_type not recognized!')
 
         # Attach calculated range (with units meter) into data set
         out = out.merge(range_meter)
