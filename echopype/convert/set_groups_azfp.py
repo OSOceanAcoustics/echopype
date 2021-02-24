@@ -191,7 +191,6 @@ class SetGroupsAZFP(SetGroupsBase):
                 'first_ping': (['ping_time'], unpacked_data['first_ping']),
                 'last_ping': (['ping_time'], unpacked_data['last_ping']),
                 'data_error': (['ping_time'], unpacked_data['data_error']),
-                'sensor_flag': (['ping_time'], unpacked_data['sensor_flag']),
                 'ancillary': (['ping_time', 'ancillary_len'], unpacked_data['ancillary']),
                 'ad_channels': (['ping_time', 'ad_len'], unpacked_data['ad']),
                 'battery_main': (['ping_time'], unpacked_data['battery_main']),
@@ -212,6 +211,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
                 'profile_flag': unpacked_data['profile_flag'],
+                'sensors_flag': parameters['sensors_flag'],
                 'burst_interval': parameters['burst_interval'],
                 'ping_per_profile': unpacked_data['ping_per_profile'],
                 'average_pings_flag': unpacked_data['avg_pings'],
