@@ -111,7 +111,6 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                          'equivalent_beam_angle': (['frequency'], parameters['BP']),
-                         'gain_correction': (['frequency'], parameters['gain']),
                          'sample_interval': (['frequency'], sample_int,
                                              {'units': 's'}),
                          'transmit_duration_nominal': (['frequency'], tdn,
@@ -179,6 +178,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
+                'gain_correction': (['frequency'], unpacked_data['gain']),
                 'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
                 'lockout_index': (['frequency'], unpacked_data['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
