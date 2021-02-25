@@ -1,0 +1,40 @@
+# For local development only to spin up services to test against
+version: "3"
+services:
+  minio:
+    build:
+      context: ../../.ci_helpers/docker
+      dockerfile: ./minioci.dockerfile
+    image: cormorack/minioci:latest
+    ports:
+      - 9000:9000
+    networks:
+      - echopypenetwork
+  httpserver:
+    # NOTE ====================================
+    # For httpserver test data,
+    # it needs to be copied to the docker container
+    # docker cp -L ./echopype/test_data docker_httpserver_1:/usr/local/apache2/htdocs/data
+    # =====================================
+    image: httpd:2.4
+    depends_on:
+      - rclone
+    ports:
+      - 8080:80
+    networks:
+      - echopypenetwork
+  rclone:
+    build:
+      context: ../../.github/actions/gdrive-rclone
+      dockerfile: ./Dockerfile
+    image: gdrive-rclone
+    environment:
+      - GITHUB_WORKSPACE=/data/echopype
+      - GOOGLE_SERVICE_JSON=${GOOGLE_SERVICE_JSON}
+      - ROOT_FOLDER_ID=${TEST_DATA_FOLDER_ID}
+    volumes:
+      - ../../../echopype:/data/echopype:consistent
+
+networks:
+  echopypenetwork:
+      
