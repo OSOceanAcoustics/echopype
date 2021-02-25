@@ -48,7 +48,7 @@ class SetGroupsAZFP(SetGroupsBase):
         sonar_dict = {
             'sonar_manufacturer': 'ASL Environmental Sciences',
             'sonar_model': 'Acoustic Zooplankton Fish Profiler',
-            'sonar_serial_number': self.parser_obj.parameters['serial_number'],
+            'sonar_serial_number': int(self.parser_obj.unpacked_data['serial_number']),
             'sonar_software_name': 'Based on AZFP Matlab Toolbox',
             'sonar_software_version': '1.4',
             'sonar_type': 'echosounder'
@@ -83,7 +83,7 @@ class SetGroupsAZFP(SetGroupsBase):
         N = []   # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
-            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], parameters['pulse_length'][ich])
+            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))
 
@@ -99,7 +99,7 @@ class SetGroupsAZFP(SetGroupsBase):
             N = N_tmp
             del N_tmp
 
-        tdn = np.array(parameters['pulse_length']) / 1e6  # Convert microseconds to seconds
+        tdn = unpacked_data['pulse_length'] / 1e6  # Convert microseconds to seconds
         range_samples_xml = np.array(parameters['range_samples'])         # from xml file
         range_samples_per_bin = unpacked_data['range_samples_per_bin']    # from data header
 
@@ -111,6 +111,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                          'equivalent_beam_angle': (['frequency'], parameters['BP']),
+                         'gain_correction': (['frequency'], unpacked_data['gain']),
                          'sample_interval': (['frequency'], sample_int,
                                              {'units': 's'}),
                          'transmit_duration_nominal': (['frequency'], tdn,
@@ -176,12 +177,16 @@ class SetGroupsAZFP(SetGroupsBase):
         parameters = self.parser_obj.parameters
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        tdn = np.array(parameters['pulse_length']) / 1e6
 
         ds = xr.Dataset(
             {
-                'gain_correction': (['frequency'], unpacked_data['gain']),
-                'digitization_rate': (['frequency'], parameters['dig_rate']),
-                'lockout_index': (['frequency'], parameters['lockout_index']),
+                'XML_transmit_duration_nominal': (['frequency'], tdn),
+                'XML_gain_correction': (['frequency'], parameters['gain']),
+                'XML_digitization_rate': (['frequency'], parameters['dig_rate']),
+                'XML_lockout_index': (['frequency'], parameters['lockout_index']),
+                'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
+                'lockout_index': (['frequency'], unpacked_data['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
                 'number_of_samples_per_average_bin': (['frequency'], unpacked_data['range_samples_per_bin']),
                 'board_number': (['frequency'], unpacked_data['board_num']),
@@ -210,9 +215,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
+                'XML_sensors_flag': parameters['sensors_flag'],
+                'XML_burst_interval': parameters['burst_interval'],
+                'XML_sonar_serial_number': parameters['serial_number'],
                 'profile_flag': unpacked_data['profile_flag'],
-                'sensors_flag': parameters['sensors_flag'],
-                'burst_interval': parameters['burst_interval'],
+                'sensors_flag': unpacked_data['sensors_flag'],
+                'burst_interval': unpacked_data['burst_interval'],
                 'ping_per_profile': unpacked_data['ping_per_profile'],
                 'average_pings_flag': unpacked_data['avg_pings'],
                 'spare_channel': unpacked_data['spare_chan'],
