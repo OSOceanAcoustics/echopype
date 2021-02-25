@@ -111,7 +111,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                          'equivalent_beam_angle': (['frequency'], parameters['BP']),
-                         'gain_correction': (['frequency'], parameters['gain']),
+                         'gain_correction': (['frequency'], unpacked_data['gain']),
                          'sample_interval': (['frequency'], sample_int,
                                              {'units': 's'}),
                          'transmit_duration_nominal': (['frequency'], tdn,
@@ -174,11 +174,17 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Vendor-specific group.
         """
         unpacked_data = self.parser_obj.unpacked_data
+        parameters = self.parser_obj.parameters
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        tdn = np.array(parameters['pulse_length']) / 1e6
 
         ds = xr.Dataset(
             {
+                'XML_transmit_duration_nominal': (['frequency'], tdn),
+                'XML_gain_correction': (['frequency'], parameters['gain']),
+                'XML_digitization_rate': (['frequency'], parameters['dig_rate']),
+                'XML_lockout_index': (['frequency'], parameters['lockout_index']),
                 'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
                 'lockout_index': (['frequency'], unpacked_data['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
@@ -190,7 +196,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'first_ping': (['ping_time'], unpacked_data['first_ping']),
                 'last_ping': (['ping_time'], unpacked_data['last_ping']),
                 'data_error': (['ping_time'], unpacked_data['data_error']),
-                'sensor_flag': (['ping_time'], unpacked_data['sensor_flag']),
+                'sensors_flag': (['ping_time'], unpacked_data['sensor_flag']),
                 'ancillary': (['ping_time', 'ancillary_len'], unpacked_data['ancillary']),
                 'ad_channels': (['ping_time', 'ad_len'], unpacked_data['ad']),
                 'battery_main': (['ping_time'], unpacked_data['battery_main']),
@@ -210,6 +216,9 @@ class SetGroupsAZFP(SetGroupsBase):
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
+                'XML_sensors_flag': parameters['sensors_flag'],
+                'XML_burst_interval': parameters['burst_interval'],
+                'XML_sonar_serial_number': parameters['serial_number'],
                 'profile_flag': unpacked_data['profile_flag'],
                 'burst_interval': unpacked_data['burst_int'],
                 'ping_per_profile': unpacked_data['ping_per_profile'],
