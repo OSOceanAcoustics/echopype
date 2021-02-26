@@ -11,6 +11,7 @@ from ..utils import io
 
 class SetGroupsAd2cp(SetGroupsBase):
     def write(self, ds: xr.Dataset, group: str):
+        ds.attrs["Units"] = "velocity: m/s, temperature: deg Celsius, pressure: dBar, direction: degrees, length: m, voltage: V, magnitude: dB, echosounder data: dB/count"
         if os.path.exists(self.output_path):
             mode = "a"
         else:
