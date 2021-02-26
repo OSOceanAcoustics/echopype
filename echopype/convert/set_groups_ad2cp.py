@@ -60,7 +60,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                     coords={
                         "time": [packet.timestamp],
                         time_dim: [packet.timestamp],
-                        "beam": [b for b in [packet.data["beam0"], packet.data["beam1"], packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0]
+                        "beam": [b for b in [packet.data["beam0"], packet.data["beam1"], packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0],
+                        "complex": ["real", "imag"],
                     }
                 )
 
