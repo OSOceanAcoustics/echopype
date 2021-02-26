@@ -19,10 +19,12 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def save(self):
         self.combine_packets()
+        self.set_toplevel("AD2CP", date_created=np.datetime64("now"))
         self.set_environment()
         self.set_platform()
         self.set_beam()
         self.set_vendor_specific()
+        self.set_provenance()
 
     def combine_packets(self):
         self.ds = None
@@ -55,8 +57,11 @@ class SetGroupsAd2cp(SetGroupsBase):
                     data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value])
                 new_packet = xr.Dataset(
                     data_vars=data_vars,
-                    coords={"time": [packet.timestamp],
-                    time_dim: [packet.timestamp]}
+                    coords={
+                        "time": [packet.timestamp],
+                        time_dim: [packet.timestamp],
+                        "beam": [b for b in [packet.data["beam0"], packet.data["beam1"], packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0]
+                    }
                 )
 
                 # modify in place to reduce memory consumption
