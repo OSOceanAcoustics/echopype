@@ -357,10 +357,10 @@ class Ad2cpDataPacket:
                     self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_0111
-                self.data["beam1"] = self.data["dataset_description"] & 0b0000_0000_0011_1000
-                self.data["beam2"] = self.data["dataset_description"] & 0b0000_0001_1100_0000
-                self.data["beam3"] = self.data["dataset_description"] & 0b0000_1110_0000_0000
-                self.data["beam4"] = self.data["dataset_description"] & 0b0111_0000_0000_0000
+                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_0011_1000) >> 3
+                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_0001_1100_0000) >> 6
+                self.data["beam3"] = (self.data["dataset_description"] & 0b0000_1110_0000_0000) >> 9
+                self.data["beam4"] = (self.data["dataset_description"] & 0b0111_0000_0000_0000) >> 12
         elif self.data_record_format == self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = min(
@@ -410,16 +410,16 @@ class Ad2cpDataPacket:
                 else:
                     self.data["ambiguity_velocity"] = self.data["ambiguity_velocity_or_echosounder_frequency"]
             elif field_name == "velocity_scaling":
-                if self.data["echosounder_data_included"]:
+                if not self.data["echosounder_data_included"]:
                     # The unit conversion for ambiguity velocity is done here because it
                     # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
-                    self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] / \
+                    self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * \
                         (10 ** self.data["velocity_scaling"])
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_1111
-                self.data["beam1"] = self.data["dataset_description"] & 0b0000_0000_1111_0000
-                self.data["beam2"] = self.data["dataset_description"] & 0b0000_1111_0000_0000
-                self.data["beam3"] = self.data["dataset_description"] & 0b1111_0000_0000_0000
+                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
+                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
+                self.data["beam3"] = (self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
                 self.data["beam4"] = 0
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
@@ -445,14 +445,14 @@ class Ad2cpDataPacket:
                     self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_1111
-                self.data["beam1"] = self.data["dataset_description"] & 0b0000_0000_1111_0000
-                self.data["beam2"] = self.data["dataset_description"] & 0b0000_1111_0000_0000
-                self.data["beam3"] = self.data["dataset_description"] & 0b1111_0000_0000_0000
+                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
+                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
+                self.data["beam3"] = (self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
                 self.data["beam4"] = 0
             elif field_name == "velocity_scaling":
                 # The unit conversion for ambiguity velocity is done here because it
                 # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
-                self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] / \
+                self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * \
                     (10 ** self.data["velocity_scaling"])
 
     @staticmethod
@@ -498,21 +498,21 @@ class Ad2cpDataPacket:
         F("seconds", 1, UNSIGNED_INTEGER),
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
-        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
+          field_units=lambda self, x: x / 10),
+        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
         F("error", 2, UNSIGNED_INTEGER),
         F("status", 2, UNSIGNED_INTEGER),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
+        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
         F("velocity_range", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 1000),
+          field_units=lambda self, x: x / 1000),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
+          field_units=lambda self, x: x / 10),
         F("magnetometer_raw_x", 2, SIGNED_INTEGER),
         F("magnetometer_raw_y", 2, SIGNED_INTEGER),
         F("magnetometer_raw_z", 2, SIGNED_INTEGER),
@@ -523,7 +523,7 @@ class Ad2cpDataPacket:
         F("accelerometer_raw_z_axis", 2, SIGNED_INTEGER,
           field_units=lambda self, x: x / 16384 * 9.819),
         F("ambiguity_velocity", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10000),
+          field_units=lambda self, x: x / 10000),
         F("dataset_description", 2, UNSIGNED_INTEGER),
         F("transmit_energy", 2, UNSIGNED_INTEGER),
         F("velocity_scaling", 1, SIGNED_INTEGER),
@@ -535,7 +535,7 @@ class Ad2cpDataPacket:
             SIGNED_INTEGER,
             field_shape=lambda self: [
                 self.data.get("num_beams", 0), self.data.get("num_cells", 0)],
-            field_units=lambda self, x: x /
+            field_units=lambda self, x: x *
             (10 ** self.data["velocity_scaling"]),
             field_exists_predicate=lambda self: self.data["velocity_data_included"]
         ),
@@ -570,20 +570,22 @@ class Ad2cpDataPacket:
         F("seconds", 1, UNSIGNED_INTEGER),
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
-        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
+          field_units=lambda self, x: x / 10),
+        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 100),
+        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        # This field is listed to be in cm, but testing has shown that it is actually in mm.
+        # Being in mm would be consistent with the "blanking" field units in all other formats.
+        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
         F("nominal_correlation", 1, UNSIGNED_INTEGER),
         F("temperature_from_pressure_sensor", 1,
           UNSIGNED_INTEGER, field_units=lambda self, x: x * 5),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
+          field_units=lambda self, x: x / 10),
         F("magnetometer_raw_x", 2, SIGNED_INTEGER),
         F("magnetometer_raw_y", 2, SIGNED_INTEGER),
         F("magnetometer_raw_z", 2, SIGNED_INTEGER),
@@ -603,7 +605,7 @@ class Ad2cpDataPacket:
         F("power_level", 1, SIGNED_INTEGER),
         F("magnetometer_temperature", 2, SIGNED_INTEGER),
         F("real_time_clock_temperature", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 100),
+          field_units=lambda self, x: x / 100),
         F("error", 2, UNSIGNED_INTEGER),
         F("status0", 2, UNSIGNED_INTEGER),
         F("status", 4, UNSIGNED_INTEGER),
@@ -614,7 +616,7 @@ class Ad2cpDataPacket:
             SIGNED_INTEGER,
             field_shape=lambda self: [
                 self.data.get("num_beams", 0), self.data.get("num_cells", 0)],
-            field_units=lambda self, x: x / \
+            field_units=lambda self, x: x * \
             (10 ** self.data["velocity_scaling"]),
             field_exists_predicate=lambda self: self.data["velocity_data_included"]
         ),
@@ -660,7 +662,7 @@ class Ad2cpDataPacket:
             field_exists_predicate=lambda self: self.data["altimeter_raw_data_included"]
         ),
         F("altimeter_raw_data_sample_distance", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10000,
+          field_units=lambda self, x: x / 10000,
           field_exists_predicate=lambda self: self.data["altimeter_raw_data_included"]),
         F(
             "altimeter_raw_data_samples",
@@ -677,7 +679,7 @@ class Ad2cpDataPacket:
             # field_shape=lambda self: [self.data.get("num_cells", 0)],
             field_shape=lambda self: [
                 self.data.get("num_echosounder_cells", 0)],
-            field_units=lambda self, x: x * 100,
+            field_units=lambda self, x: x / 100,
             field_exists_predicate=lambda self: self.data["echosounder_data_included"]
         ),
         F("ahrs_rotation_matrix_m11", 4, FLOAT,
@@ -723,16 +725,16 @@ class Ad2cpDataPacket:
         # Only the pitch field is labeled as included when the "std dev data included"
         # bit is set, but this is likely a mistake
         F("std_dev_pitch", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 100,
+          field_units=lambda self, x: x / 100,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F("std_dev_roll", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 100,
+          field_units=lambda self, x: x / 100,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F("std_dev_heading", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 100,
+          field_units=lambda self, x: x / 100,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F("std_dev_pressure", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 1000,
+          field_units=lambda self, x: x / 1000,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F(None, 24, RAW_BYTES,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"])
@@ -750,19 +752,19 @@ class Ad2cpDataPacket:
         F("seconds", 1, UNSIGNED_INTEGER),
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
-        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
-        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x * 100),
+          field_units=lambda self, x: x / 10),
+        F("temperature", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units=lambda self, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
-        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x * 1000),
+        F("cell_size", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
+        F("blanking", 2, UNSIGNED_INTEGER, field_units=lambda self, x: x / 1000),
         F("nominal_correlation", 1, UNSIGNED_INTEGER),
         F(None, 1, RAW_BYTES),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
-          field_units=lambda self, x: x * 10),
+          field_units=lambda self, x: x / 10),
         F("magnetometer_raw_x", 2, SIGNED_INTEGER),
         F("magnetometer_raw_y", 2, SIGNED_INTEGER),
         F("magnetometer_raw_z", 2, SIGNED_INTEGER),
@@ -782,7 +784,7 @@ class Ad2cpDataPacket:
         F("power_level", 1, SIGNED_INTEGER),
         F("magnetometer_temperature", 2, SIGNED_INTEGER),
         F("real_time_clock_temperature", 2, SIGNED_INTEGER,
-          field_units=lambda self, x: x * 100),
+          field_units=lambda self, x: x / 100),
         F("error", 4, UNSIGNED_INTEGER),
         F("status", 4, UNSIGNED_INTEGER),
         F("ensemble_counter", 4, UNSIGNED_INTEGER),
@@ -791,7 +793,7 @@ class Ad2cpDataPacket:
             4,
             SIGNED_INTEGER,
             field_shape=lambda self: [self.data.get("num_beams", 0)],
-            field_units=lambda self, x: x / \
+            field_units=lambda self, x: x * \
             (10 ** self.data["velocity_scaling"]),
             field_exists_predicate=lambda self: self.data["velocity_data_included"]
         ),
@@ -800,7 +802,7 @@ class Ad2cpDataPacket:
             4,
             SIGNED_INTEGER,
             field_shape=lambda self: [self.data.get("num_beams", 0)],
-            field_units=lambda self, x: x * 1000,
+            field_units=lambda self, x: x / 1000,
             field_exists_predicate=lambda self: self.data["distance_data_included"]
         ),
         F(
