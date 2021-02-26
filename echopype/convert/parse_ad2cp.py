@@ -545,7 +545,7 @@ class Ad2cpDataPacket:
             UNSIGNED_INTEGER,
             field_shape=lambda self: [
                 self.data.get("num_beams", 0), self.data.get("num_cells", 0)],
-            field_units=lambda self, x: x * 2,
+            field_units=lambda self, x: x / 2,
             field_exists_predicate=lambda self: self.data["amplitude_data_included"]
         ),
         F(
@@ -626,7 +626,7 @@ class Ad2cpDataPacket:
             UNSIGNED_INTEGER,
             field_shape=lambda self: [
                 self.data.get("num_beams", 0), self.data.get("num_cells", 0)],
-            field_units=lambda self, x: x * 2,
+            field_units=lambda self, x: x / 2,
             field_exists_predicate=lambda self: self.data["amplitude_data_included"]
         ),
         F(
