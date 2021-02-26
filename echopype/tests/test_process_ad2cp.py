@@ -102,10 +102,7 @@ def test_ocean_contour():
         base = xr.open_dataset(parsed_file, group="Data/Avg")
         
         test = xr.open_dataset(test_file, group="Platform")
-        # does not work because ocean contour timestamps have rounding errors
-        # so we can't compare times
-        # for time in base["time"]:
-        #     assert close(base["Heading"].sel(time=time).data[()], test["heading"].sel(time=time).data[()])
+        # ocean contour timestamps have rounding errors so we can't compare times
         for base_heading, test_heading in zip(base["Heading"], test["heading"]):
             assert close(base_heading.data[()], (test_heading.data[()]).astype(np.float32))
         for base_pitch, test_pitch in zip(base["Pitch"], test["pitch"]):
@@ -114,40 +111,33 @@ def test_ocean_contour():
             assert close(base_roll.data[()], (test_roll.data[()]).astype(np.float32))
 
         test_field(base, test, "Magnetometer_X", "magnetometer_raw_x")
-        # for base_magnetometer_x, test_magnetometer_x in zip(base["Magnetometer_X"], test["magnetometer_raw_x"]):
-        #     assert close(base_magnetometer_x.data[()], test_magnetometer_x.data[()])
         test_field(base, test, "Magnetometer_Y", "magnetometer_raw_y")
-        # for base_magnetometer_y, test_magnetometer_y in zip(base["Magnetometer_Y"], test["magnetometer_raw_y"]):
-        #     assert close(base_magnetometer_y.data[()], test_magnetometer_y.data[()])
         test_field(base, test, "Magnetometer_Z", "magnetometer_raw_z")
-        # for base_magnetometer_z, test_magnetometer_z in zip(base["Magnetometer_Z"], test["magnetometer_raw_z"]):
-        #     assert close(base_magnetometer_z.data[()], test_magnetometer_z.data[()])
         test.close()
 
         test = xr.open_dataset(test_file, group="Beam")
         test_field(base, test, "NumberofCells", "number_of_cells")
-        # for base_number_of_cells, test_number_of_cells in zip(base["NumberofCells"], test["number_of_cells"]):
-        #     assert close(base_number_of_cells.data[()], test_number_of_cells[()])
         test_field(base, test, "CellSize", "cell_size")
-        # for base_cell_size, test_cell_size in zip(base["CellSize"], test["cell_size"]):
-        #     assert close(base_cell_size.data[()], test_cell_size.data[()])
         test_field(base, test, "Blanking", "blanking")
         test_field(base, test, "TransmitEnergy", "transmit_energy")
         test_field(base, test, "Ambiguity", "ambiguity_velocity")
 
-        for beam in range(3):
+        for beam in test["beam"]:
             for range_bin in range(15):
-                for base_vel, test_vel in zip(base[f"Vel_Beam{beam + 2}"].isel(AvgVelocityBeam_Range=range_bin), test["velocity_average"].isel(beam=beam, range_bin_average=range_bin)):
+                for base_vel, test_vel in zip(base[f"Vel_Beam{beam.data[()]}"].isel(AvgVelocityBeam_Range=range_bin), test["velocity_average"].sel(beam=beam.data[()]).isel(range_bin_average=range_bin)):
                     assert close(base_vel.data[()], test_vel.data[()])
-                for base_cor, test_cor in zip(base[f"Cor_Beam{beam + 2}"].isel(AvgCorrelationBeam_Range=range_bin), test["correlation_average"].isel(beam=beam, range_bin_average=range_bin)):
+                for base_cor, test_cor in zip(base[f"Cor_Beam{beam.data[()]}"].isel(AvgCorrelationBeam_Range=range_bin), test["correlation_average"].sel(beam=beam.data[()]).isel(range_bin_average=range_bin)):
                     assert close(base_cor.data[()], test_cor.data[()])
-                for base_amp, test_amp in zip(base[f"Amp_Beam{beam + 2}"].isel(AvgAmplitudeBeam_Range=range_bin), test["amplitude_average"].isel(beam=beam, range_bin_average=range_bin)):
+                for base_amp, test_amp in zip(base[f"Amp_Beam{beam.data[()]}"].isel(AvgAmplitudeBeam_Range=range_bin), test["amplitude_average"].sel(beam=beam.data[()]).isel(range_bin_average=range_bin)):
                     assert close(base_amp.data[()], test_amp.data[()])
         test.close()
 
         test = xr.open_dataset(test_file, group="Vendor")
-        test_field(base, test, "MagnetometerTemperature", "magnetometer_temperature")
+        # uncalibrated (no units so cannot compare)
+        # test_field(base, test, "MagnetometerTemperature", "magnetometer_temperature")
         test_field(base, test, "EnsembleCount", "ensemble_counter")
+        test_field(base, test, "RTCTemperature", "real_time_clock_temperature")
+        test_field(base, test, "NominalCor", "nominal_correlation")
         test.close()
 
         base.close()
