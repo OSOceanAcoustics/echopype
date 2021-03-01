@@ -458,23 +458,26 @@ class CalibrateEK80(CalibrateEK):
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
         """
+        # Transmit replica and effective pulse length
+        chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
 
         # pulse compression
         if waveform_mode == 'BB':
-            chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
             pc = self.compress_pulse(chirp)
             prx = (self.echodata.raw_beam.quadrant.size
-                      * np.abs(pc.mean(dim='quadrant')) ** 2
-                      / (2 * np.sqrt(2)) ** 2
-                      * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                      / self.z_et)
+                   * np.abs(pc.mean(dim='quadrant')) ** 2
+                   / (2 * np.sqrt(2)) ** 2
+                   * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                   / self.z_et)
         else:
             backscatter_cw = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_i']
             prx = (self.echodata.raw_beam.quadrant.size
-                      * np.abs(backscatter_cw.mean(dim='quadrant')) ** 2
-                      / (2 * np.sqrt(2)) ** 2
-                      * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                      / self.z_et)
+                   * np.abs(backscatter_cw.mean(dim='quadrant')) ** 2
+                   / (2 * np.sqrt(2)) ** 2
+                   * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                   / self.z_et)
+            prx.name = 'received_power'
+            prx = prx.to_dataset()
 
         # Derived params
         sound_speed = self.env_params['sound_speed'].squeeze()
@@ -518,7 +521,7 @@ class CalibrateEK80(CalibrateEK):
                                    * sound_speed
                                    / (32 * np.pi ** 2))
                    - 2 * gain - 10 * np.log10(tau_effective) - psifc)
-            out = out.rename_vars({'pulse_compressed_output': 'Sv'})
+            out = out.rename_vars({list(out.data_vars.keys())[0]: 'Sv'})
 
         elif cal_type == 'Sp':
             out = (10 * np.log10(prx)
@@ -527,7 +530,7 @@ class CalibrateEK80(CalibrateEK):
                                    * self.echodata.raw_beam['transmit_power']
                                    / (16 * np.pi ** 2))
                    - 2 * gain)
-            out = out.rename_vars({'pulse_compressed_output': 'Sp'})
+            out = out.rename_vars({list(out.data_vars.keys())[0]: 'Sp'})
         else:
             raise ValueError('cal_type not recognized!')
 
