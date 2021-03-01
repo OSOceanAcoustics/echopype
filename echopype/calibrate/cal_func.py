@@ -21,4 +21,4 @@ def get_Sv(echodata, env_params=None, cal_params=None):
     cal_obj.get_cal_params(cal_params)
 
     # Perform calibration
-    return cal_obj.get_Sv()
+    return cal_obj.compute_Sv()

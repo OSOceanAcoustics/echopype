@@ -39,8 +39,19 @@ class CalibrateBase:
         """
         pass
 
-    def get_Sv(self, **kwargs):
+    def _cal_power(self, cal_type, **kwargs):
+        """Calibrate power data for EK60, EK80, and AZFP.
+
+        Parameters
+        ----------
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'Sp' for calculating point backscattering strength
+        """
         pass
 
-    def get_Sp(self, **kwargs):
+    def compute_Sv(self, **kwargs):
+        pass
+
+    def compute_Sp(self, **kwargs):
         pass

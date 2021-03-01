@@ -88,7 +88,7 @@ class CalibrateAZFP(CalibrateBase):
 
         return range_meter
 
-    def _cal_power(self, cal_type):
+    def _cal_power(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
 
         The calibration formulae used here is based on Appendix G in
@@ -124,8 +124,8 @@ class CalibrateAZFP(CalibrateBase):
 
         return out
 
-    def get_Sv(self):
+    def compute_Sv(self):
         return self._cal_power(cal_type='Sv')
 
-    def get_Sp(self):
+    def compute_Sp(self):
         return self._cal_power(cal_type='Sp')

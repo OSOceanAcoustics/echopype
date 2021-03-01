@@ -214,10 +214,10 @@ class CalibrateEK60(CalibrateEK):
                                                    if 'sound_absorption' in env_params
                                                    else self.echodata.raw_env['absorption_indicative'])
 
-    def get_Sv(self):
+    def compute_Sv(self):
         return self._cal_power(cal_type='Sv')
 
-    def get_Sp(self):
+    def compute_Sp(self):
         return self._cal_power(cal_type='Sp')
 
 
@@ -540,7 +540,7 @@ class CalibrateEK80(CalibrateEK):
         return out
 
     # TODO: change get_Sv to compute_Sv across the board
-    def get_Sv(self, waveform_mode='BB', encode_mode='complex'):
+    def compute_Sv(self, waveform_mode='BB', encode_mode='complex'):
         """Compute volume backscattering strength (Sv).
 
         Parameters
