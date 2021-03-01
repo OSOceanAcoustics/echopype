@@ -21,12 +21,20 @@ beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
 .. _Pull requests:
    https://jarednielsen.com/learn-git-fork-pull-request/
 
-In the examples below, the ``echopype`` package will be imported as follows:
+Importing echopype
+------------------
+
+We encourage importing the ``echopype`` package with the alias ``ep``:
 
 .. code-block:: python
 
     import echopype as ep
 
+In the examples below, we import ``Convert`` as follows:
+
+.. code-block:: python
+
+    from echopype import Convert
 
 Conversion operation
 --------------------
@@ -41,7 +49,7 @@ that include information about the echosounder type:
 
 .. code-block:: python
 
-    dc = ep.Convert('FILENAME.raw', model='EK80')  # for EK80 file
+    dc = Convert('FILENAME.raw', model='EK80')  # for EK80 file
     dc.to_netcdf()
 
 This will generate a ``FILENAME.nc`` file in the same directory as
@@ -60,7 +68,7 @@ same deployment. This can be done by:
 
 .. code-block:: python
 
-    dc = ep.Convert('FILENAME.01A', model='AZFP', xml_path='XMLFILENAME.xml')
+    dc = Convert('FILENAME.01A', model='AZFP', xml_path='XMLFILENAME.xml')
     dc.to_netcdf()
 
 Before calling ``to_netcdf()`` or ``to_zarr()`` to create netCDF or Zarr
@@ -88,12 +96,9 @@ the platform code from the
    2. The ``Convert`` instance contains all the data unpacked from the
       raw file, so it is a good idea to clear it from memory once done with
       conversion.
-
-.. note::
-   The water level should be specified using ``dc.water_level = 'some value'``
-   if the value is known. Otherwise, the water level will be saved as
-   ``None`` if it is not already recorded by the instrument.
-
+   3. The water level should be specified using ``dc.water_level = 'some value'``
+      if the value is known. Otherwise, the water level will be saved as
+      ``None`` if it is not already recorded by the instrument.
 
 File access
 -----------
@@ -110,7 +115,7 @@ For example:
       './raw_data_files/file_01.raw',
       './raw_data_files/file_02.raw'
    ]
-   dc = ep.Convert(raw_file_paths, model='EK60')
+   dc = Convert(raw_file_paths, model='EK60')
 
 ``Convert`` can also accept paths to files on remote systems such as ``http`` 
 (a file on a web server) and cloud object storage such as Amazon Web Services (AWS) S3. 
@@ -131,7 +136,7 @@ A file on a web server can be accessed by specifying the file url:
 .. code-block:: python
 
    raw_file_url = "https://mydomain.com/my/dir/D20170615-T190214.raw"
-   ec = ep.Convert(raw_file_url, model='EK60')
+   ec = Convert(raw_file_url, model='EK60')
 
 AWS S3 access
 ~~~~~~~~~~~~~
@@ -148,7 +153,7 @@ file ("anonymous") on a bucket called ``mybucket``:
 .. code-block:: python
 
    raw_file_s3path = "s3://mybucket/my/dir/D20170615-T190214.raw"
-   ec = ep.Convert(
+   ec = Convert(
       raw_file_s3path, model='EK60', 
       storage_options={'anon': True}
    )
@@ -158,7 +163,7 @@ through ``storage_options`` keywords:
 
 .. code-block:: python
 
-   ec = ep.Convert(
+   ec = Convert(
       raw_file_s3path, model='EK60', 
       storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
    )
@@ -167,13 +172,13 @@ or via a credentials file stored in the default AWS credentials file
 (``~/.aws/credentials``). For ``profile`` "myprofilename" found in 
 the credential file:
 
-**NOTE: THIS NEEDS TO BE TESTED!**
+**TODO: THIS NEEDS TO BE TESTED!**
 
 .. code-block:: python
 
    import aiobotocore
    aws_session = aiobotocore.AioSession(profile='myprofilename')
-   ec = ep.Convert(
+   ec = Convert(
       raw_file_s3path, model='EK60', 
       storage_options={'session': aws_session}
    )
@@ -186,7 +191,7 @@ File export
 convenient optional arguments. The examples below apply equally to
 ``Convert.to_netcdf()`` and ``Convert.to_zarr()``, except as noted.
 
-**TODO:** Say something about the new default export directory, ``tmp_echopype_output`` (?)
+**TODO:** Say something about the new default export directory, ``temp_echopype_output``
 
 Save converted files into another folder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -197,12 +202,12 @@ the same folder as the input files. This can be changed by setting
 
 .. code-block:: python
 
-   raw_file_paths = [                                 # a list of raw data files
+   raw_file_paths = [                              # a list of raw data files
       './raw_data_files/dir1/file_01.raw',
       './raw_data_files/dir2/file_02.raw'
    ]
-   ec = ep.Convert(raw_file_paths, model='EK60')      # create a Convert object
-   ec.to_netcdf(save_path='./unpacked_files')         # set the output directory
+   ec = Convert(raw_file_paths, model='EK60')      # create a Convert object
+   ec.to_netcdf(save_path='./unpacked_files')      # set the output directory
 
 In this example, each input file will be converted to an individual ``.nc`` file
 and stored in the specified directory.
@@ -216,7 +221,7 @@ Combine multiple raw files into one converted file
       './raw_data_files/dir1/file_01.raw',
       './raw_data_files/dir2/file_02.raw'
    ]
-   ec = ep.Convert(raw_file_paths, model='EK60')      # create a Convert object
+   ec = Convert(raw_file_paths, model='EK60')      # create a Convert object
    ec.to_zarr(
       combine=True,                                   # combine all input files when unpacking
       save_path='./unpacked_files/combined_file.zarr'
@@ -245,14 +250,13 @@ combined zarr dataset to S3. Writing netCDF to S3 is currently not supported.
 **TODO:** Add information about how to specify chunking and what the default chunking scheme is. 
 Plus, this needs testing.
 
-
 .. code-block:: python
 
       raw_file_urls = [
          'http://mydomain.com/from1/file_01.raw',
          'http://mydomain.com/from2/file_02.raw'
       ]
-      ec = ep.Convert(raw_file_urls, model='EK60')
+      ec = Convert(raw_file_urls, model='EK60')
       ec.to_zarr(
          combine=True,
          overwrite=True,
