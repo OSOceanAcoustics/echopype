@@ -1,5 +1,6 @@
 from pathlib import Path
 import xarray as xr
+from zarr.errors import GroupNotFoundError
 
 
 class EchoDataNew:
@@ -28,7 +29,7 @@ class EchoDataNew:
         if self.sonar_model == 'EK80':
             try:
                 self.raw_beam_power = self._open_data_file(raw_path, group='Beam_power')
-            except OSError:
+            except (OSError, GroupNotFoundError):
                 pass
 
         # TODO: change this to something following best practices.

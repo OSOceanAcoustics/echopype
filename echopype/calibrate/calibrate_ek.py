@@ -38,8 +38,7 @@ class CalibrateEK(CalibrateBase):
             shift = self.echodata.raw_beam['transmit_duration_nominal']  # based on Lar Anderson's Matlab code
             # TODO: once we allow putting in arbitrary sound_speed, change below to use linearly-interpolated values
             range_meter = ((self.echodata.raw_beam.range_bin * self.echodata.raw_beam['sample_interval'] - shift)
-                           * self.env_params['sound_speed'].reindex({'ping_time': self.echodata.raw_beam.ping_time},
-                                                                    'nearest') / 2)
+                           * self.env_params['sound_speed'].squeeze() / 2)
             # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
             #  need to ask why and see if necessary here
         else:
@@ -291,16 +290,21 @@ class CalibrateEK80(CalibrateEK):
         """
         if param_type == 'coeff':
             v = (self.echodata.raw_vend.attrs['%s %s filter_r' % (channel_id, filter_name)]
-                 + 1j * self.echodata.raw_vend.attrs['%s %s filter_i' % (channel_id, filter_name)])
+                 + 1j * np.array(self.echodata.raw_vend.attrs['%s %s filter_i' % (channel_id, filter_name)]))
             if v.size == 1:
                 v = np.expand_dims(v, axis=0)  # expand dims for convolution
             return v
         else:
             return self.echodata.raw_vend.attrs['%s %s decimation' % (channel_id, filter_name)]
 
-    def _tapered_chirp(self, transmit_duration_nominal, slope, transmit_power, frequency_start, frequency_end):
+    def _tapered_chirp(self, transmit_duration_nominal, slope, transmit_power,
+                       frequency=None, frequency_start=None, frequency_end=None):
         """Create a baseline chirp template.
         """
+        if frequency_start is None and frequency_end is None:  # CW waveform
+            frequency_start = frequency
+            frequency_end = frequency
+
         t = np.arange(0, transmit_duration_nominal, 1 / self.fs)
         nwtx = (int(2 * np.floor(slope * t.size)))  # length of tapering window
         wtx_tmp = np.hanning(nwtx)  # hanning window
@@ -334,6 +338,8 @@ class CalibrateEK80(CalibrateEK):
         ytx_wbt_deci = ytx_wbt[0::wbt_decifac]
 
         # PC filter and decimation
+        if len(pc_fil.squeeze().shape) == 0:  # in case it is a single element
+            pc_fil = [pc_fil.squeeze()]
         ytx_pc = signal.convolve(ytx_wbt_deci, pc_fil)
         ytx_pc_deci = ytx_pc[0::pc_decifac]
         ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / self.fs * wbt_decifac * pc_decifac
@@ -373,7 +379,9 @@ class CalibrateEK80(CalibrateEK):
             ``BB`` for BB-mode samples, recorded as complex samples
         """
         # Make sure it is BB mode data
-        if ('frequency_start' not in self.echodata.raw_beam) or ('frequency_end' not in self.echodata.raw_beam):
+        if waveform_mode == 'BB' \
+                and (('frequency_start' not in self.echodata.raw_beam)
+                     or ('frequency_end' not in self.echodata.raw_beam)):
             raise TypeError('File does not contain BB mode complex samples!')
 
         y_all = {}
@@ -381,8 +389,12 @@ class CalibrateEK80(CalibrateEK):
         tau_effective = {}
         for freq in self.echodata.raw_beam.frequency.values:
             # TODO: currently only deal with the case with a fixed tx key param values within a channel
-            tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
-                              'frequency_start', 'frequency_end']
+            if waveform_mode == 'BB':
+                tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
+                                  'frequency_start', 'frequency_end']
+            else:
+                tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
+                                  'frequency']
             tx_params = {}
             for p in tx_param_names:
                 tx_params[p] = np.unique(self.echodata.raw_beam[p].sel(frequency=freq))
@@ -394,6 +406,8 @@ class CalibrateEK80(CalibrateEK):
             channel_id = str(self.echodata.raw_beam.sel(frequency=freq)['channel_id'].values)
             fs_deci = 1 / self.echodata.raw_beam.sel(frequency=freq)['sample_interval'].values
             y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
+
+            # Compute effective pulse length
             tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci, waveform_mode=waveform_mode)
 
             y_all[channel_id] = y_tmp
@@ -407,7 +421,7 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        chirp : np.ndarray
+        chirp : dict
             transmit chirp replica indexed by channel_id
         """
         backscatter = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_i']
@@ -446,17 +460,24 @@ class CalibrateEK80(CalibrateEK):
         """
 
         # pulse compression
-        chirp, _, tau_effective = self.get_transmit_chirp()
-        pc = self.compress_pulse(chirp)
-        prx_bb = (self.echodata.raw_beam.quadrant.size
-                  * np.abs(pc.mean(dim='quadrant')) ** 2
-                  / (2 * np.sqrt(2)) ** 2
-                  * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                  / self.z_et)
+        if waveform_mode == 'BB':
+            chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
+            pc = self.compress_pulse(chirp)
+            prx = (self.echodata.raw_beam.quadrant.size
+                      * np.abs(pc.mean(dim='quadrant')) ** 2
+                      / (2 * np.sqrt(2)) ** 2
+                      * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                      / self.z_et)
+        else:
+            backscatter_cw = self.echodata.raw_beam['backscatter_r'] + 1j * self.echodata.raw_beam['backscatter_i']
+            prx = (self.echodata.raw_beam.quadrant.size
+                      * np.abs(backscatter_cw.mean(dim='quadrant')) ** 2
+                      / (2 * np.sqrt(2)) ** 2
+                      * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                      / self.z_et)
 
         # Derived params
-        sound_speed = self.env_params['sound_speed'].reindex({'ping_time': self.echodata.raw_beam['ping_time']},
-                                                             'nearest')
+        sound_speed = self.env_params['sound_speed'].squeeze()
         range_meter = self.range_meter
         freq_nominal = self.echodata.raw_beam.frequency
         if waveform_mode == 'BB':
@@ -470,10 +491,9 @@ class CalibrateEK80(CalibrateEK):
         gain = 27
 
         # Transmission loss
-        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
+        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1)).squeeze()
         # TODO: Check udpates of sound_absorption uses freq_center instead of freq_nominal
-        absorption_loss = 2 * self.env_params['sound_absorption'].reindex(
-            {'ping_time': self.echodata.raw_beam['ping_time']}, 'nearest') * range_meter
+        absorption_loss = 2 * self.env_params['sound_absorption'].squeeze() * range_meter.squeeze()
 
         # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
         #  Is this due to the use of 'single' in matlab code?
@@ -491,7 +511,7 @@ class CalibrateEK80(CalibrateEK):
                                          coords=[self.echodata.raw_beam.frequency,
                                                  self.echodata.raw_beam.ping_time],
                                          dims=['frequency', 'ping_time'])
-            out = (10 * np.log10(prx_bb)
+            out = (10 * np.log10(prx)
                    + spreading_loss + absorption_loss
                    - 10 * np.log10(wavelength ** 2
                                    * self.echodata.raw_beam['transmit_power']
@@ -501,7 +521,7 @@ class CalibrateEK80(CalibrateEK):
             out = out.rename_vars({'pulse_compressed_output': 'Sv'})
 
         elif cal_type == 'Sp':
-            out = (10 * np.log10(prx_bb)
+            out = (10 * np.log10(prx)
                    + 2 * spreading_loss + absorption_loss
                    - 10 * np.log10(wavelength ** 2
                                    * self.echodata.raw_beam['transmit_power']
@@ -516,18 +536,21 @@ class CalibrateEK80(CalibrateEK):
 
         return out
 
-    def get_Sv(self, mode=None):
+    # TODO: change get_Sv to compute_Sv across the board
+    def get_Sv(self, waveform_mode='BB', encode_mode='complex'):
         """Compute volume backscattering strength (Sv).
 
         Parameters
         ----------
-        mode : str
-            For EK80 data by default calibration is performed for all available data
-            including complex and power samples.
-            Use ``complex`` to compute Sv from only complex samples,
-            and ``power`` to compute Sv from only power samples,
-
+        encode_mode : str
+            For EK80 data by default calibration is performed for the complex samples.
+            Use ``complex`` to compute Sv from only complex samples (default),
+            and ``power`` to compute Sv from only power samples.
+            Note if waveform_mode='BB', only complex samples are collected.
             For all other sonar systems, calibration for power samples is performed.
+        waveform_mode : str
+            ``BB`` for BB-mode samples, recorded as complex samples (default)
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
 
         Returns
         -------
@@ -538,46 +561,52 @@ class CalibrateEK80(CalibrateEK):
             data variable ``Sv_complex`` contains Sv computed from complex samples.
             They are separately stored due to the dramatically different sample interval along range.
         """
-        # Default to computing Sv from both power and complex samples
-        flag_complex = True
-        flag_power = True
+        # Raise error for wrong inputs
+        if waveform_mode not in ('BB', 'CW'):
+            raise ValueError('Input waveform_mode not recognized!')
+        if encode_mode not in ('complex', 'power'):
+            raise ValueError('Input encode_mode not recognized!')
 
-        # Default to use self.echodata.raw_beam for _cal_power
+        # Set flag_complex
+        #  - True: complex cal
+        #  - False: power cal
+        # BB: complex only, CW: complex or power
+        if waveform_mode == 'BB':
+            if encode_mode == 'power':  # BB waveform forces to collect complex samples
+                raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
+            flag_complex = True
+        else:
+            if encode_mode == 'complex':
+                flag_complex = True
+            else:
+                flag_complex = False
+
+        # Set use_raw_beam_power
+        #  - True: use self.echodata.raw_beam_power for cal
+        #  - False: use self.echodata.raw_beam for cal
         use_raw_beam_power = False
 
-        # Figure out what cal to do
+        # Warn user about additional data in the raw file if another type exists
         if hasattr(self.echodata, 'raw_beam_power'):  # both power and complex samples exist
-            use_raw_beam_power = True  # use self.echodata.raw_beam_power for _cal_power
-            if mode == 'complex':
-                flag_power = False
-            elif mode == 'power':
-                flag_complex = False
+            if encode_mode == 'power':
+                use_raw_beam_power = True  # switch source of backscatter data
+                print('Only power samples are calibrated, but complex samples also exist in the raw data file!')
             else:
-                raise ValueError('Input mode not recognized!')
+                print('Only complex samples are calibrated, but power samples also exist in the raw data file!')
         else:  # only power OR complex samples exist
-            if 'quadrant' in self.echodata.raw_beam.dims:  # complex samples
-                flag_power = False
-                if mode == 'power':
-                    raise TypeError('EchoData does not contain power samples!')  # user selects the wrong mode
-            else:  # power samples
-                flag_complex = False
-                if mode == 'complex':
-                    raise TypeError('EchoData does not contain complex samples!')  # user selects the wrong mode
+            if 'quadrant' in self.echodata.raw_beam.dims:  # data contain only complex samples
+                if encode_mode == 'power':
+                    raise TypeError('File does not contain power samples!')  # user selects the wrong encode_mode
+            else:  # data contain only power samples
+                if encode_mode == 'complex':
+                    raise TypeError('File does not contain complex samples!')  # user selects the wrong encode_mode
 
-        # Compute Sv and combine data sets if both Sv and Sv_complex are calculated
-        # TODO: need to figure out what to do with the different types of range_meter in EK80 data
-        if flag_power:
+        # Compute Sv
+        if flag_complex:
+            self.range_meter = self.calc_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
+            ds_Sv = self._cal_complex(cal_type='Sv', waveform_mode=waveform_mode)
+        else:
             self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
             ds_Sv = self._cal_power(cal_type='Sv', use_raw_beam_power=use_raw_beam_power)
-        else:
-            ds_Sv = xr.Dataset()
-        if flag_complex:
-            # TODO: here we deal first with only BB mode encoded in complex samples.
-            #  Add CW mode encoded in complex samples later.
-            self.range_meter = self.calc_range_meter(waveform_mode='BB', tvg_correction_factor=0)
-            ds_Sv_complex = self._cal_complex(cal_type='Sv')
-        else:
-            ds_Sv_complex = xr.Dataset()
-        # ds_combine = xr.merge([ds_Sv, ds_Sv_complex])
 
-        # return ds_combine
+        return ds_Sv
