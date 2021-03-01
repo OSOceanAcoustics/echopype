@@ -16,11 +16,6 @@ into `netCDF <https://www.unidata.ucar.edu/software/netcdf/>`_ (stable) or
 We are planning on adding conversion and calibration routines for
 beam intensity data from Acoustic Doppler Current Profilers (ADCPs).
 
-.. _creating issues on GitHub:
-   https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f
-.. _Pull requests:
-   https://jarednielsen.com/learn-git-fork-pull-request/
-
 Importing echopype
 ------------------
 

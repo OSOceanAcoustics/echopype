@@ -55,6 +55,7 @@ Documentation
 
 * :doc:`api`
 * :doc:`whats-new`
+* :doc:`contributing`
 * :doc:`resources`
 
 .. toctree::
@@ -64,6 +65,7 @@ Documentation
 
    api
    whats-new
+   contributing
    resources
 
 
