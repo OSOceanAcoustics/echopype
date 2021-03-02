@@ -1,1 +1,1 @@
-from .cal_func import get_Sv
+from .cal_func import compute_Sv

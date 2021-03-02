@@ -538,7 +538,6 @@ class CalibrateEK80(CalibrateEK):
 
         return out
 
-    # TODO: change get_Sv to compute_Sv across the board
     def compute_Sv(self, waveform_mode='BB', encode_mode='complex'):
         """Compute volume backscattering strength (Sv).
 

@@ -8,7 +8,7 @@ CALIBRATOR = {
 }
 
 
-def get_Sv(echodata, env_params=None, cal_params=None, waveform_mode=None, encode_mode=None):
+def compute_Sv(echodata, env_params=None, cal_params=None, waveform_mode=None, encode_mode=None):
     """Compute volume backscattering strength (Sv) from raw data.
     """
     # Sanity check on inputs
