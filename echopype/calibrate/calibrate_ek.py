@@ -498,7 +498,6 @@ class CalibrateEK80(CalibrateEK):
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1)).squeeze()
-        # TODO: Check udpates of sound_absorption uses freq_center instead of freq_nominal
         absorption_loss = 2 * self.env_params['sound_absorption'].squeeze() * range_meter.squeeze()
 
         # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
@@ -538,29 +537,25 @@ class CalibrateEK80(CalibrateEK):
 
         return out
 
-    def compute_Sv(self, waveform_mode='BB', encode_mode='complex'):
-        """Compute volume backscattering strength (Sv).
+    def _compute_cal(self, cal_type, waveform_mode, encode_mode):
+        """Private method to compute Sv or Sp called by compute_Sv or compute_Sp.
 
         Parameters
         ----------
-        encode_mode : str
-            For EK80 data by default calibration is performed for the complex samples.
-            Use ``complex`` to compute Sv from only complex samples (default),
-            and ``power`` to compute Sv from only power samples.
-            Note if waveform_mode='BB', only complex samples are collected.
-            For all other sonar systems, calibration for power samples is performed.
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'Sp' for calculating point backscattering strength
         waveform_mode : str
             ``BB`` for BB-mode samples, recorded as complex samples (default)
             ``CW`` for CW-mode samples, either recorded as complex or power samples
+        encode_mode : str
+            EK80 data can be encoded as complex samples or power samples.
+            Use ``complex`` to compute Sv from only complex samples,
+            and ``power`` to compute Sv from only power samples.
 
         Returns
         -------
-        Sv : xr.DataSet
-            A DataSet containing volume backscattering strength (``Sv``)
-            and the corresponding range (``range``) in units meter.
-            For EK80 data, data variable ``Sv`` contains Sv computed from power samples, and
-            data variable ``Sv_complex`` contains Sv computed from complex samples.
-            They are separately stored due to the dramatically different sample interval along range.
+        Dataset containing either Sv or Sp.
         """
         # Raise error for wrong inputs
         if waveform_mode not in ('BB', 'CW'):
@@ -605,9 +600,56 @@ class CalibrateEK80(CalibrateEK):
         # Compute Sv
         if flag_complex:
             self.range_meter = self.calc_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
-            ds_Sv = self._cal_complex(cal_type='Sv', waveform_mode=waveform_mode)
+            ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
             self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
-            ds_Sv = self._cal_power(cal_type='Sv', use_raw_beam_power=use_raw_beam_power)
+            ds_cal = self._cal_power(cal_type=cal_type, use_raw_beam_power=use_raw_beam_power)
 
-        return ds_Sv
+        return ds_cal
+
+    def compute_Sv(self, waveform_mode='BB', encode_mode='complex'):
+        """Compute volume backscattering strength (Sv).
+
+        Parameters
+        ----------
+        encode_mode : str
+            For EK80 data by default calibration is performed for the complex samples.
+            Use ``complex`` to compute Sv from only complex samples (default),
+            and ``power`` to compute Sv from only power samples.
+            Note if waveform_mode='BB', only complex samples are collected.
+            For all other sonar systems, calibration for power samples is performed.
+        waveform_mode : str
+            ``BB`` for BB-mode samples, recorded as complex samples (default)
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+
+        Returns
+        -------
+        Sv : xr.DataSet
+            A DataSet containing volume backscattering strength (``Sv``)
+            and the corresponding range (``range``) in units meter.
+        """
+        return self._compute_cal(cal_type='Sv', waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+    def compute_Sp(self, waveform_mode='BB', encode_mode='complex'):
+        """Compute point backscattering strength (Sp).
+
+        Parameters
+        ----------
+        encode_mode : str
+            For EK80 data by default calibration is performed for the complex samples.
+            Use ``complex`` to compute Sv from only complex samples (default),
+            and ``power`` to compute Sv from only power samples.
+            Note if waveform_mode='BB', only complex samples are collected.
+            For all other sonar systems, calibration for power samples is performed.
+        waveform_mode : str
+            ``BB`` for BB-mode samples, recorded as complex samples (default)
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+
+        Returns
+        -------
+        Sp : xr.DataSet
+            A DataSet containing point backscattering strength (``Sp``)
+            and the corresponding range (``range``) in units meter.
+        """
+        return self._compute_cal(cal_type='Sp', waveform_mode=waveform_mode, encode_mode=encode_mode)
+
