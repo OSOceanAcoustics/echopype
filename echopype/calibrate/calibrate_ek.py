@@ -165,8 +165,6 @@ class CalibrateEK(CalibrateBase):
                    + spreading_loss * 2 + absorption_loss
                    - CSp)
             out.name = 'Sp'
-        else:
-            raise ValueError('cal_type not recognized!')
 
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
@@ -233,7 +231,7 @@ class CalibrateEK80(CalibrateEK):
         # TODO: will have to add complex data-specific params, like the freq-dependent gain factor
         self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
 
-    def get_env_params(self, env_params):
+    def get_env_params(self, env_params, waveform_mode=None):
         """Get env params using user inputs or values from data file.
 
         EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -244,7 +242,16 @@ class CalibrateEK80(CalibrateEK):
         Parameters
         ----------
         env_params : dict
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
         """
+        # Use center frequency if in BB mode, else use nominal channel frequency
+        if waveform_mode == 'BB':
+            freq = (self.echodata.raw_beam['frequency_start'] + self.echodata.raw_beam['frequency_end']) / 2
+        else:
+            freq = frequency = self.echodata.raw_beam['frequency']
+
         # Re-calculate environment parameters if user supply all env variables
         if ('temperature' in env_params) and ('salinity' in env_params) and ('pressure' in env_params):
             for p in ['temperature', 'salinity', 'pressure']:
@@ -252,7 +259,7 @@ class CalibrateEK80(CalibrateEK):
             self.env_params['sound_speed'] = uwa.calc_sound_speed(temperature=self.env_params['temperature'],
                                                                   salinity=self.env_params['salinity'],
                                                                   pressure=self.env_params['pressure'])
-            self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.raw_beam['frequency'],
+            self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=freq,
                                                                       temperature=self.env_params['temperature'],
                                                                       salinity=self.env_params['salinity'],
                                                                       pressure=self.env_params['pressure'])
@@ -271,7 +278,7 @@ class CalibrateEK80(CalibrateEK):
             self.env_params['sound_absorption'] = (
                 env_params['sound_absorption']
                 if 'sound_absorption' in env_params
-                else uwa.calc_absorption(frequency=self.echodata.raw_beam['frequency'],
+                else uwa.calc_absorption(frequency=freq,
                                          temperature=self.env_params['temperature'],
                                          salinity=self.env_params['salinity'],
                                          pressure=self.env_params['pressure']))
@@ -365,8 +372,6 @@ class CalibrateEK80(CalibrateEK):
             ptxa = abs(ytxa) ** 2
         elif waveform_mode == 'CW':
             ptxa = np.abs(ytx) ** 2  # energy of transmit signal
-        else:
-            raise ValueError('Input waveform_mode not recognized!')
         return ptxa.sum() / (ptxa.max() * fs_deci)  # TODO: verify fs_deci = 1.5e6 in spheroid data sets
 
     def get_transmit_chirp(self, waveform_mode):
@@ -488,8 +493,6 @@ class CalibrateEK80(CalibrateEK):
             wavelength = sound_speed / freq_center
         elif waveform_mode == 'CW':
             wavelength = sound_speed / freq_nominal
-        else:
-            raise ValueError('Input waveform_mode not recognized!')
         # gain = self.echodata.raw_vend['gain']  # TODO: need to interpolate gain to at freq_center
         gain = 27
 
@@ -506,8 +509,6 @@ class CalibrateEK80(CalibrateEK):
                 psifc = self.echodata.raw_beam['equivalent_beam_angle'] + 10 * np.log10(freq_nominal / freq_center)
             elif waveform_mode == 'CW':
                 psifc = self.echodata.raw_beam['equivalent_beam_angle']
-            else:
-                raise ValueError('Input waveform_mode not recognized!')
 
             # effective pulse length
             tau_effective = xr.DataArray(data=list(tau_effective.values()),
@@ -531,8 +532,6 @@ class CalibrateEK80(CalibrateEK):
                                    / (16 * np.pi ** 2))
                    - 2 * gain)
             out = out.rename_vars({list(out.data_vars.keys())[0]: 'Sp'})
-        else:
-            raise ValueError('cal_type not recognized!')
 
         # Attach calculated range (with units meter) into data set
         out = out.merge(range_meter)
