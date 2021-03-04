@@ -83,6 +83,7 @@ class SetGroupsAZFP(SetGroupsBase):
         N = []   # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
+            # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))

@@ -108,12 +108,13 @@ class CalibrateAZFP(CalibrateBase):
             out = (EL - SL + spreading_loss + absorption_loss
                    - 10 * np.log10(0.5 * self.env_params['sound_speed'] *
                                    self.echodata.raw_beam['transmit_duration_nominal'] *
-                                   self.cal_params['equivalent_beam_angle']) + self.cal_params['Sv_offset'])
+                                   self.cal_params['equivalent_beam_angle'])
+                   + self.cal_params['Sv_offset'])  # see p.90-91 for this correction to Sv
             out.name = 'Sv'
 
         elif cal_type == 'Sp':
             # eq.(10)
-            out = (EL - SL + 2 * spreading_loss + absorption_loss)
+            out = EL - SL + 2 * spreading_loss + absorption_loss
             out.name = 'Sp'
         else:
             raise ValueError('cal_type not recognized!')
