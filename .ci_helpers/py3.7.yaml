@@ -16,3 +16,4 @@ dependencies:
   - requests
   - aiohttp
   - s3fs==0.5.2
+  - mamba

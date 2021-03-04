@@ -2,10 +2,15 @@ name: Test CI
 
 on:
   push:
-  pull_request:
     branches:
       - master
       - class-redesign
+    paths-ignore: [".ci_helpers/docker/**"]
+  pull_request_target:
+    paths-ignore: [".ci_helpers/docker/**", "**/ci.yaml"]
+  pull_request:
+    paths-ignore: [".ci_helpers/docker/**"]
+  workflow_dispatch:
 
 env:
   CONDA_ENV: echopype
@@ -28,23 +33,28 @@ jobs:
         image: cormorack/minioci
         ports:
           - 9000:9000
+      httpserver:
+        image: httpd:2.4
+        ports:
+          - 8080:80
     steps:
       - uses: actions/checkout@v2
-        with:
-          lfs: true
+      - name: Retrieve test data
+        uses: ./.github/actions/gdrive-rclone
+        env:
+          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
+      - name: Copying test data to http server
+        run: |
+          docker cp -L ./echopype/test_data ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data
+
+          # Check data endpoint
+          curl http://localhost:8080/data/
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - name: Get cache key of git-lfs files
-        id: git-lfs
-        run: echo "::set-output name=sha256::$(git lfs ls-files | openssl dgst -sha256)"
-      - name: Cache lfs
-        uses: actions/cache@v2
-        with:
-          path: .git/lfs
-          key: ${{ steps.git-lfs.outputs.sha256 }}
       - name: Cache conda
         uses: actions/cache@v2
         env:
@@ -69,7 +79,7 @@ jobs:
       - name: install dev tools
         shell: bash -l {0}
         run: |
-          conda install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+          mamba install -c conda-forge --yes --file requirements-dev.txt
       - name: install echopype
         shell: bash -l {0}
         run: |
