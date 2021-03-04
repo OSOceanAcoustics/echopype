@@ -1,5 +1,5 @@
 """
-echopype utilities for calculating underwater acoustic values
+Utilities for calculating seawater acoustic properties.
 """
 import numpy as np
 
@@ -31,8 +31,10 @@ def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="M
         ss += -1.025e-2 * temperature * (salinity - 35) - 7.139e-13 * temperature * pressure ** 3
     elif formula_source == "AZFP":
         z = temperature / 10
-        ss = (1449.05 + z * (45.7 + z * ((-5.21) + 0.23 * z)) + (1.333 + z * ((-0.126) + z * 0.009)) *
-              (salinity - 35.0) + (pressure / 1000) * (16.3 + 0.18 * (pressure / 1000)))
+        ss = (1449.05
+              + z * (45.7 + z * (-5.21 + 0.23 * z))
+              + (1.333 + z * (-0.126 + z * 0.009)) * (salinity - 35.0)
+              + (pressure / 1000) * (16.3 + 0.18 * (pressure / 1000)))
     else:
         ValueError("Unknown formula source")
     return ss
@@ -64,7 +66,7 @@ def calc_absorption(frequency, distance=1000, temperature=27,
 
     Returns
     -------
-    Sea absorption [db/m]
+    Sea absorption [dB/m]
     """
     if formula_source == 'FG':
         f = frequency / 1000.0
@@ -92,7 +94,7 @@ def calc_absorption(frequency, distance=1000, temperature=27,
         a1 = 0.106 * (f1 * (freq ** 2)) / ((f1 ** 2) + (freq ** 2)) * np.exp((pH - 8) / 0.56)
         a2 = (0.52 * (1 + temperature / 43) * (salinity / 35) *
               (f2 * (freq ** 2)) / ((f2 ** 2) + (freq ** 2)) * np.exp(-D / 6))
-        a3 = 0.00049 * (freq) ** 2 * np.exp(-(temperature / 27 + D))
+        a3 = 0.00049 * freq ** 2 * np.exp(-(temperature / 27 + D))
         sea_abs = (a1 + a2 + a3) / 1000  # convert to db/m from db/km
     elif formula_source == 'AZFP':
         temp_k = temperature + 273.0
@@ -102,14 +104,14 @@ def calc_absorption(frequency, distance=1000, temperature=27,
         # Coefficients for absorption calculations
         k = 1 + pressure / 10.0
         a = 8.95e-8 * (1 + temperature * (2.29e-2 - 5.08e-4 * temperature))
-        b = (salinity / 35.0) * 4.88e-7 * (1 + 0.0134 * temperature) * (1 - 0.00103 * k + 3.7e-7 * (k * k))
-        c = (4.86e-13 * (1 + temperature * ((-0.042) + temperature * (8.53e-4 - temperature * 6.23e-6))) *
+        b = (salinity / 35.0) * 4.88e-7 * (1 + 0.0134 * temperature) * (1 - 0.00103 * k + 3.7e-7 * k ** 2)
+        c = (4.86e-13 * (1 + temperature * (-0.042 + temperature * (8.53e-4 - temperature * 6.23e-6))) *
                         (1 + k * (-3.84e-4 + k * 7.57e-8)))
         if salinity == 0:
             sea_abs = c * frequency ** 2
         else:
-            sea_abs = ((a * f1 * (frequency ** 2)) / ((f1 * f1) + (frequency ** 2)) +
-                       (b * f2 * (frequency ** 2)) / ((f2 * f2) + (frequency ** 2)) + c * (frequency ** 2))
+            sea_abs = ((a * f1 * frequency ** 2) / (f1 ** 2 + frequency ** 2) +
+                       (b * f2 * frequency ** 2) / (f2 ** 2 + frequency ** 2) + c * frequency ** 2)
     else:
         ValueError("Unknown formula source")
     return sea_abs
