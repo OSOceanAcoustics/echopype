@@ -106,8 +106,11 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
+            # TODO: below only correct if range_samples_per_bin=1,
+            #  need to implement p.86 for the case when averaging is used
             sample_int = range_samples_per_bin / dig_rate
         else:
+            # TODO: not sure what this error means
             raise ValueError("dig_rate and range_samples not unique across frequencies")
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
