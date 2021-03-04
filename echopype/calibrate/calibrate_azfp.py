@@ -63,28 +63,23 @@ class CalibrateAZFP(CalibrateBase):
         # TODO: double check the implementation below against reference manual
         # TODO: make sure the dimensions work out
 
-        range_samples = self.echodata.raw_vend['number_of_samples_per_average_bin']
-        dig_rate = self.echodata.raw_vend['digitization_rate']
-        lockout_index = self.echodata.raw_vend['lockout_index']
+        # Notation below follows p.86 of user manual
+        N = self.echodata.raw_vend['number_of_samples_per_average_bin']  # samples per bin
+        f = self.echodata.raw_vend['digitization_rate']  # digitization rate
+        L = self.echodata.raw_vend['lockout_index']  # number of lockout samples
         sound_speed = self.env_params['sound_speed']
         bins_to_avg = 1   # keep this in ref of AZFP matlab code, set to 1 since we want to calculate from raw data
 
         # Below is from LoadAZFP.m, the output is effectively range_bin+1 when bins_to_avg=1
-        range_mod = xr.DataArray(np.arange(1, len(self.echodata.raw_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
-                                 coords=[('range_bin', self.echodata.raw_beam.range_bin)])
+        m = xr.DataArray(np.arange(1, len(self.echodata.raw_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
+                         coords=[('range_bin', self.echodata.raw_beam.range_bin)])
 
         # Calculate range using parameters for each freq
-        range_meter = (lockout_index / (2 * dig_rate) * sound_speed + sound_speed / 4 *
-                       (((2 * range_mod - 1) * range_samples * bins_to_avg - 1) / dig_rate +
-                        self.echodata.raw_beam['transmit_duration_nominal']))
+        #  This is "the range to the centre of the sampling volume for bin m"
+        range_meter = (sound_speed * L / (2 * f)
+                       + sound_speed / 4 * (((2 * m - 1) * N * bins_to_avg - 1) / f +
+                                            self.echodata.raw_beam['transmit_duration_nominal']))
         range_meter.name = 'range'  # add name to facilitate xr.merge
-
-        # TODO: tilt is only relevant when calculating "depth" but "range" is general,
-        #  this correction should be done outside of the functions.
-        #  Probably the best is to show in a notebook and mentioned in doc,
-        #  since AZFP mooring cage has a 15 deg tilt.
-        # if tilt_corrected:
-        #     range_meter = self.echodata.raw_beam.cos_tilt_mag.mean() * range_meter
 
         return range_meter
 
