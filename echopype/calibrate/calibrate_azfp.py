@@ -70,15 +70,13 @@ class CalibrateAZFP(CalibrateBase):
         sound_speed = self.env_params['sound_speed']
         bins_to_avg = 1   # keep this in ref of AZFP matlab code, set to 1 since we want to calculate from raw data
 
-        # Below is from LoadAZFP.m, the output is effectively range_bin+1 when bins_to_avg=1
-        m = xr.DataArray(np.arange(1, len(self.echodata.raw_beam.range_bin) - bins_to_avg + 2, bins_to_avg),
-                         coords=[('range_bin', self.echodata.raw_beam.range_bin)])
-
         # Calculate range using parameters for each freq
-        #  This is "the range to the centre of the sampling volume for bin m"
+        #  This is "the range to the centre of the sampling volume for bin m" from p.86 of user manual
+        range_offset = sound_speed * self.echodata.raw_beam['transmit_duration_nominal'] / 4  # from AZFP matlab code
         range_meter = (sound_speed * L / (2 * f)
-                       + sound_speed / 4 * (((2 * m - 1) * N * bins_to_avg - 1) / f +
-                                            self.echodata.raw_beam['transmit_duration_nominal']))
+                       + sound_speed / 4 * (((2 * (self.echodata.raw_beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                                            + self.echodata.raw_beam['transmit_duration_nominal'])
+                       + range_offset)
         range_meter.name = 'range'  # add name to facilitate xr.merge
 
         return range_meter
