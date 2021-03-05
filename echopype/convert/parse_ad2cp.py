@@ -336,12 +336,12 @@ class Ad2cpDataPacket:
         if self.data_record_format == self.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0010 >> 1
-                self.data["compass_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0100 >> 2
-                self.data["tilt_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_1000 >> 3
-                self.data["velocity_data_included"] = self.data["configuration"] & 0b0000_0000_0010_0000 >> 4
-                self.data["amplitude_data_included"] = self.data["configuration"] & 0b0000_0000_0100_0000 >> 5
-                self.data["correlation_data_included"] = self.data["configuration"] & 0b0000_0000_1000_0000 >> 6
+                self.data["temperature_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (self.data["configuration"] & 0b0000_0000_0010_0000) >> 4
+                self.data["amplitude_data_included"] = (self.data["configuration"] & 0b0000_0000_0100_0000) >> 5
+                self.data["correlation_data_included"] = (self.data["configuration"] & 0b0000_0000_1000_0000) >> 6
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
@@ -357,19 +357,19 @@ class Ad2cpDataPacket:
         elif self.data_record_format == self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0010 >> 1
-                self.data["compass_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0100 >> 2
-                self.data["tilt_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_1000 >> 3
-                self.data["velocity_data_included"] = self.data["configuration"] & 0b0000_0000_0010_0000 >> 5
-                self.data["amplitude_data_included"] = self.data["configuration"] & 0b0000_0000_0100_0000 >> 6
-                self.data["correlation_data_included"] = self.data["configuration"] & 0b0000_0000_1000_0000 >> 7
-                self.data["altimeter_data_included"] = self.data["configuration"] & 0b0000_0001_0000_0000 >> 8
-                self.data["altimeter_raw_data_included"] = self.data["configuration"] & 0b0000_0010_0000_0000 >> 9
-                self.data["ast_data_included"] = self.data["configuration"] & 0b0000_0100_0000_0000 >> 10
-                self.data["echosounder_data_included"] = self.data["configuration"] & 0b0000_1000_0000_0000 >> 11
-                self.data["ahrs_data_included"] = self.data["configuration"] & 0b0001_0000_0000_0000 >> 12
-                self.data["percentage_good_data_included"] = self.data["configuration"] & 0b0010_0000_0000_0000 >> 13
-                self.data["std_dev_data_included"] = self.data["configuration"] & 0b0100_0000_0000_0000 >> 14
+                self.data["temperature_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (self.data["configuration"] & 0b0000_0000_0010_0000) >> 5
+                self.data["amplitude_data_included"] = (self.data["configuration"] & 0b0000_0000_0100_0000) >> 6
+                self.data["correlation_data_included"] = (self.data["configuration"] & 0b0000_0000_1000_0000) >> 7
+                self.data["altimeter_data_included"] = (self.data["configuration"] & 0b0000_0001_0000_0000) >> 8
+                self.data["altimeter_raw_data_included"] = (self.data["configuration"] & 0b0000_0010_0000_0000) >> 9
+                self.data["ast_data_included"] = (self.data["configuration"] & 0b0000_0100_0000_0000) >> 10
+                self.data["echosounder_data_included"] = (self.data["configuration"] & 0b0000_1000_0000_0000) >> 11
+                self.data["ahrs_data_included"] = (self.data["configuration"] & 0b0001_0000_0000_0000) >> 12
+                self.data["percentage_good_data_included"] = (self.data["configuration"] & 0b0010_0000_0000_0000) >> 13
+                self.data["std_dev_data_included"] = (self.data["configuration"] & 0b0100_0000_0000_0000) >> 14
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 if self.data["echosounder_data_included"]:
                     self.data["num_echosounder_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"]
@@ -403,12 +403,12 @@ class Ad2cpDataPacket:
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0010 >> 1
-                self.data["compass_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0100 >> 2
-                self.data["tilt_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_1000 >> 3
-                self.data["velocity_data_included"] = self.data["data"]["configuration"] & 0b0000_0000_0010_0000 >> 5
-                self.data["distance_data_included"] = self.data["data"]["configuration"] & 0b0000_0001_0000_0000 >> 8
-                self.data["figure_of_merit_data_included"] = self.data["data"]["configuration"] & 0b0000_0010_0000_0000 >> 9
+                self.data["temperature_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (self.data["data"]["configuration"] & 0b0000_0000_0010_0000) >> 5
+                self.data["distance_data_included"] = (self.data["data"]["configuration"] & 0b0000_0001_0000_0000) >> 8
+                self.data["figure_of_merit_data_included"] = (self.data["data"]["configuration"] & 0b0000_0010_0000_0000) >> 9
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
