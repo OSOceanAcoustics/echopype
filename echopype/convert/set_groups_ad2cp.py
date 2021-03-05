@@ -5,13 +5,12 @@ import xarray as xr
 import numpy as np
 
 from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import DataRecordType, Field, Ad2cpDataPacket
+from .parse_ad2cp import DataRecordType, Field, Ad2cpDataPacket, UNITS
 from ..utils import io
 
 
 class SetGroupsAd2cp(SetGroupsBase):
     def write(self, ds: xr.Dataset, group: str):
-        ds.attrs["Units"] = "velocity: m/s, temperature: deg Celsius, pressure: dBar, direction: degrees, length: m, voltage: V, magnitude: dB, echosounder data: dB/count"
         if os.path.exists(self.output_path):
             mode = "a"
         else:
@@ -50,12 +49,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                     # TODO might not work with altimeter_spare
                     # add dimension names to data vars for xarray
                     dims = Field.dimensions(field_name, packet.data_record_type)
+                    # TODO: this should be done in _postprocess
                     if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
                         if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
                             field_name += "_burst"
                         elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
                             field_name += "_average"
-                    data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value])
+                    if field_name in UNITS:
+                        data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value], {"Units": UNITS[field_name]})
+                    else:
+                        data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value])
                 new_packet = xr.Dataset(
                     data_vars=data_vars,
                     coords={
@@ -69,7 +72,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 # modify in place to reduce memory consumption
                 packets[i] = new_packet
             if len(packets) > 0:
-                return xr.concat(packets, dim="time")
+                return xr.concat(packets, dim="time", combine_attrs="drop_conflicts")
             else:
                 return None
 
@@ -78,7 +81,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         echosounder_ds = make_dataset(echosounder_packets, time_dim="time_echosounder")
 
         datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds) if ds]
-        self.ds = xr.merge(datasets)
+        self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
         # TODO: where to put string data in output?
         self.ds.attrs["string_data"] = string_data
 
@@ -153,7 +156,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             "altimeter_quality": self.ds.get("altimeter_quality"),
             "ast_distance": self.ds.get("ast_distance"),
             "ast_quality": self.ds.get("ast_quality"),
-            "ast_offset_10us": self.ds.get("ast_offset_10us"),
+            "ast_offset_100us": self.ds.get("ast_offset_100us"),
             "ast_pressure": self.ds.get("ast_pressure"),
             "altimeter_spare": self.ds.get("altimeter_spare"),
             "altimeter_raw_data_num_samples": self.ds.get("altimeter_raw_data_num_samples"),
