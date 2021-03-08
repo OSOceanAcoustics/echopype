@@ -1,19 +1,25 @@
 import numpy as np
-import xarray as xr
 from .calibrate_ek import CalibrateBase
-from .calibrate_ek import CAL_PARAMS
+from .calibrate_base import CAL_PARAMS, ENV_PARAMS
 from ..utils import uwa
 
 
 class CalibrateAZFP(CalibrateBase):
 
-    def __init__(self, echodata):
+    def __init__(self, echodata, env_params, cal_params):
         super().__init__(echodata)
 
-        # cal params specific to AZFP
+        # initialize env and cal params
+        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS['AZFP'])
 
-        self.range_meter = self.calc_range_meter()
+        # load env and cal parameters
+        if env_params is None:
+            env_params = {}
+        self.get_env_params(env_params)
+        if cal_params is None:
+            cal_params = {}
+        self.get_cal_params(cal_params)
 
     def get_cal_params(self, cal_params):
         """Get cal params using user inputs or values from data file.
@@ -28,7 +34,7 @@ class CalibrateAZFP(CalibrateBase):
             self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.raw_beam[p]
 
     def get_env_params(self, env_params):
-        """Get cal params using user inputs or values from data file.
+        """Get env params using user inputs or values from data file.
 
         Parameters
         ----------
@@ -36,11 +42,11 @@ class CalibrateAZFP(CalibrateBase):
         """
         # Temperature comes from either user input or data file
         self.env_params['temperature'] = (env_params['temperature']
-                                          if env_params['temperature']
+                                          if 'temperature' in env_params
                                           else self.echodata.raw_env['temperature'])
 
         # Salinity and pressure always come from user input
-        if (not env_params['salinity']) or (not env_params['pressure']):
+        if ('salinity' not in env_params) or ('pressure' not in env_params):
             raise ReferenceError('Please supply both salinity and pressure in env_params.')
         else:
             self.env_params['salinity'] = env_params['salinity']
@@ -57,12 +63,15 @@ class CalibrateAZFP(CalibrateBase):
                                                                   pressure=self.env_params['pressure'],
                                                                   formula_source='AZFP')
 
-    def calc_range_meter(self):
+    def compute_range_meter(self, cal_type):
         """Calculate range in meter using AZFP formula.
-        """
-        # TODO: double check the implementation below against reference manual
-        # TODO: make sure the dimensions work out
 
+        Parameters
+        ----------
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'Sp' for calculating point backscattering strength
+        """
         # Notation below follows p.86 of user manual
         N = self.echodata.raw_vend['number_of_samples_per_average_bin']  # samples per bin
         f = self.echodata.raw_vend['digitization_rate']  # digitization rate
@@ -72,14 +81,17 @@ class CalibrateAZFP(CalibrateBase):
 
         # Calculate range using parameters for each freq
         #  This is "the range to the centre of the sampling volume for bin m" from p.86 of user manual
-        range_offset = sound_speed * self.echodata.raw_beam['transmit_duration_nominal'] / 4  # from AZFP matlab code
+        if cal_type == 'Sv':
+            range_offset = 0
+        else:
+            range_offset = sound_speed * self.echodata.raw_beam['transmit_duration_nominal'] / 4  # from matlab code
         range_meter = (sound_speed * L / (2 * f)
                        + sound_speed / 4 * (((2 * (self.echodata.raw_beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
                                             + self.echodata.raw_beam['transmit_duration_nominal'])
                        + range_offset)
         range_meter.name = 'range'  # add name to facilitate xr.merge
 
-        return range_meter
+        self.range_meter = range_meter
 
     def _cal_power(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
@@ -90,6 +102,10 @@ class CalibrateAZFP(CalibrateBase):
         in the calibration as documented on p.90.
         See calc_Sv_offset() in convert/azfp.py
         """
+        # Compute range in meters
+        self.compute_range_meter(cal_type=cal_type)  # range computation different for Sv and Sp per AZFP matlab code
+
+        # Compute various params
         spreading_loss = 20 * np.log10(self.range_meter)
         absorption_loss = 2 * self.env_params['sound_absorption'] * self.range_meter
         SL = self.cal_params['TVR'] + 20 * np.log10(self.cal_params['VTX'])  # eq.(2)
@@ -118,8 +134,8 @@ class CalibrateAZFP(CalibrateBase):
 
         return out
 
-    def compute_Sv(self):
+    def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type='Sv')
 
-    def compute_Sp(self):
+    def compute_Sp(self, **kwargs):
         return self._cal_power(cal_type='Sp')
