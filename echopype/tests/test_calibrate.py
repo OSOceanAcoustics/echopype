@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
+from scipy.io import loadmat
 from ... import echopype as ep
 
 
@@ -46,13 +47,26 @@ def test_get_Sv_azfp():
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
     with xr.open_dataset(c.output_file, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
+    env_params = {'temperature': avg_temperature, 'salinity': 27.9, 'pressure': 59}
     echodata = ep.EchoDataNew(raw_path=c.output_file)
-    ds_Sv = ep.calibrate.compute_Sv(echodata,
-                                    env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
+    ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
+    ds_Sp = ep.calibrate.compute_Sp(echodata=echodata, env_params=env_params)
 
     # Load Matlab outputs and test
-    with xr.open_dataset(azfp_test_Sv_path) as Sv_test:
-        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
+    # Matlab outputs were saved using
+    #   save('from_matlab/17082117_matlab_Output.mat', 'Output')  # data variables
+    #   save('from_matlab/17082117_matlab_Par.mat', 'Par')  # parameters
+    base_Sv = loadmat('./echopype/test_data/azfp/from_matlab/17082117_matlab_Output.mat')
+    for fidx in range(4):  # loop through all freq
+        assert np.alltrue(ds_Sv.range.isel(frequency=fidx).values == base_Sv['Output'][0]['Range'][fidx])
+        assert np.allclose(ds_Sv.Sv.isel(frequency=fidx).values, base_Sv['Output'][0]['Sv'][fidx],
+                           atol=1e-13, rtol=0)
+
+    base_Sp = loadmat('./echopype/test_data/azfp/from_matlab/17082117_matlab_Output_TS.mat')
+    for fidx in range(4):  # loop through all freq
+        assert np.alltrue(ds_Sp.range.isel(frequency=fidx).values == base_Sp['Output'][0]['Range'][fidx])
+        assert np.allclose(ds_Sp.Sp.isel(frequency=fidx).values, base_Sp['Output'][0]['TS'][fidx],
+                           atol=1e-13, rtol=0)
 
     Path(c.output_file).unlink()
 
