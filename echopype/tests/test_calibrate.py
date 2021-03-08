@@ -43,7 +43,7 @@ def test_get_Sv_azfp():
     c = ep.Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     c.to_netcdf(overwrite=True)
 
-    # Calibrate to get Sv and TS
+    # Calibrate using identical env params as in Matlab ParametersAZFP.m
     with xr.open_dataset(c.output_file, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
     echodata = ep.EchoDataNew(raw_path=c.output_file)
@@ -51,9 +51,7 @@ def test_get_Sv_azfp():
                                     env_params={'temperature': avg_temperature, 'salinity': 29.6, 'pressure': 60})
 
     # Load Matlab outputs and test
-    Sv_test = xr.open_dataset(azfp_test_Sv_path)
-    # Sp_test = xr.open_dataset(azfp_test_TS_path)
-
-    assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
+    with xr.open_dataset(azfp_test_Sv_path) as Sv_test:
+        assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
 
     Path(c.output_file).unlink()
