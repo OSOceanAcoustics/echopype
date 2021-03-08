@@ -176,7 +176,7 @@ class CalibrateEK(CalibrateBase):
 
 class CalibrateEK60(CalibrateEK):
 
-    def __init__(self, echodata, env_params, cal_params):
+    def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata)
 
         # initialize env and cal params
@@ -237,12 +237,26 @@ class CalibrateEK80(CalibrateEK):
     z_et = 75
     z_er = 1000
 
-    def __init__(self, echodata):
+    def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata)
 
-        # cal params used by both complex and power data calibration
-        # TODO: will have to add complex data-specific params, like the freq-dependent gain factor
+        # initialize env and cal params
+        # cal params are those used by both complex and power data calibration
+        # TODO: add complex data-specific params, like the freq-dependent gain factor
+        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
+        # TODO: make waveform_mode and encode_mode class attributes
+
+        # load env and cal parameters
+        if env_params is None:
+            env_params = {}
+        self.get_env_params(env_params, waveform_mode=waveform_mode)
+        if cal_params is None:
+            cal_params = {}
+        self.get_cal_params(cal_params)
+
+        # self.range_meter computed under self._compute_cal()
+        # because the implementation is different depending on waveform_mode and encode_mode
 
     def get_env_params(self, env_params, waveform_mode=None):
         """Get env params using user inputs or values from data file.
@@ -612,10 +626,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute Sv
         if flag_complex:
-            self.range_meter = self.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
+            self.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
             ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
-            self.range_meter = self.compute_range_meter(waveform_mode='CW', tvg_correction_factor=0)
+            self.compute_range_meter(waveform_mode='CW', tvg_correction_factor=0)
             ds_cal = self._cal_power(cal_type=cal_type, use_raw_beam_power=use_raw_beam_power)
 
         return ds_cal

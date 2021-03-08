@@ -6,7 +6,7 @@ from ..utils import uwa
 
 class CalibrateAZFP(CalibrateBase):
 
-    def __init__(self, echodata, env_params, cal_params):
+    def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata)
 
         # initialize env and cal params
@@ -20,6 +20,9 @@ class CalibrateAZFP(CalibrateBase):
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(cal_params)
+
+        # self.range_meter computed under self._cal_power()
+        # because the implementation is different for Sv and Sp
 
     def get_cal_params(self, cal_params):
         """Get cal params using user inputs or values from data file.
