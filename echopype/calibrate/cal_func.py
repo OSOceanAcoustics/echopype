@@ -8,9 +8,7 @@ CALIBRATOR = {
 }
 
 
-def compute_Sv(echodata, env_params=None, cal_params=None, waveform_mode=None, encode_mode=None):
-    """Compute volume backscattering strength (Sv) from raw data.
-    """
+def _compute_cal(cal_type, echodata, env_params=None, cal_params=None, waveform_mode=None, encode_mode=None):
     # Sanity check on inputs
     if (waveform_mode is not None) and (waveform_mode not in ('BB', 'CW')):
         raise ValueError('Input waveform_mode not recognized!')
@@ -22,4 +20,20 @@ def compute_Sv(echodata, env_params=None, cal_params=None, waveform_mode=None, e
                                                env_params=env_params, cal_params=cal_params,
                                                waveform_mode=waveform_mode, encode_mode=encode_mode)
     # Perform calibration
-    return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+    if cal_type == 'Sv':
+        return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+    else:
+        return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+
+def compute_Sv(**kwargs):
+    """Compute volume backscattering strength (Sv) from raw data.
+    """
+    return _compute_cal(cal_type='Sv', **kwargs)
+
+
+def compute_Sp(**kwargs):
+    """Compute point backscattering strength (Sp) from raw data.
+    """
+    return _compute_cal(cal_type='Sp', **kwargs)
+
