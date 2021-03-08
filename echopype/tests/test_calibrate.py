@@ -55,3 +55,16 @@ def test_get_Sv_azfp():
         assert np.allclose(Sv_test.Sv, ds_Sv.Sv, atol=1e-15)
 
     Path(c.output_file).unlink()
+
+
+def test_compute_Sv_EK80_CW_complex():
+    fname_zarr = '/Volumes/MURI_4TB/MURI/spheroid_echoes/Data_zarr/ar2.0-D20201210-T000409.zarr'  # CW complex
+    echodata = ep.EchoDataNew(fname_zarr)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+
+
+def test_compute_Sv_EK80_BB_complex():
+    fname_zarr = '/Volumes/MURI_4TB/MURI/spheroid_echoes/Data_zarr/ar2.0-D20201209-T235955.zarr'
+    echodata = ep.EchoDataNew(fname_zarr)
+    Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    Sp = ep.calibrate.compute_Sp(echodata, waveform_mode='BB', encode_mode='complex')
