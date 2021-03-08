@@ -16,12 +16,11 @@ class CalibrateBase:
     """
 
     def __init__(self, echodata):
-        self.sonar_model = None
-        self.range_meter = None
+        self.sonar_model = None  # TODO: not used?
         self.echodata = echodata
-
-        # initialize all env params to None
-        self.env_params = dict.fromkeys(ENV_PARAMS)
+        self.env_params = None  # env_params are set in child class
+        self.cal_params = None  # cal_params are set in child class
+        self.range_meter = None  # range_meter is computed in compute_Sv/Sp in child class
 
     def get_env_params(self, **kwargs):
         pass
@@ -29,7 +28,7 @@ class CalibrateBase:
     def get_cal_params(self, **kwargs):
         pass
 
-    def calc_range_meter(self, **kwargs):
+    def compute_range_meter(self, **kwargs):
         """Calculate range in units meter.
 
         Returns
