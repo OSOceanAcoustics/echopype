@@ -2,7 +2,7 @@ import numpy as np
 from scipy import signal
 import xarray as xr
 from ..utils import uwa
-from .calibrate_base import CalibrateBase, CAL_PARAMS
+from .calibrate_base import CalibrateBase, CAL_PARAMS, ENV_PARAMS
 
 
 class CalibrateEK(CalibrateBase):
@@ -11,9 +11,10 @@ class CalibrateEK(CalibrateBase):
         super().__init__(echodata)
 
         # cal params specific to EK echosounders
+        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
 
-    def calc_range_meter(self, waveform_mode, tvg_correction_factor):
+    def compute_range_meter(self, waveform_mode, tvg_correction_factor):
         """
         Parameters
         ----------
@@ -48,7 +49,7 @@ class CalibrateEK(CalibrateBase):
         range_meter = range_meter.transpose('frequency', 'ping_time', 'range_bin')
         range_meter.name = 'range'  # add name to facilitate xr.merge
 
-        return range_meter
+        self.range_meter = range_meter
 
     def _get_vend_cal_params_power(self, param):
         """Get cal parameters stored in the Vendor group.
@@ -175,13 +176,25 @@ class CalibrateEK(CalibrateBase):
 
 class CalibrateEK60(CalibrateEK):
 
-    def __init__(self, echodata):
+    def __init__(self, echodata, env_params, cal_params):
         super().__init__(echodata)
 
-        # default to CW mode recorded as power samples
-        self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
+        # initialize env and cal params
+        self.env_params = dict.fromkeys(ENV_PARAMS)
+        self.cal_params = dict.fromkeys(CAL_PARAMS['AZFP'])
 
-    def get_env_params(self, env_params):
+        # load env and cal parameters
+        if env_params is None:
+            env_params = {}
+        self.get_env_params(env_params)
+        if cal_params is None:
+            cal_params = {}
+        self.get_cal_params(cal_params)
+
+        # default to CW mode recorded as power samples
+        self.compute_range_meter(waveform_mode='CW', tvg_correction_factor=2)
+
+    def get_env_params(self, env_params, **kwargs):
         """Get env params using user inputs or values from data file.
 
         EK60 file by default contains only sound speed and absorption.
@@ -212,10 +225,10 @@ class CalibrateEK60(CalibrateEK):
                                                    if 'sound_absorption' in env_params
                                                    else self.echodata.raw_env['absorption_indicative'])
 
-    def compute_Sv(self):
+    def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type='Sv')
 
-    def compute_Sp(self):
+    def compute_Sp(self, **kwargs):
         return self._cal_power(cal_type='Sp')
 
 
@@ -599,10 +612,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute Sv
         if flag_complex:
-            self.range_meter = self.calc_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
+            self.range_meter = self.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
             ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
-            self.range_meter = self.calc_range_meter(waveform_mode='CW', tvg_correction_factor=0)
+            self.range_meter = self.compute_range_meter(waveform_mode='CW', tvg_correction_factor=0)
             ds_cal = self._cal_power(cal_type=cal_type, use_raw_beam_power=use_raw_beam_power)
 
         return ds_cal
