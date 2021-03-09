@@ -14,7 +14,7 @@ def regrid():
     return 1
 
 
-def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3):
+def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=False):
     """Remove noise by using estimates of background noise.
 
     The background noise is estimated from the minimum mean calibrated power level
@@ -35,6 +35,8 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3):
         number of pings to obtain noise estimates
     SNR : float
         acceptable signal-to-noise ratio
+    save_noise_est : bool
+        whether to save noise estimates in output, default to `False`
 
     Returns
     -------
@@ -52,9 +54,11 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3):
             salinity=env_params['salinity'],
             pressure=env_params['pressure'],
         )
+        p_to_store = ['temperature', 'salinity', 'pressure']
     else:
         if env_params['sound_absorption'].frequency == Sv.frequency:
             sound_absorption = env_params['sound_absorption']
+            p_to_store = ['sound_absorption']
         else:
             raise ValueError("Mismatch in the frequency dimension for sound_absorption and Sv!")
 
@@ -83,8 +87,14 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3):
     Sv_corr.name = 'Sv_clean'
     Sv_corr = Sv_corr.to_dataset()
 
-    # Attach calculated range into data set
+    # Attach other variables and attributes to dataset
     Sv_corr['range'] = Sv['range'].copy()
-    Sv_corr['Sv_noise'] = Sv_noise
+    if save_noise_est:
+        Sv_corr['Sv_noise'] = Sv_noise
+    Sv_corr.attrs['noise_est_ping_num'] = ping_num
+    Sv_corr.attrs['noise_est_range_bin_num'] = range_bin_num
+    Sv_corr.attrs['SNR'] = SNR
+    for p in p_to_store:
+        Sv_corr.attrs[p] = env_params[p]
 
     return Sv_corr
