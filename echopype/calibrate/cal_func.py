@@ -26,14 +26,14 @@ def _compute_cal(cal_type, echodata, env_params=None, cal_params=None, waveform_
         return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
 
-def compute_Sv(**kwargs):
+def compute_Sv(echodata, **kwargs):
     """Compute volume backscattering strength (Sv) from raw data.
     """
-    return _compute_cal(cal_type='Sv', **kwargs)
+    return _compute_cal(cal_type='Sv', echodata=echodata, **kwargs)
 
 
-def compute_Sp(**kwargs):
+def compute_Sp(echodata, **kwargs):
     """Compute point backscattering strength (Sp) from raw data.
     """
-    return _compute_cal(cal_type='Sp', **kwargs)
+    return _compute_cal(cal_type='Sp', echodata=echodata, **kwargs)
 
