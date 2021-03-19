@@ -94,7 +94,7 @@ UNITS = {
     "std_dev_pitch": "degrees",
     "std_dev_roll": "degrees",
     "std_dev_heading": "degrees",
-    "std_dev_pressure": "Bar",
+    "std_dev_pressure": "dBar",
 }
 
 
@@ -147,8 +147,8 @@ class Field:
                     return [Dimension.TIME, Dimension.RANGE_BIN_BURST]
             elif field_name == "altimeter_raw_data_samples":
                 return [Dimension.TIME, Dimension.NUM_ALTIMETER_SAMPLES]
-            elif field_name == "echosounder_raw_samples":
-                return [Dimension.TIME, Dimension.COMPLEX]
+            # elif field_name == "echosounder_raw_samples":
+            #     return [Dimension.TIME, Dimension.COMPLEX]
         return [Dimension.TIME]
 
 
@@ -313,6 +313,8 @@ class Ad2cpDataPacket:
                 self.data[field_name] = parsed_field
                 self._postprocess(field_name)
 
+        print(len(raw_bytes), self.data["data_record_size"])
+        
         return raw_bytes
 
     @staticmethod
@@ -469,6 +471,10 @@ class Ad2cpDataPacket:
                 # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
                 self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * \
                     (10 ** self.data["velocity_scaling"])
+        elif self.data_record_format == self.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
+            if field_name == "echosounder_raw_samples":
+                self.data["echosounder_raw_samples_r"] = self.data["echosounder_raw_samples"][:, 0]
+                self.data["echosounder_raw_samples_i"] = self.data["echosounder_raw_samples"][:, 1]
 
     @staticmethod
     def checksum(data: bytes) -> int:
@@ -749,7 +755,7 @@ class Ad2cpDataPacket:
           field_unit_conversion=lambda self, x: x / 100,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F("std_dev_pressure", 2, SIGNED_INTEGER,
-          field_unit_conversion=lambda self, x: x / 1000,
+          field_unit_conversion=lambda self, x: x / 100,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"]),
         F(None, 24, RAW_BYTES,
           field_exists_predicate=lambda self: self.data["std_dev_data_included"])
@@ -844,6 +850,6 @@ class Ad2cpDataPacket:
         F("num_complex_samples", 4, UNSIGNED_INTEGER),
         F("ind_start_samples", 4, UNSIGNED_INTEGER),
         F("freq_raw_sample_data", 4, FLOAT),
-        F("echosounder_raw_samples", lambda self: 8 * self.data["num_complex_samples"], SIGNED_FRACTION,
+        F("echosounder_raw_samples", 4, SIGNED_FRACTION,
           field_shape=lambda self: [self.data["num_complex_samples"], 2])
     ]
