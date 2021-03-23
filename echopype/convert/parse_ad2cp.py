@@ -32,6 +32,7 @@ class DataType(Enum):
     STRING = auto()
     SIGNED_INTEGER = auto()
     UNSIGNED_INTEGER = auto()
+    # UNSIGNED_LONG = auto()
     FLOAT = auto()
     # TODO: figure out what this is in binary
     SIGNED_FRACTION = auto()
@@ -41,6 +42,7 @@ RAW_BYTES = DataType.RAW_BYTES
 STRING = DataType.STRING
 SIGNED_INTEGER = DataType.SIGNED_INTEGER
 UNSIGNED_INTEGER = DataType.UNSIGNED_INTEGER
+# UNSIGNED_LONG = DataType.UNSIGNED_LONG
 FLOAT = DataType.FLOAT
 SIGNED_FRACTION = DataType.SIGNED_FRACTION
 
@@ -54,6 +56,7 @@ class Dimension(Enum):
     RANGE_BIN_ECHOSOUNDER = "range_bin_echosounder"
     NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
     COMPLEX = "complex"
+
 
 UNITS = {
     "offset_of_data": "# of bytes",
@@ -99,7 +102,21 @@ UNITS = {
 
 
 class Field:
-    def __init__(self, field_name: Optional[str], field_entry_size_bytes: Union[int, Callable[["Ad2cpDataPacket"], int]], field_entry_data_type: DataType, *, field_shape: Union[List[int], Callable[["Ad2cpDataPacket"], List[int]]] = [], field_unit_conversion: Callable[["Ad2cpDataPacket", Union[int, float]], float] = lambda self, x: x, field_exists_predicate: Callable[["Ad2cpDataPacket"], bool] = lambda _: True):
+    # def __init__(self, field_name: Optional[str], field_entry_size_bytes: Union[int, Callable[["Ad2cpDataPacket"], int]], field_entry_data_type: Union[DataType, Callable[["Ad2cpDataPacket"], DataType]], *, field_shape: Union[List[int], Callable[["Ad2cpDataPacket"], List[int]]] = [], field_unit_conversion: Callable[["Ad2cpDataPacket", Union[int, float]], float] = lambda self, x: x, field_exists_predicate: Callable[["Ad2cpDataPacket"], bool] = lambda _: True):
+    def __init__(
+        self,
+        field_name: Optional[str],
+        field_entry_size_bytes: Union[int, Callable[["Ad2cpDataPacket"], int]],
+        field_entry_data_type: DataType,
+        # field_entry_data_type: Union[DataType, Callable[["Ad2cpDataPacket"], DataType]],
+        *,
+        field_shape: Union[List[int], Callable[[
+            "Ad2cpDataPacket"], List[int]]] = [],
+        field_unit_conversion: Callable[[
+            "Ad2cpDataPacket", Union[int, float]], float] = lambda self, x: x,
+        field_exists_predicate: Callable[[
+            "Ad2cpDataPacket"], bool] = lambda _: True
+    ):
         """
         field_name: Name of the field. If None, the field is parsed but ignored
         field_entry_size_bytes: Size of each entry within the field, in bytes. 
@@ -289,6 +306,8 @@ class Ad2cpDataPacket:
                 continue
             if callable(field_entry_size_bytes):
                 field_entry_size_bytes = field_entry_size_bytes(self)
+            # if callable(field_entry_data_type):
+            #     field_entry_data_type = field_entry_data_type(self)
             if callable(field_shape):
                 field_shape = field_shape(self)
 
@@ -313,8 +332,6 @@ class Ad2cpDataPacket:
                 self.data[field_name] = parsed_field
                 self._postprocess(field_name)
 
-        print(len(raw_bytes), self.data["data_record_size"])
-        
         return raw_bytes
 
     @staticmethod
@@ -334,6 +351,8 @@ class Ad2cpDataPacket:
         elif data_type == DataType.UNSIGNED_INTEGER:
             return int.from_bytes(
                 value, byteorder="little", signed=False)
+        # elif data_type == DataType.UNSIGNED_LONG:
+        #     return struct.unpack("<L", value)
         elif data_type == DataType.FLOAT and len(value) == 4:
             return struct.unpack("<f", value)
         elif data_type == DataType.FLOAT and len(value) == 8:
@@ -348,8 +367,7 @@ class Ad2cpDataPacket:
                 result *= -1
             return result
         else:
-            # unreachable
-            raise RuntimeError
+            raise RuntimeError("unrecognized data type")
 
     @staticmethod
     def _read_exact(f: BinaryIO, total_num_bytes_to_read: int) -> bytes:
@@ -381,12 +399,18 @@ class Ad2cpDataPacket:
         if self.data_record_format == self.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
-                self.data["compass_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
-                self.data["tilt_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
-                self.data["velocity_data_included"] = (self.data["configuration"] & 0b0000_0000_0010_0000) >> 4
-                self.data["amplitude_data_included"] = (self.data["configuration"] & 0b0000_0000_0100_0000) >> 5
-                self.data["correlation_data_included"] = (self.data["configuration"] & 0b0000_0000_1000_0000) >> 6
+                self.data["temperature_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_0010_0000) >> 4
+                self.data["amplitude_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_0100_0000) >> 5
+                self.data["correlation_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_1000_0000) >> 6
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
@@ -395,26 +419,43 @@ class Ad2cpDataPacket:
                     self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_0111
-                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_0011_1000) >> 3
-                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_0001_1100_0000) >> 6
-                self.data["beam3"] = (self.data["dataset_description"] & 0b0000_1110_0000_0000) >> 9
-                self.data["beam4"] = (self.data["dataset_description"] & 0b0111_0000_0000_0000) >> 12
+                self.data["beam1"] = (
+                    self.data["dataset_description"] & 0b0000_0000_0011_1000) >> 3
+                self.data["beam2"] = (
+                    self.data["dataset_description"] & 0b0000_0001_1100_0000) >> 6
+                self.data["beam3"] = (
+                    self.data["dataset_description"] & 0b0000_1110_0000_0000) >> 9
+                self.data["beam4"] = (
+                    self.data["dataset_description"] & 0b0111_0000_0000_0000) >> 12
         elif self.data_record_format == self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
-                self.data["compass_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
-                self.data["tilt_sensor_valid"] = (self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
-                self.data["velocity_data_included"] = (self.data["configuration"] & 0b0000_0000_0010_0000) >> 5
-                self.data["amplitude_data_included"] = (self.data["configuration"] & 0b0000_0000_0100_0000) >> 6
-                self.data["correlation_data_included"] = (self.data["configuration"] & 0b0000_0000_1000_0000) >> 7
-                self.data["altimeter_data_included"] = (self.data["configuration"] & 0b0000_0001_0000_0000) >> 8
-                self.data["altimeter_raw_data_included"] = (self.data["configuration"] & 0b0000_0010_0000_0000) >> 9
-                self.data["ast_data_included"] = (self.data["configuration"] & 0b0000_0100_0000_0000) >> 10
-                self.data["echosounder_data_included"] = (self.data["configuration"] & 0b0000_1000_0000_0000) >> 11
-                self.data["ahrs_data_included"] = (self.data["configuration"] & 0b0001_0000_0000_0000) >> 12
-                self.data["percentage_good_data_included"] = (self.data["configuration"] & 0b0010_0000_0000_0000) >> 13
-                self.data["std_dev_data_included"] = (self.data["configuration"] & 0b0100_0000_0000_0000) >> 14
+                self.data["temperature_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (
+                    self.data["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_0010_0000) >> 5
+                self.data["amplitude_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_0100_0000) >> 6
+                self.data["correlation_data_included"] = (
+                    self.data["configuration"] & 0b0000_0000_1000_0000) >> 7
+                self.data["altimeter_data_included"] = (
+                    self.data["configuration"] & 0b0000_0001_0000_0000) >> 8
+                self.data["altimeter_raw_data_included"] = (
+                    self.data["configuration"] & 0b0000_0010_0000_0000) >> 9
+                self.data["ast_data_included"] = (
+                    self.data["configuration"] & 0b0000_0100_0000_0000) >> 10
+                self.data["echosounder_data_included"] = (
+                    self.data["configuration"] & 0b0000_1000_0000_0000) >> 11
+                self.data["ahrs_data_included"] = (
+                    self.data["configuration"] & 0b0001_0000_0000_0000) >> 12
+                self.data["percentage_good_data_included"] = (
+                    self.data["configuration"] & 0b0010_0000_0000_0000) >> 13
+                self.data["std_dev_data_included"] = (
+                    self.data["configuration"] & 0b0100_0000_0000_0000) >> 14
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 if self.data["echosounder_data_included"]:
                     self.data["num_echosounder_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"]
@@ -441,19 +482,28 @@ class Ad2cpDataPacket:
                         (10 ** self.data["velocity_scaling"])
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_1111
-                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
-                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
-                self.data["beam3"] = (self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
+                self.data["beam1"] = (
+                    self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
+                self.data["beam2"] = (
+                    self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
+                self.data["beam3"] = (
+                    self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
                 self.data["beam4"] = 0
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
-                self.data["temperature_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_0010) >> 1
-                self.data["compass_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_0100) >> 2
-                self.data["tilt_sensor_valid"] = (self.data["data"]["configuration"] & 0b0000_0000_0000_1000) >> 3
-                self.data["velocity_data_included"] = (self.data["data"]["configuration"] & 0b0000_0000_0010_0000) >> 5
-                self.data["distance_data_included"] = (self.data["data"]["configuration"] & 0b0000_0001_0000_0000) >> 8
-                self.data["figure_of_merit_data_included"] = (self.data["data"]["configuration"] & 0b0000_0010_0000_0000) >> 9
+                self.data["temperature_sensor_valid"] = (
+                    self.data["data"]["configuration"] & 0b0000_0000_0000_0010) >> 1
+                self.data["compass_sensor_valid"] = (
+                    self.data["data"]["configuration"] & 0b0000_0000_0000_0100) >> 2
+                self.data["tilt_sensor_valid"] = (
+                    self.data["data"]["configuration"] & 0b0000_0000_0000_1000) >> 3
+                self.data["velocity_data_included"] = (
+                    self.data["data"]["configuration"] & 0b0000_0000_0010_0000) >> 5
+                self.data["distance_data_included"] = (
+                    self.data["data"]["configuration"] & 0b0000_0001_0000_0000) >> 8
+                self.data["figure_of_merit_data_included"] = (
+                    self.data["data"]["configuration"] & 0b0000_0010_0000_0000) >> 9
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
                 self.data["num_cells"] = self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b0000_0011_1111_1111
                 self.data["coordinate_system"] = (
@@ -462,9 +512,12 @@ class Ad2cpDataPacket:
                     self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "dataset_description":
                 self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_1111
-                self.data["beam1"] = (self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
-                self.data["beam2"] = (self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
-                self.data["beam3"] = (self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
+                self.data["beam1"] = (
+                    self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
+                self.data["beam2"] = (
+                    self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
+                self.data["beam3"] = (
+                    self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
                 self.data["beam4"] = 0
             elif field_name == "velocity_scaling":
                 # The unit conversion for ambiguity velocity is done here because it
@@ -498,6 +551,8 @@ class Ad2cpDataPacket:
         F("family", 1, UNSIGNED_INTEGER),
         F("data_record_size", lambda self: 4 if self.data["id"] in (
             0x23, 0x24) else 2, UNSIGNED_INTEGER),
+        # F("data_record_size", lambda self: 4 if self.data["id"] in (
+        #     0x23, 0x24) else 2, lambda self: UNSIGNED_LONG if self.data["id"] in (0x23, 0x24) else UNSIGNED_INTEGER),
         F("data_record_checksum", 2, UNSIGNED_INTEGER),
         F("header_checksum", 2, UNSIGNED_INTEGER),
     ]
@@ -520,16 +575,21 @@ class Ad2cpDataPacket:
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
           field_unit_conversion=lambda self, x: x / 10),
-        F("temperature", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
+        F("temperature", 2, SIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
         F("pitch", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("roll", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("error", 2, UNSIGNED_INTEGER),
         F("status", 2, UNSIGNED_INTEGER),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
-        F("blanking", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
+        F("cell_size", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
+        F("blanking", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
         F("velocity_range", 2, UNSIGNED_INTEGER,
           field_unit_conversion=lambda self, x: x / 1000),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
@@ -592,16 +652,21 @@ class Ad2cpDataPacket:
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
           field_unit_conversion=lambda self, x: x / 10),
-        F("temperature", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
+        F("temperature", 2, SIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
         F("pitch", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("roll", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
+        F("cell_size", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
         # This field is listed to be in cm, but testing has shown that it is actually in mm.
         # Being in mm would be consistent with the "blanking" field units in all other formats.
-        F("blanking", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
+        F("blanking", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
         F("nominal_correlation", 1, UNSIGNED_INTEGER),
         F("temperature_from_pressure_sensor", 1,
           UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x * 5),
@@ -774,14 +839,19 @@ class Ad2cpDataPacket:
         F("microsec100", 2, UNSIGNED_INTEGER),
         F("speed_of_sound", 2, UNSIGNED_INTEGER,
           field_unit_conversion=lambda self, x: x / 10),
-        F("temperature", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
-        F("pressure", 4, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
-        F("heading", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
+        F("temperature", 2, SIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
+        F("pressure", 4, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
+        F("heading", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 100),
         F("pitch", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("roll", 2, SIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-        F("cell_size", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
-        F("blanking", 2, UNSIGNED_INTEGER, field_unit_conversion=lambda self, x: x / 1000),
+        F("cell_size", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
+        F("blanking", 2, UNSIGNED_INTEGER,
+          field_unit_conversion=lambda self, x: x / 1000),
         F("nominal_correlation", 1, UNSIGNED_INTEGER),
         F(None, 1, RAW_BYTES),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
@@ -850,6 +920,7 @@ class Ad2cpDataPacket:
         F("num_complex_samples", 4, UNSIGNED_INTEGER),
         F("ind_start_samples", 4, UNSIGNED_INTEGER),
         F("freq_raw_sample_data", 4, FLOAT),
+        F(None, 208, RAW_BYTES),
         F("echosounder_raw_samples", 4, SIGNED_FRACTION,
           field_shape=lambda self: [self.data["num_complex_samples"], 2])
     ]

@@ -33,6 +33,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         burst_packets = []
         average_packets = []
         echosounder_packets = []
+        echosounder_raw_packets = []
         for packet in self.parser_obj.packets:
             if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
                 burst_packets.append(packet)
@@ -40,14 +41,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                 average_packets.append(packet)
             elif packet.data_record_type == DataRecordType.ECHOSOUNDER:
                 echosounder_packets.append(packet)
+            elif packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
+                echosounder_raw_packets.append(packet)
         
         def make_dataset(packets: List[Ad2cpDataPacket], time_dim: str) -> Optional[xr.Dataset]:
             for i in range(len(packets)):
                 packet = packets[i]
                 data_vars = dict()
                 for field_name, field_value in packet.data.items():
-                    # TODO might not work with altimeter_spare
                     # add dimension names to data vars for xarray
+                    # TODO might not work with altimeter_spare
                     dims = Field.dimensions(field_name, packet.data_record_type)
                     # TODO: this should be done in _postprocess
                     if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
@@ -65,7 +68,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                         "time": [packet.timestamp],
                         time_dim: [packet.timestamp],
                         "beam": [b for b in [packet.data["beam0"], packet.data["beam1"], packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0],
-                        "complex": ["real", "imag"],
+                        # "complex": ["real", "imag"],
                     }
                 )
 
@@ -79,8 +82,9 @@ class SetGroupsAd2cp(SetGroupsBase):
         burst_ds = make_dataset(burst_packets, time_dim="time_burst")
         average_ds = make_dataset(average_packets, time_dim="time_average")
         echosounder_ds = make_dataset(echosounder_packets, time_dim="time_echosounder")
+        echosounder_raw_ds = make_dataset(echosounder_raw_packets, time_dim="time_echosounder_raw")
 
-        datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds) if ds]
+        datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds, echosounder_raw_ds) if ds]
         self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
         # TODO: where to put string data in output?
         self.ds.attrs["string_data"] = string_data
@@ -257,3 +261,15 @@ class SetGroupsAd2cp(SetGroupsBase):
             "xyz": np.array(["x", "y", "z"]),
         })
         self.write(ds, "Vendor")
+
+    def set_beam_complex(self):
+        ds = xr.Dataset(
+            data_vars={
+                "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
+                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i")
+            },
+            coords={
+                "time_echosounder_raw": self.ds.get("time_echosounder_raw")
+            }
+        )
+        self.write(ds, "Beam_Complex")
