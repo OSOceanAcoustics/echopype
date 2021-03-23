@@ -15,7 +15,8 @@ class SetGroupsAd2cp(SetGroupsBase):
             mode = "a"
         else:
             mode = "w"
-        io.save_file(ds=ds, path=self.output_path, mode=mode, engine=self.engine, group=group)
+        io.save_file(ds=ds, path=self.output_path, mode=mode,
+                     engine=self.engine, group=group)
 
     def save(self):
         self.combine_packets()
@@ -23,6 +24,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         self.set_environment()
         self.set_platform()
         self.set_beam()
+        self.set_beam_complex()
         self.set_vendor_specific()
         self.set_provenance()
 
@@ -43,7 +45,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                 echosounder_packets.append(packet)
             elif packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
                 echosounder_raw_packets.append(packet)
-        
+
+        # pad raw samples so that "sample" dimenion has same length
+        max_samples = 0
+        for packet in echosounder_raw_packets:
+            # both _r and _i have same dimensions
+            max_samples = max(max_samples, packet.data["echosounder_raw_samples_r"].shape[0])
+        for packet in echosounder_raw_packets:
+            packet.data["echosounder_raw_samples_r"] = np.pad(packet.data["echosounder_raw_samples_r"], ((0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])))
+            packet.data["echosounder_raw_samples_i"] = np.pad(packet.data["echosounder_raw_samples_i"], ((0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])))
+
         def make_dataset(packets: List[Ad2cpDataPacket], time_dim: str) -> Optional[xr.Dataset]:
             for i in range(len(packets)):
                 packet = packets[i]
@@ -51,7 +62,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 for field_name, field_value in packet.data.items():
                     # add dimension names to data vars for xarray
                     # TODO might not work with altimeter_spare
-                    dims = Field.dimensions(field_name, packet.data_record_type)
+                    dims = Field.dimensions(
+                        field_name, packet.data_record_type)
                     # TODO: this should be done in _postprocess
                     if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
                         if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
@@ -59,17 +71,21 @@ class SetGroupsAd2cp(SetGroupsBase):
                         elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
                             field_name += "_average"
                     if field_name in UNITS:
-                        data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value], {"Units": UNITS[field_name]})
+                        data_vars[field_name] = (tuple(dim.value for dim in dims), [
+                                                field_value], {"Units": UNITS[field_name]})
                     else:
-                        data_vars[field_name] = (tuple(dim.value for dim in dims), [field_value])
+                        data_vars[field_name] = (
+                            tuple(dim.value for dim in dims), [field_value])
+                coords = {
+                    "time": [packet.timestamp],
+                    time_dim: [packet.timestamp]
+                }
+                if "beam0" in packet.data:
+                    coords["beam"] = [b for b in [packet.data["beam0"], packet.data["beam1"],
+                                                  packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0]
                 new_packet = xr.Dataset(
                     data_vars=data_vars,
-                    coords={
-                        "time": [packet.timestamp],
-                        time_dim: [packet.timestamp],
-                        "beam": [b for b in [packet.data["beam0"], packet.data["beam1"], packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0],
-                        # "complex": ["real", "imag"],
-                    }
+                    coords=coords
                 )
 
                 # modify in place to reduce memory consumption
@@ -81,10 +97,13 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         burst_ds = make_dataset(burst_packets, time_dim="time_burst")
         average_ds = make_dataset(average_packets, time_dim="time_average")
-        echosounder_ds = make_dataset(echosounder_packets, time_dim="time_echosounder")
-        echosounder_raw_ds = make_dataset(echosounder_raw_packets, time_dim="time_echosounder_raw")
+        echosounder_ds = make_dataset(
+            echosounder_packets, time_dim="time_echosounder")
+        echosounder_raw_ds = make_dataset(
+            echosounder_raw_packets, time_dim="time_echosounder_raw")
 
-        datasets = [ds for ds in (burst_ds, average_ds, echosounder_ds, echosounder_raw_ds) if ds]
+        datasets = [ds for ds in (
+            burst_ds, average_ds, echosounder_ds, echosounder_raw_ds) if ds]
         self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
         # TODO: where to put string data in output?
         self.ds.attrs["string_data"] = string_data
@@ -269,7 +288,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i")
             },
             coords={
-                "time_echosounder_raw": self.ds.get("time_echosounder_raw")
+                "time_echosounder_raw": self.ds.get("time_echosounder_raw"),
+                "sample": self.ds.get("sample")
             }
         )
         self.write(ds, "Beam_Complex")

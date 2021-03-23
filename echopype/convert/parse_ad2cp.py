@@ -55,7 +55,7 @@ class Dimension(Enum):
     RANGE_BIN_AVERAGE = "range_bin_average"
     RANGE_BIN_ECHOSOUNDER = "range_bin_echosounder"
     NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
-    COMPLEX = "complex"
+    SAMPLE = "sample"
 
 
 UNITS = {
@@ -141,6 +141,9 @@ class Field:
         self.field_exists_predicate = field_exists_predicate
 
     # TODO: this should specified in the field definition
+    # (would require labeling all fields with dimensions
+    # and transforming field formats to be dictionaries mapping
+    # field names to fields instead of just lists of fields)
     @staticmethod
     def dimensions(field_name: str, data_record_type: DataRecordType) -> List[Dimension]:
         # TODO: altimeter spare (but it's not included in final dataset)
@@ -157,6 +160,8 @@ class Field:
                     return [Dimension.TIME, Dimension.BEAM, Dimension.RANGE_BIN_ECHOSOUNDER]
             elif field_name == "echosounder_data":
                 return [Dimension.TIME, Dimension.RANGE_BIN_ECHOSOUNDER]
+            elif field_name.startswith("echosounder_raw_samples"):
+                return [Dimension.TIME, Dimension.SAMPLE]
             elif field_name == "percentage_good_data":
                 if data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
                     return [Dimension.TIME, Dimension.RANGE_BIN_AVERAGE]
@@ -354,9 +359,9 @@ class Ad2cpDataPacket:
         # elif data_type == DataType.UNSIGNED_LONG:
         #     return struct.unpack("<L", value)
         elif data_type == DataType.FLOAT and len(value) == 4:
-            return struct.unpack("<f", value)
+            return struct.unpack("<f", value)[0]
         elif data_type == DataType.FLOAT and len(value) == 8:
-            return struct.unpack("<d", value)
+            return struct.unpack("<d", value)[0]
         elif data_type == DataType.SIGNED_FRACTION:
             result = 0.0
             int_value = int.from_bytes(value, byteorder="little", signed=False)
@@ -528,6 +533,7 @@ class Ad2cpDataPacket:
             if field_name == "echosounder_raw_samples":
                 self.data["echosounder_raw_samples_r"] = self.data["echosounder_raw_samples"][:, 0]
                 self.data["echosounder_raw_samples_i"] = self.data["echosounder_raw_samples"][:, 1]
+                del self.data["echosounder_raw_samples"]
 
     @staticmethod
     def checksum(data: bytes) -> int:
