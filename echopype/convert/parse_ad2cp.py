@@ -537,8 +537,8 @@ class Ad2cpDataPacket:
                     self.previous_data_packet.data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
             elif field_name == "status":
                 if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
-                    self.previous_data_packet.data["echosounder_raw_echogram"] = (
-                        self.data["status"] >> 12) & 0b1111
+                    self.previous_data_packet.data["echosounder_raw_echogram"] = ((
+                        self.data["status"] >> 12) & 0b1111) + 1
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
