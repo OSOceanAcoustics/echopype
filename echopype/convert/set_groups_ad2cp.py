@@ -81,8 +81,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                     time_dim: [packet.timestamp]
                 }
                 if "beam0" in packet.data:
-                    coords["beam"] = [b for b in [packet.data["beam0"], packet.data["beam1"],
-                                                  packet.data["beam2"], packet.data["beam3"], packet.data["beam4"]] if b > 0]
+                    coords["beam"] = packet.data_exclude["beams"]
                 new_packet = xr.Dataset(
                     data_vars=data_vars,
                     coords=coords
@@ -285,7 +284,9 @@ class SetGroupsAd2cp(SetGroupsBase):
         ds = xr.Dataset(
             data_vars={
                 "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
-                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i")
+                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
+                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
+                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
             },
             coords={
                 "time_echosounder_raw": self.ds.get("time_echosounder_raw"),

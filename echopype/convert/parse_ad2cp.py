@@ -190,18 +190,24 @@ class ParseAd2cp(ParseBase):
     def parse_raw(self):
         with open(self.source_file[0], "rb") as f:
             while True:
+                if len(self.packets) == 0:
+                    previous_data_packet = None
+                else:
+                    previous_data_packet = self.packets[-1]
                 try:
                     self.packets.append(Ad2cpDataPacket(
-                        f, self.burst_average_data_record_version))
+                        f, previous_data_packet, self.burst_average_data_record_version))
                 except NoMorePackets:
                     break
 
 
 class Ad2cpDataPacket:
-    def __init__(self, f: BinaryIO, burst_average_data_record_version: BurstAverageDataRecordVersion):
+    def __init__(self, f: BinaryIO, previous_data_packet: Optional["Ad2cpDataPacket"], burst_average_data_record_version: BurstAverageDataRecordVersion):
+        self.previous_data_packet = previous_data_packet
         self.burst_average_data_record_version = burst_average_data_record_version
         self.data_record_type: Optional[DataRecordType] = None
         self.data = dict()
+        self.data_exclude = dict()
         self._read_data_record_header(f)
         self._read_data_record(f)
 
@@ -423,15 +429,21 @@ class Ad2cpDataPacket:
                 self.data["num_beams"] = (
                     self.data["num_beams_and_coordinate_system_and_num_cells"] & 0b1111_0000_0000_0000) >> 12
             elif field_name == "dataset_description":
-                self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_0111
-                self.data["beam1"] = (
-                    self.data["dataset_description"] & 0b0000_0000_0011_1000) >> 3
-                self.data["beam2"] = (
-                    self.data["dataset_description"] & 0b0000_0001_1100_0000) >> 6
-                self.data["beam3"] = (
-                    self.data["dataset_description"] & 0b0000_1110_0000_0000) >> 9
-                self.data["beam4"] = (
-                    self.data["dataset_description"] & 0b0111_0000_0000_0000) >> 12
+                self.data_exclude["beams"] = [
+                    beam for beam in [
+                        self.data["dataset_description"] & 0b0000_0000_0000_0111,
+                        (self.data["dataset_description"]
+                         & 0b0000_0000_0011_1000) >> 3,
+                        (self.data["dataset_description"]
+                         & 0b0000_0001_1100_0000) >> 6,
+                        (self.data["dataset_description"]
+                         & 0b0000_1110_0000_0000) >> 9,
+                        (self.data["dataset_description"]
+                         & 0b0111_0000_0000_0000) >> 12
+                    ] if beam > 0
+                ]
+                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
+                    self.previous_data_packet.data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
         elif self.data_record_format == self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
@@ -486,14 +498,23 @@ class Ad2cpDataPacket:
                     self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * \
                         (10 ** self.data["velocity_scaling"])
             elif field_name == "dataset_description":
-                self.data["beam0"] = self.data["dataset_description"] & 0b0000_0000_0000_1111
-                self.data["beam1"] = (
-                    self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4
-                self.data["beam2"] = (
-                    self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8
-                self.data["beam3"] = (
-                    self.data["dataset_description"] & 0b1111_0000_0000_0000) >> 12
-                self.data["beam4"] = 0
+                self.data_exclude["beams"] = [
+                    beam for beam in [
+                        self.data["dataset_description"] & 0b0000_0000_0000_1111,
+                        (self.data["dataset_description"]
+                         & 0b0000_0000_1111_0000) >> 4,
+                        (self.data["dataset_description"]
+                         & 0b0000_1111_0000_0000) >> 8,
+                        (self.data["dataset_description"]
+                         & 0b1111_0000_0000_0000) >> 12
+                    ] if beam > 0
+                ]
+                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
+                    self.previous_data_packet.data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
+            elif field_name == "status":
+                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
+                    self.previous_data_packet.data["echosounder_raw_echogram"] = (
+                        self.data["status"] >> 12) & 0b1111
         elif self.data_record_format == self.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
