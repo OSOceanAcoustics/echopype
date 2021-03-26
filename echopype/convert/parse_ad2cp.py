@@ -186,6 +186,7 @@ class ParseAd2cp(ParseBase):
         super().__init__(args, kwargs)
         self.burst_average_data_record_version = burst_average_data_record_version
         self.packets = []
+        self.config = None
 
     def parse_raw(self):
         with open(self.source_file[0], "rb") as f:
@@ -199,6 +200,29 @@ class ParseAd2cp(ParseBase):
                         f, previous_data_packet, self.burst_average_data_record_version))
                 except NoMorePackets:
                     break
+                else:
+                    if self.config is None and self.packets[-1].data_record_type == DataRecordType.STRING:
+                        self.config = self.parse_config(
+                            self.packets[-1].data["string_data"])
+
+    @staticmethod
+    def parse_config(data: str) -> Dict[str, Dict[str, Any]]:
+        result = dict()
+        for line in data.splitlines():
+            tokens = line.split(",")
+            line_dict = dict()
+            for token in tokens[1:]:
+                k, v = token.split("=")
+                if v.startswith("\""):
+                    v = v.strip("\"")
+                else:
+                    try:
+                        v = int(v)
+                    except ValueError:
+                        v = float(v)
+                line_dict[k] = v
+            result[tokens[0]] = line_dict
+        return result
 
 
 class Ad2cpDataPacket:

@@ -23,7 +23,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         self.set_toplevel("AD2CP", date_created=np.datetime64("now"))
         self.set_environment()
         self.set_platform()
-        self.set_beam()
+        self.set_beam(pulse_compressed=self.get_pulse_compressed())
         self.set_beam_complex()
         self.set_vendor_specific()
         self.set_provenance()
@@ -50,10 +50,13 @@ class SetGroupsAd2cp(SetGroupsBase):
         max_samples = 0
         for packet in echosounder_raw_packets:
             # both _r and _i have same dimensions
-            max_samples = max(max_samples, packet.data["echosounder_raw_samples_r"].shape[0])
+            max_samples = max(
+                max_samples, packet.data["echosounder_raw_samples_r"].shape[0])
         for packet in echosounder_raw_packets:
-            packet.data["echosounder_raw_samples_r"] = np.pad(packet.data["echosounder_raw_samples_r"], ((0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])))
-            packet.data["echosounder_raw_samples_i"] = np.pad(packet.data["echosounder_raw_samples_i"], ((0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])))
+            packet.data["echosounder_raw_samples_r"] = np.pad(packet.data["echosounder_raw_samples_r"], ((
+                0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])))
+            packet.data["echosounder_raw_samples_i"] = np.pad(packet.data["echosounder_raw_samples_i"], ((
+                0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])))
 
         def make_dataset(packets: List[Ad2cpDataPacket], time_dim: str) -> Optional[xr.Dataset]:
             for i in range(len(packets)):
@@ -72,7 +75,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                             field_name += "_average"
                     if field_name in UNITS:
                         data_vars[field_name] = (tuple(dim.value for dim in dims), [
-                                                field_value], {"Units": UNITS[field_name]})
+                            field_value], {"Units": UNITS[field_name]})
                     else:
                         data_vars[field_name] = (
                             tuple(dim.value for dim in dims), [field_value])
@@ -147,7 +150,12 @@ class SetGroupsAd2cp(SetGroupsBase):
         )
         self.write(ds, "Platform")
 
-    def set_beam(self):
+    def get_pulse_compressed(self):
+        for i in range(1, 3 + 1):
+            if self.parser_obj.config["GETECHO"][f"PULSECOMP{i}"] > 0:
+                return i - 1
+
+    def set_beam(self, pulse_compressed: int):
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
         # like was done for range_bin (we have range_bin_burst, range_bin_average,
         # and range_bin_echosounder)?
@@ -197,6 +205,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "range_bin_average": self.ds.get("range_bin_average"),
                 "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
                 "altimeter_sample_bin": self.ds.get("altimeter_sample_bin"),
+            },
+            attrs={
+                "pulse_compressed": pulse_compressed
             }
         )
         self.write(ds, "Beam")
