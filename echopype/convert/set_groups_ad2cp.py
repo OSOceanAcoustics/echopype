@@ -154,7 +154,8 @@ class SetGroupsAd2cp(SetGroupsBase):
     def get_pulse_compressed(self):
         for i in range(1, 3 + 1):
             if self.parser_obj.config["GETECHO"][f"PULSECOMP{i}"] > 0:
-                return i - 1
+                return i
+        return 0
 
     def set_beam(self, pulse_compressed: int):
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
