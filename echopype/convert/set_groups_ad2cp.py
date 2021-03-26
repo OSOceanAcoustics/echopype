@@ -23,8 +23,9 @@ class SetGroupsAd2cp(SetGroupsBase):
         self.set_toplevel("AD2CP", date_created=np.datetime64("now"))
         self.set_environment()
         self.set_platform()
-        self.set_beam(pulse_compressed=self.get_pulse_compressed())
-        self.set_beam_complex()
+        pulse_compressed = self.get_pulse_compressed()
+        self.set_beam(pulse_compressed=pulse_compressed)
+        self.set_beam_complex(pulse_compressed=pulse_compressed)
         self.set_vendor_specific()
         self.set_provenance()
 
@@ -291,7 +292,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         })
         self.write(ds, "Vendor")
 
-    def set_beam_complex(self):
+    def set_beam_complex(self, pulse_compressed: int):
         ds = xr.Dataset(
             data_vars={
                 "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
@@ -302,6 +303,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             coords={
                 "time_echosounder_raw": self.ds.get("time_echosounder_raw"),
                 "sample": self.ds.get("sample")
+            },
+            attrs={
+                "pulse_compressed": pulse_compressed
             }
         )
         self.write(ds, "Beam_Complex")
