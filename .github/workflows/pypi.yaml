@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - class-redesign
+      - master
   workflow_dispatch:
 
 jobs:
