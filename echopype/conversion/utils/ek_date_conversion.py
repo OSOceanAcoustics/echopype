@@ -144,7 +144,7 @@ def unix_to_datetime(unix_timestamp):
 
 def datetime_to_unix(datetime_obj):
     """
-    :param datetime_obj: datetime object to convert
+    :param datetime_obj: datetime object to conversion
     :type datetime_obj: :class:`datetime.datetime`
 
     :param tz: Timezone to use for converted time -- if None, uses timezone

@@ -9,7 +9,7 @@ FILENAME_DATETIME_EK60 = '(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6
 
 
 class ParseBase:
-    """Parent class for all convert classes.
+    """Parent class for all Parse classes.
     """
     def __init__(self, file, storage_options):
         self.source_file = file
@@ -96,7 +96,7 @@ class ParseEK(ParseBase):
             # Manufacturer-specific power conversion factor
             INDEX2POWER = (10.0 * np.log10(2.0) / 256.0)
 
-            # Rectangularize all data and convert to numpy array indexed by channel
+            # Rectangularize all data and conversion to numpy array indexed by channel
             for data_type in ['power', 'angle', 'complex']:
                 for k, v in self.ping_data_dict[data_type].items():
                     if all(x is None for x in v):  # if no data in a particular channel
