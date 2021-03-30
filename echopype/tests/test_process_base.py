@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import xarray as xr
-from ..convert import Convert
+from ..conversion import Convert
 from ..process import Process, EchoData, ProcessBase
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 

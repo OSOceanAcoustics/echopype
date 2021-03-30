@@ -50,7 +50,7 @@ class ProcessAZFP(ProcessBase):
         of GU-100-AZFP-01-R50 Operator's Manual.
         Note a Sv_offset factor that varies depending on frequency is used
         in the calibration as documented on p.90.
-        See calc_Sv_offset() in convert/azfp.py
+        See calc_Sv_offset() in conversion/azfp.py
         """
         if ed.range is None:
             ed.range = self.calc_range(ed, env_params)

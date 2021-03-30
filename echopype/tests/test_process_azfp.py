@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 import shutil
-from ..convert import Convert
+from ..conversion import Convert
 from ..process import Process, EchoData
 
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'

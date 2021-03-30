@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
-from ..convert import Convert
+from ..conversion import Convert
 
 # raw_path = './echopype/data/azfp/17031001.01A'     # Canada (Different ranges)
 # xml_path = './echopype/data/azfp/17030815.XML'     # Canada (Different ranges)

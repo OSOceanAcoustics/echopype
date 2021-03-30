@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 import pandas as pd
-from ..convert import Convert
+from ..conversion import Convert
 
 raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
 raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)

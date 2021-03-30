@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 from echopype.model import EchoData
-from echopype.convert import Convert
+from echopype.conversion import Convert
 
 
 class EchoGram:
