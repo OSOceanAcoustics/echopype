@@ -97,6 +97,12 @@ class Convert:
         ec.to_netcdf(data_type='ENV_XML')
     """
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
+        warnings.warn(
+            "Calling `Convert` directly will be deprecated, use `open_raw(file, model, ...)` instead.",
+            DeprecationWarning,
+            2,
+        )
+
         if model is None:
             if xml_path is None:
                 model = "EK60"
