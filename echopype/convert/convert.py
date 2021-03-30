@@ -84,11 +84,8 @@ class Convert:
             'platform_type': 'mooring'
             })
 
-        # convert to netcdf, do not combine files, save to source path
+        # convert to netcdf, save to source path
         ec.to_netcdf()
-
-        # convert to zarr, combine files, save to s3 bucket
-        ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
 
         # get GPS info only (EK60, EK80)
         ec.to_netcdf(data_type='GPS')
@@ -99,8 +96,6 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
-    # TODO: need deprecation warning for using Convert directly
-
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         if model is None:
             if xml_path is None:
@@ -142,7 +137,6 @@ class Convert:
         #   (lat/lon and roll/heave/pitch) are exported.
         # - 'CONFIG' and 'ENV' are valid for EK80 data only because EK80 provides
         #    configuration and environment information in the XML format
-        self.combine = False
         self.compress = True
         self.overwrite = False
         self.set_param({})  # Initialize parameters with empty strings
@@ -362,7 +356,7 @@ class Convert:
         sg.save()
 
     def combine_files(self, indiv_files=None, save_path=None, remove_indiv=True):
-        """Combine output files when self.combine=True.
+        """Combine output files.
 
         `combine_files` can be called to combine files that have just be converted
         by the current instance of Convert (those listed in self.output_path)
@@ -382,6 +376,8 @@ class Convert:
         -------
         True or False depending on whether or not the combination was successful
         """
+        # TODO: need overhaul and testing
+
         # self.output_path contains individual files to be combined if
         #  they have just been converted using this object
         indiv_files = self.output_file if indiv_files is None else indiv_files
@@ -423,7 +419,6 @@ class Convert:
         save_path=None,
         data_type="ALL",
         compress=True,
-        combine=False,
         overwrite=False,
         parallel=False,
         storage_options={},
@@ -443,10 +438,6 @@ class Convert:
         compress : bool
             whether or not to perform compression on data variables
             Defaults to ``True``
-        combine : bool
-            whether or not to combine all converted individual files into one file
-            (Not yet implemented)
-            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
@@ -457,16 +448,11 @@ class Convert:
         """
         self.data_type = data_type
         self.compress = compress
-        self.combine = combine
         self.parallel = parallel
         self.overwrite = overwrite
         self._output_storage_options = storage_options
 
         # Attribute checking for not implemented functions.
-        if self.combine:
-            raise NotImplementedError(
-                "Files combining is not yet implemented."
-            )
         if self.parallel:
             raise NotImplementedError(
                 "Parallel conversion is not yet implemented."
@@ -514,10 +500,6 @@ class Convert:
                 "Parallel conversion is not yet implemented. Use parallel=False."
             )
 
-        # Combine files if needed
-        if self.combine:
-            self.combine_files(save_path=save_path, remove_indiv=True)
-
         # If only one output file make it a string instead of a list
         if len(self.output_file) == 1:
             self.output_file = self.output_file[0]
@@ -535,9 +517,6 @@ class Convert:
         compress : bool
             whether or not to perform compression on data variables
             Defaults to ``True``
-        combine : bool
-            whether or not to combine all converted individual files into one file
-            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
@@ -561,9 +540,6 @@ class Convert:
         compress : bool
             whether or not to perform compression on data variables
             Defaults to ``True``
-        combine : bool
-            whether or not to combine all converted individual files into one file
-            Defaults to ``False``
         overwrite : bool
             whether or not to overwrite existing files
             Defaults to ``False``
