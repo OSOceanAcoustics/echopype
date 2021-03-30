@@ -83,6 +83,7 @@ class SetGroupsAZFP(SetGroupsBase):
         N = []   # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
+            # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))
@@ -105,8 +106,11 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
+            # TODO: below only correct if range_samples_per_bin=1,
+            #  need to implement p.86 for the case when averaging is used
             sample_int = range_samples_per_bin / dig_rate
         else:
+            # TODO: not sure what this error means
             raise ValueError("dig_rate and range_samples not unique across frequencies")
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
