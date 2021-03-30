@@ -101,7 +101,8 @@ class Convert:
     """
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         warnings.warn(
-            "Calling `Convert` directly will be deprecated, use `open_raw(file, model, ...)` instead.",
+            "Calling `echopype.Convert` directly will be deprecated, "
+            "use `echopyp.conversion.open_raw(file, model, ...)` instead.",
             DeprecationWarning,
             2,
         )
