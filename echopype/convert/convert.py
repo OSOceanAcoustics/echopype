@@ -35,6 +35,26 @@ MODELS = {
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
+def open_raw(file=None, model=None, xml_path=None, storage_options=None):
+    """Create a converter object by reading in raw data files.
+
+    The converter object can be used for adding metadata and ancillary data
+    as well as to carry out file conversion.
+
+    Parameters
+    ----------
+    file : str or list
+        path to raw data file(s)
+    model : str
+        model of the sonar instrument
+    xml_path : str
+        path to XML config file used by AZFP
+    storage_options : dict
+        options for cloud storage
+    """
+    return Convert(file=file, xml_path=xml_path, model=model, storage_options=storage_options)
+
+
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
     warnings.warn(
@@ -79,6 +99,7 @@ class Convert:
         # get environment XML only (EK80)
         ec.to_netcdf(data_type='ENV_XML')
     """
+    # TODO: need deprecation warning for using Convert directly
 
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         if model is None:

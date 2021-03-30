@@ -8,6 +8,7 @@ The current version supports:
 - ASL Environmental Sciences AZFP echosounder ``.01A`` data
 """
 from .convert import Convert, ConvertEK80       # TODO remove ConvertEK80 in later version
+from .convert import open_raw
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
 from .parse_azfp import ParseAZFP
