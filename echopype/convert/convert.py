@@ -66,38 +66,7 @@ def ConvertEK80(_filename=""):
 
 
 class Convert:
-    """UI class for using convert objects.
-
-    Sample use case:
-        ec = echopype.Convert()
-
-        # set source files
-        ec.set_source(
-            files=[FILE1, FILE2, FILE3],  # file or list of files
-            model='EK80',       # echosounder model
-            # xml_path='ABC.xml'  # optional, for AZFP only
-            )
-
-        # set parameters that may not already be in source files
-        ec.set_param({
-            'platform_name': 'OOI',
-            'platform_type': 'mooring'
-            })
-
-        # convert to netcdf, do not combine files, save to source path
-        ec.to_netcdf()
-
-        # convert to zarr, combine files, save to s3 bucket
-        ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
-
-        # get GPS info only (EK60, EK80)
-        ec.to_netcdf(data_type='GPS')
-
-        # get configuration XML only (EK80)
-        ec.to_netcdf(data_type='CONFIG_XML')
-
-        # get environment XML only (EK80)
-        ec.to_netcdf(data_type='ENV_XML')
+    """Object for converting data from manufacturer-specific formats to a standardized format.
     """
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         warnings.warn(
@@ -183,6 +152,16 @@ class Convert:
             echosounder model. "AZFP", "EK60", or "EK80"
         xml_path : str
             path to xml file required for AZFP conversion
+
+        # TODO: requires revision
+        Examples
+        --------
+        # set source files
+        ec.set_source(
+            files=[FILE1, FILE2, FILE3],  # file or list of files
+            model='EK80',       # echosounder model
+            # xml_path='ABC.xml'  # optional, for AZFP only
+            )
         """
         if (model is None) and (file is None):
             print("Please specify paths to raw data files and the sonar model.")
@@ -236,6 +215,15 @@ class Convert:
         ``nmea_gps_sentence`` is used to select specific NMEA sentences,  defaults ['GGA', 'GLL', 'RMC'].
 
         Other parameters will be saved to the top level.
+
+        # TODO: revise docstring, give examples.
+        Examples
+        --------
+        # set parameters that may not already be in source files
+        echodata.set_param({
+            'platform_name': 'OOI',
+            'platform_type': 'mooring'
+        })
         """
         # TODO: revise docstring, give examples.
         # TODO: need to check and return valid/invalid params as done for Process
@@ -552,6 +540,25 @@ class Convert:
             whether or not to use parallel processing. (Not yet implemented)
         storage_options : dict
             Additional keywords to pass to the filesystem class.
+
+        # TODO: requires revision
+        Examples
+        --------
+        # convert to netcdf, do not combine files, save to source path
+        ec.to_netcdf()
+
+        # convert to zarr, combine files, save to s3 bucket
+        ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
+
+        # get GPS info only (EK60, EK80)
+        ec.to_netcdf(data_type='GPS')
+
+        # get configuration XML only (EK80)
+        ec.to_netcdf(data_type='CONFIG_XML')
+
+        # get environment XML only (EK80)
+        ec.to_netcdf(data_type='ENV_XML')
+
         """
         return self._to_file("netcdf4", **kwargs)
 
