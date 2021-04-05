@@ -3,7 +3,7 @@ import xarray as xr
 from zarr.errors import GroupNotFoundError
 
 
-class EchoDataNew:
+class EchoData:
     """Echo data model class for handling multiple variables/files
     associated with the same data set.
     """
