@@ -36,9 +36,9 @@ NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
 def open_raw(file=None, model=None, xml_path=None, storage_options=None):
-    """Create a converter object by reading in raw data files.
+    """Create a Convert object by reading in raw data files.
 
-    The converter object can be used for adding metadata and ancillary data
+    The Convert object can be used for adding metadata and ancillary data
     as well as to carry out file conversion.
 
     Parameters
@@ -102,7 +102,7 @@ class Convert:
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
         warnings.warn(
             "Calling `echopype.Convert` directly will be deprecated, "
-            "use `echopyp.conversion.open_raw(file, model, ...)` instead.",
+            "use `echopype.convert.open_raw(file, model, ...)` instead.",
             DeprecationWarning,
             2,
         )
