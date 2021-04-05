@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from ..utils import uwa
 from ..utils import io
-from ..conversion.set_groups_base import DEFAULT_CHUNK_SIZE
+from ..convert.set_groups_base import DEFAULT_CHUNK_SIZE
 
 # TODO: separate out calibration in its own clas since once we get to Sv
 #  the processing is uniform across all sonar models
@@ -16,11 +16,11 @@ class ProcessBase:
     def __init__(self, model=None):
         self.sonar_model = model   # type of echosounder
 
-    # TODO: update this using the latest corresponding methods in conversion
+    # TODO: update this using the latest corresponding methods in convert
     def validate_proc_path(self, ed, postfix, save_path=None, save_format='zarr'):
         """Creates a directory if it doesn't exist. Returns a valid save path.
         """
-        # TODO: It might be better to merge this with conversion validate_path
+        # TODO: It might be better to merge this with convert validate_path
         def _assemble_path():
             file_in = os.path.basename(ed.raw_path[0])
             file_name = os.path.splitext(file_in)[0]

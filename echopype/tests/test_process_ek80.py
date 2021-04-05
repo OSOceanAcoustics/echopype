@@ -1,7 +1,7 @@
 import os
 import shutil
 import pytest
-from ..conversion import Convert
+from ..convert import Convert
 from ..process import Process, EchoData
 
 ek80_bb_path = './echopype/test_data/ek80/D20170912-T234910.raw'   # Large dataset (BB)
@@ -14,7 +14,7 @@ def test_broadband_calibration():
     """
 
     # Noise estimation via Process method =========
-    # Unpack data and conversion to .nc file
+    # Unpack data and convert to .nc file
     tmp = Convert(ek80_bb_path, model="EK80")
     tmp.to_netcdf()
 
