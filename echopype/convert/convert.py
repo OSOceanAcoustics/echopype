@@ -9,7 +9,7 @@ from pathlib import Path
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 
-from ..conversion import convert_combine as combine_fcn
+from ..convert import convert_combine as combine_fcn
 from ..utils import io
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
@@ -66,7 +66,7 @@ def ConvertEK80(_filename=""):
 
 
 class Convert:
-    """UI class for using conversion objects.
+    """UI class for using convert objects.
 
     Sample use case:
         ec = echopype.Convert()
@@ -84,10 +84,10 @@ class Convert:
             'platform_type': 'mooring'
             })
 
-        # conversion to netcdf, do not combine files, save to source path
+        # convert to netcdf, do not combine files, save to source path
         ec.to_netcdf()
 
-        # conversion to zarr, combine files, save to s3 bucket
+        # convert to zarr, combine files, save to s3 bucket
         ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
 
         # get GPS info only (EK60, EK80)
@@ -161,10 +161,10 @@ class Convert:
         Print out should include: source file name, source folder location, echosounder model.
         """
         if self.sonar_model is None:
-            return "empty echopype Convert object (call set_source to set sonar model and files to conversion)"
+            return "empty echopype Convert object (call set_source to set sonar model and files to convert)"
         else:
             return (
-                f"echopype {self.sonar_model} conversion object\n"
+                f"echopype {self.sonar_model} convert object\n"
                 + f"\tsource filename: {[os.path.basename(f) for f in self.source_file]}\n"
                 + f"\tsource directory: {os.path.dirname(self.source_file[0])}"
             )
@@ -485,7 +485,7 @@ class Convert:
         elif convert_type == "zarr":
             self._validate_path(".zarr", save_path)
         else:
-            raise ValueError("Unknown type to conversion file to!")
+            raise ValueError("Unknown type to convert file to!")
 
         # Get all existing files
         exist_list = []
@@ -604,7 +604,7 @@ class Convert:
 
         # Parse files
         for idx, file in enumerate(self.source_file):
-            # conversion file one by one into path set by validate_path()
+            # convert file one by one into path set by validate_path()
             tmp = ParseEK80(file, params=[data_type, "EXPORT_XML"])
             tmp.parse_raw()
             with open(self.output_file[idx], "w") as xml_file:

@@ -97,7 +97,7 @@ class EchoData:
     # TODO: overarching changes needed:
     #  - basic cleaning of data to drop NaN pings before going forward for calibration etc
     #  - cannot use combine='nested' but should force to have monotonically varying ping_time
-    #  - see conversion/convert_combine.py for handling different sonar models
+    #  - see convert/convert_combine.py for handling different sonar models
 
 
     @_check_key_param_consistency()

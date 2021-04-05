@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
-from ..conversion import Convert, ConvertEK80
+from ..convert import Convert, ConvertEK80
 from ..process import ProcessEK60
 from ..process import Process
 
@@ -74,7 +74,7 @@ def test_calibrate_ek80_cw():
     """
 
     # Noise estimation via Process method =========
-    # Unpack data and conversion to .nc file
+    # Unpack data and convert to .nc file
     tmp = Convert(raw_path_cw, model="EK80")
     tmp.raw2nc()
 

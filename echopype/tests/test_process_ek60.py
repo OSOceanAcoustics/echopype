@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import pytest
-from ..conversion import Convert
+from ..convert import Convert
 from ..process import Process, EchoData
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
@@ -27,7 +27,7 @@ def test_noise_estimates_removal():
     """
 
     # Noise estimation via Process method =========
-    # Unpack data and conversion to .nc file
+    # Unpack data and convert to .nc file
     tmp = Convert(ek60_raw_path, model='EK60')
     tmp.to_netcdf()
 
