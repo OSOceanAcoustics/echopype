@@ -35,6 +35,26 @@ MODELS = {
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
+def open_raw(file=None, model=None, xml_path=None, storage_options=None):
+    """Create a Convert object by reading in raw data files.
+
+    The Convert object can be used for adding metadata and ancillary data
+    as well as to carry out file conversion.
+
+    Parameters
+    ----------
+    file : str or list
+        path to raw data file(s)
+    model : str
+        model of the sonar instrument
+    xml_path : str
+        path to XML config file used by AZFP
+    storage_options : dict
+        options for cloud storage
+    """
+    return Convert(file=file, xml_path=xml_path, model=model, storage_options=storage_options)
+
+
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
     warnings.warn(
@@ -46,41 +66,16 @@ def ConvertEK80(_filename=""):
 
 
 class Convert:
-    """UI class for using convert objects.
-
-    Sample use case:
-        ec = echopype.Convert()
-
-        # set source files
-        ec.set_source(
-            files=[FILE1, FILE2, FILE3],  # file or list of files
-            model='EK80',       # echosounder model
-            # xml_path='ABC.xml'  # optional, for AZFP only
-            )
-
-        # set parameters that may not already be in source files
-        ec.set_param({
-            'platform_name': 'OOI',
-            'platform_type': 'mooring'
-            })
-
-        # convert to netcdf, do not combine files, save to source path
-        ec.to_netcdf()
-
-        # convert to zarr, combine files, save to s3 bucket
-        ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
-
-        # get GPS info only (EK60, EK80)
-        ec.to_netcdf(data_type='GPS')
-
-        # get configuration XML only (EK80)
-        ec.to_netcdf(data_type='CONFIG_XML')
-
-        # get environment XML only (EK80)
-        ec.to_netcdf(data_type='ENV_XML')
+    """Object for converting data from manufacturer-specific formats to a standardized format.
     """
-
     def __init__(self, file=None, xml_path=None, model=None, storage_options=None):
+        warnings.warn(
+            "Calling `echopype.Convert` directly will be deprecated, "
+            "use `echopype.convert.open_raw(file, model, ...)` instead.",
+            DeprecationWarning,
+            2,
+        )
+
         if model is None:
             if xml_path is None:
                 model = "EK60"
@@ -157,6 +152,16 @@ class Convert:
             echosounder model. "AZFP", "EK60", or "EK80"
         xml_path : str
             path to xml file required for AZFP conversion
+
+        # TODO: requires revision
+        Examples
+        --------
+        # set source files
+        ec.set_source(
+            files=[FILE1, FILE2, FILE3],  # file or list of files
+            model='EK80',       # echosounder model
+            # xml_path='ABC.xml'  # optional, for AZFP only
+            )
         """
         if (model is None) and (file is None):
             print("Please specify paths to raw data files and the sonar model.")
@@ -210,6 +215,15 @@ class Convert:
         ``nmea_gps_sentence`` is used to select specific NMEA sentences,  defaults ['GGA', 'GLL', 'RMC'].
 
         Other parameters will be saved to the top level.
+
+        # TODO: revise docstring, give examples.
+        Examples
+        --------
+        # set parameters that may not already be in source files
+        echodata.set_param({
+            'platform_name': 'OOI',
+            'platform_type': 'mooring'
+        })
         """
         # TODO: revise docstring, give examples.
         # TODO: need to check and return valid/invalid params as done for Process
@@ -341,7 +355,7 @@ class Convert:
         sg.save()
 
     def combine_files(self, indiv_files=None, save_path=None, remove_indiv=True):
-        """Combine output files when self.combine=True.
+        """Combine output files.
 
         `combine_files` can be called to combine files that have just be converted
         by the current instance of Convert (those listed in self.output_path)
@@ -361,6 +375,8 @@ class Convert:
         -------
         True or False depending on whether or not the combination was successful
         """
+        # TODO: need overhaul and testing
+
         # self.output_path contains individual files to be combined if
         #  they have just been converted using this object
         indiv_files = self.output_file if indiv_files is None else indiv_files
@@ -493,9 +509,9 @@ class Convert:
                 "Parallel conversion is not yet implemented. Use parallel=False."
             )
 
-        # Combine files if needed
-        if self.combine:
-            self.combine_files(save_path=save_path, remove_indiv=True)
+        # # Combine files if needed
+        # if self.combine:
+        #     self.combine_files(save_path=save_path, remove_indiv=True)
 
         # If only one output file make it a string instead of a list
         if len(self.output_file) == 1:
@@ -524,6 +540,25 @@ class Convert:
             whether or not to use parallel processing. (Not yet implemented)
         storage_options : dict
             Additional keywords to pass to the filesystem class.
+
+        # TODO: requires revision
+        Examples
+        --------
+        # convert to netcdf, do not combine files, save to source path
+        ec.to_netcdf()
+
+        # convert to zarr, combine files, save to s3 bucket
+        ec.to_netcdf(combine_opt=True, save_path='s3://AB/CDE')
+
+        # get GPS info only (EK60, EK80)
+        ec.to_netcdf(data_type='GPS')
+
+        # get configuration XML only (EK80)
+        ec.to_netcdf(data_type='CONFIG_XML')
+
+        # get environment XML only (EK80)
+        ec.to_netcdf(data_type='ENV_XML')
+
         """
         return self._to_file("netcdf4", **kwargs)
 
