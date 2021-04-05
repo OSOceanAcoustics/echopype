@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 import shutil
 from ..convert import Convert
-from ..process import Process, EchoData
+from ..process import Process, EchoDataOld
 
 azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
 azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
@@ -29,7 +29,7 @@ def test_process_AZFP_matlab():
     tmp_convert = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     tmp_convert.to_netcdf(overwrite=False)
 
-    ed = EchoData(raw_path=tmp_convert.output_file)
+    ed = EchoDataOld(raw_path=tmp_convert.output_file)
     proc = Process(model='AZFP', ed=ed)
     # Matlab uses averaged temperature
     proc.env_params['water_temperature'] = proc.env_params['water_temperature'].mean('ping_time')
@@ -66,7 +66,7 @@ def test_multiple_raw():
     tmp = Convert(file=azfp_multi_paths[1:5], model='AZFP', xml_path=azfp_multi_paths[0])
     tmp.to_netcdf(save_path=export_folder)
 
-    ed = EchoData(raw_path=tmp.output_file)
+    ed = EchoDataOld(raw_path=tmp.output_file)
     proc = Process(model='AZFP', ed=ed)
     proc.get_Sv(ed, save=True, save_format='netcdf4')
 
