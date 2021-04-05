@@ -15,7 +15,7 @@ def test_get_Sv_ek60_echoview():
     c.to_netcdf(overwrite=True)
 
     # Calibrate to get Sv
-    echodata = ep.EchoData(raw_path=c.output_file)
+    echodata = ep.EchoData(converted_raw_path=c.output_file)
     ds_Sv = ep.calibrate.compute_Sv(echodata)
 
     # Compare with EchoView outputs
@@ -48,7 +48,7 @@ def test_get_Sv_azfp():
     with xr.open_dataset(c.output_file, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
     env_params = {'temperature': avg_temperature, 'salinity': 27.9, 'pressure': 59}
-    echodata = ep.EchoData(raw_path=c.output_file)
+    echodata = ep.EchoData(converted_raw_path=c.output_file)
     ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
     ds_Sp = ep.calibrate.compute_Sp(echodata=echodata, env_params=env_params)
 
