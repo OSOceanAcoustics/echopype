@@ -4,8 +4,8 @@ from zarr.errors import GroupNotFoundError
 
 
 class EchoData:
-    """Echo data model class for handling multiple variables/files
-    associated with the same data set.
+    """Echo data model class for handling raw converted data,
+    including multiple files associated with the same data set.
     """
 
     def __init__(self, raw_path=None, Sv_path=None):
@@ -14,7 +14,6 @@ class EchoData:
         self.raw_beam = None
         self.raw_env = None
         self.raw_vend = None
-        self.Sv = None
 
         # TODO: need to consider if should open datasets in init here
         #  or within each function call when echodata is used. Need to benchmark.
@@ -22,8 +21,6 @@ class EchoData:
             # TODO: need to check if raw_path is valid on either local or remote filesystem
             self._open_raw(raw_path)
             self.sonar_model = self.raw_top.keywords
-        if Sv_path:
-            self.Sv = self._open_data_file(Sv_path)
 
         # EK80 data may have a Beam_power group if both complex and power data exist.
         if self.sonar_model == 'EK80':
