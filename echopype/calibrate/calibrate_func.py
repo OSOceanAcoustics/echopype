@@ -1,5 +1,6 @@
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 from .calibrate_azfp import CalibrateAZFP
+from ..echodata import EchoData
 
 CALIBRATOR = {
     'EK60': CalibrateEK60,
@@ -8,7 +9,14 @@ CALIBRATOR = {
 }
 
 
-def _compute_cal(cal_type, echodata, env_params=None, cal_params=None, waveform_mode=None, encode_mode=None):
+def _compute_cal(
+        cal_type,
+        echodata: EchoData,
+        env_params=None,
+        cal_params=None,
+        waveform_mode=None,
+        encode_mode=None
+):
     # Sanity check on inputs
     if (waveform_mode is not None) and (waveform_mode not in ('BB', 'CW')):
         raise ValueError('Input waveform_mode not recognized!')
@@ -26,13 +34,13 @@ def _compute_cal(cal_type, echodata, env_params=None, cal_params=None, waveform_
         return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
 
-def compute_Sv(echodata, **kwargs):
+def compute_Sv(echodata: EchoData, **kwargs):
     """Compute volume backscattering strength (Sv) from raw data.
     """
     return _compute_cal(cal_type='Sv', echodata=echodata, **kwargs)
 
 
-def compute_Sp(echodata, **kwargs):
+def compute_Sp(echodata: EchoData, **kwargs):
     """Compute point backscattering strength (Sp) from raw data.
     """
     return _compute_cal(cal_type='Sp', echodata=echodata, **kwargs)
