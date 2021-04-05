@@ -14,7 +14,7 @@ import fsspec
 import xarray as xr
 import pytest
 from pathlib import Path
-from ..convert import Convert
+from ..convert import open_raw
 
 
 def _check_file_group(data_file, engine, groups):
@@ -157,10 +157,10 @@ def test_validate_path_single_source(
         )
     fsmap = fsspec.get_mapper(input_path)
     single_fname = os.path.splitext(os.path.basename(fsmap.root))[0]
-    tmp_single = Convert(input_path, model=model)
-    tmp_single._output_storage_options = output_storage_options
+    echodata_single = open_raw(input_path, model=model)
+    echodata_single._output_storage_options = output_storage_options
 
-    tmp_single._validate_path(
+    echodata_single._validate_path(
         file_format=file_format, save_path=output_save_path
     )
 
@@ -172,40 +172,40 @@ def test_validate_path_single_source(
         if not output_save_path.startswith('s3'):
             if output_save_path.endswith('/'):
                 # if an output folder is given, below works with and without the slash at the end
-                assert tmp_single.output_file == [
+                assert echodata_single.output_file == [
                     os.path.join(fsmap_tmp.root, single_fname + '.zarr')
                 ]
             elif output_save_path.endswith('.zarr'):
                 # if an output filename is given
-                assert tmp_single.output_file == [fsmap_tmp.root]
+                assert echodata_single.output_file == [fsmap_tmp.root]
             else:
                 # force output file extension to the called type (here .zarr)
-                assert tmp_single.output_file == [
+                assert echodata_single.output_file == [
                     os.path.splitext(fsmap_tmp.root)[0] + '.zarr'
                 ]
-            os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+            os.rmdir(os.path.dirname(echodata_single.output_file[0]))
         else:
             if output_save_path.endswith('/'):
                 # if an output folder is given, below works with and without the slash at the end
-                assert tmp_single.output_file == [
+                assert echodata_single.output_file == [
                     os.path.join(output_save_path, single_fname + '.zarr')
                 ]
             elif output_save_path.endswith('.zarr'):
                 # if an output filename is given
-                assert tmp_single.output_file == [output_save_path]
+                assert echodata_single.output_file == [output_save_path]
             else:
                 # force output file extension to the called type (here .zarr)
-                assert tmp_single.output_file == [
+                assert echodata_single.output_file == [
                     os.path.splitext(output_save_path)[0] + '.zarr'
                 ]
-            fs.delete(tmp_single.output_file[0])
+            fs.delete(echodata_single.output_file[0])
     else:
         current_dir = Path.cwd()
         temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
-        assert tmp_single.output_file == [
+        assert echodata_single.output_file == [
             str(temp_dir.joinpath(Path(single_fname + '.zarr')))
         ]
-        os.rmdir(os.path.dirname(tmp_single.output_file[0]))
+        os.rmdir(os.path.dirname(echodata_single.output_file[0]))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -246,10 +246,10 @@ def test_validate_path_multiple_source(
         mult_path = glob.glob(input_path)
     else:
         mult_path = input_path
-    tmp_mult = Convert(mult_path, model='EK60')
-    tmp_mult._output_storage_options = output_storage_options
+    echodata_mult = open_raw(mult_path, model='EK60')
+    echodata_mult._output_storage_options = output_storage_options
 
-    tmp_mult._validate_path(
+    echodata_mult._validate_path(
         file_format=file_format, save_path=output_save_path
     )
 
@@ -261,7 +261,7 @@ def test_validate_path_multiple_source(
         if not output_save_path.startswith('s3'):
             if output_save_path.endswith('/'):
                 # if an output folder is given, below works with and without the slash at the end
-                assert tmp_mult.output_file == [
+                assert echodata_mult.output_file == [
                     os.path.join(
                         fsmap_tmp.root,
                         os.path.splitext(os.path.basename(f))[0] + '.zarr',
@@ -270,19 +270,19 @@ def test_validate_path_multiple_source(
                 ]
             elif output_save_path.endswith('.zarr'):
                 # if an output filename is given: only use the directory
-                assert tmp_mult.output_file == [
+                assert echodata_mult.output_file == [
                     os.path.abspath(output_save_path)
                 ]
             elif output_save_path.endswith('.nc'):
                 # force output file extension to the called type (here .zarr)
-                assert tmp_mult.output_file == [
+                assert echodata_mult.output_file == [
                     os.path.abspath(output_save_path.replace('.nc', '.zarr'))
                 ]
-            os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+            os.rmdir(os.path.dirname(echodata_mult.output_file[0]))
         else:
             if output_save_path.endswith('/'):
                 # if an output folder is given, below works with and without the slash at the end
-                assert tmp_mult.output_file == [
+                assert echodata_mult.output_file == [
                     os.path.join(
                         output_save_path,
                         os.path.splitext(os.path.basename(f))[0] + '.zarr',
@@ -291,17 +291,17 @@ def test_validate_path_multiple_source(
                 ]
             elif output_save_path.endswith('.zarr'):
                 # if an output filename is given: only use the directory
-                assert tmp_mult.output_file == [output_save_path]
+                assert echodata_mult.output_file == [output_save_path]
             elif output_save_path.endswith('.nc'):
                 # force output file extension to the called type (here .zarr)
-                assert tmp_mult.output_file == [
+                assert echodata_mult.output_file == [
                     output_save_path.replace('.nc', '.zarr')
                 ]
-            fs.delete(tmp_mult.output_file[0])
+            fs.delete(echodata_mult.output_file[0])
     else:
         current_dir = Path.cwd()
         temp_dir = current_dir.joinpath(Path('temp_echopype_output'))
-        assert tmp_mult.output_file == [
+        assert echodata_mult.output_file == [
             str(
                 temp_dir.joinpath(
                     Path(
@@ -311,7 +311,7 @@ def test_validate_path_multiple_source(
             )
             for f in mult_path
         ]
-        os.rmdir(os.path.dirname(tmp_mult.output_file[0]))
+        os.rmdir(os.path.dirname(echodata_mult.output_file[0]))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -358,7 +358,7 @@ def test_convert_ek60(
     if output_save_path and output_save_path.startswith('s3://'):
         output_storage_options = common_storage_options
 
-    ec = Convert(
+    ec = open_raw(
         file=input_path, model=model, storage_options=input_storage_options
     )
 
@@ -427,7 +427,7 @@ def test_convert_azfp(
     if output_save_path and output_save_path.startswith('s3://'):
         output_storage_options = common_storage_options
 
-    ec = Convert(
+    ec = open_raw(
         file=input_path,
         xml_path=xml_path,
         model=model,
@@ -494,7 +494,7 @@ def test_convert_ek80(
     if output_save_path and output_save_path.startswith('s3://'):
         output_storage_options = common_storage_options
 
-    ec = Convert(
+    ec = open_raw(
         file=input_path, model=model, storage_options=input_storage_options
     )
 
