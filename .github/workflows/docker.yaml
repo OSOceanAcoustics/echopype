@@ -25,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Retrieve test data
-        if: matrix.image_name == "http"
+        if: matrix.image_name == 'http'
         uses: ./.github/actions/gdrive-rclone
         env:
           GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
