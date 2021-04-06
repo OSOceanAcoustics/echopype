@@ -6,12 +6,12 @@ from scipy.io import loadmat
 from ... import echopype as ep
 
 
-def test_get_Sv_ek60_echoview():
+def test_compute_Sv_ek60_echoview():
     ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'  # Constant ranges
     ek60_csv_path = Path('./echopype/test_data/ek60/from_echoview/')
 
     # Convert file
-    c = ep.Convert(ek60_raw_path, model='EK60')
+    c = ep.convert.open_raw(ek60_raw_path, model='EK60')
     c.to_netcdf(overwrite=True)
 
     # Calibrate to get Sv
@@ -32,12 +32,15 @@ def test_get_Sv_ek60_echoview():
     Path(c.output_file).unlink()
 
 
-def test_get_Sv_azfp():
-    azfp_xml_path = './echopype/test_data/azfp/17041823.XML'
-    azfp_01a_path = './echopype/test_data/azfp/17082117.01A'
+def test_compute_Sv_azfp():
+    azfp_path = Path('./echopype/test_data/azfp')
+    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
+    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
+    azfp_matlab_Sv_path = str(azfp_path.joinpath('from_matlab/17082117_matlab_Output_Sv.mat'))
+    azfp_matlab_Sp_path = str(azfp_path.joinpath('from_matlab/17082117_matlab_Output_TS.mat'))
 
     # Convert to .nc file
-    c = ep.Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
+    c = ep.convert.open_raw(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     c.to_netcdf(overwrite=True)
 
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
@@ -48,21 +51,31 @@ def test_get_Sv_azfp():
     ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
     ds_Sp = ep.calibrate.compute_Sp(echodata=echodata, env_params=env_params)
 
-    # Load Matlab outputs and test
-    # Matlab outputs were saved using
+    # Load matlab outputs and test
+    # matlab outputs were saved using
     #   save('from_matlab/17082117_matlab_Output.mat', 'Output')  # data variables
     #   save('from_matlab/17082117_matlab_Par.mat', 'Par')  # parameters
-    base_Sv = loadmat('./echopype/test_data/azfp/from_matlab/17082117_matlab_Output.mat')
-    for fidx in range(4):  # loop through all freq
-        assert np.alltrue(ds_Sv.range.isel(frequency=fidx).values == base_Sv['Output'][0]['Range'][fidx])
-        assert np.allclose(ds_Sv.Sv.isel(frequency=fidx).values, base_Sv['Output'][0]['Sv'][fidx],
-                           atol=1e-13, rtol=0)
 
-    base_Sp = loadmat('./echopype/test_data/azfp/from_matlab/17082117_matlab_Output_TS.mat')
-    for fidx in range(4):  # loop through all freq
-        assert np.alltrue(ds_Sp.range.isel(frequency=fidx).values == base_Sp['Output'][0]['Range'][fidx])
-        assert np.allclose(ds_Sp.Sp.isel(frequency=fidx).values, base_Sp['Output'][0]['TS'][fidx],
-                           atol=1e-13, rtol=0)
+    def check_output(base_path, ds_cmp, cal_type):
+        ds_base = loadmat(base_path)
+        cal_type_in_ds_cmp = {
+            'Sv': 'Sv',
+            'TS': 'Sp',  # Sp here is TS in matlab outputs
+        }
+        for fidx in range(4):  # loop through all freq
+            assert np.alltrue(
+                ds_cmp.range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
+            )
+            assert np.allclose(
+                ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(frequency=fidx).values,
+                ds_base['Output'][0][cal_type][fidx],
+                atol=1e-13, rtol=0
+            )
+    # Check Sv
+    check_output(base_path=azfp_matlab_Sv_path, ds_cmp=ds_Sv, cal_type='Sv')
+
+    # Check Sp
+    check_output(base_path=azfp_matlab_Sp_path, ds_cmp=ds_Sp, cal_type='TS')
 
     Path(c.output_file).unlink()
 
