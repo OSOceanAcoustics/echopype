@@ -1,13 +1,27 @@
 import xarray as xr
 
 ENV_PARAMS = (
-    'temperature', 'salinity', 'pressure',
-    'sound_speed', 'sound_absorption'
+    'temperature',
+    'salinity',
+    'pressure',
+    'sound_speed',
+    'sound_absorption'
 )
 
 CAL_PARAMS = {
-    'EK': ('sa_correction', 'gain_correction', 'equivalent_beam_angle'),
-    'AZFP': ('EL', 'DS', 'TVR', 'VTX', 'equivalent_beam_angle', 'Sv_offset')
+    'EK': (
+        'sa_correction',
+        'gain_correction',
+        'equivalent_beam_angle'
+    ),
+    'AZFP': (
+        'EL',
+        'DS',
+        'TVR',
+        'VTX',
+        'equivalent_beam_angle',
+        'Sv_offset'
+    )
 }
 
 
@@ -16,7 +30,6 @@ class CalibrateBase:
     """
 
     def __init__(self, echodata):
-        self.sonar_model = None  # TODO: not used?
         self.echodata = echodata
         self.env_params = None  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
