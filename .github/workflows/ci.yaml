@@ -5,9 +5,7 @@ on:
     branches:
       - master
       - class-redesign
-    paths-ignore: [".ci_helpers/docker/**"]
-  pull_request_target:
-    paths-ignore: [".ci_helpers/docker/**", "**/ci.yaml", "**/docker.yaml"]
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   pull_request:
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
@@ -29,24 +27,21 @@ jobs:
         - python-version: 3.9
           experimental: true
     services:
+      # TODO: figure out how to update tag when there's a new one
       minio:
-        image: cormorack/minioci
+        image: cormorack/minioci:2021.04.06
         ports:
           - 9000:9000
       httpserver:
-        image: httpd:2.4
+        image: cormorack/http:2021.04.06
         ports:
           - 8080:80
     steps:
       - uses: actions/checkout@v2
-      - name: Retrieve test data
-        uses: ./.github/actions/gdrive-rclone
-        env:
-          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
-          ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
       - name: Copying test data to http server
         run: |
-          docker cp -L ./echopype/test_data ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data
+          rm -rf ./echopype/test_data
+          docker cp -L ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data ./echopype/test_data
 
           # Check data endpoint
           curl http://localhost:8080/data/

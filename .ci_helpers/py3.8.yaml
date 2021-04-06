@@ -15,5 +15,5 @@ dependencies:
   - fsspec>=0.8
   - requests
   - aiohttp
-  - s3fs==0.5.2
+  - s3fs>=0.5
   - mamba
