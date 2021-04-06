@@ -30,11 +30,11 @@ jobs:
           experimental: true
     services:
       minio:
-        image: ${DOCKER_ORG}/minioci:${TAG}
+        image: ${env.DOCKER_ORG}/minioci:${env.TAG}
         ports:
           - 9000:9000
       httpserver:
-        image: ${DOCKER_ORG}/http:${TAG}
+        image: ${env.DOCKER_ORG}/http:${env.TAG}
         ports:
           - 8080:80
     steps:
