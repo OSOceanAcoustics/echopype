@@ -11,9 +11,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_ORG: cormorack
   CONDA_ENV: echopype
-  TAG: "2021.04.06"
 
 jobs:
   test:
@@ -29,12 +27,13 @@ jobs:
         - python-version: 3.9
           experimental: true
     services:
+      # TODO: figure out how to update tag when there's a new one
       minio:
-        image: ${env.DOCKER_ORG}/minioci:${env.TAG}
+        image: cormorack/minioci:2021.04.06
         ports:
           - 9000:9000
       httpserver:
-        image: ${env.DOCKER_ORG}/http:${env.TAG}
+        image: cormorack/http:2021.04.06
         ports:
           - 8080:80
     steps:
