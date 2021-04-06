@@ -2,12 +2,12 @@ name: Build Docker Images
 
 on:
   pull_request:
-    paths: [".ci_helpers/docker/**"]
+    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
   push:
     branches:
       - master
       - class-redesign
-    paths: [".ci_helpers/docker/**"]
+    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
 env:
