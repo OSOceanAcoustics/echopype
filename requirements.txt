@@ -7,6 +7,6 @@ pytz
 scipy
 xarray==0.16.2
 zarr
-fsspec==0.8.5
+fsspec==0.8.7
 requests
 aiohttp

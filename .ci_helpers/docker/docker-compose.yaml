@@ -2,10 +2,7 @@
 version: "3"
 services:
   minio:
-    build:
-      context: ../../.ci_helpers/docker
-      dockerfile: ./minioci.dockerfile
-    image: cormorack/minioci:latest
+    image: cormorack/minioci:2021.04.06
     ports:
       - 9000:9000
     networks:
@@ -14,27 +11,13 @@ services:
     # NOTE ====================================
     # For httpserver test data,
     # it needs to be copied to the docker container
-    # docker cp -L ./echopype/test_data docker_httpserver_1:/usr/local/apache2/htdocs/data
+    # docker cp -L docker_httpserver_1:/usr/local/apache2/htdocs/data ./echopype/test_data
     # =====================================
-    image: httpd:2.4
-    depends_on:
-      - rclone
+    image: cormorack/http:2021.04.06
     ports:
       - 8080:80
     networks:
       - echopypenetwork
-  rclone:
-    build:
-      context: ../../.github/actions/gdrive-rclone
-      dockerfile: ./Dockerfile
-    image: gdrive-rclone
-    environment:
-      - GITHUB_WORKSPACE=/data/echopype
-      - GOOGLE_SERVICE_JSON=${GOOGLE_SERVICE_JSON}
-      - ROOT_FOLDER_ID=${TEST_DATA_FOLDER_ID}
-    volumes:
-      - ../../../echopype:/data/echopype:consistent
-
 networks:
   echopypenetwork:
       
