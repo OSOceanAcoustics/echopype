@@ -3,10 +3,8 @@ from datetime import datetime as dt
 import xarray as xr
 import numpy as np
 import zarr
-from _echopype_version import version as __version__
+from _echopype_version import version as ECHOPYPE_VERSION
 from ..utils import io
-
-ECHOPYPE_VERSION = __version__
 
 COMPRESSION_SETTINGS = {
     'netcdf4': {'zlib': True, 'complevel': 4},
