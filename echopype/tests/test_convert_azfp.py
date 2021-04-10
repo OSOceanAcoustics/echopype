@@ -12,18 +12,15 @@ azfp_path = Path('./echopype/test_data/azfp')
 azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
 azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
 azfp_matlab_data_path = str(azfp_path.joinpath('from_matlab/17082117_matlab_Data.mat'))
-
-csv_paths = ['./echopype/test_data/azfp/from_echoview/17082117-raw38.csv',    # EchoView exports
-             './echopype/test_data/azfp/from_echoview/17082117-raw125.csv',
-             './echopype/test_data/azfp/from_echoview/17082117-raw200.csv',
-             './echopype/test_data/azfp/from_echoview/17082117-raw455.csv']
+azfp_csv_path = sorted(list(azfp_path.glob('from_echoview/17082117-raw*.csv')))  # exported from EchoView
 # raw_paths = ['./echopype/test_data/azfp/set1/' + file
 #              for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
 
 
 def test_convert_azfp_01a_matlab_raw():
-
-    # Unpacking data
+    """Compare parsed raw data with Matlab outputs.
+    """
+    # Convert file
     echodata = open_raw(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
     echodata.to_netcdf(overwrite=True)
 
@@ -58,6 +55,8 @@ def test_convert_azfp_01a_matlab_raw():
 
 
 def test_convert_azfp_01a_matlab_derived():
+    """Compare variables derived from raw parsed data with Matlab outputs.
+    """
     # TODO: test derived data
     #  - ds_beam.ping_time from 01A raw data records
     #  - investigate why ds_beam.tilt_x/y are different from ds_matlab['Data']['Tx']/['Ty']
@@ -66,37 +65,27 @@ def test_convert_azfp_01a_matlab_derived():
     pass
 
 
-def test_convert_raw_echoview():
-    # Compare parsed backscatter data with EchoView generated csv files.
-
-    # Unpacking data
-    tmp = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
-    tmp.to_netcdf()
-
+def test_convert_azfp_01a_raw_echoview():
+    """Compare parsed power data (count) with csv exported by EchoView.
+    """
     # Read in csv files that will be used to confirm working conversions.
     channels = []
-    for file in csv_paths:
-        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
+    for file in azfp_csv_path:
+        channels.append(pd.read_csv(str(file), header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
-    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
+
+    # Convert to netCDF
+    echodata = open_raw(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
+    echodata.to_netcdf()
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
+    Path(echodata.output_file).unlink()
 
-    os.remove(tmp.output_file)
-
-
-def test_convert_zarr():
-    # Test saving zarr file. Compare with EchoView generated csv files.
-    tmp = Convert(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
-    tmp.to_zarr()
-    # Read in csv files that will be used to confirm working conversions.
-    channels = []
-    for file in csv_paths:
-        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
-    test_power = np.stack(channels)
-    with xr.open_zarr(tmp.output_file, group='Beam') as ds_beam:
+    # Convert to zarr
+    echodata.to_zarr()
+    with xr.open_zarr(echodata.output_file, group='Beam') as ds_beam:
         assert np.array_equal(test_power, ds_beam.backscatter_r)
-
-    shutil.rmtree(tmp.output_file)
+    shutil.rmtree(echodata.output_file)
 
 
 # def test_combine():
