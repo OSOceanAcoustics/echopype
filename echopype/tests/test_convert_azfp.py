@@ -1,3 +1,10 @@
+"""test_convert_azfp.py
+
+This module contains tests that:
+- verify echopype converted files against those from AZFP Matlab scripts and EchoView
+- convert AZFP file with different range settings across frequency
+"""
+
 from pathlib import Path
 import shutil
 import numpy as np
@@ -6,9 +13,8 @@ import pandas as pd
 from scipy.io import loadmat
 from ..convert import open_raw
 
+
 azfp_path = Path('./echopype/test_data/azfp')
-# raw_paths = ['./echopype/test_data/azfp/set1/' + file
-#              for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
 
 
 def test_convert_azfp_01a_matlab_raw():
@@ -102,8 +108,10 @@ def test_convert_azfp_01a_different_ranges():
     echodata.to_zarr()
 
 
-
 # def test_combine():
+# raw_paths = ['./echopype/test_data/azfp/set1/' + file
+#              for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
+#
 #     """Test combining multiple raw files"""
 #     export_folder = './echopype/test_data/azfp/export/'
 #
