@@ -19,8 +19,8 @@ class CalibrateEK(CalibrateBase):
         Parameters
         ----------
         waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
+            - ``CW`` for CW-mode samples, either recorded as complex or power samples
+            - ``BB`` for BB-mode samples, recorded as complex samples
         tvg_correction_factor : int
             - 2 for CW-mode power samples
             - 0 for CW-mode complex samples
@@ -82,7 +82,7 @@ class CalibrateEK(CalibrateBase):
             #      ...     array[indexer]
             #    return self.array[key]
             self.echodata.beam = self.echodata.beam.dropna(dim='ping_time', how='any',
-                                                                   subset=['transmit_duration_nominal'])
+                                                           subset=['transmit_duration_nominal'])
 
         # Find index with correct pulse length
         unique_pulse_length = np.unique(self.echodata.beam['transmit_duration_nominal'], axis=1)
@@ -118,8 +118,8 @@ class CalibrateEK(CalibrateBase):
             'Sp' for calculating point backscattering strength
         use_beam_power : bool
             whether to use beam_power.
-            If True use echodata.beam; if False use echodata.beam_power.
-            Note echodata.beam_power could only exist for EK80 data.
+            If ``True`` use ``echodata.beam_power``; if ``False`` use ``echodata.beam``.
+            Note ``echodata.beam_power`` could only exist for EK80 data.
 
         Returns
         -------
@@ -151,7 +151,8 @@ class CalibrateEK(CalibrateBase):
 
             # Calibration and echo integration
             out = (beam['backscatter_r']
-                   + spreading_loss + absorption_loss
+                   + spreading_loss
+                   + absorption_loss
                    - CSv - 2 * self.cal_params['sa_correction'])
             out.name = 'Sv'
 
@@ -162,8 +163,9 @@ class CalibrateEK(CalibrateBase):
                    + 10 * np.log10(wavelength ** 2 / (16 * np.pi ** 2)))
 
             # Calibration and echo integration
-            out = (beam.backscatter_r
-                   + spreading_loss * 2 + absorption_loss
+            out = (beam['backscatter_r']
+                   + spreading_loss * 2
+                   + absorption_loss
                    - CSp)
             out.name = 'Sp'
 
@@ -178,10 +180,6 @@ class CalibrateEK60(CalibrateEK):
 
     def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata)
-
-        # initialize env and cal params
-        self.env_params = dict.fromkeys(ENV_PARAMS)
-        self.cal_params = dict.fromkeys(CAL_PARAMS['AZFP'])
 
         # load env and cal parameters
         if env_params is None:
@@ -237,7 +235,7 @@ class CalibrateEK80(CalibrateEK):
     z_et = 75
     z_er = 1000
 
-    def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
+    def __init__(self, echodata, env_params, cal_params, waveform_mode):
         super().__init__(echodata)
 
         # initialize env and cal params
@@ -277,7 +275,7 @@ class CalibrateEK80(CalibrateEK):
         if waveform_mode == 'BB':
             freq = (self.echodata.beam['frequency_start'] + self.echodata.beam['frequency_end']) / 2
         else:
-            freq = frequency = self.echodata.beam['frequency']
+            freq = self.echodata.beam['frequency']
 
         # Re-calculate environment parameters if user supply all env variables
         if ('temperature' in env_params) and ('salinity' in env_params) and ('pressure' in env_params):
