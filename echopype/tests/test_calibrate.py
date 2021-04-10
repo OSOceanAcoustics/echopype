@@ -8,7 +8,7 @@ from ... import echopype as ep
 
 def test_compute_Sv_ek60_echoview():
     ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'  # Constant ranges
-    ek60_csv_path = Path('./echopype/test_data/ek60/from_echoview/')
+    ek60_echoview_path = Path('./echopype/test_data/ek60/from_echoview/')
 
     # Convert file
     c = ep.convert.open_raw(ek60_raw_path, model='EK60')
@@ -21,13 +21,46 @@ def test_compute_Sv_ek60_echoview():
     # Compare with EchoView outputs
     channels = []
     for freq in [18, 38, 70, 120, 200]:
-        fname = str(ek60_csv_path.joinpath('DY1801_EK60-D20180211-T164025-Sv%d.csv' % freq))
+        fname = str(ek60_echoview_path.joinpath('DY1801_EK60-D20180211-T164025-Sv%d.csv' % freq))
         channels.append(pd.read_csv(fname, header=None, skiprows=[0]).iloc[:, 13:])
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
     assert np.allclose(test_Sv[:, :, 7:],
                        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+
+    Path(c.output_file).unlink()
+
+
+def test_compute_Sv_ek60_matlab():
+    ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
+    ek60_matlab_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.mat'
+
+    # Convert file
+    c = ep.convert.open_raw(ek60_raw_path, model='EK60')
+    c.to_netcdf()
+
+    # Calibrate to get Sv
+    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sp = ep.calibrate.compute_Sp(echodata)
+
+    # Load matlab outputs and test
+
+    # matlab outputs were saved using
+    #   save('from_matlab/DY1801_EK60-D20180211-T164025.mat', 'data')
+    ds_base = loadmat(ek60_matlab_path)
+
+    def check_output(ds_cmp, cal_type):
+        for fidx in range(5):  # loop through all freq
+            assert np.allclose(ds_cmp[cal_type].isel(frequency=0).T.values,
+                               ds_base['data']['pings'][0][0][cal_type][0, 0],
+                               atol=4e-5, rtol=0)  # difference due to use of Single in matlab code
+    # Check Sv
+    check_output(ds_Sv, 'Sv')
+
+    # Check Sp
+    check_output(ds_Sp, 'Sp')
 
     Path(c.output_file).unlink()
 
