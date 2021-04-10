@@ -47,6 +47,7 @@ class CalibrateEK(CalibrateBase):
 
         # make order of dims conform with the order of backscatter data
         range_meter = range_meter.transpose('frequency', 'ping_time', 'range_bin')
+        range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
         range_meter.name = 'range'  # add name to facilitate xr.merge
 
         self.range_meter = range_meter
