@@ -21,7 +21,7 @@ csv_paths = ['./echopype/test_data/azfp/from_echoview/17082117-raw38.csv',    # 
 #              for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
 
 
-def test_convert_raw_matlab():
+def test_convert_azfp_01a_matlab_raw():
 
     # Unpacking data
     echodata = open_raw(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
@@ -56,10 +56,14 @@ def test_convert_raw_matlab():
 
     Path(echodata.output_file).unlink()
 
+
+def test_convert_azfp_01a_matlab_derived():
     # TODO: test derived data
     #  - ds_beam.ping_time from 01A raw data records
     #  - investigate why ds_beam.tilt_x/y are different from ds_matlab['Data']['Tx']/['Ty']
     #  - derived temperature
+
+    pass
 
 
 def test_convert_raw_echoview():
