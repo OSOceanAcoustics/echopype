@@ -76,10 +76,13 @@ def test_convert_azfp_01a_raw_echoview():
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
 
     # Read csv files exported by EchoView
-    azfp_csv_path = sorted(list(azfp_path.glob('from_echoview/17082117-raw*.csv')))  # exported from EchoView
+    azfp_csv_path = [
+        azfp_path.joinpath('from_echoview/17082117-raw%d.csv' % freq)
+        for freq in [38, 125, 200, 455]
+    ]
     channels = []
     for file in azfp_csv_path:
-        channels.append(pd.read_csv(str(file), header=None, skiprows=[0]).iloc[:, 6:])
+        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 6:])
     test_power = np.stack(channels)
 
     # Convert to netCDF and check
