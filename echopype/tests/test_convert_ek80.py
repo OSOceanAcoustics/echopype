@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -6,16 +7,13 @@ from ..convert import open_raw
 
 ek80_path = Path('./echopype/test_data/ek80/')
 
-raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091034.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091105.raw']
-angle_test_path = './echopype/test_data/ek80/from_echoview/EK80_test_angles.csv'
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 raw_path_2_f = './echopype/test_data/ek80/2019118 group2survey-D20191214-T081342.raw'
-raw_path_EA640 = './echopype/test_data/ek80/0001a-D20200321-T032026.raw'
 
 
 def test_convert_ek80_cw_power_echoview():
@@ -77,8 +75,8 @@ def test_convert_ek80_cw_power_echoview():
 def test_convert_ek80_complex_echoview():
     """Compare parsed EK80 BB data with csv exported by EchoView.
     """
-    ek80_raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'  # Large file (BB)
-    ek80_echoview_bb_power_csv = './echopype/test_data/ek80/from_echoview/70 kHz raw power.complex.csv'
+    ek80_raw_path_bb = ek80_path.joinpath('D20170912-T234910.raw')
+    ek80_echoview_bb_power_csv = ek80_path.joinpath('from_echoview/D20170912-T234910/70 kHz raw power.complex.csv')
 
     # Convert file
     echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
@@ -101,15 +99,20 @@ def test_convert_ek80_complex_echoview():
     Path(echodata.output_file).unlink()
 
 
-def test_cw_bb():
-    # Test converting file that contains both cw and bb channels
+def test_convert_ek80_cw_bb_single_file():
+    """Make sure can convert a single EK80 file containing both CW and BB mode data.
+    """
+    ek80_raw_path_bb_cw = str(ek80_path.joinpath('Summer2018--D20180905-T033113.raw'))
+    echodata = open_raw(file=ek80_raw_path_bb_cw, model='EK80')
+    echodata.to_zarr()
 
-    tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_netcdf(compress=False)
+    # Check there are both Beam and Beam_power groups in the converted file
+    ds_beam = xr.open_zarr(echodata.output_file, group='Beam')
+    ds_beam_power = xr.open_zarr(echodata.output_file, group='Beam_power')
 
-    nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    assert os.path.exists(nc_path)
-    os.remove(nc_path)
+    ds_beam.close()
+    ds_beam_power.close()
+    shutil.rmtree(echodata.output_file)
 
 
 def test_freq_subset():
@@ -130,17 +133,6 @@ def test_xml():
     os.remove(tmp.output_file)
 
     tmp.to_xml(save_path='env.xml', data_type='ENV')
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
-
-
-def test_EA640():
-    # Test converting file in the EA640 format (similar structure to EK80)
-    tmp = Convert(file=raw_path_EA640, model='EA640')
-    tmp.to_netcdf()
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
-    tmp.to_xml()
     assert os.path.exists(tmp.output_file)
     os.remove(tmp.output_file)
 
