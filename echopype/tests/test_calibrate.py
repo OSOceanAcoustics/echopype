@@ -113,6 +113,44 @@ def test_compute_Sv_azfp():
     Path(c.output_file).unlink()
 
 
+def test_compute_Sv_ek80_pc():
+    """Compare pulse compressed outputs from echopype and csv exported from EchoView.
+
+    Note: the difference is large and it is not clear why.
+    """
+    ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'
+    ek80_bb_pc_test_path = './echopype/test_data/ek80/from_echoview/70 kHz pulse-compressed power.complex.csv'
+
+    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c.to_netcdf(overwrite=True)
+
+    # Create a CalibrateEK80 object to perform pulse compression
+    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    waveform_mode = 'BB'
+    cal_obj = ep.calibrate.CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode)
+    cal_obj.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)  # compute range [m]
+    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
+    pc = cal_obj.compress_pulse(chirp)
+    pc_mean = pc.pulse_compressed_output.isel(frequency=0).mean(dim='quadrant').dropna('range_bin')
+
+    # Read EchoView pc raw power output
+    df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
+    df_header = pd.read_csv(ek80_bb_pc_test_path, header=0, usecols=range(14), nrows=0)
+    df = df.rename(columns={ cc : vv for cc,vv in zip(df.columns, df_header.columns.values) })
+    df.columns = df.columns.str.strip()
+    df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
+
+    # Compare only values for range > 0: difference is surprisingly large
+    range_meter = cal_obj.range_meter.isel(frequency=0, ping_time=0).values
+    first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
+    assert np.allclose(
+        df_real.values[:, first_nonzero_range:pc_mean.values.shape[1]],
+        pc_mean.values.real[:, first_nonzero_range:],
+        rtol=0,
+        atol=1.03e-3
+    )
+
+
 def test_compute_Sv_EK80_CW_complex():
     fname_zarr = '/Volumes/MURI_4TB/MURI/spheroid_echoes/Data_zarr/ar2.0-D20201210-T000409.zarr'  # CW complex
     echodata = ep.open_converted(fname_zarr)
