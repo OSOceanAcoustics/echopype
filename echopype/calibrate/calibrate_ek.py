@@ -609,7 +609,7 @@ class CalibrateEK80(CalibrateEK):
         use_beam_power = False
 
         # Warn user about additional data in the raw file if another type exists
-        if hasattr(self.echodata, 'beam_power'):  # both power and complex samples exist
+        if self.echodata.beam_power is not None:  # both power and complex samples exist
             if encode_mode == 'power':
                 use_beam_power = True  # switch source of backscatter data
                 print('Only power samples are calibrated, but complex samples also exist in the raw data file!')
