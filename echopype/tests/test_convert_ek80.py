@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
+from scipy.io import loadmat
 from ..convert import open_raw
 
 ek80_path = Path('./echopype/test_data/ek80/')
@@ -14,6 +15,30 @@ ek80_path = Path('./echopype/test_data/ek80/')
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
+
+def test_convert_ek80_complex_matlab():
+    """Compare parsed EK80 CW power/angle data with Matlab parsed data.
+    """
+    ek80_raw_path_bb = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_matlab_path_bb = str(ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat'))
+
+    # Convert file
+    echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
+    echodata.to_netcdf()
+
+    # Test complex parsed data
+    ds_matlab = loadmat(ek80_matlab_path_bb)
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+        assert np.array_equal(
+            ds_beam.backscatter_r.isel(frequency=0, ping_time=0).dropna('range_bin').values[1:, :],
+            np.real(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # real part
+        )
+        assert np.array_equal(
+            ds_beam.backscatter_i.isel(frequency=0, ping_time=0).dropna('range_bin').values[1:, :],
+            np.imag(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # imag part
+        )
+
+    Path(echodata.output_file).unlink()
 
 
 def test_convert_ek80_cw_power_echoview():
