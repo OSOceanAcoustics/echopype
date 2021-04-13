@@ -79,7 +79,18 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install -e .
-      - name: Running Convert Tests
+      - id: files
+        uses: jitterbit/get-changed-files@v1
+        with:
+          format: 'csv'
+      - name: Running Tests
         shell: bash -l {0}
         run: |
-          python -m pytest --log-cli-level=WARNING --verbose echopype/tests/test_convert.py
+          mapfile -d ',' -t added_modified_files < <(printf '%s,' '${{ steps.files.outputs.added_modified }}')
+          for added_modified_file in "${added_modified_files[@]}"; do
+            echo "Do something with this ${added_modified_file}."
+          done
+      # - name: Running Convert Tests
+      #   shell: bash -l {0}
+      #   run: |
+      #     python -m pytest --log-cli-level=WARNING --verbose echopype/tests/test_convert.py
