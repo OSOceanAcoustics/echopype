@@ -20,6 +20,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: [3.7, 3.8]
         experimental: [false]
