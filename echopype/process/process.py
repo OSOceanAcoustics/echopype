@@ -12,7 +12,7 @@ from ..utils import io
 from .process_azfp import ProcessAZFP
 from .process_ek60 import ProcessEK60
 from .process_ek80 import ProcessEK80
-from .echodata import EchoData
+from .echodata_old import EchoDataOld
 
 
 warnings.simplefilter('always', DeprecationWarning)
@@ -81,7 +81,7 @@ class Process:
                           "the new `Process` class. The old workflow will be removed "
                           "in a future version.", DeprecationWarning, 3)
             raw = model
-            self._temp_ed = EchoData(raw)
+            self._temp_ed = EchoDataOld(raw)
             engine = 'netcdf4' if model.lower().endswith('.nc') else 'zarr'
             with xr.open_dataset(model, engine=engine) as ds_top:
                 model = ds_top.keywords
@@ -384,7 +384,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         param_source
         """
@@ -422,7 +422,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         save : bool
         save_format : str
@@ -480,7 +480,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         save : bool
         save_format : str
@@ -511,7 +511,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         save : bool
         save_format : str
@@ -542,7 +542,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         save : bool
         save_format : str
@@ -574,7 +574,7 @@ class Process:
 
         Parameters
         ----------
-        ed : EchoData
+        ed : EchoDataOld
             EchoData object to operate on
         save : bool
         save_format : str
