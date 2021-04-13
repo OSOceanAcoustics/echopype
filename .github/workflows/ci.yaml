@@ -93,7 +93,7 @@ jobs:
       - name: Running Tests
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py ${{ steps.files.outputs.added_modified }} |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vv,--disable-warnings" ${{ steps.files.outputs.added_modified }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2

@@ -24,10 +24,12 @@ EXIT_CODES = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run tests listed.")
     parser.add_argument("touchedfiles", metavar="TOUCHED_FILES", type=str)
+    parser.add_argument("--pytest-args", type=str, help="Optional pytest args", default="")
     args = parser.parse_args()
     file_list = args.touchedfiles.split(",")
-
-    pytest_args = ["--log-cli-level=WARNING", "-vv", "-x", "--disable-warnings"]
+    pytest_args = []
+    if args.pytest_args:
+        pytest_args = args.pytest_args.split(",")
     test_to_run = {}
     for f in file_list:
         file_path = Path(f)
