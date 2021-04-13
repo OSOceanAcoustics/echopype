@@ -4,6 +4,4 @@ from .process import Process
 from .echodata import open_converted
 from .calibrate import calibrate_func as calibrate
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+from _echopype_version import version as __version__
