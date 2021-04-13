@@ -36,6 +36,7 @@ class CalibrateEK(CalibrateBase):
             range_meter = (self.echodata.beam.range_bin
                            - tvg_correction_factor) * sample_thickness  # [frequency x range_bin]
         elif waveform_mode == 'BB':
+            # TODO: bug: right now only first ping_time has non-nan range
             shift = self.echodata.beam['transmit_duration_nominal']  # based on Lar Anderson's Matlab code
             # TODO: once we allow putting in arbitrary sound_speed, change below to use linearly-interpolated values
             range_meter = ((self.echodata.beam.range_bin * self.echodata.beam['sample_interval'] - shift)
@@ -602,6 +603,8 @@ class CalibrateEK80(CalibrateEK):
                 flag_complex = True
             else:
                 flag_complex = False
+        # TODO: add additional checks and error messages for
+        #  when waveform_mode and actual recording mode do not match
 
         # Set use_beam_power
         #  - True: use self.echodata.beam_power for cal

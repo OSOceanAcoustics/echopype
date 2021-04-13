@@ -5,10 +5,14 @@ import xarray as xr
 from scipy.io import loadmat
 from ... import echopype as ep
 
+azfp_path = Path('./echopype/test_data/azfp')
+ek60_path = Path('./echopype/test_data/ek60')
+ek80_path = Path('./echopype/test_data/ek80')
+
 
 def test_compute_Sv_ek60_echoview():
-    ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'  # Constant ranges
-    ek60_echoview_path = Path('./echopype/test_data/ek60/from_echoview/')
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  # constant range_bin
+    ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     # Convert file
     c = ep.convert.open_raw(ek60_raw_path, model='EK60')
@@ -33,8 +37,8 @@ def test_compute_Sv_ek60_echoview():
 
 
 def test_compute_Sv_ek60_matlab():
-    ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'
-    ek60_matlab_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025.mat'
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))
+    ek60_matlab_path = str(ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025.mat'))
 
     # Convert file
     c = ep.convert.open_raw(ek60_raw_path, model='EK60')
@@ -66,7 +70,6 @@ def test_compute_Sv_ek60_matlab():
 
 
 def test_compute_Sv_azfp():
-    azfp_path = Path('./echopype/test_data/azfp')
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
     azfp_matlab_Sv_path = str(azfp_path.joinpath('from_matlab/17082117_matlab_Output_Sv.mat'))
@@ -118,17 +121,19 @@ def test_compute_Sv_ek80_matlab():
 
     Unresolved: there is a discrepancy between the range vector due to minRange=0.02 m set in Matlab.
     """
-    ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'
-    ek80_matlab_path = './echopype/test_data/ek80/from_matlab/D20170912-T234910_data.mat'
+    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_matlab_path = str(ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat'))
 
     c = ep.convert.open_raw(ek80_raw_path, model='EK80')
     c.to_netcdf()
     echodata = ep.open_converted(converted_raw_path=c.output_file)
     ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
 
-    # There is a discrepancy between the range vector from echopype and Matlab code
+    # TODO: resolve discrepancy in range between echopype and Matlab code
     ds_matlab = loadmat(ek80_matlab_path)
     Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_bin').values
+
+    Path(c.output_file).unlink()
 
 
 def test_compute_Sv_ek80_pc_echoview():
@@ -136,8 +141,8 @@ def test_compute_Sv_ek80_pc_echoview():
 
     Unresolved: the difference is large and it is not clear why.
     """
-    ek80_raw_path = './echopype/test_data/ek80/D20170912-T234910.raw'
-    ek80_bb_pc_test_path = './echopype/test_data/ek80/from_echoview/70 kHz pulse-compressed power.complex.csv'
+    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_bb_pc_test_path = str(ek80_path.joinpath('from_echoview/70 kHz pulse-compressed power.complex.csv'))
 
     c = ep.convert.open_raw(ek80_raw_path, model='EK80')
     c.to_netcdf(overwrite=True)
@@ -168,15 +173,26 @@ def test_compute_Sv_ek80_pc_echoview():
         atol=1.03e-3
     )
 
+    Path(c.output_file).unlink()
 
-# def test_compute_Sv_EK80_CW_complex():
-#     fname_zarr = '/Volumes/MURI_4TB/MURI/spheroid_echoes/Data_zarr/ar2.0-D20201210-T000409.zarr'  # CW complex
-#     echodata = ep.open_converted(fname_zarr)
-#     ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
-#
-#
-# def test_compute_Sv_EK80_BB_complex():
-#     fname_zarr = '/Volumes/MURI_4TB/MURI/spheroid_echoes/Data_zarr/ar2.0-D20201209-T235955.zarr'
-#     echodata = ep.open_converted(fname_zarr)
-#     Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
-#     Sp = ep.calibrate.compute_Sp(echodata, waveform_mode='BB', encode_mode='complex')
+
+def test_compute_Sv_ek80_CW_complex():
+    """Test calibrate CW mode data encoded as complex sam[les.
+    """
+    ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201210-T000409.raw'))  # CW complex
+    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c.to_netcdf()
+    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    assert ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    Path(c.output_file).unlink()
+
+
+def test_compute_Sv_ek80_BB_complex():
+    """Test calibrate BB mode data encoded as complex sam[les.
+    """
+    ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201209-T235955.raw'))  # CW complex
+    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c.to_netcdf()
+    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    assert ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    Path(c.output_file).unlink()
