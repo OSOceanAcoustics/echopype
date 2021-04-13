@@ -14,7 +14,7 @@ from ..utils import io
 import xarray as xr
 
 
-class EchoData:
+class EchoDataOld:
     """Echo data model base class.
     """
     DATA_TYPES = ['raw', 'Sv', 'Sv_clean', 'Sp', 'MVBS']
