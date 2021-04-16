@@ -393,14 +393,16 @@ class Ad2cpDataPacket:
         elif data_type == DataType.FLOAT and len(value) == 8:
             return struct.unpack("<d", value)[0]
         elif data_type == DataType.SIGNED_FRACTION:
-            result = 0.0
-            int_value = int.from_bytes(value, byteorder="little", signed=False)
-            for i in range(-31, 0):
-                result += (int_value & 1) * math.pow(2, i)
-                int_value >>= 1
-            if int_value & 1:
-                result *= -1
-            return result
+            # I emailed Sven Nylund from Nortek to ask about my original implementation created 
+            # from the specification which was producing incorrect numbers. When he emailed me 
+            # back, he provided a sample implementation, but his solution used 2's complement 
+            # instead of signed magnitude, even though the specification says that the data is 
+            # in signed magnitude form. However, his implementation seems to work while mine does not. 
+            # 
+            # Interpreting the bytes as 2's complement causes the output to line up with expected values 
+            # from Ocean Contour exports. Long series of high bits (for low magnitude negative numbers) 
+            # would also support the idea that the data is in 2's complement form.
+            return int.from_bytes(value, byteorder="little", signed=True) / 2147483648.0
         else:
             raise RuntimeError("unrecognized data type")
 
