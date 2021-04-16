@@ -34,7 +34,6 @@ class DataType(Enum):
     UNSIGNED_INTEGER = auto()
     # UNSIGNED_LONG = auto()
     FLOAT = auto()
-    # TODO: figure out what this is in binary
     SIGNED_FRACTION = auto()
 
 
