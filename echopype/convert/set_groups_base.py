@@ -42,7 +42,7 @@ class SetGroupsBase:
         pass
 
     # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
-    def set_toplevel(self, sonar_model, date_created=None):
+    def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
         """Set the top-level group.
         """
         # Collect variables
@@ -58,9 +58,10 @@ class SetGroupsBase:
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(tl_dict)
-        io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
+        return ds
+        # io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
 
-    def set_provenance(self):
+    def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group.
         """
         # Collect variables
@@ -71,19 +72,30 @@ class SetGroupsBase:
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
-        io.save_file(ds, path=self.output_path, group='Provenance', mode='a', engine=self.engine)
+        return ds
+        # io.save_file(ds, path=self.output_path, group='Provenance', mode='a', engine=self.engine)
 
-    def set_env(self):
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """
         pass
 
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
         """
         pass
 
-    def set_nmea(self):
+    def set_beam(self) -> xr.Dataset:
+        """Set the Beam group.
+        """
+        pass
+
+    def set_platform(self) -> xr.Dataset:
+        """Set the Platform group.
+        """
+        pass
+
+    def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group.
         """
         # Save nan if nmea data is not encoded in the raw file
@@ -109,9 +121,15 @@ class SetGroupsBase:
                                        'units': 'seconds since 1900-01-01'})},
             attrs={'description': 'All NMEA sensor datagrams'})
 
-        # save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Platform/NMEA', compression_settings=self.compression_settings)
+        return ds
+        # # save to file
+        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+        #              group='Platform/NMEA', compression_settings=self.compression_settings)
+
+    def set_vendor(self) -> xr.Dataset:
+        """Set the Vendor group.
+        """
+        pass
 
     # TODO: move this to be part of parser as it is not a "set" operation
     def _parse_NMEA(self):

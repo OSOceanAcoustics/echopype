@@ -23,7 +23,7 @@ class SetGroupsAZFP(SetGroupsBase):
         self.set_beam()
         self.set_vendor()
 
-    def set_env(self):
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
@@ -37,11 +37,12 @@ class SetGroupsAZFP(SetGroupsBase):
                                  'units': 'seconds since 1970-01-01'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
-        # Save to file
-        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', group='Environment', engine=self.engine)
+        return ds
+        # # Save to file
+        # io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+        #              path=self.output_path, mode='a', group='Environment', engine=self.engine)
 
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
         """
         # Assemble sonar group dictionary
@@ -56,9 +57,10 @@ class SetGroupsAZFP(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
-        io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
+        return ds
+        # io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
 
-    def set_platform(self):
+    def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
         """
         platform_dict = {'platform_name': self.ui_param['platform_name'],
@@ -67,9 +69,10 @@ class SetGroupsAZFP(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(platform_dict)
-        io.save_file(ds, path=self.output_path, group='Platform', mode='a', engine=self.engine)
+        return ds
+        # io.save_file(ds, path=self.output_path, group='Platform', mode='a', engine=self.engine)
 
-    def set_beam(self):
+    def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
         """
         unpacked_data = self.parser_obj.unpacked_data
@@ -167,14 +170,14 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_b': parameters['Y_b'],
                                'tilt_Y_c': parameters['Y_c'],
                                'tilt_Y_d': parameters['Y_d']})
+        return ds
+        # # Save to file
+        # io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+        #                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+        #              path=self.output_path, mode='a', engine=self.engine,
+        #              group='Beam', compression_settings=self.compression_settings)
 
-        # Save to file
-        io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                               'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Beam', compression_settings=self.compression_settings)
-
-    def set_vendor(self):
+    def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
         """
         unpacked_data = self.parser_obj.unpacked_data
@@ -232,8 +235,8 @@ class SetGroupsAZFP(SetGroupsBase):
                 'phase': unpacked_data['phase'],
                 'number_of_channels': unpacked_data['num_chan']}
         )
-
-        # Save to file
-        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Vendor', compression_settings=self.compression_settings)
+        return ds
+        # # Save to file
+        # io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+        #              path=self.output_path, mode='a', engine=self.engine,
+        #              group='Vendor', compression_settings=self.compression_settings)
