@@ -1,3 +1,4 @@
+from typing import List
 from collections import defaultdict
 import xarray as xr
 import numpy as np
@@ -403,7 +404,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return ds_common
 
-    def set_beam(self) -> xr.Dataset:
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group.
         """
 
@@ -423,11 +424,12 @@ class SetGroupsEK80(SetGroupsBase):
                 {'ping_time': (['ping_time'], (ds_combine['ping_time']
                                                - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                ds_combine.ping_time.attrs)})
-            # Save to file
-            io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                                           'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                         path=self.output_path, mode='a', engine=self.engine,
-                         group=group_name, compression_settings=self.compression_settings)
+            return ds_combine
+            # # Save to file
+            # io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+            #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+            #              path=self.output_path, mode='a', engine=self.engine,
+            #              group=group_name, compression_settings=self.compression_settings)
 
         # Assemble ping-invariant beam data variables
         params = [
@@ -483,12 +485,15 @@ class SetGroupsEK80(SetGroupsBase):
         # Merge and save group:
         #  if both complex and power data exist: complex data in Beam group and power data in Beam_power
         #  if only one type of data exist: data in Beam group
+        ds_beam_power = None
         if len(ds_complex) > 0:
-            merge_save(ds_complex, 'complex', group_name='Beam')
+            ds_beam = merge_save(ds_complex, 'complex', group_name='Beam')
             if len(ds_power) > 0:
-                merge_save(ds_power, 'power', group_name='Beam_power')
+                ds_beam_power = merge_save(ds_power, 'power', group_name='Beam_power')
         else:
-            merge_save(ds_power, 'power', group_name='Beam')
+            ds_beam = merge_save(ds_power, 'power', group_name='Beam')
+
+        return [ds_beam, ds_beam_power]
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.

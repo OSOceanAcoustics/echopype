@@ -99,7 +99,7 @@ def open_raw(file=None, model=None, xml_path=None, convert_params=None, storage_
         params=dict.fromkeys(CONVERT_PARAMS) if convert_params is None else convert_params
     )
     # Top-level date_created varies depending on sonar model
-    if model in ['EK60', 'EK80']:
+    if model in ["EK60", "EK80"]:
         echodata.top = setgrouper.set_toplevel(
             sonar_model=model,
             date_created=parser.config_datagram['timestamp']
@@ -113,8 +113,11 @@ def open_raw(file=None, model=None, xml_path=None, convert_params=None, storage_
     echodata.platform = setgrouper.set_platform()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
-    # TODO: take care of EK80 beam_power group
-    echodata.beam = setgrouper.set_beam()
+    # Beam_power group only exist if EK80 has both complex and power/angle data
+    if model == "EK80":
+        echodata.beam, echodata.beam_power = setgrouper.set_beam()
+    else:
+        echodata.beam = setgrouper.set_beam()
     echodata.vendor = setgrouper.set_vendor()
 
     return echodata
