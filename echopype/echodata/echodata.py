@@ -15,10 +15,6 @@ XARRAY_ENGINE_MAP = {
 }
 
 
-def open_converted(converted_raw_path, storage_options=None):
-    return EchoData(converted_raw_path=converted_raw_path, storage_options=storage_options)
-
-
 class EchoData:
     """Echo data model class for handling raw converted data,
     including multiple files associated with the same data set.
