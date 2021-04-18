@@ -24,7 +24,7 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
-    def __init__(self, converted_raw_path=None, storage_options=None):
+    def __init__(self, converted_raw_path=None, storage_options=None, convert_obj=None):
 
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
@@ -37,6 +37,8 @@ class EchoData:
             # TODO: verify if converted_raw_path is valid on either local or remote filesystem
             self._load_file(converted_raw_path)
             self.sonar_model = self.top.keywords
+
+        self.convert_obj = convert_obj  # used to handle raw file conversion
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""

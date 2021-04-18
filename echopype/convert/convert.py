@@ -17,6 +17,7 @@ from .parse_ek80 import ParseEK80
 from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
+from ..echodata import EchoData
 
 warnings.simplefilter("always", DeprecationWarning)
 
@@ -34,12 +35,21 @@ MODELS = {
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
+CONVERT_PARAMS = [
+    "survey_name",
+    "platform_name",
+    "platform_code_ICES",
+    "platform_type",
+    "water_level",
+    "nmea_gps_sentence",
+]
 
-def open_raw(file=None, model=None, xml_path=None, storage_options=None):
-    """Create a Convert object by reading in raw data files.
 
-    The Convert object can be used for adding metadata and ancillary data
-    as well as to carry out file conversion.
+def open_raw(file=None, model=None, xml_path=None, convert_params=None, storage_options=None):
+    """Create an EchoData object containing parsed data from a single raw data file.
+
+    The EchoData object can be used for adding metadata and ancillary data
+    as well as to serialize the parsed data to zarr or netcdf.
 
     Parameters
     ----------
@@ -49,10 +59,65 @@ def open_raw(file=None, model=None, xml_path=None, storage_options=None):
         model of the sonar instrument
     xml_path : str
         path to XML config file used by AZFP
+    convert_params : dict
+        parameters (metadata) that may not exist in the raw file
+        and need to be added to the converted file
     storage_options : dict
         options for cloud storage
     """
-    return Convert(file=file, xml_path=xml_path, model=model, storage_options=storage_options)
+    # Check inputs
+    storage_options = storage_options if storage_options is not None else {}
+    if model not in MODELS:
+        raise ValueError(
+            f"Unsupported sonar model: {model}\n" f"Must be one of: {list(MODELS)}"
+        )
+    # TODO: the if-else below only works for the AZFP vs EK contrast,
+    #  but is brittle since it is abusing params by using it implicitly
+    if MODELS[model]["xml"]:
+        params = xml_path
+    else:
+        params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
+
+    # Set up echodata object
+    echodata = EchoData(
+        convert_obj=Convert(
+            file=file,
+            xml_path=xml_path,
+            model=model,
+            storage_options=storage_options
+        )
+    )
+
+    # Parse raw file and organize data into groups
+    parser = MODELS[model]["parser"](file, params=params, storage_options=storage_options)
+    parser.parse_raw()
+    setgrouper = MODELS[model]["set_groups"](
+        parser,
+        input_file=file,
+        output_path=None,
+        sonar_model=model,
+        params=dict.fromkeys(CONVERT_PARAMS) if convert_params is None else convert_params
+    )
+    # Top-level date_created varies depending on sonar model
+    if model in ['EK60', 'EK80']:
+        echodata.top = setgrouper.set_toplevel(
+            sonar_model=model,
+            date_created=parser.config_datagram['timestamp']
+        )
+    else:
+        echodata.top = setgrouper.set_toplevel(
+            sonar_model=model,
+            date_created=parser.ping_time[0]
+        )
+    echodata.environment = setgrouper.set_env()
+    echodata.platform = setgrouper.set_platform()
+    echodata.provenance = setgrouper.set_provenance()
+    echodata.sonar = setgrouper.set_sonar()
+    # TODO: take care of EK80 beam_power group
+    echodata.beam = setgrouper.set_beam()
+    echodata.vendor = setgrouper.set_vendor()
+
+    return echodata
 
 
 # TODO: Used for backwards compatibility. Delete in future versions

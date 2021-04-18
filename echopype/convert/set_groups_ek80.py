@@ -35,7 +35,7 @@ class SetGroupsEK80(SetGroupsBase):
         self.set_sonar()
         self.set_vendor()
 
-    def set_env(self, env_only=False):
+    def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group.
         """
         # If only saving environment group, there is no ping_time so use timestamp of environment datagram
@@ -63,12 +63,12 @@ class SetGroupsEK80(SetGroupsBase):
         # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
         #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
         #                                      ds.ping_time.attrs)})
+        return ds
+        # # Save to file
+        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+        #              group='Environment', compression_settings=self.compression_settings)
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Environment', compression_settings=self.compression_settings)
-
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         # Collect unique variables
         params = ['transducer_frequency',
                   'serial_number',
@@ -91,12 +91,12 @@ class SetGroupsEK80(SetGroupsBase):
             coords={'frequency': var['transducer_frequency']},
             attrs={'sonar_manufacturer': 'Simrad',
                    'sonar_type': 'echosounder'})
+        return ds
+        # # Save to file
+        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+        #              group='Sonar', compression_settings=self.compression_settings)
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Sonar', compression_settings=self.compression_settings)
-
-    def set_platform(self):
+    def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
         """
 
@@ -170,12 +170,12 @@ class SetGroupsEK80(SetGroupsBase):
                    # TODO: check what this 'drop_keel_offset' is
                    'drop_keel_offset': (self.parser_obj.environment['drop_keel_offset'] if
                                         hasattr(self.parser_obj.environment, 'drop_keel_offset') else np.nan)})
-
-        # save to file
-        io.save_file(ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
-                               'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Platform', compression_settings=self.compression_settings)
+        return ds
+        # # save to file
+        # io.save_file(ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
+        #                        'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+        #              path=self.output_path, mode='a', engine=self.engine,
+        #              group='Platform', compression_settings=self.compression_settings)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
         """Assemble dataset for ping-invariant params in the Beam group.
@@ -403,7 +403,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return ds_common
 
-    def set_beam(self):
+    def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
         """
 
@@ -490,7 +490,7 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             merge_save(ds_power, 'power', group_name='Beam')
 
-    def set_vendor(self):
+    def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
         """
         config = self.parser_obj.config_datagram['configuration']
@@ -574,6 +574,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Save the entire config XML in vendor group in case of info loss
         ds.attrs['config_xml'] = self.parser_obj.config_datagram['xml']
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Vendor', compression_settings=self.compression_settings)
+        return ds
+        # # Save to file
+        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
+        #              group='Vendor', compression_settings=self.compression_settings)
