@@ -48,7 +48,7 @@ class EchoData:
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
         existing_groups = [
-            f"{self.__group_map[group]['name']}: {self.__group_map[group]['description']}"  # noqa
+            f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
             for group in self.__group_map.keys()
             if isinstance(getattr(self, group), xr.Dataset)
         ]
@@ -77,6 +77,7 @@ class EchoData:
                         xr_collections.append(
                             HtmlTemplate.element_template.format(  # noqa
                                 group_id=group + str(uuid.uuid4()),
+                                group=group,
                                 group_name=self.__group_map[group]["name"],
                                 group_description=self.__group_map[group]["description"],
                                 xr_data=xr_data,
