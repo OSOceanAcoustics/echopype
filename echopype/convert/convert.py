@@ -194,6 +194,100 @@ class Convert:
         else:
             print("Please specify paths to raw data files.")
 
+    @classmethod
+    def open_raw(cls, file=None, model=None, xml_path=None, convert_params=None, storage_options=None):
+
+        # Check inputs
+        if convert_params is None:
+            convert_params = {}
+        storage_options = storage_options if storage_options is not None else {}
+        if model not in MODELS:
+            raise ValueError(
+                f"Unsupported sonar model: {model}\n" f"Must be one of: {list(MODELS)}"
+            )
+        # TODO: the if-else below only works for the AZFP vs EK contrast,
+        #  but is brittle since it is abusing params by using it implicitly
+        if MODELS[model]["xml"]:
+            params = xml_path
+        else:
+            params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
+
+        # Parse raw file and organize data into groups
+        parser = MODELS[model]["parser"](file, params=params, storage_options=storage_options)
+        parser.parse_raw()
+        setgrouper = MODELS[model]["set_groups"](
+            parser,
+            input_file=file,
+            output_path=None,
+            sonar_model=model,
+            params=cls._set_convert_params(convert_params)
+        )
+        new_cls = cls(file, xml_path, model, storage_options)
+        # Top-level date_created varies depending on sonar model
+        if model in ["EK60", "EK80"]:
+            new_cls.top = setgrouper.set_toplevel(
+                sonar_model=model,
+                date_created=parser.config_datagram['timestamp']
+            )
+        else:
+            new_cls.top = setgrouper.set_toplevel(
+                sonar_model=model,
+                date_created=parser.ping_time[0]
+            )
+        new_cls.environment = setgrouper.set_env()
+        new_cls.platform = setgrouper.set_platform()
+        if model in ["EK60", "EK80"]:
+            new_cls.nmea = setgrouper.set_nmea()
+        new_cls.provenance = setgrouper.set_provenance()
+        new_cls.sonar = setgrouper.set_sonar()
+        # Beam_power group only exist if EK80 has both complex and power/angle data
+        if model == "EK80":
+            new_cls.beam, new_cls.beam_power = setgrouper.set_beam()
+        else:
+            new_cls.beam = setgrouper.set_beam()
+        new_cls.vendor = setgrouper.set_vendor()
+        return new_cls
+
+    @staticmethod
+    def _set_convert_params(param_dict):
+        """Set parameters (metadata) that may not exist in the raw files.
+
+        The default set of parameters include:
+        - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
+        - Platform/NMEA: ``nmea_gps_sentence``,
+                        for selecting specific NMEA sentences, with default values ['GGA', 'GLL', 'RMC'].
+        - Top-level group: ``survey_name``
+
+        Other parameters will be saved to the top level.
+
+        # TODO: revise docstring, give examples.
+        Examples
+        --------
+        # set parameters that may not already be in source files
+        echodata.set_param({
+            'platform_name': 'OOI',
+            'platform_type': 'mooring'
+        })
+        """
+        # TODO: revise docstring, give examples.
+        # TODO: need to check and return valid/invalid params as done for Process
+        out_params = dict()
+
+        # Parameters for the Platform group
+        out_params["platform_name"] = param_dict.get("platform_name", "")
+        out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
+        out_params["platform_type"] = param_dict.get("platform_type", "")
+        out_params["water_level"] = param_dict.get("water_level", None)
+        out_params["nmea_gps_sentence"] = param_dict.get("nmea_gps_sentence", NMEA_SENTENCE_DEFAULT)
+
+        # Parameters for the Top-level group
+        out_params["survey_name"] = param_dict.get("survey_name", "")
+        for k, v in param_dict.items():
+            if k not in out_params:
+                out_params[k] = v
+
+        return out_params
+
     def set_param(self, param_dict):
         """Allow users to set parameters to be stored in the converted files.
 
