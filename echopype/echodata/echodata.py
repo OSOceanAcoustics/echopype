@@ -2,6 +2,7 @@ import uuid
 from collections import OrderedDict
 from html import escape
 from pathlib import Path
+import warnings
 
 import xarray as xr
 from zarr.errors import GroupNotFoundError
@@ -24,6 +25,9 @@ class EchoData:
             self,
             converted_raw_path=None,
             storage_options=None,
+            source_file=None,
+            xml_path=None,
+            sonar_model=None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -31,6 +35,9 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
         self.storage_options = storage_options if storage_options is not None else {}
+        self.source_file = source_file
+        self.xml_path = xml_path
+        self.sonar_model = sonar_model
 
         self.__setup_groups()
         if converted_raw_path:
@@ -45,9 +52,12 @@ class EchoData:
             for group in self.__group_map.keys()
             if isinstance(getattr(self, group), xr.Dataset)
         ]
+        fpath = "Internal Memory"
+        if self.converted_raw_path:
+            fpath = self.converted_raw_path
         msg = "EchoData: standardized raw data from {file_path}\n  > {options}".format(
             options="\n  > ".join(existing_groups),
-            file_path=self.converted_raw_path,
+            file_path=fpath,
         )
         return msg
 
@@ -73,8 +83,11 @@ class EchoData:
                             )
                         )
                 elements = "".join(xr_collections)
+                fpath = "Internal Memory"
+                if self.converted_raw_path:
+                    fpath = self.converted_raw_path
                 formatted_html_template = HtmlTemplate.html_template.format(
-                    elements, file_path=str(self.converted_raw_path)
+                    elements, file_path=str(fpath)
                 )  # noqa
                 css_template = HtmlTemplate.css_template  # noqa
                 html_repr = "%(formatted_html_template)s%(css_template)s" % locals()
@@ -145,7 +158,7 @@ class EchoData:
         output_storage_options : dict
             Additional keywords to pass to the filesystem class.
         """
-        from .api import to_file
+        from ..convert.api import to_file
 
         return to_file(self, "netcdf4", **kwargs)
 
@@ -167,6 +180,55 @@ class EchoData:
         output_storage_options : dict
             Additional keywords to pass to the filesystem class.
         """
-        from .api import to_file
+        from ..convert.api import to_file
 
         return to_file(self, "zarr", **kwargs)
+
+    # TODO: Remove below in future versions. They are for supporting old API calls.
+    @property
+    def nc_path(self):
+        warnings.warn(
+            "`nc_path` is deprecated, Use `converted_raw_path` instead.",
+            DeprecationWarning,
+            2,
+        )
+        return self.converted_raw_path
+
+    @property
+    def zarr_path(self):
+        warnings.warn(
+            "`zarr_path` is deprecated, Use `converted_raw_path` instead.",
+            DeprecationWarning,
+            2,
+        )
+        return self.converted_raw_path
+
+    def raw2nc(
+        self, save_path=None, combine_opt=False, overwrite=False, compress=True
+    ):
+        warnings.warn(
+            "`raw2nc` is deprecated, use `to_netcdf` instead.",
+            DeprecationWarning,
+            2,
+        )
+        return self.to_netcdf(
+            save_path=save_path,
+            compress=compress,
+            combine=combine_opt,
+            overwrite=overwrite,
+        )
+
+    def raw2zarr(
+        self, save_path=None, combine_opt=False, overwrite=False, compress=True
+    ):
+        warnings.warn(
+            "`raw2zarr` is deprecated, use `to_zarr` instead.",
+            DeprecationWarning,
+            2,
+        )
+        return self.to_zarr(
+            save_path=save_path,
+            compress=compress,
+            combine=combine_opt,
+            overwrite=overwrite,
+        )
