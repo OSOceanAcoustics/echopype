@@ -1,20 +1,12 @@
-import os
-import warnings
 import uuid
 from collections import OrderedDict
-from datetime import datetime as dt
 from html import escape
 from pathlib import Path
 
-import fsspec
-from fsspec.implementations.local import LocalFileSystem
-
 import xarray as xr
-import zarr
 from zarr.errors import GroupNotFoundError
 
 from ..utils.repr import HtmlTemplate
-from ..utils import io
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP = {
