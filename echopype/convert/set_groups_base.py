@@ -59,7 +59,6 @@ class SetGroupsBase:
         ds = xr.Dataset()
         ds = ds.assign_attrs(tl_dict)
         return ds
-        # io.save_file(ds, path=self.output_path, mode='w', engine=self.engine)
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group.
@@ -73,7 +72,6 @@ class SetGroupsBase:
         ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
         return ds
-        # io.save_file(ds, path=self.output_path, group='Provenance', mode='a', engine=self.engine)
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group.
@@ -122,9 +120,6 @@ class SetGroupsBase:
             attrs={'description': 'All NMEA sensor datagrams'})
 
         return ds
-        # # save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Platform/NMEA', compression_settings=self.compression_settings)
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor group.

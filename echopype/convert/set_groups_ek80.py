@@ -65,9 +65,6 @@ class SetGroupsEK80(SetGroupsBase):
         #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
         #                                      ds.ping_time.attrs)})
         return ds
-        # # Save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Environment', compression_settings=self.compression_settings)
 
     def set_sonar(self) -> xr.Dataset:
         # Collect unique variables
@@ -93,9 +90,6 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={'sonar_manufacturer': 'Simrad',
                    'sonar_type': 'echosounder'})
         return ds
-        # # Save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Sonar', compression_settings=self.compression_settings)
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
@@ -172,11 +166,6 @@ class SetGroupsEK80(SetGroupsBase):
                    'drop_keel_offset': (self.parser_obj.environment['drop_keel_offset'] if
                                         hasattr(self.parser_obj.environment, 'drop_keel_offset') else np.nan)})
         return ds
-        # # save to file
-        # io.save_file(ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
-        #                        'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', engine=self.engine,
-        #              group='Platform', compression_settings=self.compression_settings)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
         """Assemble dataset for ping-invariant params in the Beam group.
@@ -580,6 +569,3 @@ class SetGroupsEK80(SetGroupsBase):
         ds.attrs['config_xml'] = self.parser_obj.config_datagram['xml']
 
         return ds
-        # # Save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Vendor', compression_settings=self.compression_settings)
