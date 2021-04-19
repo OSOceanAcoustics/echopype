@@ -38,9 +38,6 @@ class SetGroupsAZFP(SetGroupsBase):
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
         return ds
-        # # Save to file
-        # io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', group='Environment', engine=self.engine)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
@@ -58,7 +55,6 @@ class SetGroupsAZFP(SetGroupsBase):
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
         return ds
-        # io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
@@ -70,7 +66,6 @@ class SetGroupsAZFP(SetGroupsBase):
         ds = xr.Dataset()
         ds = ds.assign_attrs(platform_dict)
         return ds
-        # io.save_file(ds, path=self.output_path, group='Platform', mode='a', engine=self.engine)
 
     def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
@@ -171,11 +166,6 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_c': parameters['Y_c'],
                                'tilt_Y_d': parameters['Y_d']})
         return ds
-        # # Save to file
-        # io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-        #                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', engine=self.engine,
-        #              group='Beam', compression_settings=self.compression_settings)
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
@@ -236,7 +226,3 @@ class SetGroupsAZFP(SetGroupsBase):
                 'number_of_channels': unpacked_data['num_chan']}
         )
         return ds
-        # # Save to file
-        # io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', engine=self.engine,
-        #              group='Vendor', compression_settings=self.compression_settings)

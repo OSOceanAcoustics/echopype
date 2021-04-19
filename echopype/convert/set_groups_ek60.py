@@ -75,9 +75,6 @@ class SetGroupsEK60(SetGroupsBase):
                                              ds.ping_time.attrs)})
 
         return ds
-        # # Save to file
-        # io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', engine=self.engine, group='Environment')
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
@@ -94,7 +91,6 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
         return ds
-        # io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
 
     def set_platform(self, NMEA_only=False) -> xr.Dataset:
         """Set the Platform group.
@@ -199,9 +195,6 @@ class SetGroupsEK60(SetGroupsBase):
                               ds.ping_time.attrs)}).chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
         return ds
-        # Save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Platform', compression_settings=self.compression_settings)
 
     def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
@@ -406,11 +399,6 @@ class SetGroupsEK60(SetGroupsBase):
                                              ds.ping_time.attrs)})
 
         return ds
-        # # Save to file
-        # io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-        #                        'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-        #              path=self.output_path, mode='a', engine=self.engine,
-        #              group='Beam', compression_settings=self.compression_settings)
 
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
@@ -433,6 +421,3 @@ class SetGroupsEK60(SetGroupsBase):
                                'valid_min': 0.0}),
                 'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))})
         return ds
-        # # Save to file
-        # io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-        #              group='Vendor', compression_settings=self.compression_settings)
