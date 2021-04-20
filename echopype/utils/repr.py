@@ -32,7 +32,7 @@ class HtmlTemplate:
     element_template = """
             <li class = "xr-section-item">
                   <input id="idata_{group_id}" class="xr-section-summary-in" type="checkbox">
-                  <label for="idata_{group_id}" class = "xr-section-summary">{group_name}: {group_description}</label>
+                  <label for="idata_{group_id}" class = "xr-section-summary">{group}: ({group_name}) {group_description}</label>
                   <div class="xr-section-inline-details"></div>
                   <div class="xr-section-details">
                       <ul id="xr-dataset-coord-list" class="xr-var-list">
