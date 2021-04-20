@@ -24,7 +24,9 @@ EXIT_CODES = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run tests listed.")
     parser.add_argument("touchedfiles", metavar="TOUCHED_FILES", type=str)
-    parser.add_argument("--pytest-args", type=str, help="Optional pytest args", default="")
+    parser.add_argument(
+        "--pytest-args", type=str, help="Optional pytest args", default=""
+    )
     args = parser.parse_args()
     file_list = args.touchedfiles.split(",")
     pytest_args = []
@@ -53,6 +55,15 @@ if __name__ == "__main__":
                 if "calibrate" not in test_to_run:
                     test_to_run["calibrate"] = []
                 test_to_run["calibrate"].append(file_path)
+            elif any(
+                [
+                    (file_path.match("echopype/echodata/*")),
+                    (file_path.match("echopype/tests/test_echodata*")),
+                ]
+            ):
+                if "echodata" not in test_to_run:
+                    test_to_run["echodata"] = []
+                test_to_run["echodata"].append(file_path)
 
     total_exit_codes = []
     for k, v in test_to_run.items():
