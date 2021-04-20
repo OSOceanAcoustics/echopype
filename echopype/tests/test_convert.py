@@ -14,7 +14,7 @@ import fsspec
 import xarray as xr
 import pytest
 from pathlib import Path
-from ..convert import open_raw
+from ..echodata import open_raw
 
 
 def _check_file_group(data_file, engine, groups):
@@ -344,7 +344,7 @@ def test_convert_ek60(
     ):
         return
     ec._to_file(
-        convert_type=export_engine,
+        engine=export_engine,
         save_path=output_save_path,
         overwrite=True,
         combine=combine_files,
@@ -418,7 +418,7 @@ def test_convert_azfp(
     ):
         return
     ec._to_file(
-        convert_type=export_engine,
+        engine=export_engine,
         save_path=output_save_path,
         overwrite=True,
         combine=combine_files,
@@ -478,7 +478,7 @@ def test_convert_ek80(
     ):
         return
     ec._to_file(
-        convert_type=export_engine,
+        engine=export_engine,
         save_path=output_save_path,
         overwrite=True,
         combine=combine_files,

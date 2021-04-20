@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from scipy.io import loadmat
-from ..convert import open_raw
+from ..echodata import open_raw
 
 ek60_path = Path('./echopype/test_data/ek60/')
 
