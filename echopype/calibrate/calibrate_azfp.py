@@ -34,7 +34,7 @@ class CalibrateAZFP(CalibrateBase):
         # Params from the Beam group
         for p in ['EL', 'DS', 'TVR', 'VTX', 'Sv_offset', 'equivalent_beam_angle']:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.raw_beam[p]
+            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.beam[p]
 
     def get_env_params(self, env_params):
         """Get env params using user inputs or values from data file.
@@ -46,7 +46,7 @@ class CalibrateAZFP(CalibrateBase):
         # Temperature comes from either user input or data file
         self.env_params['temperature'] = (env_params['temperature']
                                           if 'temperature' in env_params
-                                          else self.echodata.raw_env['temperature'])
+                                          else self.echodata.environment['temperature'])
 
         # Salinity and pressure always come from user input
         if ('salinity' not in env_params) or ('pressure' not in env_params):
@@ -60,7 +60,7 @@ class CalibrateAZFP(CalibrateBase):
                                                               salinity=self.env_params['salinity'],
                                                               pressure=self.env_params['pressure'],
                                                               formula_source='AZFP')
-        self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.raw_beam['frequency'],
+        self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.beam['frequency'],
                                                                   temperature=self.env_params['temperature'],
                                                                   salinity=self.env_params['salinity'],
                                                                   pressure=self.env_params['pressure'],
@@ -69,6 +69,8 @@ class CalibrateAZFP(CalibrateBase):
     def compute_range_meter(self, cal_type):
         """Calculate range in meter using AZFP formula.
 
+        Note the range calculation differs for Sv and Sp per AZFP matlab code.
+
         Parameters
         ----------
         cal_type : str
@@ -76,9 +78,9 @@ class CalibrateAZFP(CalibrateBase):
             'Sp' for calculating point backscattering strength
         """
         # Notation below follows p.86 of user manual
-        N = self.echodata.raw_vend['number_of_samples_per_average_bin']  # samples per bin
-        f = self.echodata.raw_vend['digitization_rate']  # digitization rate
-        L = self.echodata.raw_vend['lockout_index']  # number of lockout samples
+        N = self.echodata.vendor['number_of_samples_per_average_bin']  # samples per bin
+        f = self.echodata.vendor['digitization_rate']  # digitization rate
+        L = self.echodata.vendor['lockout_index']  # number of lockout samples
         sound_speed = self.env_params['sound_speed']
         bins_to_avg = 1   # keep this in ref of AZFP matlab code, set to 1 since we want to calculate from raw data
 
@@ -87,10 +89,10 @@ class CalibrateAZFP(CalibrateBase):
         if cal_type == 'Sv':
             range_offset = 0
         else:
-            range_offset = sound_speed * self.echodata.raw_beam['transmit_duration_nominal'] / 4  # from matlab code
+            range_offset = sound_speed * self.echodata.beam['transmit_duration_nominal'] / 4  # from matlab code
         range_meter = (sound_speed * L / (2 * f)
-                       + sound_speed / 4 * (((2 * (self.echodata.raw_beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
-                                            + self.echodata.raw_beam['transmit_duration_nominal'])
+                       + sound_speed / 4 * (((2 * (self.echodata.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                                            + self.echodata.beam['transmit_duration_nominal'])
                        - range_offset)
         range_meter.name = 'range'  # add name to facilitate xr.merge
 
@@ -113,13 +115,13 @@ class CalibrateAZFP(CalibrateBase):
         absorption_loss = 2 * self.env_params['sound_absorption'] * self.range_meter
         SL = self.cal_params['TVR'] + 20 * np.log10(self.cal_params['VTX'])  # eq.(2)
         a = self.cal_params['DS']  # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
-        EL = self.cal_params['EL'] - 2.5 / a + self.echodata.raw_beam.backscatter_r / (26214 * a)  # eq.(5)
+        EL = self.cal_params['EL'] - 2.5 / a + self.echodata.beam.backscatter_r / (26214 * a)  # eq.(5)
 
         if cal_type == 'Sv':
             # eq.(9)
             out = (EL - SL + spreading_loss + absorption_loss
                    - 10 * np.log10(0.5 * self.env_params['sound_speed'] *
-                                   self.echodata.raw_beam['transmit_duration_nominal'] *
+                                   self.echodata.beam['transmit_duration_nominal'] *
                                    self.cal_params['equivalent_beam_angle'])
                    + self.cal_params['Sv_offset'])  # see p.90-91 for this correction to Sv
             out.name = 'Sv'

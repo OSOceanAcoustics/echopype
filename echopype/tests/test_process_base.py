@@ -2,13 +2,13 @@ import os
 import numpy as np
 import xarray as xr
 from ..convert import Convert
-from ..process import Process, EchoData, ProcessBase
+from ..process import Process, EchoDataOld, ProcessBase
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Standard test
 
 
 def test_validate_proc_path():
     # Create process object
-    ed = EchoData()
+    ed = EchoDataOld()
     ed._raw_path = [ek60_raw_path]
     pb = ProcessBase()
 
@@ -36,7 +36,7 @@ def test_validate_proc_path():
 
 def test_remove_noise():
     # Create process object
-    ed = EchoData()
+    ed = EchoDataOld()
     ed._raw_path = [ek60_raw_path]
     pb = ProcessBase()
 
@@ -103,7 +103,7 @@ def test_get_MVBS():
     range_bin_num = 3        # number of range_bins to average over
 
     # Create process object
-    ed = EchoData()
+    ed = EchoDataOld()
     ed._raw_path = [ek60_raw_path]
     pb = ProcessBase()
 
