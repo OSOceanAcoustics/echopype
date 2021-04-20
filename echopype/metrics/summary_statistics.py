@@ -11,44 +11,46 @@ https://github.com/ElOceanografo/EchoMetrics/blob/master/echometrics/echometrics
 import numpy as np
 
 
-def delta_depth(ds):
-    return np.abs(ds['depth'].diff(dim='depth').mean().values)
+def delta_z(ds, zname='range'):
+    if zname not in ds:
+        raise ValueError(f"{zname} not in the input Dataset!")
+    dz = ds[zname].diff(dim='range_bin')  # here assume range or depth are data variables with the same dims as Sv
+    return dz.where(dz != 0, np.nan)
 
 
-def convert_to_linear(ds):
-    return 10 ** (ds['Sv'] / 10)  # convert Sv to linear domain
+def convert_to_linear(da_Sv):
+    return 10 ** (da_Sv / 10)  # convert Sv to linear domain
 
 
-def abundance(ds):
-    dz = delta_depth(ds)
-    sv = convert_to_linear(ds)
-    sv = sv.assign_coords(depth=sv.depth.values[::-1])  # reverse depth coordinate
-    return 10 * np.log10((sv * dz).sum(dim='depth'))  # integrate over depth
+def abundance(ds, zname='range'):
+    dz = delta_z(ds, zname=zname)
+    sv = convert_to_linear(ds['Sv'])
+    return (10 * np.log10(sv * dz)).sum(dim='range_bin')  # integrate over depth
 
 
-def center_of_mass(ds):
-    dz = delta_depth(ds)
-    sv = convert_to_linear(ds)
-    return ((sv.depth * sv * dz).sum(dim='depth') /
-            (sv * dz).sum(dim='depth'))
+def center_of_mass(ds, zname='range'):
+    dz = delta_z(ds, zname=zname)
+    sv = convert_to_linear(ds['Sv'])
+    return ((ds[zname] * sv * dz).sum(dim='range_bin') /
+            (sv * dz).sum(dim='range_bin'))
 
 
-def inertia(ds):
-    dz = delta_depth(ds)
-    sv = convert_to_linear(ds)
+def inertia(ds, zname='range'):
+    dz = delta_z(ds, zname=zname)
+    sv = convert_to_linear(ds['Sv'])
     cm = center_of_mass(ds)
-    return (((sv.depth - cm) ** 2 * sv * dz).sum(dim='depth') /
-            (sv * dz).sum(dim='depth'))
+    return (((ds[zname] - cm) ** 2 * sv * dz).sum(dim='range_bin') /
+            (sv * dz).sum(dim='range_bin'))
 
 
-def evenness(ds):
-    dz = delta_depth(ds)
-    sv = convert_to_linear(ds)
-    return (((sv * dz).sum(dim='depth')) ** 2 /
-            (sv ** 2 * dz).sum(dim='depth'))
+def evenness(ds, zname='range'):
+    dz = delta_z(ds, zname=zname)
+    sv = convert_to_linear(ds['Sv'])
+    return (((sv * dz).sum(dim='range_bin')) ** 2 /
+            (sv ** 2 * dz).sum(dim='range_bin'))
 
 
-def aggregation(ds):
-    return 1/evenness(ds)
+def aggregation(ds, zname='range'):
+    return 1/evenness(ds, zname=zname)
 
 
