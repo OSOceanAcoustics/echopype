@@ -27,9 +27,10 @@ jobs:
           ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
       - name: Set Docker Image Spec
         run: |
-          CALVER="$( date -u '+%Y.%m.%d' )"
-          IMAGE_SPEC="${{ env.DOCKER_ORG }}/${{ matrix.image_name }}:${CALVER}"
+          DATE_TAG="$( date -u '+%Y.%m.%d' )"
+          IMAGE_SPEC="${{ env.DOCKER_ORG }}/${{ matrix.image_name }}"
           echo "IMAGE_SPEC=${IMAGE_SPEC}" >> $GITHUB_ENV
+          echo "DATE_TAG=${DATE_TAG}" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -46,4 +47,6 @@ jobs:
           context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
           push: true
-          tags: ${{ env.IMAGE_SPEC }}
+          tags: |
+            ${{ env.IMAGE_SPEC }}:${{ env.DATE_TAG }}
+            ${{ env.IMAGE_SPEC }}:latest
