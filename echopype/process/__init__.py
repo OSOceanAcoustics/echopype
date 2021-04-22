@@ -21,5 +21,4 @@ from .process_base import ProcessBase, ProcessEK
 from .process_ek60 import ProcessEK60
 from .process_azfp import ProcessAZFP
 from .process_ek80 import ProcessEK80
-from .echodata import EchoData
-from .echodata_new import EchoDataNew
+from .echodata_old import EchoDataOld

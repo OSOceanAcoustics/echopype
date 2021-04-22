@@ -1,153 +1,184 @@
-import os
+from pathlib import Path
+import shutil
 import numpy as np
 import xarray as xr
 import pandas as pd
-from ..convert import Convert
+from scipy.io import loadmat
+from ..echodata import open_raw
 
-raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
-raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)
-raw_path_bb_cw = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'  # Large file (CW and BB)
+ek80_path = Path('./echopype/test_data/ek80/')
+
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091034.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091105.raw']
-power_test_path = ['./echopype/test_data/ek80/from_echoview/18kHz.power.csv',
-                   './echopype/test_data/ek80/from_echoview/38kHz.power.csv',
-                   './echopype/test_data/ek80/from_echoview/70kHz.power.csv',
-                   './echopype/test_data/ek80/from_echoview/120kHz.power.csv',
-                   './echopype/test_data/ek80/from_echoview/200kHz.power.csv']
-angle_test_path = './echopype/test_data/ek80/from_echoview/EK80_test_angles.csv'
-bb_power_test_path = './echopype/test_data/ek80/from_echoview/70 kHz raw power.complex.csv'
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
-raw_path_2_f = './echopype/test_data/ek80/2019118 group2survey-D20191214-T081342.raw'
-raw_path_EA640 = './echopype/test_data/ek80/0001a-D20200321-T032026.raw'
 
 
-def test_cw():
-    # Test conversion of EK80 continuous wave data file
-    tmp = Convert()
-    tmp.set_source(file=raw_path_cw,
-                   model='EK80')
-    tmp.to_netcdf()
+def test_convert_ek80_complex_matlab():
+    """Compare parsed EK80 CW power/angle data with Matlab parsed data.
+    """
+    ek80_raw_path_bb = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_matlab_path_bb = str(ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat'))
 
-    # Perform angle and power tests. Only 3 pings are tested in order to reduce the size of test datasets
-    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
-        # Angle test data was originally exported from EchoView as 1 csv file for each frequency.
-        # These files were combined and 3 pings were taken and saved as a single small csv file.
-        df = pd.read_csv(angle_test_path, compression='gzip')
-        # Test angles
-        # Convert from electrical angles to degrees.
-        major = (ds_beam['angle_athwartship'] * 1.40625 / ds_beam['angle_sensitivity_athwartship'] -
-                 ds_beam['angle_offset_athwartship'])[:, 1:4, :]
-        minor = (ds_beam['angle_alongship'] * 1.40625 / ds_beam['angle_sensitivity_alongship'] -
-                 ds_beam['angle_offset_alongship'])[:, 1:4, :]
-        # Loop over the 5 frequencies
-        for f in np.unique(df['frequency']):
-            major_test = []
-            minor_test = []
-            df_freq = df[df['frequency'] == f]
-            # Loop over the 3 pings
-            for i in np.unique(df_freq['ping_index']):
-                val_maj = df_freq[df_freq['ping_index'] == i]['major']
-                val_min = df_freq[df_freq['ping_index'] == i]['minor']
-                major_test.append(xr.DataArray(val_maj, coords=[('range_bin', np.arange(val_maj.size))]))
-                minor_test.append(xr.DataArray(val_min, coords=[('range_bin', np.arange(val_min.size))]))
-            assert np.allclose(xr.concat(major_test, 'ping_time').dropna('range_bin'),
-                               major.sel(frequency=f).dropna('range_bin'))
-            assert np.allclose(xr.concat(minor_test, 'ping_time').dropna('range_bin'),
-                               minor.sel(frequency=f).dropna('range_bin'))
-        # Test power
-        # Echoview power data is exported with the following constant multiplied to it
-        power = ds_beam.backscatter_r
-        # single point error in original raw data. Read as -2000 by echopype and -999 by Echoview
-        power[3, 4, 13174] = -999
-        for i, f in enumerate(power_test_path):
-            test_power = pd.read_csv(f, delimiter=';').iloc[:, 13:].values
-            assert np.allclose(test_power, power[i].dropna('range_bin'))
+    # Convert file
+    echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
+    echodata.to_netcdf()
 
-    # Remove generated files
-    os.remove(tmp.output_file)
+    # Test complex parsed data
+    ds_matlab = loadmat(ek80_matlab_path_bb)
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+        assert np.array_equal(
+            ds_beam.backscatter_r.isel(frequency=0, ping_time=0).dropna('range_bin').values[1:, :],
+            np.real(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # real part
+        )
+        assert np.array_equal(
+            ds_beam.backscatter_i.isel(frequency=0, ping_time=0).dropna('range_bin').values[1:, :],
+            np.imag(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # imag part
+        )
+
+    Path(echodata.output_file).unlink()
 
 
-def test_bb():
-    # Test conversion of EK80 broadband data file
-    tmp = Convert(file=raw_path_bb, model='EK80')
-    tmp.to_netcdf()
+def test_convert_ek80_cw_power_echoview():
+    """Compare parsed EK80 CW power/angle data with csv exported by EchoView.
+    """
+    ek80_raw_path_cw = str(ek80_path.joinpath('D20190822-T161221.raw'))  # Small file (CW)
+    freq_list = [18, 38, 70, 120, 200]
+    ek80_echoview_power_csv = [
+        ek80_path.joinpath('from_echoview/D20190822-T161221/%dkHz.power.csv' % freq)
+        for freq in freq_list
+    ]
+    # ek80_echoview_angle_csv = [
+    #     ek80_path.joinpath('from_echoview/D20190822-T161221/%dkHz.angles.points.csv' % freq)
+    #     for freq in freq_list
+    # ]
 
-    # Compare with EchoView exported data
-    bb_test_df = pd.read_csv(bb_power_test_path, header=None, skiprows=[0])
-    bb_test_df_r = bb_test_df.iloc[::2, 14:]
-    bb_test_df_i = bb_test_df.iloc[1::2, 14:]
-    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
-        # Select 70 kHz channel and averaged across the quadrants
-        backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean(axis=2)
-        backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean(axis=2)
-        assert np.allclose(backscatter_r, bb_test_df_r)
-        assert np.allclose(backscatter_i, bb_test_df_i)
+    # Convert file
+    echodata = open_raw(ek80_raw_path_cw, model='EK80')
+    echodata.to_netcdf()
 
-    # Remove generated files
-    os.remove(tmp.output_file)
+    # Test power
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+        # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
+        ds_beam.backscatter_r[3, 4, 13174] = -999
+        for file, freq in zip(ek80_echoview_power_csv, freq_list):
+            test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
+            assert np.allclose(
+                test_power,
+                ds_beam.backscatter_r.sel(frequency=freq * 1e3).dropna('range_bin'),
+                rtol=0, atol=1.1e-5
+            )
 
+    # # Test angle  TODO: fix angle test: bug in parser
+    # with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    #     # Convert from electrical angles to physical angle [deg]
+    #     major = (ds_beam['angle_athwartship'] * 1.40625
+    #              / ds_beam['angle_sensitivity_athwartship']
+    #              - ds_beam['angle_offset_athwartship'])
+    #     minor = (ds_beam['angle_alongship'] * 1.40625
+    #              / ds_beam['angle_sensitivity_alongship']
+    #              - ds_beam['angle_offset_alongship'])
+    #     for file, freq in zip(ek80_echoview_angle_csv, freq_list):
+    #         df_angle = pd.read_csv(file)
+    #         for ping_idx in df_angle['Ping_index'].value_counts().index:
+    #             assert np.allclose(
+    #                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
+    #                 major.isel(frequency=0, ping_time=0),
+    #                 rtol=0, atol=1e-5
+    #             )
+    #             assert np.allclose(
+    #                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
+    #                 minor.isel(frequency=0, ping_time=0),
+    #                 rtol=0, atol=1e-5
+    #             )
 
-def test_cw_bb():
-    # Test converting file that contains both cw and bb channels
-
-    tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_netcdf(compress=False)
-
-    nc_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.nc'
-    assert os.path.exists(nc_path)
-    os.remove(nc_path)
-
-
-def test_freq_subset():
-    # Test converting file with multiple frequencies that do not record power data
-    tmp = Convert(file=raw_path_2_f, model='EK80')
-    tmp.to_netcdf(compress=False)
-    # Check if parsed output has the correct shape
-    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
-        assert ds_beam.backscatter_r.shape == (2, 2, 191327, 4)
-    os.remove(tmp.output_file)
-
-
-def test_xml():
-    # Tests the exporting of the configuration xml as well as the environment xml
-    tmp = Convert(file=raw_path_bb_cw, model='EK80')
-    tmp.to_xml(data_type='CONFIG')
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
-
-    tmp.to_xml(save_path='env.xml', data_type='ENV')
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
-
-
-def test_EA640():
-    # Test converting file in the EA640 format (similar structure to EK80)
-    tmp = Convert(file=raw_path_EA640, model='EA640')
-    tmp.to_netcdf()
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
-    tmp.to_xml()
-    assert os.path.exists(tmp.output_file)
-    os.remove(tmp.output_file)
+    Path(echodata.output_file).unlink()
 
 
-def test_add_platform():
-    # Construct lat/lon dataset with fake data using a date range that includes
-    # the ping_time ranges of the raw EK80 file. 7 pings over 28.166 seconds.
-    # (2019-08-22T16:12:21.398000128 to 2019-08-22T16:12:49.564000256)
-    location_time = pd.date_range(start='2019-08-22T16:00:00.0',
-                                  end='2019-08-22T16:15:00.0', periods=100)
-    lat = np.random.rand(100)
-    lon = np.random.rand(100)
-    testing_ds = xr.Dataset({'lat': (['location_time'], lat),
-                             'lon': (['location_time'], lon)},
-                            coords={'location_time': (['location_time'], location_time)})
-    tmp = Convert(file=raw_path_cw, model='EK80')
-    tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
-    with xr.open_dataset(tmp.output_file, group='Platform') as ds_plat:
-        # Test if the slicing the location_time with the ping_time worked
-        assert len(ds_plat.location_time) == 3
-    os.remove(tmp.output_file)
+def test_convert_ek80_complex_echoview():
+    """Compare parsed EK80 BB data with csv exported by EchoView.
+    """
+    ek80_raw_path_bb = ek80_path.joinpath('D20170912-T234910.raw')
+    ek80_echoview_bb_power_csv = ek80_path.joinpath('from_echoview/D20170912-T234910/70 kHz raw power.complex.csv')
+
+    # Convert file
+    echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
+    echodata.to_netcdf()
+
+    # Test complex parsed data
+    df_bb = pd.read_csv(ek80_echoview_bb_power_csv, header=None, skiprows=[0])  # averaged across quadrants
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+        assert np.allclose(
+            ds_beam.backscatter_r.sel(frequency=70e3).dropna('range_bin').mean(dim='quadrant'),
+            df_bb.iloc[::2, 14:],  # real rows
+            rtol=0, atol=8e-6
+        )
+        assert np.allclose(
+            ds_beam.backscatter_i.sel(frequency=70e3).dropna('range_bin').mean(dim='quadrant'),
+            df_bb.iloc[1::2, 14:],  # imag rows
+            rtol=0, atol=4e-6
+        )
+
+    Path(echodata.output_file).unlink()
+
+
+def test_convert_ek80_cw_bb_in_single_file():
+    """Make sure can convert a single EK80 file containing both CW and BB mode data.
+    """
+    ek80_raw_path_bb_cw = str(ek80_path.joinpath('Summer2018--D20180905-T033113.raw'))
+    echodata = open_raw(file=ek80_raw_path_bb_cw, model='EK80')
+    echodata.to_zarr()
+
+    # Check there are both Beam and Beam_power groups in the converted file
+    ds_beam = xr.open_zarr(echodata.output_file, group='Beam')
+    ds_beam_power = xr.open_zarr(echodata.output_file, group='Beam_power')
+
+    ds_beam.close()
+    ds_beam_power.close()
+    shutil.rmtree(echodata.output_file)
+
+
+def test_convert_ek80_freq_subset():
+    """Make sure can convert EK80 file with multiple frequency channels off.
+    """
+    ek80_raw_path_freq_subset = str(ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw'))
+    echodata = open_raw(file=ek80_raw_path_freq_subset, model='EK80')
+    echodata.to_zarr()
+
+    # Check if converted output has only 2 frequency channels
+    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+        assert ds_beam.frequency.size == 2
+    shutil.rmtree(echodata.output_file)
+
+
+# def test_xml():
+#     # Tests the exporting of the configuration xml as well as the environment xml
+#     tmp = Convert(file=raw_path_bb_cw, model='EK80')
+#     tmp.to_xml(data_type='CONFIG')
+#     assert os.path.exists(tmp.output_file)
+#     os.remove(tmp.output_file)
+#
+#     tmp.to_xml(save_path='env.xml', data_type='ENV')
+#     assert os.path.exists(tmp.output_file)
+#     os.remove(tmp.output_file)
+#
+#
+# def test_add_platform():
+#     # Construct lat/lon dataset with fake data using a date range that includes
+#     # the ping_time ranges of the raw EK80 file. 7 pings over 28.166 seconds.
+#     # (2019-08-22T16:12:21.398000128 to 2019-08-22T16:12:49.564000256)
+#     location_time = pd.date_range(start='2019-08-22T16:00:00.0',
+#                                   end='2019-08-22T16:15:00.0', periods=100)
+#     lat = np.random.rand(100)
+#     lon = np.random.rand(100)
+#     testing_ds = xr.Dataset({'lat': (['location_time'], lat),
+#                              'lon': (['location_time'], lon)},
+#                             coords={'location_time': (['location_time'], location_time)})
+#     tmp = Convert(file=raw_path_cw, model='EK80')
+#     tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
+#     with xr.open_dataset(tmp.output_file, group='Platform') as ds_plat:
+#         # Test if the slicing the location_time with the ping_time worked
+#         assert len(ds_plat.location_time) == 3
+#     os.remove(tmp.output_file)

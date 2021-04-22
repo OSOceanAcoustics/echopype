@@ -1,15 +1,18 @@
 name: Build Docker Images
 
 on:
+  pull_request:
+    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
   push:
     branches:
       - master
       - class-redesign
-    paths: [".ci_helpers/docker/**"]
+    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
 env:
   DOCKER_ORG: cormorack
+  GITHUB_SHA: ${{ github.sha }}
 
 jobs:
   docker-build:
@@ -17,13 +20,20 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        image_name: ["minioci"]
+        image_name: ["minioci", "http"]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Retrieve test data
+        if: matrix.image_name == 'http'
+        uses: ./.github/actions/gdrive-rclone
+        env:
+          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
       - name: Set Docker Image Spec
         run: |
-          IMAGE_SPEC="${{ env.DOCKER_ORG }}/${{ matrix.image_name }}:latest"
+          CALVER="$( date -u '+%Y.%m.%d' )"
+          IMAGE_SPEC="${{ env.DOCKER_ORG }}/${{ matrix.image_name }}:${CALVER}"
           echo "IMAGE_SPEC=${IMAGE_SPEC}" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -34,12 +44,21 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Build and push
+      - name: Build image Only
         id: docker_build
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v2
         with:
-          context: ./.ci_helpers/docker/
+          context: ./
+          file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
+          push: false
+          tags: ${{ env.IMAGE_SPEC }}
+      - name: Build and push
+        id: docker_build_push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
           push: true
-          tags: |
-            ${{ env.IMAGE_SPEC }}
+          tags: ${{ env.IMAGE_SPEC }}

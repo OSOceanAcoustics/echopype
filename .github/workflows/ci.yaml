@@ -5,11 +5,9 @@ on:
     branches:
       - master
       - class-redesign
-    paths-ignore: [".ci_helpers/docker/**"]
-  pull_request_target:
-    paths-ignore: [".ci_helpers/docker/**", "**/ci.yaml"]
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   pull_request:
-    paths-ignore: [".ci_helpers/docker/**"]
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
 env:
@@ -22,6 +20,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: [3.7, 3.8]
         experimental: [false]
@@ -29,24 +28,22 @@ jobs:
         - python-version: 3.9
           experimental: true
     services:
+      # TODO: figure out how to update tag when there's a new one
       minio:
-        image: cormorack/minioci
+        image: cormorack/minioci:2021.04.06
         ports:
           - 9000:9000
       httpserver:
-        image: httpd:2.4
+        image: cormorack/http:2021.04.06
         ports:
           - 8080:80
     steps:
-      - uses: actions/checkout@v2
-      - name: Retrieve test data
-        uses: ./.github/actions/gdrive-rclone
-        env:
-          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
-          ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - name: Copying test data to http server
         run: |
-          docker cp -L ./echopype/test_data ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data
+          rm -rf ./echopype/test_data
+          docker cp -L ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data ./echopype/test_data
 
           # Check data endpoint
           curl http://localhost:8080/data/
@@ -63,28 +60,44 @@ jobs:
         with:
           path: ~/conda_pkgs_dir
           key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('.ci_helpers/py${{ matrix.python-version }}.yaml') }}
-      - name: setup miniconda
+      - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: ${{ env.CONDA_ENV }}
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
-          python-version: ${{ matrix.python-version }}
+          miniforge-variant: Mambaforge
+          miniforge-version: 4.10.0-0
+          use-mamba: true
           auto-activate-base: false
           use-only-tar-bz2: true
-      - name: print conda env
+      - name: Print conda env
         shell: bash -l {0}
         run: |
           conda info
           conda list
-      - name: install dev tools
+      - name: Install dev tools
         shell: bash -l {0}
         run: |
           mamba install -c conda-forge --yes --file requirements-dev.txt
-      - name: install echopype
+      - name: Install echopype
         shell: bash -l {0}
         run: |
           python -m pip install -e .
-      - name: Running Convert Tests
+      - name: Finding changed files
+        id: files
+        uses: jitterbit/get-changed-files@v1
+        with:
+          format: 'csv'
+      - name: Print Changed files
+        shell: bash -l {0}
+        run: echo "${{ steps.files.outputs.added_modified }}"
+      - name: Running Tests
         shell: bash -l {0}
         run: |
-          python -m pytest --log-cli-level=WARNING --verbose echopype/tests/test_convert.py
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vv,--disable-warnings" ${{ steps.files.outputs.added_modified }} |& tee ci_test_log.log
+      - name: Upload ci test log
+        if: ${{ success() || failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: ci_test_log
+          path: ci_test_log.log
