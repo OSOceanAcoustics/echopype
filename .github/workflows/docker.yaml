@@ -1,13 +1,8 @@
 name: Build Docker Images
 
 on:
-  pull_request:
-    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
-  push:
-    branches:
-      - master
-      - class-redesign
-    paths: [".ci_helpers/docker/**", "**/docker.yaml"]
+  schedule:
+    - cron: '0 0 * * *' # Run Daily
   workflow_dispatch:
 
 env:
@@ -44,18 +39,8 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Build image Only
-        id: docker_build
-        if: github.event_name == 'pull_request'
-        uses: docker/build-push-action@v2
-        with:
-          context: ./
-          file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
-          push: false
-          tags: ${{ env.IMAGE_SPEC }}
       - name: Build and push
         id: docker_build_push
-        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v2
         with:
           context: ./
