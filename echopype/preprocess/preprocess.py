@@ -14,7 +14,7 @@ def regrid():
     return 1
 
 
-def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=False):
+def remove_noise(ds_Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=False):
     """Remove noise by using estimates of background noise.
 
     The background noise is estimated from the minimum mean calibrated power level
@@ -24,7 +24,7 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=
 
     Parameters
     ----------
-    Sv : xarray.Dataset
+    ds_Sv : xarray.Dataset
         dataset containing Sv and range [m]
     env_params : dict
         environmental parameters, either the sound absorption coefficients for all frequencies,
@@ -49,25 +49,25 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=
     # Obtain sound absorption coefficients
     if 'sound_absorption' not in env_params:
         sound_absorption = uwa.calc_absorption(
-            frequency=Sv.frequency,
+            frequency=ds_Sv.frequency,
             temperature=env_params['temperature'],
             salinity=env_params['salinity'],
             pressure=env_params['pressure'],
         )
         p_to_store = ['temperature', 'salinity', 'pressure']
     else:
-        if env_params['sound_absorption'].frequency == Sv.frequency:
+        if env_params['sound_absorption'].frequency == ds_Sv.frequency:
             sound_absorption = env_params['sound_absorption']
             p_to_store = ['sound_absorption']
         else:
             raise ValueError("Mismatch in the frequency dimension for sound_absorption and Sv!")
 
     # Transmission loss
-    spreading_loss = 20 * np.log10(Sv['range'].where(Sv['range'] >= 1, other=1))
-    absorption_loss = 2 * sound_absorption * Sv['range']
+    spreading_loss = 20 * np.log10(ds_Sv['range'].where(ds_Sv['range'] >= 1, other=1))
+    absorption_loss = 2 * sound_absorption * ds_Sv['range']
 
     # Noise estimates
-    power_cal = Sv['Sv'] - spreading_loss - absorption_loss  # calibrated power
+    power_cal = ds_Sv['Sv'] - spreading_loss - absorption_loss  # calibrated power
     power_cal_binned_avg = 10 * np.log10(  # binned averages of calibrated power
         (10 ** (power_cal / 10)).coarsen(
             ping_time=ping_num,
@@ -80,7 +80,7 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=
                 + spreading_loss + absorption_loss)
 
     # Sv corrected for noise
-    fac = 10 ** (Sv['Sv'] / 10) - 10 ** (Sv_noise / 10)
+    fac = 10 ** (ds_Sv['Sv'] / 10) - 10 ** (Sv_noise / 10)
     Sv_corr = 10 * np.log10(fac.where(fac > 0, other=np.nan))
     Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > SNR, other=np.nan)
 
@@ -88,7 +88,7 @@ def remove_noise(Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=
     Sv_corr = Sv_corr.to_dataset()
 
     # Attach other variables and attributes to dataset
-    Sv_corr['range'] = Sv['range'].copy()
+    Sv_corr['range'] = ds_Sv['range'].copy()
     if save_noise_est:
         Sv_corr['Sv_noise'] = Sv_noise
     Sv_corr.attrs['noise_est_ping_num'] = ping_num
