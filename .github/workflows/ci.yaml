@@ -85,7 +85,7 @@ jobs:
           python -m pip install -e .
       - name: Finding changed files
         id: files
-        uses: jitterbit/get-changed-files@v1
+        uses: lsetiawan/get-changed-files@pr_target
         with:
           format: 'csv'
       - name: Print Changed files
