@@ -439,7 +439,7 @@ def open_raw(
 
     Parameters
     ----------
-    file : str or list
+    file : str
         path to raw data file(s)
     model : str
         model of the sonar instrument
@@ -492,18 +492,17 @@ def open_raw(
             )
 
     # Check paths and file types
-    if file is not None:
-
-        # Check for path type
-        if not all(isinstance(elem, str) for elem in file):
-            raise ValueError("file must be a string or a list of string")
-
-        # Check file extension and existence
-        file_chk, xml_chk = _check_file(
-            file, model, xml_path, storage_options
-        )
-    else:
+    if file is None:
         raise FileNotFoundError("Please specify paths to raw data files.")
+
+    # Check for path type
+    if not isinstance(file, str):
+        raise ValueError("file must be a string or Path")
+
+    # Check file extension and existence
+    file_chk, xml_chk = _check_file(
+        file, model, xml_path, storage_options
+    )
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
