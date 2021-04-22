@@ -5,7 +5,7 @@ import xarray as xr
 import numpy as np
 
 from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import DataRecordType, Field, Ad2cpDataPacket, UNITS
+from .parse_ad2cp import DataRecordType, DataRecordFormats, Ad2cpDataPacket, UNITS
 from ..utils import io
 
 
@@ -66,8 +66,10 @@ class SetGroupsAd2cp(SetGroupsBase):
                 for field_name, field_value in packet.data.items():
                     # add dimension names to data vars for xarray
                     # TODO might not work with altimeter_spare
-                    dims = Field.dimensions(
-                        field_name, packet.data_record_type)
+                    # dims = Field.dimensions(
+                    #     field_name, packet.data_record_type)
+                    dims = DataRecordFormats.data_record_format(packet.data_record_type)[
+                        field_name].dimensions(packet.data_record_type)
                     # TODO: this should be done in _postprocess
                     if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
                         if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
