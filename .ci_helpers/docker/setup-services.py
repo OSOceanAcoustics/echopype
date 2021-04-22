@@ -35,7 +35,7 @@ if __name__ == "__main__":
         print("Cannot have both --deploy and --tear-down. Exiting.")
         sys.exit(1)
 
-    if not all([args.deploy, args.tear_down]):
+    if not any([args.deploy, args.tear_down]):
         print(
             "Please provide either --deploy or --tear-down flags. For more help use --help flag."
         )
