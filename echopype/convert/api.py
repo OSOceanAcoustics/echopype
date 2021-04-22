@@ -348,7 +348,8 @@ def _set_convert_params(param_dict):
 
 
 def _check_file(file, model, xml_path=None, storage_options={}):
-    """Checks whether the file and/or xml file exists
+    """Checks whether the file and/or xml file exists and
+    whether they have the correct extensions.
 
     Parameters
     ----------
@@ -401,7 +402,7 @@ def _check_file(file, model, xml_path=None, storage_options={}):
 
     if file.suffix.upper() != ext.upper():
         raise ValueError(
-            f"Not all files are in the same format. Expecting a {ext} file but got {file}"
+            f"Expecting a {ext} file but got {file}"
         )
 
     return str(file), str(xml)
@@ -434,7 +435,7 @@ def open_raw(
         options for cloud storage
     """
     if (model is None) and (file is None):
-        print("Please specify paths to raw data files and the sonar model.")
+        print("Please specify the path to the raw data file and the sonar model.")
         return
 
     # Check inputs
@@ -475,7 +476,7 @@ def open_raw(
 
     # Check paths and file types
     if file is None:
-        raise FileNotFoundError("Please specify paths to raw data files.")
+        raise FileNotFoundError("Please specify the path to the raw data file.")
 
     # Check for path type
     if isinstance(file, Path):
