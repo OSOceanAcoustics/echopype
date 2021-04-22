@@ -5,7 +5,7 @@ import xarray as xr
 import numpy as np
 
 from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import DataRecordType, DataRecordFormats, Ad2cpDataPacket, UNITS
+from .parse_ad2cp import DataRecordType, DataRecordFormats, Ad2cpDataPacket, Field
 from ..utils import io
 
 
@@ -68,20 +68,20 @@ class SetGroupsAd2cp(SetGroupsBase):
                     # TODO might not work with altimeter_spare
                     # dims = Field.dimensions(
                     #     field_name, packet.data_record_type)
-                    dims = DataRecordFormats.data_record_format(packet.data_record_type)[
-                        field_name].dimensions(packet.data_record_type)
-                    # TODO: this should be done in _postprocess
-                    if field_name in ("velocity_data", "amplitude_data", "correlation_data", "percentage_good_data"):
-                        if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
-                            field_name += "_burst"
-                        elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
-                            field_name += "_average"
-                    if field_name in UNITS:
+                    field = DataRecordFormats.data_record_format(packet.data_record_type).get_field(field_name)
+                    if field is not None:
+                        dims = field.dimensions(packet.data_record_type)
+                        units = field.units()
+                    else:
+                        dims = Field.default_dimensions()
+                        units = None
+                    if units:
                         data_vars[field_name] = (tuple(dim.value for dim in dims), [
-                            field_value], {"Units": UNITS[field_name]})
+                            field_value], {"Units": units})
                     else:
                         data_vars[field_name] = (
                             tuple(dim.value for dim in dims), [field_value])
+                # TODO: this still sets the time dimension to just "time", Dimensions variants for each time type should be added
                 coords = {
                     "time": [packet.timestamp],
                     time_dim: [packet.timestamp]
