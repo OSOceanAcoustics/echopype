@@ -1,4 +1,3 @@
-import os
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
@@ -71,14 +70,7 @@ def _validate_path(
         warnings.warn(
             f"Resulting converted file(s) will be available at {str(out_dir)}"
         )
-        out_path = [
-            str(
-                out_dir.joinpath(
-                    Path(os.path.splitext(Path(f).name)[0] + file_format)
-                )
-            )
-            for f in source_file
-        ]
+        out_path = out_dir / (Path(source_file).stem + file_format)
 
     else:
         fsmap = fsspec.get_mapper(save_path, **output_storage_options)
@@ -86,39 +78,16 @@ def _validate_path(
 
         # Use the full path such as s3://... if it's not local, otherwise use root
         if isinstance(output_fs, LocalFileSystem):
-            root = fsmap.root
+            root = Path(fsmap.root)
         else:
-            root = save_path
+            root = Path(save_path)
 
-        fname, ext = os.path.splitext(root)
-        if ext == "":  # directory
-            out_dir = fname
-            out_path = [
-                os.path.join(
-                    root,
-                    os.path.splitext(os.path.basename(f))[0] + file_format,
-                )
-                for f in source_file
-            ]
+        if root.suffix == "":  # directory
+            out_dir = root
+            out_path = root / (Path(source_file).stem + file_format)
         else:  # file
-            out_dir = os.path.dirname(root)
-            if len(source_file) > 1:  # get dirname and assemble path
-                out_path = [
-                    os.path.join(
-                        out_dir,
-                        os.path.splitext(os.path.basename(f))[0] + file_format,
-                    )
-                    for f in source_file
-                ]
-            else:
-                # force file_format to conform
-                out_path = [
-                    os.path.join(
-                        out_dir,
-                        os.path.splitext(os.path.basename(fname))[0]
-                        + file_format,
-                    )
-                ]
+            out_dir = root.parent
+            out_path = out_dir / (root.stem + file_format)
 
     # Create folder if save_path does not exist already
     fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
@@ -136,7 +105,7 @@ def _validate_path(
         except FileNotFoundError:
             raise ValueError("Specified save_path is not valid.")
 
-    return out_path  # output_path is always a list
+    return str(out_path)  # output_path is always a string
 
 
 def to_file(
@@ -168,7 +137,6 @@ def to_file(
     output_storage_options : dict
         Additional keywords to pass to the filesystem class.
     """
-    # TODO: revise below since only need 1 output file in use case EchoData.to_zarr()/to_netcdf()
     if parallel:
         raise NotImplementedError(
             "Parallel conversion is not yet implemented."
@@ -179,45 +147,36 @@ def to_file(
     # Assemble output file names and path
     format_mapping = dict(map(reversed, XARRAY_ENGINE_MAP.items()))
     output_file = _validate_path(
-        source_file=[echodata.source_file],
+        source_file=echodata.source_file,
         file_format=format_mapping[engine],
         save_path=save_path,
     )
 
     # Get all existing files
-    exist_list = []
     fs = fsspec.get_mapper(
-        output_file[0], **output_storage_options
+        output_file, **output_storage_options
     ).fs  # get file system
-    for out_f in output_file:
-        if fs.exists(out_f):
-            exist_list.append(out_f)
+    exists = True if fs.exists(output_file) else False
 
     # Sequential or parallel conversion
-    for src_f, out_f in zip([echodata.source_file], output_file):
-        if out_f in exist_list and not overwrite:
-            print(
-                f"{dt.now().strftime('%H:%M:%S')}  {src_f} has already been converted to {engine}. "
-                f"File saving not executed."
-            )
-            continue
+    if exists and not overwrite:
+        print(
+            f"{dt.now().strftime('%H:%M:%S')}  {echodata.source_file} has already been converted to {engine}. "
+            f"File saving not executed."
+        )
+    else:
+        if exists:
+            print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {output_file}")
         else:
-            if out_f in exist_list:
-                print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {out_f}")
-            else:
-                print(f"{dt.now().strftime('%H:%M:%S')}  saving {out_f}")
-            _save_groups_to_file(
-                echodata,
-                output_path=_normalize_path(
-                    out_f, engine, output_storage_options
-                ),
-                engine=engine,
-                compress=compress,
-            )
-
-    # If only one output file make it a string instead of a list
-    if len(output_file) == 1:
-        output_file = output_file[0]
+            print(f"{dt.now().strftime('%H:%M:%S')}  saving {output_file}")
+        _save_groups_to_file(
+            echodata,
+            output_path=_normalize_path(
+                output_file, engine, output_storage_options
+            ),
+            engine=engine,
+            compress=compress,
+        )
 
     # Link path to saved file with attribute as if from open_converted
     echodata.converted_raw_path = output_file
@@ -389,19 +348,41 @@ def _set_convert_params(param_dict):
 
 
 def _check_file(file, model, xml_path=None, storage_options={}):
+    """Checks whether the file and/or xml file exists
 
+    Parameters
+    ----------
+    file : str
+        path to raw data file
+    model : str
+        model of the sonar instrument
+    xml_path : str
+        path to XML config file used by AZFP
+    storage_options : dict
+        options for cloud storage
+
+    Returns
+    -------
+    file : str
+        path to existing raw data file
+    xml : str
+        path to existing xml file
+        empty string if no xml file is required for the specified model
+    """
     if MODELS[model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
             raise ValueError(f"XML file is required for {model} raw data")
-        elif ".XML" not in os.path.splitext(xml_path)[1].upper():
-            raise ValueError(
-                f"{os.path.basename(xml_path)} is not an XML file"
-            )
+        else:
+            xml_path = Path(xml_path)
+            if ".XML" not in xml_path.suffix.upper():
+                raise ValueError(
+                    f"{xml_path.name} is not an XML file"
+                )
 
-        xmlmap = fsspec.get_mapper(xml_path, **storage_options)
+        xmlmap = fsspec.get_mapper(str(xml_path), **storage_options)
         if not xmlmap.fs.exists(xmlmap.root):
             raise FileNotFoundError(
-                f"There is no file named {os.path.basename(xml_path)}"
+                f"There is no file named {xml_path.name}"
             )
 
         xml = xml_path
@@ -411,18 +392,19 @@ def _check_file(file, model, xml_path=None, storage_options={}):
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(file, **storage_options)
+    file = Path(file)
     ext = MODELS[model]["ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(
-            f"There is no file named {os.path.basename(file)}"
+            f"There is no file named {file.name}"
         )
 
-    if os.path.splitext(file)[1] != ext:
+    if file.suffix.upper() != ext.upper():
         raise ValueError(
             f"Not all files are in the same format. Expecting a {ext} file but got {file}"
         )
 
-    return file, xml
+    return str(file), str(xml)
 
 
 def open_raw(
@@ -440,7 +422,7 @@ def open_raw(
     Parameters
     ----------
     file : str
-        path to raw data file(s)
+        path to raw data file
     model : str
         model of the sonar instrument
     xml_path : str
@@ -496,6 +478,8 @@ def open_raw(
         raise FileNotFoundError("Please specify paths to raw data files.")
 
     # Check for path type
+    if isinstance(file, Path):
+        file = str(file)
     if not isinstance(file, str):
         raise ValueError("file must be a string or Path")
 
@@ -507,18 +491,18 @@ def open_raw(
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
     if MODELS[model]["xml"]:
-        params = xml_path
+        params = xml_chk
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
     # Parse raw file and organize data into groups
     parser = MODELS[model]["parser"](
-        file, params=params, storage_options=storage_options
+        file_chk, params=params, storage_options=storage_options
     )
     parser.parse_raw()
     setgrouper = MODELS[model]["set_groups"](
         parser,
-        input_file=file,
+        input_file=file_chk,
         output_path=None,
         sonar_model=model,
         params=_set_convert_params(convert_params),
