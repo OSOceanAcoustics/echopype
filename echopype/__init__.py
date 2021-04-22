@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function
-from .convert import Convert
+from .convert.api import open_raw
+from .echodata.api import open_converted
 from .process import Process
-from .process import EchoDataNew
-from .calibrate import cal_func as calibrate
+from .calibrate import calibrate_func as calibrate
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+from _echopype_version import version as __version__
+
+__all__ = [open_raw, open_converted]
