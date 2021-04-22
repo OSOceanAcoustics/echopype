@@ -347,15 +347,15 @@ def _set_convert_params(param_dict):
     return out_params
 
 
-def _check_file(file, model, xml_path=None, storage_options={}):
+def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     """Checks whether the file and/or xml file exists and
     whether they have the correct extensions.
 
     Parameters
     ----------
-    file : str
+    raw_file : str
         path to raw data file
-    model : str
+    sonar_model : str
         model of the sonar instrument
     xml_path : str
         path to XML config file used by AZFP
@@ -370,9 +370,9 @@ def _check_file(file, model, xml_path=None, storage_options={}):
         path to existing xml file
         empty string if no xml file is required for the specified model
     """
-    if MODELS[model]["xml"]:  # if this sonar model expects an XML file
+    if MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
-            raise ValueError(f"XML file is required for {model} raw data")
+            raise ValueError(f"XML file is required for {sonar_model} raw data")
         else:
             xml_path = Path(xml_path)
             if ".XML" not in xml_path.suffix.upper():
@@ -392,25 +392,25 @@ def _check_file(file, model, xml_path=None, storage_options={}):
 
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
-    fsmap = fsspec.get_mapper(file, **storage_options)
-    file = Path(file)
-    ext = MODELS[model]["ext"]
+    fsmap = fsspec.get_mapper(raw_file, **storage_options)
+    raw_file = Path(raw_file)
+    ext = MODELS[sonar_model]["ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(
-            f"There is no file named {file.name}"
+            f"There is no file named {raw_file.name}"
         )
 
-    if file.suffix.upper() != ext.upper():
+    if raw_file.suffix.upper() != ext.upper():
         raise ValueError(
-            f"Expecting a {ext} file but got {file}"
+            f"Expecting a {ext} file but got {raw_file}"
         )
 
-    return str(file), str(xml)
+    return str(raw_file), str(xml)
 
 
 def open_raw(
-    file=None,
-    model=None,
+    raw_file=None,
+    sonar_model=None,
     xml_path=None,
     convert_params=None,
     storage_options=None,
@@ -422,9 +422,9 @@ def open_raw(
 
     Parameters
     ----------
-    file : str
+    raw_file : str
         path to raw data file
-    model : str
+    sonar_model : str
         model of the sonar instrument
     xml_path : str
         path to XML config file used by AZFP
@@ -434,7 +434,7 @@ def open_raw(
     storage_options : dict
         options for cloud storage
     """
-    if (model is None) and (file is None):
+    if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
         return
 
@@ -443,92 +443,92 @@ def open_raw(
         convert_params = {}
     storage_options = storage_options if storage_options is not None else {}
 
-    if model is None:
+    if sonar_model is None:
         print("Please specify the sonar model.")
 
         if xml_path is None:
-            model = "EK60"
+            sonar_model = "EK60"
             warnings.warn(
-                "Current behavior is to default model='EK60' when no XML file is passed in as argument. "
-                "Specifying model='EK60' will be required in the future, "
+                "Current behavior is to default sonar_model='EK60' when no XML file is passed in as argument. "
+                "Specifying sonar_model='EK60' will be required in the future, "
                 "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
                 DeprecationWarning,
                 2,
             )
         else:
-            xml_path = model
-            model = "AZFP"
+            xml_path = sonar_model
+            sonar_model = "AZFP"
             warnings.warn(
-                "Current behavior is to set model='AZFP' when an XML file is passed in as argument. "
-                "Specifying model='AZFP' will be required in the future.",
+                "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "
+                "Specifying sonar_model='AZFP' will be required in the future.",
                 DeprecationWarning,
                 2,
             )
     else:
         # Uppercased model in case people use lowercase
-        model = model.upper()
+        sonar_model = sonar_model.upper()
 
         # Check models
-        if model not in MODELS:
+        if sonar_model not in MODELS:
             raise ValueError(
-                f"Unsupported echosounder model: {model}\nMust be one of: {list(MODELS)}"
+                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(MODELS)}"
             )
 
     # Check paths and file types
-    if file is None:
+    if raw_file is None:
         raise FileNotFoundError("Please specify the path to the raw data file.")
 
     # Check for path type
-    if isinstance(file, Path):
-        file = str(file)
-    if not isinstance(file, str):
+    if isinstance(raw_file, Path):
+        raw_file = str(raw_file)
+    if not isinstance(raw_file, str):
         raise ValueError("file must be a string or Path")
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(
-        file, model, xml_path, storage_options
+        raw_file, sonar_model, xml_path, storage_options
     )
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
-    if MODELS[model]["xml"]:
+    if MODELS[sonar_model]["xml"]:
         params = xml_chk
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
     # Parse raw file and organize data into groups
-    parser = MODELS[model]["parser"](
+    parser = MODELS[sonar_model]["parser"](
         file_chk, params=params, storage_options=storage_options
     )
     parser.parse_raw()
-    setgrouper = MODELS[model]["set_groups"](
+    setgrouper = MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
         output_path=None,
-        sonar_model=model,
+        sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
     )
     # Set up echodata object
     echodata = EchoData(
-        source_file=file_chk, xml_path=xml_chk, sonar_model=model
+        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model
     )
     # Top-level date_created varies depending on sonar model
-    if model in ["EK60", "EK80"]:
+    if sonar_model in ["EK60", "EK80"]:
         echodata.top = setgrouper.set_toplevel(
-            sonar_model=model, date_created=parser.config_datagram['timestamp']
+            sonar_model=sonar_model, date_created=parser.config_datagram['timestamp']
         )
     else:
         echodata.top = setgrouper.set_toplevel(
-            sonar_model=model, date_created=parser.ping_time[0]
+            sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
     echodata.environment = setgrouper.set_env()
     echodata.platform = setgrouper.set_platform()
-    if model in ["EK60", "EK80"]:
+    if sonar_model in ["EK60", "EK80"]:
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
     # Beam_power group only exist if EK80 has both complex and power/angle data
-    if model == "EK80":
+    if sonar_model == "EK80":
         echodata.beam, echodata.beam_power = setgrouper.set_beam()
     else:
         echodata.beam = setgrouper.set_beam()
