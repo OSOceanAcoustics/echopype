@@ -22,22 +22,25 @@ class EchoData:
     """
 
     def __init__(
-            self,
-            converted_raw_path=None,
-            storage_options=None,
-            source_file=None,
-            xml_path=None,
-            sonar_model=None,
+        self,
+        converted_raw_path=None,
+        storage_options=None,
+        source_file=None,
+        xml_path=None,
+        sonar_model=None,
     ):
 
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
         self.converted_raw_path = converted_raw_path
-        self.storage_options = storage_options if storage_options is not None else {}
+        self.storage_options = (
+            storage_options if storage_options is not None else {}
+        )
         self.source_file = source_file
         self.xml_path = xml_path
         self.sonar_model = sonar_model
+        self.delayed = False
 
         self.__setup_groups()
         if converted_raw_path:
@@ -47,11 +50,20 @@ class EchoData:
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
-        existing_groups = [
-            f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
-            for group in self.__group_map.keys()
-            if isinstance(getattr(self, group), xr.Dataset)
-        ]
+        if self.delayed:
+            from dask.delayed import Delayed
+
+            existing_groups = [
+                f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
+                for group in self.__group_map.keys()
+                if isinstance(getattr(self, group), (xr.Dataset, Delayed))
+            ]
+        else:
+            existing_groups = [
+                f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
+                for group in self.__group_map.keys()
+                if isinstance(getattr(self, group), xr.Dataset)
+            ]
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
@@ -66,23 +78,47 @@ class EchoData:
         try:
             from xarray.core.options import OPTIONS
 
+            if self.delayed:
+                from dask.delayed import Delayed
+
             display_style = OPTIONS["display_style"]
             if display_style == "text":
                 html_repr = f"<pre>{escape(repr(self))}</pre>"
             else:
                 xr_collections = []
                 for group in self.__group_map.keys():
-                    if isinstance(getattr(self, group), xr.Dataset):
-                        xr_data = getattr(self, group)._repr_html_()
-                        xr_collections.append(
-                            HtmlTemplate.element_template.format(  # noqa
-                                group_id=group + str(uuid.uuid4()),
-                                group=group,
-                                group_name=self.__group_map[group]["name"],
-                                group_description=self.__group_map[group]["description"],
-                                xr_data=xr_data,
+                    if self.delayed:
+                        attr = getattr(self, group)
+                        if isinstance(attr, (xr.Dataset, Delayed)):
+                            if isinstance(attr, xr.Dataset):
+                                xr_data = attr._repr_html_()
+                            else:
+                                xr_data = f"<p>{repr(attr)}</p>"
+                            xr_collections.append(
+                                HtmlTemplate.element_template.format(  # noqa
+                                    group_id=group + str(uuid.uuid4()),
+                                    group=group,
+                                    group_name=self.__group_map[group]["name"],
+                                    group_description=self.__group_map[group][
+                                        "description"
+                                    ],
+                                    xr_data=xr_data,
+                                )
                             )
-                        )
+                    else:
+                        if isinstance(getattr(self, group), xr.Dataset):
+                            xr_data = getattr(self, group)._repr_html_()
+                            xr_collections.append(
+                                HtmlTemplate.element_template.format(  # noqa
+                                    group_id=group + str(uuid.uuid4()),
+                                    group=group,
+                                    group_name=self.__group_map[group]["name"],
+                                    group_description=self.__group_map[group][
+                                        "description"
+                                    ],
+                                    xr_data=xr_data,
+                                )
+                            )
                 elements = "".join(xr_collections)
                 fpath = "Internal Memory"
                 if self.converted_raw_path:
@@ -91,7 +127,9 @@ class EchoData:
                     elements, file_path=str(fpath)
                 )  # noqa
                 css_template = HtmlTemplate.css_template  # noqa
-                html_repr = "%(formatted_html_template)s%(css_template)s" % locals()
+                html_repr = (
+                    "%(formatted_html_template)s%(css_template)s" % locals()
+                )
         except:  # noqa
             html_repr = f"<pre>{escape(repr(self))}</pre>"
         return html_repr
@@ -139,7 +177,77 @@ class EchoData:
         if suffix not in XARRAY_ENGINE_MAP:
             raise ValueError("Input file type not supported!")
 
-        return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
+        return xr.open_dataset(
+            filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix]
+        )
+
+    def _persist_inplace(self, **kwargs) -> "EchoData":
+        """Persist all Echodata groups in memory"""
+        if self.delayed:
+            import dask
+            from dask.delayed import Delayed
+
+            lazy_groups = {
+                group: getattr(self, group)
+                for group in self.__group_map.keys()
+                if isinstance(getattr(self, group), Delayed)
+            }
+
+            evaluated_groups = dask.persist(*lazy_groups.values(), **kwargs)
+            for k, data in zip(lazy_groups, evaluated_groups):
+                setattr(self, k, data)
+
+        return self
+
+    def persist(self, **kwargs) -> "EchoData":
+        """
+        Trigger computation, keeping groups as delayed objects.
+        This operation can be used to trigger computation on underlying dask
+        arrays, similar to ``.load()``.
+
+        This is particularly useful when using the dask.distributed scheduler
+        and you want to load a large amount of data into distributed memory.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments passed on to ``dask.persist``.
+
+        See Also
+        --------
+        dask.persist
+        """
+        return self._persist_inplace(**kwargs)
+
+    def load(self, **kwargs) -> "EchoData":
+        """
+        Manually trigger loading and/or computation of delayed echodata groups.
+        The original EchoData object is modified and returned.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments passed on to ``dask.compute``.
+
+        See Also
+        --------
+        dask.compute
+        """
+        if self.delayed:
+            import dask
+            from dask.delayed import Delayed
+
+            lazy_groups = {
+                group: getattr(self, group)
+                for group in self.__group_map.keys()
+                if isinstance(getattr(self, group), Delayed)
+            }
+
+            evaluated_groups = dask.compute(*lazy_groups.values(), **kwargs)
+            for k, data in zip(lazy_groups, evaluated_groups):
+                setattr(self, k, data)
+
+        return self
 
     def to_netcdf(self, **kwargs):
         """Save content of EchoData to netCDF.
