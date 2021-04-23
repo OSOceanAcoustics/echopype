@@ -86,7 +86,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                     "time": [packet.timestamp],
                     time_dim: [packet.timestamp]
                 }
-                if "beam0" in packet.data:
+                if "beams" in packet.data_exclude:
                     coords["beam"] = packet.data_exclude["beams"]
                 new_packet = xr.Dataset(
                     data_vars=data_vars,
