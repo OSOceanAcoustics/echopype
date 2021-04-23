@@ -1,12 +1,15 @@
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
+from typing import Union
+
+from collections import OrderedDict
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 import zarr
 
-from ..utils import io
+from ..utils import io, funcs
 
 from ..echodata.echodata import EchoData, XARRAY_ENGINE_MAP
 
@@ -408,13 +411,60 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     return str(raw_file), str(xml)
 
 
-def open_raw(
-    raw_file=None,
-    sonar_model=None,
-    xml_path=None,
-    convert_params=None,
-    storage_options=None,
+def _load_groups(
+    echodata,
+    setgrouper,
+    set_func,
+    sonar_model,
+    load=True,
+    token=None
 ):
+    """ Function to load groups into echodata (will mutate object) """
+    # TODO: Potentially grab from convention yaml?
+    groups_to_load = OrderedDict([
+        ('top', 'set_toplevel'),
+        ('environment', 'set_env'),
+        ('platform', 'set_platform'),
+        ('nmea', 'set_nmea'),
+        ('provenance', 'set_provenance'),
+        ('sonar', 'set_sonar'),
+        ('beam', 'set_beam'),
+        ('vendor', 'set_vendor')
+    ])
+
+    for group, func in groups_to_load.items():
+        if (group == 'nmea') and (sonar_model in ["EK60", "EK80"]):
+            continue
+
+        if load:
+            ds = set_func(
+                setgrouper, func
+            )
+        else:
+            ds = set_func(
+                setgrouper, func, dask_key_name=f"{func}-{token}"
+            )
+
+        if (group == "beam") and (sonar_model == "EK80"):
+            # Beam_power group only exist if EK80 has both complex and power/angle data
+            setattr(echodata, group, ds[0])
+            setattr(echodata, "beam_power", ds[1])
+            continue
+
+        setattr(echodata, group, ds)
+
+    if not load:
+        setattr(echodata, 'delayed', True)
+
+
+def open_raw(
+    raw_file: Union[str, None] = None,
+    sonar_model: Union[str, None] = None,
+    xml_path: Union[str, None] = None,
+    convert_params: Union[dict, None] = None,
+    storage_options: Union[dict, None] = None,
+    load: bool = True,
+) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -433,6 +483,8 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
+    load : bool
+        option to load the data into memory right away
     """
     if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
@@ -496,42 +548,56 @@ def open_raw(
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
-    # Parse raw file and organize data into groups
-    parser = MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options
-    )
-    parser.parse_raw()
-    setgrouper = MODELS[sonar_model]["set_groups"](
-        parser,
-        input_file=file_chk,
-        output_path=None,
-        sonar_model=sonar_model,
-        params=_set_convert_params(convert_params),
-    )
     # Set up echodata object
     echodata = EchoData(
         source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model
     )
-    # Top-level date_created varies depending on sonar model
-    if sonar_model in ["EK60", "EK80"]:
-        echodata.top = setgrouper.set_toplevel(
-            sonar_model=sonar_model, date_created=parser.config_datagram['timestamp']
+
+    if load:
+        token = None
+        # Parse raw file and organize data into groups
+        parser = funcs.__parse_raw(
+            parser_class=MODELS[sonar_model]["parser"],
+            file=file_chk,
+            params=params,
+            storage_options=storage_options,
         )
-    else:
-        echodata.top = setgrouper.set_toplevel(
-            sonar_model=sonar_model, date_created=parser.ping_time[0]
+        setgrouper = funcs.__get_set_grouper(
+            set_groups_class=MODELS[sonar_model]["set_groups"],
+            parser=parser,
+            input_file=file_chk,
+            output_path=None,
+            sonar_model=sonar_model,
+            params=_set_convert_params(convert_params),
         )
-    echodata.environment = setgrouper.set_env()
-    echodata.platform = setgrouper.set_platform()
-    if sonar_model in ["EK60", "EK80"]:
-        echodata.nmea = setgrouper.set_nmea()
-    echodata.provenance = setgrouper.set_provenance()
-    echodata.sonar = setgrouper.set_sonar()
-    # Beam_power group only exist if EK80 has both complex and power/angle data
-    if sonar_model == "EK80":
-        echodata.beam, echodata.beam_power = setgrouper.set_beam()
+
+        set_func = funcs.__set_func
     else:
-        echodata.beam = setgrouper.set_beam()
-    echodata.vendor = setgrouper.set_vendor()
+        import dask
+        from dask.base import tokenize
+
+        token = tokenize(file_chk, sonar_model, xml_path, convert_params)
+
+        # Parse raw file and organize data into groups
+        parser = dask.delayed(funcs.__parse_raw)(
+            parser_class=MODELS[sonar_model]["parser"],
+            file=file_chk,
+            params=params,
+            storage_options=storage_options,
+            dask_key_name=f"parse_raw-{token}",
+        )
+        setgrouper = dask.delayed(funcs.__get_set_grouper)(
+            set_groups_class=MODELS[sonar_model]["set_groups"],
+            parser=parser,
+            input_file=file_chk,
+            output_path=None,
+            sonar_model=sonar_model,
+            params=_set_convert_params(convert_params),
+            dask_key_name=f"get_set_grouper-{token}",
+        )
+
+        set_func = dask.delayed(funcs.__set_func)
+
+    _load_groups(echodata, setgrouper, set_func, sonar_model, load, token)
 
     return echodata
