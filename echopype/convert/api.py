@@ -380,16 +380,15 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
         if not xml_path:
             raise ValueError(f"XML file is required for {sonar_model} raw data")
         else:
-            xml_path = Path(xml_path)
-            if ".XML" not in xml_path.suffix.upper():
+            if ".XML" not in Path(xml_path).suffix.upper():
                 raise ValueError(
-                    f"{xml_path.name} is not an XML file"
+                    f"{Path(xml_path).name} is not an XML file"
                 )
 
         xmlmap = fsspec.get_mapper(str(xml_path), **storage_options)
         if not xmlmap.fs.exists(xmlmap.root):
             raise FileNotFoundError(
-                f"There is no file named {xml_path.name}"
+                f"There is no file named {Path(xml_path).name}"
             )
 
         xml = xml_path
@@ -399,14 +398,13 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
-    raw_file = Path(raw_file)
     ext = MODELS[sonar_model]["ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(
-            f"There is no file named {raw_file.name}"
+            f"There is no file named {Path(raw_file).name}"
         )
 
-    if raw_file.suffix.upper() != ext.upper():
+    if Path(raw_file).suffix.upper() != ext.upper():
         raise ValueError(
             f"Expecting a {ext} file but got {raw_file}"
         )
