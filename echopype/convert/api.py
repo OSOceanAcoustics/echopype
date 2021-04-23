@@ -55,7 +55,8 @@ def _validate_path(
     ----------
     file_format : str {'.nc', '.zarr'}
     save_path : str
-        Either a directory or a file. If none then the save path is the same as the raw file.
+        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
+        in the current working directory.
     """
     if save_path is None:
         warnings.warn("save_path is not provided")
@@ -73,14 +74,19 @@ def _validate_path(
         out_path = out_dir / (Path(source_file).stem + file_format)
 
     else:
-        fsmap = fsspec.get_mapper(save_path, **output_storage_options)
+        if isinstance(save_path, str):
+            save_path = Path(save_path)
+        elif not isinstance(save_path, Path):
+            raise TypeError('save_path must be a string or Path')
+
+        fsmap = fsspec.get_mapper(str(save_path), **output_storage_options)
         output_fs = fsmap.fs
 
         # Use the full path such as s3://... if it's not local, otherwise use root
         if isinstance(output_fs, LocalFileSystem):
             root = Path(fsmap.root)
         else:
-            root = Path(save_path)
+            root = save_path
 
         if root.suffix == "":  # directory
             out_dir = root
@@ -482,7 +488,7 @@ def open_raw(
     if isinstance(raw_file, Path):
         raw_file = str(raw_file)
     if not isinstance(raw_file, str):
-        raise ValueError("file must be a string or Path")
+        raise TypeError("file must be a string or Path")
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(
