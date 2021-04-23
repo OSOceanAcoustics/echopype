@@ -3,9 +3,10 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from scipy.io import loadmat
-from ..echodata import open_raw
+from .. import open_raw
 
 ek60_path = Path('./echopype/test_data/ek60/')
+output_dir = Path('./echopype/test_data/ek60/echopype_test_export')
 
 # raw_paths = ['./echopype/test_data/ek60/set1/' + file
             #  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
@@ -24,11 +25,11 @@ def test_convert_ek60_matlab_raw():
     ek60_matlab_path = str(ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025_rawData.mat'))
 
     # Convert file
-    echodata = open_raw(file=ek60_raw_path, model='EK60')
-    echodata.to_netcdf()
+    echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
+    echodata.to_netcdf(save_path=output_dir)
 
     # Compare with matlab outputs
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
         ds_matlab = loadmat(ek60_matlab_path)
 
         # power
@@ -45,7 +46,8 @@ def test_convert_ek60_matlab_raw():
                 ds_beam['angle_' + angle].transpose('frequency', 'range_bin', 'ping_time')
             )
 
-    Path(echodata.output_file).unlink()
+    Path(echodata.converted_raw_path).unlink()
+    output_dir.rmdir()
 
 
 def test_convert_ek60_echoview_raw():
@@ -64,13 +66,14 @@ def test_convert_ek60_echoview_raw():
     test_power = np.stack(channels)
 
     # Convert to netCDF and check
-    echodata = open_raw(file=ek60_raw_path, model='EK60')
-    echodata.to_netcdf()
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
+    echodata.to_netcdf(save_path=output_dir)
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
         for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
             assert np.allclose(
                 test_power[fidx, :, :],
                 ds_beam.backscatter_r.isel(frequency=fidx, ping_time=slice(None, 10), range_bin=slice(1, None)),
                 atol=9e-6, rtol=atol
             )
-    Path(echodata.output_file).unlink()
+    Path(echodata.converted_raw_path).unlink()
+    output_dir.rmdir()

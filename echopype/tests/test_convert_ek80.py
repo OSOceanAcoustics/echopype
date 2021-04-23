@@ -4,9 +4,10 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from scipy.io import loadmat
-from ..echodata import open_raw
+from .. import open_raw
 
 ek80_path = Path('./echopype/test_data/ek80/')
+output_dir = Path('./echopype/test_data/ek80/echopype_test_export')
 
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
@@ -23,12 +24,12 @@ def test_convert_ek80_complex_matlab():
     ek80_matlab_path_bb = str(ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat'))
 
     # Convert file
-    echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
-    echodata.to_netcdf()
+    echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
+    echodata.to_netcdf(save_path=output_dir)
 
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
         assert np.array_equal(
             ds_beam.backscatter_r.isel(frequency=0, ping_time=0).dropna('range_bin').values[1:, :],
             np.real(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # real part
@@ -38,7 +39,8 @@ def test_convert_ek80_complex_matlab():
             np.imag(ds_matlab['data']['echodata'][0][0][0,0]['complexsamples'])  # imag part
         )
 
-    Path(echodata.output_file).unlink()
+    Path(echodata.converted_raw_path).unlink()
+    output_dir.rmdir()
 
 
 def test_convert_ek80_cw_power_echoview():
@@ -56,11 +58,11 @@ def test_convert_ek80_cw_power_echoview():
     # ]
 
     # Convert file
-    echodata = open_raw(ek80_raw_path_cw, model='EK80')
-    echodata.to_netcdf()
+    echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
+    echodata.to_netcdf(save_path=output_dir)
 
     # Test power
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
         # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
         ds_beam.backscatter_r[3, 4, 13174] = -999
         for file, freq in zip(ek80_echoview_power_csv, freq_list):
@@ -72,7 +74,7 @@ def test_convert_ek80_cw_power_echoview():
             )
 
     # # Test angle  TODO: fix angle test: bug in parser
-    # with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    # with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
     #     # Convert from electrical angles to physical angle [deg]
     #     major = (ds_beam['angle_athwartship'] * 1.40625
     #              / ds_beam['angle_sensitivity_athwartship']
@@ -94,7 +96,8 @@ def test_convert_ek80_cw_power_echoview():
     #                 rtol=0, atol=1e-5
     #             )
 
-    Path(echodata.output_file).unlink()
+    Path(echodata.converted_raw_path).unlink()
+    output_dir.rmdir()
 
 
 def test_convert_ek80_complex_echoview():
@@ -104,12 +107,12 @@ def test_convert_ek80_complex_echoview():
     ek80_echoview_bb_power_csv = ek80_path.joinpath('from_echoview/D20170912-T234910/70 kHz raw power.complex.csv')
 
     # Convert file
-    echodata = open_raw(file=ek80_raw_path_bb, model='EK80')
-    echodata.to_netcdf()
+    echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
+    echodata.to_netcdf(save_path=output_dir)
 
     # Test complex parsed data
     df_bb = pd.read_csv(ek80_echoview_bb_power_csv, header=None, skiprows=[0])  # averaged across quadrants
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
         assert np.allclose(
             ds_beam.backscatter_r.sel(frequency=70e3).dropna('range_bin').mean(dim='quadrant'),
             df_bb.iloc[::2, 14:],  # real rows
@@ -121,48 +124,51 @@ def test_convert_ek80_complex_echoview():
             rtol=0, atol=4e-6
         )
 
-    Path(echodata.output_file).unlink()
+    Path(echodata.converted_raw_path).unlink()
+    output_dir.rmdir()
 
 
 def test_convert_ek80_cw_bb_in_single_file():
     """Make sure can convert a single EK80 file containing both CW and BB mode data.
     """
     ek80_raw_path_bb_cw = str(ek80_path.joinpath('Summer2018--D20180905-T033113.raw'))
-    echodata = open_raw(file=ek80_raw_path_bb_cw, model='EK80')
-    echodata.to_zarr()
+    echodata = open_raw(raw_file=ek80_raw_path_bb_cw, sonar_model='EK80')
+    echodata.to_zarr(save_path=output_dir)
 
     # Check there are both Beam and Beam_power groups in the converted file
-    ds_beam = xr.open_zarr(echodata.output_file, group='Beam')
-    ds_beam_power = xr.open_zarr(echodata.output_file, group='Beam_power')
+    ds_beam = xr.open_zarr(echodata.converted_raw_path, group='Beam')
+    ds_beam_power = xr.open_zarr(echodata.converted_raw_path, group='Beam_power')
 
     ds_beam.close()
     ds_beam_power.close()
-    shutil.rmtree(echodata.output_file)
+    shutil.rmtree(echodata.converted_raw_path)
+    output_dir.rmdir()
 
 
 def test_convert_ek80_freq_subset():
     """Make sure can convert EK80 file with multiple frequency channels off.
     """
     ek80_raw_path_freq_subset = str(ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw'))
-    echodata = open_raw(file=ek80_raw_path_freq_subset, model='EK80')
-    echodata.to_zarr()
+    echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
+    echodata.to_zarr(save_path=output_dir)
 
     # Check if converted output has only 2 frequency channels
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
+    with xr.open_dataset(echodata.converted_raw_path, group='Beam', engine='zarr') as ds_beam:
         assert ds_beam.frequency.size == 2
-    shutil.rmtree(echodata.output_file)
+    shutil.rmtree(echodata.converted_raw_path)
+    output_dir.rmdir()
 
 
 # def test_xml():
 #     # Tests the exporting of the configuration xml as well as the environment xml
-#     tmp = Convert(file=raw_path_bb_cw, model='EK80')
+#     tmp = Convert(raw_file=raw_path_bb_cw, sonar_model='EK80')
 #     tmp.to_xml(data_type='CONFIG')
-#     assert os.path.exists(tmp.output_file)
-#     os.remove(tmp.output_file)
+#     assert os.path.exists(tmp.converted_raw_path)
+#     os.remove(tmp.converted_raw_path)
 #
 #     tmp.to_xml(save_path='env.xml', data_type='ENV')
-#     assert os.path.exists(tmp.output_file)
-#     os.remove(tmp.output_file)
+#     assert os.path.exists(tmp.converted_raw_path)
+#     os.remove(tmp.converted_raw_path)
 #
 #
 # def test_add_platform():
@@ -176,9 +182,9 @@ def test_convert_ek80_freq_subset():
 #     testing_ds = xr.Dataset({'lat': (['location_time'], lat),
 #                              'lon': (['location_time'], lon)},
 #                             coords={'location_time': (['location_time'], location_time)})
-#     tmp = Convert(file=raw_path_cw, model='EK80')
+#     tmp = Convert(raw_file=raw_path_cw, sonar_model='EK80')
 #     tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
-#     with xr.open_dataset(tmp.output_file, group='Platform') as ds_plat:
+#     with xr.open_dataset(tmp.converted_raw_path, group='Platform') as ds_plat:
 #         # Test if the slicing the location_time with the ping_time worked
 #         assert len(ds_plat.location_time) == 3
-#     os.remove(tmp.output_file)
+#     os.remove(tmp.converted_raw_path)
