@@ -6,8 +6,58 @@ import numpy as np
 from ..utils import uwa
 
 
-def compute_MVBS():
-    return 1
+def _check_range_uniqueness(ds):
+    """Check if range changes across ping in a given frequency channel.
+    """
+    return (ds['range'].isel(ping_time=0) == ds['range']).all()
+
+
+def compute_MVBS(ds_Sv, range_bin_bin=10, ping_time_bin=10):
+    """Compute Mean Volume Backscattering Strength (MVBS) based on physical units.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        calibrated Sv dataset
+    range_bin_bin : Union[int, float]
+        bin size along ``range`` in meters
+    ping_time_bin : Union[int, float]
+        bin size along ``ping_time`` in seconds
+
+    Returns
+    -------
+    a data set containing bin-averaged Sv
+    """
+
+    if not ds_Sv.groupby('frequency').apply(_check_range_uniqueness).all():
+        raise ValueError("`range` variable changes across pings in at least one of the frequency channel.")
+
+    def _freq_MVBS(ds, rint, pbin):
+        sv = 10 ** (ds['Sv'] / 10)  # average should be done in linear domain
+        sv.coords['range_meter'] = (['range_bin'], ds_Sv['range'].isel(frequency=0, ping_time=0))
+        sv = sv.swap_dims({'range_bin': 'range_meter'})
+        sv_groupby_bins = (
+            sv.groupby_bins('range_meter', bins=rint, right=False, include_lowest=True).mean()
+                .resample(ping_time=str(pbin) + 'S', skipna=True).mean()
+        )
+        sv_groupby_bins.coords['range'] = (['range_meter_bins'], range_interval[:-1])
+        sv_groupby_bins = sv_groupby_bins.swap_dims({'range_meter_bins': 'range'})
+        sv_groupby_bins = sv_groupby_bins.drop_vars('range_meter_bins')
+        return 10 * np.log10(sv_groupby_bins)
+
+    # Groupby freq in case of different range (from different sampling intervals)
+    range_interval = np.arange(0, ds_Sv['range'].max() + range_bin_bin, range_bin_bin)
+    MVBS = ds_Sv.groupby('frequency').apply(_freq_MVBS, args=(range_interval, ping_time_bin))
+
+    # Attach attributes
+    MVBS = MVBS.to_dataset()
+    MVBS.attrs = {
+        'mode': 'physical units',
+        'range_meter_bin': str(range_bin_bin) + 'm',
+        'ping_time_bin': str(ping_time_bin) + 'S'
+    }
+
+    return MVBS
 
 
 def regrid():
