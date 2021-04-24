@@ -13,7 +13,11 @@ def _check_range_uniqueness(ds):
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin='20S'):
-    """Compute Mean Volume Backscattering Strength (MVBS) based on physical units.
+    """Compute Mean Volume Backscattering Strength (MVBS)
+    based on intervals of range and ping_time specified in physical units.
+
+    Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
+    bin-averaged Sv according to intervals of range and ping_time specified as index number.
 
     Parameters
     ----------
@@ -21,7 +25,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin='20S'):
         dataset containing Sv and range [m]
     range_meter_bin : Union[int, float]
         bin size along ``range`` in meters, default to ``20``
-    ping_time_bin : Union[int, float]
+    ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
 
     Returns
@@ -50,14 +54,54 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin='20S'):
     MVBS = ds_Sv.groupby('frequency').apply(_freq_MVBS, args=(range_interval, ping_time_bin))
 
     # Attach attributes
-    MVBS = MVBS.to_dataset()
     MVBS.attrs = {
-        'mode': 'physical units',
-        'range_meter_bin': str(range_meter_bin) + 'm',
-        'ping_time_bin': ping_time_bin
+        'binning_mode': 'physical units',
+        'range_meter_interval': str(range_meter_bin) + 'm',
+        'ping_time_interval': ping_time_bin
     }
 
-    return MVBS
+    return MVBS.to_dataset(promote_attrs=True)
+
+
+def compute_MVBS_index_binning(ds_Sv, range_bin_interval=100, ping_num_interval=100):
+    """Compute Mean Volume Backscattering Strength (MVBS)
+    based on intervals of range_bin and ping number specified in index number.
+
+    Output of this function differs from that of ``compute_MVBS``, which computes
+    bin-averaged Sv according to intervals of range and ping_time specified in physical units.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        dataset containing Sv and range [m]
+    range_bin_interval : int
+        number of sample bins to average along the ``range_bin`` dimensionm in index number, default to 100
+    ping_num_interval : int
+        number of pings to average along the ``ping_time`` dimension, in index number, default to 100
+
+    Returns
+    -------
+    A dataset containing bin-averaged Sv
+    """
+    ds_Sv['sv'] = 10 ** (ds_Sv['Sv'] / 10)  # average should be done in linear domain
+    ds_out = ds_Sv.coarsen(
+        ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
+    ).mean(skipna=True)
+    ds_out['Sv'] = 10 * np.log10(ds_out['sv'])  # binned average
+    ds_out['range'] = ds_Sv['range'].coarsen(   # binned range (use first value in each bin)
+        ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
+    ).min(skipna=True)
+    ds_out = ds_out.drop_vars('sv')
+    ds_out.coords['range_bin'] = ('range_bin', np.arange(ds_out['range_bin'].size))  # reset range_bin to start from 0
+
+    # Attach attributes
+    ds_out.attrs = {
+        'binning_mode': 'index',
+        'range_bin_interval': range_bin_interval,
+        'ping_number_interval': ping_num_interval
+    }
+
+    return ds_out
 
 
 def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3):
