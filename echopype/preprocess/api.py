@@ -12,21 +12,21 @@ def _check_range_uniqueness(ds):
     return (ds['range'].isel(ping_time=0) == ds['range']).all()
 
 
-def compute_MVBS(ds_Sv, range_bin_bin=10, ping_time_bin=10):
+def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin='20S'):
     """Compute Mean Volume Backscattering Strength (MVBS) based on physical units.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and range [m]
-    range_bin_bin : Union[int, float]
-        bin size along ``range`` in meters
+    range_meter_bin : Union[int, float]
+        bin size along ``range`` in meters, default to ``20``
     ping_time_bin : Union[int, float]
-        bin size along ``ping_time`` in seconds
+        bin size along ``ping_time``, default to ``20S``
 
     Returns
     -------
-    a data set containing bin-averaged Sv
+    A dataset containing bin-averaged Sv
     """
 
     if not ds_Sv.groupby('frequency').apply(_check_range_uniqueness).all():
@@ -38,30 +38,26 @@ def compute_MVBS(ds_Sv, range_bin_bin=10, ping_time_bin=10):
         sv = sv.swap_dims({'range_bin': 'range_meter'})
         sv_groupby_bins = (
             sv.groupby_bins('range_meter', bins=rint, right=False, include_lowest=True).mean()
-                .resample(ping_time=str(pbin) + 'S', skipna=True).mean()
+                .resample(ping_time=pbin, skipna=True).mean()
         )
-        sv_groupby_bins.coords['range'] = (['range_meter_bins'], range_interval[:-1])
+        sv_groupby_bins.coords['range'] = (['range_meter_bins'], rint[:-1])
         sv_groupby_bins = sv_groupby_bins.swap_dims({'range_meter_bins': 'range'})
         sv_groupby_bins = sv_groupby_bins.drop_vars('range_meter_bins')
         return 10 * np.log10(sv_groupby_bins)
 
     # Groupby freq in case of different range (from different sampling intervals)
-    range_interval = np.arange(0, ds_Sv['range'].max() + range_bin_bin, range_bin_bin)
+    range_interval = np.arange(0, ds_Sv['range'].max() + range_meter_bin, range_meter_bin)
     MVBS = ds_Sv.groupby('frequency').apply(_freq_MVBS, args=(range_interval, ping_time_bin))
 
     # Attach attributes
     MVBS = MVBS.to_dataset()
     MVBS.attrs = {
         'mode': 'physical units',
-        'range_meter_bin': str(range_bin_bin) + 'm',
-        'ping_time_bin': str(ping_time_bin) + 'S'
+        'range_meter_bin': str(range_meter_bin) + 'm',
+        'ping_time_bin': ping_time_bin
     }
 
     return MVBS
-
-
-def regrid():
-    return 1
 
 
 def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3):
@@ -144,3 +140,9 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
     )
 
     return ds_out
+
+
+def regrid():
+    return 1
+
+
