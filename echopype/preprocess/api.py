@@ -84,14 +84,16 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_interval=100, ping_num_interval=
     A dataset containing bin-averaged Sv
     """
     ds_Sv['sv'] = 10 ** (ds_Sv['Sv'] / 10)  # average should be done in linear domain
-    ds_out = ds_Sv.coarsen(
+    da = 10 * np.log10(ds_Sv['sv'].coarsen(
         ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
-    ).mean(skipna=True)
-    ds_out['Sv'] = 10 * np.log10(ds_out['sv'])  # binned average
-    ds_out['range'] = ds_Sv['range'].coarsen(   # binned range (use first value in each bin)
+    ).mean(skipna=True))
+
+    # Attach coarsened range
+    da.name = 'Sv'
+    ds_out = da.to_dataset()
+    ds_out['range'] = ds_Sv['range'].coarsen(  # binned range (use first value in each bin)
         ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
     ).min(skipna=True)
-    ds_out = ds_out.drop_vars('sv')
     ds_out.coords['range_bin'] = ('range_bin', np.arange(ds_out['range_bin'].size))  # reset range_bin to start from 0
 
     # Attach attributes
