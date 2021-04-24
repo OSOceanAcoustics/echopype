@@ -67,3 +67,16 @@ class CalibrateBase:
 
     def compute_Sp(self, **kwargs):
         pass
+
+    def _add_params_to_output(self, ds_out):
+        """Add all cal and env parameters to output Sv dataset.
+        """
+        # Add env_params
+        for key, val in self.env_params.items():
+            ds_out[key] = val
+
+        # Add cal_params
+        for key, val in self.cal_params.items():
+            ds_out[key] = val
+
+        return ds_out
