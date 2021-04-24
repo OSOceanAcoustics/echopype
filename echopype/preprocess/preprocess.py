@@ -18,7 +18,7 @@ def compute_MVBS(ds_Sv, range_bin_bin=10, ping_time_bin=10):
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        calibrated Sv dataset
+        dataset containing Sv and range [m]
     range_bin_bin : Union[int, float]
         bin size along ``range`` in meters
     ping_time_bin : Union[int, float]
@@ -64,87 +64,83 @@ def regrid():
     return 1
 
 
-def remove_noise(ds_Sv, env_params, ping_num, range_bin_num, SNR=3, save_noise_est=False):
-    """Remove noise by using estimates of background noise.
+def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3):
+    """Remove noise by using estimates of background noise from mean calibrated power of a collection of pings.
 
-    The background noise is estimated from the minimum mean calibrated power level
-    along each column of tiles.
-
-    Reference: De Robertis & Higginbottom, 2007, ICES Journal of Marine Sciences
+    Reference: De Robertis & Higginbottom. 2007.
+    A post-processing technique to estimate the signal-to-noise ratio and
+    remove echosounder background noise.
+    ICES Journal of Marine Sciences 64(6): 1282–1291.
 
     Parameters
     ----------
-    ds_Sv : xarray.Dataset
+    ds_Sv : xr.Dataset
         dataset containing Sv and range [m]
-    env_params : dict
-        environmental parameters, either the sound absorption coefficients for all frequencies,
-        or salinity, temperature, pressure for computing the sound absorption coefficients
-    range_bin_num : int
-        number of sample intervals along range to obtain noise estimates
     ping_num : int
         number of pings to obtain noise estimates
-    SNR : float
-        acceptable signal-to-noise ratio
-    save_noise_est : bool
-        whether to save noise estimates in output, default to `False`
+    range_bin_num : int
+        number of samples along range to obtain noise estimates
+    noise_max : float
+        the upper limit for background noise expected under the operating conditions
+    SNR_threshold : float
+        acceptable signal-to-noise ratio, default to 3 dB
 
     Returns
     -------
-    Sv_corr : xarray.Dataset
-        dataset containing the denoised Sv, range, and noise estimates
-
+    The input dataset with additional variables, including
+    the corrected Sv (``Sv_corrected``)
+    and the noise estimates (``Sv_noise``)
     """
-    # TODO: @leewujung: incorporate an user-specified upper limit of noise level
-
     # Obtain sound absorption coefficients
-    if 'sound_absorption' not in env_params:
+    if 'sound_absorption' not in ds_Sv:
         sound_absorption = uwa.calc_absorption(
             frequency=ds_Sv.frequency,
-            temperature=env_params['temperature'],
-            salinity=env_params['salinity'],
-            pressure=env_params['pressure'],
+            temperature=ds_Sv['temperature'],
+            salinity=ds_Sv['salinity'],
+            pressure=ds_Sv['pressure'],
         )
-        p_to_store = ['temperature', 'salinity', 'pressure']
     else:
-        if env_params['sound_absorption'].frequency == ds_Sv.frequency:
-            sound_absorption = env_params['sound_absorption']
-            p_to_store = ['sound_absorption']
-        else:
-            raise ValueError("Mismatch in the frequency dimension for sound_absorption and Sv!")
+        sound_absorption = ds_Sv['sound_absorption']
 
     # Transmission loss
     spreading_loss = 20 * np.log10(ds_Sv['range'].where(ds_Sv['range'] >= 1, other=1))
     absorption_loss = 2 * sound_absorption * ds_Sv['range']
 
     # Noise estimates
-    power_cal = ds_Sv['Sv'] - spreading_loss - absorption_loss  # calibrated power
+    power_cal = 10 ** ((ds_Sv['Sv'] - spreading_loss - absorption_loss) / 10)  # calibrated power without TVG, linear
     power_cal_binned_avg = 10 * np.log10(  # binned averages of calibrated power
-        (10 ** (power_cal / 10)).coarsen(
+        power_cal.coarsen(
             ping_time=ping_num,
             range_bin=range_bin_num,
             boundary='pad'
-        ).mean())
-    noise_est = power_cal_binned_avg.min(dim='range_bin')
-    noise_est['ping_time'] = power_cal['ping_time'][::ping_num]
-    Sv_noise = (noise_est.reindex({'ping_time': power_cal['ping_time']}, method='ffill')  # forward fill empty index
-                + spreading_loss + absorption_loss)
+        ).mean()
+    )
+    noise = power_cal_binned_avg.min(dim='range_bin', skipna=True)
+    noise['ping_time'] = power_cal['ping_time'][::ping_num]  # align ping_time to first of each ping collection
+    if noise_max is not None:
+        noise = noise.where(noise < noise_max, noise_max)  # limit max noise level
+    Sv_noise = (
+            noise.reindex({'ping_time': power_cal['ping_time']}, method='ffill')  # forward fill empty index
+            + spreading_loss
+            + absorption_loss
+    )
 
     # Sv corrected for noise
-    fac = 10 ** (ds_Sv['Sv'] / 10) - 10 ** (Sv_noise / 10)
+    fac = 10 ** (ds_Sv['Sv'] / 10) - 10 ** (Sv_noise / 10)  # linear domain
     Sv_corr = 10 * np.log10(fac.where(fac > 0, other=np.nan))
-    Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > SNR, other=np.nan)
+    Sv_corr = Sv_corr.where(Sv_corr - Sv_noise > SNR_threshold, other=np.nan)  # other=-999 proposed in the paper
 
-    Sv_corr.name = 'Sv_clean'
-    Sv_corr = Sv_corr.to_dataset()
+    # Assemble output dataset
+    ds_out = ds_Sv.copy()
+    ds_out['Sv_corr'] = Sv_corr
+    ds_out['Sv_noise'] = Sv_noise
+    ds_out = ds_out.assign_attrs(
+        {
+            'noise_ping_num': ping_num,
+            'noise_range_bin_num': range_bin_num,
+            'SNR_threshold': SNR_threshold,
+            'noise_max': noise_max
+        }
+    )
 
-    # Attach other variables and attributes to dataset
-    Sv_corr['range'] = ds_Sv['range'].copy()
-    if save_noise_est:
-        Sv_corr['Sv_noise'] = Sv_noise
-    Sv_corr.attrs['noise_est_ping_num'] = ping_num
-    Sv_corr.attrs['noise_est_range_bin_num'] = range_bin_num
-    Sv_corr.attrs['SNR'] = SNR
-    for p in p_to_store:
-        Sv_corr.attrs[p] = env_params[p]
-
-    return Sv_corr
+    return ds_out
