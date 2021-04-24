@@ -30,11 +30,11 @@ jobs:
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
-        image: cormorack/minioci:2021.04.06
+        image: cormorack/minioci:latest
         ports:
           - 9000:9000
       httpserver:
-        image: cormorack/http:2021.04.06
+        image: cormorack/http:latest
         ports:
           - 8080:80
     steps:
@@ -85,7 +85,7 @@ jobs:
           python -m pip install -e .
       - name: Finding changed files
         id: files
-        uses: jitterbit/get-changed-files@v1
+        uses: lsetiawan/get-changed-files@pr_target
         with:
           format: 'csv'
       - name: Print Changed files
