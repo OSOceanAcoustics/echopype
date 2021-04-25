@@ -42,9 +42,18 @@ class SetGroupsBase:
         pass
 
     # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
-    def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
+    def set_toplevel(self, sonar_model=None, date_created=None) -> xr.Dataset:
         """Set the top-level group.
         """
+        if sonar_model is None:
+            sonar_model = self.sonar_model
+
+        if date_created is None:
+            # Top-level date_created varies depending on sonar model
+            if sonar_model in ["EK60", "EK80"]:
+                date_created = self.parser_obj.config_datagram['timestamp']
+            else:
+                date_created = self.parser_obj.ping_time[0]
         # Collect variables
         tl_dict = {'conventions': 'CF-1.7, SONAR-netCDF4-1.0, ACDD-1.3',
                    'keywords': sonar_model,
