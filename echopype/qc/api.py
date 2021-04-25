@@ -41,3 +41,7 @@ def coerce_increasing_ping_time(ds, local_win_len=100):
     """
     ds['ping_time'] = _clean_ping_time(ds['ping_time'].values, local_win_len=local_win_len)
     return ds
+
+
+def exist_reversed_ping_time(ds):
+    return (np.diff(ds['ping_time']) < np.timedelta64(0, 'ns')).any()
