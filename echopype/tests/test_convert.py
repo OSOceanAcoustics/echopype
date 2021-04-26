@@ -163,6 +163,7 @@ def test_validate_path_single_source(
         output_storage_options=output_storage_options,
         save_path=output_save_path
     )
+    converted_raw_path = normalize_path(converted_raw_path)
 
     if output_save_path is not None:
         fsmap_tmp = fsspec.get_mapper(output_save_path, **output_storage_options)
@@ -397,11 +398,8 @@ def test_convert_azfp(
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
-    ipath = input_path
-    if isinstance(input_path, list):
-        ipath = input_path[0]
 
-    input_storage_options = common_storage_options if ipath.startswith("s3://") else {}
+    input_storage_options = common_storage_options if input_path.startswith("s3://") else {}
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
@@ -471,11 +469,8 @@ def test_convert_ek80(
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
-    ipath = input_path
-    if isinstance(input_path, list):
-        ipath = input_path[0]
 
-    input_storage_options = common_storage_options if ipath.startswith("s3://") else {}
+    input_storage_options = common_storage_options if input_path.startswith("s3://") else {}
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
