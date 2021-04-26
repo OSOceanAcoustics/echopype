@@ -144,8 +144,6 @@ def download_files():
 def test_validate_path_single_source(
     model, file_format, input_path, output_save_path, minio_bucket
 ):
-    def normalize_path(path):
-        return path.replace("\\", "/").replace(':/', '://')
 
     output_storage_options = {}
     if output_save_path and output_save_path.startswith("s3://"):
@@ -163,7 +161,8 @@ def test_validate_path_single_source(
         output_storage_options=output_storage_options,
         save_path=output_save_path
     )
-    converted_raw_path = normalize_path(converted_raw_path)
+    # Used for cross-platform path comparisons
+    output_path = Path(converted_raw_path)
 
     if output_save_path is not None:
         fsmap_tmp = fsspec.get_mapper(output_save_path, **output_storage_options)
@@ -171,29 +170,29 @@ def test_validate_path_single_source(
         if not output_save_path.startswith("s3"):
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
-                assert converted_raw_path == normalize_path(os.path.join(fsmap_tmp.root, single_fname + ".zarr"))
+                assert output_path == Path(os.path.join(fsmap_tmp.root, single_fname + ".zarr"))
             elif output_save_path.endswith(".zarr"):
                 # if an output filename is given
-                assert converted_raw_path == normalize_path(fsmap_tmp.root)
+                assert output_path == Path(fsmap_tmp.root)
             else:
                 # force output file extension to the called type (here .zarr)
-                assert converted_raw_path == normalize_path(os.path.splitext(fsmap_tmp.root)[0] + ".zarr")
+                assert output_path == Path(os.path.splitext(fsmap_tmp.root)[0] + ".zarr")
             os.rmdir(os.path.dirname(converted_raw_path))
         else:
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
-                assert converted_raw_path == normalize_path(os.path.join(output_save_path, single_fname + ".zarr"))
+                assert output_path == Path(os.path.join(output_save_path, single_fname + ".zarr"))
             elif output_save_path.endswith(".zarr"):
                 # if an output filename is given
-                assert converted_raw_path == normalize_path(output_save_path)
+                assert output_path == Path(output_save_path)
             else:
                 # force output file extension to the called type (here .zarr)
-                assert converted_raw_path == normalize_path(os.path.splitext(output_save_path)[0] + ".zarr")
+                assert output_path == Path(os.path.splitext(output_save_path)[0] + ".zarr")
             fs.delete(converted_raw_path)
     else:
         current_dir = Path.cwd()
         temp_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        assert converted_raw_path == normalize_path(str(temp_dir.joinpath(Path(single_fname + ".zarr"))))
+        assert output_path == Path(str(temp_dir.joinpath(Path(single_fname + ".zarr"))))
         os.rmdir(os.path.dirname(converted_raw_path))
 
 
