@@ -351,7 +351,7 @@ def test_convert_ek60(
     to_file(
         save_path=output_save_path,
         overwrite=True,
-        storage_options=output_storage_options,
+        output_storage_options=output_storage_options,
     )
 
     _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
@@ -428,8 +428,7 @@ def test_convert_azfp(
     to_file(
         save_path=output_save_path,
         overwrite=True,
-        combine=combine_files,
-        storage_options=output_storage_options,
+        output_storage_options=output_storage_options,
     )
 
     _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
@@ -493,7 +492,7 @@ def test_convert_ek80(
         save_path=output_save_path,
         overwrite=True,
         combine=combine_files,
-        storage_options=output_storage_options,
+        output_storage_options=output_storage_options,
     )
 
     _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
