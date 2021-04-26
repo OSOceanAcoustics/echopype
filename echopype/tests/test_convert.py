@@ -14,7 +14,7 @@ import fsspec
 import xarray as xr
 import pytest
 from pathlib import Path
-from .. import open_raw
+from echopype import open_raw
 
 
 def _check_file_group(data_file, engine, groups):

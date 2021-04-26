@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from scipy.io import loadmat
-from .. import open_raw
+from echopype import open_raw
 
 
 azfp_path = Path('./echopype/test_data/azfp')
