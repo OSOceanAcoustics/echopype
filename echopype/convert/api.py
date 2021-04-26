@@ -96,7 +96,7 @@ def _validate_path(
             out_path = out_dir / (root.stem + file_format)
 
     # Create folder if save_path does not exist already
-    fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
+    fsmap = fsspec.get_mapper(out_dir.as_posix().replace(':/', '://'), **output_storage_options)
     fs = fsmap.fs
     if file_format == ".nc" and not isinstance(fs, LocalFileSystem):
         raise ValueError("Only local filesystem allowed for NetCDF output.")
@@ -111,7 +111,7 @@ def _validate_path(
         except FileNotFoundError:
             raise ValueError("Specified save_path is not valid.")
 
-    return str(out_path)  # output_path is always a string
+    return out_path.as_posix().replace(':/', '://')  # output_path is always a string
 
 
 def to_file(

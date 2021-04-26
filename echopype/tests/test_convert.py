@@ -15,6 +15,7 @@ import xarray as xr
 import pytest
 from pathlib import Path
 from echopype import open_raw
+from echopype.convert.api import _validate_path
 
 
 def _check_file_group(data_file, engine, groups):
@@ -143,6 +144,8 @@ def download_files():
 def test_validate_path_single_source(
     model, file_format, input_path, output_save_path, minio_bucket
 ):
+    def normalize_path(path):
+        return path.replace("\\", "/").replace(':/', '://')
 
     output_storage_options = {}
     if output_save_path and output_save_path.startswith("s3://"):
@@ -153,10 +156,13 @@ def test_validate_path_single_source(
         )
     fsmap = fsspec.get_mapper(input_path)
     single_fname = os.path.splitext(os.path.basename(fsmap.root))[0]
-    echodata_single = open_raw(input_path, sonar_model=model)
-    echodata_single._output_storage_options = output_storage_options
 
-    echodata_single._validate_path(file_format=file_format, save_path=output_save_path)
+    converted_raw_path = _validate_path(
+        source_file=single_fname,
+        file_format=file_format,
+        output_storage_options=output_storage_options,
+        save_path=output_save_path
+    )
 
     if output_save_path is not None:
         fsmap_tmp = fsspec.get_mapper(output_save_path, **output_storage_options)
@@ -164,38 +170,30 @@ def test_validate_path_single_source(
         if not output_save_path.startswith("s3"):
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
-                assert echodata_single.converted_raw_path == [
-                    os.path.join(fsmap_tmp.root, single_fname + ".zarr")
-                ]
+                assert converted_raw_path == normalize_path(os.path.join(fsmap_tmp.root, single_fname + ".zarr"))
             elif output_save_path.endswith(".zarr"):
                 # if an output filename is given
-                assert echodata_single.converted_raw_path == [fsmap_tmp.root]
+                assert converted_raw_path == normalize_path(fsmap_tmp.root)
             else:
                 # force output file extension to the called type (here .zarr)
-                assert echodata_single.converted_raw_path == [
-                    os.path.splitext(fsmap_tmp.root)[0] + ".zarr"
-                ]
-            os.rmdir(os.path.dirname(echodata_single.converted_raw_path[0]))
+                assert converted_raw_path == normalize_path(os.path.splitext(fsmap_tmp.root)[0] + ".zarr")
+            os.rmdir(os.path.dirname(converted_raw_path))
         else:
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
-                assert echodata_single.converted_raw_path == [
-                    os.path.join(output_save_path, single_fname + ".zarr")
-                ]
+                assert converted_raw_path == normalize_path(os.path.join(output_save_path, single_fname + ".zarr"))
             elif output_save_path.endswith(".zarr"):
                 # if an output filename is given
-                assert echodata_single.converted_raw_path == [output_save_path]
+                assert converted_raw_path == normalize_path(output_save_path)
             else:
                 # force output file extension to the called type (here .zarr)
-                assert echodata_single.converted_raw_path == [
-                    os.path.splitext(output_save_path)[0] + ".zarr"
-                ]
-            fs.delete(echodata_single.converted_raw_path[0])
+                assert converted_raw_path == normalize_path(os.path.splitext(output_save_path)[0] + ".zarr")
+            fs.delete(converted_raw_path)
     else:
         current_dir = Path.cwd()
         temp_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        assert echodata_single.converted_raw_path == [str(temp_dir.joinpath(Path(single_fname + ".zarr")))]
-        os.rmdir(os.path.dirname(echodata_single.converted_raw_path[0]))
+        assert converted_raw_path == normalize_path(str(temp_dir.joinpath(Path(single_fname + ".zarr"))))
+        os.rmdir(os.path.dirname(converted_raw_path))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -221,6 +219,7 @@ def test_validate_path_single_source(
         "s3://ooi-raw-data/dump/tmp.nc",
     ],
 )
+@pytest.mark.skip(reason='_validate_path only takes single files')
 def test_validate_path_multiple_source(
     model, file_format, input_path, output_save_path, minio_bucket
 ):
