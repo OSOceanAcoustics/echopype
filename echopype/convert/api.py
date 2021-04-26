@@ -1,6 +1,7 @@
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
+import os
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
@@ -71,12 +72,10 @@ def _validate_path(
         warnings.warn(
             f"Resulting converted file(s) will be available at {str(out_dir)}"
         )
-        out_path = out_dir / (Path(source_file).stem + file_format)
+        out_path = str(out_dir / (Path(source_file).stem + file_format))
 
     else:
-        if isinstance(save_path, str):
-            save_path = Path(save_path)
-        elif not isinstance(save_path, Path):
+        if not isinstance(save_path, Path) and not isinstance(save_path, str):
             raise TypeError('save_path must be a string or Path')
 
         fsmap = fsspec.get_mapper(str(save_path), **output_storage_options)
@@ -84,19 +83,18 @@ def _validate_path(
 
         # Use the full path such as s3://... if it's not local, otherwise use root
         if isinstance(output_fs, LocalFileSystem):
-            root = Path(fsmap.root)
+            root = fsmap.root
         else:
             root = save_path
-
-        if root.suffix == "":  # directory
+        if Path(root).suffix == "":  # directory
             out_dir = root
-            out_path = root / (Path(source_file).stem + file_format)
+            out_path = os.path.join(root, Path(source_file).stem + file_format)
         else:  # file
-            out_dir = root.parent
-            out_path = out_dir / (root.stem + file_format)
+            out_dir = os.path.dirname(root)
+            out_path = os.path.join(out_dir, Path(root).stem + file_format)
 
     # Create folder if save_path does not exist already
-    fsmap = fsspec.get_mapper(out_dir.as_posix().replace(':/', '://'), **output_storage_options)
+    fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
     fs = fsmap.fs
     if file_format == ".nc" and not isinstance(fs, LocalFileSystem):
         raise ValueError("Only local filesystem allowed for NetCDF output.")
@@ -111,7 +109,7 @@ def _validate_path(
         except FileNotFoundError:
             raise ValueError("Specified save_path is not valid.")
 
-    return out_path.as_posix().replace(':/', '://')  # output_path is always a string
+    return out_path  # output_path is always a string
 
 
 def to_file(
