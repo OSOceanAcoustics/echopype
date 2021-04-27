@@ -43,5 +43,5 @@ def coerce_increasing_ping_time(ds, local_win_len=100):
     return ds
 
 
-def exist_reversed_ping_time(ds):
-    return (np.diff(ds['ping_time']) < np.timedelta64(0, 'ns')).any()
+def exist_reversed_time(ds, time_name):
+    return (np.diff(ds[time_name]) < np.timedelta64(0, 'ns')).any()
