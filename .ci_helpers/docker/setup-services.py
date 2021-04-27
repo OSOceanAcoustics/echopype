@@ -43,21 +43,24 @@ if __name__ == "__main__":
 
     if args.deploy:
         print("1) Starting test services deployment.")
-        print("2) Clearing up past services.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} down --remove-orphans")
 
-        print("3) Bringing up services for testing.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans")
+        print("2) Pulling latest images.")
+        os.system(f"docker-compose -f {COMPOSE_FILE} pull")
 
-        print(f"4) Deleting old test folder at {TEST_DATA_PATH}")
-        shutil.rmtree(TEST_DATA_PATH)
+        print("2) Bringing up services.")
+        os.system(f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate")
 
-        print("5) Copying new test folder from http service")
+        print(f"3) Deleting old test folder at {TEST_DATA_PATH}")
+        if TEST_DATA_PATH.exists():
+            print("SKIPPED.")
+            shutil.rmtree(TEST_DATA_PATH)
+
+        print("4) Copying new test folder from http service")
         os.system(
             f"docker cp -L docker_httpserver_1:/usr/local/apache2/htdocs/data {TEST_DATA_PATH}"
         )
 
-        print("6) Done.")
+        print("5) Done.")
         os.system("docker ps --last 2")
 
     if args.tear_down:
