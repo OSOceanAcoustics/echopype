@@ -1,5 +1,14 @@
-include LICENSE
+prune .github*
+prune docs*
+prune .ci_helpers
+prune notebooks*
+prune echopype/tests*
+prune echopype/test_data*
+exclude .coveragerc
+exclude .gitignore
+exclude .mailmap
+exclude *.ini
+exclude *.yaml
+exclude *.yml
+exclude *.json
 include *.txt
-recursive-include docs *.txt
-include versioneer.py
-include echopype/_version.py

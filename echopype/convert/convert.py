@@ -1,64 +1,96 @@
 """
-This file provides a wrapper for the convert objects and functions.
-Users will not need to know the names of the specific objects they need to create.
+UI class for converting raw data from different echosounders to netcdf or zarr.
 """
+from echopype.echodata.echodata import EchoData
 import os
-from .azfp import ConvertAZFP
-from .ek60 import ConvertEK60
-from .ek80 import ConvertEK80
+import warnings
+from datetime import datetime as dt
+from pathlib import Path
+
+import fsspec
+from fsspec.implementations.local import LocalFileSystem
+
+from ..convert import convert_combine as combine_fcn
+from ..utils import io
+from .parse_azfp import ParseAZFP
+from .parse_ek60 import ParseEK60
+from .parse_ek80 import ParseEK80
+from .set_groups_azfp import SetGroupsAZFP
+from .set_groups_ek60 import SetGroupsEK60
+from .set_groups_ek80 import SetGroupsEK80
+from .api import open_raw
 
 
-def Convert(path='', xml_path='', model='EK60'):
-    """
-    Gets the type of echosounder the raw file was generated with using the filename extension.
+warnings.simplefilter("always", DeprecationWarning)
 
-    Parameters
-    ----------
-    path : str or list of str
-        the file that will be converted. Currently only `.raw` and `.01A` files are supported
-        for the Simrad EK60 and ASL AZFP echosounders respectively
-    xml_path : str, optional
-        If AZFP echo data is used, the XML file that accompanies the raw file is required for conversion.
+MODELS = {
+    "AZFP": {
+        "ext": ".01A",
+        "xml": True,
+        "parser": ParseAZFP,
+        "set_groups": SetGroupsAZFP,
+    },
+    "EK60": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK60,
+        "set_groups": SetGroupsEK60,
+    },
+    "EK80": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80,
+    },
+    "EA640": {
+        "ext": ".raw",
+        "xml": False,
+        "parser": ParseEK80,
+        "set_groups": SetGroupsEK80,
+    },
+}
 
-    Returns
-    -------
-        Specialized convert object that will be used to produce a .nc file
-    """
+NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
-    if path:
-        if isinstance(path, list):
-            file_name = os.path.basename(path[0])
-            ext = os.path.splitext(file_name)[1]
-            for p in path:
-                if not os.path.isfile(p):
-                    raise FileNotFoundError(f"There is no file named {os.path.basename(p)}")
-                if os.path.splitext(p)[1] != ext:
-                    raise ValueError("Not all files are in the same format.")
-        else:
-            file_name = os.path.basename(path)
-            ext = os.path.splitext(file_name)[1]
-            if not os.path.isfile(path):
-                raise FileNotFoundError(f"There is no file named {os.path.basename(path)}")
+CONVERT_PARAMS = [
+    "survey_name",
+    "platform_name",
+    "platform_code_ICES",
+    "platform_type",
+    "water_level",
+    "nmea_gps_sentence",
+]
 
-        # Gets the type of echosounder from the extension of the raw file
-        # return a Convert object depending on the type of echosounder used to create the raw file
-        if ext == '.raw':
-            # TODO: Find something better to distinguish EK60 and EK80 raw files
-            if model == 'EK60':
-                return ConvertEK60(path)
-            elif model == 'EK80' or model == 'EA640':
-                return ConvertEK80(path)
-        elif ext == '.01A':
-            if xml_path:
-                if '.XML' in xml_path.upper():
-                    if not os.path.isfile(xml_path):
-                        raise FileNotFoundError(f"There is no file named {os.path.basename(xml_path)}")
-                    return ConvertAZFP(path, xml_path)
-                else:
-                    raise ValueError(f"{os.path.basename(xml_path)} is not an XML file")
-            else:
-                raise ValueError("XML file is required for AZFP raw data")
-        else:
-            raise ValueError(f"'{ext}' is not a supported file type")
-    else:
-        raise ValueError("Convert requires the path to a raw file")
+
+# TODO: Used for backwards compatibility. Delete in future versions
+def ConvertEK80(_filename=""):
+    warnings.warn(
+        "`ConvertEK80` is deprecated, use `Convert(file, model='EK80')` instead.",
+        DeprecationWarning,
+        2,
+    )
+    return Convert(file=_filename, model="EK80")
+
+
+class Convert:
+    """Object for converting data from manufacturer-specific formats to a standardized format."""
+
+    _instance = None
+
+    def __new__(cls, file=None, xml_path=None, model=None, storage_options=None):
+        warnings.warn(
+            "Calling `echopype.Convert` is deprecated, "
+            "use `echopype.open_raw(file, model, ...)` instead.",
+            DeprecationWarning,
+            2,
+        )
+        if not isinstance(cls._instance, cls):
+            cls._instance = open_raw(
+                # TODO: fix this to use new argument name
+                file=file,
+                model=model,
+                xml_path=xml_path,
+                storage_options=storage_options,
+            )
+        return cls._instance
+
