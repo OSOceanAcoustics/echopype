@@ -154,6 +154,7 @@ def to_file(
         source_file=echodata.source_file,
         file_format=format_mapping[engine],
         save_path=save_path,
+        output_storage_options=output_storage_options,
     )
 
     # Get all existing files
