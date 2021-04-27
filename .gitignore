@@ -19,5 +19,10 @@ toolbox
 *.raw
 *.csv
 *.01A
+*.zarr
+*.xml
 ek60/
 azfp/
+temp_echopype_output/
+notebooks/*_dev/
+_echopype_version.py

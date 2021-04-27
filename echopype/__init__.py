@@ -1,8 +1,9 @@
 from __future__ import absolute_import, division, print_function
-from .convert import Convert
+from .convert.api import open_raw
+from .echodata.api import open_converted
 from .process import Process
-from . import model     # Delete in later patch
+from . import calibrate
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+from _echopype_version import version as __version__
+
+__all__ = [open_raw, open_converted]

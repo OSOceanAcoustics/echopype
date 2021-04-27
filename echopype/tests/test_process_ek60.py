@@ -2,9 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
+import pytest
 from ..convert import Convert
-from ..process import ProcessEK60
-from ..process import Process
+from ..process import Process, EchoDataOld
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
@@ -21,14 +21,15 @@ Sv_path = os.path.join(os.path.dirname(ek60_raw_path),
                        os.path.splitext(os.path.basename(ek60_raw_path))[0] + '_Sv.nc')
 
 
+@pytest.mark.skip(reason='Noise estimates not yet implemented')
 def test_noise_estimates_removal():
     """Check noise estimation and noise removal using xarray and brute force using numpy.
     """
 
     # Noise estimation via Process method =========
     # Unpack data and convert to .nc file
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
     e_data = Process(nc_path)
@@ -115,29 +116,34 @@ def test_noise_estimates_removal():
 
 
 def test_calibration_ek60_echoview():
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc()
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
-    e_data = Process(nc_path)
-    e_data.calibrate(save=True)
+    ed = EchoDataOld(raw_path=tmp.output_file)
+    proc = Process(model='EK60', ed=ed)
+    proc.calibrate(ed, save=True, save_format='netcdf4')
 
     channels = []
     for file in ek60_csv_paths:
         channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
     test_Sv = np.stack(channels)
-    # Echoview data is missing 1 range. Also the first few ranges are handled diffrently
-    assert np.allclose(test_Sv[:, :, 7:], e_data.Sv.Sv[:, :10, 8:], atol=1e-8)
+    # Echoview data is missing 1 range. Also the first few ranges are handled differently
+    assert np.allclose(test_Sv[:, :, 7:],
+                       ed.Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+    ed.close()
+    os.remove(ed.Sv_path)
+    os.remove(tmp.output_file)
 
 
 def test_calibrate():
     # General calibration test
 
     # Use raw files for environment parameters
-    tmp = Convert(ek60_raw_path)
-    tmp.raw2nc(overwrite=True)
+    tmp = Convert(ek60_raw_path, model='EK60')
+    tmp.to_netcdf()
     # Overwrite beam group with array of 1
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
         backscatter_r = np.full_like(ds_beam.backscatter_r, 1)
         freq = ds_beam.backscatter_r.frequency
         ping_time = ds_beam.ping_time
@@ -148,10 +154,14 @@ def test_calibrate():
                                                ('range_bin', range_bin)])
     data.name = 'backscatter_r'
     ds = data.to_dataset()
-    ds.to_netcdf(tmp.nc_path, mode='a', group='Beam')
+    ds.to_netcdf(tmp.output_file, mode='a', group='Beam')
 
     # Run Sv calibration on array of 1
-    e_data = ProcessEK60(tmp.nc_path)
-    e_data.calibrate()
+    ed = EchoDataOld(tmp.output_file)
+    proc = Process('EK60', ed)
+    proc.calibrate(ed)
     # Check if Sv is strictly increasing by differentiating along range
-    assert np.all(np.diff(e_data.Sv.Sv) >= 0)
+    assert np.all(np.diff(ed.Sv.Sv) >= 0)
+
+    ed.close()
+    os.remove(tmp.output_file)
