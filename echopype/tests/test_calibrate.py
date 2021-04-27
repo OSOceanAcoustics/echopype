@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.io import loadmat
-from ... import echopype as ep
+import echopype as ep
+from echopype.calibrate.calibrate_ek import CalibrateEK80
 
 azfp_path = Path('./echopype/test_data/azfp')
 ek60_path = Path('./echopype/test_data/ek60')
@@ -15,11 +16,11 @@ def test_compute_Sv_ek60_echoview():
     ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     # Convert file
-    c = ep.convert.open_raw(ek60_raw_path, model='EK60')
+    c = ep.open_raw(ek60_raw_path, sonar_model='EK60')
     c.to_netcdf(overwrite=True)
 
     # Calibrate to get Sv
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     ds_Sv = ep.calibrate.compute_Sv(echodata)
 
     # Compare with EchoView outputs
@@ -33,7 +34,7 @@ def test_compute_Sv_ek60_echoview():
     assert np.allclose(test_Sv[:, :, 7:],
                        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_ek60_matlab():
@@ -41,11 +42,11 @@ def test_compute_Sv_ek60_matlab():
     ek60_matlab_path = str(ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025.mat'))
 
     # Convert file
-    c = ep.convert.open_raw(ek60_raw_path, model='EK60')
+    c = ep.open_raw(ek60_raw_path, sonar_model='EK60')
     c.to_netcdf()
 
     # Calibrate to get Sv
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     ds_Sv = ep.calibrate.compute_Sv(echodata)
     ds_Sp = ep.calibrate.compute_Sp(echodata)
 
@@ -66,7 +67,7 @@ def test_compute_Sv_ek60_matlab():
     # Check Sp
     check_output(ds_Sp, 'Sp')
 
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_azfp():
@@ -76,14 +77,14 @@ def test_compute_Sv_azfp():
     azfp_matlab_Sp_path = str(azfp_path.joinpath('from_matlab/17082117_matlab_Output_TS.mat'))
 
     # Convert to .nc file
-    c = ep.convert.open_raw(file=azfp_01a_path, model='AZFP', xml_path=azfp_xml_path)
+    c = ep.open_raw(raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path)
     c.to_netcdf(overwrite=True)
 
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
-    with xr.open_dataset(c.output_file, group='Environment') as ds_env:
+    with xr.open_dataset(c.converted_raw_path, group='Environment') as ds_env:
         avg_temperature = ds_env['temperature'].mean('ping_time').values  # AZFP Matlab code uses average temperature
     env_params = {'temperature': avg_temperature, 'salinity': 27.9, 'pressure': 59}
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
     ds_Sp = ep.calibrate.compute_Sp(echodata=echodata, env_params=env_params)
 
@@ -113,7 +114,7 @@ def test_compute_Sv_azfp():
     # Check Sp
     check_output(base_path=azfp_matlab_Sp_path, ds_cmp=ds_Sp, cal_type='TS')
 
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_ek80_matlab():
@@ -124,16 +125,16 @@ def test_compute_Sv_ek80_matlab():
     ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
     ek80_matlab_path = str(ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat'))
 
-    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c = ep.open_raw(ek80_raw_path, sonar_model='EK80')
     c.to_netcdf()
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
 
     # TODO: resolve discrepancy in range between echopype and Matlab code
     ds_matlab = loadmat(ek80_matlab_path)
     Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_bin').values
 
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_ek80_pc_echoview():
@@ -144,13 +145,13 @@ def test_compute_Sv_ek80_pc_echoview():
     ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
     ek80_bb_pc_test_path = str(ek80_path.joinpath('from_echoview/70 kHz pulse-compressed power.complex.csv'))
 
-    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c = ep.open_raw(ek80_raw_path, sonar_model='EK80')
     c.to_netcdf(overwrite=True)
 
     # Create a CalibrateEK80 object to perform pulse compression
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     waveform_mode = 'BB'
-    cal_obj = ep.calibrate.CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode)
+    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode)
     cal_obj.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)  # compute range [m]
     chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
     pc = cal_obj.compress_pulse(chirp)
@@ -173,26 +174,26 @@ def test_compute_Sv_ek80_pc_echoview():
         atol=1.03e-3
     )
 
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_ek80_CW_complex():
     """Test calibrate CW mode data encoded as complex sam[les.
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201210-T000409.raw'))  # CW complex
-    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c = ep.open_raw(ek80_raw_path, sonar_model='EK80')
     c.to_netcdf()
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     assert ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
 
 
 def test_compute_Sv_ek80_BB_complex():
     """Test calibrate BB mode data encoded as complex sam[les.
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201209-T235955.raw'))  # CW complex
-    c = ep.convert.open_raw(ek80_raw_path, model='EK80')
+    c = ep.open_raw(ek80_raw_path, sonar_model='EK80')
     c.to_netcdf()
-    echodata = ep.open_converted(converted_raw_path=c.output_file)
+    echodata = ep.open_converted(converted_raw_path=c.converted_raw_path)
     assert ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
-    Path(c.output_file).unlink()
+    Path(c.converted_raw_path).unlink()
