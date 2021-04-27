@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import BinaryIO, Union, Callable, List, Optional, Any, Dict
+from typing import BinaryIO, Iterable, Union, Callable, List, Optional, Any, Dict
 from enum import Enum, unique, auto
 import struct
 import math
@@ -11,24 +11,79 @@ from .parse_base import ParseBase
 
 @unique
 class BurstAverageDataRecordVersion(Enum):
+    """
+    Determines the version of the burst/average data record
+    """
+
     VERSION2 = auto()  # Burst/Average Data Record Definition (DF2)
     VERSION3 = auto()  # Burst/Average Data Record Definition (DF3)
 
 
 @unique
 class DataRecordType(Enum):
+    """
+    Determines the type of data record
+    """
+
     BURST_VERSION2 = auto()
     BURST_VERSION3 = auto()
     AVERAGE_VERSION2 = auto()
     AVERAGE_VERSION3 = auto()
     ECHOSOUNDER = auto()
     ECHOSOUNDER_RAW = auto()
+    ECHOSOUNDER_RAW_TRANSMIT = auto()
     BOTTOM_TRACK = auto()
     STRING = auto()
+
+    def is_burst(self) -> bool:
+        """
+        Returns whether this data record type is burst
+        """
+
+        return self in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3)
+
+    def is_average(self) -> bool:
+        """
+        Returns whether this data record type is average
+        """
+
+        return self in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3)
+
+    def is_echosounder(self) -> bool:
+        """
+        Returns whether this data record type is echosounder
+        """
+
+        return self == DataRecordType.ECHOSOUNDER
+
+    def is_echosounder_raw(self) -> bool:
+        """
+        Returns whether this data record type is raw echosounder
+        """
+
+        return self == DataRecordType.ECHOSOUNDER_RAW
+
+    def is_echosounder_raw_transmit(self) -> bool:
+        """
+        Returns whether this data record type is raw echosounder transmit
+        """
+
+        return self == DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
+
+    def is_string(self) -> bool:
+        """
+        Returns whether this data record type is string
+        """
+
+        return self == DataRecordType.STRING
 
 
 @unique
 class DataType(Enum):
+    """
+    Determines the data type of raw bytes
+    """
+
     RAW_BYTES = auto()
     STRING = auto()
     SIGNED_INTEGER = auto()
@@ -49,6 +104,10 @@ SIGNED_FRACTION = DataType.SIGNED_FRACTION
 
 @unique
 class Dimension(Enum):
+    """
+    Determines the dimensions of the data in the output dataset
+    """
+
     TIME = "time"
     BEAM = "beam"
     RANGE_BIN_BURST = "range_bin_burst"
@@ -56,9 +115,15 @@ class Dimension(Enum):
     RANGE_BIN_ECHOSOUNDER = "range_bin_echosounder"
     NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
     SAMPLE = "sample"
+    SAMPLE_TRANSMIT = "sample_transmit"
 
 
 class Field:
+    """
+    Represents a single field within a data record and controls the way
+    the field will be parsed
+    """
+
     def __init__(
         self,
         field_name: Optional[str],
@@ -104,6 +169,10 @@ class Field:
         self.field_exists_predicate = field_exists_predicate
 
     def dimensions(self, data_record_type: DataRecordType) -> List[Dimension]:
+        """
+        Returns the dimensions of the field given the data record type
+        """
+
         dims = self.field_dimensions
         if callable(dims):
             dims = dims(data_record_type)
@@ -111,9 +180,17 @@ class Field:
 
     @staticmethod
     def default_dimensions() -> List[Dimension]:
+        """
+        Returns the default dimensions for fields
+        """
+
         return [Dimension.TIME]
 
     def units(self):
+        """
+        Returns the field's units
+        """
+
         return self.field_units
 
 
@@ -121,6 +198,10 @@ F = Field  # use F instead of Field to make the repeated fields easier to read
 
 
 class NoMorePackets(Exception):
+    """
+    Indicates that there are no more packets to be parsed from the file
+    """
+
     pass
 
 
@@ -128,28 +209,61 @@ class ParseAd2cp(ParseBase):
     def __init__(self, *args, burst_average_data_record_version: BurstAverageDataRecordVersion = BurstAverageDataRecordVersion.VERSION3, **kwargs):
         super().__init__(args, kwargs)
         self.burst_average_data_record_version = burst_average_data_record_version
-        self.packets = []
+        self.last_packet_data_record_type = None
+        self.burst_packets: List[Ad2cpDataPacket] = []
+        self.average_packets: List[Ad2cpDataPacket] = []
+        self.echosounder_packets: List[Ad2cpDataPacket] = []
+        self.echosounder_raw_packets: List[Ad2cpDataPacket] = []
+        self.echosounder_raw_transmit_packets: List[Ad2cpDataPacket] = []
+        self.string_packets: List[Ad2cpDataPacket] = []
         self.config = None
 
     def parse_raw(self):
+        """
+        Parses the source file into AD2CP packets
+        """
+
         with open(self.source_file[0], "rb") as f:
             while True:
-                if len(self.packets) == 0:
-                    previous_data_packet = None
-                else:
-                    previous_data_packet = self.packets[-1]
                 try:
-                    self.packets.append(Ad2cpDataPacket(
-                        f, previous_data_packet, self.burst_average_data_record_version))
+                    packet = Ad2cpDataPacket(
+                        f, self, self.burst_average_data_record_version)
+                    self.last_packet_data_record_type = packet.data_record_type
+                    if packet.is_burst():
+                        self.burst_packets.append(packet)
+                    elif packet.is_average():
+                        self.average_packets.append(packet)
+                    elif packet.is_echosounder():
+                        self.echosounder_packets.append(packet)
+                    elif packet.is_echosounder_raw():
+                        self.echosounder_raw_packets.append(packet)
+                    elif packet.is_echosounder_raw_transmit():
+                        self.echosounder_raw_transmit_packets.append(packet)
+                    elif packet.is_string():
+                        self.string_packets.append(packet)
                 except NoMorePackets:
                     break
                 else:
-                    if self.config is None and self.packets[-1].data_record_type == DataRecordType.STRING:
+                    if self.config is None and len(self.string_packets) > 0:
                         self.config = self.parse_config(
-                            self.packets[-1].data["string_data"])
+                            self.string_packets[0].data["string_data"])
 
     @staticmethod
     def parse_config(data: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Parses the configuration string for the ADCP, which will be the first string data record.
+        The data is in the form:
+
+        HEADING1,KEY1=VALUE1,KEY2=VALUE2
+        HEADING2,KEY3=VALUE3,KEY4=VALUE4,KEY5=VALUE5
+        ...
+
+        where VALUEs can be
+        strings: "foo"
+        integers: 123
+        floats: 123.456
+        """
+
         result = dict()
         for line in data.splitlines():
             tokens = line.split(",")
@@ -169,8 +283,12 @@ class ParseAd2cp(ParseBase):
 
 
 class Ad2cpDataPacket:
-    def __init__(self, f: BinaryIO, previous_data_packet: Optional["Ad2cpDataPacket"], burst_average_data_record_version: BurstAverageDataRecordVersion):
-        self.previous_data_packet = previous_data_packet
+    """
+    Represents a single data packet. Each data packet consists of a header data record followed by a 
+    """
+
+    def __init__(self, f: BinaryIO, parser: ParseAd2cp, burst_average_data_record_version: BurstAverageDataRecordVersion):
+        self.parser = parser
         self.burst_average_data_record_version = burst_average_data_record_version
         self.data_record_type: Optional[DataRecordType] = None
         self.data = dict()
@@ -180,6 +298,10 @@ class Ad2cpDataPacket:
 
     @property
     def timestamp(self) -> np.datetime64:
+        """
+        Calculates and returns the timestamp of the packet
+        """
+
         year = self.data["year"] + 1900
         month = self.data["month"] + 1
         day = self.data["day"]
@@ -190,23 +312,53 @@ class Ad2cpDataPacket:
         return np.datetime64(f"{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{seconds:02}.{microsec100:04}")
 
     def is_burst(self) -> bool:
-        return self.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3)
+        """
+        Returns whether the current packet is a burst packet
+        """
+
+        return self.data_record_type.is_burst()
 
     def is_average(self) -> bool:
-        return self.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3)
+        """
+        Returns whether the current packet is an average packet
+        """
+
+        return self.data_record_type.is_average()
 
     def is_echosounder(self) -> bool:
-        return self.data_record_type == DataRecordType.ECHOSOUNDER
+        """
+        Returns whether the current packet is an echosounder packet
+        """
 
-    # def is_other(self) -> bool:
-    #     return not any(self.is_burst(), self.is_average(), self.is_echosounder())
+        return self.data_record_type.is_echosounder()
+
+    def is_echosounder_raw(self) -> bool:
+        """
+        Returns whether the current packet is a raw echosounder packet
+        """
+
+        return self.data_record_type.is_echosounder_raw()
+
+    def is_echosounder_raw_transmit(self) -> bool:
+        """
+        Returns whether the current packet is a raw echosounder transmit packet
+        """
+
+        return self.data_record_type.is_echosounder_raw_transmit()
+
+    def is_string(self) -> bool:
+        """
+        Returns whether the current packet is a string packet
+        """
+
+        return self.data_record_type.is_string()
 
     def _read_data_record_header(self, f: BinaryIO):
         """
-        Reads the header part of the AD2CP packet from the stream
+        Reads the header part of the AD2CP packet from the given stream
         """
 
-        self.data_record_format = DataRecordFormats.HEADER_FORMAT
+        self.data_record_format = HeaderOrDataRecordFormats.HEADER_FORMAT
         raw_header = self._read_data(f, self.data_record_format)
         # don't include the last 2 bytes, which is the header checksum itself
         calculated_checksum = self.checksum(raw_header[: -2])
@@ -220,55 +372,47 @@ class Ad2cpDataPacket:
 
         if self.data["id"] in (0x15, 0x18):  # burst
             if self.burst_average_data_record_version == BurstAverageDataRecordVersion.VERSION2:
-                # self.data_record_format = self.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
                 self.data_record_type = DataRecordType.BURST_VERSION2
             elif self.burst_average_data_record_version == BurstAverageDataRecordVersion.VERSION3:
-                # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
                 self.data_record_type = DataRecordType.BURST_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
         elif self.data["id"] == 0x16:  # average
             if self.burst_average_data_record_version == BurstAverageDataRecordVersion.VERSION2:
-                # self.data_record_format = self.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
                 self.data_record_type = DataRecordType.AVERAGE_VERSION2
             elif self.burst_average_data_record_version == BurstAverageDataRecordVersion.VERSION3:
-                # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
                 self.data_record_type = DataRecordType.AVERAGE_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
         elif self.data["id"] in (0x17, 0x1b):  # bottom track
-            # self.data_record_format = self.BOTTOM_TRACK_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.BOTTOM_TRACK
         elif self.data["id"] in (0x23, 0x24):  # echosounder raw
-            # self.data_record_format = self.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT
-            self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
+            if len(self.parser.echosounder_raw_transmit_packets) == 0:
+                # first echosounder raw packet is the transmit packet
+                self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
+            else:
+                self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
         elif self.data["id"] == 0x1a:  # burst altimeter
             # altimeter is only supported by burst/average version 3
-            # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.BURST_VERSION3
         elif self.data["id"] == 0x1c:  # echosounder
             # echosounder is only supported by burst/average version 3
-            # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.ECHOSOUNDER
         elif self.data["id"] == 0x1d:  # dvl water track record
             # TODO: is this correct?
-            # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
         elif self.data["id"] == 0x1e:  # altimeter
             # altimeter is only supported by burst/average version 3
-            # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
         elif self.data["id"] == 0x1f:  # average altimeter
-            # self.data_record_format = self.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
         elif self.data["id"] == 0xa0:  # string data
-            # self.data_record_format = self.STRING_DATA_RECORD_FORMAT
             self.data_record_type = DataRecordType.STRING
         else:
             raise ValueError(
                 "invalid data record type id: 0x{:02x}".format(self.data["id"]))
 
-        self.data_record_format = DataRecordFormats.data_record_format(
+        self.data_record_format = HeaderOrDataRecordFormats.data_record_format(
             self.data_record_type)
 
         raw_data_record = self._read_data(f, self.data_record_format)
@@ -276,7 +420,7 @@ class Ad2cpDataPacket:
         expected_checksum = self.data["data_record_checksum"]
         assert calculated_checksum == expected_checksum, f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"
 
-    def _read_data(self, f: BinaryIO, data_format: "DataRecordFormat") -> bytes:
+    def _read_data(self, f: BinaryIO, data_format: "HeaderOrDataRecordFormat") -> bytes:
         """
         Reads data from the stream, interpreting the data using the given format
         """
@@ -356,7 +500,15 @@ class Ad2cpDataPacket:
     def _read_exact(f: BinaryIO, total_num_bytes_to_read: int) -> bytes:
         """
         Drives a stream until an exact amount of bytes is read from it.
-        This is necessary because a single read may not return the correct number of bytes.
+        This is necessary because a single read may not return the correct number of bytes
+            (see https://github.com/python/cpython/blob/5e437fb872279960992c9a07f1a4c051b4948c53/Python/fileutils.c#L1599-L1661
+            and https://github.com/python/cpython/blob/63298930fb531ba2bb4f23bc3b915dbf1e17e9e1/Modules/_io/fileio.c#L778-L835,
+            note "Only makes one system call, so less data may be returned than requested")
+            (see https://man7.org/linux/man-pages/man2/read.2.html#RETURN_VALUE,
+            note "It is not an error if this number is smaller than the number of bytes requested")
+            (see https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/read?view=msvc-160#return-value,
+            note "_read returns the number of bytes read, 
+                which might be less than buffer_size...if the file was opened in text mode")
         """
 
         all_bytes_read = bytes()
@@ -379,7 +531,7 @@ class Ad2cpDataPacket:
         parsing each field in a data record.
         """
 
-        if self.data_record_format == DataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT:
+        if self.data_record_format == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
                 self.data["temperature_sensor_valid"] = (
@@ -414,9 +566,11 @@ class Ad2cpDataPacket:
                          & 0b0111_0000_0000_0000) >> 12
                     ] if beam > 0
                 ]
-                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
-                    self.previous_data_packet.data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
-        elif self.data_record_format == DataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
+                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                    self.parser.echosounder_raw_packets[-1].data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
+                elif self.parser.last_packet_data_record_type.is_echosounder_raw_transmit():
+                    self.parser.echosounder_raw_transmit_packets[-1].data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
+        elif self.data_record_format == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["configuration"] & 0b0000_0000_0000_0001
                 self.data["temperature_sensor_valid"] = (
@@ -481,13 +635,18 @@ class Ad2cpDataPacket:
                          & 0b1111_0000_0000_0000) >> 12
                     ] if beam > 0
                 ]
-                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
-                    self.previous_data_packet.data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
+                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                    self.parser.echosounder_raw_packets[-1].data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
+                elif self.parser.last_packet_data_record_type.is_echosounder_raw_transmit():
+                    self.parser.echosounder_raw_transmit_packets[-1].data["echosounder_raw_beam"] = self.data_exclude["beams"][0]
             elif field_name == "status":
-                if self.previous_data_packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
-                    self.previous_data_packet.data["echosounder_raw_echogram"] = ((
+                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                    self.parser.echosounder_raw_packets[-1].data["echosounder_raw_echogram"] = ((
                         self.data["status"] >> 12) & 0b1111) + 1
-        elif self.data_record_format == DataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT:
+                elif self.parser.last_packet_data_record_type.is_echosounder_raw_transmit():
+                    self.parser.echosounder_raw_transmit_packets[-1].data["echosounder_raw_echogram"] = ((
+                        self.data["status"] >> 12) & 0b1111) + 1
+        elif self.data_record_format == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self.data["pressure_sensor_valid"] = self.data["data"]["configuration"] & 0b0000_0000_0000_0001
                 self.data["temperature_sensor_valid"] = (
@@ -522,11 +681,15 @@ class Ad2cpDataPacket:
                 # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
                 self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * \
                     (10 ** self.data["velocity_scaling"])
-        elif self.data_record_format == DataRecordFormats.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
+        elif self.data_record_format == HeaderOrDataRecordFormats.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
             if field_name == "echosounder_raw_samples":
                 self.data["echosounder_raw_samples_r"] = self.data["echosounder_raw_samples"][:, 0]
                 self.data["echosounder_raw_samples_i"] = self.data["echosounder_raw_samples"][:, 1]
                 del self.data["echosounder_raw_samples"]
+            elif field_name == "echosounder_raw_transmit_samples":
+                self.data["echosounder_raw_transmit_samples_r"] = self.data["echosounder_raw_transmit_samples"][:, 0]
+                self.data["echosounder_raw_transmit_samples_i"] = self.data["echosounder_raw_transmit_samples"][:, 1]
+                del self.data["echosounder_raw_transmit_samples"]
 
     @staticmethod
     def checksum(data: bytes) -> int:
@@ -554,32 +717,50 @@ RANGE_BINS = {
 
 
 def range_bin(data_record_type: DataRecordType) -> Dimension:
+    """
+    Gets the correct range bin dimension for the given data record type
+    """
+
     return RANGE_BINS[data_record_type]
 
 
-class DataRecordFormat:
+class HeaderOrDataRecordFormat:
     """
-    A collection of fields which makes a data record format
+    A collection of fields which represents the header format or a data record format
     """
 
     def __init__(self, fields: List[Field]):
         self.fields = OrderedDict([(f.field_name, f) for f in fields])
 
     def get_field(self, field_name: str) -> Optional[Field]:
-        if field_name in DataRecordFormats.HEADER_FORMAT.fields:
-            return DataRecordFormats.HEADER_FORMAT.fields.get(field_name)
+        """
+        Gets a field from the current packet based on its name.
+        Since the field could also be in the packet's header, the header
+            is searched in addition to this data record.
+        """
+
+        if field_name in HeaderOrDataRecordFormats.HEADER_FORMAT.fields:
+            return HeaderOrDataRecordFormats.HEADER_FORMAT.fields.get(field_name)
         return self.fields.get(field_name)
 
-    def fields_iter(self):
+    def fields_iter(self) -> Iterable[Field]:
+        """
+        Returns an iterable over the fields in this header or data record format
+        """
+
         return self.fields.values()
 
 
-class DataRecordFormats:
+class HeaderOrDataRecordFormats:
     @classmethod
-    def data_record_format(cls, data_record_type: DataRecordType) -> DataRecordFormat:
+    def data_record_format(cls, data_record_type: DataRecordType) -> HeaderOrDataRecordFormat:
+        """
+        Returns data record format that should be used to parse the given data record type
+        """
+
         return cls.DATA_RECORD_FORMATS[data_record_type]
 
-    HEADER_FORMAT: DataRecordFormat = DataRecordFormat([
+    HEADER_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("sync", 1, UNSIGNED_INTEGER),
         F("header_size", 1, UNSIGNED_INTEGER),
         F("id", 1, UNSIGNED_INTEGER),
@@ -591,12 +772,12 @@ class DataRecordFormats:
         F("data_record_checksum", 2, UNSIGNED_INTEGER),
         F("header_checksum", 2, UNSIGNED_INTEGER),
     ])
-    STRING_DATA_RECORD_FORMAT: DataRecordFormat = DataRecordFormat([
+    STRING_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("string_data_id", 1, UNSIGNED_INTEGER),
         F("string_data",
             lambda packet: packet.data["data_record_size"] - 1, STRING),
     ])
-    BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT: DataRecordFormat = DataRecordFormat([
+    BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("version", 1, UNSIGNED_INTEGER),
         F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
         F("serial_number", 4, UNSIGNED_INTEGER),
@@ -620,8 +801,10 @@ class DataRecordFormats:
         F("heading", 2, UNSIGNED_INTEGER,
             field_units="degrees",
             field_unit_conversion=lambda packet, x: x / 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
-        F("roll", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
         F("error", 2, UNSIGNED_INTEGER),
         F("status", 2, UNSIGNED_INTEGER),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
@@ -666,7 +849,7 @@ class DataRecordFormats:
         #     (10 ** packet.data["velocity_scaling"]),
         #     field_exists_predicate=lambda packet: packet.is_other() and packet.data["velocity_data_included"]
         # ),
-        F( # used when burst
+        F(  # used when burst
             "velocity_data_burst",
             2,
             SIGNED_INTEGER,
@@ -677,9 +860,10 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x *
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["velocity_data_included"]
         ),
-        F( # used when average
+        F(  # used when average
             "velocity_data_average",
             2,
             SIGNED_INTEGER,
@@ -690,9 +874,10 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x *
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["velocity_data_included"]
         ),
-        F( # used when echosounder
+        F(  # used when echosounder
             "velocity_data_echosounder",
             2,
             SIGNED_INTEGER,
@@ -703,7 +888,8 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x *
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["velocity_data_included"]
         ),
         # F(
         #     "amplitude_data",
@@ -726,7 +912,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["amplitude_data_included"]
         ),
         F(
             "amplitude_data_average",
@@ -738,7 +925,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["amplitude_data_included"]
         ),
         F(
             "amplitude_data_echosounder",
@@ -750,7 +938,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["amplitude_data_included"]
         ),
         # F(
         #     "correlation_data",
@@ -771,7 +960,8 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["correlation_data_included"]
         ),
         F(
             "correlation_data_average",
@@ -782,7 +972,8 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["correlation_data_included"]
         ),
         F(
             "correlation_data_echosounder",
@@ -793,10 +984,11 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["correlation_data_included"]
         )
     ])
-    BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT: DataRecordFormat = DataRecordFormat([
+    BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("version", 1, UNSIGNED_INTEGER),
         F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
         F("configuration", 2, UNSIGNED_INTEGER),
@@ -820,8 +1012,10 @@ class DataRecordFormats:
         F("heading", 2, UNSIGNED_INTEGER,
             field_units="degrees",
             field_unit_conversion=lambda packet, x: x / 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
-        F("roll", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
         F("cell_size", 2, UNSIGNED_INTEGER,
             field_units="m",
@@ -833,7 +1027,7 @@ class DataRecordFormats:
             field_unit_conversion=lambda packet, x: x / 1000),
         F("nominal_correlation", 1, UNSIGNED_INTEGER, field_units="%"),
         F("temperature_from_pressure_sensor", 1,
-            UNSIGNED_INTEGER, 
+            UNSIGNED_INTEGER,
             field_units="degrees Celsius",
             field_unit_conversion=lambda packet, x: x * 5),
         F("battery_voltage", 2, UNSIGNED_INTEGER,
@@ -887,7 +1081,8 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x * \
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["velocity_data_included"]
         ),
         F(
             "velocity_data_average",
@@ -900,7 +1095,8 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x * \
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["velocity_data_included"]
         ),
         F(
             "velocity_data_echosounder",
@@ -913,7 +1109,8 @@ class DataRecordFormats:
             field_units="m/s",
             field_unit_conversion=lambda packet, x: x * \
             (10 ** packet.data["velocity_scaling"]),
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["velocity_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["velocity_data_included"]
         ),
         # F(
         #     "amplitude_data",
@@ -936,7 +1133,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["amplitude_data_included"]
         ),
         F(
             "amplitude_data_average",
@@ -948,7 +1146,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["amplitude_data_included"]
         ),
         F(
             "amplitude_data_echosounder",
@@ -960,7 +1159,8 @@ class DataRecordFormats:
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="dB/count",
             field_unit_conversion=lambda packet, x: x / 2,
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["amplitude_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["amplitude_data_included"]
         ),
         # F(
         #     "correlation_data",
@@ -981,7 +1181,8 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_burst() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_burst(
+            ) and packet.data["correlation_data_included"]
         ),
         F(
             "correlation_data_average",
@@ -992,7 +1193,8 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_average() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_average(
+            ) and packet.data["correlation_data_included"]
         ),
         F(
             "correlation_data_echosounder",
@@ -1003,7 +1205,8 @@ class DataRecordFormats:
             field_dimensions=lambda data_record_type: [
                 Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             field_units="0-100",
-            field_exists_predicate=lambda packet: packet.is_echosounder() and packet.data["correlation_data_included"]
+            field_exists_predicate=lambda packet: packet.is_echosounder(
+            ) and packet.data["correlation_data_included"]
         ),
         F("altimeter_distance", 4, FLOAT,
             field_units="m",
@@ -1099,7 +1302,8 @@ class DataRecordFormats:
             1,
             UNSIGNED_INTEGER,
             field_shape=lambda packet: [packet.data.get("num_cells", 0)],
-            field_dimensions=lambda data_record_type: [Dimension.TIME, range_bin(data_record_type)],
+            field_dimensions=lambda data_record_type: [
+                Dimension.TIME, range_bin(data_record_type)],
             field_units="%",
             field_exists_predicate=lambda packet: packet.data["percentage_good_data_included"]
         ),
@@ -1124,7 +1328,7 @@ class DataRecordFormats:
         F(None, 24, RAW_BYTES,
             field_exists_predicate=lambda packet: packet.data["std_dev_data_included"])
     ])
-    BOTTOM_TRACK_DATA_RECORD_FORMAT: DataRecordFormat = DataRecordFormat([
+    BOTTOM_TRACK_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("version", 1, UNSIGNED_INTEGER),
         F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
         F("configuration", 2, UNSIGNED_INTEGER),
@@ -1148,8 +1352,10 @@ class DataRecordFormats:
         F("heading", 2, UNSIGNED_INTEGER,
             field_units="degrees",
             field_unit_conversion=lambda packet, x: x / 100),
-        F("pitch", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
-        F("roll", 2, SIGNED_INTEGER, field_units="degrees", field_unit_conversion=lambda packet, x: x / 100),
+        F("pitch", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
+        F("roll", 2, SIGNED_INTEGER, field_units="degrees",
+          field_unit_conversion=lambda packet, x: x / 100),
         F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
         F("cell_size", 2, UNSIGNED_INTEGER,
             field_units="m",
@@ -1215,7 +1421,7 @@ class DataRecordFormats:
             field_exists_predicate=lambda packet: packet.data["figure_of_merit_data_included"]
         )
     ])
-    ECHOSOUNDER_RAW_DATA_RECORD_FORMAT: DataRecordFormat = DataRecordFormat([
+    ECHOSOUNDER_RAW_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat([
         F("version", 1, UNSIGNED_INTEGER),
         F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
         F("year", 1, UNSIGNED_INTEGER),
@@ -1234,7 +1440,30 @@ class DataRecordFormats:
         F(None, 208, RAW_BYTES),
         F("echosounder_raw_samples", 4, SIGNED_FRACTION,
             field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
-            field_dimensions=[Dimension.TIME, Dimension.SAMPLE])
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+            field_exists_predicate=lambda packet: packet.is_echosounder_raw()),
+        # These next 2 fields are included so that the dimensions for this field can be determined
+        # based on the field name ("echosounder_raw_samples" will be deleted later and dimensions are looked up
+        # by "echosounder_raw_samples_r" and "echosounder_raw_samples_i")
+        F("echosounder_raw_samples_r", 0, RAW_BYTES,
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+            field_exists_predicate=lambda packet: False),
+        F("echosounder_raw_samples_i", 0, RAW_BYTES,
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+            field_exists_predicate=lambda packet: False),
+        F("echosounder_raw_transmit_samples", 4, SIGNED_FRACTION,
+            field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+            field_exists_predicate=lambda packet: packet.is_echosounder_raw_transmit()),
+        # These next 2 fields are included so that the dimensions for this field can be determined
+        # based on the field name ("echosounder_raw_transmit_samples" will be deleted later and dimensions are looked up
+        # by "echosounder_raw_transmit_samples_r" and "echosounder_raw_transmit_samples_i")
+        F("echosounder_raw_transmit_samples_r", 0, RAW_BYTES,
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+            field_exists_predicate=lambda packet: False),
+        F("echosounder_raw_transmit_samples_i", 0, RAW_BYTES,
+            field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+            field_exists_predicate=lambda packet: False)
     ])
 
     DATA_RECORD_FORMATS = {
@@ -1245,5 +1474,6 @@ class DataRecordFormats:
         DataRecordType.BOTTOM_TRACK: BOTTOM_TRACK_DATA_RECORD_FORMAT,
         DataRecordType.ECHOSOUNDER: BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT,
         DataRecordType.ECHOSOUNDER_RAW: ECHOSOUNDER_RAW_DATA_RECORD_FORMAT,
+        DataRecordType.ECHOSOUNDER_RAW_TRANSMIT: ECHOSOUNDER_RAW_DATA_RECORD_FORMAT,
         DataRecordType.STRING: STRING_DATA_RECORD_FORMAT,
     }

@@ -5,7 +5,7 @@ import xarray as xr
 import numpy as np
 
 from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import DataRecordType, DataRecordFormats, Ad2cpDataPacket, Field
+from .parse_ad2cp import HeaderOrDataRecordFormats, Ad2cpDataPacket, Field
 from ..utils import io
 
 
@@ -31,29 +31,16 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def combine_packets(self):
         self.ds = None
-        string_data = dict()
 
-        burst_packets = []
-        average_packets = []
-        echosounder_packets = []
-        echosounder_raw_packets = []
-        for packet in self.parser_obj.packets:
-            if packet.data_record_type in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3):
-                burst_packets.append(packet)
-            elif packet.data_record_type in (DataRecordType.AVERAGE_VERSION2, DataRecordType.AVERAGE_VERSION3):
-                average_packets.append(packet)
-            elif packet.data_record_type == DataRecordType.ECHOSOUNDER:
-                echosounder_packets.append(packet)
-            elif packet.data_record_type == DataRecordType.ECHOSOUNDER_RAW:
-                echosounder_raw_packets.append(packet)
+        # # TODO: where to put string data in output?
 
         # pad raw samples so that "sample" dimenion has same length
         max_samples = 0
-        for packet in echosounder_raw_packets:
+        for packet in self.parser_obj.echosounder_raw_packets:
             # both _r and _i have same dimensions
             max_samples = max(
                 max_samples, packet.data["echosounder_raw_samples_r"].shape[0])
-        for packet in echosounder_raw_packets:
+        for packet in self.parser_obj.echosounder_raw_packets:
             packet.data["echosounder_raw_samples_r"] = np.pad(packet.data["echosounder_raw_samples_r"], ((
                 0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])))
             packet.data["echosounder_raw_samples_i"] = np.pad(packet.data["echosounder_raw_samples_i"], ((
@@ -68,7 +55,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                     # TODO might not work with altimeter_spare
                     # dims = Field.dimensions(
                     #     field_name, packet.data_record_type)
-                    field = DataRecordFormats.data_record_format(packet.data_record_type).get_field(field_name)
+                    field = HeaderOrDataRecordFormats.data_record_format(
+                        packet.data_record_type).get_field(field_name)
                     if field is not None:
                         dims = field.dimensions(packet.data_record_type)
                         units = field.units()
@@ -100,18 +88,20 @@ class SetGroupsAd2cp(SetGroupsBase):
             else:
                 return None
 
-        burst_ds = make_dataset(burst_packets, time_dim="time_burst")
-        average_ds = make_dataset(average_packets, time_dim="time_average")
+        burst_ds = make_dataset(
+            self.parser_obj.burst_packets, time_dim="time_burst")
+        average_ds = make_dataset(
+            self.parser_obj.average_packets, time_dim="time_average")
         echosounder_ds = make_dataset(
-            echosounder_packets, time_dim="time_echosounder")
+            self.parser_obj.echosounder_packets, time_dim="time_echosounder")
         echosounder_raw_ds = make_dataset(
-            echosounder_raw_packets, time_dim="time_echosounder_raw")
+            self.parser_obj.echosounder_raw_packets, time_dim="time_echosounder_raw")
+        echosounder_raw_transmit_ds = make_dataset(
+            self.parser_obj.echosounder_raw_transmit_packets, time_dim="time_echosounder_raw_transmit")
 
         datasets = [ds for ds in (
-            burst_ds, average_ds, echosounder_ds, echosounder_raw_ds) if ds]
+            burst_ds, average_ds, echosounder_ds, echosounder_raw_ds, echosounder_raw_transmit_ds) if ds]
         self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
-        # TODO: where to put string data in output?
-        self.ds.attrs["string_data"] = string_data
 
     def set_environment(self):
         ds = xr.Dataset(data_vars={
@@ -300,12 +290,16 @@ class SetGroupsAd2cp(SetGroupsBase):
             data_vars={
                 "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
                 "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
+                "echosounder_raw_transmit_samples_r": self.ds.get("echosounder_raw_transmit_samples_r"),
+                "echosounder_raw_transmit_samples_i": self.ds.get("echosounder_raw_transmit_samples_i"),
                 "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
                 "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
             },
             coords={
                 "time_echosounder_raw": self.ds.get("time_echosounder_raw"),
-                "sample": self.ds.get("sample")
+                "time_echosounder_raw_transmit": self.ds.get("time_echosounder_raw_transmit"),
+                "sample": self.ds.get("sample"),
+                "sample_transmit": self.ds.get("sample_transmit")
             },
             attrs={
                 "pulse_compressed": pulse_compressed
