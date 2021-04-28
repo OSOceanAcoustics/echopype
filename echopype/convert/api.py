@@ -1,6 +1,7 @@
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
+import os
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
@@ -55,7 +56,8 @@ def _validate_path(
     ----------
     file_format : str {'.nc', '.zarr'}
     save_path : str
-        Either a directory or a file. If none then the save path is the same as the raw file.
+        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
+        in the current working directory.
     """
     if save_path is None:
         warnings.warn("save_path is not provided")
@@ -70,24 +72,26 @@ def _validate_path(
         warnings.warn(
             f"Resulting converted file(s) will be available at {str(out_dir)}"
         )
-        out_path = out_dir / (Path(source_file).stem + file_format)
+        out_path = str(out_dir / (Path(source_file).stem + file_format))
 
     else:
-        fsmap = fsspec.get_mapper(save_path, **output_storage_options)
+        if not isinstance(save_path, Path) and not isinstance(save_path, str):
+            raise TypeError('save_path must be a string or Path')
+
+        fsmap = fsspec.get_mapper(str(save_path), **output_storage_options)
         output_fs = fsmap.fs
 
         # Use the full path such as s3://... if it's not local, otherwise use root
         if isinstance(output_fs, LocalFileSystem):
-            root = Path(fsmap.root)
+            root = fsmap.root
         else:
-            root = Path(save_path)
-
-        if root.suffix == "":  # directory
+            root = save_path
+        if Path(root).suffix == "":  # directory
             out_dir = root
-            out_path = root / (Path(source_file).stem + file_format)
+            out_path = os.path.join(root, Path(source_file).stem + file_format)
         else:  # file
-            out_dir = root.parent
-            out_path = out_dir / (root.stem + file_format)
+            out_dir = os.path.dirname(root)
+            out_path = os.path.join(out_dir, Path(root).stem + file_format)
 
     # Create folder if save_path does not exist already
     fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
@@ -105,7 +109,7 @@ def _validate_path(
         except FileNotFoundError:
             raise ValueError("Specified save_path is not valid.")
 
-    return str(out_path)  # output_path is always a string
+    return out_path  # output_path is always a string
 
 
 def to_file(
@@ -150,6 +154,7 @@ def to_file(
         source_file=echodata.source_file,
         file_format=format_mapping[engine],
         save_path=save_path,
+        output_storage_options=output_storage_options,
     )
 
     # Get all existing files
@@ -374,16 +379,15 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
         if not xml_path:
             raise ValueError(f"XML file is required for {sonar_model} raw data")
         else:
-            xml_path = Path(xml_path)
-            if ".XML" not in xml_path.suffix.upper():
+            if ".XML" not in Path(xml_path).suffix.upper():
                 raise ValueError(
-                    f"{xml_path.name} is not an XML file"
+                    f"{Path(xml_path).name} is not an XML file"
                 )
 
         xmlmap = fsspec.get_mapper(str(xml_path), **storage_options)
         if not xmlmap.fs.exists(xmlmap.root):
             raise FileNotFoundError(
-                f"There is no file named {xml_path.name}"
+                f"There is no file named {Path(xml_path).name}"
             )
 
         xml = xml_path
@@ -393,14 +397,13 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
-    raw_file = Path(raw_file)
     ext = MODELS[sonar_model]["ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(
-            f"There is no file named {raw_file.name}"
+            f"There is no file named {Path(raw_file).name}"
         )
 
-    if raw_file.suffix.upper() != ext.upper():
+    if Path(raw_file).suffix.upper() != ext.upper():
         raise ValueError(
             f"Expecting a {ext} file but got {raw_file}"
         )
@@ -481,7 +484,7 @@ def open_raw(
     if isinstance(raw_file, Path):
         raw_file = str(raw_file)
     if not isinstance(raw_file, str):
-        raise ValueError("file must be a string or Path")
+        raise TypeError("file must be a string or Path")
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(

@@ -35,13 +35,13 @@ class TestEchoData:
         expected_repr = dedent(
             f"""\
             EchoData: standardized raw data from {zarr_path_string}
-              > Top-level: contains metadata about the SONAR-netCDF4 file format.
-              > Environment: contains information relevant to acoustic propagation through water.
-              > Platform: contains information about the platform on which the sonar is installed.
-              > Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
-              > Sonar: contains specific metadata for the sonar system.
-              > Beam: contains backscatter data and other beam or channel-specific data.
-              > Vendor specific: contains vendor-specific information about the sonar and the data."""
+              > top: (Top-level) contains metadata about the SONAR-netCDF4 file format.
+              > environment: (Environment) contains information relevant to acoustic propagation through water.
+              > platform: (Platform) contains information about the platform on which the sonar is installed.
+              > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
+              > sonar: (Sonar) contains specific metadata for the sonar system.
+              > beam: (Beam) contains backscatter data and other beam or channel-specific data.
+              > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData(converted_raw_path=self.converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))

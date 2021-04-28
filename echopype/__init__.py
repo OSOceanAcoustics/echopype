@@ -4,6 +4,6 @@ from .echodata.api import open_converted
 from .process import Process
 from . import calibrate
 
-from _echopype_version import version as __version__
+from _echopype_version import version as __version__  # noqa
 
-__all__ = [open_raw, open_converted]
+__all__ = [open_raw, open_converted, calibrate]
