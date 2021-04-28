@@ -2,7 +2,7 @@ import os
 import shutil
 import pytest
 from ..convert import Convert
-from ..process import Process, EchoData
+from ..process import Process, EchoDataOld
 
 ek80_bb_path = './echopype/test_data/ek80/D20170912-T234910.raw'   # Large dataset (BB)
 ek80_cw_path = './echopype/test_data/ek80/D20190822-T161221.raw'     # Small dataset (CW)
@@ -19,7 +19,7 @@ def test_broadband_calibration():
     tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
-    ed = EchoData(raw_path=tmp.output_file)
+    ed = EchoDataOld(raw_path=tmp.output_file)
     proc = Process(model='EK80', ed=ed)
     proc.calibrate(ed, save=True, save_format='netcdf4')
 
@@ -33,7 +33,7 @@ def test_narrowband_calibration():
     tmp = Convert(file=ek80_cw_path, model='EK80')
     tmp.to_netcdf()
 
-    ed = EchoData(raw_path=tmp.output_file)
+    ed = EchoDataOld(raw_path=tmp.output_file)
     proc = Process(model='EK80', ed=ed)
     proc.get_Sv(ed, save=True)
     proc.remove_noise(ed)

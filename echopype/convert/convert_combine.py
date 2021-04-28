@@ -8,11 +8,9 @@ from datetime import datetime as dt
 from fsspec.mapping import FSMap
 from fsspec.implementations.local import LocalFileSystem
 import xarray as xr
-from .._version import get_versions
+from _echopype_version import version as ECHOPYPE_VERSION
 from ..utils import io
 from .set_groups_base import DEFAULT_CHUNK_SIZE
-
-ECHOPYPE_VERSION = get_versions()['version']
 
 
 def get_combined_save_path(source_paths):
