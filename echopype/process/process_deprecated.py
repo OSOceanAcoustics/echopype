@@ -1,8 +1,7 @@
 import os
 import warnings
 import datetime as dt
-import numpy as np
-from echopype import open_converted
+import echopype
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 from echopype.calibrate.calibrate_azfp import CalibrateAZFP
 from echopype.preprocess import api as preprocess
@@ -24,25 +23,27 @@ class Process():
     Allows users to create Process objects from which they can process their data by using
     the new Calibrate and Preprocess functions under the hood.
     """
-    def __init__(self, nc_path, salinity=29.6, pressure=60, temperature=None):
+    def __init__(self, file_path="", salinity=27.9, pressure=59, temperature=None):
         warnings.warn("Initializing a Process object is deprecated. "
                       "More information on how to use the new processing "
                       "functions can be found in the echopype documentation.",
                       DeprecationWarning, 3)
-        self.echodata = open_converted(nc_path)
+        self.echodata = echopype.open_converted(file_path)
         self._file_format = None
-        self.file_path = nc_path
+        self.file_path = file_path
 
         # Initialize AZFP environment parameters. Will error if None
         if self.echodata.sonar_model == 'AZFP':
-            env_params = {'salinity': salinity,
-                          'temperature': self.echodata.environment.temperature,
-                          'pressure': pressure}
+            if temperature is None:
+                temperature = self.echodata.environment['temperature']
+            self._env_params = {'salinity': salinity,
+                                'temperature': temperature,
+                                'pressure': pressure}
         else:
-            env_params = None
+            self._env_params = None
 
         self.calibrator = CALIBRATOR[self.echodata.sonar_model](
-            self.echodata, env_params=env_params, cal_params=None, waveform_mode='BB'
+            self.echodata, env_params=self._env_params, cal_params=None, waveform_mode='BB'
         )
         self.waveform_mode = 'BB'
         # Deprecated data attributes
@@ -97,6 +98,8 @@ class Process():
 
     @property
     def range(self):
+        if self.calibrator.range_meter is None:
+            self.calibrator.compute_range_meter('Sv')
         return self.calibrator.range_meter
 
     @range.setter
@@ -158,7 +161,18 @@ class Process():
             waveform_mode = 'CW'
             encode_mode = 'power'
 
-        self.Sv = self.calibrator.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        # Use averaged temperature for AZFP
+        env_params = self._env_params.copy()
+        if self.echodata.sonar_model == 'AZFP':
+            env_params['temperature'] = env_params['temperature'].mean('ping_time').values
+
+        # Call calibrate from Calibrate class
+        self.Sv = echopype.calibrate.compute_Sv(
+            echodata=self.echodata,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+            env_params=env_params
+        )
         if save:
             self.Sv_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
@@ -170,7 +184,18 @@ class Process():
             waveform_mode = 'CW'
             encode_mode = 'power'
 
-        self.TS = self.calibrator.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        # Use averaged temperature for AZFP
+        env_params = self._env_params.copy()
+        if self.echodata.sonar_model == 'AZFP':
+            env_params['temperature'] = env_params['temperature'].mean('ping_time').values
+
+        # Call calibrate from Calibrate class
+        self.TS = echopype.calibrate.compute_Sp(
+            echodata=self.echodata,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+            env_params=env_params
+        )
         if save:
             self.TS_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
@@ -181,7 +206,7 @@ class Process():
         if mode == 'Sv':
             self.calibrate(save=save, save_postfix=save_postfix, save_path=save_path, waveform_mode='CW')
         elif mode == 'TS':
-            self.calibrator.compute_Sp(save=save, save_postfix=save_postfix, save_path=save_path, waveform_mode='CW')
+            self.calibrate_TS(save=save, save_postfix=save_postfix, save_path=save_path, waveform_mode='CW')
         else:
             raise ValueError("Unsupported calibration mode")
 
@@ -280,6 +305,10 @@ class Process():
 
         range_bin_size = MVBS_range_bin_size if MVBS_range_bin_size is not None else self.MVBS_range_bin_size
         ping_size = MVBS_ping_size if MVBS_ping_size is not None else self.MVBS_ping_size
+
+        # Range must have ping_time or it will error. Range does not have ping time for AZFP when temps are averaged
+        if proc_data['range'].ndim == 2:
+            proc_data = proc_data.assign(range=self.range)
 
         self.MVBS = preprocess.compute_MVBS_index_binning(
             proc_data,
