@@ -193,7 +193,11 @@ class EchoData:
             DeprecationWarning,
             2,
         )
-        return self.converted_raw_path
+        if self.converted_raw_path.endswith('.nc'):
+            return self.converted_raw_path
+        else:
+            path = Path(self.converted_raw_path)
+            return str(path.parent / (path.stem + '.nc'))
 
     @property
     def zarr_path(self):
@@ -202,7 +206,11 @@ class EchoData:
             DeprecationWarning,
             2,
         )
-        return self.converted_raw_path
+        if self.converted_raw_path.endswith('.zarr'):
+            return self.converted_raw_path
+        else:
+            path = Path(self.converted_raw_path)
+            return str(path.parent / (path.stem + '.zarr'))
 
     def raw2nc(
         self, save_path=None, combine_opt=False, overwrite=False, compress=True

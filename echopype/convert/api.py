@@ -456,7 +456,6 @@ def open_raw(
                 2,
             )
         else:
-            xml_path = sonar_model
             sonar_model = "AZFP"
             warnings.warn(
                 "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "
