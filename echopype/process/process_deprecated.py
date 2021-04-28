@@ -201,6 +201,7 @@ class Process():
             encode_mode=encode_mode,
             env_params=env_params
         )
+        self.TS = self.TS.rename(Sp='TS')
         if save:
             self.TS_path = self.validate_path(save_path, save_postfix)
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.TS_path))
