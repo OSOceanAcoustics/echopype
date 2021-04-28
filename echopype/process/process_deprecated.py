@@ -42,10 +42,19 @@ class Process():
         else:
             self._env_params = None
 
+        if 'backscatter_i' in self.echodata.beam:
+            self.waveform_mode = 'BB'
+            self.encode_mode = 'complex'
+        else:
+            self.waveform_mode = 'CW'
+            self.encode_mode = 'power'
+
         self.calibrator = CALIBRATOR[self.echodata.sonar_model](
-            self.echodata, env_params=self._env_params, cal_params=None, waveform_mode='BB'
+            self.echodata,
+            env_params=self._env_params,
+            cal_params=None,
+            waveform_mode=self.waveform_mode,
         )
-        self.waveform_mode = 'BB'
         # Deprecated data attributes
         self.Sv = None
         self.Sv_path = None
@@ -155,16 +164,14 @@ class Process():
         elif self._file_format == 'zarr':
             ds.to_zarr(path, mode=mode)
 
-    def calibrate(self, save=False, save_postfix='_Sv', save_path=None, waveform_mode='BB', encode_mode='complex'):
+    def calibrate(self, save=False, save_postfix='_Sv', save_path=None, waveform_mode=None, encode_mode=None):
         """Calibrate Sv by using the sonar specific calibrator"""
-        if 'backscatter_i' not in self.echodata.beam:
-            waveform_mode = 'CW'
-            encode_mode = 'power'
-
         # Use averaged temperature for AZFP
-        env_params = self._env_params.copy()
+        env_params = self._env_params.copy() if self._env_params is not None else None
         if self.echodata.sonar_model == 'AZFP':
             env_params['temperature'] = env_params['temperature'].mean('ping_time').values
+        encode_mode = encode_mode if encode_mode is not None else self.encode_mode
+        waveform_mode = waveform_mode if waveform_mode is not None else self.waveform_mode
 
         # Call calibrate from Calibrate class
         self.Sv = echopype.calibrate.compute_Sv(
@@ -178,16 +185,14 @@ class Process():
             print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self._save_dataset(self.Sv, self.Sv_path, mode="w")
 
-    def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None, waveform_mode='BB', encode_mode='complex'):
+    def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None, waveform_mode=None, encode_mode=None):
         """Calibrate Sp by using the sonar specific calibrator"""
-        if 'backscatter_i' not in self.echodata.beam:
-            waveform_mode = 'CW'
-            encode_mode = 'power'
-
         # Use averaged temperature for AZFP
-        env_params = self._env_params.copy()
+        env_params = self._env_params.copy() if self._env_params is not None else None
         if self.echodata.sonar_model == 'AZFP':
             env_params['temperature'] = env_params['temperature'].mean('ping_time').values
+        encode_mode = encode_mode if encode_mode is not None else self.encode_mode
+        waveform_mode = waveform_mode if waveform_mode is not None else self.waveform_mode
 
         # Call calibrate from Calibrate class
         self.TS = echopype.calibrate.compute_Sp(
