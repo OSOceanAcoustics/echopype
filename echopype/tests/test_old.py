@@ -107,8 +107,7 @@ def test_process_AZFP_matlab():
     # Check Sp
     check_output(ds_base=TS_test, ds_cmp=tmp_echo.TS, cal_type='TS')
 
-    Sv_test_path.close()
-    TS_test_path.close()
     os.remove(tmp_echo.Sv_path)
     os.remove(tmp_echo.TS_path)
+    del tmp_echo
     os.remove(tmp_convert.nc_path)
