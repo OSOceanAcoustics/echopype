@@ -8,18 +8,9 @@ from scipy.io import loadmat
 from echopype.convert import Convert, ConvertEK80
 from echopype.process import Process
 
-# Volume backscattering strength aqcuired from EchoView
-ek60_csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv18.csv',
-                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv38.csv',
-                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv70.csv',
-                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv120.csv',
-                  './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv200.csv']
 ek60_path = Path('./echopype/test_data/ek60')
 azfp_path = Path('./echopype/test_data/azfp')
 ek80_path = Path('./echopype/test_data/ek80')
-
-# EK80 PATHS
-ek80_raw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'   # BB and CW
 
 
 def test_bb():
