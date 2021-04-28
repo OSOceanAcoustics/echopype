@@ -8,37 +8,31 @@ from scipy.io import loadmat
 from echopype.convert import Convert, ConvertEK80
 from echopype.process import Process
 
-# EK60 PATHS
-# ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
-ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
-ek60_test_path = './echopype/test_data/ek60/from_matlab/DY1801_EK60-D20180211-T164025_Sv_TS.nc'
 # Volume backscattering strength aqcuired from EchoView
 ek60_csv_paths = ['./echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv18.csv',
                   './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv38.csv',
                   './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv70.csv',
                   './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv120.csv',
                   './echopype/test_data/ek60/from_echoview/DY1801_EK60-D20180211-T164025-Sv200.csv']
-
-# AZFP PATHS
+ek60_path = Path('./echopype/test_data/ek60')
 azfp_path = Path('./echopype/test_data/azfp')
-
+ek80_path = Path('./echopype/test_data/ek80')
 
 # EK80 PATHS
-raw_path_bb = './echopype/test_data/ek80/D20170912-T234910.raw'       # Large file (BB)
-raw_path_cw = './echopype/test_data/ek80/D20190822-T161221.raw'       # Small file (CW) (Standard test)
-bb_power_test_path = './echopype/test_data/ek80/from_echoview/D20170912-T234910/70 kHz raw power.complex.csv'
 ek80_raw_path = './echopype/test_data/ek80/Summer2018--D20180905-T033113.raw'   # BB and CW
 
 
 def test_bb():
+    ek80_raw_path = ek80_path.joinpath('D20170912-T234910.raw')
     # Test conversion of EK80 broadband data file
-    tmp = ConvertEK80(raw_path_bb)
+    tmp = ConvertEK80(ek80_raw_path)
     tmp.raw2nc()
 
     # Compare with EchoView exported data
-    bb_test_df = pd.read_csv(bb_power_test_path, header=None, skiprows=[0])
-    bb_test_df_r = bb_test_df.iloc[::2,14:]
-    bb_test_df_i = bb_test_df.iloc[1::2,14:]
+    bb_test_df = pd.read_csv(ek80_path.joinpath('from_echoview/D20170912-T234910/70 kHz raw power.complex.csv'),
+                             header=None, skiprows=[0])
+    bb_test_df_r = bb_test_df.iloc[::2, 14:]
+    bb_test_df_i = bb_test_df.iloc[1::2, 14:]
     with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
         backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean('quadrant')
@@ -57,20 +51,21 @@ def test_bb():
 def test_calibrate_ek80_cw():
     """Check noise estimation and noise removal using xarray and brute force using numpy.
     """
-
-    # Noise estimation via Process method =========
+    ek80_raw_path = ek80_path.joinpath('D20190822-T161221.raw')
     # Unpack data and convert to .nc file
-    tmp = Convert(raw_path_cw, model="EK80")
+    tmp = Convert(ek80_raw_path, model="EK80")
     tmp.raw2nc()
 
     # Read .nc file into an Process object and calibrate
     e_data = Process(tmp.nc_path)
     e_data.calibrate(save=True)
-    e_data._temp_ed.close()
-    os.remove('./echopype/test_data/ek80/D20190822-T161221_Sv.nc')
+    os.remove(e_data.Sv_path)
 
 
 def test_calibration_ek60_echoview():
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  # constant range_bin
+    ek60_echoview_path = ek60_path.joinpath('from_echoview')
+
     tmp = Convert(ek60_raw_path)
     tmp.raw2nc(overwrite=True)
 
@@ -78,9 +73,11 @@ def test_calibration_ek60_echoview():
     e_data = Process(tmp.nc_path)
     e_data.calibrate(save=True)
 
+    # Compare with EchoView outputs
     channels = []
-    for file in ek60_csv_paths:
-        channels.append(pd.read_csv(file, header=None, skiprows=[0]).iloc[:, 13:])
+    for freq in [18, 38, 70, 120, 200]:
+        fname = str(ek60_echoview_path.joinpath('DY1801_EK60-D20180211-T164025-Sv%d.csv' % freq))
+        channels.append(pd.read_csv(fname, header=None, skiprows=[0]).iloc[:, 13:])
     test_Sv = np.stack(channels)
     # Echoview data is missing 1 range. Also the first few ranges are handled differently
     assert np.allclose(test_Sv[:, :, 7:], e_data.Sv.Sv[:, :10, 8:], atol=1e-8)
@@ -103,23 +100,24 @@ def test_process_AZFP_matlab():
 
     # Tolerance lowered due to temperature not being averaged as is the case in the matlab code
     # Test Sv data
-    with xr.open_dataset(tmp_echo.Sv_path) as ds_Sv:
-        assert np.allclose(
-            np.array([Sv_test['Output']['Sv'][0][fidx] for fidx in range(4)]),
-            ds_Sv.Sv,
-            atol=1e-03
-        )
+    def check_output(ds_base, ds_cmp, cal_type):
+        for fidx in range(4):  # loop through all freq
+            assert np.alltrue(
+                ds_cmp.range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
+            )
+            assert np.allclose(
+                ds_cmp[cal_type].isel(frequency=fidx).values,
+                ds_base['Output'][0][cal_type][fidx],
+                atol=1e-13, rtol=0
+            )
+    # Check Sv
+    check_output(ds_base=Sv_test, ds_cmp=tmp_echo.Sv, cal_type='Sv')
 
-    # Test TS data
-    with xr.open_dataset(tmp_echo.TS_path) as ds_TS:
-        assert np.allclose(
-            np.array([TS_test['Output']['TS'][0][fidx] for fidx in range(4)]),
-            ds_TS.TS,
-            atol=1e-03
-        )
+    # Check Sp
+    check_output(ds_base=TS_test, ds_cmp=tmp_echo.TS, cal_type='TS')
 
-    Sv_test.close()
-    TS_test.close()
+    Sv_test_path.close()
+    TS_test_path.close()
     os.remove(tmp_echo.Sv_path)
     os.remove(tmp_echo.TS_path)
     os.remove(tmp_convert.nc_path)
