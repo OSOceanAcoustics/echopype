@@ -327,3 +327,18 @@ class Process():
             self._save_dataset(self.MVBS, self.MVBS_path)
         # Close opened resources
         proc_data.close()
+
+
+class ProcessAZFP():
+    def __new__(self, file_path="", salinity=27.9, pressure=59, temperature=None):
+        return Process(file_path=file_path, salinity=salinity, pressure=pressure, temperature=temperature)
+
+
+class ProcessEK60():
+    def __new__(self, file_path=""):
+        return Process(file_path=file_path)
+
+
+class ProcessEK80():
+    def __new__(self, file_path=""):
+        return Process(file_path=file_path)
