@@ -1,14 +1,13 @@
 # Publish archives to PyPI and TestPyPI using GitHub Actions
 name: Publish to PyPI
 
-# Only run for tagged releases and pushes to the development branch
+# Only run for tagged releases
 on:
   release:
     types:
-      - published
+      - released
   push:
     branches:
-      - class-redesign
       - master
   workflow_dispatch:
 
