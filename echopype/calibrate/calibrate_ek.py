@@ -240,20 +240,57 @@ class CalibrateEK80(CalibrateEK):
     z_et = 75
     z_er = 1000
 
-    def __init__(self, echodata, env_params, cal_params, waveform_mode):
+    def __init__(self, echodata, env_params, cal_params, waveform_mode='BB', encode_mode='complex'):
+        """
+        waveform_mode : str
+            ``BB`` for BB-mode samples, recorded as complex samples (default)
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+        encode_mode : str
+            EK80 data can be encoded as complex samples or power samples.
+            Use ``complex`` to compute Sv from only complex samples,
+            and ``power`` to compute Sv from only power samples.
+        """
         super().__init__(echodata)
+
+        self.waveform_mode = waveform_mode
+        self.encode_mode = encode_mode
+
+        # Set use_beam_power
+        #  - True: use self.echodata.beam_power for cal
+        #  - False: use self.echodata.beam for cal
+        self.use_beam_power = False
+
+        # Raise error for wrong inputs
+        if self.waveform_mode not in ('BB', 'CW'):
+            raise ValueError('Input waveform_mode not recognized!')
+        if self.encode_mode not in ('complex', 'power'):
+            raise ValueError('Input encode_mode not recognized!')
+
+        # Warn user about additional data in the raw file if another type exists
+        if self.echodata.beam_power is not None:  # both power and complex samples exist
+            if self.encode_mode == 'power':
+                self.use_beam_power = True  # switch source of backscatter data
+                print('Only power samples are calibrated, but complex samples also exist in the raw data file!')
+            else:
+                print('Only complex samples are calibrated, but power samples also exist in the raw data file!')
+        else:  # only power OR complex samples exist
+            if 'quadrant' in self.echodata.beam.dims:  # data contain only complex samples
+                if self.encode_mode == 'power':
+                    raise TypeError('File does not contain power samples!')  # user selects the wrong encode_mode
+            else:  # data contain only power samples
+                if self.encode_mode == 'complex':
+                    raise TypeError('File does not contain complex samples!')  # user selects the wrong encode_mode
 
         # initialize env and cal params
         # cal params are those used by both complex and power data calibration
         # TODO: add complex data-specific params, like the freq-dependent gain factor
         self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS['EK'])
-        # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
         if env_params is None:
             env_params = {}
-        self.get_env_params(env_params, waveform_mode=waveform_mode)
+        self.get_env_params(env_params)
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(cal_params)
@@ -261,7 +298,7 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def get_env_params(self, env_params, waveform_mode=None):
+    def get_env_params(self, env_params):
         """Get env params using user inputs or values from data file.
 
         EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -277,7 +314,7 @@ class CalibrateEK80(CalibrateEK):
             ``BB`` for BB-mode samples, recorded as complex samples
         """
         # Use center frequency if in BB mode, else use nominal channel frequency
-        if waveform_mode == 'BB':
+        if self.waveform_mode == 'BB':
             freq = (self.echodata.beam['frequency_start'] + self.echodata.beam['frequency_end']) / 2
         else:
             freq = self.echodata.beam['frequency']
@@ -404,7 +441,7 @@ class CalibrateEK80(CalibrateEK):
             ptxa = np.abs(ytx) ** 2  # energy of transmit signal
         return ptxa.sum() / (ptxa.max() * fs_deci)  # TODO: verify fs_deci = 1.5e6 in spheroid data sets
 
-    def get_transmit_chirp(self, waveform_mode):
+    def get_transmit_chirp(self):
         """Reconstruct transmit signal and compute effective pulse length.
 
         Parameters
@@ -414,7 +451,7 @@ class CalibrateEK80(CalibrateEK):
             ``BB`` for BB-mode samples, recorded as complex samples
         """
         # Make sure it is BB mode data
-        if waveform_mode == 'BB' \
+        if self.waveform_mode == 'BB' \
                 and (('frequency_start' not in self.echodata.beam)
                      or ('frequency_end' not in self.echodata.beam)):
             raise TypeError('File does not contain BB mode complex samples!')
@@ -424,7 +461,7 @@ class CalibrateEK80(CalibrateEK):
         tau_effective = {}
         for freq in self.echodata.beam.frequency.values:
             # TODO: currently only deal with the case with a fixed tx key param values within a channel
-            if waveform_mode == 'BB':
+            if self.waveform_mode == 'BB':
                 tx_param_names = ['transmit_duration_nominal', 'slope', 'transmit_power',
                                   'frequency_start', 'frequency_end']
             else:
@@ -443,7 +480,7 @@ class CalibrateEK80(CalibrateEK):
             y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, channel_id)
 
             # Compute effective pulse length
-            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci, waveform_mode=waveform_mode)
+            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci, waveform_mode=self.waveform_mode)
 
             y_all[channel_id] = y_tmp
             y_time_all[channel_id] = y_tmp_time
@@ -481,7 +518,7 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
-    def _cal_complex(self, cal_type, waveform_mode):
+    def _cal_complex(self, cal_type):
         """Calibrate complex data from EK80.
 
         Parameters
@@ -489,15 +526,12 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
         """
         # Transmit replica and effective pulse length
-        chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
+        chirp, _, tau_effective = self.get_transmit_chirp()
 
         # pulse compression
-        if waveform_mode == 'BB':
+        if self.waveform_mode == 'BB':
             pc = self.compress_pulse(chirp)
             prx = (self.echodata.beam.quadrant.size
                    * np.abs(pc.mean(dim='quadrant')) ** 2
@@ -518,10 +552,10 @@ class CalibrateEK80(CalibrateEK):
         sound_speed = self.env_params['sound_speed'].squeeze()
         range_meter = self.range_meter
         freq_nominal = self.echodata.beam.frequency
-        if waveform_mode == 'BB':
+        if self.waveform_mode == 'BB':
             freq_center = (self.echodata.beam['frequency_start'] + self.echodata.beam['frequency_end']) / 2
             wavelength = sound_speed / freq_center
-        elif waveform_mode == 'CW':
+        elif self.waveform_mode == 'CW':
             wavelength = sound_speed / freq_nominal
         # gain = self.echodata.vendor['gain']  # TODO: need to interpolate gain to at freq_center
         gain = 27
@@ -534,9 +568,9 @@ class CalibrateEK80(CalibrateEK):
         #  Is this due to the use of 'single' in matlab code?
         if cal_type == 'Sv':
             # get equivalent beam angle
-            if waveform_mode == 'BB':
+            if self.waveform_mode == 'BB':
                 psifc = self.echodata.beam['equivalent_beam_angle'] + 10 * np.log10(freq_nominal / freq_center)
-            elif waveform_mode == 'CW':
+            elif self.waveform_mode == 'CW':
                 psifc = self.echodata.beam['equivalent_beam_angle']
 
             # effective pulse length
@@ -570,7 +604,7 @@ class CalibrateEK80(CalibrateEK):
 
         return out
 
-    def _compute_cal(self, cal_type, waveform_mode, encode_mode):
+    def _compute_cal(self, cal_type):
         """Private method to compute Sv or Sp called by compute_Sv or compute_Sp.
 
         Parameters
@@ -578,84 +612,40 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        waveform_mode : str
-            ``BB`` for BB-mode samples, recorded as complex samples (default)
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-        encode_mode : str
-            EK80 data can be encoded as complex samples or power samples.
-            Use ``complex`` to compute Sv from only complex samples,
-            and ``power`` to compute Sv from only power samples.
 
         Returns
         -------
         Dataset containing either Sv or Sp.
         """
-        # Raise error for wrong inputs
-        if waveform_mode not in ('BB', 'CW'):
-            raise ValueError('Input waveform_mode not recognized!')
-        if encode_mode not in ('complex', 'power'):
-            raise ValueError('Input encode_mode not recognized!')
 
         # Set flag_complex
         #  - True: complex cal
         #  - False: power cal
         # BB: complex only, CW: complex or power
-        if waveform_mode == 'BB':
-            if encode_mode == 'power':  # BB waveform forces to collect complex samples
+        if self.waveform_mode == 'BB':
+            if self.encode_mode == 'power':  # BB waveform forces to collect complex samples
                 raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
             flag_complex = True
         else:
-            if encode_mode == 'complex':
+            if self.encode_mode == 'complex':
                 flag_complex = True
             else:
                 flag_complex = False
         # TODO: add additional checks and error messages for
         #  when waveform_mode and actual recording mode do not match
 
-        # Set use_beam_power
-        #  - True: use self.echodata.beam_power for cal
-        #  - False: use self.echodata.beam for cal
-        use_beam_power = False
-
-        # Warn user about additional data in the raw file if another type exists
-        if self.echodata.beam_power is not None:  # both power and complex samples exist
-            if encode_mode == 'power':
-                use_beam_power = True  # switch source of backscatter data
-                print('Only power samples are calibrated, but complex samples also exist in the raw data file!')
-            else:
-                print('Only complex samples are calibrated, but power samples also exist in the raw data file!')
-        else:  # only power OR complex samples exist
-            if 'quadrant' in self.echodata.beam.dims:  # data contain only complex samples
-                if encode_mode == 'power':
-                    raise TypeError('File does not contain power samples!')  # user selects the wrong encode_mode
-            else:  # data contain only power samples
-                if encode_mode == 'complex':
-                    raise TypeError('File does not contain complex samples!')  # user selects the wrong encode_mode
-
         # Compute Sv
         if flag_complex:
-            self.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)
-            ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
+            self.compute_range_meter(waveform_mode=self.waveform_mode, tvg_correction_factor=0)
+            ds_cal = self._cal_complex(cal_type=cal_type)
         else:
             self.compute_range_meter(waveform_mode='CW', tvg_correction_factor=0)
-            ds_cal = self._cal_power(cal_type=cal_type, use_beam_power=use_beam_power)
+            ds_cal = self._cal_power(cal_type=cal_type, use_beam_power=self.use_beam_power)
 
         return ds_cal
 
-    def compute_Sv(self, waveform_mode='BB', encode_mode='complex'):
+    def compute_Sv(self):
         """Compute volume backscattering strength (Sv).
-
-        Parameters
-        ----------
-        encode_mode : str
-            For EK80 data by default calibration is performed for the complex samples.
-            Use ``complex`` to compute Sv from only complex samples (default),
-            and ``power`` to compute Sv from only power samples.
-            Note if waveform_mode='BB', only complex samples are collected.
-            For all other sonar systems, calibration for power samples is performed.
-        waveform_mode : str
-            ``BB`` for BB-mode samples, recorded as complex samples (default)
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
 
         Returns
         -------
@@ -663,22 +653,10 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing volume backscattering strength (``Sv``)
             and the corresponding range (``range``) in units meter.
         """
-        return self._compute_cal(cal_type='Sv', waveform_mode=waveform_mode, encode_mode=encode_mode)
+        return self._compute_cal(cal_type='Sv')
 
-    def compute_Sp(self, waveform_mode='BB', encode_mode='complex'):
+    def compute_Sp(self):
         """Compute point backscattering strength (Sp).
-
-        Parameters
-        ----------
-        encode_mode : str
-            For EK80 data by default calibration is performed for the complex samples.
-            Use ``complex`` to compute Sv from only complex samples (default),
-            and ``power`` to compute Sv from only power samples.
-            Note if waveform_mode='BB', only complex samples are collected.
-            For all other sonar systems, calibration for power samples is performed.
-        waveform_mode : str
-            ``BB`` for BB-mode samples, recorded as complex samples (default)
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
 
         Returns
         -------
@@ -686,5 +664,4 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing point backscattering strength (``Sp``)
             and the corresponding range (``range``) in units meter.
         """
-        return self._compute_cal(cal_type='Sp', waveform_mode=waveform_mode, encode_mode=encode_mode)
-
+        return self._compute_cal(cal_type='Sp')

@@ -29,12 +29,13 @@ def _compute_cal(
         env_params=env_params,
         cal_params=cal_params,
         waveform_mode=waveform_mode,
+        encode_mode=encode_mode
     )
     # Perform calibration
     if cal_type == 'Sv':
-        return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        return cal_obj.compute_Sv()
     else:
-        return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        return cal_obj.compute_Sp()
 
 
 def compute_Sv(echodata: EchoData, **kwargs):
@@ -47,4 +48,3 @@ def compute_Sp(echodata: EchoData, **kwargs):
     """Compute point backscattering strength (Sp) from raw data.
     """
     return _compute_cal(cal_type='Sp', echodata=echodata, **kwargs)
-
