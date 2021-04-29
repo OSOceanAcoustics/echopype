@@ -86,9 +86,11 @@ class Convert:
         )
         if not isinstance(cls._instance, cls):
             cls._instance = open_raw(
+                # TODO: fix this to use new argument name
                 file=file,
                 model=model,
                 xml_path=xml_path,
                 storage_options=storage_options,
             )
         return cls._instance
+
