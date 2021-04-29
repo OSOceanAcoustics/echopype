@@ -139,6 +139,8 @@ class ParseAZFP(ParseBase):
                 ping_num += 1
         self._check_uniqueness()
         self._get_ping_time()
+        # Explicitly cast frequency to a float in accordance with the SONAR-netCDF4 convention
+        self.unpacked_data['frequency'] = self.unpacked_data['frequency'].astype(np.float64)
 
     @staticmethod
     def _get_fields():
