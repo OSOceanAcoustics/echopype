@@ -8,5 +8,6 @@ scipy
 xarray==0.16.2
 zarr
 fsspec==0.8.7
+s3fs==0.5.2
 requests
 aiohttp
