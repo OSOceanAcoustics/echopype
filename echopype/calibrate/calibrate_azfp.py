@@ -63,7 +63,7 @@ class CalibrateAZFP(CalibrateBase):
             formula_source='AZFP'
         )
         self.env_params['sound_absorption'] = uwa.calc_absorption(
-            frequency=self.echodata.beam['frequency'].astype(np.int64),
+            frequency=self.echodata.beam['frequency'],
             temperature=self.env_params['temperature'],
             salinity=self.env_params['salinity'],
             pressure=self.env_params['pressure'],

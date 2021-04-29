@@ -31,7 +31,7 @@ class NoiseEst:
         """
         if 'sound_absorption' not in self.ds_Sv:
             sound_absorption = uwa.calc_absorption(
-                frequency=self.ds_Sv.frequency.astype(np.int64),
+                frequency=self.ds_Sv.frequency,
                 temperature=self.ds_Sv['temperature'],
                 salinity=self.ds_Sv['salinity'],
                 pressure=self.ds_Sv['pressure'],
