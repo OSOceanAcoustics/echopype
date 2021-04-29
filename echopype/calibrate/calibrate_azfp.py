@@ -56,15 +56,19 @@ class CalibrateAZFP(CalibrateBase):
             self.env_params['pressure'] = env_params['pressure']
 
         # Always calculate sound speed and absorption
-        self.env_params['sound_speed'] = uwa.calc_sound_speed(temperature=self.env_params['temperature'],
-                                                              salinity=self.env_params['salinity'],
-                                                              pressure=self.env_params['pressure'],
-                                                              formula_source='AZFP')
-        self.env_params['sound_absorption'] = uwa.calc_absorption(frequency=self.echodata.beam['frequency'],
-                                                                  temperature=self.env_params['temperature'],
-                                                                  salinity=self.env_params['salinity'],
-                                                                  pressure=self.env_params['pressure'],
-                                                                  formula_source='AZFP')
+        self.env_params['sound_speed'] = uwa.calc_sound_speed(
+            temperature=self.env_params['temperature'],
+            salinity=self.env_params['salinity'],
+            pressure=self.env_params['pressure'],
+            formula_source='AZFP'
+        )
+        self.env_params['sound_absorption'] = uwa.calc_absorption(
+            frequency=self.echodata.beam['frequency'],
+            temperature=self.env_params['temperature'],
+            salinity=self.env_params['salinity'],
+            pressure=self.env_params['pressure'],
+            formula_source='AZFP'
+        )
 
     def compute_range_meter(self, cal_type):
         """Calculate range in meter using AZFP formula.
