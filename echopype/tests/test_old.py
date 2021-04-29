@@ -13,7 +13,7 @@ azfp_path = Path('./echopype/test_data/azfp')
 ek80_path = Path('./echopype/test_data/ek80')
 
 
-def test_bb():
+def test_calibrate_ek80_bb():
     ek80_raw_path = ek80_path.joinpath('D20170912-T234910.raw')
     # Test conversion of EK80 broadband data file
     tmp = ConvertEK80(ek80_raw_path)
@@ -83,7 +83,7 @@ def test_process_AZFP_matlab():
     tmp_convert = Convert(str(azfp_path.joinpath('17082117.01A')), str(azfp_path.joinpath('17041823.XML')))
     tmp_convert.raw2nc()
 
-    tmp_echo = Process(tmp_convert.nc_path)
+    tmp_echo = Process(tmp_convert.nc_path, salinity=27.9, pressure=59, temperature=None)
     tmp_echo.calibrate(save=True)
     tmp_echo.calibrate_TS(save=True)
     tmp_echo.remove_noise()
