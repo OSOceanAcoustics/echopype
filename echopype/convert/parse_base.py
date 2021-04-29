@@ -59,11 +59,12 @@ class ParseEK(ParseBase):
             self.config_datagram = fid.read(1)
             self.config_datagram['timestamp'] = np.datetime64(
                 self.config_datagram['timestamp'].replace(tzinfo=None), '[ms]')
-            for v in self.config_datagram["configuration"].values():
-                if "pulse_duration" not in v and "pulse_length" in v:
-                    # it seems like sometimes this field can appear with the name "pulse_length"
-                    # and in the form of floats separated by semicolons
-                    v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
+            if "configuration" in self.config_datagram:
+                for v in self.config_datagram["configuration"].values():
+                    if "pulse_duration" not in v and "pulse_length" in v:
+                        # it seems like sometimes this field can appear with the name "pulse_length"
+                        # and in the form of floats separated by semicolons
+                        v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
 
             # If exporting to XML file (EK80/EA640 only), print a message
             if 'print_export_msg' in self.data_type:
