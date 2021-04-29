@@ -20,26 +20,28 @@ def _clean_ping_time(ping_time_old, local_win_len=100):
         return ping_time_old  # no negative diff
 
 
-def coerce_increasing_ping_time(ds, local_win_len=100):
-    """Coerce ``ping_time`` to always flow forward.
+def coerce_increasing_time(ds, time_name='ping_time', local_win_len=100):
+    """Coerce a time coordinate to always flow forward.
 
     This is to correct for problems sometimes observed in EK60 data
-    where ``ping_time`` would suddenly go backward for one ping
-    but with the rest of the pinging interval undisturbed.
+    where a time coordinate (``ping_time`` or ``location_time``)
+    would suddenly go backward for one ping but with the rest of the pinging interval undisturbed.
 
     Parameters
     ----------
     ds : xr.Dataset
-        a dataset with a ``ping_time`` dimension/coordinate
+        a dataset for which the time coordinate needs to be corrected
+    time_name : str
+        name of the time coordinate to be corrected
     local_win_len : int
         half length of the local window within which the median pinging interval
         is used to infer the correct next ping time
 
     Returns
     -------
-    the input dataset but with ``ping_time`` coerced to flow forward
+    the input dataset but with specified time coordinate coerced to flow forward
     """
-    ds['ping_time'] = _clean_ping_time(ds['ping_time'].values, local_win_len=local_win_len)
+    ds[time_name] = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
     return ds
 
 
