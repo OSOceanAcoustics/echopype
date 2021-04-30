@@ -2,40 +2,12 @@ from typing import List
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-from ..utils import io
 from .set_groups_base import SetGroupsBase
-from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files.
     """
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        # Save environment only
-        if 'ENV' in self.parser_obj.data_type:
-            self.set_toplevel(self.sonar_model, date_created=self.parser_obj.environment['timestamp'])
-            self.set_provenance()
-            self.set_env(env_only=True)
-            return
-        # Save NMEA/MRU data only
-        elif 'NME' in self.parser_obj.data_type:
-            self.set_toplevel(self.sonar_model, date_created=self.parser_obj.nmea['timestamp'][0])
-            self.set_provenance()
-            self.set_platform()
-            return
-
-        # Save all groups
-        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
-        self.set_provenance()    # provenance group
-        self.set_env()           # environment group
-        self.set_platform()      # platform group
-        self.set_nmea()          # platform/NMEA group
-        self.set_beam()
-        self.set_sonar()
-        self.set_vendor()
-
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group.
         """
