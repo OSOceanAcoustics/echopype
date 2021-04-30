@@ -4,14 +4,15 @@ import echopype as ep
 
 
 def test_remove_noise():
-    # Create process object
+    """Test remove_noise on toy data"""
+
+    # Parameters for fake data
     nfreq, npings, nrange = 1, 10, 100
     freq = np.arange(nfreq)
     ping_index = np.arange(npings)
     range_bin = np.arange(nrange)
-
-    # Test noise removal on toy data
     data = np.ones(nrange)
+
     # Insert noise points
     np.put(data, 30, -30)
     np.put(data, 60, -30)
@@ -36,13 +37,13 @@ def test_remove_noise():
     # Test remove noise on a normal distribution
     np.random.seed(1)
     data = np.random.normal(loc=-100, scale=2, size=(nfreq, npings, nrange))
-    # Make DataArray
+    # Make Dataset to pass into remove_noise
     Sv = xr.DataArray(data, coords=[('frequency', freq),
                                     ('ping_time', ping_index),
                                     ('range_bin', range_bin)])
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
-
+    # Attach required range and sound_absorption values
     ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, 3, nrange)] * npings]), coords=Sv.coords))
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
@@ -53,7 +54,7 @@ def test_remove_noise():
 
 
 def test_compute_MVBS_index_binning():
-    """Test get_MVBS on a normal distribution"""
+    """Test compute_MVBS_index_binning on toy data"""
 
     # Parameters for fake data
     nfreq, npings, nrange = 4, 40, 400
@@ -61,7 +62,7 @@ def test_compute_MVBS_index_binning():
     range_bin_num = 3        # number of range_bins to average over
 
     # Construct data with values that increase every ping_num and range_bin_num
-    # so that when binned get_MVBS is performed, the result is a smaller array
+    # so that when compute_MVBS_index_binning is performed, the result is a smaller array
     # that increases by 1 for each row and column
     data = np.zeros((nfreq, npings, nrange))
     for p_i, ping in enumerate(range(0, npings, ping_num)):
