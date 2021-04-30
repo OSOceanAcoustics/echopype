@@ -9,27 +9,6 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files.
     """
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        # Save only up to the platform group if the user selects "GPS"
-        if 'NME' in self.parser_obj.data_type:
-            self.set_toplevel('EK60', date_created=self.parser_obj.nmea['timestamp'][0])
-            self.set_provenance()
-            self.set_sonar()
-            self.set_platform(NMEA_only=True)
-            return
-
-        # TODO: Specifically pass in date_created here
-        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
-        self.set_provenance()       # provenance group
-        self.set_sonar()            # sonar group
-        self.set_env()              # environment group
-        self.set_platform()         # platform group
-        self.set_beam()             # beam group
-        self.set_nmea()             # platform/NMEA group
-        self.set_vendor()           # vendor group
-
     def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """

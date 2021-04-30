@@ -36,11 +36,6 @@ class SetGroupsBase:
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        pass
-
     # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
         """Set the top-level group.

@@ -11,18 +11,6 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files.
     """
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        # TODO: check if there is any earlier time than the first ping_time for AZFP
-        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.ping_time[0])
-        self.set_provenance()
-        self.set_env()
-        self.set_platform()
-        self.set_sonar()
-        self.set_beam()
-        self.set_vendor()
-
     def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """
