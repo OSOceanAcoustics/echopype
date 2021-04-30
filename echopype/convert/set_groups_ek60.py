@@ -2,7 +2,6 @@ import xarray as xr
 import numpy as np
 from collections import defaultdict
 from .set_groups_base import SetGroupsBase
-from ..utils import io
 from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 

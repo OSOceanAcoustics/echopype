@@ -2,9 +2,7 @@ from typing import List
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-from ..utils import io
 from .set_groups_base import SetGroupsBase
-from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK80(SetGroupsBase):
