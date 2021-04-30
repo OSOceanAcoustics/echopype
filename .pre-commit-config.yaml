@@ -1,37 +1,31 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.1.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
     hooks:
-    - id: trailing-whitespace
-    - id: end-of-file-fixer
-    - id: check-docstring-first
-    - id: check-json
-    - id: check-yaml
-    - id: pretty-format-json
-      args: ["--autofix", "--indent=2", "--no-sort-keys"]
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-yaml
+      - id: pretty-format-json
+        args: ["--autofix", "--indent=2", "--no-sort-keys"]
 
--   repo: https://github.com/ambv/black
-    rev: 19.10b0
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
     hooks:
-    - id: black
-      args: ["--line-length", "100"]
+      - id: black
+        args: ["--line-length", "100"]
 
--   repo: https://gitlab.com/pycqa/flake8
+  - repo: https://gitlab.com/pycqa/flake8
     rev: 3.8.3
     hooks:
-    - id: flake8
+      - id: flake8
+        args:
+          [
+            "--tee",
+          ]
 
--   repo: https://github.com/asottile/seed-isort-config
-    rev: v2.2.0
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.8.0
     hooks:
-    - id: seed-isort-config
-
--   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.2.0
-    hooks:
-    - id: isort
-
--   repo: https://github.com/myint/rstcheck
-    rev: master
-    hooks:
-    -   id: rstcheck
+      - id: isort
