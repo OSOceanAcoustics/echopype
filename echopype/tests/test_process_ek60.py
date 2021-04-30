@@ -4,7 +4,7 @@ import pandas as pd
 import xarray as xr
 import pytest
 from ..convert import Convert
-from ..process import Process, EchoData
+from ..process import Process, EchoDataOld
 
 # ek60_raw_path = './echopype/test_data/ek60/2015843-D20151023-T190636.raw'   # Varying ranges
 ek60_raw_path = './echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw'     # Constant ranges
@@ -120,7 +120,7 @@ def test_calibration_ek60_echoview():
     tmp.to_netcdf()
 
     # Read .nc file into an Process object and calibrate
-    ed = EchoData(raw_path=tmp.output_file)
+    ed = EchoDataOld(raw_path=tmp.output_file)
     proc = Process(model='EK60', ed=ed)
     proc.calibrate(ed, save=True, save_format='netcdf4')
 
@@ -157,7 +157,7 @@ def test_calibrate():
     ds.to_netcdf(tmp.output_file, mode='a', group='Beam')
 
     # Run Sv calibration on array of 1
-    ed = EchoData(tmp.output_file)
+    ed = EchoDataOld(tmp.output_file)
     proc = Process('EK60', ed)
     proc.calibrate(ed)
     # Check if Sv is strictly increasing by differentiating along range

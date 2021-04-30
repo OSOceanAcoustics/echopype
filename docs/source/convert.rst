@@ -182,7 +182,7 @@ Specify platform and water level attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before calling ``to_netcdf()`` or ``to_zarr()``, you should first set 
-``platform_name``, ``platform_type``, and ``patform_code_ICES``, as these values
+``platform_name``, ``platform_type``, and ``platform_code_ICES``, as these values
 are not recorded in the raw data files but need to be specified according to the 
 SONAR-netCDF4 convention. These parameters will be saved as empty strings unless 
 you specify them following this example:
