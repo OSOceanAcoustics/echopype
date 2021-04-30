@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import xarray as xr
 import echopype as ep
 
@@ -88,11 +89,63 @@ def test_compute_MVBS_index_binning():
         range_bin_interval=range_bin_num,
         ping_num_interval=ping_num
     )
+    # Shape test
     shape = (nfreq, npings / ping_num, nrange / range_bin_num)
-    assert np.all(ds_MVBS.Sv.shape == np.ceil(shape))  # Shape test
+    assert np.all(ds_MVBS.Sv.shape == np.ceil(shape))
 
     data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
     # Test values along range_bin
     assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(nrange / range_bin_num))
     # Test values along ping time
     assert np.all(data_test.isel(frequency=0, range_bin=0) == np.arange(npings / ping_num))
+
+
+def test_compute_MVBS():
+    """Test compute_MVBS on toy data"""
+
+    # Parameters for fake data
+    nfreq, npings, nrange = 1, 60, 600
+    range_meter_bin = 5          # range in meters to average over
+    ping_time_bin = 5            # number of seconds to average over
+    ping_rate = 2                # Number of pings per second
+    range_bin_per_meter = 30     # Number of range_bins per meter
+    ping_num = npings // ping_rate // ping_time_bin                      # number of pings to average over
+    range_bin_num = nrange // range_bin_per_meter // range_meter_bin     # number of range_bins to average over
+    total_range = nrange // range_bin_per_meter
+
+    # Construct data with values that increase with range and time
+    # so that when compute_MVBS is performed, the result is a smaller array
+    # that increases by 1 for each meter_bin and time_bin
+    data = np.zeros((nfreq, npings, nrange))
+    for p_i, ping in enumerate(range(0, npings, ping_rate * ping_time_bin)):
+        for r_i, rb in enumerate(range(0, nrange, range_bin_per_meter * range_meter_bin)):
+            data[0, ping:ping + ping_rate * ping_time_bin, rb:rb + range_bin_per_meter * range_meter_bin] += r_i + p_i
+    for f in range(nfreq):
+        data[f] = data[0]
+
+    data_log = 10 * np.log10(data)      # Convert to log domain
+    freq_index = np.arange(nfreq)
+    # Generate a date range with `npings` number of pings with the frequency of the ping_rate
+    ping_time = pd.date_range('1/1/2020', periods=npings, freq=f'{1/ping_rate}S')
+    range_bin = np.arange(nrange)
+    Sv = xr.DataArray(data_log, coords=[('frequency', freq_index),
+                                        ('ping_time', ping_time),
+                                        ('range_bin', range_bin)])
+    Sv.name = "Sv"
+    ds_Sv = Sv.to_dataset()
+    ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, total_range, nrange)] * npings] * nfreq), coords=Sv.coords))
+    ds_MVBS = ep.preprocess.compute_MVBS(
+        ds_Sv,
+        range_meter_bin=range_meter_bin,
+        ping_time_bin=f'{ping_time_bin}S'
+    )
+
+    # Shape test
+    shape = (nfreq, ping_num, range_bin_num)
+    assert np.all(ds_MVBS.Sv.shape == np.ceil(shape))
+
+    data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
+    # Test values along range_bin
+    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(range_bin_num))
+    # Test values along ping time
+    assert np.all(data_test.isel(frequency=0, range=0) == np.arange(ping_num))
