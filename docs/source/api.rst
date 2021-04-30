@@ -4,7 +4,9 @@ API reference
 This page provides an auto-generated summary of echopype's API.
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
+
+   api
 
 
 .. automodapi:: echopype.echodata
