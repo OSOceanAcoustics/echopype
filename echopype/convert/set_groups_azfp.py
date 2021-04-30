@@ -23,7 +23,7 @@ class SetGroupsAZFP(SetGroupsBase):
         self.set_beam()
         self.set_vendor()
 
-    def set_env(self):
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
@@ -37,11 +37,9 @@ class SetGroupsAZFP(SetGroupsBase):
                                  'units': 'seconds since 1970-01-01'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
-        # Save to file
-        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', group='Environment', engine=self.engine)
+        return ds
 
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
         """
         # Assemble sonar group dictionary
@@ -56,9 +54,9 @@ class SetGroupsAZFP(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
-        io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
+        return ds
 
-    def set_platform(self):
+    def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
         """
         platform_dict = {'platform_name': self.ui_param['platform_name'],
@@ -67,9 +65,9 @@ class SetGroupsAZFP(SetGroupsBase):
         # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(platform_dict)
-        io.save_file(ds, path=self.output_path, group='Platform', mode='a', engine=self.engine)
+        return ds
 
-    def set_beam(self):
+    def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
         """
         unpacked_data = self.parser_obj.unpacked_data
@@ -83,6 +81,7 @@ class SetGroupsAZFP(SetGroupsBase):
         N = []   # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
+            # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ich] = self.parser_obj._calc_Sv_offset(freq[ich], unpacked_data['pulse_length'][ich])
             N.append(np.array([unpacked_data['counts'][p][ich]
                                for p in range(len(unpacked_data['year']))]))
@@ -105,13 +104,16 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
+            # TODO: below only correct if range_samples_per_bin=1,
+            #  need to implement p.86 for the case when averaging is used
             sample_int = range_samples_per_bin / dig_rate
         else:
+            # TODO: not sure what this error means
             raise ValueError("dig_rate and range_samples not unique across frequencies")
 
         ds = xr.Dataset({'backscatter_r': (['frequency', 'ping_time', 'range_bin'], N),
                          'equivalent_beam_angle': (['frequency'], parameters['BP']),
-                         'gain_correction': (['frequency'], parameters['gain']),
+                         'gain_correction': (['frequency'], unpacked_data['gain']),
                          'sample_interval': (['frequency'], sample_int,
                                              {'units': 's'}),
                          'transmit_duration_nominal': (['frequency'], tdn,
@@ -163,22 +165,23 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_b': parameters['Y_b'],
                                'tilt_Y_c': parameters['Y_c'],
                                'tilt_Y_d': parameters['Y_d']})
+        return ds
 
-        # Save to file
-        io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                               'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Beam', compression_settings=self.compression_settings)
-
-    def set_vendor(self):
+    def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
         """
         unpacked_data = self.parser_obj.unpacked_data
+        parameters = self.parser_obj.parameters
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
         ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        tdn = np.array(parameters['pulse_length']) / 1e6
 
         ds = xr.Dataset(
             {
+                'XML_transmit_duration_nominal': (['frequency'], tdn),
+                'XML_gain_correction': (['frequency'], parameters['gain']),
+                'XML_digitization_rate': (['frequency'], parameters['dig_rate']),
+                'XML_lockout_index': (['frequency'], parameters['lockout_index']),
                 'digitization_rate': (['frequency'], unpacked_data['dig_rate']),
                 'lockout_index': (['frequency'], unpacked_data['lockout_index']),
                 'number_of_bins_per_channel': (['frequency'], unpacked_data['num_bins']),
@@ -190,7 +193,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 'first_ping': (['ping_time'], unpacked_data['first_ping']),
                 'last_ping': (['ping_time'], unpacked_data['last_ping']),
                 'data_error': (['ping_time'], unpacked_data['data_error']),
-                'sensor_flag': (['ping_time'], unpacked_data['sensor_flag']),
+                'sensors_flag': (['ping_time'], unpacked_data['sensor_flag']),
                 'ancillary': (['ping_time', 'ancillary_len'], unpacked_data['ancillary']),
                 'ad_channels': (['ping_time', 'ad_len'], unpacked_data['ad']),
                 'battery_main': (['ping_time'], unpacked_data['battery_main']),
@@ -210,6 +213,9 @@ class SetGroupsAZFP(SetGroupsBase):
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
+                'XML_sensors_flag': parameters['sensors_flag'],
+                'XML_burst_interval': parameters['burst_interval'],
+                'XML_sonar_serial_number': parameters['serial_number'],
                 'profile_flag': unpacked_data['profile_flag'],
                 'burst_interval': unpacked_data['burst_int'],
                 'ping_per_profile': unpacked_data['ping_per_profile'],
@@ -219,8 +225,4 @@ class SetGroupsAZFP(SetGroupsBase):
                 'phase': unpacked_data['phase'],
                 'number_of_channels': unpacked_data['num_chan']}
         )
-
-        # Save to file
-        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Vendor', compression_settings=self.compression_settings)
+        return ds
