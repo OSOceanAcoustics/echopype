@@ -4,7 +4,6 @@ import xarray as xr
 import numpy as np
 import zarr
 from _echopype_version import version as ECHOPYPE_VERSION
-from ..utils import io
 
 COMPRESSION_SETTINGS = {
     'netcdf4': {'zlib': True, 'complevel': 4},
@@ -35,11 +34,6 @@ class SetGroupsBase:
             self.compression_settings = None
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
-
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        pass
 
     # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
