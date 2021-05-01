@@ -113,6 +113,3 @@ class NoiseEst:
                 'noise_max': noise_max
             }
         )
-
-
-

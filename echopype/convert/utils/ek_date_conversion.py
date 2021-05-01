@@ -160,5 +160,3 @@ def datetime_to_unix(datetime_obj):
     timestamp = (datetime_obj - UTC_UNIX_EPOCH).total_seconds()
 
     return timestamp
-
-

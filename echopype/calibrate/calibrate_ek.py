@@ -687,4 +687,3 @@ class CalibrateEK80(CalibrateEK):
             and the corresponding range (``range``) in units meter.
         """
         return self._compute_cal(cal_type='Sp', waveform_mode=waveform_mode, encode_mode=encode_mode)
-

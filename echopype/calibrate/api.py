@@ -47,4 +47,3 @@ def compute_Sp(echodata: EchoData, **kwargs):
     """Compute point backscattering strength (Sp) from raw data.
     """
     return _compute_cal(cal_type='Sp', echodata=echodata, **kwargs)
-
