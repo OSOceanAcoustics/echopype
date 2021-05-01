@@ -39,7 +39,7 @@ jobs:
         # local part of the version isn't included, making the version string
         # compatible with PyPI.
         sed --in-place "s/node-and-date/no-local-version/g" setup.py
-      
+
     - name: Build source and wheel distributions
       run: |
         python setup.py sdist bdist_wheel
