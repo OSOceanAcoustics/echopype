@@ -82,7 +82,7 @@ for narrowband echoes. EK80 calibration based on pulse compression output
 in the form of average over frequency is implemented.
 
 For more details, check out the [echopype documentation](https://echopype.readthedocs.io)
-and watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU) 
+and watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU)
 at SciPy 2019 for background, discussions and a quick demo!
 
 
