@@ -30,7 +30,7 @@ if __name__ == "__main__":
         type=str,
         nargs="?",
         default="",
-        help="Comma separated list of changed files."
+        help="Comma separated list of changed files.",
     )
     parser.add_argument(
         "--pytest-args", type=str, help="Optional pytest args", default=""
