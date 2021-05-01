@@ -164,5 +164,3 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
 
 def regrid():
     return 1
-
-
