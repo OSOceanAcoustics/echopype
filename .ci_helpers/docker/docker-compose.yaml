@@ -1,0 +1,23 @@
+# For local development only to spin up services to test against
+version: "3"
+services:
+  minio:
+    image: cormorack/minioci:latest
+    ports:
+      - 9000:9000
+    networks:
+      - echopypenetwork
+  httpserver:
+    # NOTE ====================================
+    # For httpserver test data,
+    # it needs to be copied to the docker container
+    # docker cp -L docker_httpserver_1:/usr/local/apache2/htdocs/data ./echopype/test_data
+    # =====================================
+    image: cormorack/http:latest
+    ports:
+      - 8080:80
+    networks:
+      - echopypenetwork
+networks:
+  echopypenetwork:
+      

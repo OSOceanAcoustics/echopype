@@ -47,7 +47,7 @@ def check_file_permissions(FILE_DIR):
             base_dir = os.path.dirname(FILE_DIR.root)
             if not base_dir:
                 base_dir = FILE_DIR.root
-            TEST_FILE = os.path.join(base_dir, ".permission_test")
+            TEST_FILE = os.path.join(base_dir, ".permission_test").replace('\\', '/')
             with FILE_DIR.fs.open(TEST_FILE, "w") as f:
                 f.write("testing\n")
             FILE_DIR.fs.delete(TEST_FILE)

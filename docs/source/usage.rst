@@ -5,21 +5,21 @@ Using echopype
 Installation
 ------------
 
-Echopype can be installed from PyPI:
+Echopype can be installed from `PyPI <https://pypi.org/project/echopype/>`_:
 
 .. code-block:: console
 
    $ pip install echopype
 
 
-or through conda:
+or through conda from the `conda-forge Anaconda channel <https://anaconda.org/conda-forge/echopype>`_:
 
 .. code-block:: console
 
    $ conda install -c conda-forge echopype
 
 
-When creating an conda environment to work with echopype, do
+When creating a conda environment to work with echopype, do
 
 .. code-block:: console
 
@@ -84,7 +84,6 @@ For data files from Simrad's EK60, EK80, and  Kongsberg's EA640 echosounders,
 use the parameter ``model`` to indicate the echosounder type,
 since there is no specific information in the extension ``.raw``
 that include information about the echosounder type:
-
 
 .. code-block:: python
 

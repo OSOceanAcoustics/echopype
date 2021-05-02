@@ -2,35 +2,13 @@ import xarray as xr
 import numpy as np
 from collections import defaultdict
 from .set_groups_base import SetGroupsBase
-from ..utils import io
 from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files.
     """
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        # Save only up to the platform group if the user selects "GPS"
-        if 'NME' in self.parser_obj.data_type:
-            self.set_toplevel('EK60', date_created=self.parser_obj.nmea['timestamp'][0])
-            self.set_provenance()
-            self.set_sonar()
-            self.set_platform(NMEA_only=True)
-            return
-
-        # TODO: Specifically pass in date_created here
-        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
-        self.set_provenance()       # provenance group
-        self.set_sonar()            # sonar group
-        self.set_env()              # environment group
-        self.set_platform()         # platform group
-        self.set_beam()             # beam group
-        self.set_nmea()             # platform/NMEA group
-        self.set_vendor()           # vendor group
-
-    def set_env(self):
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group.
         """
         ch_ids = list(self.parser_obj.config_datagram['transceivers'].keys())
@@ -74,11 +52,9 @@ class SetGroupsEK60(SetGroupsBase):
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                              ds.ping_time.attrs)})
 
-        # Save to file
-        io.save_file(ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine, group='Environment')
+        return ds
 
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
         """
         # Assemble sonar group dictionary
@@ -90,12 +66,11 @@ class SetGroupsEK60(SetGroupsBase):
             'sonar_software_version': self.parser_obj.config_datagram['version'],
             'sonar_type': 'echosounder'
         }
-        # Save
         ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
-        io.save_file(ds, path=self.output_path, group='Sonar', mode='a', engine=self.engine)
+        return ds
 
-    def set_platform(self, NMEA_only=False):
+    def set_platform(self, NMEA_only=False) -> xr.Dataset:
         """Set the Platform group.
         """
 
@@ -197,11 +172,9 @@ class SetGroupsEK60(SetGroupsBase):
                               (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                               ds.ping_time.attrs)}).chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Platform', compression_settings=self.compression_settings)
+        return ds
 
-    def set_beam(self):
+    def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
         """
         # Get channel keys and frequency
@@ -403,13 +376,9 @@ class SetGroupsEK60(SetGroupsBase):
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                              ds.ping_time.attrs)})
 
-        # Save to file
-        io.save_file(ds.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                               'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Beam', compression_settings=self.compression_settings)
+        return ds
 
-    def set_vendor(self):
+    def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
         config = self.parser_obj.config_datagram['transceivers']
         freq = [v['frequency'] for v in config.values()]
@@ -429,7 +398,4 @@ class SetGroupsEK60(SetGroupsBase):
                                'long_name': 'Transducer frequency',
                                'valid_min': 0.0}),
                 'pulse_length_bin': (['pulse_length_bin'], np.arange(pulse_length.shape[1]))})
-
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Vendor', compression_settings=self.compression_settings)
+        return ds

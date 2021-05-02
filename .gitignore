@@ -26,5 +26,5 @@ toolbox
 ek60/
 azfp/
 temp_echopype_output/
-
-ad2cp-test/*
+notebooks/*_dev/
+_echopype_version.py

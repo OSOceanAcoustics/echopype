@@ -13,8 +13,8 @@ as well as the programming language in which it is written.
   the current go-to tool for echosounder data analysis
 
 - `EchoView R <https://github.com/AustralianAntarcticDivision/EchoviewR>`_:
-  interfacing R and EchoView,
-  related `paper <https://www.frontiersin.org/articles/10.3389/fmars.2015.00015/full>`_
+  interfacing R and EchoView
+  [`paper <https://www.frontiersin.org/articles/10.3389/fmars.2015.00015/full>`__]
 
 - `Echogram <https://CRAN.R-project.org/package=echogram>`_:
   an R package for reading data in the
@@ -28,11 +28,13 @@ as well as the programming language in which it is written.
 
 - `ESP3 <https://bitbucket.org/echoanalysis/esp3/overview>`_:
   a Matlab package for sonar data analysis.
+  [`paper <https://www.sciencedirect.com/science/article/pii/S2352711020302946>`__]
 
 - `ExCal <https://github.com/gavinmacaulay/calibration-code>`_:
   a Matlab package to calculate calibration coefficients for EK/ES60 echosounders.
 
-- `LSSS <https://cmr.no/projects/10396/lsss/>`_ (Large Scale Survey System)
+- `LSSS <https://www.marec.no/products_iwf.htm>`_ (Large Scale Survey System)
+  [`paper <https://www.semanticscholar.org/paper/THE-LARGE-SCALE-SURVEY-SYSTEM-LSSS-Korneliussen/d72bd4965a4e28347833278ce3a419dacfc976a3>`__]
 
 - `MATECHO <https://usermanual.wiki/Pdf/MatechoUserManual18052017.963673607.pdf>`_:
   requires Matlab and Movies3D
@@ -40,7 +42,7 @@ as well as the programming language in which it is written.
 - `Movies3D <https://forge.ifremer.fr/plugins/mediawiki/wiki/movies3d/index.php/Accueil>`_:
   reads and writes HAC files and is capable of joining EK60 and ME70 data
 
-- `PyEchoLab <https://github.com/CI-CMG/pyEcholab>`_:
+- `PyEcholab <https://github.com/CI-CMG/pyEcholab>`_:
   an open-source Python package based solely on the NumPy library
 
 - `Sonar4 and Sonar5-Pro <http://folk.uio.no/hbalk/sonar4_5/index.htm>`_
@@ -51,4 +53,4 @@ Echosounder information
 
 - `ASL Environemntal Sciences Acoustic Zooplankton Fish Profiler (AZFP) <https://aslenv.com/azfp.html>`_
 - `Kongsberg Simrad EK60 <https://www.simrad.net/ek60_ref_english/default.htm>`_
-- `Kongsberg Simrad EK80 <https://www.kongsberg.com/maritime/products/mapping-systems/fishery-research/scientific-echo-sounders/ek80/>`_
+- `Kongsberg Simrad EK80 <https://www.simrad.online/ek80/ref_en/default.htm>`_
