@@ -1,41 +1,14 @@
+from typing import List
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-from ..utils import io
 from .set_groups_base import SetGroupsBase
-from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files.
     """
-    def save(self):
-        """Actually save groups to file by calling the set methods.
-        """
-        # Save environment only
-        if 'ENV' in self.parser_obj.data_type:
-            self.set_toplevel(self.sonar_model, date_created=self.parser_obj.environment['timestamp'])
-            self.set_provenance()
-            self.set_env(env_only=True)
-            return
-        # Save NMEA/MRU data only
-        elif 'NME' in self.parser_obj.data_type:
-            self.set_toplevel(self.sonar_model, date_created=self.parser_obj.nmea['timestamp'][0])
-            self.set_provenance()
-            self.set_platform()
-            return
-
-        # Save all groups
-        self.set_toplevel(self.sonar_model, date_created=self.parser_obj.config_datagram['timestamp'])
-        self.set_provenance()    # provenance group
-        self.set_env()           # environment group
-        self.set_platform()      # platform group
-        self.set_nmea()          # platform/NMEA group
-        self.set_beam()
-        self.set_sonar()
-        self.set_vendor()
-
-    def set_env(self, env_only=False):
+    def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group.
         """
         # If only saving environment group, there is no ping_time so use timestamp of environment datagram
@@ -63,12 +36,9 @@ class SetGroupsEK80(SetGroupsBase):
         # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
         #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
         #                                      ds.ping_time.attrs)})
+        return ds
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Environment', compression_settings=self.compression_settings)
-
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         # Collect unique variables
         params = ['transducer_frequency',
                   'serial_number',
@@ -91,12 +61,9 @@ class SetGroupsEK80(SetGroupsBase):
             coords={'frequency': var['transducer_frequency']},
             attrs={'sonar_manufacturer': 'Simrad',
                    'sonar_type': 'echosounder'})
+        return ds
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Sonar', compression_settings=self.compression_settings)
-
-    def set_platform(self):
+    def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
         """
 
@@ -170,12 +137,7 @@ class SetGroupsEK80(SetGroupsBase):
                    # TODO: check what this 'drop_keel_offset' is
                    'drop_keel_offset': (self.parser_obj.environment['drop_keel_offset'] if
                                         hasattr(self.parser_obj.environment, 'drop_keel_offset') else np.nan)})
-
-        # save to file
-        io.save_file(ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time'],
-                               'mru_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                     path=self.output_path, mode='a', engine=self.engine,
-                     group='Platform', compression_settings=self.compression_settings)
+        return ds
 
     def _assemble_ds_ping_invariant(self, params, data_type):
         """Assemble dataset for ping-invariant params in the Beam group.
@@ -300,6 +262,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
 
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
+        # TODO: use PulseForm instead of checking for the existence of FrequencyStart and FrequencyEnd
         if 'frequency_start' in self.parser_obj.ping_data_dict.keys() and \
                 self.parser_obj.ping_data_dict['frequency_start'][ch]:
             ds_f_start_end = xr.Dataset(
@@ -403,7 +366,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return ds_common
 
-    def set_beam(self):
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group.
         """
 
@@ -423,11 +386,12 @@ class SetGroupsEK80(SetGroupsBase):
                 {'ping_time': (['ping_time'], (ds_combine['ping_time']
                                                - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
                                ds_combine.ping_time.attrs)})
-            # Save to file
-            io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                                           'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-                         path=self.output_path, mode='a', engine=self.engine,
-                         group=group_name, compression_settings=self.compression_settings)
+            return ds_combine
+            # # Save to file
+            # io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+            #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
+            #              path=self.output_path, mode='a', engine=self.engine,
+            #              group=group_name, compression_settings=self.compression_settings)
 
         # Assemble ping-invariant beam data variables
         params = [
@@ -483,14 +447,17 @@ class SetGroupsEK80(SetGroupsBase):
         # Merge and save group:
         #  if both complex and power data exist: complex data in Beam group and power data in Beam_power
         #  if only one type of data exist: data in Beam group
+        ds_beam_power = None
         if len(ds_complex) > 0:
-            merge_save(ds_complex, 'complex', group_name='Beam')
+            ds_beam = merge_save(ds_complex, 'complex', group_name='Beam')
             if len(ds_power) > 0:
-                merge_save(ds_power, 'power', group_name='Beam_power')
+                ds_beam_power = merge_save(ds_power, 'power', group_name='Beam_power')
         else:
-            merge_save(ds_power, 'power', group_name='Beam')
+            ds_beam = merge_save(ds_power, 'power', group_name='Beam')
 
-    def set_vendor(self):
+        return [ds_beam, ds_beam_power]
+
+    def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
         """
         config = self.parser_obj.config_datagram['configuration']
@@ -574,6 +541,4 @@ class SetGroupsEK80(SetGroupsBase):
         # Save the entire config XML in vendor group in case of info loss
         ds.attrs['config_xml'] = self.parser_obj.config_datagram['xml']
 
-        # Save to file
-        io.save_file(ds, path=self.output_path, mode='a', engine=self.engine,
-                     group='Vendor', compression_settings=self.compression_settings)
+        return ds
