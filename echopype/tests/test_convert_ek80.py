@@ -43,7 +43,7 @@ def test_convert_ek80_complex_matlab():
     output_dir.rmdir()
 
 
-def test_convert_ek80_cw_power_echoview():
+def test_convert_ek80_cw_power_angle_echoview():
     """Compare parsed EK80 CW power/angle data with csv exported by EchoView.
     """
     ek80_raw_path_cw = str(ek80_path.joinpath('D20190822-T161221.raw'))  # Small file (CW)
@@ -52,10 +52,10 @@ def test_convert_ek80_cw_power_echoview():
         ek80_path.joinpath('from_echoview/D20190822-T161221/%dkHz.power.csv' % freq)
         for freq in freq_list
     ]
-    # ek80_echoview_angle_csv = [
-    #     ek80_path.joinpath('from_echoview/D20190822-T161221/%dkHz.angles.points.csv' % freq)
-    #     for freq in freq_list
-    # ]
+    ek80_echoview_angle_csv = [
+        ek80_path.joinpath('from_echoview/D20190822-T161221/%dkHz.angles.points.csv' % freq)
+        for freq in freq_list
+    ]
 
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
@@ -73,28 +73,26 @@ def test_convert_ek80_cw_power_echoview():
                 rtol=0, atol=1.1e-5
             )
 
-    # # Test angle  TODO: fix angle test: bug in parser
-    # with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
-    #     # Convert from electrical angles to physical angle [deg]
-    #     major = (ds_beam['angle_athwartship'] * 1.40625
-    #              / ds_beam['angle_sensitivity_athwartship']
-    #              - ds_beam['angle_offset_athwartship'])
-    #     minor = (ds_beam['angle_alongship'] * 1.40625
-    #              / ds_beam['angle_sensitivity_alongship']
-    #              - ds_beam['angle_offset_alongship'])
-    #     for file, freq in zip(ek80_echoview_angle_csv, freq_list):
-    #         df_angle = pd.read_csv(file)
-    #         for ping_idx in df_angle['Ping_index'].value_counts().index:
-    #             assert np.allclose(
-    #                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-    #                 major.isel(frequency=0, ping_time=0),
-    #                 rtol=0, atol=1e-5
-    #             )
-    #             assert np.allclose(
-    #                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-    #                 minor.isel(frequency=0, ping_time=0),
-    #                 rtol=0, atol=1e-5
-    #             )
+        # Convert from electrical angles to physical angle [deg]
+        major = (ds_beam['angle_athwartship'] * 1.40625
+                 / ds_beam['angle_sensitivity_athwartship']
+                 - ds_beam['angle_offset_athwartship'])
+        minor = (ds_beam['angle_alongship'] * 1.40625
+                 / ds_beam['angle_sensitivity_alongship']
+                 - ds_beam['angle_offset_alongship'])
+        for freq_idx, file in enumerate(ek80_echoview_angle_csv):
+            df_angle = pd.read_csv(file)
+            for ping_idx in df_angle['Ping_index'].value_counts().index:
+                assert np.allclose(
+                    df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
+                    major.isel(frequency=freq_idx, ping_time=ping_idx).dropna('range_bin'),
+                    rtol=0, atol=1e-4
+                )
+                assert np.allclose(
+                    df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
+                    minor.isel(frequency=freq_idx, ping_time=ping_idx).dropna('range_bin'),
+                    rtol=0, atol=1e-4
+                )
 
     Path(echodata.converted_raw_path).unlink()
     output_dir.rmdir()
