@@ -213,31 +213,33 @@ class ParseAd2cp(ParseBase):
         self,
         *args,
         burst_average_data_record_version: BurstAverageDataRecordVersion = BurstAverageDataRecordVersion.VERSION3,
+        params,
         **kwargs,
     ):
-        super().__init__(args, kwargs)
+        super().__init__(*args, **kwargs)
         self.burst_average_data_record_version = burst_average_data_record_version
-        self.last_packet_data_record_type = None
+        self.previous_packet_data_record_type = None
+        self.config = None
+        
         self.burst_packets: List[Ad2cpDataPacket] = []
         self.average_packets: List[Ad2cpDataPacket] = []
         self.echosounder_packets: List[Ad2cpDataPacket] = []
         self.echosounder_raw_packets: List[Ad2cpDataPacket] = []
         self.echosounder_raw_transmit_packets: List[Ad2cpDataPacket] = []
         self.string_packets: List[Ad2cpDataPacket] = []
-        self.config = None
 
     def parse_raw(self):
         """
         Parses the source file into AD2CP packets
         """
 
-        with open(self.source_file[0], "rb") as f:
+        with open(self.source_file, "rb") as f:
             while True:
                 try:
                     packet = Ad2cpDataPacket(
                         f, self, self.burst_average_data_record_version
                     )
-                    self.last_packet_data_record_type = packet.data_record_type
+                    self.previous_packet_data_record_type = packet.data_record_type
                     if packet.is_burst():
                         self.burst_packets.append(packet)
                     elif packet.is_average():
@@ -257,6 +259,11 @@ class ParseAd2cp(ParseBase):
                         self.config = self.parse_config(
                             self.string_packets[0].data["string_data"]
                         )
+
+        if self.config is not None and "GETCLOCKSTR" in self.config:
+            self.ping_time.append(np.datetime64(self.config["GETCLOCKSTR"]["TIME"]))
+        else:
+            self.ping_time.append(np.datetime64())
 
     @staticmethod
     def parse_config(data: str) -> Dict[str, Dict[str, Any]]:
@@ -627,12 +634,12 @@ class Ad2cpDataPacket:
                     ]
                     if beam > 0
                 ]
-                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
                     self.parser.echosounder_raw_packets[-1].data[
                         "echosounder_raw_beam"
                     ] = self.data_exclude["beams"][0]
                 elif (
-                    self.parser.last_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
                 ):
                     self.parser.echosounder_raw_transmit_packets[-1].data[
                         "echosounder_raw_beam"
@@ -734,23 +741,23 @@ class Ad2cpDataPacket:
                     ]
                     if beam > 0
                 ]
-                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
                     self.parser.echosounder_raw_packets[-1].data[
                         "echosounder_raw_beam"
                     ] = self.data_exclude["beams"][0]
                 elif (
-                    self.parser.last_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
                 ):
                     self.parser.echosounder_raw_transmit_packets[-1].data[
                         "echosounder_raw_beam"
                     ] = self.data_exclude["beams"][0]
             elif field_name == "status":
-                if self.parser.last_packet_data_record_type.is_echosounder_raw():
+                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
                     self.parser.echosounder_raw_packets[-1].data[
                         "echosounder_raw_echogram"
                     ] = ((self.data["status"] >> 12) & 0b1111) + 1
                 elif (
-                    self.parser.last_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
                 ):
                     self.parser.echosounder_raw_transmit_packets[-1].data[
                         "echosounder_raw_echogram"

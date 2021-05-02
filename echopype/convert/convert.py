@@ -15,9 +15,11 @@ from ..utils import io
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
+from .parse_ad2cp import ParseAd2cp
 from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
+from .set_groups_ad2cp import SetGroupsAd2cp
 from .api import open_raw
 
 
@@ -48,6 +50,12 @@ MODELS = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
     },
+    "AD2CP": {
+        "ext": ".ad2cp",
+        "xml": False,
+        "parser": ParseAd2cp,
+        "set_groups": SetGroupsAd2cp
+    }
 }
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
