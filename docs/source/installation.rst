@@ -14,11 +14,3 @@ or through conda from the `conda-forge Anaconda channel <https://anaconda.org/co
 .. code-block:: console
 
    $ conda install -c conda-forge echopype
-
-
-To create a conda environment for developing or contributing to echopype 
-(replace the Python version with your preferred version):
-
-.. code-block:: console
-
-   $ conda create -c conda-forge --name echopype python=3.8 --file requirements.txt --file requirements-dev.txt
