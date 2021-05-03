@@ -218,28 +218,10 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def set_vendor_specific(self):
         attrs = {
-            # TODO: offset of data is only relevant to the raw data format
-            # (says how many bytes the data is from the header)
-            "offset_of_data": self.ds.get("offset_of_data"),
             "pressure_sensor_valid": self.ds.get("pressure_sensor_valid"),
             "temperature_sensor_valid": self.ds.get("temperature_sensor_valid"),
             "compass_sensor_valid": self.ds.get("compass_sensor_valid"),
             "tilt_sensor_valid": self.ds.get("tilt_sensor_valid"),
-            "velocity_data_included": self.ds.get("velocity_data_included"),
-            "amplitude_data_included": self.ds.get("amplitude_data_included"),
-            "correlation_data_included": self.ds.get("correlation_data_included"),
-            "altimeter_data_included": self.ds.get("altimeter_data_included"),
-            "altimeter_raw_data_included": self.ds.get("altimeter_raw_data_included"),
-            "ast_data_included": self.ds.get("ast_data_included"),
-            "echosounder_data_included": self.ds.get("echosounder_data_included"),
-            "ahrs_data_included": self.ds.get("ahrs_data_included"),
-            "percentage_good_data_included": self.ds.get(
-                "percentage_good_data_included"
-            ),
-            "std_dev_data_included": self.ds.get("std_dev_data_included"),
-            "figure_of_merit_data_included": self.ds.get(
-                "figure_of_merit_data_included"
-            ),
         }
         attrs = {
             field_name: field_value.data[0]
