@@ -4,8 +4,8 @@
 
 # Echopype
 
-<a href="https://travis-ci.org/OSOceanAcoustics/echopype">
-  <img src="https://travis-ci.org/OSOceanAcoustics/echopype.svg?branch=master"/>
+<a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml">
+  <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml/badge.svg"/>
 </a>
 
 <a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
@@ -30,10 +30,6 @@
 
 <a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
   <img alt="GitHub License" src="https://img.shields.io/github/license/OSOceanAcoustics/echopype">
-</a>
-
-<a href="https://doi.org/10.5281/zenodo.3907000">
-<img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3907000.svg" alt="DOI">
 </a>
 
 Echopype is a package built to enable interoperability and scalability
