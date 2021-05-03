@@ -7,7 +7,6 @@ from scipy.io import loadmat
 from echopype import open_raw
 
 ek80_path = Path('./echopype/test_data/ek80/')
-output_dir = Path('./echopype/test_data/ek80/echopype_test_export')
 
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
