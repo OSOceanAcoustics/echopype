@@ -97,6 +97,16 @@ if __name__ == "__main__":
                 if "preprocess" not in test_to_run:
                     test_to_run["preprocess"] = []
                 test_to_run["preprocess"].append(file_path)
+            elif any(
+                [
+                    (file_path.match("echopype/convert/convert.py")),
+                    (file_path.match("echopype/process/*"))
+                    (file_path.match("echopype/tests/test_old.py")),
+                ]
+            ):
+                if "old" not in test_to_run:
+                    test_to_run["old"] = []
+                test_to_run["old"].append(file_path)
 
     total_exit_codes = []
     for k, v in test_to_run.items():
