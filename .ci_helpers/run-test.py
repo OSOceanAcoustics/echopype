@@ -100,7 +100,7 @@ if __name__ == "__main__":
             elif any(
                 [
                     (file_path.match("echopype/convert/convert.py")),
-                    (file_path.match("echopype/process/*"))
+                    (file_path.match("echopype/process/*")),
                     (file_path.match("echopype/tests/test_old.py")),
                 ]
             ):
