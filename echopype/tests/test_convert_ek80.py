@@ -59,7 +59,7 @@ def test_convert_ek80_cw_power_angle_echoview():
 
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
-    echodata.to_netcdf(save_path=output_dir)
+    echodata.to_netcdf(save_path=output_dir)  # TODO: change everything to use echodata attribute beam directly
 
     # Test power
     with xr.open_dataset(echodata.converted_raw_path, group='Beam') as ds_beam:
@@ -80,18 +80,21 @@ def test_convert_ek80_cw_power_angle_echoview():
         minor = (ds_beam['angle_alongship'] * 1.40625
                  / ds_beam['angle_sensitivity_alongship']
                  - ds_beam['angle_offset_alongship'])
-        for freq_idx, file in enumerate(ek80_echoview_angle_csv):
+        for freq, file in zip(freq_list, ek80_echoview_angle_csv):
             df_angle = pd.read_csv(file)
+            # NB: EchoView exported data only has 6 pings, but raw data actually has 7 pings.
+            #     The first raw ping (ping 0) was removed in EchoView for some reason.
+            #     Therefore the comparison will use ping 1-6.
             for ping_idx in df_angle['Ping_index'].value_counts().index:
                 assert np.allclose(
                     df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                    major.isel(frequency=freq_idx, ping_time=ping_idx).dropna('range_bin'),
-                    rtol=0, atol=1e-4
+                    major.sel(frequency=freq * 1e3).isel(ping_time=ping_idx).dropna('range_bin'),
+                    rtol=0, atol=5e-5
                 )
                 assert np.allclose(
                     df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                    minor.isel(frequency=freq_idx, ping_time=ping_idx).dropna('range_bin'),
-                    rtol=0, atol=1e-4
+                    minor.sel(frequency=freq * 1e3).isel(ping_time=ping_idx).dropna('range_bin'),
+                    rtol=0, atol=5e-5
                 )
 
     Path(echodata.converted_raw_path).unlink()
