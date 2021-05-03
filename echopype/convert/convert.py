@@ -20,43 +20,11 @@ from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
 from .set_groups_ad2cp import SetGroupsAd2cp
-from .api import open_raw
+from .api import open_raw, MODELS
 
 
 warnings.simplefilter("always", DeprecationWarning)
 
-MODELS = {
-    "AZFP": {
-        "ext": ".01A",
-        "xml": True,
-        "parser": ParseAZFP,
-        "set_groups": SetGroupsAZFP,
-    },
-    "EK60": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK60,
-        "set_groups": SetGroupsEK60,
-    },
-    "EK80": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80,
-    },
-    "EA640": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80
-    },
-    "AD2CP": {
-        "ext": ".ad2cp",
-        "xml": False,
-        "parser": ParseAd2cp,
-        "set_groups": SetGroupsAd2cp
-    }
-}
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 

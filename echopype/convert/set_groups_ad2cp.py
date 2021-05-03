@@ -10,25 +10,10 @@ from ..utils import io
 
 
 class SetGroupsAd2cp(SetGroupsBase):
-    def write(self, ds: xr.Dataset, group: str):
-        if os.path.exists(self.output_path):
-            mode = "a"
-        else:
-            mode = "w"
-        io.save_file(
-            ds=ds, path=self.output_path, mode=mode, engine=self.engine, group=group
-        )
-
-    def save(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pulse_compressed = self.get_pulse_compressed()
         self.combine_packets()
-        self.set_toplevel("AD2CP", date_created=np.datetime64("now"))
-        self.set_environment()
-        self.set_platform()
-        pulse_compressed = self.get_pulse_compressed()
-        self.set_beam(pulse_compressed=pulse_compressed)
-        self.set_beam_complex(pulse_compressed=pulse_compressed)
-        self.set_vendor_specific()
-        self.set_provenance()
 
     def combine_packets(self):
         self.ds = None
@@ -137,7 +122,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "time_echosounder": self.ds.get("time_echosounder", []),
             },
         )
-        self.write(ds, "Environment")
+        return ds
 
     def set_platform(self):
         ds = xr.Dataset(
@@ -164,7 +149,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "platform_code_ICES": self.ui_param["platform_code_ICES"],
             },
         )
-        self.write(ds, "Platform")
+        return ds
 
     def get_pulse_compressed(self):
         for i in range(1, 3 + 1):
@@ -172,7 +157,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 return i
         return 0
 
-    def set_beam(self, pulse_compressed: int):
+    def set_beam(self):
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
         # like was done for range_bin (we have range_bin_burst, range_bin_average,
         # and range_bin_echosounder)?
@@ -227,9 +212,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
                 "altimeter_sample_bin": self.ds.get("altimeter_sample_bin"),
             },
-            attrs={"pulse_compressed": pulse_compressed},
+            attrs={"pulse_compressed": self.pulse_compressed},
         )
-        self.write(ds, "Beam")
+        return ds
 
     def set_vendor_specific(self):
         attrs = {
@@ -333,9 +318,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "xyz": np.array(["x", "y", "z"]),
             }
         )
-        self.write(ds, "Vendor")
+        return ds
 
-    def set_beam_complex(self, pulse_compressed: int):
+    def set_beam_complex(self):
         ds = xr.Dataset(
             data_vars={
                 "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
@@ -357,6 +342,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "sample": self.ds.get("sample"),
                 "sample_transmit": self.ds.get("sample_transmit"),
             },
-            attrs={"pulse_compressed": pulse_compressed},
+            attrs={"pulse_compressed": self.pulse_compressed},
         )
-        self.write(ds, "Beam_Complex")
+        return ds
