@@ -6,11 +6,6 @@ from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 from echopype.calibrate.calibrate_azfp import CalibrateAZFP
 from echopype.preprocess import api as preprocess
 
-warnings.warn("`Process` has changed. See the docs for information on how to use "
-              "the new processing functions. The old workflow will be removed "
-              "in a future version.", DeprecationWarning, 3)
-
-
 CALIBRATOR = {
     'EK60': CalibrateEK60,
     'EK80': CalibrateEK80,
@@ -182,7 +177,7 @@ class Process():
         )
         if save:
             self.Sv_path = self.validate_path(save_path, save_postfix)
-            print('%s  saving calibrated TS to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
+            print('%s  saving calibrated Sv to %s' % (dt.datetime.now().strftime('%H:%M:%S'), self.Sv_path))
             self._save_dataset(self.Sv, self.Sv_path, mode="w")
 
     def calibrate_TS(self, save=False, save_postfix='_TS', save_path=None, waveform_mode=None, encode_mode=None):
