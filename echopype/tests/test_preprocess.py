@@ -59,8 +59,8 @@ def test_compute_MVBS_index_binning():
 
     # Parameters for fake data
     nfreq, npings, nrange = 4, 40, 400
-    ping_num = 2             # number of pings to average over
-    range_bin_num = 3        # number of range_bins to average over
+    ping_num = 3             # number of pings to average over
+    range_bin_num = 7        # number of range_bins to average over
 
     # Construct data with values that increase every ping_num and range_bin_num
     # so that when compute_MVBS_index_binning is performed, the result is a smaller array
@@ -107,14 +107,16 @@ def test_compute_MVBS():
     """Test compute_MVBS on toy data"""
 
     # Parameters for fake data
-    nfreq, npings, nrange = 1, 60, 600
-    range_meter_bin = 5          # range in meters to average over
-    ping_time_bin = 5            # number of seconds to average over
+    nfreq, npings, nrange = 4, 100, 4000
+    range_meter_bin = 7          # range in meters to average over
+    ping_time_bin = 3            # number of seconds to average over
     ping_rate = 2                # Number of pings per second
     range_bin_per_meter = 30     # Number of range_bins per meter
-    ping_num = npings // ping_rate // ping_time_bin                      # number of pings to average over
-    range_bin_num = nrange // range_bin_per_meter // range_meter_bin     # number of range_bins to average over
-    total_range = nrange // range_bin_per_meter
+
+    # Useful conversions
+    ping_num = npings / ping_rate / ping_time_bin                      # number of pings to average over
+    range_bin_num = nrange / range_bin_per_meter / range_meter_bin     # number of range_bins to average over
+    total_range = nrange / range_bin_per_meter                         # total range in meters
 
     # Construct data with values that increase with range and time
     # so that when compute_MVBS is performed, the result is a smaller array
@@ -136,7 +138,10 @@ def test_compute_MVBS():
                                         ('range_bin', range_bin)])
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
-    ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, total_range, nrange)] * npings] * nfreq), coords=Sv.coords))
+    ds_Sv = ds_Sv.assign(
+        range=xr.DataArray(np.array([[np.linspace(0, total_range, nrange)] * npings] * nfreq),
+                           coords=Sv.coords)
+    )
     ds_MVBS = ep.preprocess.compute_MVBS(
         ds_Sv,
         range_meter_bin=range_meter_bin,
