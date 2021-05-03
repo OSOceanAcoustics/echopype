@@ -65,7 +65,7 @@ def test_compute_MVBS_index_binning():
     # Construct data with values that increase every ping_num and range_bin_num
     # so that when compute_MVBS_index_binning is performed, the result is a smaller array
     # that increases by 1 for each row and column
-    data = np.zeros((nfreq, npings, nrange))
+    data = np.ones((nfreq, npings, nrange))
     for p_i, ping in enumerate(range(0, npings, ping_num)):
         for r_i, rb in enumerate(range(0, nrange, range_bin_num)):
             data[0, ping:ping + ping_num, rb:rb + range_bin_num] += r_i + p_i
@@ -81,7 +81,10 @@ def test_compute_MVBS_index_binning():
                                         ('range_bin', range_bin)])
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
-    ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, 10, nrange)] * npings] * nfreq), coords=Sv.coords))
+    ds_Sv = ds_Sv.assign(
+        range=xr.DataArray(np.array([[np.linspace(0, 10, nrange)] * npings] * nfreq),
+                           coords=Sv.coords)
+    )
 
     # Binned MVBS test
     ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
@@ -95,9 +98,9 @@ def test_compute_MVBS_index_binning():
 
     data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
     # Test values along range_bin
-    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(nrange / range_bin_num))
+    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(nrange / range_bin_num) + 1)
     # Test values along ping time
-    assert np.all(data_test.isel(frequency=0, range_bin=0) == np.arange(npings / ping_num))
+    assert np.all(data_test.isel(frequency=0, range_bin=0) == np.arange(npings / ping_num) + 1)
 
 
 def test_compute_MVBS():
@@ -116,7 +119,7 @@ def test_compute_MVBS():
     # Construct data with values that increase with range and time
     # so that when compute_MVBS is performed, the result is a smaller array
     # that increases by 1 for each meter_bin and time_bin
-    data = np.zeros((nfreq, npings, nrange))
+    data = np.ones((nfreq, npings, nrange))
     for p_i, ping in enumerate(range(0, npings, ping_rate * ping_time_bin)):
         for r_i, rb in enumerate(range(0, nrange, range_bin_per_meter * range_meter_bin)):
             data[0, ping:ping + ping_rate * ping_time_bin, rb:rb + range_bin_per_meter * range_meter_bin] += r_i + p_i
@@ -146,6 +149,6 @@ def test_compute_MVBS():
 
     data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
     # Test values along range_bin
-    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(range_bin_num))
+    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(range_bin_num) + 1)
     # Test values along ping time
-    assert np.all(data_test.isel(frequency=0, range=0) == np.arange(ping_num))
+    assert np.all(data_test.isel(frequency=0, range=0) == np.arange(ping_num) + 1)
