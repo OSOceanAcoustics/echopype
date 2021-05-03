@@ -17,5 +17,6 @@ pytest-xdist
 setuptools_scm
 sphinx
 sphinx-automodapi
+sphinx_rtd_theme
 twine
 wheel
