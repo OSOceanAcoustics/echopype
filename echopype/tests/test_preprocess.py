@@ -64,13 +64,14 @@ def test_compute_MVBS_index_binning():
 
     # Construct data with values that increase every ping_num and range_bin_num
     # so that when compute_MVBS_index_binning is performed, the result is a smaller array
-    # that increases by 1 for each row and column
+    # that increases regularly for each row and column
     data = np.ones((nfreq, npings, nrange))
     for p_i, ping in enumerate(range(0, npings, ping_num)):
         for r_i, rb in enumerate(range(0, nrange, range_bin_num)):
             data[0, ping:ping + ping_num, rb:rb + range_bin_num] += r_i + p_i
+    # First frequency increases by 1 each row and column, second increses by 2, third by 3, etc.
     for f in range(nfreq):
-        data[f] = data[0]
+        data[f] = data[0] * (f + 1)
 
     data_log = 10 * np.log10(data)      # Convert to log domain
     freq_index = np.arange(nfreq)
@@ -92,15 +93,20 @@ def test_compute_MVBS_index_binning():
         range_bin_interval=range_bin_num,
         ping_num_interval=ping_num
     )
-    # Shape test
-    shape = (nfreq, npings / ping_num, nrange / range_bin_num)
-    assert np.all(ds_MVBS.Sv.shape == np.ceil(shape))
+    data_test = (10 ** (ds_MVBS.Sv / 10))    # Convert to linear domain
 
-    data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
+    # Shape test
+    shape = np.ceil((nfreq, npings / ping_num, nrange / range_bin_num)).astype(int)
+    assert np.all(ds_MVBS.Sv.shape == shape)
+
+    # Construct test array that increases by 1 for each range_bin and ping_time
+    test_array = np.repeat(np.add(*np.indices((shape[1], shape[2])))[None, ...] + 1, nfreq, axis=0)
+    # Increase test data by a multiple each frequency
+    for f in range(nfreq):
+        test_array[f] = (test_array[0] * (f + 1))
+
     # Test values along range_bin
-    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(nrange / range_bin_num) + 1)
-    # Test values along ping time
-    assert np.all(data_test.isel(frequency=0, range_bin=0) == np.arange(npings / ping_num) + 1)
+    np.allclose(data_test, test_array, rtol=0, atol=1e-12)
 
 
 def test_compute_MVBS():
