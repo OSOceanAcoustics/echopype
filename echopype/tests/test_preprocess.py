@@ -168,3 +168,11 @@ def test_compute_MVBS():
 
     # Test all values in MVBS
     np.allclose(data_test, test_array, rtol=0, atol=1e-12)
+
+    # Test to see if ping_time was resampled correctly
+    test_ping_time = pd.date_range('1/1/2020', periods=np.ceil(ping_num), freq=f'{ping_time_bin}S')
+    np.array_equal(data_test.ping_time, test_ping_time)
+
+    # Test to see if range was resampled correctly
+    test_range = np.arange(0, total_range, range_meter_bin)
+    np.allclose(data_test.range, test_range, rtol=0, atol=1e-12)
