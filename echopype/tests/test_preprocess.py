@@ -97,7 +97,7 @@ def test_compute_MVBS_index_binning():
 
     # Shape test
     shape = np.ceil((nfreq, npings / ping_num, nrange / range_bin_num)).astype(int)
-    assert np.all(ds_MVBS.Sv.shape == shape)
+    assert np.all(data_test.shape == shape)
 
     # Construct test array that increases by 1 for each range_bin and ping_time
     test_array = np.repeat(np.add(*np.indices((shape[1], shape[2])))[None, ...] + 1, nfreq, axis=0)
@@ -105,7 +105,7 @@ def test_compute_MVBS_index_binning():
     for f in range(nfreq):
         test_array[f] = (test_array[0] * (f + 1))
 
-    # Test values along range_bin
+    # Test all values in MVBS
     np.allclose(data_test, test_array, rtol=0, atol=1e-12)
 
 
@@ -126,13 +126,14 @@ def test_compute_MVBS():
 
     # Construct data with values that increase with range and time
     # so that when compute_MVBS is performed, the result is a smaller array
-    # that increases by 1 for each meter_bin and time_bin
+    # that increases by a constant for each meter_bin and time_bin
     data = np.ones((nfreq, npings, nrange))
     for p_i, ping in enumerate(range(0, npings, ping_rate * ping_time_bin)):
         for r_i, rb in enumerate(range(0, nrange, range_bin_per_meter * range_meter_bin)):
             data[0, ping:ping + ping_rate * ping_time_bin, rb:rb + range_bin_per_meter * range_meter_bin] += r_i + p_i
+    # First frequency increases by 1 each row and column, second increses by 2, third by 3, etc.
     for f in range(nfreq):
-        data[f] = data[0]
+        data[f] = data[0] * (f + 1)
 
     data_log = 10 * np.log10(data)      # Convert to log domain
     freq_index = np.arange(nfreq)
@@ -153,13 +154,17 @@ def test_compute_MVBS():
         range_meter_bin=range_meter_bin,
         ping_time_bin=f'{ping_time_bin}S'
     )
+    data_test = (10 ** (ds_MVBS.Sv / 10))    # Convert to linear domain
 
     # Shape test
-    shape = (nfreq, ping_num, range_bin_num)
-    assert np.all(ds_MVBS.Sv.shape == np.ceil(shape))
+    shape = np.ceil((nfreq, ping_num, range_bin_num)).astype(int)
+    assert np.all(data_test.shape == shape)
 
-    data_test = (10 ** (ds_MVBS.Sv / 10)).round().astype(int)    # Convert to linear domain
-    # Test values along range_bin
-    assert np.all(data_test.isel(frequency=0, ping_time=0) == np.arange(range_bin_num) + 1)
-    # Test values along ping time
-    assert np.all(data_test.isel(frequency=0, range=0) == np.arange(ping_num) + 1)
+    # Construct test array that increases by 1 for each range_meter_bin and ping_time_bin
+    test_array = np.repeat(np.add(*np.indices((shape[1], shape[2])))[None, ...] + 1, nfreq, axis=0)
+    # Increase test data by a multiple each frequency
+    for f in range(nfreq):
+        test_array[f] = (test_array[0] * (f + 1))
+
+    # Test all values in MVBS
+    np.allclose(data_test, test_array, rtol=0, atol=1e-12)
