@@ -175,4 +175,4 @@ def test_compute_MVBS():
 
     # Test to see if range was resampled correctly
     test_range = np.arange(0, total_range, range_meter_bin)
-    np.allclose(data_test.range, test_range, rtol=0, atol=1e-12)
+    np.array_equal(data_test.range, test_range)
