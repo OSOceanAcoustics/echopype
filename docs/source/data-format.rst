@@ -1,6 +1,6 @@
 .. _data-format:
 
-Data Format
+Data format
 ===========
 
 The lack of interoperability among data collected by different sonar

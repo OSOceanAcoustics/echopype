@@ -1,4 +1,4 @@
-What's New
+What's new
 ==========
 
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
