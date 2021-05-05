@@ -61,7 +61,7 @@ containing ``Sv`` and ``range`` generated from calibration.
 
 These ``calibrate`` and ``preprocess`` methods do not save the calculation results to disk,
 but the returned xarray ``Dataset`` can be saved using native xarray methods
-such as ``to_netcdf`` and ``to_zarr``
+such as ``to_netcdf`` and ``to_zarr``.
 
 For example, to save the Sv and MVBS results to disk:
 
