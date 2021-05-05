@@ -96,7 +96,7 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()`` like so:
        'salinity': 30,      # salinity in PSU
        'pressure': 50,     # pressure in dbar
    }
-   ep.calibrate.compute_Sv(env_params=environment)
+   Sv = ep.calibrate.compute_Sv(echodata, env_params=environment)
 
 These value will be used in calculating sound speed,
 seawater absorption, thickness of each sonar sample, and range.
@@ -141,7 +141,7 @@ specify ``cal_params`` while calling the calibration functions like so:
    calibration = {
        'equivalent_beam_angle': [-17.47, -20.77, -21.13, -20.4 , -30]
    }
-   ep.calibrate.compute_Sv(cal_params=calibration)
+   Sv = ep.calibrate.compute_Sv(echodata, cal_params=calibration)
 
 To reset the equivalent beam angle for 18 kHz only, one can do:
 
