@@ -14,17 +14,25 @@ Functionality
 
   - Calibration and echo-integration to obtain
     volume backscattering strength (Sv) from power data.
+    (beta: we found inconsistencies between pulse compression outputs
+    from the current echopype implementation, EchoView, and Matlab EchoLab code, see
+    `#308 <http://https://github.com/OSOceanAcoustics/echopype/issues/308/>`_.
   - Simple noise removal by removing data points (set to ``NaN``) below
     an adaptively estimated noise floor [1]_.
   - Binning and averaging to obtain mean volume backscattering strength (MVBS)
     from the calibrated data.
+  - Compute mean volume backscattering strength (MVBS) based
+    on either the number of pings and sample intervals
+    (the ``range_bin`` dimension in the data set) or a
+    specified ping time interval and range interval in
+    physics units (seconds and meters).
 
 - EK80 and EA640 broadband echosounders:
 
   - Calibration based on pulse compression output in the
     form of average over frequency.
 
-  - The same noise removal and MVBS functionality available
+  - The same noise removal and MVBS computation functionality available
     to the narrowband echosounders.
 
 
@@ -45,13 +53,15 @@ The steps for performing these analyses are summarized below.
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Datasets``,
-and return a single xarray ``Dataset`` (either Sv or Sp).
-The Sv ``Dataset`` can then be passed into the functions provided by the
-``preprocess`` subpackage which all return a single processed ``Dataset``.
+and return a single xarray ``Dataset`` containing the calibrated backscatter
+quantities and the samples' corresponding range in meters.
+The inputs and outputs of all functions in the ``preprocess``
+subpackage are xarray ``Datasets``, with the inputs being ``Datasets``
+containing ``Sv`` and ``range`` generated from calibration.
 
 These ``calibrate`` and ``preprocess`` methods do not save the calculation results to disk,
-but the returned xarray Dataset have methods like ``to_netcdf`` and ``to_zarr`` that
-can be used to save.
+but the returned xarray ``Dataset`` can be saved using native xarray methods
+such as ``to_netcdf`` and ``to_zarr``
 
 For example, to save the Sv and MVBS results to disk:
 
@@ -88,19 +98,19 @@ By default, echopype uses the following for calibration:
 - AZFP: Salinity and pressure provided by the user,
   and temperature recorded at the instrument
 
-These parameters should be overwritten when they differ from the actual
+These parameters can be overwritten when they differ from the actual
 environmental condition during data collection.
 To update these parameters, simply pass in the environmental parameters
-as a dictionary while calling ``ep.calibrate.compute_Sv()`` like so:
+as a dictionary while calling ``ep.calibrate.compute_Sv()``:
 
 .. code-block:: python
 
-   environment = {
+   env_params = {
        'temperature': 8,   # temperature in degree Celsius
        'salinity': 30,     # salinity in PSU
        'pressure': 50,     # pressure in dbar
    }
-   Sv = ep.calibrate.compute_Sv(echodata, env_params=environment)
+   Sv = ep.calibrate.compute_Sv(echodata, env_params=env_params)
 
 These value will be used in calculating sound speed,
 sound absorption, and the thickness of each sonar sample,
@@ -151,20 +161,21 @@ specify ``cal_params`` while calling the calibration functions like so:
 .. code-block:: python
 
    # set all channels at once
-   calibration = {
-       'equivalent_beam_angle': [-17.47, -20.77, -21.13, -20.4 , -30]
+   equivalent_beam_angle = xr.DataArray(
+       [-17.47, -20.77, -21.13, -20.4, -30],
+       dims=['frequency'],
+       coords=[echodata.beam.frequency]
+   )
+   cal_params = {
+       'equivalent_beam_angle': equivalent_beam_angle
    }
-   Sv = ep.calibrate.compute_Sv(echodata, cal_params=calibration)
+   Sv = ep.calibrate.compute_Sv(echodata, cal_params=cal_params)
 
 To reset the equivalent beam angle for 18 kHz only, one can do:
 
 .. code-block:: python
 
    echodata.beam.equivalent_beam_angle.loc[dict(frequency=18000)] = 18.02  # set value for 18 kHz only
-
-Make sure you use ``echodata.beam.equivalent_beam_angle.frequency`` to check
-the sequence of the frequency channels first, and always double
-check after setting these parameters!
 
 
 References
@@ -183,7 +194,7 @@ References
 
 .. [4] Demer DA, Berger L, Bernasconi M, Bethke E, Boswell K, Chu D, Domokos R,
    et al. (2015) Calibration of acoustic instruments. `ICES Cooperative Research Report No.
-   1.   133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
+   326.       133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
 
 
 .. TODO: Need to specify the changes we made from AZFP Matlab code to here:
