@@ -34,13 +34,17 @@ The steps for performing these analyses are summarized below.
 
    import echopype as ep
    nc_path = './converted_files/file.nc'           # path to a converted nc file
-   echodata = ep.open_converted(nc_path)           # create a processing object
+   echodata = ep.open_converted(nc_path)           # create an EchoData object
    Sv = ep.calibrate.compute_Sv(echodata)          # obtain Sv
-   Sv_clean = ep.preprocess.remove_noise(Sv, ...)  # obtain a denoised Sv Dataset
+   Sv_clean = ep.preprocess.remove_noise(          # obtain a denoised Sv Dataset
+      Sv,
+      ping_num=5,
+      range_bin_num=30
+   )
    MVBS = ep.preprocess.get_MVBS(Sv_clean)         # obtain MVBS from denoised Sv
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
-which is essentially a container for multiple xarray ``Dataset`` groups,
+which is essentially a container for multiple xarray ``Datasets``,
 and return a single xarray ``Dataset`` (either Sv or Sp).
 The Sv ``Dataset`` can then be passed into the functions provided by the
 ``preprocess`` subpackage which all return a single processed ``Dataset``.
