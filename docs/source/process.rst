@@ -97,13 +97,22 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()`` like so:
 
    environment = {
        'temperature': 8,   # temperature in degree Celsius
-       'salinity': 30,      # salinity in PSU
+       'salinity': 30,     # salinity in PSU
        'pressure': 50,     # pressure in dbar
    }
    Sv = ep.calibrate.compute_Sv(echodata, env_params=environment)
 
 These value will be used in calculating sound speed,
-seawater absorption, thickness of each sonar sample, and range.
+sound absorption, and the thickness of each sonar sample,
+which is used in calculating the range.
+The updated values can be retrieved with:
+
+.. code-block:: python
+
+   Sv['sound_absorption']   # absorption in [dB/m]
+   Sv['sound_speed']        # sound speed in [m/s]
+   Sv['range']              # range for each sonar sample in [m]
+
 
 For EK60 and EK80 data, echopype updates the sound speed and seawater absorption
 using the formulae from Mackenzie (1981) [2]_ and
@@ -174,7 +183,7 @@ References
 
 .. [4] Demer DA, Berger L, Bernasconi M, Bethke E, Boswell K, Chu D, Domokos R,
    et al. (2015) Calibration of acoustic instruments. `ICES Cooperative Research Report No.
-   326. 133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
+   1.   133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
 
 
 .. TODO: Need to specify the changes we made from AZFP Matlab code to here:
