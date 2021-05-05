@@ -55,8 +55,8 @@ The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Datasets``,
 and return a single xarray ``Dataset`` containing the calibrated backscatter
 quantities and the samples' corresponding range in meters.
-The inputs and outputs of all functions in the ``preprocess``
-subpackage are xarray ``Datasets``, with the inputs being ``Datasets``
+The input and output of all functions in the ``preprocess``
+subpackage is an xarray ``Dataset``, with the input being a ``Dataset``
 containing ``Sv`` and ``range`` generated from calibration.
 
 These ``calibrate`` and ``preprocess`` methods do not save the calculation results to disk,
