@@ -34,7 +34,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                  'calendar': 'gregorian',
                                  'long_name': 'Timestamp of each ping',
                                  'standard_name': 'time',
-                                 'units': 'seconds since 1900-01-01'})},
+                                 'units': 'seconds since 1900-01-01 00:00:00Z'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
         return ds
@@ -142,7 +142,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                                'calendar': 'gregorian',
                                                'long_name': 'Timestamp of each ping',
                                                'standard_name': 'time',
-                                               'units': 'seconds since 1900-01-01'}),
+                                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                                 'range_bin': (['range_bin'], range_bin)},
                         attrs={'beam_mode': '',
                                'conversion_equation_t': 'type_4',
@@ -209,7 +209,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
                                'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={

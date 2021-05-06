@@ -98,7 +98,7 @@ class SetGroupsBase:
         """
         # Save nan if nmea data is not encoded in the raw file
         if len(self.parser_obj.nmea['nmea_string']) != 0:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             time = (self.parser_obj.nmea['timestamp'] -
                     np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -116,7 +116,7 @@ class SetGroupsBase:
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA datagrams',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})},
+                                       'units': 'seconds since 1900-01-01 00:00:00Z'})},
             attrs={'description': 'All NMEA sensor datagrams'})
 
         return ds
