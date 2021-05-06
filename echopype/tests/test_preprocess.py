@@ -112,15 +112,8 @@ def _construct_MVBS_test_data(nfreq, npings, nrange_bins):
     """
 
     # Construct test array
-    test_array = np.indices((npings, nrange_bins))
-    test_array = np.add(*test_array)
-    test_array = np.array([test_array] * nfreq) + 1
-
-    # Increase test data by a multiple each frequency
-    for f in range(nfreq):
-        test_array[f] = (test_array[0] * (f + 1))
-
-    return test_array
+    test_array = np.add(*np.indices((npings, nrange_bins)))
+    return np.array([(test_array + 1) * (f + 1) for f in range(nfreq)])
 
 
 def test_compute_MVBS_index_binning():
