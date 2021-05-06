@@ -91,8 +91,9 @@ def _construct_MVBS_toy_data(nfreq, npings, nrange_bins, ping_size, range_bin_si
 
 
 def _construct_MVBS_test_data(nfreq, npings, nrange_bins):
-    """Construct data with values that increases regularly
-    every ping and range_bin
+    """Construct data for testing the toy data from
+    `_construct_MVBS_toy_data` after it has gone through the
+    MVBS calculation.
 
     Parameters
     ----------
