@@ -85,7 +85,7 @@ class RawSimradFile(BufferedReader):
                       }
 
 
-    def __init__(self, name, mode='rb', closefd=True, 
+    def __init__(self, name, mode='rb', closefd=True,
                  return_raw=False, buffer_size=1024*1024,
                  storage_options={}):
 
@@ -472,7 +472,7 @@ class RawSimradFile(BufferedReader):
             dgram_header['channel'] = struct.unpack('h', self._read_bytes(2))[0]
             self._seek_bytes(-18, SEEK_CUR)
         elif dgram_header['type'].startswith('RAW3'):
-            chan_id = struct.unpack('128s', self._read_bytes(128))
+            chan_id = struct.unpack('128s', self._read_bytes(128))[0].decode("utf-8")
             dgram_header['channel_id'] = chan_id.strip('\x00')
             self._seek_bytes(-(16 + 128), SEEK_CUR)
         else:
