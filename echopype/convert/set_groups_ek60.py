@@ -32,7 +32,7 @@ class SetGroupsEK60(SetGroupsBase):
                                          'calendar': 'gregorian',
                                          'long_name': 'Timestamps for NMEA position datagrams',
                                          'standard_name': 'time',
-                                         'units': 'seconds since 1900-01-01'})})
+                                         'units': 'seconds since 1900-01-01 00:00:00Z'})})
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
                 {'frequency': [self.parser_obj.config_datagram['transceivers'][ch]['frequency']]})
@@ -46,7 +46,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge(ds_env)
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
+        # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
                                              np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
@@ -98,11 +98,11 @@ class SetGroupsEK60(SetGroupsBase):
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA position datagrams',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})})
+                                       'units': 'seconds since 1900-01-01 00:00:00Z'})})
         ds = ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
         if not NMEA_only:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ch_ids = list(self.parser_obj.config_datagram['transceivers'].keys())
 
@@ -142,7 +142,7 @@ class SetGroupsEK60(SetGroupsBase):
                                            'calendar': 'gregorian',
                                            'long_name': 'Timestamps for position datagrams',
                                            'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})},
+                                           'units': 'seconds since 1900-01-01 00:00:00Z'})},
                     attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                            'platform_name': self.ui_param['platform_name'],
                            'platform_type': self.ui_param['platform_type']})
@@ -165,7 +165,7 @@ class SetGroupsEK60(SetGroupsBase):
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs='override')
 
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ds = ds.assign_coords({
                 'ping_time': (['ping_time'],
@@ -339,7 +339,7 @@ class SetGroupsEK60(SetGroupsBase):
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamp of each ping',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'}),
+                                       'units': 'seconds since 1900-01-01 00:00:00Z'}),
                         'range_bin': (['range_bin'], np.arange(data_shape[1]))})
 
             # TODO: below needs to be changed to use self.convert_obj.ping_data_dict['mode'][ch] == 3

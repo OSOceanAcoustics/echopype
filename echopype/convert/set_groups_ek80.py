@@ -32,7 +32,7 @@ class SetGroupsEK80(SetGroupsBase):
                                            'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
                                            'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})})
+                                           'units': 'seconds since 1900-01-01 00:00:00Z'})})
         # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
         #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
         #                                      ds.ping_time.attrs)})
@@ -78,7 +78,7 @@ class SetGroupsEK80(SetGroupsBase):
                   'Value set to NaN.')
 
         location_time, msg_type, lat, lon = self._parse_NMEA()
-        # Convert MRU np.datetime64 numbers to seconds since 1900-01-01
+        # Convert MRU np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
         # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         mru_time = self.parser_obj.mru.get('timestamp', None)
         mru_time = (np.array(mru_time) - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
@@ -123,13 +123,13 @@ class SetGroupsEK80(SetGroupsBase):
                                   'calendar': 'gregorian',
                                   'long_name': 'Timestamps for MRU datagrams',
                                   'standard_name': 'time',
-                                  'units': 'seconds since 1900-01-01'}),
+                                  'units': 'seconds since 1900-01-01 00:00:00Z'}),
                     'location_time': (['location_time'], location_time,
                                       {'axis': 'T',
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA datagrams',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})
+                                       'units': 'seconds since 1900-01-01 00:00:00Z'})
                     },
             attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                    'platform_name': self.ui_param['platform_name'],
@@ -255,7 +255,7 @@ class SetGroupsEK80(SetGroupsBase):
                                'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
                                'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 'range_bin': (['range_bin'], np.arange(data_shape[1])),
                 'quadrant': (['quadrant'], np.arange(num_transducer_sectors)),
             }
@@ -285,7 +285,7 @@ class SetGroupsEK80(SetGroupsBase):
                                    'calendar': 'gregorian',
                                    'long_name': 'Timestamp of each ping',
                                    'standard_name': 'time',
-                                   'units': 'seconds since 1900-01-01'}),
+                                   'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 }
             )
             ds_tmp = xr.merge([ds_tmp, ds_f_start_end],
@@ -308,7 +308,7 @@ class SetGroupsEK80(SetGroupsBase):
                                'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
                                'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 'range_bin': (['range_bin'], np.arange(data_shape[1])),
             }
         )
@@ -360,7 +360,7 @@ class SetGroupsEK80(SetGroupsBase):
                                'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
                                'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 'range_bin': (['range_bin'], np.arange(range_bin_size)),
             }
         )
@@ -380,7 +380,7 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_combine = xr.merge([ds_invariant_power, ds_combine],
                                       combine_attrs='override')  # override keeps the Dataset attributes
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ds_combine = ds_combine.assign_coords(
                 {'ping_time': (['ping_time'], (ds_combine['ping_time']

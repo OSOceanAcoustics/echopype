@@ -13,14 +13,14 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
-        ping_time = (self.parser_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
         ds = xr.Dataset({'temperature': (['ping_time'], self.parser_obj.unpacked_data['temperature'])},
                         coords={'ping_time': (['ping_time'], ping_time,
                                 {'axis': 'T',
                                  'calendar': 'gregorian',
                                  'long_name': 'Timestamp of each ping',
                                  'standard_name': 'time',
-                                 'units': 'seconds since 1970-01-01'})},
+                                 'units': 'seconds since 1900-01-01 00:00:00Z'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
         return ds
@@ -128,7 +128,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                                'calendar': 'gregorian',
                                                'long_name': 'Timestamp of each ping',
                                                'standard_name': 'time',
-                                               'units': 'seconds since 1900-01-01'}),
+                                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                                 'range_bin': (['range_bin'], range_bin)},
                         attrs={'beam_mode': '',
                                'conversion_equation_t': 'type_4',
@@ -195,7 +195,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
                                'standard_name': 'time',
-                               'units': 'seconds since 1970-01-01'}),
+                               'units': 'seconds since 1900-01-01 00:00:00Z'}),
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
