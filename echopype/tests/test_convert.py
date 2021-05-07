@@ -16,6 +16,8 @@ import pytest
 from pathlib import Path
 from echopype import open_raw
 from echopype.convert.api import _validate_path
+from echopype.testing import TEST_DATA_FOLDER
+from echopype.convert.set_groups_base import DEFAULT_ENCODINGS
 
 
 def _check_file_group(data_file, engine, groups):
@@ -248,6 +250,67 @@ def test_validate_path_multiple_source(
             for f in mult_path
         ]
         os.rmdir(os.path.dirname(echodata_mult.converted_raw_path[0]))
+
+
+@pytest.mark.parametrize(
+    "sonar_model, raw_file, xml_path",
+    [
+        (
+            "azfp",
+            TEST_DATA_FOLDER / "azfp/ooi/17032923.01A",
+            TEST_DATA_FOLDER / "azfp/ooi/17032922.XML"
+        ),
+        (
+            "ek60",
+            TEST_DATA_FOLDER / "ek60/DY1801_EK60-D20180211-T164025.raw",
+            None
+        ),
+        (
+            "ek80",
+            TEST_DATA_FOLDER / "ek80/ncei-wcsd/D20170826-T205615.raw",
+            None
+        )
+    ]
+)
+def test_convert_time_encodings(sonar_model, raw_file, xml_path):
+    ed = open_raw(
+        sonar_model=sonar_model,
+        raw_file=raw_file,
+        xml_path=xml_path
+    )
+    ed.to_netcdf()
+    for group, details in ed._EchoData__group_map.items():
+        if hasattr(ed, group):
+            group_ds = getattr(ed, group)
+            if isinstance(group_ds, xr.Dataset):
+                for var, encoding in DEFAULT_ENCODINGS.items():
+                    if var in group_ds:
+                        da = group_ds[var]
+                        assert da.encoding == encoding
+
+                        # Combine encoding and attributes since this
+                        # is what is shown when using decode_cf=False
+                        # without dtype attribute
+                        total_attrs = dict(**da.attrs, **da.encoding)
+                        total_attrs.pop('dtype')
+
+                        # Read converted file back in
+                        file_da = xr.open_dataset(
+                            ed.converted_raw_path,
+                            group=details['ep_group'],
+                            decode_cf=False
+                        )[var]
+                        assert file_da.attrs == total_attrs
+                        assert file_da.dtype == encoding['dtype']
+
+                        # Read converted file back in
+                        decoded_da = xr.open_dataset(
+                            ed.converted_raw_path,
+                            group=details['ep_group'],
+                            decode_cf=True
+                        )[var]
+                        assert da.equals(decoded_da) is True
+    os.unlink(ed.converted_raw_path)
 
 
 @pytest.mark.parametrize("model", ["EK60"])
