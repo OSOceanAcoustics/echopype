@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from collections import defaultdict
-from .set_groups_base import SetGroupsBase
+from .set_groups_base import SetGroupsBase, set_encodings
 from .set_groups_base import DEFAULT_CHUNK_SIZE
 
 
@@ -29,10 +29,8 @@ class SetGroupsEK60(SetGroupsBase):
                                             'valid_min': 0.0})},
                                 coords={'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                                         {'axis': 'T',
-                                         'calendar': 'gregorian',
                                          'long_name': 'Timestamps for NMEA position datagrams',
-                                         'standard_name': 'time',
-                                         'units': 'seconds since 1900-01-01 00:00:00Z'})})
+                                         'standard_name': 'time'})})
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
                 {'frequency': [self.parser_obj.config_datagram['transceivers'][ch]['frequency']]})
@@ -46,13 +44,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge(ds_env)
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                             ds.ping_time.attrs)})
-
-        return ds
+        return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
@@ -95,15 +87,11 @@ class SetGroupsEK60(SetGroupsBase):
             },
             coords={'location_time': (['location_time'], location_time,
                                       {'axis': 'T',
-                                       'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA position datagrams',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01 00:00:00Z'})})
+                                       'standard_name': 'time'})})
         ds = ds.chunk({'location_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
         if not NMEA_only:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
-            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             ch_ids = list(self.parser_obj.config_datagram['transceivers'].keys())
 
             # TODO: consider allow users to set water_level like in EK80?
@@ -139,10 +127,8 @@ class SetGroupsEK60(SetGroupsBase):
                                       'units': 'm'})},
                     coords={'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                                           {'axis': 'T',
-                                           'calendar': 'gregorian',
                                            'long_name': 'Timestamps for position datagrams',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01 00:00:00Z'})},
+                                           'standard_name': 'time'})},
                     attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                            'platform_name': self.ui_param['platform_name'],
                            'platform_type': self.ui_param['platform_type']})
@@ -165,14 +151,9 @@ class SetGroupsEK60(SetGroupsBase):
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs='override')
 
-            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
-            # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ds = ds.assign_coords({
-                'ping_time': (['ping_time'],
-                              (ds['ping_time'] - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                              ds.ping_time.attrs)}).chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']})
+            ds = ds.chunk({'ping_time': DEFAULT_CHUNK_SIZE['ping_time']})
 
-        return ds
+        return set_encodings(ds)
 
     def set_beam(self) -> xr.Dataset:
         """Set the Beam group.
@@ -336,10 +317,8 @@ class SetGroupsEK60(SetGroupsBase):
                 },
                 coords={'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                                       {'axis': 'T',
-                                       'calendar': 'gregorian',
                                        'long_name': 'Timestamp of each ping',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01 00:00:00Z'}),
+                                       'standard_name': 'time'}),
                         'range_bin': (['range_bin'], np.arange(data_shape[1]))})
 
             # TODO: below needs to be changed to use self.convert_obj.ping_data_dict['mode'][ch] == 3
@@ -370,13 +349,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge([ds, xr.merge(ds_backscatter)], combine_attrs='override')  # override keeps the Dataset attributes
 
-        # Convert np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-        ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-                                             np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                                             ds.ping_time.attrs)})
-
-        return ds
+        return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
