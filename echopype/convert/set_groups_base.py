@@ -60,8 +60,8 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
                         da,
                         keep_attrs=True,
                         kwargs={
-                            "units": encoding["units"],
-                            "calendar": encoding["calendar"],
+                            "units": "seconds since 1900-01-01T00:00:00+00:00",
+                            "calendar": "gregorian",
                             "only_use_cftime_datetimes": False,
                             "only_use_python_datetimes": False
                         })
@@ -71,7 +71,7 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
                 # written into disk as such
                 new_ds[var] = xr.apply_ufunc(
                     _round_datetimes,
-                    da,
+                    new_ds[var],
                     keep_attrs=True
                 )
 
