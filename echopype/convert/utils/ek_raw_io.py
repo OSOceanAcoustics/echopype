@@ -85,7 +85,7 @@ class RawSimradFile(BufferedReader):
                       }
 
 
-    def __init__(self, name, mode='rb', closefd=True, 
+    def __init__(self, name, mode='rb', closefd=True,
                  return_raw=False, buffer_size=1024*1024,
                  storage_options={}):
 
