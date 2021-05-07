@@ -23,7 +23,8 @@ scientists to make discovery using these new data.
 Documentation
 -------------
 
-**Getting started**
+Getting started
+~~~~~~~~~~~~~~~
 
 * :doc:`why`
 * :doc:`installation`
@@ -38,7 +39,8 @@ Documentation
    installation
    examples
 
-**User guide**
+User guide
+~~~~~~~~~~
 
 * :doc:`convert`
 * :doc:`open-converted`
@@ -55,7 +57,8 @@ Documentation
    process
    data-format
 
-**Help & reference**
+Help & reference
+~~~~~~~~~~~~~~~~
 
 * :doc:`api`
 * :doc:`whats-new`

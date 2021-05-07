@@ -49,7 +49,10 @@ that includes information about the echosounder type:
 This will generate a ``FILENAME.nc`` file and save it to the 
 ``./unpacked_files`` folder.
 
-.. warning::
+
+.. EXPERIMENT WITH BEST WAY TO PRESENT NOTES (DIRECTIVES) ABOUT CHANGES WITH NEW VERSION
+
+.. attention::
 
    - Prior to version 0.5.0, conversion was carried out through the
      `"Convert" interface <https://echopype.readthedocs.io/en/latest/usage.html#conversion-operation>`_.
@@ -60,8 +63,14 @@ This will generate a ``FILENAME.nc`` file and save it to the
      These methods have been renamed to ``to_netcdf`` and ``to_zarr``
      and the old names will be deprecated in a future version.
 
-**TODO:** Briefly state that open_raw returns an EchoData object (that's new in 0.5.0),
-and link to the page/section where it's described in more detail.
+**TODO:** 
+
+- Briefly state that open_raw returns an EchoData object (note that an EchoData class has
+  existed in echopype for a while, but it's been overhauled and made more user-facing in 0.5.0);
+  link to the page/section where it's described in more detail.
+- Does open_raw fully open and parse the raw data eagerly, or lazily/delayed?
+  Once I confirm which is it, mention it briefly.
+- Add some sample code for interacting with the parsed EchoData object in memory
 
 For data files from the AZFP echosounder, the conversion requires an
 extra ``.XML`` file along with the ``.01A`` data file, specified using
