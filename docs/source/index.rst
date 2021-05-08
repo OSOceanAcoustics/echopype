@@ -23,7 +23,8 @@ scientists to make discovery using these new data.
 Documentation
 -------------
 
-**Getting Started**
+Getting started
+~~~~~~~~~~~~~~~
 
 * :doc:`why`
 * :doc:`installation`
@@ -32,13 +33,14 @@ Documentation
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Getting Started
+   :caption: Getting started
 
    why
    installation
    examples
 
-**User Guide**
+User guide
+~~~~~~~~~~
 
 * :doc:`convert`
 * :doc:`open-converted`
@@ -48,14 +50,15 @@ Documentation
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: User Guide
+   :caption: User guide
 
    convert
    open-converted
    process
    data-format
 
-**Help & Reference**
+Help & reference
+~~~~~~~~~~~~~~~~
 
 * :doc:`api`
 * :doc:`whats-new`
@@ -65,7 +68,7 @@ Documentation
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Help & Reference
+   :caption: Help & reference
 
    api
    whats-new

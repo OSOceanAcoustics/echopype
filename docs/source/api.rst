@@ -3,16 +3,6 @@ API reference
 
 This page provides an auto-generated summary of echopype's API.
 
-(``echopype.convert`` and ``echopype.process`` will not be shown here. 
-But maybe they could be shown in a second page, "Other API References?")
-
-**TODO:** 
-
-* Say that this page does not cover the entire API, but is instead focused on what most users might need
-* Maybe it's best to use automodule for everything, so the full definitions are in this page?
-* Maybe it's best to not use toctree, and instead link to each section heading explicitly
-
-
 **Content**
 
 * `Open raw and converted files`_
@@ -33,6 +23,10 @@ Open raw and converted files
 
 EchoData class
 --------------
+
+.. didn't yield expected results (no better than automodapi) AND hid the open_ functions!
+   .. autoclass:: echopype.echodata
+      :members:
 
 .. automodapi:: echopype.echodata
    :no-inheritance-diagram:

@@ -1,5 +1,5 @@
 Why echopype?
-=================
+=============
 
 Over the last decade, advancements in instrumentation have produced
 a deluge of water column sonar data from ships, moorings and autonomous
@@ -28,7 +28,8 @@ ocean sonar data in interdisciplinary oceanographic research.
 
 
 Interoperability
-------------------
+----------------
+
 echopype contains tools for converting data from various manufacturer-specific
 formats into a standardized `netCDF`_ files.
 This is useful, because netCDF is the `current defacto standard`_ in climate
@@ -43,7 +44,8 @@ and often proprietary data analysis software.
 
 
 Scalability
---------------
+-----------
+
 echopype is written to use as much as functionality of `xarray`_ as possible.
 xarray is a powerful module that let you work with multi-dimensional labeled data
 set the same way as in `pandas`_.
