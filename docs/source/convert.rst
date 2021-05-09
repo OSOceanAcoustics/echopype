@@ -137,9 +137,9 @@ AWS S3 access
    These instructions should apply to other object storage providers such as 
    Google Cloud and Azure, but have only been tested on AWS S3.
 
-A file on an AWS S3 "bucket" can be accessed by specifying the S3 path that starts
-with "s3://" and using the ``storage_options`` argument. For a publicly accessible 
-file ("anonymous") on a bucket called ``mybucket``:
+A file on an `AWS S3 <https://aws.amazon.com/s3/>`_ "bucket" can be accessed by 
+specifying the S3 path that starts with "s3://" and using the ``storage_options`` 
+argument. For a publicly accessible file ("anonymous") on a bucket called ``mybucket``:
 
 .. code-block:: python
 
