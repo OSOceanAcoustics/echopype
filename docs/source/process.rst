@@ -1,10 +1,12 @@
 Data processing
 ===============
 
-.. warning::
+.. attention::
    Starting with version 0.5.0, the data processing interface ``Process``
    is deprecated. Attempts to use ``Process`` will still
    work at the moment but will no longer be available in the future.
+   See `version 0.4.1 documentation <https://echopype.readthedocs.io/en/v0.4.1/>`_
+   if you're working with that echopype release.
 
 
 Functionality
@@ -23,9 +25,9 @@ Functionality
     from the calibrated data.
   - Compute mean volume backscattering strength (MVBS) based
     on either the number of pings and sample intervals
-    (the ``range_bin`` dimension in the data set) or a
+    (the ``range_bin`` dimension in the dataset) or a
     specified ping time interval and range interval in
-    physics units (seconds and meters).
+    physics units (seconds and meters, respectively).
 
 - EK80 and EA640 broadband echosounders:
 
@@ -52,14 +54,14 @@ The steps for performing these analyses are summarized below.
    MVBS = ep.preprocess.get_MVBS(Sv_clean)         # obtain MVBS from denoised Sv
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
-which is essentially a container for multiple xarray ``Datasets``,
+which is essentially a container for multiple xarray ``Dataset`` instances,
 and return a single xarray ``Dataset`` containing the calibrated backscatter
 quantities and the samples' corresponding range in meters.
 The input and output of all functions in the ``preprocess``
-subpackage is an xarray ``Dataset``, with the input being a ``Dataset``
+subpackage are xarray ``Dataset`` instances, with the input being a ``Dataset``
 containing ``Sv`` and ``range`` generated from calibration.
 
-These ``calibrate`` and ``preprocess`` methods do not save the calculation results to disk,
+The ``calibrate`` and ``preprocess`` functions do not save the calculation results to disk,
 but the returned xarray ``Dataset`` can be saved using native xarray methods
 such as ``to_netcdf`` and ``to_zarr``.
 
@@ -85,22 +87,20 @@ critical in biological interpretation of ocean sonar data. They influence:
   frequency-dependent, and the higher the frequency the more sensitive the
   calibration is to the environmental parameters.
 
-- Sound speed, which impacts the conversion from temporal resolution of
+- Sound speed, which impacts the conversion from temporal resolution
   (of each data sample) to spatial resolution, i.e. the sonar observation
-  range would change.
+  range changes with sound speed.
 
 By default, echopype uses the following for calibration:
 
-- EK60: Environmental parameters saved with the data files
-
-- EK80: Environmental parameters saved with the data files
+- EK60 and EK80: Environmental parameters saved with the raw data files.
 
 - AZFP: Salinity and pressure provided by the user,
-  and temperature recorded at the instrument
+  and temperature recorded at the instrument.
 
-These parameters can be overwritten when they differ from the actual
-environmental condition during data collection.
-To update these parameters, simply pass in the environmental parameters
+These parameters can be overwritten when they differ from actual
+environmental conditions during data collection.
+To update these parameters, simply pass the environmental parameters
 as a dictionary while calling ``ep.calibrate.compute_Sv()``:
 
 .. code-block:: python
@@ -112,7 +112,7 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()``:
    }
    Sv = ep.calibrate.compute_Sv(echodata, env_params=env_params)
 
-These value will be used in calculating sound speed,
+These values will be used in calculating sound speed,
 sound absorption, and the thickness of each sonar sample,
 which is used in calculating the range.
 The updated values can be retrieved with:
@@ -129,7 +129,7 @@ using the formulae from Mackenzie (1981) [2]_ and
 Ainslie and McColm (1981) [3]_, respectively.
 
 For AZFP data, echopype updates the sound speed and seawater absorption
-using the formulae provided by the manufacturer ASL Environmental Sci.
+using the formulae provided by the manufacturer, ASL Environmental Sci.
 
 
 Calibration parameters
@@ -160,6 +160,7 @@ specify ``cal_params`` while calling the calibration functions like so:
 
 .. code-block:: python
 
+   import xarray as xr
    # set all channels at once
    equivalent_beam_angle = xr.DataArray(
        [-17.47, -20.77, -21.13, -20.4, -30],

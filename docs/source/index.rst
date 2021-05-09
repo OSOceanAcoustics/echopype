@@ -28,7 +28,7 @@ Getting started
 
 * :doc:`why`
 * :doc:`installation`
-* :doc:`examples`
+.. * :doc:`examples`
 
 .. toctree::
    :maxdepth: 2
@@ -37,7 +37,7 @@ Getting started
 
    why
    installation
-   examples
+..   examples
 
 User guide
 ~~~~~~~~~~
@@ -80,12 +80,12 @@ Contributors
 ------------
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) leads this project
-and along with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
-are primary developers of this package.
-`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s),
-`Landung "Don" Setiawan <https://github.com/lsetiawan>`_ (@lsetiawan),
-and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
-provide consultation and also contribute to the development.
+and is the primary developer of this package together with 
+`Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+and `Landung "Don" Setiawan <https://github.com/lsetiawan>`_ (@lsetiawan).
+`Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
+and `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
+are also part of the development team.
 
 Other contributors include:
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
