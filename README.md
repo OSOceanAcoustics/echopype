@@ -72,10 +72,8 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 Contributors
 ------------
 
-[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project
-and is the primary developer of this package together with 
-[Kavin Nguyen](https://github.com/ngkavin) (@ngkavin)
-and [Landung "Don" Setiawan](https://github.com/lsetiawan) (@lsetiawan).
+[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project and together with 
+[Kavin Nguyen](https://github.com/ngkavin) (@ngkavin), [Landung "Don" Setiawan](https://github.com/lsetiawan) (@lsetiawan), and [Imran Majeed](https://github.com/imranmaj) (@imranmaj) are primary developers of this package.
 [Emilio Mayorga](https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio) (@emiliom)
 and [Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
 are also part of the development team.
