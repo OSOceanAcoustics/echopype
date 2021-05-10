@@ -3,7 +3,7 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
 import xarray as xr
 import numpy as np
-from .set_groups_base import SetGroupsBase
+from .set_groups_base import SetGroupsBase, set_encodings
 
 
 class SetGroupsAZFP(SetGroupsBase):
@@ -13,17 +13,16 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Environment group.
         """
         # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
-        ping_time = (self.parser_obj.ping_time - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = self.parser_obj.ping_time
         ds = xr.Dataset({'temperature': (['ping_time'], self.parser_obj.unpacked_data['temperature'])},
                         coords={'ping_time': (['ping_time'], ping_time,
                                 {'axis': 'T',
-                                 'calendar': 'gregorian',
                                  'long_name': 'Timestamp of each ping',
-                                 'standard_name': 'time',
-                                 'units': 'seconds since 1970-01-01'})},
+                                 'standard_name': 'time'})},
                         attrs={'long_name': "Water temperature",
                                'units': "C"})
-        return ds
+
+        return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group.
@@ -61,7 +60,7 @@ class SetGroupsAZFP(SetGroupsBase):
         anc = np.array(unpacked_data['ancillary'])   # convert to np array for easy slicing
         dig_rate = unpacked_data['dig_rate']         # dim: freq
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
-        ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = self.parser_obj.ping_time
 
         # Build variables in the output xarray Dataset
         N = []   # for storing backscatter_r values for each frequency
@@ -125,10 +124,8 @@ class SetGroupsAZFP(SetGroupsBase):
                                                'valid_min': 0.0}),
                                 'ping_time': (['ping_time'], ping_time,
                                               {'axis': 'T',
-                                               'calendar': 'gregorian',
                                                'long_name': 'Timestamp of each ping',
-                                               'standard_name': 'time',
-                                               'units': 'seconds since 1900-01-01'}),
+                                               'standard_name': 'time'}),
                                 'range_bin': (['range_bin'], range_bin)},
                         attrs={'beam_mode': '',
                                'conversion_equation_t': 'type_4',
@@ -151,7 +148,7 @@ class SetGroupsAZFP(SetGroupsBase):
                                'tilt_Y_b': parameters['Y_b'],
                                'tilt_Y_c': parameters['Y_c'],
                                'tilt_Y_d': parameters['Y_d']})
-        return ds
+        return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group.
@@ -159,7 +156,7 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         freq = np.array(unpacked_data['frequency']) * 1000    # Frequency in Hz
-        ping_time = (self.parser_obj.ping_time - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
+        ping_time = self.parser_obj.ping_time
         tdn = np.array(parameters['pulse_length']) / 1e6
 
         ds = xr.Dataset(
@@ -192,10 +189,8 @@ class SetGroupsAZFP(SetGroupsBase):
                                'valid_min': 0.0}),
                 'ping_time': (['ping_time'], ping_time,
                               {'axis': 'T',
-                               'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
-                               'standard_name': 'time',
-                               'units': 'seconds since 1970-01-01'}),
+                               'standard_name': 'time'}),
                 'ancillary_len': (['ancillary_len'], list(range(len(unpacked_data['ancillary'][0])))),
                 'ad_len': (['ad_len'], list(range(len(unpacked_data['ad'][0]))))},
             attrs={
@@ -211,4 +206,4 @@ class SetGroupsAZFP(SetGroupsBase):
                 'phase': unpacked_data['phase'],
                 'number_of_channels': unpacked_data['num_chan']}
         )
-        return ds
+        return set_encodings(ds)

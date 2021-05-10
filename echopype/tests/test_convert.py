@@ -16,6 +16,8 @@ import pytest
 from pathlib import Path
 from echopype import open_raw
 from echopype.convert.api import _validate_path
+from echopype.testing import TEST_DATA_FOLDER
+from echopype.convert.set_groups_base import DEFAULT_ENCODINGS
 
 
 def _check_file_group(data_file, engine, groups):
@@ -53,17 +55,6 @@ def _check_output_files(engine, output_files, storage_options):
             fs.delete(output_files)
 
 
-def _download_file(source_url, target_url):
-    fs = fsspec.filesystem("file")
-    if not fs.exists(os.path.dirname(target_url)):
-        fs.mkdir(os.path.dirname(target_url))
-
-    if not fs.exists(target_url):
-        with fsspec.open(source_url, mode="rb") as source:
-            with fs.open(target_url, mode="wb") as target:
-                target.write(source.read())
-
-
 @pytest.fixture(scope="session")
 def minio_bucket():
     common_storage_options = dict(
@@ -90,34 +81,6 @@ def minio_bucket():
         fs.put(source_path, f'{test_data}/{d.name}', recursive=True)
 
     return common_storage_options
-
-
-@pytest.fixture(scope="session")
-def download_files():
-    ek60_source = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK60/Summer2017-D20170615-T190214.raw"
-    ek80_source = "https://ncei-wcsd-archive.s3-us-west-2.amazonaws.com/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw"
-    azfp_source = "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032923.01A"
-    azfp_xml_source = "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00007/instrmts/dcl37/ZPLSC_sn55075/ce01issm_zplsc_55075_recovered_2017-10-27/DATA/201703/17032922.XML"
-
-    ek60_path = os.path.join(
-        "./echopype/test_data/ek60/ncei-wcsd",
-        os.path.basename(ek60_source),
-    )
-    ek80_path = os.path.join(
-        "./echopype/test_data/ek80/ncei-wcsd",
-        os.path.basename(ek80_source),
-    )
-    azfp_path = os.path.join("./echopype/test_data/azfp/ooi", os.path.basename(azfp_source))
-    azfp_xml_path = os.path.join("./echopype/test_data/azfp/ooi", os.path.basename(azfp_xml_source))
-    download_paths = [
-        (ek60_source, ek60_path),
-        (ek80_source, ek80_path),
-        (azfp_source, azfp_path),
-        (azfp_xml_source, azfp_xml_path),
-    ]
-
-    for p in download_paths:
-        _download_file(*p)
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -287,6 +250,67 @@ def test_validate_path_multiple_source(
             for f in mult_path
         ]
         os.rmdir(os.path.dirname(echodata_mult.converted_raw_path[0]))
+
+
+@pytest.mark.parametrize(
+    "sonar_model, raw_file, xml_path",
+    [
+        (
+            "azfp",
+            TEST_DATA_FOLDER / "azfp/ooi/17032923.01A",
+            TEST_DATA_FOLDER / "azfp/ooi/17032922.XML"
+        ),
+        (
+            "ek60",
+            TEST_DATA_FOLDER / "ek60/DY1801_EK60-D20180211-T164025.raw",
+            None
+        ),
+        (
+            "ek80",
+            TEST_DATA_FOLDER / "ek80/ncei-wcsd/D20170826-T205615.raw",
+            None
+        )
+    ]
+)
+def test_convert_time_encodings(sonar_model, raw_file, xml_path):
+    ed = open_raw(
+        sonar_model=sonar_model,
+        raw_file=raw_file,
+        xml_path=xml_path
+    )
+    ed.to_netcdf()
+    for group, details in ed._EchoData__group_map.items():
+        if hasattr(ed, group):
+            group_ds = getattr(ed, group)
+            if isinstance(group_ds, xr.Dataset):
+                for var, encoding in DEFAULT_ENCODINGS.items():
+                    if var in group_ds:
+                        da = group_ds[var]
+                        assert da.encoding == encoding
+
+                        # Combine encoding and attributes since this
+                        # is what is shown when using decode_cf=False
+                        # without dtype attribute
+                        total_attrs = dict(**da.attrs, **da.encoding)
+                        total_attrs.pop('dtype')
+
+                        # Read converted file back in
+                        file_da = xr.open_dataset(
+                            ed.converted_raw_path,
+                            group=details['ep_group'],
+                            decode_cf=False
+                        )[var]
+                        assert file_da.attrs == total_attrs
+                        assert file_da.dtype == encoding['dtype']
+
+                        # Read converted file back in
+                        decoded_da = xr.open_dataset(
+                            ed.converted_raw_path,
+                            group=details['ep_group'],
+                            decode_cf=True
+                        )[var]
+                        assert da.equals(decoded_da) is True
+    os.unlink(ed.converted_raw_path)
 
 
 @pytest.mark.parametrize("model", ["EK60"])

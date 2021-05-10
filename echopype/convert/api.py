@@ -189,8 +189,6 @@ def to_file(
     # Link path to saved file with attribute as if from open_converted
     echodata.converted_raw_path = output_file
 
-    return echodata
-
 
 def _save_groups_to_file(echodata, output_path, engine, compress=True):
     """Serialize all groups to file."""

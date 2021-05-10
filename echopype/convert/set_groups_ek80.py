@@ -2,7 +2,7 @@ from typing import List
 from collections import defaultdict
 import xarray as xr
 import numpy as np
-from .set_groups_base import SetGroupsBase
+from .set_groups_base import SetGroupsBase, set_encodings
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -17,8 +17,7 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             ping_time = list(self.parser_obj.ping_time.values())[0][0]
         # Select the first available ping_time
-        ping_time = np.array([(ping_time.astype('datetime64[ns]') -
-                               np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')])
+        ping_time = np.array([ping_time.astype('datetime64[ns]')])
 
         # Collect variables
         ds = xr.Dataset({'temperature': (['ping_time'], [self.parser_obj.environment['temperature']]),
@@ -29,14 +28,9 @@ class SetGroupsEK80(SetGroupsBase):
                         coords={
                             'ping_time': (['ping_time'], ping_time,
                                           {'axis': 'T',
-                                           'calendar': 'gregorian',
                                            'long_name': 'Timestamp of each ping',
-                                           'standard_name': 'time',
-                                           'units': 'seconds since 1900-01-01'})})
-        # ds = ds.assign_coords({'ping_time': (['ping_time'], (ds['ping_time'] -
-        #                                      np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-        #                                      ds.ping_time.attrs)})
-        return ds
+                                           'standard_name': 'time'})})
+        return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         # Collect unique variables
@@ -78,11 +72,8 @@ class SetGroupsEK80(SetGroupsBase):
                   'Value set to NaN.')
 
         location_time, msg_type, lat, lon = self._parse_NMEA()
-        # Convert MRU np.datetime64 numbers to seconds since 1900-01-01
-        # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
         mru_time = self.parser_obj.mru.get('timestamp', None)
-        mru_time = (np.array(mru_time) - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's') if \
-            mru_time is not None else [np.nan]
+        mru_time = np.array(mru_time) if mru_time is not None else [np.nan]
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
@@ -120,16 +111,12 @@ class SetGroupsEK80(SetGroupsBase):
             },
             coords={'mru_time': (['mru_time'], mru_time,
                                  {'axis': 'T',
-                                  'calendar': 'gregorian',
                                   'long_name': 'Timestamps for MRU datagrams',
-                                  'standard_name': 'time',
-                                  'units': 'seconds since 1900-01-01'}),
+                                  'standard_name': 'time'}),
                     'location_time': (['location_time'], location_time,
                                       {'axis': 'T',
-                                       'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA datagrams',
-                                       'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})
+                                       'standard_name': 'time'})
                     },
             attrs={'platform_code_ICES': self.ui_param['platform_code_ICES'],
                    'platform_name': self.ui_param['platform_name'],
@@ -137,7 +124,7 @@ class SetGroupsEK80(SetGroupsBase):
                    # TODO: check what this 'drop_keel_offset' is
                    'drop_keel_offset': (self.parser_obj.environment['drop_keel_offset'] if
                                         hasattr(self.parser_obj.environment, 'drop_keel_offset') else np.nan)})
-        return ds
+        return set_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
         """Assemble dataset for ping-invariant params in the Beam group.
@@ -252,10 +239,8 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                               {'axis': 'T',
-                               'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
-                               'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'standard_name': 'time'}),
                 'range_bin': (['range_bin'], np.arange(data_shape[1])),
                 'quadrant': (['quadrant'], np.arange(num_transducer_sectors)),
             }
@@ -282,16 +267,14 @@ class SetGroupsEK80(SetGroupsBase):
                 coords={
                     'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                                   {'axis': 'T',
-                                   'calendar': 'gregorian',
                                    'long_name': 'Timestamp of each ping',
-                                   'standard_name': 'time',
-                                   'units': 'seconds since 1900-01-01'}),
+                                   'standard_name': 'time'}),
                 }
             )
             ds_tmp = xr.merge([ds_tmp, ds_f_start_end],
                               combine_attrs='override')  # override keeps the Dataset attributes
 
-        return ds_tmp
+        return set_encodings(ds_tmp)
 
     def _assemble_ds_power(self, ch):
         data_shape = self.parser_obj.ping_data_dict['power'][ch].shape
@@ -305,10 +288,8 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                               {'axis': 'T',
-                               'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
-                               'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'standard_name': 'time'}),
                 'range_bin': (['range_bin'], np.arange(data_shape[1])),
             }
         )
@@ -325,7 +306,7 @@ class SetGroupsEK80(SetGroupsBase):
                                         {'long_name': 'electrical alongship angle'}),
                 })
 
-        return ds_tmp
+        return set_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_bin_size):
         """Variables common to complex and power/angle data.
@@ -357,14 +338,12 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 'ping_time': (['ping_time'], self.parser_obj.ping_time[ch],
                               {'axis': 'T',
-                               'calendar': 'gregorian',
                                'long_name': 'Timestamp of each ping',
-                               'standard_name': 'time',
-                               'units': 'seconds since 1900-01-01'}),
+                               'standard_name': 'time'}),
                 'range_bin': (['range_bin'], np.arange(range_bin_size)),
             }
         )
-        return ds_common
+        return set_encodings(ds_common)
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group.
@@ -380,13 +359,7 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_combine = xr.merge([ds_invariant_power, ds_combine],
                                       combine_attrs='override')  # override keeps the Dataset attributes
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
-            #  due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            ds_combine = ds_combine.assign_coords(
-                {'ping_time': (['ping_time'], (ds_combine['ping_time']
-                                               - np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's'),
-                               ds_combine.ping_time.attrs)})
-            return ds_combine
+            return set_encodings(ds_combine)
             # # Save to file
             # io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
             #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),

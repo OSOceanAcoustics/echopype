@@ -3,6 +3,8 @@ from datetime import datetime as dt
 import xarray as xr
 import numpy as np
 import zarr
+from xarray import coding
+import pandas as pd
 from _echopype_version import version as ECHOPYPE_VERSION
 
 COMPRESSION_SETTINGS = {
@@ -14,6 +16,66 @@ DEFAULT_CHUNK_SIZE = {
     'range_bin': 25000,
     'ping_time': 2500
 }
+
+DEFAULT_ENCODINGS = {
+    'ping_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    },
+    'mru_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    },
+    'location_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    }
+}
+
+
+def _round_datetimes(data, unit='s'):
+    """Round dates to nearest second"""
+    return pd.to_datetime(data).round(unit).values
+
+
+def set_encodings(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Set the default encoding for variables.
+    """
+    new_ds = ds.copy(deep=True)
+    for var, encoding in DEFAULT_ENCODINGS.items():
+        if var in new_ds:
+            da = new_ds[var].copy()
+            if "_time" in var:
+                if da.dtype in [np.float64, np.int64]:
+                    # Convert values to datetime for time variables
+                    new_ds[var] = xr.apply_ufunc(
+                        coding.times.decode_cf_datetime,
+                        da,
+                        keep_attrs=True,
+                        kwargs={
+                            "units": "seconds since 1900-01-01T00:00:00+00:00",
+                            "calendar": "gregorian",
+                        })
+
+                # Round the dates to nearest second
+                # rather than nanosecond since it will get
+                # written into disk as such
+                new_ds[var] = xr.apply_ufunc(
+                    _round_datetimes,
+                    new_ds[var],
+                    keep_attrs=True
+                )
+
+            new_ds[var].encoding = encoding
+
+    return new_ds
 
 
 class SetGroupsBase:
@@ -97,7 +159,7 @@ class SetGroupsBase:
         """
         # Save nan if nmea data is not encoded in the raw file
         if len(self.parser_obj.nmea['nmea_string']) != 0:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01
+            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             time = (self.parser_obj.nmea['timestamp'] -
                     np.datetime64('1900-01-01T00:00:00')) / np.timedelta64(1, 's')
@@ -115,7 +177,7 @@ class SetGroupsBase:
                                        'calendar': 'gregorian',
                                        'long_name': 'Timestamps for NMEA datagrams',
                                        'standard_name': 'time',
-                                       'units': 'seconds since 1900-01-01'})},
+                                       'units': 'seconds since 1900-01-01 00:00:00Z'})},
             attrs={'description': 'All NMEA sensor datagrams'})
 
         return ds
