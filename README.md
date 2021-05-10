@@ -80,15 +80,7 @@ and [Landung "Don" Setiawan](https://github.com/lsetiawan) (@lsetiawan).
 and [Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
 are also part of the development team.
 
-Other contributors include:
-[Frederic Cyr](https://github.com/cyrf0006) (@cyrf0006),
-[Paul Robinson](https://github.com/prarobinson/) (@prarobinson),
-[Sven Gastauer](https://www.researchgate.net/profile/Sven_Gastauer) (@SvenGastauer),
-[Marian Peña](https://www.researchgate.net/profile/Marian_Pena2) (@marianpena),
-[Mark Langhirt](https://www.linkedin.com/in/mark-langhirt-7b33ba80) (@bnwkeys),
-[Erin LaBrecque](https://www.linkedin.com/in/erin-labrecque/) (@erinann),
-[Emma Ozanich](https://www.linkedin.com/in/emma-reeves-ozanich-b8671938/) (@emma-ozanich),
-[Aaron Marburg](http://apl.uw.edu/people/profile.php?last_name=Marburg&first_name=Aaron) (@amarburg)
+Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
