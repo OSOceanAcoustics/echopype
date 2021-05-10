@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = 'echopype'
-copyright = '2018-, Wu-Jung Lee'
+copyright = '2018-2021, Wu-Jung Lee'
 author = 'Wu-Jung Lee'
 
 # The short X.Y version

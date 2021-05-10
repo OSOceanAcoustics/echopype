@@ -34,20 +34,22 @@ Conversion operation
 --------------------
 
 File conversion for different types of echosounders is achieved by
-using the single function ``open_raw``.
+using the single function ``open_raw`` to parse the raw data and
+create a fully parsed ``EchoData`` object.
 
 For data files from EK60, EK80 and  EA640 echosounders,
 use the parameter ``model`` to indicate the echosounder type,
 since there is no specific information in the extension ``.raw``
-that includes information about the echosounder type:
+that includes information about the echosounder type.
+In this example, ``open_raw`` is used to convert a raw EK80 file,
+return the EchoData object ``ed``, and generate a converted
+netCDF file named ``FILENAME.nc`` saved to the directory path
+``./unpacked_files``:
 
 .. code-block:: python
 
     ed = open_raw('FILENAME.raw', model='EK80')  # for EK80 file
     ed.to_netcdf(save_path='./unpacked_files')
-
-This will generate a ``FILENAME.nc`` file and save it to the 
-``./unpacked_files`` folder.
 
 
 .. EXPERIMENT WITH BEST WAY TO PRESENT NOTES (DIRECTIVES) ABOUT CHANGES WITH NEW VERSION
@@ -62,15 +64,9 @@ This will generate a ``FILENAME.nc`` file and save it to the
      in order to convert to netCDF4 or Zarr files respectively. 
      These methods have been renamed to ``to_netcdf`` and ``to_zarr``
      and the old names will be deprecated in a future version.
-
-**TODO:** 
-
-- Briefly state that open_raw returns an EchoData object (note that an EchoData class has
-  existed in echopype for a while, but it's been overhauled and made more user-facing in 0.5.0);
-  link to the page/section where it's described in more detail.
-- Does open_raw fully open and parse the raw data eagerly, or lazily/delayed?
-  Once I confirm which is it, mention it briefly.
-- Add some sample code for interacting with the parsed EchoData object in memory
+   - The ``EchoData`` class has been overhauled in 0.5.0, and the new ``open_raw`` function
+     returns a fully parsed ``EchoData`` object that can be operated in memory or
+     exported to a converted file. For more details see :doc:`open-converted`.
 
 For data files from the AZFP echosounder, the conversion requires an
 extra ``.XML`` file along with the ``.01A`` data file, specified using
@@ -186,11 +182,12 @@ If the argument is not specified, the converted ``.nc`` and ``.zarr``
 files are saved into a folder called ``temp_echopype_output`` under the 
 current execution folder. This folder will be created if it doesn't already exists.
 
-.. warning::
+.. attention::
 
    The use of a default ``temp_echopype_output`` folder was introduced in 
    versions 0.5.0. In prior versions, the default was to save each
    converted file into the same folder as the corresponding input file.
+
 
 Specify platform and water level attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -265,9 +262,7 @@ Save to AWS S3
 Converted files can be saved directly into an AWS S3 bucket by specifying ``storage_options``
 as done with input files (see above, "AWS S3 access"). The example below illustrates a 
 fully remote processing pipeline, reading raw files from a web server and saving the converted, 
-combined zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
-
-**TODO:** Add information about how to specify chunking and what the default chunking scheme is.
+combined Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
 
 .. code-block:: python
 
@@ -282,6 +277,11 @@ combined zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
          save_path='s3://mybucket/to/combined_file.zarr',
          storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
       )
+
+.. note::
+
+   Zarr datasets will be automatically chunked with default chunk sizes of 
+   25000 for ``range_bin`` and 2500 for ``ping_time`` dimensions.
 
 
 Non-uniform data
