@@ -20,10 +20,6 @@
   <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
 </a>
 
-<a href="https://mybinder.org/v2/gh/OSOceanAcoustics/echopype/master">
-  <img src="https://mybinder.org/badge_logo.svg"/>
-</a>
-
 <a href="https://doi.org/10.5281/zenodo.4066742">
   <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4066742.svg" alt="DOI">
 </a>
