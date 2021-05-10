@@ -3,6 +3,8 @@ from datetime import datetime as dt
 import xarray as xr
 import numpy as np
 import zarr
+from cftime import num2date
+import pandas as pd
 from _echopype_version import version as ECHOPYPE_VERSION
 
 COMPRESSION_SETTINGS = {
@@ -14,6 +16,68 @@ DEFAULT_CHUNK_SIZE = {
     'range_bin': 25000,
     'ping_time': 2500
 }
+
+DEFAULT_ENCODINGS = {
+    'ping_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    },
+    'mru_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    },
+    'location_time': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': -9999,
+        'dtype': np.dtype('int64'),
+    }
+}
+
+
+def _round_datetimes(data, unit='s'):
+    """Round dates to nearest second"""
+    return pd.to_datetime(data).round(unit).values
+
+
+def set_encodings(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Set the default encoding for variables.
+    """
+    new_ds = ds.copy(deep=True)
+    for var, encoding in DEFAULT_ENCODINGS.items():
+        if var in new_ds:
+            da = new_ds[var].copy()
+            if "_time" in var:
+                if da.dtype in [np.float64, np.int64]:
+                    # Convert values to datetime for time variables
+                    new_ds[var] = xr.apply_ufunc(
+                        num2date,
+                        da,
+                        keep_attrs=True,
+                        kwargs={
+                            "units": "seconds since 1900-01-01T00:00:00+00:00",
+                            "calendar": "gregorian",
+                            "only_use_cftime_datetimes": False,
+                            "only_use_python_datetimes": False
+                        })
+
+                # Round the dates to nearest second
+                # rather than nanosecond since it will get
+                # written into disk as such
+                new_ds[var] = xr.apply_ufunc(
+                    _round_datetimes,
+                    new_ds[var],
+                    keep_attrs=True
+                )
+
+            new_ds[var].encoding = encoding
+
+    return new_ds
 
 
 class SetGroupsBase:
