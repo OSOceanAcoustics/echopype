@@ -1,5 +1,4 @@
 from __future__ import absolute_import, division, print_function
-from os.path import join as pjoin
 from setuptools import setup, find_packages
 
 # Long description will go up on the pypi page
@@ -30,11 +29,13 @@ opts = dict(name='echopype',
             author='Wu-Jung Lee',
             author_email='leewujung@gmail.com',
             platforms='OS Independent',
-            packages=find_packages(exclude=["*tests", "*test_data"]),
-            package_dir={'': '.'},
-            package_data={'echopype': [pjoin('data', '*')]},
+            packages=find_packages(),
+            package_data={'echopype': [
+                "static/css/*",
+                "static/html/*"
+            ]},
+            include_package_data=True,
             install_requires=INSTALL_REQUIRES,
-            tests_require=['tox', 'pandas'],
             py_modules=["_echopype_version"],
             use_scm_version={
                 "fallback_version": "unknown",
