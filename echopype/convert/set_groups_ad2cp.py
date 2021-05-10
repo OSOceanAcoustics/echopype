@@ -12,7 +12,7 @@ from ..utils import io
 class SetGroupsAd2cp(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pulse_compressed = self.get_pulse_compressed()
+        self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self.combine_packets()
 
     def combine_packets(self):
@@ -46,8 +46,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 for field_name, field_value in packet.data.items():
                     # add dimension names to data vars for xarray
                     # TODO might not work with altimeter_spare
-                    # dims = Field.dimensions(
-                    #     field_name, packet.data_record_type)
                     field = HeaderOrDataRecordFormats.data_record_format(
                         packet.data_record_type
                     ).get_field(field_name)
@@ -68,8 +66,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                             tuple(dim.value for dim in dims),
                             [field_value],
                         )
-                # TODO: this still sets the time dimension to just "time", Dimensions variants for each time type should be added
-                coords = {"time": [packet.timestamp], time_dim: [packet.timestamp]}
+                coords = {"ping_time": [packet.timestamp], time_dim: [packet.timestamp]}
                 if "beams" in packet.data_exclude:
                     coords["beam"] = packet.data_exclude["beams"]
                 new_packet = xr.Dataset(data_vars=data_vars, coords=coords)
@@ -77,7 +74,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 # modify in place to reduce memory consumption
                 packets[i] = new_packet
             if len(packets) > 0:
-                return xr.concat(packets, dim="time", combine_attrs="drop_conflicts")
+                return xr.concat(packets, dim="ping_time", combine_attrs="drop_conflicts")
             else:
                 return None
 
@@ -107,9 +104,14 @@ class SetGroupsAd2cp(SetGroupsBase):
             )
             if ds
         ]
+
+        for dataset in datasets:
+            if "offset_of_data" in dataset:
+                print(dataset["offset_of_data"])
+
         self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
 
-    def set_environment(self):
+    def set_env(self):
         ds = xr.Dataset(
             data_vars={
                 "sound_speed_indicative": self.ds.get("speed_of_sound"),
@@ -117,11 +119,20 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "pressure": self.ds.get("pressure"),
             },
             coords={
+                "ping_time": self.ds.get("ping_time"),
                 "time_burst": self.ds.get("time_burst", []),
                 "time_average": self.ds.get("time_average", []),
                 "time_echosounder": self.ds.get("time_echosounder", []),
             },
         )
+
+        # FIXME: this is a hack because the current file saving
+        # mechanism requires that the env group have ping_time as a dimension,
+        # but ping_time might not be a dimension if the dataset is completely
+        # empty
+        if "ping_time" not in ds.dims:
+            ds = ds.expand_dims(dim="ping_time")
+
         return ds
 
     def set_platform(self):
@@ -135,6 +146,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "magnetometer_raw_z": self.ds.get("magnetometer_raw_z"),
             },
             coords={
+                "ping_time": self.ds.get("ping_time"),
                 "time_burst": self.ds.get("time_burst"),
                 "time_average": self.ds.get("time_average"),
                 "time_echosounder": self.ds.get("time_echosounder"),
@@ -150,12 +162,6 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
         )
         return ds
-
-    def get_pulse_compressed(self):
-        for i in range(1, 3 + 1):
-            if self.parser_obj.config["GETECHO"][f"PULSECOMP{i}"] > 0:
-                return i
-        return 0
 
     def set_beam(self):
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
@@ -203,6 +209,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         ds = xr.Dataset(
             data_vars=data_vars,
             coords={
+                "ping_time": self.ds.get("ping_time"),
                 "time_burst": self.ds.get("time_burst"),
                 "time_average": self.ds.get("time_average"),
                 "time_echosounder": self.ds.get("time_echosounder"),
@@ -214,9 +221,17 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
             attrs={"pulse_compressed": self.pulse_compressed},
         )
+
+        # FIXME: this is a hack because the current file saving
+        # mechanism requires that the beam group have ping_time as a dimension,
+        # but ping_time might not be a dimension if the dataset is completely
+        # empty
+        if "ping_time" not in ds.dims:
+            ds = ds.expand_dims(dim="ping_time")
+
         return ds
 
-    def set_vendor_specific(self):
+    def set_vendor(self):
         attrs = {
             "pressure_sensor_valid": self.ds.get("pressure_sensor_valid"),
             "temperature_sensor_valid": self.ds.get("temperature_sensor_valid"),
@@ -283,6 +298,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "std_dev_pressure": self.ds.get("std_dev_pressure"),
             },
             coords={
+                "ping_time": self.ds.get("ping_time"),
                 "time_burst": self.ds.get("time_burst"),
                 "time_average": self.ds.get("time_average"),
                 "time_echosounder": self.ds.get("time_echosounder"),
@@ -300,6 +316,14 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "xyz": np.array(["x", "y", "z"]),
             }
         )
+
+        # FIXME: this is a hack because the current file saving
+        # mechanism requires that the vendor group have ping_time as a dimension,
+        # but ping_time might not be a dimension if the dataset is completely
+        # empty
+        if "ping_time" not in ds.dims:
+            ds = ds.expand_dims(dim="ping_time")
+
         return ds
 
     def set_beam_complex(self):
@@ -317,6 +341,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
             },
             coords={
+                "ping_time": self.ds.get("ping_time"),
                 "time_echosounder_raw": self.ds.get("time_echosounder_raw"),
                 "time_echosounder_raw_transmit": self.ds.get(
                     "time_echosounder_raw_transmit"
@@ -327,3 +352,6 @@ class SetGroupsAd2cp(SetGroupsBase):
             attrs={"pulse_compressed": self.pulse_compressed},
         )
         return ds
+
+    def set_sonar(self):
+        return xr.Dataset()

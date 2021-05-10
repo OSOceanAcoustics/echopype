@@ -229,21 +229,37 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Beam group
-    io.save_file(
-        echodata.beam.chunk(
-            {
-                'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
-                'ping_time': DEFAULT_CHUNK_SIZE['ping_time'],
-            }
-        ),
-        path=output_path,
-        mode='a',
-        engine=engine,
-        group='Beam',
-        compression_settings=COMPRESSION_SETTINGS[engine]
-        if compress
-        else None,
-    )
+    if echodata.sonar_model == "AD2CP":
+        io.save_file(
+            echodata.beam.chunk(
+                {
+                    'ping_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                }
+            ),
+            path=output_path,
+            mode='a',
+            engine=engine,
+            group='Beam',
+            compression_settings=COMPRESSION_SETTINGS[engine]
+            if compress
+            else None,
+        )
+    else:
+        io.save_file(
+            echodata.beam.chunk(
+                {
+                    'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+                    'ping_time': DEFAULT_CHUNK_SIZE['ping_time'],
+                }
+            ),
+            path=output_path,
+            mode='a',
+            engine=engine,
+            group='Beam',
+            compression_settings=COMPRESSION_SETTINGS[engine]
+            if compress
+            else None,
+        )
     if echodata.beam_power is not None:
         io.save_file(
             echodata.beam_power.chunk(
@@ -256,6 +272,19 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             mode='a',
             engine=engine,
             group='Beam_power',
+            compression_settings=COMPRESSION_SETTINGS[engine]
+            if compress
+            else None,
+        )
+
+    # Beam Complex Group
+    if hasattr(echodata, "beam_complex"):
+        io.save_file(
+            echodata.beam_complex,
+            path=output_path,
+            mode='a',
+            engine=engine,
+            group='Beam',
             compression_settings=COMPRESSION_SETTINGS[engine]
             if compress
             else None,

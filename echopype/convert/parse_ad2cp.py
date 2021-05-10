@@ -111,7 +111,7 @@ class Dimension(Enum):
     Determines the dimensions of the data in the output dataset
     """
 
-    TIME = "time"
+    TIME = "ping_time"
     BEAM = "beam"
     RANGE_BIN_BURST = "range_bin_burst"
     RANGE_BIN_AVERAGE = "range_bin_average"
@@ -220,7 +220,7 @@ class ParseAd2cp(ParseBase):
         self.burst_average_data_record_version = burst_average_data_record_version
         self.previous_packet_data_record_type = None
         self.config = None
-        
+
         self.burst_packets: List[Ad2cpDataPacket] = []
         self.average_packets: List[Ad2cpDataPacket] = []
         self.echosounder_packets: List[Ad2cpDataPacket] = []
@@ -297,6 +297,15 @@ class ParseAd2cp(ParseBase):
                 line_dict[k] = v
             result[tokens[0]] = line_dict
         return result
+
+    def get_pulse_compressed(self):
+        for i in range(1, 3 + 1):
+            if (
+                "GETECHO" in self.config
+                and self.config["GETECHO"][f"PULSECOMP{i}"] > 0
+            ):
+                return i
+        return 0
 
 
 class Ad2cpDataPacket:
@@ -386,7 +395,7 @@ class Ad2cpDataPacket:
         raw_header = self._read_data(f, self.data_record_format)
         # don't include the last 2 bytes, which is the header checksum itself
         calculated_checksum = self.checksum(raw_header[:-2])
-        expected_checksum = self.data["header_checksum"]
+        expected_checksum = self.data_exclude["header_checksum"]
         assert (
             calculated_checksum == expected_checksum
         ), f"invalid header checksum: found {calculated_checksum}, expected {expected_checksum}"
@@ -396,7 +405,7 @@ class Ad2cpDataPacket:
         Reads the data record part of the AD2CP packet from the stream
         """
 
-        if self.data["id"] in (0x15, 0x18):  # burst
+        if self.data_exclude["id"] in (0x15, 0x18):  # burst
             if (
                 self.burst_average_data_record_version
                 == BurstAverageDataRecordVersion.VERSION2
@@ -409,7 +418,7 @@ class Ad2cpDataPacket:
                 self.data_record_type = DataRecordType.BURST_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
-        elif self.data["id"] == 0x16:  # average
+        elif self.data_exclude["id"] == 0x16:  # average
             if (
                 self.burst_average_data_record_version
                 == BurstAverageDataRecordVersion.VERSION2
@@ -422,33 +431,34 @@ class Ad2cpDataPacket:
                 self.data_record_type = DataRecordType.AVERAGE_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
-        elif self.data["id"] in (0x17, 0x1B):  # bottom track
+        elif self.data_exclude["id"] in (0x17, 0x1B):  # bottom track
             self.data_record_type = DataRecordType.BOTTOM_TRACK
-        elif self.data["id"] in (0x23, 0x24):  # echosounder raw
-            if len(self.parser.echosounder_raw_transmit_packets) == 0:
+        elif self.data_exclude["id"] in (0x23, 0x24):  # echosounder raw
+            if self.parser.get_pulse_compressed() > 0 and len(self.parser.echosounder_raw_transmit_packets) == 0:
                 # first echosounder raw packet is the transmit packet
+                # if pulse compression is enabled
                 self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
             else:
                 self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
-        elif self.data["id"] == 0x1A:  # burst altimeter
+        elif self.data_exclude["id"] == 0x1A:  # burst altimeter
             # altimeter is only supported by burst/average version 3
             self.data_record_type = DataRecordType.BURST_VERSION3
-        elif self.data["id"] == 0x1C:  # echosounder
+        elif self.data_exclude["id"] == 0x1C:  # echosounder
             # echosounder is only supported by burst/average version 3
             self.data_record_type = DataRecordType.ECHOSOUNDER
-        elif self.data["id"] == 0x1D:  # dvl water track record
+        elif self.data_exclude["id"] == 0x1D:  # dvl water track record
             # TODO: is this correct?
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data["id"] == 0x1E:  # altimeter
+        elif self.data_exclude["id"] == 0x1E:  # altimeter
             # altimeter is only supported by burst/average version 3
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data["id"] == 0x1F:  # average altimeter
+        elif self.data_exclude["id"] == 0x1F:  # average altimeter
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data["id"] == 0xA0:  # string data
+        elif self.data_exclude["id"] == 0xA0:  # string data
             self.data_record_type = DataRecordType.STRING
         else:
             raise ValueError(
-                "invalid data record type id: 0x{:02x}".format(self.data["id"])
+                "invalid data record type id: 0x{:02x}".format(self.data_exclude["id"])
             )
 
         self.data_record_format = HeaderOrDataRecordFormats.data_record_format(
@@ -457,7 +467,7 @@ class Ad2cpDataPacket:
 
         raw_data_record = self._read_data(f, self.data_record_format)
         calculated_checksum = self.checksum(raw_data_record)
-        expected_checksum = self.data["data_record_checksum"]
+        expected_checksum = self.data_exclude["data_record_checksum"]
         assert (
             calculated_checksum == expected_checksum
         ), f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"
@@ -581,8 +591,18 @@ class Ad2cpDataPacket:
         Calculates values based on parsed data. This should be called immediately after
         parsing each field in a data record.
         """
-
-        if (
+        if field_name in (
+            "header_size",
+            "id",
+            "data_record_size",
+            "data_record_checksum",
+            "header_checksum",
+            "version",
+            "offset_of_data"
+        ):
+            self.data_exclude[field_name] = self.data[field_name]
+            del self.data[field_name]
+        elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
         ):
@@ -921,11 +941,11 @@ class HeaderOrDataRecordFormats:
             F("family", 1, UNSIGNED_INTEGER),
             F(
                 "data_record_size",
-                lambda packet: 4 if packet.data["id"] in (0x23, 0x24) else 2,
+                lambda packet: 4 if packet.data_exclude["id"] in (0x23, 0x24) else 2,
                 UNSIGNED_INTEGER,
             ),
-            # F("data_record_size", lambda packet: 4 if packet.data["id"] in (
-            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.data["id"] in (0x23, 0x24) else UNSIGNED_INTEGER),
+            # F("data_record_size", lambda packet: 4 if packet.data_exclude["id"] in (
+            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.data_exclude["id"] in (0x23, 0x24) else UNSIGNED_INTEGER),
             F("data_record_checksum", 2, UNSIGNED_INTEGER),
             F("header_checksum", 2, UNSIGNED_INTEGER),
         ]
@@ -935,7 +955,7 @@ class HeaderOrDataRecordFormats:
             F("string_data_id", 1, UNSIGNED_INTEGER),
             F(
                 "string_data",
-                lambda packet: packet.data["data_record_size"] - 1,
+                lambda packet: packet.data_exclude["data_record_size"] - 1,
                 STRING,
             ),
         ]
