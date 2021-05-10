@@ -30,10 +30,6 @@ opts = dict(name='echopype',
             author_email='leewujung@gmail.com',
             platforms='OS Independent',
             packages=find_packages(),
-            package_data={'echopype': [
-                "static/css/*",
-                "static/html/*"
-            ]},
             include_package_data=True,
             install_requires=INSTALL_REQUIRES,
             py_modules=["_echopype_version"],
@@ -43,7 +39,7 @@ opts = dict(name='echopype',
                 "write_to": "_echopype_version.py",
                 "write_to_template": 'version = "{version}"\n',
             },
-            setup_requires=["setuptools>=30.3.0", "wheel", "setuptools_scm"],)
+            setup_requires=["setuptools>=45", "wheel", "setuptools_scm"],)
 
 
 if __name__ == '__main__':
