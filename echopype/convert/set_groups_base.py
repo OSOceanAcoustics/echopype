@@ -3,7 +3,7 @@ from datetime import datetime as dt
 import xarray as xr
 import numpy as np
 import zarr
-from cftime import num2date
+from xarray import coding
 import pandas as pd
 from _echopype_version import version as ECHOPYPE_VERSION
 
@@ -56,14 +56,12 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
                 if da.dtype in [np.float64, np.int64]:
                     # Convert values to datetime for time variables
                     new_ds[var] = xr.apply_ufunc(
-                        num2date,
+                        coding.times.decode_cf_datetime,
                         da,
                         keep_attrs=True,
                         kwargs={
                             "units": "seconds since 1900-01-01T00:00:00+00:00",
                             "calendar": "gregorian",
-                            "only_use_cftime_datetimes": False,
-                            "only_use_python_datetimes": False
                         })
 
                 # Round the dates to nearest second
