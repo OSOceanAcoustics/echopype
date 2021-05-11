@@ -24,20 +24,28 @@ def test_convert():
         echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
         echodata.to_netcdf(save_path=output_dir)
 
+raw_echodata = {}
 
 def test_convert_raw():
     for filepath in raw_test_file_dir.glob("**/*.ad2cp"):
         print("converting raw", filepath)
         echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
         echodata.to_netcdf(save_path=output_dir)
+        raw_echodata[filepath] = echodata
 
-
+# TODO: xarray loads np.datetime64 from disk with floating point errors in v0.16.2,
+# so when we get errors when we try to select using timestamps. Instead, we'll just keep
+# the data in memory so we know the representation will be correct. 
+# When xarray version gets bumped, try deleting raw_echodata 
+# and using the first few commented lines in this function
+# (it is known to behave correctly in v0.17.0).
 def test_raw_output():
-    for filepath in raw_test_file_dir.glob("**/*.ad2cp"):
+    # for filepath in raw_test_file_dir.glob("**/*.ad2cp"):
+    for filepath, echodata in raw_echodata.items():
         print("checking raw", filepath)
-        echodata = open_converted(
-            converted_raw_path=output_dir.joinpath(filepath.with_suffix(".nc").name)
-        )
+        # echodata = open_converted(
+        #     converted_raw_path=output_dir.joinpath(filepath.with_suffix(".nc").name)
+        # )
         if "090" in filepath.parts:
             ocean_contour_converted_config_path = ocean_contour_export_090_dir.joinpath(
                 filepath.with_suffix(filepath.suffix + ".00000.nc").name
