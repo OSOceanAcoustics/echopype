@@ -141,7 +141,7 @@ class EchoData:
 
         return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
-    def to_netcdf(self, save_path, **kwargs):
+    def to_netcdf(self, save_path=None, **kwargs):
         """Save content of EchoData to netCDF.
 
         Parameters
@@ -163,7 +163,7 @@ class EchoData:
 
         return to_file(self, "netcdf4", save_path=save_path, **kwargs)
 
-    def to_zarr(self, save_path, **kwargs):
+    def to_zarr(self, save_path=None, **kwargs):
         """Save content of EchoData to zarr.
 
         Parameters
