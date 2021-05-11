@@ -4,7 +4,6 @@ import xarray as xr
 import numpy as np
 import zarr
 from xarray import coding
-import pandas as pd
 from _echopype_version import version as ECHOPYPE_VERSION
 
 COMPRESSION_SETTINGS = {
@@ -21,27 +20,40 @@ DEFAULT_ENCODINGS = {
     'ping_time': {
         'units': 'seconds since 1900-01-01T00:00:00+00:00',
         'calendar': 'gregorian',
-        '_FillValue': -9999,
-        'dtype': np.dtype('int64'),
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
     },
     'mru_time': {
         'units': 'seconds since 1900-01-01T00:00:00+00:00',
         'calendar': 'gregorian',
-        '_FillValue': -9999,
-        'dtype': np.dtype('int64'),
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
     },
     'location_time': {
         'units': 'seconds since 1900-01-01T00:00:00+00:00',
         'calendar': 'gregorian',
-        '_FillValue': -9999,
-        'dtype': np.dtype('int64'),
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
     }
 }
 
 
-def _round_datetimes(data, unit='s'):
-    """Round dates to nearest second"""
-    return pd.to_datetime(data).round(unit).values
+def _encode_dataarray(da, dtype):
+    """Encodes and decode datetime64 array similar to writing to file"""
+    read_encoding = {
+        "units": "seconds since 1900-01-01T00:00:00+00:00",
+        "calendar": "gregorian",
+    }
+
+    if dtype in [np.float64, np.int64]:
+        encoded_data = da
+    else:
+        encoded_data, _, _ = coding.times.encode_cf_datetime(
+            da, **read_encoding
+        )
+    return coding.times.decode_cf_datetime(
+        encoded_data, **read_encoding
+    )
 
 
 def set_encodings(ds: xr.Dataset) -> xr.Dataset:
@@ -53,24 +65,13 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
         if var in new_ds:
             da = new_ds[var].copy()
             if "_time" in var:
-                if da.dtype in [np.float64, np.int64]:
-                    # Convert values to datetime for time variables
-                    new_ds[var] = xr.apply_ufunc(
-                        coding.times.decode_cf_datetime,
-                        da,
-                        keep_attrs=True,
-                        kwargs={
-                            "units": "seconds since 1900-01-01T00:00:00+00:00",
-                            "calendar": "gregorian",
-                        })
-
-                # Round the dates to nearest second
-                # rather than nanosecond since it will get
-                # written into disk as such
                 new_ds[var] = xr.apply_ufunc(
-                    _round_datetimes,
-                    new_ds[var],
-                    keep_attrs=True
+                    _encode_dataarray,
+                    da,
+                    keep_attrs=True,
+                    kwargs={
+                        'dtype': da.dtype
+                    }
                 )
 
             new_ds[var].encoding = encoding
