@@ -16,9 +16,12 @@ Functionality
 
   - Calibration and echo-integration to obtain
     volume backscattering strength (Sv) from power data.
-    (beta: we found inconsistencies between pulse compression outputs
-    from the current echopype implementation, EchoView, and Matlab EchoLab code, see
-    `#308 <http://https://github.com/OSOceanAcoustics/echopype/issues/308/>`_.
+
+    .. attention::
+       We found inconsistencies among pulse compression outputs
+       from the current echopype implementation, EchoView, and Matlab EchoLab code, see
+       `#308 <http://https://github.com/OSOceanAcoustics/echopype/issues/308/>`_).
+
   - Simple noise removal by removing data points (set to ``NaN``) below
     an adaptively estimated noise floor [1]_.
   - Binning and averaging to obtain mean volume backscattering strength (MVBS)
@@ -38,20 +41,20 @@ Functionality
     to the narrowband echosounders.
 
 
-The steps for performing these analyses are summarized below.
+The steps for performing these analyses are summarized below:
 
 .. code-block:: python
 
    import echopype as ep
-   nc_path = './converted_files/file.nc'           # path to a converted nc file
-   echodata = ep.open_converted(nc_path)           # create an EchoData object
-   Sv = ep.calibrate.compute_Sv(echodata)          # obtain Sv
-   Sv_clean = ep.preprocess.remove_noise(          # obtain a denoised Sv Dataset
+   nc_path = './converted_files/file.nc'     # path to a converted nc file
+   echodata = ep.open_converted(nc_path)     # create an EchoData object
+   Sv = ep.calibrate.compute_Sv(echodata)    # obtain Sv
+   Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv Dataset
       Sv,
       ping_num=5,
       range_bin_num=30
    )
-   MVBS = ep.preprocess.get_MVBS(Sv_clean)         # obtain MVBS from denoised Sv
+   MVBS = ep.preprocess.get_MVBS(Sv_clean)   # obtain MVBS from denoised Sv
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Dataset`` instances,
@@ -124,6 +127,8 @@ The updated values can be retrieved with:
    Sv['range']              # range for each sonar sample in [m]
 
 
+.. TODO: EK60 and EK80 should be using the same formula?
+
 For EK60 and EK80 data, echopype updates the sound speed and seawater absorption
 using the formulae from Mackenzie (1981) [2]_ and
 Ainslie and McColm (1981) [3]_, respectively.
@@ -156,13 +161,12 @@ Currently echopype allows users to overwrite the following calibration parameter
 
 
 As an example, to reset the equivalent beam angle for all frequencies,
-specify ``cal_params`` while calling the calibration functions like so:
+specify ``cal_params`` while calling the calibration functions:
 
 .. code-block:: python
 
    import xarray as xr
-   # set all channels at once
-   equivalent_beam_angle = xr.DataArray(
+   equivalent_beam_angle = xr.DataArray(     # set all channels at once
        [-17.47, -20.77, -21.13, -20.4, -30],
        dims=['frequency'],
        coords=[echodata.beam.frequency]
@@ -176,7 +180,8 @@ To reset the equivalent beam angle for 18 kHz only, one can do:
 
 .. code-block:: python
 
-   echodata.beam.equivalent_beam_angle.loc[dict(frequency=18000)] = 18.02  # set value for 18 kHz only
+   # set value for 18 kHz only
+   echodata.beam.equivalent_beam_angle.loc[dict(frequency=18000)] = 18.02
 
 
 References
