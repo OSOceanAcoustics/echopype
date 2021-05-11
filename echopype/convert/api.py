@@ -275,8 +275,8 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             else None,
         )
 
-    # Beam Complex Group
-    if hasattr(echodata, "beam_complex"):
+    # Beam Complex Group: only AD2CP has Beam Complex
+    if hasattr(echodata, "beam_complex") and echodata.beam_complex is not None:
         io.save_file(
             echodata.beam_complex,
             path=output_path,
