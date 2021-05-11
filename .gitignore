@@ -6,6 +6,7 @@ __pycache__/
 .gitignore~
 *~
 *.egg-info/
+.eggs
 .tox/
 .vscode/
 dist/

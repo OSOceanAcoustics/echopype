@@ -9,6 +9,20 @@ from .parse_ad2cp import HeaderOrDataRecordFormats, Ad2cpDataPacket, Field
 from ..utils import io
 
 
+def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
+    """
+    Merges attrs from a list of datasets.
+    Prioritizes keys from later datsets.
+    """
+
+    total_attrs = dict()
+    for ds in datasets:
+        total_attrs.update(ds.attrs)
+    for ds in datasets:
+        ds.attrs = total_attrs
+    return datasets
+
+
 class SetGroupsAd2cp(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,7 +88,10 @@ class SetGroupsAd2cp(SetGroupsBase):
                 # modify in place to reduce memory consumption
                 packets[i] = new_packet
             if len(packets) > 0:
-                return xr.concat(packets, dim="ping_time", combine_attrs="drop_conflicts")
+                packets = merge_attrs(packets)
+                return xr.concat(
+                    packets, dim="ping_time", combine_attrs="override"
+                )
             else:
                 return None
 
@@ -109,9 +126,10 @@ class SetGroupsAd2cp(SetGroupsBase):
             if "offset_of_data" in dataset:
                 print(dataset["offset_of_data"])
 
-        self.ds = xr.merge(datasets, combine_attrs="drop_conflicts")
+        datasets = merge_attrs(datasets)
+        self.ds = xr.merge(datasets)
 
-    def set_env(self):
+    def set_env(self) -> xr.Dataset:
         ds = xr.Dataset(
             data_vars={
                 "sound_speed_indicative": self.ds.get("speed_of_sound"),
@@ -135,7 +153,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         return ds
 
-    def set_platform(self):
+    def set_platform(self) -> xr.Dataset:
         ds = xr.Dataset(
             data_vars={
                 "heading": self.ds.get("heading"),
@@ -163,7 +181,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         )
         return ds
 
-    def set_beam(self):
+    def set_beam(self) -> xr.Dataset:
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
         # like was done for range_bin (we have range_bin_burst, range_bin_average,
         # and range_bin_echosounder)?
@@ -231,7 +249,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         return ds
 
-    def set_vendor(self):
+    def set_vendor(self) -> xr.Dataset:
         attrs = {
             "pressure_sensor_valid": self.ds.get("pressure_sensor_valid"),
             "temperature_sensor_valid": self.ds.get("temperature_sensor_valid"),
@@ -326,7 +344,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         return ds
 
-    def set_beam_complex(self):
+    def set_beam_complex(self) -> xr.Dataset:
         ds = xr.Dataset(
             data_vars={
                 "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
@@ -353,5 +371,5 @@ class SetGroupsAd2cp(SetGroupsBase):
         )
         return ds
 
-    def set_sonar(self):
+    def set_sonar(self) -> xr.Dataset:
         return xr.Dataset()
