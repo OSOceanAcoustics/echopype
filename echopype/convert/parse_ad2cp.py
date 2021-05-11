@@ -2,7 +2,6 @@ from collections import OrderedDict
 from typing import BinaryIO, Iterable, Union, Callable, List, Optional, Any, Dict
 from enum import Enum, unique, auto
 import struct
-import math
 
 import numpy as np
 
@@ -495,7 +494,7 @@ class Ad2cpDataPacket:
                 field_shape = field_shape(self)
 
             raw_field = self._read_exact(
-                f, field_entry_size_bytes * math.prod(field_shape)
+                f, field_entry_size_bytes * int(np.prod(field_shape))
             )
             raw_bytes += raw_field
             if len(field_shape) == 0:
@@ -508,7 +507,7 @@ class Ad2cpDataPacket:
                     raw_field[
                         i * field_entry_size_bytes : (i + 1) * field_entry_size_bytes
                     ]
-                    for i in range(math.prod(field_shape))
+                    for i in range(np.prod(field_shape))
                 ]
                 # parse each entry individually
                 parsed_field_entries = [
