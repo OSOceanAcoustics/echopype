@@ -1,9 +1,6 @@
-prune .github*
-prune docs*
+prune .github
+prune docs
 prune .ci_helpers
-prune notebooks*
-prune echopype/tests*
-prune echopype/test_data*
 exclude .coveragerc
 exclude .gitignore
 exclude .mailmap
@@ -12,3 +9,14 @@ exclude *.yaml
 exclude *.yml
 exclude *.json
 include *.txt
+
+# Ignore testing files and data
+prune echopype/test_data
+prune echopype/tests
+exclude echopype/testing.py
+exclude .gitattributes
+
+# Ignore some unfinished scripts
+prune echopype/visualize
+exclude **/add_ancillary.py
+exclude **/convert_combine.py
