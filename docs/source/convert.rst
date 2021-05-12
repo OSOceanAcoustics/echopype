@@ -189,30 +189,27 @@ current execution folder. This folder will be created if it doesn't already exis
    converted file into the same folder as the corresponding input file.
 
 
-.. TODO: below does not seem correct
+Specify metadata attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Specify platform and water level attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before calling ``to_netcdf()`` or ``to_zarr()``, you should first set 
-``platform_name``, ``platform_type``, and ``platform_code_ICES``, as these values
-are not recorded in the raw data files but need to be specified according to the 
-SONAR-netCDF4 convention. These parameters will be saved as empty strings unless 
-you specify them following this example:
+Before calling ``to_netcdf()`` or ``to_zarr()``, you can manually set some
+data attributes that are not recorded in the raw data files but need to be
+specified according to the SONAR-netCDF4 convention.
+These attributes are metadata and include
+``platform_name``, ``platform_type``, ``platform_code_ICES``,
+and sometimes ``water_level``, depending on the sonar model.
+These attributes can be set using the following:
 
 .. code-block:: python
 
-    ed.platform_name = 'OOI'
-    ed.platform_type = 'subsurface mooring'
-    ed.platform_code_ICES = '3164'   # Platform code for Moorings
+    ed.platform.attrs['platform_name'] = 'OOI'
+    ed.platform.attrs['platform_type'] = 'subsurface mooring'
+    ed.platform.attrs['platform_code_ICES'] = '3164'   # Platform code for Moorings
 
 The ``platform_code_ICES`` attribute can be chosen by referencing
 the platform code from the
 `ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_.
 
-The water level should be specified using ``ed.water_level = 'some value'``
-if the value is known. Otherwise, the water level will be saved as
-``None`` if it is not already recorded by the instrument.
 
 .. Save converted files into a specified folder
 .. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -233,10 +230,10 @@ if the value is known. Otherwise, the water level will be saved as
 .. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. Multiple files can be combined into a single converted file using the
-``combine`` argument (the default is ``combine=False``). In that case,
-``save_path`` must be specified explicitly. If ``save_path`` is only a filename 
-rather than a full file path, the combined output file will be saved to the
-default ``temp_echopype_output`` folder.
+.. ``combine`` argument (the default is ``combine=False``). In that case,
+.. ``save_path`` must be specified explicitly. If ``save_path`` is only a filename
+.. rather than a full file path, the combined output file will be saved to the
+.. default ``temp_echopype_output`` folder.
 
 .. .. code-block:: python
 
