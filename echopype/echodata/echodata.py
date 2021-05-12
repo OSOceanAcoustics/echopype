@@ -141,7 +141,7 @@ class EchoData:
 
         return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
-    def to_netcdf(self, **kwargs):
+    def to_netcdf(self, save_path=None, **kwargs):
         """Save content of EchoData to netCDF.
 
         Parameters
@@ -161,9 +161,9 @@ class EchoData:
         """
         from ..convert.api import to_file
 
-        return to_file(self, "netcdf4", **kwargs)
+        return to_file(self, "netcdf4", save_path=save_path, **kwargs)
 
-    def to_zarr(self, **kwargs):
+    def to_zarr(self, save_path=None, **kwargs):
         """Save content of EchoData to zarr.
 
         Parameters
@@ -183,7 +183,7 @@ class EchoData:
         """
         from ..convert.api import to_file
 
-        return to_file(self, "zarr", **kwargs)
+        return to_file(self, "zarr", save_path=save_path, **kwargs)
 
     # TODO: Remove below in future versions. They are for supporting old API calls.
     @property

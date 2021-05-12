@@ -9,6 +9,7 @@ output tests.**
 
 
 import os
+import shutil
 import glob
 import fsspec
 import xarray as xr
@@ -140,7 +141,7 @@ def test_validate_path_single_source(
             else:
                 # force output file extension to the called type (here .zarr)
                 assert output_path == Path(os.path.splitext(fsmap_tmp.root)[0] + ".zarr")
-            os.rmdir(os.path.dirname(converted_raw_path))
+            shutil.rmtree(os.path.dirname(converted_raw_path))
         else:
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
@@ -156,7 +157,7 @@ def test_validate_path_single_source(
         current_dir = Path.cwd()
         temp_dir = current_dir.joinpath(Path("temp_echopype_output"))
         assert output_path == Path(str(temp_dir.joinpath(Path(single_fname + ".zarr"))))
-        os.rmdir(os.path.dirname(converted_raw_path))
+        shutil.rmtree(os.path.dirname(converted_raw_path))
 
 
 @pytest.mark.parametrize("model", ["EK60"])
@@ -224,7 +225,7 @@ def test_validate_path_multiple_source(
                 assert echodata_mult.converted_raw_path == [
                     os.path.abspath(output_save_path.replace(".nc", ".zarr"))
                 ]
-            os.rmdir(os.path.dirname(echodata_mult.converted_raw_path[0]))
+            shutil.rmtree(os.path.dirname(echodata_mult.converted_raw_path[0]))
         else:
             if output_save_path.endswith("/"):
                 # if an output folder is given, below works with and without the slash at the end
@@ -249,7 +250,7 @@ def test_validate_path_multiple_source(
             str(temp_dir.joinpath(Path(os.path.splitext(os.path.basename(f))[0] + ".zarr")))
             for f in mult_path
         ]
-        os.rmdir(os.path.dirname(echodata_mult.converted_raw_path[0]))
+        shutil.rmtree(os.path.dirname(echodata_mult.converted_raw_path[0]))
 
 
 @pytest.mark.parametrize(
@@ -278,7 +279,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path):
         raw_file=raw_file,
         xml_path=xml_path
     )
-    ed.to_netcdf()
+    ed.to_netcdf(overwrite=True)
     for group, details in ed._EchoData__group_map.items():
         if hasattr(ed, group):
             group_ds = getattr(ed, group)
@@ -300,14 +301,12 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path):
                             group=details['ep_group'],
                             decode_cf=False
                         )[var]
-                        assert file_da.attrs == total_attrs
                         assert file_da.dtype == encoding['dtype']
 
                         # Read converted file back in
                         decoded_da = xr.open_dataset(
                             ed.converted_raw_path,
                             group=details['ep_group'],
-                            decode_cf=True
                         )[var]
                         assert da.equals(decoded_da) is True
     os.unlink(ed.converted_raw_path)
