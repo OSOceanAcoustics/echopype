@@ -3,8 +3,12 @@ echopype utilities for file handling
 """
 import os
 import sys
-from fsspec import FSMap
+from typing import Union
 from pathlib import Path
+
+import fsspec
+from fsspec import FSMap
+from fsspec.implementations.local import LocalFileSystem
 
 
 def get_files_from_dir(folder):
@@ -39,6 +43,76 @@ def get_file_format(file):
         return 'zarr'
     else:
         raise ValueError(f"Unsupported file format: {os.path.splitext(file)[1]}")
+
+
+def sanitize_file_path(
+    file_path: Union[str, Path, FSMap],
+    storage_options: dict = {},
+) -> Union[Path, FSMap]:
+    """Determines file path, either Path or FSMap"""
+    if isinstance(file_path, Path):
+        # Check for extension
+        if ":/" in str(file_path):
+            raise ValueError(f"{file_path} is not a valid posix path.")
+
+        return file_path
+    elif isinstance(file_path, str):
+        if "://" in file_path:
+            return fsspec.get_mapper(file_path, **storage_options)
+        return Path(file_path)
+    elif isinstance(file_path, fsspec.FSMap):
+        root = file_path.root
+        if (Path(root).suffix == '.nc'):
+            if not isinstance(
+                file_path.fs, LocalFileSystem
+            ):
+                # For special case of netcdf.
+                # netcdf4 engine can only read Path or string
+                raise ValueError("Only local netcdf4 is supported.")
+            return root
+        return file_path
+    else:
+        raise ValueError(
+            f"{type(file_path)} is not supported. Please pass posix path, path string, or FSMap."  # noqa
+        )
+
+
+def check_file_existance(
+    file_path: Union[str, Path, FSMap], storage_options: dict = {}
+) -> bool:
+    """
+    Checks if file exists in the specified path
+
+    Parameters
+    ----------
+    file_path : str or pathlib.Path or fsspec.FSMap
+        path to file
+    storage_options : dict
+        options for cloud storage
+    """
+    if isinstance(file_path, Path):
+        # Check for extension
+        if ":/" in str(file_path):
+            raise ValueError(f"{file_path} is not a valid posix path.")
+
+        if file_path.exists():
+            return True
+        else:
+            return False
+    elif isinstance(file_path, str) or isinstance(file_path, FSMap):
+        if isinstance(file_path, FSMap):
+            fsmap = file_path
+        else:
+            fsmap = fsspec.get_mapper(file_path, **storage_options)
+
+        if not fsmap.fs.exists(fsmap.root):
+            return False
+        else:
+            return True
+    else:
+        raise ValueError(
+            f"{type(file_path)} is not supported. Please pass posix path, path string, or FSMap."  # noqa
+        )
 
 
 def check_file_permissions(FILE_DIR):
