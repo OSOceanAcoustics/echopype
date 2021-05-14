@@ -46,18 +46,44 @@ Functionality
 
 The steps for performing these analyses are summarized below:
 
-.. code-block:: python
+- Calibration:
 
-   import echopype as ep
-   nc_path = './converted_files/file.nc'     # path to a converted nc file
-   echodata = ep.open_converted(nc_path)     # create an EchoData object
-   Sv = ep.calibrate.compute_Sv(echodata)    # obtain Sv
-   Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv Dataset
-      Sv,
-      ping_num=5,
-      range_bin_num=30
-   )
-   MVBS = ep.preprocess.get_MVBS(Sv_clean)   # obtain MVBS from denoised Sv
+   .. code-block:: python
+
+      import echopype as ep
+      nc_path = './converted_files/file.nc'     # path to a converted nc file
+      echodata = ep.open_converted(nc_path)     # create an EchoData object
+      ds_Sv = ep.calibrate.compute_Sv(echodata)    # obtain a dataset containing Sv, range, and
+                                                   # the calibration and environmental parameters
+
+- Reduce data by computing MVBS:
+
+   .. code-block:: python
+
+      # Reduce data based on physical units
+      ds_MVBS = ep.preprocess.compute_MVBS(
+           ds_Sv,
+           range_meter_bin=20,  # bin size along range in units meters
+           ping_time_bin='20S'  # bin size along ping_time in units seconds
+       )
+
+      # Reduce data based on sample number
+      ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
+           ds_Sv,
+           range_bin_interval=range_bin_num,  # bin size along range_bin in number of samples
+           ping_num_interval=ping_num         # bin size along ping_time in number of pings
+       )
+
+- Noise removal:
+
+   .. code-block:: python
+
+      # Remove noise
+      ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
+         Sv,
+         ping_num=5,
+         range_bin_num=30
+      )
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Dataset`` instances,
