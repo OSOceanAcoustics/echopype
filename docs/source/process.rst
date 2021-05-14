@@ -16,12 +16,6 @@ Functionality
 
   - Calibration and echo-integration to obtain
     volume backscattering strength (Sv) from power data.
-
-    .. attention::
-       We found inconsistencies among pulse compression outputs
-       from the current echopype implementation, EchoView, and Matlab EchoLab code, see
-       `#308 <http://https://github.com/OSOceanAcoustics/echopype/issues/308/>`_).
-
   - Simple noise removal by removing data points (set to ``NaN``) below
     an adaptively estimated noise floor [1]_.
   - Binning and averaging to obtain mean volume backscattering strength (MVBS)
@@ -36,6 +30,15 @@ Functionality
 
   - Calibration based on pulse compression output in the
     form of average over frequency.
+
+    .. attention::
+       This feature is still under development.
+       We found inconsistencies among pulse compression outputs
+       from EchoView, Matlab Echolab, and the echopype implementation, see
+       `#308 <http://https://github.com/OSOceanAcoustics/echopype/issues/308/>`_.
+       In addition, currently there are issues with calibrating files containing both
+       broadband and narrowband (the "CW mode") data, see
+       `#310 <https://github.com/OSOceanAcoustics/echopype/issues/310/>`_.
 
   - The same noise removal and MVBS computation functionality available
     to the narrowband echosounders.
