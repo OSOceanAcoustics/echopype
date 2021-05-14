@@ -88,7 +88,9 @@ class TestEchoData:
     [
         (ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"),
         str(ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"),
-        (ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.nc"),  # netcdf test
+        (
+            ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.nc"
+        ),  # netcdf test
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.nc",  # netcdf test
         "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
@@ -102,8 +104,10 @@ class TestEchoData:
         ),
     ],
 )
-def test_open_converted(converted_zarr, minio_bucket):
-
+def test_open_converted(
+    converted_zarr,
+    minio_bucket  # noqa
+):
     def _check_path(zarr_path):
         storage_options = {}
         if zarr_path.startswith("s3://"):
@@ -122,4 +126,9 @@ def test_open_converted(converted_zarr, minio_bucket):
         ed = open_converted(converted_zarr, storage_options=storage_options)
         assert isinstance(ed, EchoData) is True
     except Exception as e:
-        assert isinstance(e, ValueError) is True
+        if (
+            isinstance(converted_zarr, str)
+            and converted_zarr.startswith("s3://")
+            and converted_zarr.endswith(".nc")
+        ):
+            assert isinstance(e, ValueError) is True
