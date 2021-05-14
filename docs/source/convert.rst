@@ -57,7 +57,7 @@ netCDF file named ``FILENAME.nc`` saved to the directory path
 .. attention::
 
    - Prior to version 0.5.0, conversion was carried out through the
-     `"Convert" interface <https://echopype.readthedocs.io/en/latest/usage.html#conversion-operation>`_.
+     `"Convert" interface <https://echopype.readthedocs.io/en/v0.4.1/usage.html#conversion-operation>`_.
      This interface is still available but will be deprecated in 
      a future version.
    - Versions of echopype prior to 0.5.0 used ``raw2nc`` and ``raw2zarr``
@@ -260,20 +260,17 @@ Save to AWS S3
 
 Converted files can be saved directly into an AWS S3 bucket by specifying ``storage_options``
 as done with input files (see above, "AWS S3 access"). The example below illustrates a 
-fully remote processing pipeline, reading raw files from a web server and saving the converted, 
-combined Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
+fully remote processing pipeline, reading a raw file from a web server and saving the
+converted Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
 
 .. code-block:: python
 
-      raw_file_urls = [
-         'http://mydomain.com/from1/file_01.raw',
-         'http://mydomain.com/from2/file_02.raw'
-      ]
-      ed = open_raw(raw_file_urls, sonar_model='EK60')
+      raw_file_url = 'http://mydomain.com/from1/file_01.raw'
+      ed = open_raw(raw_file_url, sonar_model='EK60')
       ed.to_zarr(
          combine=True,
          overwrite=True,
-         save_path='s3://mybucket/to/combined_file.zarr',
+         save_path='s3://mybucket/converted_file.zarr',
          storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
       )
 
