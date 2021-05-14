@@ -62,16 +62,16 @@ The steps for performing these analyses are summarized below:
 
       # Reduce data based on physical units
       ds_MVBS = ep.preprocess.compute_MVBS(
-           ds_Sv,
-           range_meter_bin=20,  # bin size along range in units meters
-           ping_time_bin='20S'  # bin size along ping_time in units seconds
+           ds_Sv,               # calibrated Sv dataset
+           range_meter_bin=20,  # bin size to average along range in meters
+           ping_time_bin='20S'  # bin size to average along ping_time in seconds
        )
 
       # Reduce data based on sample number
       ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
-           ds_Sv,
-           range_bin_interval=range_bin_num,  # bin size along range_bin in number of samples
-           ping_num_interval=ping_num         # bin size along ping_time in number of pings
+           ds_Sv,             # calibrated Sv dataset
+           range_bin_num=30,  # number of sample bins to average along the range_bin dimensionm
+           ping_num=5         # number of pings to average
        )
 
 - Noise removal:
@@ -80,9 +80,9 @@ The steps for performing these analyses are summarized below:
 
       # Remove noise
       ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
-         Sv,
-         ping_num=5,
-         range_bin_num=30
+         ds_Sv,             # calibrated Sv dataset
+         range_bin_num=30   # number of samples along the range_bin dimension for estimating noise
+         ping_num=5,        # number of pings for estimating noise
       )
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
