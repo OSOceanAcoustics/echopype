@@ -127,14 +127,12 @@ The updated values can be retrieved with:
    Sv['range']              # range for each sonar sample in [m]
 
 
-.. TODO: EK60 and EK80 should be using the same formula?
-
-For EK60 and EK80 data, echopype updates the sound speed and seawater absorption
-using the formulae from Mackenzie (1981) [2]_ and
-Ainslie and McColm (1981) [3]_, respectively.
+For EK60 and EK80 data, echopype updates 
+the sound speed using the formula from Mackenzie (1981) [2]_  and 
+seawater absorption using the formula from Ainslie and McColm (1981) [3]_.
 
 For AZFP data, echopype updates the sound speed and seawater absorption
-using the formulae provided by the manufacturer, ASL Environmental Sci.
+using the formulae provided by the manufacturer ASL Environmental Sciences.
 
 
 Calibration parameters
@@ -200,7 +198,7 @@ References
 
 .. [4] Demer DA, Berger L, Bernasconi M, Bethke E, Boswell K, Chu D, Domokos R,
    et al. (2015) Calibration of acoustic instruments. `ICES Cooperative Research Report No.
-   326.       133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
+   1.         133 pp. <https://doi.org/10.17895/ices.pub.5494>`_
 
 
 .. TODO: Need to specify the changes we made from AZFP Matlab code to here:
