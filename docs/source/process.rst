@@ -29,7 +29,7 @@ Functionality
 - EK80 and EA640 broadband echosounders:
 
   - Calibration based on pulse compression output in the
-    form of average over frequency.
+    form of average over frequency (alpha).
 
     .. attention::
        This feature is still under development.
