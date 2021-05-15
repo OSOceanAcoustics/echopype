@@ -33,9 +33,10 @@ def test_convert_raw():
         echodata.to_netcdf(save_path=output_dir)
         raw_echodata[filepath] = echodata
 
-# TODO: xarray loads np.datetime64 from disk with floating point errors in v0.16.2,
+# TODO: xarray has precision issues with saving/loading np.datetime64 to/from disk in v0.16.2,
 # so when we get errors when we try to select using timestamps. Instead, we'll just keep
 # the data in memory so we know the representation will be correct. 
+# 
 # When xarray version gets bumped, try deleting raw_echodata 
 # and using the first few commented lines in this function
 # (it is known to behave correctly in v0.17.0).
