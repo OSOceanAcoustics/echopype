@@ -313,8 +313,8 @@ class Process():
 
         self.MVBS = preprocess.compute_MVBS_index_binning(
             proc_data,
-            range_bin_interval=range_bin_size,
-            ping_num_interval=ping_size
+            range_bin_num=range_bin_size,
+            ping_num=ping_size
         ).rename({'Sv': 'MVBS'})
         # Save results in object and as a netCDF file
         if save:
