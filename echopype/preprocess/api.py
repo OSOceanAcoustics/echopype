@@ -76,9 +76,9 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     ds_Sv : xr.Dataset
         dataset containing Sv and range [m]
     range_bin_num : int
-        number of sample bins to average along the ``range_bin`` dimensionm in index number, default to 100
+        number of samples to average along the ``range_bin`` dimension, default to 100
     ping_num : int
-        number of pings to average along the ``ping_time`` dimension, in index number, default to 100
+        number of pings to average, default to 100
 
     Returns
     -------
@@ -119,7 +119,7 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
-        number of samples along range to obtain noise estimates
+        number of samples along the ``range_bin`` dimension to obtain noise estimates
     noise_max : float
         the upper limit for background noise expected under the operating conditions
 
@@ -146,7 +146,7 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
-        number of samples along range to obtain noise estimates
+        number of samples along the ``range_bin`` dimension to obtain noise estimates
     noise_max : float
         the upper limit for background noise expected under the operating conditions
     SNR_threshold : float
