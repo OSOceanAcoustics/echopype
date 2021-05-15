@@ -15,7 +15,7 @@ including guidance on opening pull requests.
 
 Please submit questions or report problems via GitHub issues. If you're new to GitHub, 
 see these tips for submitting issues: 
-`"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_ 
+`"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
 
 Installation for echopype development
