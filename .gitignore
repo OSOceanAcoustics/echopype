@@ -11,6 +11,7 @@ __pycache__/
 .vscode/
 dist/
 build/
+_build/
 docs/build/
 docs/source/api
 profile.html

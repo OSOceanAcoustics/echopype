@@ -3,11 +3,13 @@ from collections import OrderedDict
 from html import escape
 from pathlib import Path
 import warnings
+import fsspec
 
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
 from ..utils.repr import HtmlTemplate
+from ..utils.io import sanitize_file_path, check_file_existance
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP = {
@@ -33,17 +35,14 @@ class EchoData:
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
-        self.converted_raw_path = converted_raw_path
         self.storage_options = storage_options if storage_options is not None else {}
         self.source_file = source_file
         self.xml_path = xml_path
         self.sonar_model = sonar_model
+        self.converted_raw_path = None
 
         self.__setup_groups()
-        if converted_raw_path:
-            # TODO: verify if converted_raw_path is valid on either local or remote filesystem
-            self._load_file(converted_raw_path)
-            self.sonar_model = self.top.keywords
+        self.__read_converted(converted_raw_path)
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
@@ -101,6 +100,15 @@ class EchoData:
         for group in self.__group_map.keys():
             setattr(self, group, None)
 
+    def __read_converted(self, converted_raw_path):
+        if converted_raw_path is not None:
+            self._check_path(converted_raw_path)
+            converted_raw_path = self._sanitize_path(converted_raw_path)
+            self._load_file(converted_raw_path)
+            self.sonar_model = self.top.keywords
+
+        self.converted_raw_path = converted_raw_path
+
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
@@ -117,7 +125,10 @@ class EchoData:
         for group, value in self.__group_map.items():
             # EK80 data may have a Beam_power group if both complex and power data exist.
             try:
-                ds = self._load_group(raw_path, group=value["ep_group"])
+                ds = self._load_group(
+                    raw_path,
+                    group=value["ep_group"],
+                )
             except (OSError, GroupNotFoundError):
                 if group == "beam_power":
                     ds = None
@@ -128,20 +139,47 @@ class EchoData:
             if isinstance(ds, xr.Dataset):
                 setattr(self, group, ds)
 
-    def _check_path(self):
+    def _check_path(self, filepath):
         """ Check if converted_raw_path exists """
-        pass
+        file_exists = check_file_existance(
+            filepath,
+            self.storage_options
+        )
+        if not file_exists:
+            raise FileNotFoundError(
+                f"There is no file named {filepath}"
+            )
 
-    @staticmethod
-    def _load_group(filepath, group=None):
+    def _sanitize_path(self, filepath):
+        filepath = sanitize_file_path(
+            filepath,
+            self.storage_options
+        )
+        return filepath
+
+    def _check_suffix(self, filepath):
+        """ Check if file type is supported. """
         # TODO: handle multiple files through the same set of checks for combining files
-        suffix = Path(filepath).suffix
+        if isinstance(filepath, fsspec.FSMap):
+            suffix = Path(filepath.root).suffix
+        else:
+            suffix = Path(filepath).suffix
+
         if suffix not in XARRAY_ENGINE_MAP:
             raise ValueError("Input file type not supported!")
 
-        return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
+        return suffix
 
-    def to_netcdf(self, **kwargs):
+    def _load_group(self, filepath, group=None):
+        """ Loads each echodata group """
+        suffix = self._check_suffix(filepath)
+        return xr.open_dataset(
+            filepath,
+            group=group,
+            engine=XARRAY_ENGINE_MAP[suffix]
+        )
+
+    def to_netcdf(self, save_path=None, **kwargs):
         """Save content of EchoData to netCDF.
 
         Parameters
@@ -161,9 +199,9 @@ class EchoData:
         """
         from ..convert.api import to_file
 
-        return to_file(self, "netcdf4", **kwargs)
+        return to_file(self, "netcdf4", save_path=save_path, **kwargs)
 
-    def to_zarr(self, **kwargs):
+    def to_zarr(self, save_path=None, **kwargs):
         """Save content of EchoData to zarr.
 
         Parameters
@@ -183,7 +221,7 @@ class EchoData:
         """
         from ..convert.api import to_file
 
-        return to_file(self, "zarr", **kwargs)
+        return to_file(self, "zarr", save_path=save_path, **kwargs)
 
     # TODO: Remove below in future versions. They are for supporting old API calls.
     @property

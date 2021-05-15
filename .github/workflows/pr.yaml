@@ -1,11 +1,8 @@
-name: build
+name: Test PR
 
 on:
-  push:
-    branches:
-      - master
+  pull_request:
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
-  workflow_dispatch:
 
 env:
   CONDA_ENV: echopype
@@ -80,10 +77,18 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install -e .
-      - name: Running All Tests
+      - name: Finding changed files
+        id: files
+        uses: lsetiawan/get-changed-files@pr_target
+        with:
+          format: 'csv'
+      - name: Print Changed files
+        shell: bash -l {0}
+        run: echo "${{ steps.files.outputs.added_modified }}"
+      - name: Running Tests
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --local --pytest-args="--log-cli-level=WARNING,-vv,--disable-warnings" |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vv,--disable-warnings" ${{ steps.files.outputs.added_modified }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2

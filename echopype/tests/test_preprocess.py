@@ -150,8 +150,8 @@ def test_compute_MVBS_index_binning():
     # Binned MVBS test
     ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
         ds_Sv,
-        range_bin_interval=range_bin_num,
-        ping_num_interval=ping_num
+        range_bin_num=range_bin_num,
+        ping_num=ping_num
     )
     data_test = (10 ** (ds_MVBS.Sv / 10))    # Convert to linear domain
 

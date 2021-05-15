@@ -20,28 +20,75 @@ with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
 
+Documentation
+-------------
+
+Getting started
+~~~~~~~~~~~~~~~
+
+* :doc:`why`
+* :doc:`installation`
+.. * :doc:`examples`
+
 .. toctree::
    :maxdepth: 2
+   :hidden:
+   :caption: Getting started
 
    why
-   usage
+   installation
+..   examples
+
+User guide
+~~~~~~~~~~
+
+* :doc:`convert`
+* :doc:`open-converted`
+* :doc:`process`
+* :doc:`data-format`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: User guide
+
+   convert
+   open-converted
+   process
    data-format
-   resources
+
+Help & reference
+~~~~~~~~~~~~~~~~
+
+* :doc:`api`
+* :doc:`whats-new`
+* :doc:`contributing`
+* :doc:`resources`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Help & reference
+
    api
+   whats-new
+   contributing
+   resources
 
 
 Contributors
 ------------
 
 `Wu-Jung Lee <http://leewujung.github.io>`_ (@leewujung) leads this project
-and along with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin)
+and together with `Kavin Nguyen <https://github.com/ngkavin>`_ (@ngkavin),
+`Landung "Don" Setiawan <https://github.com/lsetiawan>`_ (@lsetiawan),
+and `Imran Majeed <https://github.com/imranmaj>`_ (@imranmaj)
 are primary developers of this package.
-`Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
-and `Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
-provide consultation and also contribute to the development.
+`Emilio Mayorga <https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio>`_ (@emiliom)
+and `Valentina Staneva <https://escience.washington.edu/people/valentina-staneva/>`_ (@valentina-s)
+are also part of the development team.
 
 Other contributors include:
-`Landungs "Don" Setiawan <https://github.com/lsetiawan>`_ (@lsetiawan),
 `Frederic Cyr <https://github.com/cyrf0006>`_ (@cyrf0006),
 `Paul Robinson <https://github.com/prarobinson/>`_ (@prarobinson),
 `Sven Gastauer <https://www.researchgate.net/profile/Sven_Gastauer>`_ (@SvenGastauer),
@@ -63,5 +110,5 @@ Simrad EK60 and EK80 echosounders.
 License
 -------
 
-Echopype is licensed under the open source Apache 2.0 license.
-
+Echopype is licensed under the open source 
+`Apache 2.0 license <https://opensource.org/licenses/Apache-2.0>`_.

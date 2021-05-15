@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = 'echopype'
-copyright = '2018-, Wu-Jung Lee'
+copyright = '2018-2021, Wu-Jung Lee'
 author = 'Wu-Jung Lee'
 
 # The short X.Y version
@@ -43,6 +43,7 @@ author = 'Wu-Jung Lee'
 extensions = [
     'sphinx_automodapi.automodapi',
     'numpydoc',
+    # 'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
@@ -53,6 +54,15 @@ numpydoc_show_class_members = False
 
 # autosummary_generate = True
 # numpydoc_class_members_toctree = True
+
+# autoclass_content = 'both'
+# autodoc_default_options = {
+#     'members': True,
+#     'member-order': 'bysource',
+#     'special-members': '__init__',
+#     'undoc-members': True,
+#     'exclude-members': '__weakref__'
+# }
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
