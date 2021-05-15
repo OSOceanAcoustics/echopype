@@ -6,6 +6,7 @@ __pycache__/
 .gitignore~
 *~
 *.egg-info/
+.eggs
 .tox/
 .vscode/
 dist/
@@ -17,6 +18,8 @@ profile.html
 dask-worker-space/
 toolbox
 *.nc
+!*.base.nc
+!*.ad2cp.nc
 *.raw
 *.csv
 *.01A
