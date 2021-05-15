@@ -64,7 +64,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin='20S'):
     return MVBS.to_dataset(promote_attrs=True)
 
 
-def compute_MVBS_index_binning(ds_Sv, range_bin_interval=100, ping_num_interval=100):
+def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     """Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range_bin and ping number specified in index number.
 
@@ -75,9 +75,9 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_interval=100, ping_num_interval=
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and range [m]
-    range_bin_interval : int
+    range_bin_num : int
         number of sample bins to average along the ``range_bin`` dimensionm in index number, default to 100
-    ping_num_interval : int
+    ping_num : int
         number of pings to average along the ``ping_time`` dimension, in index number, default to 100
 
     Returns
@@ -86,22 +86,22 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_interval=100, ping_num_interval=
     """
     ds_Sv['sv'] = 10 ** (ds_Sv['Sv'] / 10)  # average should be done in linear domain
     da = 10 * np.log10(ds_Sv['sv'].coarsen(
-        ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
+        ping_time=ping_num, range_bin=range_bin_num, boundary='pad'
     ).mean(skipna=True))
 
     # Attach coarsened range
     da.name = 'Sv'
     ds_out = da.to_dataset()
     ds_out['range'] = ds_Sv['range'].coarsen(  # binned range (use first value in each bin)
-        ping_time=ping_num_interval, range_bin=range_bin_interval, boundary='pad'
+        ping_time=ping_num, range_bin=range_bin_num, boundary='pad'
     ).min(skipna=True)
     ds_out.coords['range_bin'] = ('range_bin', np.arange(ds_out['range_bin'].size))  # reset range_bin to start from 0
 
     # Attach attributes
     ds_out.attrs = {
         'binning_mode': 'index',
-        'range_bin_interval': range_bin_interval,
-        'ping_number_interval': ping_num_interval
+        'range_bin_num': range_bin_num,
+        'ping_num': ping_num
     }
 
     return ds_out
