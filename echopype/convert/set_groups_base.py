@@ -145,11 +145,6 @@ class SetGroupsBase:
         """
         pass
 
-    def set_beam_complex(self) -> xr.Dataset:
-        """Set the Beam_Complex group
-        """
-        pass
-
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group.
         """
