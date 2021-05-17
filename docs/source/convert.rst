@@ -111,7 +111,7 @@ package, and all file systems implemented by ``fsspec`` are supported;
 a list of these file systems is available on the 
 `fsspec registry documentation <https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations>`_.
 
-.. warning::
+.. attention::
    ``fsspec``-based access from file locations other than a local file system was 
    introduced in version 0.5.0
 
@@ -255,7 +255,7 @@ Save to AWS S3
    These instructions should apply to other object storage providers such as 
    Google Cloud and Azure, but have only been tested on AWS S3.
 
-.. warning::
+.. attention::
    Saving to S3 was introduced in version 0.5.0.
 
 Converted files can be saved directly into an AWS S3 bucket by specifying ``storage_options``
@@ -268,7 +268,6 @@ converted Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
       raw_file_url = 'http://mydomain.com/from1/file_01.raw'
       ed = open_raw(raw_file_url, sonar_model='EK60')
       ed.to_zarr(
-         combine=True,
          overwrite=True,
          save_path='s3://mybucket/converted_file.zarr',
          storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
