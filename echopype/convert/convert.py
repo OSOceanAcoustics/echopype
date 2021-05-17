@@ -10,7 +10,6 @@ from pathlib import Path
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 
-from ..convert import convert_combine as combine_fcn
 from ..utils import io
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
