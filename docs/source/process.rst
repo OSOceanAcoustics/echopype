@@ -101,8 +101,8 @@ For example, to save the Sv and MVBS results to disk:
 
 .. code-block:: python
 
-   Sv.to_netcdf('file_Sv.nc')
-   MVBS.to_netcdf('file_MVBS.nc')
+   ds_Sv.to_netcdf('file_Sv.nc')
+   ds_MVBS.to_netcdf('file_MVBS.nc')
 
 
 .. note:: Echopype's data processing functionality is being developed actively.
@@ -142,7 +142,7 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()``:
        'salinity': 30,     # salinity in PSU
        'pressure': 50,     # pressure in dbar
    }
-   Sv = ep.calibrate.compute_Sv(echodata, env_params=env_params)
+   ds_Sv = ep.calibrate.compute_Sv(echodata, env_params=env_params)
 
 These values will be used in calculating sound speed,
 sound absorption, and the thickness of each sonar sample,
@@ -151,9 +151,9 @@ The updated values can be retrieved with:
 
 .. code-block:: python
 
-   Sv['sound_absorption']   # absorption in [dB/m]
-   Sv['sound_speed']        # sound speed in [m/s]
-   Sv['range']              # range for each sonar sample in [m]
+   ds_Sv['sound_absorption']   # absorption in [dB/m]
+   ds_Sv['sound_speed']        # sound speed in [m/s]
+   ds_Sv['range']              # range for each sonar sample in [m]
 
 
 For EK60 and EK80 data, echopype updates 
@@ -201,7 +201,7 @@ specify ``cal_params`` while calling the calibration functions:
    cal_params = {
        'equivalent_beam_angle': equivalent_beam_angle
    }
-   Sv = ep.calibrate.compute_Sv(echodata, cal_params=cal_params)
+   ds_Sv = ep.calibrate.compute_Sv(echodata, cal_params=cal_params)
 
 To reset the equivalent beam angle for 18 kHz only, one can do:
 
