@@ -53,7 +53,7 @@ jobs:
 
   test-built-dist:
     name: Test echopype package
-    needs: build-artifacts
+    needs: build-artifact
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/setup-python@v2
