@@ -25,17 +25,15 @@ API updates
 
 The existing API for converting files from raw instrument formats to a standardized format, and for calibrating data and performing operations such as binned averages and noise removal has been updated. 
 
-The new API uses a new `EchoData` object to encapsulate all data and metadata related to/parsed from a raw instrument data file. Beyond the calibration of backscatter quantities, other processing functions follow a consistent form to take an xarray Dataset as input argument and returns another xarray Dataset as output.
+The new API uses a new ``EchoData`` object to encapsulate all data and metadata related to/parsed from a raw instrument data file. Beyond the calibration of backscatter quantities, other processing functions follow a consistent form to take an xarray Dataset as input argument and returns another xarray Dataset as output.
 
 The major changes include:
 
-- change from an object-oriented method calls to functional calls for file conversion (using the new `convert` subpackage), and deprecate the previous `Convert` class for handling file parsing and conversion
-- deprecate the previous `Process` class, which use object-oriented method calls for performing both calibration and data processing
-- separate out calibration functions to a new `calibrate` subpackage
-- separate out noise removal and data reduction functions to a new `preprocess` subpackage
-- create a new `EchoData` object class that encapsulates all raw data and metadata from instrument data files, regardless of whether the data is being parsed directly from the raw binary instrument files (returned by the new function `open_raw`) or being read from an already converted file (returned by the new function `open_converted`)
-
-See [documentation](https://echopype.readthedocs.io/) for detailed usage of the new API.
+- change from an object-oriented method calls to functional calls for file conversion (using the new ``convert`` subpackage), and deprecate the previous ``Convert`` class for handling file parsing and conversion
+- deprecate the previous ``Process`` class, which use object-oriented method calls for performing both calibration and data processing
+- separate out calibration functions to a new ``calibrate`` subpackage
+- separate out noise removal and data reduction functions to a new ``preprocess`` subpackage
+- create a new ``EchoData`` object class that encapsulates all raw data and metadata from instrument data files, regardless of whether the data is being parsed directly from the raw binary instrument files (returned by the new function ``open_raw``) or being read from an already converted file (returned by the new function ``open_converted``)
 
 
 Subpackage and class restructuring 
@@ -44,9 +42,9 @@ Subpackage and class restructuring
 The subpackages and classes were restructured to improve modularity that will help will future expansion and maintenance. The major restructuring includes:
 ("SONAR" below is used to indicate the sonar model, such as EK60, EK80 or AZFP)
 
-- consolidate overlapping EK60/EK80 components, deprecate the previous `Convert` classes that handled file parsing _and_ serialization, and revise new `ParseSONAR` and `SetGroupsSONAR` classes for file parsing and serialization
-- consolidate all calibration-related components to a new `calibrate` submodule, which uses `CalibrateSONAR` classes under the hood
-- consolidate all preprocessing functions into a a new `preprocess` submodule, which will be later expanded to include other functions with similar use in a workflow
+- consolidate overlapping EK60/EK80 components, deprecate the previous ``Convert`` classes that handled file parsing and serialization, and revise new ``ParseSONAR`` and ``SetGroupsSONAR`` classes for file parsing and serialization
+- consolidate all calibration-related components to a new ``calibrate`` submodule, which uses ``CalibrateSONAR`` classes under the hood
+- consolidate all preprocessing functions into a a new ``preprocess`` submodule, which will be later expanded to include other functions with similar use in a workflow
 
 
 CI overhaul and improvements
@@ -54,32 +52,35 @@ CI overhaul and improvements
 
 - Added github workflows for testing, building test docker images, and publishing directly to PyPI
 - Deprecated usage of Travis CI
-- Test run is now selective on Github, to run tests only on changed/added files. Or run all locally with `run-test.py` script. (#280, #302)
+- Test run is now selective on Github, to run tests only on changed/added files. Or run all locally with ``run-test.py`` script. (#280, #302)
 
-## Documentation reorganization and updates
+
+Documentation reorganization and updates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 - Re-organization of pages with better grouping
-- Added `What's New` page
-- Added `Contributing to echopype` page
-- Overhaul `API reference` page
+- Added "What's New" page
+- Added "Contributing to echopype" page
+- Overhaul "API reference" page
 
 
 New features
 ~~~~~~~~~~~~
+
 - Add interfacing capability to read from and write to cloud object storage directly. (#216, #240)
 - Allow environmental and calibration parameters to be optionally used in calibration in place of the values stored in data file
 - Mean volume backscattering strength (MVBS) can now be computed based on actual time interval (specified in seconds) and range (specified in meters) (#54)
-- Add NMEA message type as a data variable in the `Platform` group (#232), which allows users to freely select the suitable ones depending on use
-- Add support to convert `.ad2cp` files generated by Nortek's Signature series ADCP (#326)
+- Add NMEA message type as a data variable in the ``Platform`` group (#232), which allows users to freely select the suitable ones depending on use
+- Add support to convert ``.ad2cp`` files generated by Nortek's Signature series ADCP (#326)
 
 
 Bug fixes
 ~~~~~~~~~
-- Fix EK80 config XML parsing problem for files containing either `PulseDuration` or `PulseLength` (#305)
+
+- Fix EK80 config XML parsing problem for files containing either ``PulseDuration`` or ``PulseLength`` (#305)
 - Fix time encoding discrepancy in AZFP conversion (#328)
-- Fix problematic automatic encoding of AZFP frequency (previously as `int`) to `float64` (#309)
+- Fix problematic automatic encoding of AZFP frequency (previously as ``int``) to ``float64`` (#309)
 - Overhaul EK80 pulse compressed calibration (current implementation remaining in beta, see #308)
-
-
 
 
 
