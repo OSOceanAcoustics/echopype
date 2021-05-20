@@ -70,6 +70,8 @@ DEFAULT_ENCODINGS = {
 
 def _encode_dataarray(da, dtype):
     """Encodes and decode datetime64 array similar to writing to file"""
+    if da.size == 0:
+        return da
     read_encoding = {
         "units": "seconds since 1900-01-01T00:00:00+00:00",
         "calendar": "gregorian",
@@ -81,8 +83,6 @@ def _encode_dataarray(da, dtype):
         encoded_data, _, _ = coding.times.encode_cf_datetime(
             da, **read_encoding
         )
-    if da.size == 0:
-        return da
     return coding.times.decode_cf_datetime(
         encoded_data, **read_encoding
     )
