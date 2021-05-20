@@ -4,7 +4,7 @@ from typing import List, Optional
 import xarray as xr
 import numpy as np
 
-from .set_groups_base import SetGroupsBase
+from .set_groups_base import SetGroupsBase, set_encodings
 from .parse_ad2cp import HeaderOrDataRecordFormats, Ad2cpDataPacket, Field
 from ..utils import io
 
@@ -52,7 +52,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             )
 
         def make_dataset(
-            packets: List[Ad2cpDataPacket], time_dim: str
+            packets: List[Ad2cpDataPacket], ping_time_dim: str
         ) -> Optional[xr.Dataset]:
             for i in range(len(packets)):
                 packet = packets[i]
@@ -80,7 +80,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                             tuple(dim.value for dim in dims),
                             [field_value],
                         )
-                coords = {"ping_time": [packet.timestamp], time_dim: [packet.timestamp]}
+                coords = {"ping_time": [packet.timestamp], ping_time_dim: [packet.timestamp]}
                 if "beams" in packet.data_exclude:
                     coords["beam"] = packet.data_exclude["beams"]
                 new_packet = xr.Dataset(data_vars=data_vars, coords=coords)
@@ -95,19 +95,19 @@ class SetGroupsAd2cp(SetGroupsBase):
             else:
                 return None
 
-        burst_ds = make_dataset(self.parser_obj.burst_packets, time_dim="time_burst")
+        burst_ds = make_dataset(self.parser_obj.burst_packets, ping_time_dim="ping_time_burst")
         average_ds = make_dataset(
-            self.parser_obj.average_packets, time_dim="time_average"
+            self.parser_obj.average_packets, ping_time_dim="ping_time_average"
         )
         echosounder_ds = make_dataset(
-            self.parser_obj.echosounder_packets, time_dim="time_echosounder"
+            self.parser_obj.echosounder_packets, ping_time_dim="ping_time_echosounder"
         )
         echosounder_raw_ds = make_dataset(
-            self.parser_obj.echosounder_raw_packets, time_dim="time_echosounder_raw"
+            self.parser_obj.echosounder_raw_packets, ping_time_dim="ping_time_echosounder_raw"
         )
         echosounder_raw_transmit_ds = make_dataset(
             self.parser_obj.echosounder_raw_transmit_packets,
-            time_dim="time_echosounder_raw_transmit",
+            ping_time_dim="ping_time_echosounder_raw_transmit",
         )
 
         datasets = [
@@ -138,9 +138,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
-                "time_burst": self.ds.get("time_burst", []),
-                "time_average": self.ds.get("time_average", []),
-                "time_echosounder": self.ds.get("time_echosounder", []),
+                "ping_time_burst": self.ds.get("ping_time_burst", []),
+                "ping_time_average": self.ds.get("ping_time_average", []),
+                "ping_time_echosounder": self.ds.get("ping_time_echosounder", []),
             },
         )
 
@@ -151,7 +151,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         if "ping_time" not in ds.dims:
             ds = ds.expand_dims(dim="ping_time")
 
-        return ds
+        return set_encodings(ds)
 
     def set_platform(self) -> xr.Dataset:
         ds = xr.Dataset(
@@ -165,9 +165,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
-                "time_burst": self.ds.get("time_burst"),
-                "time_average": self.ds.get("time_average"),
-                "time_echosounder": self.ds.get("time_echosounder"),
+                "ping_time_burst": self.ds.get("ping_time_burst"),
+                "ping_time_average": self.ds.get("ping_time_average"),
+                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
                 "beam": self.ds.get("beam"),
                 "range_bin_burst": self.ds.get("range_bin_burst"),
                 "range_bin_average": self.ds.get("range_bin_average"),
@@ -179,7 +179,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "platform_code_ICES": self.ui_param["platform_code_ICES"],
             },
         )
-        return ds
+        return set_encodings(ds)
 
     def set_beam(self) -> xr.Dataset:
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
@@ -228,9 +228,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             data_vars=data_vars,
             coords={
                 "ping_time": self.ds.get("ping_time"),
-                "time_burst": self.ds.get("time_burst"),
-                "time_average": self.ds.get("time_average"),
-                "time_echosounder": self.ds.get("time_echosounder"),
+                "ping_time_burst": self.ds.get("ping_time_burst"),
+                "ping_time_average": self.ds.get("ping_time_average"),
+                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
                 "beam": self.ds.get("beam"),
                 "range_bin_burst": self.ds.get("range_bin_burst"),
                 "range_bin_average": self.ds.get("range_bin_average"),
@@ -247,7 +247,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         if "ping_time" not in ds.dims:
             ds = ds.expand_dims(dim="ping_time")
 
-        return ds
+        return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:
         attrs = {
@@ -274,8 +274,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 ),
                 "nominal_correlation": self.ds.get("nominal_correlation"),
                 "magnetometer_temperature": self.ds.get("magnetometer_temperature"),
-                "real_time_clock_temperature": self.ds.get(
-                    "real_time_clock_temperature"
+                "real_ping_time_clock_temperature": self.ds.get(
+                    "real_ping_time_clock_temperature"
                 ),
                 "ensemble_counter": self.ds.get("ensemble_counter"),
                 "ahrs_rotation_matrix_mij": (
@@ -317,9 +317,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
-                "time_burst": self.ds.get("time_burst"),
-                "time_average": self.ds.get("time_average"),
-                "time_echosounder": self.ds.get("time_echosounder"),
+                "ping_time_burst": self.ds.get("ping_time_burst"),
+                "ping_time_average": self.ds.get("ping_time_average"),
+                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
                 "beam": self.ds.get("beam"),
                 "range_bin_average": self.ds.get("range_bin_average"),
                 "range_bin_burst": self.ds.get("range_bin_burst"),
@@ -342,7 +342,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         if "ping_time" not in ds.dims:
             ds = ds.expand_dims(dim="ping_time")
 
-        return ds
+        return set_encodings(ds)
 
     def set_beam_complex(self) -> xr.Dataset:
         ds = xr.Dataset(
@@ -360,16 +360,16 @@ class SetGroupsAd2cp(SetGroupsBase):
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
-                "time_echosounder_raw": self.ds.get("time_echosounder_raw"),
-                "time_echosounder_raw_transmit": self.ds.get(
-                    "time_echosounder_raw_transmit"
+                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
+                "ping_time_echosounder_raw_transmit": self.ds.get(
+                    "ping_time_echosounder_raw_transmit"
                 ),
                 "sample": self.ds.get("sample"),
                 "sample_transmit": self.ds.get("sample_transmit"),
             },
             attrs={"pulse_compressed": self.pulse_compressed},
         )
-        return ds
+        return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         return xr.Dataset()

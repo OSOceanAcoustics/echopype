@@ -23,6 +23,36 @@ DEFAULT_ENCODINGS = {
         '_FillValue': np.nan,
         'dtype': np.dtype('float64'),
     },
+    'ping_time_burst': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
+    },
+    'ping_time_average': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
+    },
+    'ping_time_echosounder': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
+    },
+    'ping_time_echosounder_raw': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
+    },
+    'ping_time_echosounder_raw_transmit': {
+        'units': 'seconds since 1900-01-01T00:00:00+00:00',
+        'calendar': 'gregorian',
+        '_FillValue': np.nan,
+        'dtype': np.dtype('float64'),
+    },
     'mru_time': {
         'units': 'seconds since 1900-01-01T00:00:00+00:00',
         'calendar': 'gregorian',
