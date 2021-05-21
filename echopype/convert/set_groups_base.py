@@ -178,7 +178,7 @@ class SetGroupsBase:
         pass
 
     def set_beam_complex(self) -> xr.Dataset:
-        """Set the Beam_Complex group
+        """Set the Beam_complex group
         """
         pass
 

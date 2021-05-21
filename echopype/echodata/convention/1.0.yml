@@ -35,7 +35,7 @@ groups:
   beam_complex:
     name: Beam Complex
     description: contains raw AD2CP data samples from the echosounder mode.
-    ep_group: Beam_Complex
+    ep_group: Beam_complex
   beam_power:
     name: Beam Power
     description: contains backscatter data (power-only) and other beam or channel-specific data.

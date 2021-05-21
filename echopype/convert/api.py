@@ -282,7 +282,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode='a',
             engine=engine,
-            group='Beam',
+            group='Beam_complex',
             compression_settings=COMPRESSION_SETTINGS[engine]
             if compress
             else None,
