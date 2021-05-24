@@ -16,7 +16,6 @@ opts = dict(
     packages=find_packages(),
     include_package_data=True,
     install_requires=INSTALL_REQUIRES,
-    tests_require=["tox", "pandas"],
     py_modules=["_echopype_version"],
     use_scm_version={
         "fallback_version": "unknown",
@@ -24,7 +23,7 @@ opts = dict(
         "write_to": "_echopype_version.py",
         "write_to_template": 'version = "{version}"\n',
     },
-    setup_requires=["setuptools>=30.3.0", "wheel", "setuptools_scm"],
+    setup_requires=["setuptools>=45", "wheel", "setuptools_scm"],
 )
 
 
