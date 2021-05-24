@@ -49,6 +49,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Cache conda
         uses: actions/cache@v2
         env:
@@ -90,3 +93,11 @@ jobs:
         with:
           name: ci_test_log
           path: ci_test_log.log
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          name: codecov-umbrella
+          fail_ci_if_error: false
