@@ -28,7 +28,7 @@ class HtmlTemplate:
               {}
               </ul>
             </div>
-            """
+            """  # noqa
     element_template = """
             <li class = "xr-section-item">
                   <input id="idata_{group_id}" class="xr-section-summary-in" type="checkbox">
@@ -40,7 +40,7 @@ class HtmlTemplate:
                       </ul>
                   </div>
             </li>
-            """
-    _, css_style = _load_static_files()  # pylint: disable=protected-access
+            """  # noqa
+    _, css_style = _load_static_files()  # noqa
     specific_style = ".xr-wrap{width:700px!important;}"
     css_template = f"<style> {css_style}{specific_style} </style>"

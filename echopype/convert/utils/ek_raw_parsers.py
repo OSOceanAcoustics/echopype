@@ -121,10 +121,11 @@ class SimradDepthParser(_SimradDatagramParser):
     The following methods are defined:
 
         from_string(str):    parse a raw ER60 Depth datagram
-                            (with leading/trailing datagram size stripped)
+                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
 
     """
 
@@ -166,7 +167,7 @@ class SimradDepthParser(_SimradDatagramParser):
             buf_indx = self.header_size(version)
             for indx in range(data["transceiver_count"]):
                 d, r, u = struct.unpack(
-                    data_fmt, raw_string[buf_indx : buf_indx + data_size]
+                    data_fmt, raw_string[buf_indx : buf_indx + data_size]  # noqa
                 )
                 data["depth"][indx] = d
                 data["reflectivity"][indx] = r
@@ -234,8 +235,9 @@ class SimradBottomParser(_SimradDatagramParser):
         from_string(str):    parse a raw ER60 Bottom datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
     def __init__(self):
@@ -270,7 +272,9 @@ class SimradBottomParser(_SimradDatagramParser):
             depth_size = struct.calcsize(depth_fmt)
             buf_indx = self.header_size(version)
             data["depth"] = np.fromiter(
-                struct.unpack(depth_fmt, raw_string[buf_indx : buf_indx + depth_size]),
+                struct.unpack(
+                    depth_fmt, raw_string[buf_indx : buf_indx + depth_size]
+                ),  # noqa
                 "float",
             )
 
@@ -318,8 +322,9 @@ class SimradAnnotationParser(_SimradDatagramParser):
         from_string(str):    parse a raw ER60 Annotation datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
     def __init__(self):
@@ -356,7 +361,7 @@ class SimradAnnotationParser(_SimradDatagramParser):
                     errors="replace",
                 )
             else:
-                data["text"] = unicode(
+                data["text"] = unicode(  # noqa
                     raw_string[self.header_size(version) :].strip("\x00"),
                     "ascii",
                     errors="replace",
@@ -406,11 +411,12 @@ class SimradNMEAParser(_SimradDatagramParser):
         from_string(str):    parse a raw ER60 NMEA datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
-    nmea_head_re = re.compile("\$[A-Za-z]{5},")
+    nmea_head_re = re.compile("\$[A-Za-z]{5},")  # noqa
 
     def __init__(self):
         headers = {
@@ -455,7 +461,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                     errors="replace",
                 )
             else:
-                data["nmea_string"] = unicode(
+                data["nmea_string"] = unicode(  # noqa
                     raw_string[self.header_size(version) :].strip("\x00"),
                     "ascii",
                     errors="replace",
@@ -519,8 +525,9 @@ class SimradMRUParser(_SimradDatagramParser):
         from_string(str):    parse a raw ER60 NMEA datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
     def __init__(self):
@@ -602,7 +609,8 @@ class SimradXMLParser(_SimradDatagramParser):
         low_date:     long uint representing LSBytes of 64bit NT date
         high_date:    long uint representing MSBytes of 64bit NT date
         timestamp:    datetime.datetime object of NT date, assumed to be UTC
-        subtype:      string representing Simrad XML datagram type: configuration, environment, or parameter
+        subtype:      string representing Simrad XML datagram type:
+                      configuration, environment, or parameter
 
         [subtype]:    dict containing the data specific to the XML subtype.
 
@@ -611,8 +619,9 @@ class SimradXMLParser(_SimradDatagramParser):
         from_string(str):    parse a raw EK80 XML datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                             (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
     #  define the XML parsing options - here we define dictionaries for various xml datagram
@@ -801,7 +810,7 @@ class SimradXMLParser(_SimradDatagramParser):
                     errors="replace",
                 )
             else:
-                xml_string = unicode(
+                xml_string = unicode(  # noqa
                     raw_string[self.header_size(version) :].strip("\x00"),
                     "ascii",
                     errors="replace",
@@ -824,7 +833,8 @@ class SimradXMLParser(_SimradDatagramParser):
                     #  parse the Transceiver section
                     tcvr_xml = tcvr.attrib
 
-                    #  parse the Channel section -- this works with multiple channels under 1 transceiver
+                    #  parse the Channel section -- this works with multiple channels
+                    #  under 1 transceiver
                     for tcvr_ch in tcvr.iter("Channel"):
                         tcvr_ch_xml = tcvr_ch.attrib
                         channel_id = tcvr_ch_xml["ChannelID"]
@@ -1069,8 +1079,9 @@ class SimradFILParser(_SimradDatagramParser):
         from_string(str):    parse a raw EK80 FIL datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string (including leading/trailing size fields)
-                            ready for writing to disk
+        to_string():         Returns the datagram as a raw string
+                            (including leading/trailing size fields)
+                             ready for writing to disk
     """
 
     def __init__(self):
@@ -1114,7 +1125,7 @@ class SimradFILParser(_SimradDatagramParser):
             indx = self.header_size(version)
             block_size = data["n_coefficients"] * 8
             data["coefficients"] = np.frombuffer(
-                raw_string[indx : indx + block_size], dtype="complex64"
+                raw_string[indx : indx + block_size], dtype="complex64"  # noqa
             )
 
         return data
@@ -1335,7 +1346,7 @@ class SimradConfigParser(_SimradDatagramParser):
     def _unpack_contents(self, raw_string, bytes_read, version):
 
         data = {}
-        round6 = lambda x: round(x, ndigits=6)
+        round6 = lambda x: round(x, ndigits=6)  # noqa
         header_values = struct.unpack(
             self.header_fmt(version), raw_string[: self.header_size(version)]
         )
@@ -1392,7 +1403,7 @@ class SimradConfigParser(_SimradDatagramParser):
             for txcvr_indx in range(1, data["transceiver_count"] + 1):
                 txcvr_header_values_encoded = struct.unpack(
                     txcvr_header_fmt,
-                    raw_string[buf_indx : buf_indx + txcvr_header_size],
+                    raw_string[buf_indx : buf_indx + txcvr_header_size],  # noqa
                 )
                 txcvr_header_values = list(txcvr_header_values_encoded)
                 for tx_idx, tx_val in enumerate(txcvr_header_values_encoded):
@@ -1489,7 +1500,7 @@ class SimradConfigParser(_SimradDatagramParser):
 
             txcvr_header_fields = [x[0] for x in transducer_header]
             txcvr_header_fmt = "=" + "".join([x[1] for x in transducer_header])
-            txcvr_header_size = struct.calcsize(txcvr_header_fmt)
+            txcvr_header_size = struct.calcsize(txcvr_header_fmt)  # noqa
 
             for txcvr_indx, txcvr in list(data["transceivers"].items()):
                 txcvr_contents = []
@@ -1639,7 +1650,7 @@ class SimradRawParser(_SimradDatagramParser):
 
                 if int(data["mode"]) & 0x1:
                     data["power"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int16"
+                        raw_string[indx : indx + block_size], dtype="int16"  # noqa
                     )
                     indx += block_size
                 else:
@@ -1647,7 +1658,7 @@ class SimradRawParser(_SimradDatagramParser):
 
                 if int(data["mode"]) & 0x2:
                     data["angle"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int8"
+                        raw_string[indx : indx + block_size], dtype="int8"  # noqa
                     )
                     data["angle"] = data["angle"].reshape((-1, 2))
                 else:
@@ -1672,7 +1683,7 @@ class SimradRawParser(_SimradDatagramParser):
 
                 if data["data_type"] & 0b1:
                     data["power"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int16"
+                        raw_string[indx : indx + block_size], dtype="int16"  # noqa
                     )
                     indx += block_size
                 else:
@@ -1680,7 +1691,7 @@ class SimradRawParser(_SimradDatagramParser):
 
                 if data["data_type"] & 0b10:
                     data["angle"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int8"
+                        raw_string[indx : indx + block_size], dtype="int8"  # noqa
                     )
                     data["angle"] = data["angle"].reshape((-1, 2))
                     indx += block_size
@@ -1704,7 +1715,7 @@ class SimradRawParser(_SimradDatagramParser):
                     block_size = data["count"] * data["n_complex"] * type_bytes
 
                     data["complex"] = np.frombuffer(
-                        raw_string[indx : indx + block_size],
+                        raw_string[indx : indx + block_size],  # noqa
                         dtype=data["complex_dtype"],
                     )
                     data["complex"].dtype = np.complex64

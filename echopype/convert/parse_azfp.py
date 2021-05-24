@@ -2,7 +2,7 @@ import math
 import os
 import xml.dom.minidom
 from collections import defaultdict
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt
 from struct import unpack
 
 import fsspec
@@ -19,7 +19,8 @@ class ParseAZFP(ParseBase):
     def __init__(self, file, params, storage_options={}):
         super().__init__(file, storage_options)
         # Parent class attributes
-        self.timestamp_pattern = FILENAME_DATETIME_AZFP  # regex pattern used to grab datetime embedded in filename
+        #  regex pattern used to grab datetime embedded in filename
+        self.timestamp_pattern = FILENAME_DATETIME_AZFP
         self.xml_path = params
 
         # Class attributes
@@ -103,7 +104,10 @@ class ParseAZFP(ParseBase):
 
         # Start of computation subfunctions
         def compute_temp(counts):
-            """Returns the temperature in celsius given from xml data and the counts from ancillary"""
+            """
+            Returns the temperature in celsius given from xml data
+            and the counts from ancillary
+            """
             v_in = 2.5 * (counts / 65535)
             R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
                 self.parameters["kc"] - v_in
@@ -310,7 +314,11 @@ class ParseAZFP(ParseBase):
                 print("Error: Unknown file type")
                 return False
         header_byte_cnt = 0
-        firmware_freq_len = 4  # fields with num_freq data still takes 4 bytes, the extra bytes contain random numbers
+
+        # fields with num_freq data still takes 4 bytes,
+        # the extra bytes contain random numbers
+        firmware_freq_len = 4
+
         field_w_freq = (
             "dig_rate",
             "lockout_index",

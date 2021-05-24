@@ -33,7 +33,8 @@ class ParseEK(ParseBase):
         super().__init__(file, storage_options)
 
         # Parent class attributes
-        self.timestamp_pattern = FILENAME_DATETIME_EK60  # regex pattern used to grab datetime embedded in filename
+        #  regex pattern used to grab datetime embedded in filename
+        self.timestamp_pattern = FILENAME_DATETIME_EK60
 
         # Class attributes
         self.config_datagram = None
@@ -206,7 +207,7 @@ class ParseEK(ParseBase):
               'transducer_name': 'Unknown',
               'transducer_sound_speed': 1490.0},
              'xml': '<?xml version="1.0" encoding="utf-8"?>\r\n<Environment Depth="240" ... />\r\n</Environment>'}
-        """
+        """  # noqa
         num_datagrams_parsed = 0
 
         while True:
@@ -264,7 +265,8 @@ class ParseEK(ParseBase):
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram["type"].startswith("RAW3"):
                 curr_ch_id = new_datagram["channel_id"]
-                # Check if the proceeding Parameter XML does not match with data in this RAW3 datagram
+                # Check if the proceeding Parameter XML does not
+                # match with data in this RAW3 datagram
                 if current_parameters["channel_id"] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 

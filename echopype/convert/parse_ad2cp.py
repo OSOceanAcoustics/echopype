@@ -211,7 +211,7 @@ class ParseAd2cp(ParseBase):
     def __init__(
         self,
         *args,
-        burst_average_data_record_version: BurstAverageDataRecordVersion = BurstAverageDataRecordVersion.VERSION3,
+        burst_average_data_record_version: BurstAverageDataRecordVersion = BurstAverageDataRecordVersion.VERSION3,  # noqa
         params,
         **kwargs,
     ):
@@ -469,7 +469,7 @@ class Ad2cpDataPacket:
         expected_checksum = self.data_exclude["data_record_checksum"]
         assert (
             calculated_checksum == expected_checksum
-        ), f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"
+        ), f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"  # noqa
 
     def _read_data(self, f: BinaryIO, data_format: "HeaderOrDataRecordFormat") -> bytes:
         """
@@ -519,7 +519,8 @@ class Ad2cpDataPacket:
                 # reshape the list of entries into the correct shape
                 parsed_field = np.reshape(parsed_field_entries, field_shape)
             # we cannot check for this before reading because some fields are placeholder fields
-            # which, if not read in the correct order with other fields, will offset the rest of the data
+            # which, if not read in the correct order with other fields,
+            # will offset the rest of the data
             if field_name is not None:
                 self.data[field_name] = parsed_field
                 self._postprocess(field_name)
@@ -568,7 +569,7 @@ class Ad2cpDataPacket:
             (see https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/read?view=msvc-160#return-value,
             note "_read returns the number of bytes read,
                 which might be less than buffer_size...if the file was opened in text mode")
-        """
+        """  # noqa
 
         all_bytes_read = bytes()
         if total_num_bytes_to_read <= 0:
@@ -731,8 +732,10 @@ class Ad2cpDataPacket:
             elif field_name == "ambiguity_velocity_or_echosounder_frequency":
                 if self.data["echosounder_data_included"]:
                     # This is specified as "echo sounder frequency", but the description technically
-                    # says "number of echo sounder cells". It is probably the frequency and not the number of cells
-                    # because the number of cells already replaces the data in "num_beams_and_coordinate_system_and_num_cells"
+                    # says "number of echo sounder cells".
+                    # It is probably the frequency and not the number of cells
+                    # because the number of cells already replaces the data in
+                    # "num_beams_and_coordinate_system_and_num_cells"
                     # when an echo sounder is present
                     self.data["echosounder_frequency"] = self.data[
                         "ambiguity_velocity_or_echosounder_frequency"
@@ -744,7 +747,8 @@ class Ad2cpDataPacket:
             elif field_name == "velocity_scaling":
                 if not self.data["echosounder_data_included"]:
                     # The unit conversion for ambiguity velocity is done here because it
-                    # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
+                    # requires the velocity_scaling, which is not known
+                    # when ambiguity velocity field is parsed
                     self.data["ambiguity_velocity"] = self.data[
                         "ambiguity_velocity"
                     ] * (10 ** self.data["velocity_scaling"])
@@ -836,7 +840,8 @@ class Ad2cpDataPacket:
                 self.data["beam4"] = 0
             elif field_name == "velocity_scaling":
                 # The unit conversion for ambiguity velocity is done here because it
-                # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
+                # requires the velocity_scaling,
+                # which is not known when ambiguity velocity field is parsed
                 self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * (
                     10 ** self.data["velocity_scaling"]
                 )
@@ -944,7 +949,8 @@ class HeaderOrDataRecordFormats:
                 UNSIGNED_INTEGER,
             ),
             # F("data_record_size", lambda packet: 4 if packet.data_exclude["id"] in (
-            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.data_exclude["id"] in (0x23, 0x24) else UNSIGNED_INTEGER),
+            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.data_exclude["id"]
+            #     in (0x23, 0x24) else UNSIGNED_INTEGER),
             F("data_record_checksum", 2, UNSIGNED_INTEGER),
             F("header_checksum", 2, UNSIGNED_INTEGER),
         ]
@@ -1088,7 +1094,8 @@ class HeaderOrDataRecordFormats:
             #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             #     field_unit_conversion=lambda packet, x: x *
             #     (10 ** packet.data["velocity_scaling"]),
-            #     field_exists_predicate=lambda packet: packet.is_other() and packet.data["velocity_data_included"]
+            #     field_exists_predicate=lambda packet: packet.is_other()
+            #     and packet.data["velocity_data_included"]
             # ),
             F(  # used when burst
                 "velocity_data_burst",
@@ -1156,7 +1163,8 @@ class HeaderOrDataRecordFormats:
             #     field_dimensions=lambda data_record_type: [
             #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             #     field_unit_conversion=lambda packet, x: x / 2,
-            #     field_exists_predicate=lambda packet: not packet.is_burst() and not packet.is_average() and packet.data["amplitude_data_included"]
+            #     field_exists_predicate=lambda packet: not packet.is_burst()
+            #     and not packet.is_average() and packet.data["amplitude_data_included"]
             # ),
             F(
                 "amplitude_data_burst",
@@ -1220,7 +1228,8 @@ class HeaderOrDataRecordFormats:
             #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
             #     field_dimensions=lambda data_record_type: [
             #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_exists_predicate=lambda packet: not packet.is_burst() and not packet.is_average() and packet.data["correlation_data_included"]
+            #     field_exists_predicate=lambda packet: not packet.is_burst()
+            #         and not packet.is_average() and packet.data["correlation_data_included"]
             # ),
             F(
                 "correlation_data_burst",
@@ -1413,7 +1422,8 @@ class HeaderOrDataRecordFormats:
             #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
             #     field_unit_conversion=lambda packet, x: x * \
             #     (10 ** packet.data["velocity_scaling"]),
-            #     field_exists_predicate=lambda packet: not packet.is_burst() and not packet.is_average() and packet.data["velocity_data_included"]
+            #     field_exists_predicate=lambda packet: not packet.is_burst()
+            #     and not packet.is_average() and packet.data["velocity_data_included"]
             # ),
             F(
                 "velocity_data_burst",
@@ -2045,8 +2055,10 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw(),
             ),
-            # These next 2 fields are included so that the dimensions for this field can be determined
-            # based on the field name ("echosounder_raw_samples" will be deleted later and dimensions are looked up
+            # These next 2 fields are included so that the dimensions
+            # for this field can be determined
+            # based on the field name ("echosounder_raw_samples" will be deleted later
+            # and dimensions are looked up
             # by "echosounder_raw_samples_r" and "echosounder_raw_samples_i")
             F(
                 "echosounder_raw_samples_r",
@@ -2070,8 +2082,10 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw_transmit(),
             ),
-            # These next 2 fields are included so that the dimensions for this field can be determined
-            # based on the field name ("echosounder_raw_transmit_samples" will be deleted later and dimensions are looked up
+            # These next 2 fields are included so that the dimensions
+            # for this field can be determined
+            # based on the field name ("echosounder_raw_transmit_samples"
+            # will be deleted later and dimensions are looked up
             # by "echosounder_raw_transmit_samples_r" and "echosounder_raw_transmit_samples_i")
             F(
                 "echosounder_raw_transmit_samples_r",

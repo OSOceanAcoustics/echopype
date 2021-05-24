@@ -370,7 +370,9 @@ class RawSimradFile(BufferedReader):
         try:
             parser = self.DGRAM_TYPE_KEY[dgram_type]
         except KeyError:
-            # raise KeyError('Unknown datagram type %s, valid types: %s' % (str(dgram_type), str(self.DGRAM_TYPE_KEY.keys())))
+            # raise KeyError('Unknown datagram type %s,
+            # valid types: %s' % (str(dgram_type),
+            # str(self.DGRAM_TYPE_KEY.keys())))
             return raw_datagram_string
 
         nice_dgram = parser.from_string(raw_datagram_string, bytes_read)
@@ -385,7 +387,7 @@ class RawSimradFile(BufferedReader):
         """
         if self._total_dgram_count is not None:
             raise ValueError(
-                "self._total_dgram_count has already been set.  Call .reset() first if you really want to recount"
+                "self._total_dgram_count has already been set.  Call .reset() first if you really want to recount"  # noqa
             )
 
         # Save current position for later

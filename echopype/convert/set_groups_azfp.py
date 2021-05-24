@@ -12,7 +12,8 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
-        # TODO Look at why this cannot be encoded without the modifications -- @ngkavin: what modification?
+        # TODO Look at why this cannot be encoded without the modifications
+        # @ngkavin: what modification?
         ping_time = self.parser_obj.ping_time
         ds = xr.Dataset(
             {

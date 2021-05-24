@@ -15,15 +15,18 @@ class ParseEK80(ParseEK):
             if s == "ALL":
                 return ["ALL"]
             # The GPS flag indicates that only the NME and MRU datagrams are parsed.
-            # It is kept in the list because it is used in SetGroups to flag that only the platform group is saved.
+            # It is kept in the list because it is used in SetGroups
+            # to flag that only the platform group is saved.
             elif s == "GPS":
                 return ["NME", "MRU"]
             # CONFIG flag indicates that only the configuration XML is parsed.
-            # The XML flag is not needed because the configuration is always the first datagram parsed.
+            # The XML flag is not needed because the configuration is always
+            # the first datagram parsed.
             elif s == "CONFIG":
                 return ["CONFIG"]
             # XML flag indicates that XML0 datagrams should be read.
-            # ENV flag indicates that of the XML datagrams, only keep the environment datagrams
+            # ENV flag indicates that of the XML datagrams,
+            # only keep the environment datagrams
             elif s == "ENV":
                 return ["XML", "ENV"]
             # EXPORT_XML flag passed in only by the to_xml function
@@ -31,7 +34,7 @@ class ParseEK80(ParseEK):
             elif s == "EXPORT_XML":
                 return ["print_export_msg"]
             else:
-                raise ValueError(f"Unknown data type", params)
+                raise ValueError("Unknown data type", params)
 
         # Params is a string when user sets data_type in to_netcdf/to_zarr
         if isinstance(params, str):

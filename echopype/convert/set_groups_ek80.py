@@ -12,7 +12,8 @@ class SetGroupsEK80(SetGroupsBase):
 
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group."""
-        # If only saving environment group, there is no ping_time so use timestamp of environment datagram
+        # If only saving environment group,
+        # there is no ping_time so use timestamp of environment datagram
         if env_only:
             ping_time = self.parser_obj.environment["timestamp"]
         else:
@@ -405,7 +406,8 @@ class SetGroupsEK80(SetGroupsBase):
         )
 
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence of FrequencyStart and FrequencyEnd
+        # TODO: use PulseForm instead of checking for the existence
+        #   of FrequencyStart and FrequencyEnd
         if (
             "frequency_start" in self.parser_obj.ping_data_dict.keys()
             and self.parser_obj.ping_data_dict["frequency_start"][ch]
@@ -638,7 +640,8 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_power.append(ds_data)
 
         # Merge and save group:
-        #  if both complex and power data exist: complex data in Beam group and power data in Beam_power
+        #  if both complex and power data exist: complex data in Beam group
+        #   and power data in Beam_power
         #  if only one type of data exist: data in Beam group
         ds_beam_power = None
         if len(ds_complex) > 0:

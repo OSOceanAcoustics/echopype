@@ -92,10 +92,14 @@ class CalibrateAZFP(CalibrateBase):
         f = self.echodata.vendor["digitization_rate"]  # digitization rate
         L = self.echodata.vendor["lockout_index"]  # number of lockout samples
         sound_speed = self.env_params["sound_speed"]
-        bins_to_avg = 1  # keep this in ref of AZFP matlab code, set to 1 since we want to calculate from raw data
+
+        # keep this in ref of AZFP matlab code,
+        # set to 1 since we want to calculate from raw data
+        bins_to_avg = 1
 
         # Calculate range using parameters for each freq
-        #  This is "the range to the centre of the sampling volume for bin m" from p.86 of user manual
+        # This is "the range to the centre of the sampling volume
+        # for bin m" from p.86 of user manual
         if cal_type == "Sv":
             range_offset = 0
         else:

@@ -7,7 +7,9 @@ import numpy as np
 def calc_sound_speed(
     temperature=27, salinity=35, pressure=10, formula_source="Mackenzie"
 ):
-    """Calculate sound speed in meters per second. Uses the default salinity and pressure.
+    """
+    Calculate sound speed in meters per second.
+    Uses the default salinity and pressure.
 
     Parameters
     ----------
@@ -21,7 +23,8 @@ def calc_sound_speed(
     formula_source : str
         Source of formula used for calculating sound speed.
         Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
-        Another option is to use Mackenzie (1981) supplied by ``arlpy`` (``formula_source='Mackenzie'``).
+        Another option is to use Mackenzie (1981)
+        supplied by ``arlpy`` (``formula_source='Mackenzie'``).
 
     Returns
     -------
@@ -81,7 +84,8 @@ def calc_absorption(
         Source of formula used for calculating sound speed.
         Default is to use Ainlie and McColm (1998) (``formula_source='AM'``).
         Another option is to the formula supplied by AZFP (``formula_source='AZFP'``).
-        Another option is to use Francois and Garrison (1982) supplied by ``arlpy`` (``formula_source='FG'``).
+        Another option is to use Francois and Garrison (1982)
+        supplied by ``arlpy`` (``formula_source='FG'``).
 
     Returns
     -------

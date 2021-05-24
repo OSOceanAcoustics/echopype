@@ -4,7 +4,6 @@ Functions for enhancing the spatial and temporal coherence of data.
 
 import numpy as np
 
-from ..utils import uwa
 from .noise_est import NoiseEst
 
 
@@ -128,7 +127,9 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
 
 
 def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
-    """Remove noise by using estimates of background noise from mean calibrated power of a collection of pings.
+    """
+    Remove noise by using estimates of background noise
+    from mean calibrated power of a collection of pings.
 
     See ``remove_noise`` for reference.
 
@@ -155,10 +156,13 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
 
 
 def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3):
-    """Remove noise by using estimates of background noise from mean calibrated power of a collection of pings.
+    """
+    Remove noise by using estimates of background noise
+    from mean calibrated power of a collection of pings.
 
     Reference: De Robertis & Higginbottom. 2007.
-    A post-processing technique to estimate the signal-to-noise ratio and remove echosounder background noise.
+    A post-processing technique to estimate the signal-to-noise ratio
+    and remove echosounder background noise.
     ICES Journal of Marine Sciences 64(6): 1282–1291.
 
     Parameters

@@ -181,7 +181,7 @@ def to_file(
     # Sequential or parallel conversion
     if exists and not overwrite:
         print(
-            f"{dt.now().strftime('%H:%M:%S')}  {echodata.source_file} has already been converted to {engine}. "
+            f"{dt.now().strftime('%H:%M:%S')}  {echodata.source_file} has already been converted to {engine}. "  # noqa
             f"File saving not executed."
         )
     else:
@@ -340,7 +340,8 @@ def _set_convert_params(param_dict):
     The default set of parameters include:
     - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
     - Platform/NMEA: ``nmea_gps_sentence``,
-                    for selecting specific NMEA sentences, with default values ['GGA', 'GLL', 'RMC'].
+                     for selecting specific NMEA sentences,
+                     with default values ['GGA', 'GLL', 'RMC'].
     - Top-level group: ``survey_name``
 
     Other parameters will be saved to the top level.
@@ -468,7 +469,7 @@ def open_raw(
         if xml_path is None:
             sonar_model = "EK60"
             warnings.warn(
-                "Current behavior is to default sonar_model='EK60' when no XML file is passed in as argument. "
+                "Current behavior is to default sonar_model='EK60' when no XML file is passed in as argument. "  # noqa
                 "Specifying sonar_model='EK60' will be required in the future, "
                 "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
                 DeprecationWarning,
@@ -477,7 +478,7 @@ def open_raw(
         else:
             sonar_model = "AZFP"
             warnings.warn(
-                "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "
+                "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "  # noqa
                 "Specifying sonar_model='AZFP' will be required in the future.",
                 DeprecationWarning,
                 2,

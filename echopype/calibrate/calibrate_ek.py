@@ -45,7 +45,8 @@ class CalibrateEK(CalibrateBase):
             shift = self.echodata.beam[
                 "transmit_duration_nominal"
             ]  # based on Lar Anderson's Matlab code
-            # TODO: once we allow putting in arbitrary sound_speed, change below to use linearly-interpolated values
+            # TODO: once we allow putting in arbitrary sound_speed,
+            # change below to use linearly-interpolated values
             range_meter = (
                 (
                     self.echodata.beam.range_bin * self.echodata.beam["sample_interval"]
@@ -505,7 +506,8 @@ class CalibrateEK80(CalibrateEK):
         y_time_all = {}
         tau_effective = {}
         for freq in self.echodata.beam.frequency.values:
-            # TODO: currently only deal with the case with a fixed tx key param values within a channel
+            # TODO: currently only deal with the case with
+            # a fixed tx key param values within a channel
             if waveform_mode == "BB":
                 tx_param_names = [
                     "transmit_duration_nominal",
@@ -763,11 +765,11 @@ class CalibrateEK80(CalibrateEK):
             if encode_mode == "power":
                 use_beam_power = True  # switch source of backscatter data
                 print(
-                    "Only power samples are calibrated, but complex samples also exist in the raw data file!"
+                    "Only power samples are calibrated, but complex samples also exist in the raw data file!"  # noqa
                 )
             else:
                 print(
-                    "Only complex samples are calibrated, but power samples also exist in the raw data file!"
+                    "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
             if (

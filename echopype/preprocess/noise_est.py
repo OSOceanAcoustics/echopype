@@ -1,5 +1,4 @@
 import numpy as np
-import xarray as xr
 
 from ..utils import uwa
 
@@ -80,14 +79,17 @@ class NoiseEst:
         )
 
     def remove_noise(self, noise_max=None, SNR_threshold=3):
-        """Remove noise by using estimates of background noise from mean calibrated power of a collection of pings.
+        """
+        Remove noise by using estimates of background noise
+        from mean calibrated power of a collection of pings.
 
         This method adds two data variables to the input ``ds_Sv``:
         - corrected Sv (``Sv_corrected``)
         - noise estimates (``Sv_noise``)
 
         Reference: De Robertis & Higginbottom. 2007.
-        A post-processing technique to estimate the signal-to-noise ratio and remove echosounder background noise.
+        A post-processing technique to estimate the signal-to-noise ratio
+        and remove echosounder background noise.
         ICES Journal of Marine Sciences 64(6): 1282–1291.
 
         Parameters

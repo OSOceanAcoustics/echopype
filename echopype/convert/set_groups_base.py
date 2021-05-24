@@ -82,8 +82,12 @@ class SetGroupsBase:
         overwrite=True,
         params=None,
     ):
-        self.parser_obj = parser_obj  # parser object ParseEK60/ParseAZFP/etc...
-        self.sonar_model = sonar_model  # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
+        # parser object ParseEK60/ParseAZFP/etc...
+        self.parser_obj = parser_obj
+
+        # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
+        self.sonar_model = sonar_model
+
         self.input_file = input_file
         self.output_path = output_path
         self.engine = engine
@@ -96,7 +100,8 @@ class SetGroupsBase:
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
-    # TODO: change the set_XXX methods to return a dataset to be saved in the overarching save method
+    # TODO: change the set_XXX methods to return a dataset to be saved
+    #  in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
         """Set the top-level group."""
         # Collect variables

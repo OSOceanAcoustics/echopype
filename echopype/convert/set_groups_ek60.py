@@ -222,7 +222,8 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_plat.append(ds_tmp)
 
             # Merge data from all channels
-            # TODO: for current test data we see all pitch/roll/heave are the same for all freq channels
+            # TODO: for current test data we see all
+            #  pitch/roll/heave are the same for all freq channels
             #  consider only saving those from the first channel
             ds_plat = xr.merge(ds_plat)
 
@@ -276,7 +277,8 @@ class SetGroupsEK60(SetGroupsBase):
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
         #  currently this factor is multiplied to the raw data before backscatter_r is saved.
         #  This is if we are encoding only raw data to the .nc/zarr file.
-        #  Need discussion since then the units won't match with convention (though it didn't match already...).
+        #  Need discussion since then the units won't match
+        #  with convention (though it didn't match already...).
         # Assemble variables into a dataset
         ds = xr.Dataset(
             {
@@ -492,7 +494,7 @@ class SetGroupsEK60(SetGroupsBase):
                         ["ping_time"],
                         self.parser_obj.ping_data_dict["mode"][ch],
                         {
-                            "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"
+                            "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
                         },
                     ),
                     "count": (
@@ -527,7 +529,8 @@ class SetGroupsEK60(SetGroupsBase):
                 },
             )
 
-            # TODO: below needs to be changed to use self.convert_obj.ping_data_dict['mode'][ch] == 3
+            # TODO: below needs to be changed to use
+            #  self.convert_obj.ping_data_dict['mode'][ch] == 3
             #  1 = Power only, 2 = Angle only 3 = Power & Angle
             # Set angle data if in split beam mode (beam_type == 1)
             # because single beam mode (beam_type == 0) does not record angle data

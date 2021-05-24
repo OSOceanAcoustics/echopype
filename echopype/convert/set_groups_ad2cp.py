@@ -1,10 +1,8 @@
-import os
 from typing import List, Optional
 
 import numpy as np
 import xarray as xr
 
-from ..utils import io
 from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
 
