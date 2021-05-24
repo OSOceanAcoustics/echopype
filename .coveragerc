@@ -1,5 +1,5 @@
 [run]
-omit = 
+omit =
     */echopype/tests/*
     */echopype/test_data/*
     */echopype/process/*

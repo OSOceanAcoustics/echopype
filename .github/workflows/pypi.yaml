@@ -84,14 +84,14 @@ jobs:
         python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre echopype
         python -c "import echopype; print(echopype.__version__)"
         echo "=== Done testing wheel file ==="
-        
+
         echo "=== Testing source tar file ==="
         # Install tar gz and check import
         python -m pip uninstall --yes echopype
         python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre --no-binary=:all: echopype
         python -c "import echopype; print(echopype.__version__)"
         echo "=== Done testing source tar file ==="
-  
+
   publish-pypi:
     name: Push echopype to production pypi
     needs: test-built-dist

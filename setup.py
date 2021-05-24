@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 # Long description will go up on the pypi page
 with open("README.md") as file:
@@ -14,7 +15,6 @@ opts = dict(
     long_description=LONG_DESCRIPTION,
     packages=find_packages(),
     include_package_data=True,
-    package_dir={"": "."},
     install_requires=INSTALL_REQUIRES,
     tests_require=["tox", "pandas"],
     py_modules=["_echopype_version"],
