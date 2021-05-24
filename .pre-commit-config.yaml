@@ -1,4 +1,13 @@
-exclude: ^docs/
+exclude: |
+  (?x)^(
+    docs/|
+    echopype/tests/|
+    echopype/test_data/|
+    echopype/process/|
+    echopype/visualize/|
+    echopype/convert/add_ancillary.py|
+    echopype/convert/convert_combine.py
+  )
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0

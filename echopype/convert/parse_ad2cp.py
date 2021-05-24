@@ -1,7 +1,7 @@
-from collections import OrderedDict
-from typing import BinaryIO, Iterable, Union, Callable, List, Optional, Any, Dict
-from enum import Enum, unique, auto
 import struct
+from collections import OrderedDict
+from enum import Enum, auto, unique
+from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 
@@ -145,11 +145,11 @@ class Field:
     ):
         """
         field_name: Name of the field. If None, the field is parsed but ignored
-        field_entry_size_bytes: Size of each entry within the field, in bytes. 
+        field_entry_size_bytes: Size of each entry within the field, in bytes.
             In most cases, the entry is the field itself, but sometimes the field
             contains a list of entries.
         field_entry_data_type: Data type of each entry in the field
-        field_shape: Shape of entries within the field. 
+        field_shape: Shape of entries within the field.
             [] (the default) means the entry is the field itself,
             [n] means the field consists of a list of n entries,
             [n, m] means the field consists of a two dimensional array with
@@ -299,17 +299,14 @@ class ParseAd2cp(ParseBase):
 
     def get_pulse_compressed(self):
         for i in range(1, 3 + 1):
-            if (
-                "GETECHO" in self.config
-                and self.config["GETECHO"][f"PULSECOMP{i}"] > 0
-            ):
+            if "GETECHO" in self.config and self.config["GETECHO"][f"PULSECOMP{i}"] > 0:
                 return i
         return 0
 
 
 class Ad2cpDataPacket:
     """
-    Represents a single data packet. Each data packet consists of a header data record followed by a 
+    Represents a single data packet. Each data packet consists of a header data record followed by a
     """
 
     def __init__(
@@ -433,7 +430,10 @@ class Ad2cpDataPacket:
         elif self.data_exclude["id"] in (0x17, 0x1B):  # bottom track
             self.data_record_type = DataRecordType.BOTTOM_TRACK
         elif self.data_exclude["id"] in (0x23, 0x24):  # echosounder raw
-            if self.parser.get_pulse_compressed() > 0 and len(self.parser.echosounder_raw_transmit_packets) == 0:
+            if (
+                self.parser.get_pulse_compressed() > 0
+                and len(self.parser.echosounder_raw_transmit_packets) == 0
+            ):
                 # first echosounder raw packet is the transmit packet
                 # if pulse compression is enabled
                 self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
@@ -566,7 +566,7 @@ class Ad2cpDataPacket:
             (see https://man7.org/linux/man-pages/man2/read.2.html#RETURN_VALUE,
             note "It is not an error if this number is smaller than the number of bytes requested")
             (see https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/read?view=msvc-160#return-value,
-            note "_read returns the number of bytes read, 
+            note "_read returns the number of bytes read,
                 which might be less than buffer_size...if the file was opened in text mode")
         """
 
@@ -597,7 +597,7 @@ class Ad2cpDataPacket:
             "data_record_checksum",
             "header_checksum",
             "version",
-            "offset_of_data"
+            "offset_of_data",
         ):
             self.data_exclude[field_name] = self.data[field_name]
             del self.data[field_name]

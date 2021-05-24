@@ -1,6 +1,6 @@
 from functools import lru_cache
-import pkg_resources
 
+import pkg_resources
 
 STATIC_FILES = ("static/html/icons-svg-inline.html", "static/css/style.css")
 

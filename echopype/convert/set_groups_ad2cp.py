@@ -1,12 +1,12 @@
 import os
 from typing import List, Optional
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 
-from .set_groups_base import SetGroupsBase
-from .parse_ad2cp import HeaderOrDataRecordFormats, Ad2cpDataPacket, Field
 from ..utils import io
+from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
+from .set_groups_base import SetGroupsBase
 
 
 def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
@@ -89,9 +89,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 packets[i] = new_packet
             if len(packets) > 0:
                 packets = merge_attrs(packets)
-                return xr.concat(
-                    packets, dim="ping_time", combine_attrs="override"
-                )
+                return xr.concat(packets, dim="ping_time", combine_attrs="override")
             else:
                 return None
 

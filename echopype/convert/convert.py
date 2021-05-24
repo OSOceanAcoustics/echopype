@@ -1,7 +1,6 @@
 """
 UI class for converting raw data from different echosounders to netcdf or zarr.
 """
-from echopype.echodata.echodata import EchoData
 import os
 import warnings
 from datetime import datetime as dt
@@ -10,17 +9,18 @@ from pathlib import Path
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 
+from echopype.echodata.echodata import EchoData
+
 from ..utils import io
+from .api import MODELS, open_raw
+from .parse_ad2cp import ParseAd2cp
 from .parse_azfp import ParseAZFP
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
-from .parse_ad2cp import ParseAd2cp
+from .set_groups_ad2cp import SetGroupsAd2cp
 from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_ek60 import SetGroupsEK60
 from .set_groups_ek80 import SetGroupsEK80
-from .set_groups_ad2cp import SetGroupsAd2cp
-from .api import open_raw, MODELS
-
 
 warnings.simplefilter("always", DeprecationWarning)
 
