@@ -270,6 +270,11 @@ def test_validate_path_multiple_source(
             "ek80",
             TEST_DATA_FOLDER / "ek80/ncei-wcsd/D20170826-T205615.raw",
             None
+        ),
+        (
+            "ad2cp",
+            TEST_DATA_FOLDER / "ad2cp/raw/076/rawtest.076.00000.ad2cp",
+            None
         )
     ]
 )
