@@ -276,7 +276,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         )
 
     # Beam Complex Group: only AD2CP has Beam Complex
-    if hasattr(echodata, "beam_complex") and echodata.beam_complex is not None:
+    if echodata.beam_complex is not None:
         io.save_file(
             echodata.beam_complex,
             path=output_path,
@@ -301,7 +301,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Platform/NMEA group: some sonar model does not produce NMEA data
-    if hasattr(echodata, 'nmea'):
+    if echodata.nmea is not None:
         io.save_file(
             echodata.nmea,  # TODO: chunking necessary?
             path=output_path,
