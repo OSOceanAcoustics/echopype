@@ -81,8 +81,8 @@ The steps for performing these analyses are summarized below:
       # Remove noise
       ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
          ds_Sv,             # calibrated Sv dataset
-         range_bin_num=30   # number of samples along the range_bin dimension for estimating noise
-         ping_num=5,        # number of pings for estimating noise
+         range_bin_num=30,  # number of samples along the range_bin dimension for estimating noise
+         ping_num=5         # number of pings for estimating noise
       )
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
@@ -125,7 +125,9 @@ critical in biological interpretation of ocean sonar data. They influence:
 
 By default, echopype uses the following for calibration:
 
-- EK60 and EK80: Environmental parameters saved with the raw data files.
+- EK60 and EK80: Environmental parameters saved with the raw data files. 
+  For EK60, temperature, salinity and pressure are entered by the instrument
+  operator but only calculated sound speed is saved into the raw file.
 
 - AZFP: Salinity and pressure provided by the user,
   and temperature recorded at the instrument.
