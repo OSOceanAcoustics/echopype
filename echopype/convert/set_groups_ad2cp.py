@@ -374,4 +374,4 @@ class SetGroupsAd2cp(SetGroupsBase):
         return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
-        return xr.Dataset()
+        return super().set_sonar()
