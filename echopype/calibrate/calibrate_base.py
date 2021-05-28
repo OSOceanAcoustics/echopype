@@ -13,9 +13,9 @@ class CalibrateBase:
         self.echodata = echodata
         self.env_params = None  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
-        self.range_meter = (
-            None  # range_meter is computed in compute_Sv/Sp in child class
-        )
+
+        # range_meter is computed in compute_Sv/Sp in child class
+        self.range_meter = None
 
     def get_env_params(self, **kwargs):
         pass

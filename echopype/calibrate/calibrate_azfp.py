@@ -108,8 +108,7 @@ class CalibrateAZFP(CalibrateBase):
             )  # from matlab code
         range_meter = (
             sound_speed * L / (2 * f)
-            + sound_speed
-            / 4
+            + (sound_speed / 4)
             * (
                 ((2 * (self.echodata.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
                 + self.echodata.beam["transmit_duration_nominal"]
@@ -135,14 +134,14 @@ class CalibrateAZFP(CalibrateBase):
         )  # range computation different for Sv and Sp per AZFP matlab code
 
         # Compute various params
-        spreading_loss = 20 * np.log10(
-            self.range_meter
-        )  # TODO: take care of dividing by zero encountered in log10
+
+        # TODO: take care of dividing by zero encountered in log10
+        spreading_loss = 20 * np.log10(self.range_meter)
         absorption_loss = 2 * self.env_params["sound_absorption"] * self.range_meter
         SL = self.cal_params["TVR"] + 20 * np.log10(self.cal_params["VTX"])  # eq.(2)
-        a = self.cal_params[
-            "DS"
-        ]  # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
+
+        # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
+        a = self.cal_params["DS"]
         EL = (
             self.cal_params["EL"]
             - 2.5 / a

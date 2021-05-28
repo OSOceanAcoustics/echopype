@@ -112,15 +112,13 @@ class ParseAZFP(ParseBase):
             R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
                 self.parameters["kc"] - v_in
             )
-            T = (
-                1
-                / (
-                    self.parameters["A"]
-                    + self.parameters["B"] * (math.log(R))
-                    + self.parameters["C"] * (math.log(R) ** 3)
-                )
-                - 273
-            )
+            # fmt: off
+            T = 1 / (
+                self.parameters["A"]
+                + self.parameters["B"] * (math.log(R))
+                + self.parameters["C"] * (math.log(R) ** 3)
+            ) - 273
+            # fmt: on
             return T
 
         def compute_tilt(N, a, b, c, d):
