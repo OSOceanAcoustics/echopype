@@ -538,20 +538,20 @@ class Ad2cpDataPacket:
         elif data_type == DataType.STRING:
             return value.decode("utf-8")
         elif data_type == DataType.SIGNED_INTEGER:
-            return int.from_bytes(value, byteorder="little", signed=True)
+            return np.int64(int.from_bytes(value, byteorder="little", signed=True))
         elif data_type == DataType.UNSIGNED_INTEGER:
-            return int.from_bytes(value, byteorder="little", signed=False)
+            return np.int64(int.from_bytes(value, byteorder="little", signed=False))
         # elif data_type == DataType.UNSIGNED_LONG:
         #     return struct.unpack("<L", value)
         elif data_type == DataType.FLOAT and len(value) == 4:
-            return struct.unpack("<f", value)[0]
+            return np.float64(struct.unpack("<f", value)[0])
         elif data_type == DataType.FLOAT and len(value) == 8:
-            return struct.unpack("<d", value)[0]
+            return np.float64(struct.unpack("<d", value)[0])
         elif data_type == DataType.SIGNED_FRACTION:
             # Although the specification states that the data is represented in a
             # signed-magnitude format, an email exchange with Nortek revealed that it is
             # actually in 2's complement form.
-            return int.from_bytes(value, byteorder="little", signed=True) / 2147483648.0
+            return np.float64(int.from_bytes(value, byteorder="little", signed=True)) / 2147483648.0
         else:
             raise RuntimeError("unrecognized data type")
 
@@ -747,7 +747,7 @@ class Ad2cpDataPacket:
                     # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
                     self.data["ambiguity_velocity"] = self.data[
                         "ambiguity_velocity"
-                    ] * (10 ** self.data["velocity_scaling"])
+                    ] * (10.0 ** self.data["velocity_scaling"])
             elif field_name == "dataset_description":
                 self.data_exclude["beams"] = [
                     beam
@@ -838,7 +838,7 @@ class Ad2cpDataPacket:
                 # The unit conversion for ambiguity velocity is done here because it
                 # requires the velocity_scaling, which is not known when ambiguity velocity field is parsed
                 self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * (
-                    10 ** self.data["velocity_scaling"]
+                    10.0 ** self.data["velocity_scaling"]
                 )
         elif (
             self.data_record_format
@@ -1105,7 +1105,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_burst()
                 and packet.data["velocity_data_included"],
             ),
@@ -1124,7 +1124,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_average()
                 and packet.data["velocity_data_included"],
             ),
@@ -1143,7 +1143,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["velocity_data_included"],
             ),
@@ -1430,7 +1430,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_burst()
                 and packet.data["velocity_data_included"],
             ),
@@ -1449,7 +1449,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_average()
                 and packet.data["velocity_data_included"],
             ),
@@ -1468,7 +1468,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["velocity_data_included"],
             ),
@@ -1991,7 +1991,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=[Dimension.TIME, Dimension.BEAM],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.data["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.data[
                     "velocity_data_included"
                 ],
