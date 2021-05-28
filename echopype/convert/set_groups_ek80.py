@@ -654,7 +654,7 @@ class SetGroupsEK80(SetGroupsBase):
         return [ds_beam, ds_beam_power]
 
     def set_beam_complex(self) -> xr.Dataset:
-        return super().set_beam_complex()
+        return xr.Dataset()
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group."""
