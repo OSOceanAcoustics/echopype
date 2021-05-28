@@ -37,11 +37,10 @@ def calc_sound_speed(
             - 5.304e-2 * temperature ** 2
             + 2.374e-4 * temperature ** 3
         )
+        # fmt: off
         ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure ** 2
-        ss += (
-            -1.025e-2 * temperature * (salinity - 35)
-            - 7.139e-13 * temperature * pressure ** 3
-        )
+        ss += -1.025e-2 * temperature * (salinity - 35) - 7.139e-13 * temperature * pressure ** 3  # noqa
+        # fmt: on
     elif formula_source == "AZFP":
         z = temperature / 10
         ss = (
@@ -91,6 +90,7 @@ def calc_absorption(
     -------
     Sea absorption [dB/m]
     """
+    # fmt: off
     if formula_source == "FG":
         f = frequency / 1000.0
         d = distance / 1000.0
@@ -100,11 +100,7 @@ def calc_absorption(
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
         P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure * pressure
-        f2 = (
-            8.17
-            * 10 ** (8 - 1990 / (temperature + 273))
-            / (1 + 0.0018 * (salinity - 35))
-        )
+        f2 = 8.17 * 10 ** (8 - 1990 / (temperature + 273)) / (1 + 0.0018 * (salinity - 35))  # noqa
         P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure * pressure
         if temperature < 20:
             A3 = (
@@ -125,9 +121,8 @@ def calc_absorption(
             + A2 * P2 * f2 * f * f / (f2 * f2 + f * f)
             + A3 * P3 * f * f
         )
-        sea_abs = (
-            -20 * np.log10(10 ** (-a * d / 20.0)) / 1000
-        )  # convert to db/m from db/km
+        # convert to db/m from db/km
+        sea_abs = -20 * np.log10(10 ** (-a * d / 20.0)) / 1000
     elif formula_source == "AM":
         freq = frequency / 1000
         D = pressure / 1000
@@ -182,4 +177,5 @@ def calc_absorption(
             )
     else:
         ValueError("Unknown formula source")
+    # fmt: on
     return sea_abs

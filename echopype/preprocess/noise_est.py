@@ -103,9 +103,8 @@ class NoiseEst:
         self.estimate_noise(noise_max=noise_max)
 
         # Sv corrected for noise
-        fac = 10 ** (self.ds_Sv["Sv"] / 10) - 10 ** (
-            self.Sv_noise / 10
-        )  # linear domain
+        # linear domain
+        fac = 10 ** (self.ds_Sv["Sv"] / 10) - 10 ** (self.Sv_noise / 10)
         Sv_corr = 10 * np.log10(fac.where(fac > 0, other=np.nan))
         Sv_corr = Sv_corr.where(
             Sv_corr - self.Sv_noise > SNR_threshold, other=np.nan
