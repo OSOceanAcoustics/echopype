@@ -1,3 +1,5 @@
+import abc
+import pynmea2
 from datetime import datetime as dt
 
 import numpy as np
@@ -94,7 +96,7 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
     return new_ds
 
 
-class SetGroupsBase:
+class SetGroupsBase(abc.ABC):
     """Base class for saving groups to netcdf or zarr from echosounder data files."""
 
     def __init__(
@@ -162,22 +164,27 @@ class SetGroupsBase:
         ds = ds.assign_attrs(prov_dict)
         return ds
 
+    @abc.abstractmethod
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         pass
 
+    @abc.abstractmethod
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
         pass
 
+    @abc.abstractmethod
     def set_beam(self) -> xr.Dataset:
         """Set the Beam group."""
         pass
 
+    @abc.abstractmethod
     def set_beam_complex(self) -> xr.Dataset:
         """Set the Beam_complex group"""
         pass
 
+    @abc.abstractmethod
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
         pass
@@ -222,6 +229,7 @@ class SetGroupsBase:
 
         return ds
 
+    @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor group."""
         pass
