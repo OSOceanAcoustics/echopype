@@ -17,9 +17,9 @@ if __name__ == "__main__":
     installed_version = echopype.__version__
     if installed_version != expected_version:
         print(
-            f"🛑 Installed version {installed_version} does not match expected version {expected_version}."  # noqa
+            f"!! Installed version {installed_version} does not match expected version {expected_version}."  # noqa
         )
         sys.exit(1)
     else:
-        print(f"✅ Installed version {installed_version} is expected.")
+        print(f"Installed version {installed_version} is expected.")
         sys.exit(0)
