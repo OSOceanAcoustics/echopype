@@ -1,0 +1,52 @@
+name: EP Install Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: 'Expected Echopype Version to check'
+        required: false
+        default: '0.5.0'
+
+jobs:
+  test-installs:
+    name: EP Install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest", "macos-11"]
+    steps:
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: echopype
+          miniconda-version: "latest"
+          environment-file: .ci_helpers/user_environment.yml
+          channel-priority: strict
+          show-channel-urls: true
+          use-only-tar-bz2: false
+      - name: Bash
+        if: contains(matrix.os, 'ubuntu')
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
+          python .ci_helpers/check-version.py ${{ github.event.inputs.expected_version }}
+      - name: Sh
+        if: contains(matrix.os, 'macos')
+        shell: sh -l {0}
+        run: |
+          conda info
+          conda list
+
+          python .ci_helpers/check-version.py ${{ github.event.inputs.expected_version }}
+      - name: PowerShell
+        if: contains(matrix.os, 'windows')
+        shell: powershell
+        run: |
+          conda info
+          conda list
+
+          python .ci_helpers/check-version.py ${{ github.event.inputs.expected_version }}
