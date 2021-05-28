@@ -1,5 +1,4 @@
 import abc
-import pynmea2
 from datetime import datetime as dt
 
 import numpy as np
@@ -166,32 +165,27 @@ class SetGroupsBase(abc.ABC):
 
     @abc.abstractmethod
     def set_env(self) -> xr.Dataset:
-        """Set the Environment group.
-        """
+        """Set the Environment group."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def set_sonar(self) -> xr.Dataset:
-        """Set the Sonar group.
-        """
+        """Set the Sonar group."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def set_beam(self) -> xr.Dataset:
-        """Set the Beam group.
-        """
+        """Set the Beam group."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def set_beam_complex(self) -> xr.Dataset:
-        """Set the Beam_complex group
-        """
+        """Set the Beam_complex group"""
         raise NotImplementedError
 
     @abc.abstractmethod
     def set_platform(self) -> xr.Dataset:
-        """Set the Platform group.
-        """
+        """Set the Platform group."""
         raise NotImplementedError
 
     def set_nmea(self) -> xr.Dataset:
@@ -236,8 +230,7 @@ class SetGroupsBase(abc.ABC):
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
-        """Set the Vendor group.
-        """
+        """Set the Vendor group."""
         raise NotImplementedError
 
     # TODO: move this to be part of parser as it is not a "set" operation
