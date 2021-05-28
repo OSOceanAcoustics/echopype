@@ -195,6 +195,9 @@ class SetGroupsAZFP(SetGroupsBase):
         )
         return set_encodings(ds)
 
+    def set_beam_complex(self) -> xr.Dataset:
+        return xr.Dataset()
+
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group."""
         unpacked_data = self.parser_obj.unpacked_data

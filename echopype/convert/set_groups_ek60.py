@@ -572,6 +572,9 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_encodings(ds)
 
+    def set_beam_complex(self) -> xr.Dataset:
+        return xr.Dataset()
+
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
         config = self.parser_obj.config_datagram["transceivers"]
