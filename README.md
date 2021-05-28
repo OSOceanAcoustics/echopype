@@ -30,7 +30,7 @@
 
 Echopype is a package built to enable interoperability and scalability in ocean sonar data processing. These data are widely used for obtaining information about the distribution and abundance of marine animals, such as fish and krill. Our ability to collect large volumes of sonar data from a variety of ocean platforms has grown significantly in the last decade. However, most of the new data remain under-utilized. echopype aims to address the root cause of this problem - the lack of interoperable data format and scalable analysis workflows that adapt well with increasing data volume - by providing open-source tools as entry points for scientists to make discovery using these new data.
 
-Watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU) 
+Watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU)
 at SciPy 2019 for background, discussions and a quick demo!
 
 ## Documentation
@@ -53,7 +53,7 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 Contributors
 ------------
 
-[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project and together with 
+[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project and together with
 [Kavin Nguyen](https://github.com/ngkavin) (@ngkavin), [Landung "Don" Setiawan](https://github.com/lsetiawan) (@lsetiawan), and [Imran Majeed](https://github.com/imranmaj) (@imranmaj) are primary developers of this package.
 [Emilio Mayorga](https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio) (@emiliom)
 and [Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
