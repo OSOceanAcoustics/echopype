@@ -105,7 +105,6 @@ class EchoData:
             self._check_path(converted_raw_path)
             converted_raw_path = self._sanitize_path(converted_raw_path)
             self._load_file(converted_raw_path)
-            self.sonar_model = self.top.keywords
 
         self.converted_raw_path = converted_raw_path
 
@@ -134,7 +133,7 @@ class EchoData:
             except (OSError, GroupNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
-            if group == "top":
+            if group == "top" and "keywords" in ds:
                 self.sonar_model = ds.keywords.upper()
 
             if isinstance(ds, xr.Dataset):
