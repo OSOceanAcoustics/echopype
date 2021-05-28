@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - dev
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
