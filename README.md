@@ -15,7 +15,7 @@
 <a href="https://codecov.io/gh/OSOceanAcoustics/echopype">
   <img src="https://codecov.io/gh/OSOceanAcoustics/echopype/branch/master/graph/badge.svg?token=GT98F919XR"/>
 </a>
-    
+
 <a href="https://pypi.org/project/echopype/">
   <img src="https://img.shields.io/pypi/v/echopype.svg"/>
 </a>
