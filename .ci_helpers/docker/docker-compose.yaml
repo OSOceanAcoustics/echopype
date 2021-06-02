@@ -20,4 +20,3 @@ services:
       - echopypenetwork
 networks:
   echopypenetwork:
-      
