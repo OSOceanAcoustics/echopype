@@ -129,13 +129,14 @@ By default, echopype uses the following for calibration:
   For EK60, instrument operators may enter temperature and salinity values into the 
   `Simrad EK60 software's Environment dialog 
   <https://www.simrad.online/ek60/ref_english/default.htm?startat=/ek60/ref_english/xxx_para_environment.html>`_
-  and the software will calculate sound speed, or directly enter sound speed instead.
-  Only sound speed is saved into the raw file.
+  and the Simrad software will calculate sound speed and sound absorption;
+  alternatively, sound speed may be entered directly.
+  Only sound speed and sound absorption are saved into the raw file.
 
 - AZFP: Salinity and pressure provided by the user,
   and temperature recorded at the instrument.
 
-Seawater absorption and sound speed may be recalculated with echopype if 
+Seawater sound absorption and sound speed may be recalculated with echopype if 
 more accurate in-situ environmental parameters are available. 
 To update these values, pass the environmental parameters
 as a dictionary while calling ``ep.calibrate.compute_Sv()``:
