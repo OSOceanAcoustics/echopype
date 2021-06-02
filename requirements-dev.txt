@@ -1,5 +1,6 @@
 black
 check-manifest
+docker-compose
 flake8
 flake8-builtins
 flake8-comprehensions
