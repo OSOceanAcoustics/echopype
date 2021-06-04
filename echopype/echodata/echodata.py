@@ -23,6 +23,8 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
+    group_map = OrderedDict(_get_convention()["groups"])
+
     def __init__(
         self,
         converted_raw_path=None,
@@ -47,8 +49,8 @@ class EchoData:
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
         existing_groups = [
-            f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
-            for group in self.__group_map.keys()
+            f"{group}: ({self.group_map[group]['name']}) {self.group_map[group]['description']}"  # noqa
+            for group in self.group_map.keys()
             if isinstance(getattr(self, group), xr.Dataset)
         ]
         fpath = "Internal Memory"
@@ -70,17 +72,15 @@ class EchoData:
                 html_repr = f"<pre>{escape(repr(self))}</pre>"
             else:
                 xr_collections = []
-                for group in self.__group_map.keys():
+                for group in self.group_map.keys():
                     if isinstance(getattr(self, group), xr.Dataset):
                         xr_data = getattr(self, group)._repr_html_()
                         xr_collections.append(
                             HtmlTemplate.element_template.format(  # noqa
                                 group_id=group + str(uuid.uuid4()),
                                 group=group,
-                                group_name=self.__group_map[group]["name"],
-                                group_description=self.__group_map[group][
-                                    "description"
-                                ],
+                                group_name=self.group_map[group]["name"],
+                                group_description=self.group_map[group]["description"],
                                 xr_data=xr_data,
                             )
                         )
@@ -98,8 +98,7 @@ class EchoData:
         return html_repr
 
     def __setup_groups(self):
-        self.__group_map = OrderedDict(_get_convention()["groups"])
-        for group in self.__group_map.keys():
+        for group in self.group_map.keys():
             setattr(self, group, None)
 
     def __read_converted(self, converted_raw_path):
@@ -113,7 +112,7 @@ class EchoData:
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
-        for group in new_cls.__group_map.keys():
+        for group in new_cls.group_map.keys():
             if hasattr(convert_obj, group):
                 setattr(new_cls, group, getattr(convert_obj, group))
 
@@ -123,7 +122,7 @@ class EchoData:
 
     def _load_file(self, raw_path):
         """Lazy load Top-level, Beam, Environment, and Vendor groups from raw file."""
-        for group, value in self.__group_map.items():
+        for group, value in self.group_map.items():
             # EK80 data may have a Beam_power group if both complex and power data exist.
             # ADCP data adds a Beam_complex group
             ds = None
@@ -142,7 +141,7 @@ class EchoData:
                 setattr(self, group, ds)
 
     def _check_path(self, filepath):
-        """ Check if converted_raw_path exists """
+        """Check if converted_raw_path exists"""
         file_exists = check_file_existance(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
@@ -152,7 +151,7 @@ class EchoData:
         return filepath
 
     def _check_suffix(self, filepath):
-        """ Check if file type is supported. """
+        """Check if file type is supported."""
         # TODO: handle multiple files through the same set of checks for combining files
         if isinstance(filepath, fsspec.FSMap):
             suffix = Path(filepath.root).suffix
@@ -165,7 +164,7 @@ class EchoData:
         return suffix
 
     def _load_group(self, filepath, group=None):
-        """ Loads each echodata group """
+        """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
         return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
