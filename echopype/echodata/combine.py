@@ -44,7 +44,10 @@ def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
     result = EchoData()
     for group in EchoData.group_map:
         if group.casefold() in ("top", "sonar"):
-            combined_group = getattr(echodatas[0], group)
+            if len(echodatas) == 0:
+                combined_group = None
+            else:
+                combined_group = getattr(echodatas[0], group)
         elif group.casefold() == "provenance":
             combined_group = assemble_combined_provenance(
                 echodata.source_file for echodata in echodatas
@@ -55,6 +58,9 @@ def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
                 for echodata in echodatas
                 if getattr(echodata, group) is not None
             ]
+            if len(group_datasets) == 0:
+                setattr(result, group, None)
+                continue
             group_datasets = union_attrs(group_datasets)
 
             if group.casefold() == "platform":
@@ -62,10 +68,10 @@ def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
                     concat_dim = [None]
                     data_vars = "all"
                 elif sonar_model == "EK60":
-                    concat_dim = ["location_time", "ping_time"]
+                    concat_dim = [["location_time", "ping_time"]]
                     data_vars = "minimal"
                 elif sonar_model in ("EK80", "EA640"):
-                    concat_dim = ["location_time", "mru_time"]
+                    concat_dim = [["location_time", "mru_time"]]
                     data_vars = "minimal"
                 elif sonar_model == "AD2CP":
                     concat_dim = "ping_time"
@@ -75,7 +81,7 @@ def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
                 data_vars = "minimal"
             elif group.casefold() == "vendor":
                 if sonar_model == "AZFP":
-                    concat_dim = ["ping_time", "frequency"]
+                    concat_dim = [["ping_time", "frequency"]]
                     data_vars = "minimal"
                 else:
                     concat_dim = [None]
