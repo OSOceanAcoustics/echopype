@@ -1,12 +1,10 @@
-import os
 from typing import List, Optional
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 
+from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase, set_encodings
-from .parse_ad2cp import HeaderOrDataRecordFormats, Ad2cpDataPacket, Field
-from ..utils import io
 
 
 def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
@@ -80,7 +78,10 @@ class SetGroupsAd2cp(SetGroupsBase):
                             tuple(dim.value for dim in dims),
                             [field_value],
                         )
-                coords = {"ping_time": [packet.timestamp], ping_time_dim: [packet.timestamp]}
+                coords = {
+                    "ping_time": [packet.timestamp],
+                    ping_time_dim: [packet.timestamp],
+                }
                 if "beams" in packet.data_exclude:
                     coords["beam"] = packet.data_exclude["beams"]
                 new_packet = xr.Dataset(data_vars=data_vars, coords=coords)
@@ -89,13 +90,13 @@ class SetGroupsAd2cp(SetGroupsBase):
                 packets[i] = new_packet
             if len(packets) > 0:
                 packets = merge_attrs(packets)
-                return xr.concat(
-                    packets, dim="ping_time", combine_attrs="override"
-                )
+                return xr.concat(packets, dim="ping_time", combine_attrs="override")
             else:
                 return None
 
-        burst_ds = make_dataset(self.parser_obj.burst_packets, ping_time_dim="ping_time_burst")
+        burst_ds = make_dataset(
+            self.parser_obj.burst_packets, ping_time_dim="ping_time_burst"
+        )
         average_ds = make_dataset(
             self.parser_obj.average_packets, ping_time_dim="ping_time_average"
         )
@@ -103,7 +104,8 @@ class SetGroupsAd2cp(SetGroupsBase):
             self.parser_obj.echosounder_packets, ping_time_dim="ping_time_echosounder"
         )
         echosounder_raw_ds = make_dataset(
-            self.parser_obj.echosounder_raw_packets, ping_time_dim="ping_time_echosounder_raw"
+            self.parser_obj.echosounder_raw_packets,
+            ping_time_dim="ping_time_echosounder_raw",
         )
         echosounder_raw_transmit_ds = make_dataset(
             self.parser_obj.echosounder_raw_transmit_packets,

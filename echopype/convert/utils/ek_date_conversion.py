@@ -10,8 +10,8 @@ TODO: fix docstring
 """
 
 import datetime
-from pytz import utc as pytz_utc
 
+from pytz import utc as pytz_utc
 
 # NT epoch is Jan 1st 1601
 UTC_NT_EPOCH = datetime.datetime(1601, 1, 1, 0, 0, 0, tzinfo=pytz_utc)
@@ -20,7 +20,7 @@ UTC_UNIX_EPOCH = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=pytz_utc)
 
 EPOCH_DELTA_SECONDS = (UTC_UNIX_EPOCH - UTC_NT_EPOCH).total_seconds()
 
-__all__ = ['nt_to_unix', 'unix_to_nt']
+__all__ = ["nt_to_unix", "unix_to_nt"]
 
 
 def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
@@ -119,7 +119,6 @@ def unix_to_datetime(unix_timestamp):
     >>> assert epoch == datetime(1970, 1, 1, tzinfo=utc)
     """
 
-
     if isinstance(unix_timestamp, datetime.datetime):
         if unix_timestamp.tzinfo is None:
             unix_datetime = pytz_utc.localize(unix_timestamp)
@@ -131,12 +130,16 @@ def unix_to_datetime(unix_timestamp):
             unix_datetime = pytz_utc.normalize(unix_timestamp.astimezone(pytz_utc))
 
     elif isinstance(unix_timestamp, float):
-        unix_datetime = pytz_utc.localize(datetime.datetime.fromtimestamp(unix_timestamp))
+        unix_datetime = pytz_utc.localize(
+            datetime.datetime.fromtimestamp(unix_timestamp)
+        )
 
     else:
-        errstr = 'Looking for a timestamp of type datetime.datetime or # of sec past unix epoch.\n'
-        errstr += 'Supplied timestamp \'%s\' of type %s.' % \
-            (str(unix_timestamp), type(unix_timestamp))
+        errstr = "Looking for a timestamp of type datetime.datetime or # of sec past unix epoch.\n"
+        errstr += "Supplied timestamp '%s' of type %s." % (
+            str(unix_timestamp),
+            type(unix_timestamp),
+        )
         raise ValueError(errstr)
 
     return unix_datetime
@@ -160,5 +163,3 @@ def datetime_to_unix(datetime_obj):
     timestamp = (datetime_obj - UTC_UNIX_EPOCH).total_seconds()
 
     return timestamp
-
-

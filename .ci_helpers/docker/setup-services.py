@@ -3,26 +3,26 @@
 Script to help bring up docker services for testing.
 
 """
+import argparse
 import os
 import shutil
 import sys
 from pathlib import Path
-import argparse
 
-HERE = Path('.').absolute()
+HERE = Path(".").absolute()
 BASE = Path(__file__).parent.absolute()
 COMPOSE_FILE = BASE / "docker-compose.yaml"
 TEST_DATA_PATH = HERE / "echopype" / "test_data"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Setup services for testing')
+    parser = argparse.ArgumentParser(description="Setup services for testing")
     parser.add_argument(
-        '--deploy', action='store_true', help="Flag to setup docker services"
+        "--deploy", action="store_true", help="Flag to setup docker services"
     )
     parser.add_argument(
-        '--tear-down',
-        action='store_true',
+        "--tear-down",
+        action="store_true",
         help="Flag to tear down docker services",
     )
 
@@ -48,7 +48,9 @@ if __name__ == "__main__":
         os.system(f"docker-compose -f {COMPOSE_FILE} pull")
 
         print("3) Bringing up services.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate")
+        os.system(
+            f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate"
+        )
 
         print(f"4) Deleting old test folder at {TEST_DATA_PATH}")
         if TEST_DATA_PATH.exists():

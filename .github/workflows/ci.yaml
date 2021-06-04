@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - dev
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
@@ -49,6 +50,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Cache conda
         uses: actions/cache@v2
         env:
@@ -83,10 +87,18 @@ jobs:
       - name: Running All Tests
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --local --pytest-args="--log-cli-level=WARNING,-vv,--disable-warnings" |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --local --pytest-args="--cov=echopype,--cov-report=xml,--log-cli-level=WARNING,-vv,--disable-warnings" |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2
         with:
           name: ci_test_log
           path: ci_test_log.log
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          name: codecov-umbrella
+          fail_ci_if_error: false

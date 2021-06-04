@@ -1,15 +1,15 @@
 import uuid
+import warnings
 from collections import OrderedDict
 from html import escape
 from pathlib import Path
-import warnings
-import fsspec
 
+import fsspec
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
+from ..utils.io import check_file_existance, sanitize_file_path
 from ..utils.repr import HtmlTemplate
-from ..utils.io import sanitize_file_path, check_file_existance
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP = {
@@ -24,12 +24,12 @@ class EchoData:
     """
 
     def __init__(
-            self,
-            converted_raw_path=None,
-            storage_options=None,
-            source_file=None,
-            xml_path=None,
-            sonar_model=None,
+        self,
+        converted_raw_path=None,
+        storage_options=None,
+        source_file=None,
+        xml_path=None,
+        sonar_model=None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -78,7 +78,9 @@ class EchoData:
                                 group_id=group + str(uuid.uuid4()),
                                 group=group,
                                 group_name=self.__group_map[group]["name"],
-                                group_description=self.__group_map[group]["description"],
+                                group_description=self.__group_map[group][
+                                    "description"
+                                ],
                                 xr_data=xr_data,
                             )
                         )
@@ -141,20 +143,12 @@ class EchoData:
 
     def _check_path(self, filepath):
         """ Check if converted_raw_path exists """
-        file_exists = check_file_existance(
-            filepath,
-            self.storage_options
-        )
+        file_exists = check_file_existance(filepath, self.storage_options)
         if not file_exists:
-            raise FileNotFoundError(
-                f"There is no file named {filepath}"
-            )
+            raise FileNotFoundError(f"There is no file named {filepath}")
 
     def _sanitize_path(self, filepath):
-        filepath = sanitize_file_path(
-            filepath,
-            self.storage_options
-        )
+        filepath = sanitize_file_path(filepath, self.storage_options)
         return filepath
 
     def _check_suffix(self, filepath):
@@ -173,11 +167,7 @@ class EchoData:
     def _load_group(self, filepath, group=None):
         """ Loads each echodata group """
         suffix = self._check_suffix(filepath)
-        return xr.open_dataset(
-            filepath,
-            group=group,
-            engine=XARRAY_ENGINE_MAP[suffix]
-        )
+        return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
     def to_netcdf(self, save_path=None, **kwargs):
         """Save content of EchoData to netCDF.
@@ -231,11 +221,11 @@ class EchoData:
             DeprecationWarning,
             2,
         )
-        if self.converted_raw_path.endswith('.nc'):
+        if self.converted_raw_path.endswith(".nc"):
             return self.converted_raw_path
         else:
             path = Path(self.converted_raw_path)
-            return str(path.parent / (path.stem + '.nc'))
+            return str(path.parent / (path.stem + ".nc"))
 
     @property
     def zarr_path(self):
@@ -244,15 +234,13 @@ class EchoData:
             DeprecationWarning,
             2,
         )
-        if self.converted_raw_path.endswith('.zarr'):
+        if self.converted_raw_path.endswith(".zarr"):
             return self.converted_raw_path
         else:
             path = Path(self.converted_raw_path)
-            return str(path.parent / (path.stem + '.zarr'))
+            return str(path.parent / (path.stem + ".zarr"))
 
-    def raw2nc(
-        self, save_path=None, combine_opt=False, overwrite=False, compress=True
-    ):
+    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
         warnings.warn(
             "`raw2nc` is deprecated, use `to_netcdf` instead.",
             DeprecationWarning,
