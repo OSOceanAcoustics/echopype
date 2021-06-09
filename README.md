@@ -35,7 +35,7 @@ at SciPy 2019 for background, discussions and a quick demo!
 
 ## Documentation
 
-Learn more about echopype in the official documentation at https://echopype.readthedocs.io
+Learn more about echopype in the official documentation at https://echopype.readthedocs.io. Check out executable examples in the companion repository https://github.com/OSOceanAcoustics/echopype-examples.
 
 
 ## Contributing
