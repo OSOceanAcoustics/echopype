@@ -1,5 +1,15 @@
 from typing import Literal
 
+# avoid circular imports
+from .convert.parse_ad2cp import ParseAd2cp
+from .convert.parse_azfp import ParseAZFP
+from .convert.parse_ek60 import ParseEK60
+from .convert.parse_ek80 import ParseEK80
+from .convert.set_groups_ad2cp import SetGroupsAd2cp
+from .convert.set_groups_azfp import SetGroupsAZFP
+from .convert.set_groups_ek60 import SetGroupsEK60
+from .convert.set_groups_ek80 import SetGroupsEK80
+
 # from .convert import (
 #     ParseAZFP,
 #     SetGroupsAZFP,
@@ -11,15 +21,6 @@ from typing import Literal
 #     SetGroupsAd2cp,
 # )
 
-# avoid circular imports
-from .convert.parse_ad2cp import ParseAd2cp
-from .convert.parse_azfp import ParseAZFP
-from .convert.parse_ek60 import ParseEK60
-from .convert.parse_ek80 import ParseEK80
-from .convert.set_groups_ad2cp import SetGroupsAd2cp
-from .convert.set_groups_azfp import SetGroupsAZFP
-from .convert.set_groups_ek60 import SetGroupsEK60
-from .convert.set_groups_ek80 import SetGroupsEK80
 
 SONAR_MODELS = {
     "AZFP": {

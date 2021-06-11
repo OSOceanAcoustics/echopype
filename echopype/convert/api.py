@@ -7,10 +7,9 @@ import fsspec
 import zarr
 from fsspec.implementations.local import LocalFileSystem
 
+from ..core import SONAR_MODELS
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
-from ..core import SONAR_MODELS
-
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -451,7 +450,7 @@ def open_raw(
         # Check models
         if sonar_model not in SONAR_MODELS:
             raise ValueError(
-                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"
+                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
             )
 
     # Check paths and file types

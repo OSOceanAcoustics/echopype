@@ -1,11 +1,11 @@
 import warnings
 from datetime import datetime
 from typing import List
-from echopype.core import SONAR_MODELS
 
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
+from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from .echodata import EchoData
 
@@ -94,7 +94,10 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                 group, SONAR_MODELS[sonar_model]["concat_data_vars"]["default"]
             )
             combined_group = xr.combine_nested(
-                group_datasets, [concat_dim], data_vars=concat_data_vars, coords="minimal"
+                group_datasets,
+                [concat_dim],
+                data_vars=concat_data_vars,
+                coords="minimal",
             )
 
             if group == "beam":
