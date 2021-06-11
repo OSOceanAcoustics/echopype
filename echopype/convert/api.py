@@ -9,47 +9,8 @@ from fsspec.implementations.local import LocalFileSystem
 
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
-from .parse_ad2cp import ParseAd2cp
-from .parse_azfp import ParseAZFP
-from .parse_ek60 import ParseEK60
-from .parse_ek80 import ParseEK80
-from .set_groups_ad2cp import SetGroupsAd2cp
-from .set_groups_azfp import SetGroupsAZFP
-from .set_groups_ek60 import SetGroupsEK60
-from .set_groups_ek80 import SetGroupsEK80
+from ..core import SONAR_MODELS
 
-MODELS = {
-    "AZFP": {
-        "ext": ".01A",
-        "xml": True,
-        "parser": ParseAZFP,
-        "set_groups": SetGroupsAZFP,
-    },
-    "EK60": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK60,
-        "set_groups": SetGroupsEK60,
-    },
-    "EK80": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80,
-    },
-    "EA640": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80,
-    },
-    "AD2CP": {
-        "ext": ".ad2cp",
-        "xml": False,
-        "parser": ParseAd2cp,
-        "set_groups": SetGroupsAd2cp,
-    },
-}
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -400,7 +361,7 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
         path to existing xml file
         empty string if no xml file is required for the specified model
     """
-    if MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
+    if SONAR_MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
             raise ValueError(f"XML file is required for {sonar_model} raw data")
         else:
@@ -418,7 +379,7 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
-    ext = MODELS[sonar_model]["ext"]
+    ext = SONAR_MODELS[sonar_model]["ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(f"There is no file named {Path(raw_file).name}")
 
@@ -488,9 +449,9 @@ def open_raw(
         sonar_model = sonar_model.upper()
 
         # Check models
-        if sonar_model not in MODELS:
+        if sonar_model not in SONAR_MODELS:
             raise ValueError(
-                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(MODELS)}"
+                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"
             )
 
     # Check paths and file types
@@ -508,17 +469,17 @@ def open_raw(
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
-    if MODELS[sonar_model]["xml"]:
+    if SONAR_MODELS[sonar_model]["xml"]:
         params = xml_chk
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
     # Parse raw file and organize data into groups
-    parser = MODELS[sonar_model]["parser"](
+    parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk, params=params, storage_options=storage_options
     )
     parser.parse_raw()
-    setgrouper = MODELS[sonar_model]["set_groups"](
+    setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
         output_path=None,

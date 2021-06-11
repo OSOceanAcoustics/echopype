@@ -1,6 +1,7 @@
 import warnings
 from datetime import datetime
 from typing import List
+from echopype.core import SONAR_MODELS
 
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -24,33 +25,56 @@ def union_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
 
 
 def assemble_combined_provenance(input_paths):
-    prov_dict = {
-        "conversion_software_name": "echopype",
-        "conversion_software_version": ECHOPYPE_VERSION,
-        "conversion_time": datetime.utcnow().isoformat(timespec="seconds")
-        + "Z",  # use UTC time
-        "src_filenames": input_paths,
-    }
-    ds = xr.Dataset()
-    return ds.assign_attrs(prov_dict)
+    return xr.Dataset(
+        data_vars={
+            "src_filenames": ("file", input_paths),
+        },
+        attrs={
+            "conversion_software_name": "echopype",
+            "conversion_software_version": ECHOPYPE_VERSION,
+            "conversion_time": datetime.utcnow().isoformat(timespec="seconds")
+            + "Z",  # use UTC time
+        },
+    )
 
 
-def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
+def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     """
     Combines multiple echodata objects into a single EchoData by combining
         their groups individually.
+
+    If echodatas contain EchoData objects with different or None sonar_models,
+        a ValueError is raised.
     """
 
     result = EchoData()
+    if len(echodatas) == 0:
+        return result
+
+    sonar_model = None
+    for echodata in echodatas:
+        if echodata.sonar_model is None:
+            raise ValueError(
+                "all EchoData objects must have non-None sonar_model values"
+            )
+        elif sonar_model is None:
+            sonar_model = echodata.sonar_model
+        elif echodata.sonar_model != sonar_model:
+            raise ValueError(
+                "all EchoData objects must have the same sonar_model value"
+            )
+
     for group in EchoData.group_map:
-        if group.casefold() in ("top", "sonar"):
-            if len(echodatas) == 0:
-                combined_group = None
-            else:
-                combined_group = getattr(echodatas[0], group)
-        elif group.casefold() == "provenance":
+        if group in ("top", "sonar"):
+            combined_group = getattr(echodatas[0], group)
+        elif group == "provenance":
             combined_group = assemble_combined_provenance(
-                echodata.source_file for echodata in echodatas
+                [
+                    echodata.source_file
+                    if echodata.source_file is not None
+                    else echodata.converted_raw_path
+                    for echodata in echodatas
+                ]
             )
         else:
             group_datasets = [
@@ -63,38 +87,17 @@ def _combine_echodata(echodatas: List[EchoData], sonar_model) -> EchoData:
                 continue
             group_datasets = union_attrs(group_datasets)
 
-            if group.casefold() == "platform":
-                if sonar_model == "AZFP":
-                    concat_dim = [None]
-                    data_vars = "all"
-                elif sonar_model == "EK60":
-                    concat_dim = [["location_time", "ping_time"]]
-                    data_vars = "minimal"
-                elif sonar_model in ("EK80", "EA640"):
-                    concat_dim = [["location_time", "mru_time"]]
-                    data_vars = "minimal"
-                elif sonar_model == "AD2CP":
-                    concat_dim = "ping_time"
-                    data_vars = "minimal"
-            elif group.casefold() == "nmea":
-                concat_dim = "location_time"
-                data_vars = "minimal"
-            elif group.casefold() == "vendor":
-                if sonar_model == "AZFP":
-                    concat_dim = [["ping_time", "frequency"]]
-                    data_vars = "minimal"
-                else:
-                    concat_dim = [None]
-                    data_vars = "minimal"
-            else:
-                # eg beam, environment, beam_complex
-                concat_dim = "ping_time"
-                data_vars = "minimal"
+            concat_dim = SONAR_MODELS[sonar_model]["concat_dims"].get(
+                group, SONAR_MODELS[sonar_model]["concat_dims"]["default"]
+            )
+            concat_data_vars = SONAR_MODELS[sonar_model]["concat_data_vars"].get(
+                group, SONAR_MODELS[sonar_model]["concat_data_vars"]["default"]
+            )
             combined_group = xr.combine_nested(
-                group_datasets, concat_dim, data_vars=data_vars
+                group_datasets, [concat_dim], data_vars=concat_data_vars, coords="minimal"
             )
 
-            if group.casefold() == "beam":
+            if group == "beam":
                 if sonar_model == "EK80":
                     combined_group["transceiver_software_version"] = combined_group[
                         "transceiver_software_version"
