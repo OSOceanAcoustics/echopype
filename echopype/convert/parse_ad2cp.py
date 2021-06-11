@@ -111,6 +111,11 @@ class Dimension(Enum):
     """
 
     TIME = "ping_time"
+    TIME_AVERAGE = "ping_time_average"
+    TIME_BURST = "ping_time_burst"
+    TIME_ECHOSOUNDER = "ping_time_echosounder"
+    TIME_ECHOSOUNDER_RAW = "ping_time_echosounder_raw"
+    TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time_echosounder_raw_transmit"
     BEAM = "beam"
     RANGE_BIN_BURST = "range_bin_burst"
     RANGE_BIN_AVERAGE = "range_bin_average"
@@ -1084,19 +1089,6 @@ class HeaderOrDataRecordFormats:
             F("velocity_scaling", 1, SIGNED_INTEGER),
             F("power_level", 1, SIGNED_INTEGER, field_units="dB"),
             F(None, 4, UNSIGNED_INTEGER),
-            # F( # used when other
-            #     "velocity_data",
-            #     2,
-            #     SIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_unit_conversion=lambda packet, x: x *
-            #     (10 ** packet.data["velocity_scaling"]),
-            #     field_exists_predicate=lambda packet: packet.is_other()
-            #     and packet.data["velocity_data_included"]
-            # ),
             F(  # used when burst
                 "velocity_data_burst",
                 2,
@@ -1106,7 +1098,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1125,7 +1117,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1144,7 +1136,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1154,18 +1146,6 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["velocity_data_included"],
             ),
-            # F(
-            #     "amplitude_data",
-            #     1,
-            #     UNSIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_unit_conversion=lambda packet, x: x / 2,
-            #     field_exists_predicate=lambda packet: not packet.is_burst()
-            #     and not packet.is_average() and packet.data["amplitude_data_included"]
-            # ),
             F(
                 "amplitude_data_burst",
                 1,
@@ -1175,7 +1155,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1193,7 +1173,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1211,7 +1191,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1220,17 +1200,6 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["amplitude_data_included"],
             ),
-            # F(
-            #     "correlation_data",
-            #     1,
-            #     UNSIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_exists_predicate=lambda packet: not packet.is_burst()
-            #         and not packet.is_average() and packet.data["correlation_data_included"]
-            # ),
             F(
                 "correlation_data_burst",
                 1,
@@ -1240,7 +1209,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1257,7 +1226,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1274,7 +1243,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1412,19 +1381,6 @@ class HeaderOrDataRecordFormats:
             F("status0", 2, UNSIGNED_INTEGER),
             F("status", 4, UNSIGNED_INTEGER),
             F("ensemble_counter", 4, UNSIGNED_INTEGER),
-            # F(
-            #     "velocity_data",
-            #     2,
-            #     SIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_unit_conversion=lambda packet, x: x * \
-            #     (10 ** packet.data["velocity_scaling"]),
-            #     field_exists_predicate=lambda packet: not packet.is_burst()
-            #     and not packet.is_average() and packet.data["velocity_data_included"]
-            # ),
             F(
                 "velocity_data_burst",
                 2,
@@ -1434,7 +1390,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1453,7 +1409,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1472,7 +1428,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1482,17 +1438,6 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["velocity_data_included"],
             ),
-            # F(
-            #     "amplitude_data",
-            #     1,
-            #     UNSIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_unit_conversion=lambda packet, x: x / 2,
-            #     field_exists_predicate=lambda packet: packet.data["amplitude_data_included"]
-            # ),
             F(
                 "amplitude_data_burst",
                 1,
@@ -1502,7 +1447,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1520,7 +1465,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1538,7 +1483,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1547,16 +1492,6 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: packet.is_echosounder()
                 and packet.data["amplitude_data_included"],
             ),
-            # F(
-            #     "correlation_data",
-            #     1,
-            #     UNSIGNED_INTEGER,
-            #     field_shape=lambda packet: [
-            #         packet.data.get("num_beams", 0), packet.data.get("num_cells", 0)],
-            #     field_dimensions=lambda data_record_type: [
-            #         Dimension.TIME, Dimension.BEAM, range_bin(data_record_type)],
-            #     field_exists_predicate=lambda packet: packet.data["correlation_data_included"]
-            # ),
             F(
                 "correlation_data_burst",
                 1,
@@ -1566,7 +1501,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_BURST,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1583,7 +1518,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -1600,7 +1535,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     range_bin(data_record_type),
                 ],
@@ -2052,7 +1987,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 SIGNED_FRACTION,
                 field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw(),
             ),
             # These next 2 fields are included so that the dimensions
@@ -2064,14 +1999,14 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_samples_r",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
                 "echosounder_raw_samples_i",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
@@ -2079,7 +2014,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 SIGNED_FRACTION,
                 field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT, Dimension.SAMPLE_TRANSMIT],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw_transmit(),
             ),
             # These next 2 fields are included so that the dimensions
@@ -2091,14 +2026,14 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_transmit_samples_r",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT, Dimension.SAMPLE_TRANSMIT],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
                 "echosounder_raw_transmit_samples_i",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME, Dimension.SAMPLE_TRANSMIT],
+                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT, Dimension.SAMPLE_TRANSMIT],
                 field_exists_predicate=lambda packet: False,
             ),
         ]

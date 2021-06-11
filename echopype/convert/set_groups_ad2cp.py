@@ -90,7 +90,12 @@ class SetGroupsAd2cp(SetGroupsBase):
                 packets[i] = new_packet
             if len(packets) > 0:
                 packets = merge_attrs(packets)
-                return xr.concat(packets, dim="ping_time", combine_attrs="override")
+                return xr.combine_by_coords(
+                    packets,
+                    data_vars="minimal",
+                    coords="minimal",
+                    combine_attrs="override",
+                )
             else:
                 return None
 
