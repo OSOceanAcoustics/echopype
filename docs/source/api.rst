@@ -36,6 +36,7 @@ EchoData class
       :members:
 
 .. automodapi:: echopype.echodata
+   :include-all-objects:
    :no-inheritance-diagram:
    :no-heading:
 
@@ -47,6 +48,7 @@ calibrate
 ^^^^^^^^^
 
 .. automodapi:: echopype.calibrate
+   :include-all-objects:
    :no-inheritance-diagram:
    :no-heading:
 
@@ -54,6 +56,7 @@ preprocess
 ^^^^^^^^^^
 
 .. automodapi:: echopype.preprocess
+   :include-all-objects:
    :no-inheritance-diagram:
    :no-heading:
 
@@ -61,6 +64,7 @@ preprocess
 Utilities
 ---------
 .. automodapi:: echopype.utils.uwa
+   :include-all-objects:
    :no-inheritance-diagram:
    :members: calc_absorption, calc_sound_speed
    :no-heading:
