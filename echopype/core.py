@@ -1,6 +1,5 @@
-from typing import Literal
+# from typing import Literal
 
-# avoid circular imports
 from .convert.parse_ad2cp import ParseAd2cp
 from .convert.parse_azfp import ParseAZFP
 from .convert.parse_ek60 import ParseEK60
@@ -9,18 +8,6 @@ from .convert.set_groups_ad2cp import SetGroupsAd2cp
 from .convert.set_groups_azfp import SetGroupsAZFP
 from .convert.set_groups_ek60 import SetGroupsEK60
 from .convert.set_groups_ek80 import SetGroupsEK80
-
-# from .convert import (
-#     ParseAZFP,
-#     SetGroupsAZFP,
-#     ParseEK60,
-#     SetGroupsEK60,
-#     ParseEK80,
-#     SetGroupsEK80,
-#     ParseAd2cp,
-#     SetGroupsAd2cp,
-# )
-
 
 SONAR_MODELS = {
     "AZFP": {
@@ -101,4 +88,4 @@ SONAR_MODELS = {
     },
 }
 # Please update keep this updated with the keys of the SONAR_MODELS dict
-SONAR_MODELS_TYPE_HINT = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
+# SONAR_MODELS_TYPE_HINT = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
