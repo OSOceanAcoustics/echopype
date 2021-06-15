@@ -134,7 +134,7 @@ class EchoData:
             except (OSError, GroupNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
-            if group == "top" and "keywords" in ds:
+            if group == "top" and hasattr(ds, "keywords"):
                 self.sonar_model = ds.keywords.upper()
 
             if isinstance(ds, xr.Dataset):
