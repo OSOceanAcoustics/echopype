@@ -285,7 +285,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path):
         xml_path=xml_path
     )
     ed.to_netcdf(overwrite=True)
-    for group, details in ed._EchoData__group_map.items():
+    for group, details in ed.group_map.items():
         if hasattr(ed, group):
             group_ds = getattr(ed, group)
             if isinstance(group_ds, xr.Dataset):

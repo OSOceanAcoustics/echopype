@@ -59,7 +59,7 @@ class TestEchoData:
             'vendor',
         ]
 
-        assert ed.sonar_model == 'EK60'
+        # assert ed.sonar_model == 'EK60'
         assert ed.converted_raw_path == self.converted_zarr
         assert ed.storage_options == {}
         for group in expected_groups:
