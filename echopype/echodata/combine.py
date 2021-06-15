@@ -123,6 +123,9 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                         )
                         coerce_increasing_time(combined_group)
 
+        if combined_group is not None:
+            # xarray inserts this dimension when concating along multiple dimensions
+            combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
         setattr(result, group, combined_group)
 
     return result
