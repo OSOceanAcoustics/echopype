@@ -4,6 +4,42 @@ What's new
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
 
+v0.5.1 (2021 Jun 16)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that addresses a couple of issues from the last major version (0.5.0) 
+and improves code maintenance and testing procedures.
+
+
+New features
+~~~~~~~~~~~~
+
+- Added experimental functions to detect and correct ``ping_time`` reversals. 
+  See `qc` subpackage (#297)
+
+
+Updates and bug fixes
+~~~~~~~~~~~~~~~~~~~~~
+
+- Fixed ADCP encoding issues (#361)
+- Updated ``SetGroupsBase`` to use 
+  `ABC (Abstract Base Classes) Interface <https://docs.python.org/3/library/abc.html>`_ (#366)
+- Whole code-base linted for pep8 (#317)
+- Removed old test data from the repository (#369)
+- Updated package dependencies (#365)
+- Simplified requirements for setting up local test environment (#375)
+
+
+CI improvements
+~~~~~~~~~~~~~~~
+
+- Added code coverage checking (#317)
+- Added version check for echopype install (#367, #370)
+
+
 v0.5.0 (2021 May 17)
 --------------------
 

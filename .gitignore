@@ -25,6 +25,8 @@ toolbox
 *.01A
 *.zarr
 *.xml
+*.ad2cp
+*.mat
 ek60/
 azfp/
 temp_echopype_output/
