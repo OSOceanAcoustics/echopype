@@ -102,22 +102,12 @@ def test_raw_output():
             if "090" in filepath.parts:
                 assert np.allclose(
                     echodata.beam_complex["echosounder_raw_transmit_samples_r"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
                     .data.flatten(),
                     base["DataI"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
                     echodata.beam_complex["echosounder_raw_transmit_samples_i"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
                     .data.flatten(),
                     base["DataQ"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
@@ -125,22 +115,12 @@ def test_raw_output():
             else:
                 assert np.allclose(
                     echodata.beam_complex["echosounder_raw_transmit_samples_r"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
                     .data.flatten(),
                     base["Data_I"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
                     echodata.beam_complex["echosounder_raw_transmit_samples_i"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
                     .data.flatten(),
                     base["Data_Q"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
@@ -154,14 +134,12 @@ def test_raw_output():
         if "090" in filepath.parts:
             assert np.allclose(
                 echodata.beam_complex["echosounder_raw_samples_r"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
                 .data.flatten(),
                 base["DataI"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
                 echodata.beam_complex["echosounder_raw_samples_i"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
                 .data.flatten(),
                 base["DataQ"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
@@ -170,14 +148,12 @@ def test_raw_output():
             # note the transpose
             assert np.allclose(
                 echodata.beam_complex["echosounder_raw_samples_r"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
                 .data.flatten(),
                 base["Data_I"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
                 echodata.beam_complex["echosounder_raw_samples_i"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
                 .data.flatten(),
                 base["Data_Q"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
