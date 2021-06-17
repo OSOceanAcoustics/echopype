@@ -1634,8 +1634,9 @@ class HeaderOrDataRecordFormats:
             F(
                 "echosounder_data",
                 2,
-                UNSIGNED_INTEGER,
-                # field_shape=lambda packet: [packet.data.get("num_cells", 0)],
+                # Although the specification says that this should be an unsigned integer,
+                # testing has shown that it should be a signed integer
+                SIGNED_INTEGER,
                 field_shape=lambda packet: [
                     packet.data.get("num_echosounder_cells", 0)
                 ],
