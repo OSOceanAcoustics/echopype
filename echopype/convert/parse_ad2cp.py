@@ -858,18 +858,18 @@ class Ad2cpDataPacket:
             == HeaderOrDataRecordFormats.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT
         ):
             if field_name == "echosounder_raw_samples":
-                self.data["echosounder_raw_samples_r"] = self.data[
+                self.data["echosounder_raw_samples_i"] = self.data[
                     "echosounder_raw_samples"
                 ][:, 0]
-                self.data["echosounder_raw_samples_i"] = self.data[
+                self.data["echosounder_raw_samples_q"] = self.data[
                     "echosounder_raw_samples"
                 ][:, 1]
                 del self.data["echosounder_raw_samples"]
             elif field_name == "echosounder_raw_transmit_samples":
-                self.data["echosounder_raw_transmit_samples_r"] = self.data[
+                self.data["echosounder_raw_transmit_samples_i"] = self.data[
                     "echosounder_raw_transmit_samples"
                 ][:, 0]
-                self.data["echosounder_raw_transmit_samples_i"] = self.data[
+                self.data["echosounder_raw_transmit_samples_q"] = self.data[
                     "echosounder_raw_transmit_samples"
                 ][:, 1]
                 del self.data["echosounder_raw_transmit_samples"]
@@ -1998,16 +1998,16 @@ class HeaderOrDataRecordFormats:
             # for this field can be determined
             # based on the field name ("echosounder_raw_samples" will be deleted later
             # and dimensions are looked up
-            # by "echosounder_raw_samples_r" and "echosounder_raw_samples_i")
+            # by "echosounder_raw_samples_i" and "echosounder_raw_samples_q")
             F(
-                "echosounder_raw_samples_r",
+                "echosounder_raw_samples_i",
                 0,
                 RAW_BYTES,
                 field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
-                "echosounder_raw_samples_i",
+                "echosounder_raw_samples_q",
                 0,
                 RAW_BYTES,
                 field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
@@ -2028,9 +2028,9 @@ class HeaderOrDataRecordFormats:
             # for this field can be determined
             # based on the field name ("echosounder_raw_transmit_samples"
             # will be deleted later and dimensions are looked up
-            # by "echosounder_raw_transmit_samples_r" and "echosounder_raw_transmit_samples_i")
+            # by "echosounder_raw_transmit_samples_i" and "echosounder_raw_transmit_samples_q")
             F(
-                "echosounder_raw_transmit_samples_r",
+                "echosounder_raw_transmit_samples_i",
                 0,
                 RAW_BYTES,
                 field_dimensions=[
@@ -2040,7 +2040,7 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: False,
             ),
             F(
-                "echosounder_raw_transmit_samples_i",
+                "echosounder_raw_transmit_samples_q",
                 0,
                 RAW_BYTES,
                 field_dimensions=[

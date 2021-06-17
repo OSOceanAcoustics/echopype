@@ -101,26 +101,26 @@ def test_raw_output():
             )
             if "090" in filepath.parts:
                 assert np.allclose(
-                    echodata.vendor["echosounder_raw_transmit_samples_r"]
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["DataI"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
-                    echodata.vendor["echosounder_raw_transmit_samples_i"]
+                    echodata.vendor["echosounder_raw_transmit_samples_q"]
                     .data.flatten(),
                     base["DataQ"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
             else:
                 assert np.allclose(
-                    echodata.vendor["echosounder_raw_transmit_samples_r"]
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["Data_I"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
-                    echodata.vendor["echosounder_raw_transmit_samples_i"]
+                    echodata.vendor["echosounder_raw_transmit_samples_q"]
                     .data.flatten(),
                     base["Data_Q"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
@@ -133,13 +133,13 @@ def test_raw_output():
         )
         if "090" in filepath.parts:
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_r"]
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["DataI"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_i"]
+                echodata.vendor["echosounder_raw_samples_q"]
                 .data.flatten(),
                 base["DataQ"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
@@ -147,13 +147,13 @@ def test_raw_output():
         else:
             # note the transpose
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_r"]
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["Data_I"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_i"]
+                echodata.vendor["echosounder_raw_samples_q"]
                 .data.flatten(),
                 base["Data_Q"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,

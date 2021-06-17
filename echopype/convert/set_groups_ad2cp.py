@@ -37,16 +37,16 @@ class SetGroupsAd2cp(SetGroupsBase):
         for packet in self.parser_obj.echosounder_raw_packets:
             # both _r and _i have same dimensions
             max_samples = max(
-                max_samples, packet.data["echosounder_raw_samples_r"].shape[0]
+                max_samples, packet.data["echosounder_raw_samples_i"].shape[0]
             )
         for packet in self.parser_obj.echosounder_raw_packets:
-            packet.data["echosounder_raw_samples_r"] = np.pad(
-                packet.data["echosounder_raw_samples_r"],
-                ((0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])),
-            )
             packet.data["echosounder_raw_samples_i"] = np.pad(
                 packet.data["echosounder_raw_samples_i"],
                 ((0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])),
+            )
+            packet.data["echosounder_raw_samples_q"] = np.pad(
+                packet.data["echosounder_raw_samples_q"],
+                ((0, max_samples - packet.data["echosounder_raw_samples_q"].shape[0])),
             )
 
         def make_dataset(
@@ -321,13 +321,13 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "std_dev_roll": self.ds.get("std_dev_roll"),
                 "std_dev_heading": self.ds.get("std_dev_heading"),
                 "std_dev_pressure": self.ds.get("std_dev_pressure"),
-                "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
                 "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
-                "echosounder_raw_transmit_samples_r": self.ds.get(
-                    "echosounder_raw_transmit_samples_r"
-                ),
+                "echosounder_raw_samples_q": self.ds.get("echosounder_raw_samples_q"),
                 "echosounder_raw_transmit_samples_i": self.ds.get(
                     "echosounder_raw_transmit_samples_i"
+                ),
+                "echosounder_raw_transmit_samples_q": self.ds.get(
+                    "echosounder_raw_transmit_samples_q"
                 ),
                 "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
                 "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
