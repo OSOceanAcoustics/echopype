@@ -82,7 +82,7 @@ The steps for performing these analyses are summarized below:
       ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
          ds_Sv,             # calibrated Sv dataset
          range_bin_num=30,  # number of samples along the range_bin dimension for estimating noise
-         ping_num=5         # number of pings for estimating noise
+         ping_num=5,        # number of pings for estimating noise
       )
 
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
