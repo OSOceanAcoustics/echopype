@@ -83,7 +83,7 @@ def test_raw_output():
                 if base.attrs[f"Instrument_echo_pulseComp{i}"]:
                     pulse_compressed = i
                     break
-        assert echodata.beam_complex.attrs["pulse_compressed"] == pulse_compressed
+        assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed
         base.close()
 
         # check raw data transmit samples
@@ -101,26 +101,26 @@ def test_raw_output():
             )
             if "090" in filepath.parts:
                 assert np.allclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_r"]
+                    echodata.vendor["echosounder_raw_transmit_samples_r"]
                     .data.flatten(),
                     base["DataI"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_i"]
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["DataQ"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
             else:
                 assert np.allclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_r"]
+                    echodata.vendor["echosounder_raw_transmit_samples_r"]
                     .data.flatten(),
                     base["Data_I"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
                 )
                 assert np.allclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_i"]
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["Data_Q"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
@@ -133,13 +133,13 @@ def test_raw_output():
         )
         if "090" in filepath.parts:
             assert np.allclose(
-                echodata.beam_complex["echosounder_raw_samples_r"]
+                echodata.vendor["echosounder_raw_samples_r"]
                 .data.flatten(),
                 base["DataI"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
-                echodata.beam_complex["echosounder_raw_samples_i"]
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["DataQ"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
@@ -147,13 +147,13 @@ def test_raw_output():
         else:
             # note the transpose
             assert np.allclose(
-                echodata.beam_complex["echosounder_raw_samples_r"]
+                echodata.vendor["echosounder_raw_samples_r"]
                 .data.flatten(),
                 base["Data_I"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
             )
             assert np.allclose(
-                echodata.beam_complex["echosounder_raw_samples_i"]
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["Data_Q"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,

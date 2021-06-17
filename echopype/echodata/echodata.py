@@ -126,7 +126,6 @@ class EchoData:
         """Lazy load Top-level, Beam, Environment, and Vendor groups from raw file."""
         for group, value in self.__group_map.items():
             # EK80 data may have a Beam_power group if both complex and power data exist.
-            # ADCP data adds a Beam_complex group
             ds = None
             try:
                 ds = self._load_group(

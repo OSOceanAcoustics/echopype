@@ -321,18 +321,34 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "std_dev_roll": self.ds.get("std_dev_roll"),
                 "std_dev_heading": self.ds.get("std_dev_heading"),
                 "std_dev_pressure": self.ds.get("std_dev_pressure"),
+                "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
+                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
+                "echosounder_raw_transmit_samples_r": self.ds.get(
+                    "echosounder_raw_transmit_samples_r"
+                ),
+                "echosounder_raw_transmit_samples_i": self.ds.get(
+                    "echosounder_raw_transmit_samples_i"
+                ),
+                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
+                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
                 "ping_time_burst": self.ds.get("ping_time_burst"),
                 "ping_time_average": self.ds.get("ping_time_average"),
                 "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
+                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
+                "ping_time_echosounder_raw_transmit": self.ds.get(
+                    "ping_time_echosounder_raw_transmit"
+                ),
+                "sample": self.ds.get("sample"),
+                "sample_transmit": self.ds.get("sample_transmit"),
                 "beam": self.ds.get("beam"),
                 "range_bin_average": self.ds.get("range_bin_average"),
                 "range_bin_burst": self.ds.get("range_bin_burst"),
                 "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
             },
-            attrs=attrs,
+            attrs={**attrs, "pulse_compressed": self.pulse_compressed},
         )
         ds = ds.reindex(
             {
@@ -349,33 +365,6 @@ class SetGroupsAd2cp(SetGroupsBase):
         if "ping_time" not in ds.dims:
             ds = ds.expand_dims(dim="ping_time")
 
-        return set_encodings(ds)
-
-    def set_beam_complex(self) -> xr.Dataset:
-        ds = xr.Dataset(
-            data_vars={
-                "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
-                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
-                "echosounder_raw_transmit_samples_r": self.ds.get(
-                    "echosounder_raw_transmit_samples_r"
-                ),
-                "echosounder_raw_transmit_samples_i": self.ds.get(
-                    "echosounder_raw_transmit_samples_i"
-                ),
-                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
-                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
-            },
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
-                "ping_time_echosounder_raw_transmit": self.ds.get(
-                    "ping_time_echosounder_raw_transmit"
-                ),
-                "sample": self.ds.get("sample"),
-                "sample_transmit": self.ds.get("sample_transmit"),
-            },
-            attrs={"pulse_compressed": self.pulse_compressed},
-        )
         return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
