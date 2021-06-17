@@ -206,7 +206,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             "velocity_scaling": self.ds.get("velocity_scaling"),
             "velocity_burst": self.ds.get("velocity_data_burst"),
             "velocity_average": self.ds.get("velocity_data_average"),
-            "velocity_echosounder": self.ds.get("velocity_data_echosounder"),
+            # "velocity_echosounder": self.ds.get("velocity_data_echosounder"),
             "amplitude_burst": self.ds.get("amplitude_data_burst"),
             "amplitude_average": self.ds.get("amplitude_data_average"),
             "amplitude_echosounder": self.ds.get("amplitude_data_echosounder"),

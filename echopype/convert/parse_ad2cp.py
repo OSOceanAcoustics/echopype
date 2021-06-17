@@ -1131,25 +1131,25 @@ class HeaderOrDataRecordFormats:
                     field_exists_predicate=lambda packet: packet.is_average()
                     and packet.data["velocity_data_included"],
                 ),
-                F(  # used when echosounder
-                    "velocity_data_echosounder",
-                    2,
-                    SIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_ECHOSOUNDER,
-                        Dimension.BEAM,
-                        range_bin(data_record_type),
-                    ],
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
-                    field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["velocity_data_included"],
-                ),
+                # F(  # used when echosounder
+                #     "velocity_data_echosounder",
+                #     2,
+                #     SIGNED_INTEGER,
+                #     field_shape=lambda packet: [
+                #         packet.data.get("num_beams", 0),
+                #         packet.data.get("num_cells", 0),
+                #     ],
+                #     field_dimensions=lambda data_record_type: [
+                #         Dimension.TIME_ECHOSOUNDER,
+                #         Dimension.BEAM,
+                #         range_bin(data_record_type),
+                #     ],
+                #     field_units="m/s",
+                #     field_unit_conversion=lambda packet, x: x
+                #     * (10.0 ** packet.data["velocity_scaling"]),
+                #     field_exists_predicate=lambda packet: packet.is_echosounder()
+                #     and packet.data["velocity_data_included"],
+                # ),
                 F(
                     "amplitude_data_burst",
                     1,
@@ -1424,25 +1424,25 @@ class HeaderOrDataRecordFormats:
                 field_exists_predicate=lambda packet: packet.is_average()
                 and packet.data["velocity_data_included"],
             ),
-            F(
-                "velocity_data_echosounder",
-                2,
-                SIGNED_INTEGER,
-                field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
-                ],
-                field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_ECHOSOUNDER,
-                    Dimension.BEAM,
-                    range_bin(data_record_type),
-                ],
-                field_units="m/s",
-                field_unit_conversion=lambda packet, x: x
-                * (10.0 ** packet.data["velocity_scaling"]),
-                field_exists_predicate=lambda packet: packet.is_echosounder()
-                and packet.data["velocity_data_included"],
-            ),
+            # F(
+            #     "velocity_data_echosounder",
+            #     2,
+            #     SIGNED_INTEGER,
+            #     field_shape=lambda packet: [
+            #         packet.data.get("num_beams", 0),
+            #         packet.data.get("num_cells", 0),
+            #     ],
+            #     field_dimensions=lambda data_record_type: [
+            #         Dimension.TIME_ECHOSOUNDER,
+            #         Dimension.BEAM,
+            #         range_bin(data_record_type),
+            #     ],
+            #     field_units="m/s",
+            #     field_unit_conversion=lambda packet, x: x
+            #     * (10.0 ** packet.data["velocity_scaling"]),
+            #     field_exists_predicate=lambda packet: packet.is_echosounder()
+            #     and packet.data["velocity_data_included"],
+            # ),
             F(
                 "amplitude_data_burst",
                 1,
