@@ -51,7 +51,7 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     -------
     EchoData
         An `EchoData` object with all of the data from the input `EchoData` objects combined.
-    
+
     Raises
     ------
     ValueError
@@ -62,10 +62,10 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     -----
     UserWarning
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData` object
-        will be increased starting at the timestamp where the reversal occurs such that all `ping_time`s 
-        in the output are monotonically increasing.
-    
+        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData`
+        object will be increased starting at the timestamp where the reversal occurs such that all
+        `ping_time`s in the output are monotonically increasing.
+
     Notes
     -----
     `EchoData` objects are combined by combining their groups individually.

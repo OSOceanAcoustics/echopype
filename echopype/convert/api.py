@@ -2,12 +2,16 @@ import os
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 import fsspec
 import zarr
 from fsspec.implementations.local import LocalFileSystem
 
-from ..core import SONAR_MODELS
+# fmt: off
+# black and isort have conflicting ideas about how this should be formatted
+from ..core import EngineHint, FileFormatHint, PathHint, SONAR_MODELS, SonarModelsHint
+# fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
 
@@ -28,7 +32,12 @@ def _normalize_path(out_f, convert_type, output_storage_options):
         return out_f
 
 
-def _validate_path(source_file, file_format, output_storage_options={}, save_path=None):
+def _validate_path(
+    source_file: Optional[PathHint],
+    file_format: FileFormatHint,
+    output_storage_options: Dict[str, str] = {},
+    save_path: Optional[PathHint] = None,
+) -> PathHint:
     """Assemble output file names and path.
 
     Parameters
@@ -93,12 +102,12 @@ def _validate_path(source_file, file_format, output_storage_options={}, save_pat
 
 def to_file(
     echodata: EchoData,
-    engine,
-    save_path=None,
-    compress=True,
-    overwrite=False,
-    parallel=False,
-    output_storage_options={},
+    engine: EngineHint,
+    save_path: Optional[PathHint] = None,
+    compress: bool = True,
+    overwrite: bool = False,
+    parallel: bool = False,
+    output_storage_options: Dict[str, str] = {},
     **kwargs,
 ):
     """Save content of EchoData to netCDF or zarr.
@@ -126,7 +135,9 @@ def to_file(
         raise ValueError("Unknown type to convert file to!")
 
     # Assemble output file names and path
-    format_mapping = dict(map(reversed, XARRAY_ENGINE_MAP.items()))
+    format_mapping: Dict[EngineHint, FileFormatHint] = dict(
+        map(reversed, XARRAY_ENGINE_MAP.items())
+    )  # type: ignore
     output_file = _validate_path(
         source_file=echodata.source_file,
         file_format=format_mapping[engine],
@@ -294,7 +305,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         )
 
 
-def _set_convert_params(param_dict):
+def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     """Set parameters (metadata) that may not exist in the raw files.
 
     The default set of parameters include:
@@ -337,7 +348,12 @@ def _set_convert_params(param_dict):
     return out_params
 
 
-def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
+def _check_file(
+    raw_file,
+    sonar_model: SonarModelsHint,
+    xml_path: Optional[PathHint] = None,
+    storage_options: Dict[str, str] = {},
+) -> Tuple[str, str]:
     """Checks whether the file and/or xml file exists and
     whether they have the correct extensions.
 
@@ -389,12 +405,12 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
 
 
 def open_raw(
-    raw_file=None,
-    sonar_model=None,
-    xml_path=None,
-    convert_params=None,
-    storage_options=None,
-):
+    raw_file: Optional[PathHint] = None,
+    sonar_model: Optional[SonarModelsHint] = None,
+    xml_path: Optional[PathHint] = None,
+    convert_params: Optional[Dict[str, str]] = None,
+    storage_options: Optional[Dict[str, str]] = None,
+) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -445,7 +461,7 @@ def open_raw(
             )
     else:
         # Uppercased model in case people use lowercase
-        sonar_model = sonar_model.upper()
+        sonar_model = sonar_model.upper()  # type: ignore
 
         # Check models
         if sonar_model not in SONAR_MODELS:
@@ -462,6 +478,8 @@ def open_raw(
         raw_file = str(raw_file)
     if not isinstance(raw_file, str):
         raise TypeError("file must be a string or Path")
+
+    assert sonar_model is not None
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)

@@ -1,4 +1,8 @@
-# from typing import Literal
+import os
+from typing import Any, Dict, Union
+
+from fsspec.mapping import FSMap
+from typing_extensions import Literal
 
 from .convert.parse_ad2cp import ParseAd2cp
 from .convert.parse_azfp import ParseAZFP
@@ -9,7 +13,13 @@ from .convert.set_groups_azfp import SetGroupsAZFP
 from .convert.set_groups_ek60 import SetGroupsEK60
 from .convert.set_groups_ek80 import SetGroupsEK80
 
-SONAR_MODELS = {
+# Please update keep this updated with the keys of the SONAR_MODELS dict
+SonarModelsHint = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
+PathHint = Union[str, os.PathLike, FSMap]
+FileFormatHint = Literal[".nc", ".zarr"]
+EngineHint = Literal["netcdf4", "zarr"]
+
+SONAR_MODELS: Dict[SonarModelsHint, Dict[str, Any]] = {
     "AZFP": {
         "ext": ".01A",
         "xml": True,
@@ -87,5 +97,3 @@ SONAR_MODELS = {
         },
     },
 }
-# Please update keep this updated with the keys of the SONAR_MODELS dict
-# SONAR_MODELS_TYPE_HINT = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
