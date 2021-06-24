@@ -40,11 +40,41 @@ def assemble_combined_provenance(input_paths):
 
 def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     """
-    Combines multiple echodata objects into a single EchoData by combining
-        their groups individually.
+    Combines multiple `EchoData` objects into a single `EchoData` object
 
-    If echodatas contain EchoData objects with different or None sonar_models,
-        a ValueError is raised.
+    Parameters
+    ----------
+    echodatas: List[EchoData]
+        The list of `EchoData` objects to be combined.
+
+    Returns
+    -------
+    EchoData
+        An `EchoData` object with all of the data from the input `EchoData` objects combined.
+    
+    Raises
+    ------
+    ValueError
+        If `echodatas` contains `EchoData` objects with different or `None` `sonar_model` values
+        (i.e., all `EchoData` objects must have the same non-None `sonar_model` value).
+
+    Warns
+    -----
+    UserWarning
+        If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
+        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData` object
+        will be increased starting at the timestamp where the reversal occurs such that all `ping_time`s 
+        in the output are monotonically increasing.
+    
+    Notes
+    -----
+    `EchoData` objects are combined by combining their groups individually.
+
+    Examples
+    --------
+    >>> ed1 = echopype.open_converted("file1")
+    >>> ed2 = echopype.open_converted("file2")
+    >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
     result = EchoData()
