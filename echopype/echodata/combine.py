@@ -138,6 +138,7 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                 [concat_dim],
                 data_vars=concat_data_vars,
                 coords="minimal",
+                combine_attrs="override",
             )
 
             if group == "beam":
