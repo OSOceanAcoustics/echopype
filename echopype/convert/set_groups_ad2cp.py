@@ -368,4 +368,16 @@ class SetGroupsAd2cp(SetGroupsBase):
         return set_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
-        return xr.Dataset()
+        ds = xr.Dataset(
+            attrs={
+                "sonar_manufacturer": "Nortek",
+                "sonar_model": "AD2CP",
+                "sonar_serial_number": "",
+                "sonar_software_name": "",
+                "sonar_software_version": "",
+                "sonar_type": "omnisonar",
+            }
+        )
+        if "serial_number" in self.ds:
+            ds.attrs["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
+        return ds
