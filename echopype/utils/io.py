@@ -4,13 +4,14 @@ echopype utilities for file handling
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 import fsspec
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
-from ..core import PathHint
+if TYPE_CHECKING:
+    from ..core import PathHint
 
 
 def get_files_from_dir(folder):
@@ -52,7 +53,7 @@ def get_file_format(file):
 
 
 def sanitize_file_path(
-    file_path: PathHint,
+    file_path: "PathHint",
     storage_options: Dict[str, str] = {},
 ) -> Union[Path, FSMap]:
     """Determines file path, either Path or FSMap"""
@@ -82,7 +83,7 @@ def sanitize_file_path(
 
 
 def check_file_existance(
-    file_path: PathHint, storage_options: Dict[str, str] = {}
+    file_path: "PathHint", storage_options: Dict[str, str] = {}
 ) -> bool:
     """
     Checks if file exists in the specified path

@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
 
 from fsspec.mapping import FSMap
 from typing_extensions import Literal
@@ -14,12 +14,13 @@ from .convert.set_groups_ek60 import SetGroupsEK60
 from .convert.set_groups_ek80 import SetGroupsEK80
 
 # Please update keep this updated with the keys of the SONAR_MODELS dict
-SonarModelsHint = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
-PathHint = Union[str, os.PathLike, FSMap]
-FileFormatHint = Literal[".nc", ".zarr"]
-EngineHint = Literal["netcdf4", "zarr"]
+if TYPE_CHECKING:
+    SonarModelsHint = Literal["AZFP", "EK60", "EK80", "EA640", "AD2CP"]
+    PathHint = Union[str, os.PathLike, FSMap]
+    FileFormatHint = Literal[".nc", ".zarr"]
+    EngineHint = Literal["netcdf4", "zarr"]
 
-SONAR_MODELS: Dict[SonarModelsHint, Dict[str, Any]] = {
+SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
     "AZFP": {
         "ext": ".01A",
         "xml": True,

@@ -2,7 +2,7 @@ import os
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
 import zarr
@@ -10,7 +10,10 @@ from fsspec.implementations.local import LocalFileSystem
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
-from ..core import EngineHint, FileFormatHint, PathHint, SONAR_MODELS, SonarModelsHint
+from ..core import SONAR_MODELS
+
+if TYPE_CHECKING:
+    from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
@@ -33,11 +36,11 @@ def _normalize_path(out_f, convert_type, output_storage_options):
 
 
 def _validate_path(
-    source_file: Optional[PathHint],
-    file_format: FileFormatHint,
+    source_file: Optional["PathHint"],
+    file_format: "FileFormatHint",
     output_storage_options: Dict[str, str] = {},
-    save_path: Optional[PathHint] = None,
-) -> PathHint:
+    save_path: Optional["PathHint"] = None,
+) -> "PathHint":
     """Assemble output file names and path.
 
     Parameters
@@ -102,8 +105,8 @@ def _validate_path(
 
 def to_file(
     echodata: EchoData,
-    engine: EngineHint,
-    save_path: Optional[PathHint] = None,
+    engine: "EngineHint",
+    save_path: Optional["PathHint"] = None,
     compress: bool = True,
     overwrite: bool = False,
     parallel: bool = False,
@@ -135,7 +138,7 @@ def to_file(
         raise ValueError("Unknown type to convert file to!")
 
     # Assemble output file names and path
-    format_mapping: Dict[EngineHint, FileFormatHint] = dict(
+    format_mapping: Dict["EngineHint", "FileFormatHint"] = dict(
         map(reversed, XARRAY_ENGINE_MAP.items())
     )  # type: ignore
     output_file = _validate_path(
@@ -350,8 +353,8 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
 
 def _check_file(
     raw_file,
-    sonar_model: SonarModelsHint,
-    xml_path: Optional[PathHint] = None,
+    sonar_model: "SonarModelsHint",
+    xml_path: Optional["PathHint"] = None,
     storage_options: Dict[str, str] = {},
 ) -> Tuple[str, str]:
     """Checks whether the file and/or xml file exists and
@@ -405,9 +408,9 @@ def _check_file(
 
 
 def open_raw(
-    raw_file: Optional[PathHint] = None,
-    sonar_model: Optional[SonarModelsHint] = None,
-    xml_path: Optional[PathHint] = None,
+    raw_file: Optional["PathHint"] = None,
+    sonar_model: Optional["SonarModelsHint"] = None,
+    xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
 ) -> Optional[EchoData]:
