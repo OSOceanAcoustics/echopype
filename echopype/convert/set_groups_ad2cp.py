@@ -383,5 +383,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             ds.attrs["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
         firmware_version = self.parser_obj.get_firmware_version()
         if firmware_version is not None:
-            ds.attrs["sonar_firmware_version"] = firmware_version
+            ds.attrs["sonar_firmware_version"] = ", ".join(
+                [f"{k}:{v}" for k, v in firmware_version.items()]
+            )
         return ds
