@@ -66,6 +66,11 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
         object will be increased starting at the timestamp where the reversal occurs such that all
         `ping_time`s in the output are monotonically increasing.
 
+    Warnings
+    --------
+    Changes in parameters between `EchoData` objects are not currently checked;
+    however, they may raise an error in future versions.
+
     Notes
     -----
     `EchoData` objects are combined by combining their groups individually.
@@ -93,6 +98,11 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
             raise ValueError(
                 "all EchoData objects must have the same sonar_model value"
             )
+
+    # ping time before reversal correction
+    old_ping_time = None
+    # ping time after reversal correction
+    new_ping_time = None
 
     for group in EchoData.group_map:
         if group in ("top", "sonar"):
@@ -146,16 +156,27 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                         "<U50"
                     )
 
-                    if exist_reversed_time(combined_group, "ping_time"):
-                        warnings.warn(
-                            "EK60 ping_time reversal detected; the ping times will be corrected"
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        coerce_increasing_time(combined_group)
+            if "ping_time" in combined_group and exist_reversed_time(
+                combined_group, "ping_time"
+            ):
+                if old_ping_time is None:
+                    warnings.warn(
+                        "EK60 ping_time reversal detected; the ping times will be corrected"
+                        " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+                    )
+                    old_ping_time = combined_group["ping_time"]
+                    coerce_increasing_time(combined_group)
+                    new_ping_time = combined_group["ping_time"]
+                else:
+                    combined_group["ping_time"] = new_ping_time
 
         if combined_group is not None:
             # xarray inserts this dimension when concating along multiple dimensions
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
         setattr(result, group, combined_group)
+
+    # save ping time before reversal correction
+    if old_ping_time is not None:
+        result.provenance["old_ping_time"] = old_ping_time
 
     return result
