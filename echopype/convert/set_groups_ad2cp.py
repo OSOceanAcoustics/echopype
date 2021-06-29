@@ -375,9 +375,13 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "sonar_serial_number": "",
                 "sonar_software_name": "",
                 "sonar_software_version": "",
-                "sonar_type": "omnisonar",
+                "sonar_firmware_version": "",
+                "sonar_type": "acoustic Doppler current profiler",
             }
         )
         if "serial_number" in self.ds:
             ds.attrs["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
+        firmware_version = self.parser_obj.get_firmware_version()
+        if firmware_version is not None:
+            ds.attrs["sonar_firmware_version"] = firmware_version
         return ds

@@ -302,7 +302,10 @@ class ParseAd2cp(ParseBase):
             result[tokens[0]] = line_dict
         return result
 
-    def get_pulse_compressed(self):
+    def get_firmware_version(self) -> Optional[Dict[str, Any]]:
+        return self.config.get("GETHW")
+
+    def get_pulse_compressed(self) -> int:
         for i in range(1, 3 + 1):
             if "GETECHO" in self.config and self.config["GETECHO"][f"PULSECOMP{i}"] > 0:
                 return i
