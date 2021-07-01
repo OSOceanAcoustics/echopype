@@ -87,7 +87,7 @@ class CalibrateAZFP(CalibrateBase):
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
         """
-        self.range_meter = self.echodata.compute_range(cal_type, self.env_params["sound_speed"], None, None)
+        self.range_meter = self.echodata.compute_range(cal_type, self.env_params["sound_speed"], None)
 
         # # Notation below follows p.86 of user manual
         # N = self.echodata.vendor["number_of_samples_per_average_bin"]  # samples per bin

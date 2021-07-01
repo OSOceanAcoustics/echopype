@@ -17,6 +17,11 @@ XARRAY_ENGINE_MAP = {
     ".zarr": "zarr",
 }
 
+TVG_CORRECTION_FACTOR = {
+    "EK60": 2,
+    "EK80": 0,
+}
+
 
 class EchoData:
     """Echo data model class for handling raw converted data,
@@ -111,7 +116,10 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
-    def compute_range(self, cal_type, sound_speed, waveform_mode, tvg_correction_factor):
+    # def compute_range(self, cal_type, sound_speed, waveform_mode=None, tvg_correction_factor):
+    def compute_range(self, cal_type, sound_speed, waveform_mode=None):
+        # TODO: docstring
+
         if self.sonar_model == "AZFP":
             # Notation below follows p.86 of user manual
             N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
@@ -144,6 +152,8 @@ class EchoData:
 
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
+            tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
+
             if waveform_mode == "CW":
                 sample_thickness = (
                     self.beam["sample_interval"]

@@ -30,7 +30,7 @@ class CalibrateEK(CalibrateBase):
         range_meter : xr.DataArray
             range in units meter
         """
-        self.range_meter = self.echodata.compute_range(None, self.env_params["sound_speed"], waveform_mode, tvg_correction_factor)
+        self.range_meter = self.echodata.compute_range(None, self.env_params["sound_speed"], waveform_mode)
 
         # if waveform_mode == "CW":
         #     sample_thickness = (
