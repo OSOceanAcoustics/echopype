@@ -111,6 +111,76 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
+    def compute_range(self, cal_type, sound_speed, waveform_mode, tvg_correction_factor):
+        if self.sonar_model == "AZFP":
+            # Notation below follows p.86 of user manual
+            N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
+            f = self.vendor["digitization_rate"]  # digitization rate
+            L = self.vendor["lockout_index"]  # number of lockout samples
+
+            # keep this in ref of AZFP matlab code,
+            # set to 1 since we want to calculate from raw data
+            bins_to_avg = 1
+
+            # Calculate range using parameters for each freq
+            # This is "the range to the centre of the sampling volume
+            # for bin m" from p.86 of user manual
+            if cal_type == "Sv":
+                range_offset = 0
+            else:
+                range_offset = (
+                    sound_speed * self.beam["transmit_duration_nominal"] / 4
+                )  # from matlab code
+            range_meter = (
+                sound_speed * L / (2 * f)
+                + (sound_speed / 4)
+                * (
+                    ((2 * (self.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                    + self.beam["transmit_duration_nominal"]
+                )
+                - range_offset
+            )
+            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            return range_meter
+        elif self.sonar_model in ("EK60", "EK80"):
+            if waveform_mode == "CW":
+                sample_thickness = (
+                    self.beam["sample_interval"]
+                    * sound_speed
+                    / 2
+                )
+                # TODO: Check with the AFSC about the half sample difference
+                range_meter = (
+                    self.beam.range_bin - tvg_correction_factor
+                ) * sample_thickness  # [frequency x range_bin]
+            elif waveform_mode == "BB":
+                # TODO: bug: right now only first ping_time has non-nan range
+                shift = self.beam[
+                    "transmit_duration_nominal"
+                ]  # based on Lar Anderson's Matlab code
+                # TODO: once we allow putting in arbitrary sound_speed,
+                # change below to use linearly-interpolated values
+                range_meter = (
+                    (
+                        self.beam.range_bin * self.beam["sample_interval"]
+                        - shift
+                    )
+                    * sound_speed.squeeze()
+                    / 2
+                )
+                # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
+                #  need to ask why and see if necessary here
+            else:
+                raise ValueError("Input waveform_mode not recognized!")
+
+            # make order of dims conform with the order of backscatter data
+            range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
+            range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
+            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            return range_meter
+
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
