@@ -1,6 +1,6 @@
 import warnings
 from datetime import datetime
-from typing import List
+from typing import Any, Dict, List
 
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -10,7 +10,7 @@ from ..qc import coerce_increasing_time, exist_reversed_time
 from .echodata import EchoData
 
 
-def union_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
+def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
     """
     Merges attrs from a list of datasets.
     Prioritizes keys from later datsets.
@@ -19,9 +19,7 @@ def union_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
     total_attrs = dict()
     for ds in datasets:
         total_attrs.update(ds.attrs)
-    for ds in datasets:
-        ds.attrs = total_attrs
-    return datasets
+    return total_attrs
 
 
 def assemble_combined_provenance(input_paths):
@@ -103,6 +101,8 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     old_ping_time = None
     # ping time after reversal correction
     new_ping_time = None
+    # all attributes before combination
+    old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
     for group in EchoData.group_map:
         if group in ("top", "sonar"):
@@ -125,7 +125,6 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
             if len(group_datasets) == 0:
                 setattr(result, group, None)
                 continue
-            group_datasets = union_attrs(group_datasets)
 
             concat_dim = SONAR_MODELS[sonar_model]["concat_dims"].get(
                 group, SONAR_MODELS[sonar_model]["concat_dims"]["default"]
@@ -138,8 +137,13 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                 [concat_dim],
                 data_vars=concat_data_vars,
                 coords="minimal",
-                combine_attrs="override",
+                combine_attrs="drop",
             )
+            combined_group.attrs.update(union_attrs(group_datasets))
+            if len(group_datasets) > 1:
+                old_attrs[group] = [
+                    group_dataset.attrs for group_dataset in group_datasets
+                ]
 
             if group == "beam":
                 if sonar_model == "EK80":
@@ -179,5 +183,10 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     # save ping time before reversal correction
     if old_ping_time is not None:
         result.provenance["old_ping_time"] = old_ping_time
+    # save attrs before combination
+    for group in old_attrs:
+        result.provenance = result.provenance.assign(
+            {f"{group}_attrs": group_attrs for group, group_attrs in old_attrs.items()}
+        )
 
     return result

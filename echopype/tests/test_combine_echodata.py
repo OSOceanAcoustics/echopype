@@ -1,4 +1,4 @@
-from typing import List, Optional, TYPE_CHECKING, Dict, Union
+from typing import Any, List, Optional, TYPE_CHECKING, Dict, Union
 from pathlib import Path
 import pytest
 import xarray as xr
@@ -78,7 +78,7 @@ def test_combine_echodata(
             getattr(ed, group_name) for ed in eds if getattr(ed, group_name) is not None
         ]
 
-        def union_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
+        def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
             """
             Merges attrs from a list of datasets.
             Prioritizes keys from later datsets.
@@ -87,19 +87,22 @@ def test_combine_echodata(
             total_attrs = dict()
             for ds in datasets:
                 total_attrs.update(ds.attrs)
-            for ds in datasets:
-                ds.attrs = total_attrs
-            return datasets
+            return total_attrs
 
-        assert combined_group is None or xr.combine_nested(
-            union_attrs(eds_groups),
-            # foo,
+        test_ds = xr.combine_nested(
+            eds_groups,
             [concat_dims.get(group_name, concat_dims["default"])],
             data_vars=concat_data_vars.get(group_name, concat_data_vars["default"]),
             coords="minimal",
-        ).drop_dims(
+            combine_attrs="drop"
+        )
+        test_ds.attrs.update(union_attrs(eds_groups))
+        test_ds = test_ds.drop_dims(
             ["concat_dim", "old_ping_time", "ping_time"], errors="ignore"
-        ).identical(
+        ).drop_dims(
+            [f"{group}_attrs" for group in combined.group_map], errors="ignore"
+        )
+        assert combined_group is None or test_ds.identical(
             combined_group.drop_dims(["old_ping_time", "ping_time"], errors="ignore")
         )
 
