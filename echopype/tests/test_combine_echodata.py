@@ -68,7 +68,7 @@ def test_combine_echodata(
     concat_data_vars: Dict[str, str],
 ):
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
-    combined = echopype.combine_echodata(eds)  # type: ignore
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
     for group_name in combined.group_map:
         if group_name in ("top", "sonar", "provenance"):

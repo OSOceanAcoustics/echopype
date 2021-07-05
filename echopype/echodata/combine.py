@@ -36,7 +36,7 @@ def assemble_combined_provenance(input_paths):
     )
 
 
-def combine_echodata(echodatas: List[EchoData]) -> EchoData:
+def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
     """
     Combines multiple `EchoData` objects into a single `EchoData` object
 
@@ -44,11 +44,34 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
     ----------
     echodatas: List[EchoData]
         The list of `EchoData` objects to be combined.
+    combine_attrs: { "override", "drop", "identical", "no_conflicts" }
+        String indicating how to combine attrs of the `EchoData` objects being merged.
+        This parameter matches the identically named xarray parameter
+        (see <https://xarray.pydata.org/en/v0.16.2/generated/xarray.combine_nested.html>)
+        with the exception of the "overwrite_conflicts" value.
+
+        * "override": skip comparing and copy attrs from the first `EchoData` object to the result.
+        * "drop": empty attrs on returned `EchoData` object.
+        * "identical": all attrs must be the same on every object.
+        * "no_conflicts": attrs from all objects are combined,
+            any that have the same name must also have the same value.
+        * "overwrite_conflicts": attrs from all `EchoData` objects are combined,
+            attrs with conflicting keys will be overwritten by later `EchoData` objects.
 
     Returns
     -------
     EchoData
         An `EchoData` object with all of the data from the input `EchoData` objects combined.
+
+        If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
+        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData`
+        object will be increased starting at the timestamp where the reversal occurs such that all
+        `ping_time`s in the output are monotonically increasing.
+        Additionally, the original ping_time values will be stored in the provenance group,
+        although this behavior may change in future versions.
+
+        Attributes from all groups before the combination will be stored in the provenance group,
+        although this behavior may change in future versions.
 
     Raises
     ------
@@ -137,9 +160,12 @@ def combine_echodata(echodatas: List[EchoData]) -> EchoData:
                 [concat_dim],
                 data_vars=concat_data_vars,
                 coords="minimal",
-                combine_attrs="drop",
+                combine_attrs="drop"
+                if combine_attrs == "overwrite_conflicts"
+                else combine_attrs,
             )
-            combined_group.attrs.update(union_attrs(group_datasets))
+            if combine_attrs == "overwrite_conflicts":
+                combined_group.attrs.update(union_attrs(group_datasets))
             if len(group_datasets) > 1:
                 old_attrs[group] = [
                     group_dataset.attrs for group_dataset in group_datasets
