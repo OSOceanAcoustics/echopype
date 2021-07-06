@@ -64,14 +64,18 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         An `EchoData` object with all of the data from the input `EchoData` objects combined.
 
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData`
-        object will be increased starting at the timestamp where the reversal occurs such that all
-        `ping_time`s in the output are monotonically increasing.
-        Additionally, the original ping_time values will be stored in the provenance group,
-        although this behavior may change in future versions.
+        have non-monotonically increasing `ping_time`s or `location_time`s,
+        the `ping_time`s or `location_time`sin the output `EchoData` object will be increased
+        starting at the timestamp where the reversal occurs such that all
+        `ping_time`s and `location_time`s in the output are monotonically increasing.
+        Additionally, the original `ping_time` and `location_time` values will be stored
+        in the provenance group, although this behavior may change in future versions.
 
         Attributes from all groups before the combination will be stored in the provenance group,
         although this behavior may change in future versions.
+
+        The `source_file` and `converted_raw_path` attributes will be copied from the first
+        `EchoData` object in the given list, but this may change in future versions.
 
     Raises
     ------
@@ -83,9 +87,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     -----
     UserWarning
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`s, the `ping_time`s in the output `EchoData`
-        object will be increased starting at the timestamp where the reversal occurs such that all
-        `ping_time`s in the output are monotonically increasing.
+        have non-monotonically increasing `ping_time`s or `location_time`s,
+        the `ping_time`s or `location_time`sin the output `EchoData` object will be increased
+        starting at the timestamp where the reversal occurs such that all
+        `ping_time`s and `location_time`s in the output are monotonically increasing.
 
     Warnings
     --------
@@ -106,6 +111,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     result = EchoData()
     if len(echodatas) == 0:
         return result
+    result.source_file = echodatas[0].source_file
+    result.converted_raw_path = echodatas[0].converted_raw_path
 
     sonar_model = None
     for echodata in echodatas:
@@ -124,10 +131,20 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     old_ping_time = None
     # ping time after reversal correction
     new_ping_time = None
+    # location time before reversal correction
+    old_location_time = None
+    # location time after reversal correction
+    new_location_time = None
+
     # all attributes before combination
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
     for group in EchoData.group_map:
+        group_datasets = [
+            getattr(echodata, group)
+            for echodata in echodatas
+            if getattr(echodata, group) is not None
+        ]
         if group in ("top", "sonar"):
             combined_group = getattr(echodatas[0], group)
         elif group == "provenance":
@@ -140,11 +157,6 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 ]
             )
         else:
-            group_datasets = [
-                getattr(echodata, group)
-                for echodata in echodatas
-                if getattr(echodata, group) is not None
-            ]
             if len(group_datasets) == 0:
                 setattr(result, group, None)
                 continue
@@ -166,10 +178,6 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             )
             if combine_attrs == "overwrite_conflicts":
                 combined_group.attrs.update(union_attrs(group_datasets))
-            if len(group_datasets) > 1:
-                old_attrs[group] = [
-                    group_dataset.attrs for group_dataset in group_datasets
-                ]
 
             if group == "beam":
                 if sonar_model == "EK80":
@@ -187,20 +195,38 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                         "<U50"
                     )
 
-            if "ping_time" in combined_group and exist_reversed_time(
-                combined_group, "ping_time"
-            ):
-                if old_ping_time is None:
-                    warnings.warn(
-                        "EK60 ping_time reversal detected; the ping times will be corrected"
-                        " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                    )
-                    old_ping_time = combined_group["ping_time"]
-                    coerce_increasing_time(combined_group)
-                    new_ping_time = combined_group["ping_time"]
-                else:
-                    combined_group["ping_time"] = new_ping_time
+            if sonar_model == "EK60":
+                if "ping_time" in combined_group and exist_reversed_time(
+                    combined_group, "ping_time"
+                ):
+                    if old_ping_time is None:
+                        warnings.warn(
+                            "EK60 ping_time reversal detected; the ping times will be corrected"
+                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+                        )
+                        old_ping_time = combined_group["ping_time"]
+                        coerce_increasing_time(combined_group, time_name="ping_time")
+                        new_ping_time = combined_group["ping_time"]
+                    else:
+                        combined_group["ping_time"] = new_ping_time
+                if "location_time" in combined_group and exist_reversed_time(
+                    combined_group, "location_time"
+                ):
+                    if old_location_time is None:
+                        warnings.warn(
+                            "EK60 location_time reversal detected; the location times will be corrected"  # noqa
+                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+                        )
+                        old_location_time = combined_group["location_time"]
+                        coerce_increasing_time(
+                            combined_group, time_name="location_time"
+                        )
+                        new_location_time = combined_group["location_time"]
+                    else:
+                        combined_group["location_time"] = new_location_time
 
+        if len(group_datasets) > 1:
+            old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
         if combined_group is not None:
             # xarray inserts this dimension when concating along multiple dimensions
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
@@ -209,10 +235,25 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # save ping time before reversal correction
     if old_ping_time is not None:
         result.provenance["old_ping_time"] = old_ping_time
-    # save attrs before combination
+    # save location time before reversal correction
+    if old_location_time is not None:
+        result.provenance["old_location_time"] = old_location_time
+    # save attrs from before combination
+    all_attrs = set()
     for group in old_attrs:
-        result.provenance = result.provenance.assign(
-            {f"{group}_attrs": group_attrs for group, group_attrs in old_attrs.items()}
+        for group_attrs in old_attrs[group]:
+            for attr in group_attrs:
+                all_attrs.add(attr)
+    all_attrs = list(all_attrs)
+    for group in old_attrs:
+        attrs = xr.DataArray(
+            [
+                [group_attrs.get(attr) for attr in all_attrs]
+                for group_attrs in old_attrs[group]
+            ],
+            coords={"attribute": all_attrs},
+            dims=["echodata_object_index", "attribute"],
         )
+        result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
 
     return result

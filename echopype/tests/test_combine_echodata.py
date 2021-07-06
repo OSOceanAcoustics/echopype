@@ -2,6 +2,7 @@ from typing import Any, List, Optional, TYPE_CHECKING, Dict, Union
 from pathlib import Path
 import pytest
 import xarray as xr
+from xarray.core.merge import MergeError
 import echopype
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.qc import exist_reversed_time
@@ -31,13 +32,12 @@ ek60_reversed_ping_time_test_data = [
 
 
 @pytest.mark.parametrize(
-    "files, sonar_model, xml_file, check_reversed_ping_time, concat_dims, concat_data_vars",
+    "files, sonar_model, xml_file, concat_dims, concat_data_vars",
     [
         (
             azfp_test_data,
             "AZFP",
             azfp_xml_file,
-            False,
             SONAR_MODELS["AZFP"]["concat_dims"],
             SONAR_MODELS["AZFP"]["concat_data_vars"],
         ),
@@ -45,7 +45,6 @@ ek60_reversed_ping_time_test_data = [
             ek60_test_data,
             "EK60",
             None,
-            False,
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
         ),
@@ -53,7 +52,6 @@ ek60_reversed_ping_time_test_data = [
             ek60_reversed_ping_time_test_data,
             "EK60",
             None,
-            True,
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
         ),
@@ -63,7 +61,6 @@ def test_combine_echodata(
     files: List[Path],
     sonar_model: "SonarModelsHint",
     xml_file: Optional[Path],
-    check_reversed_ping_time: bool,
     concat_dims: Dict[str, Optional[Union[str, List[str]]]],
     concat_data_vars: Dict[str, str],
 ):
@@ -94,24 +91,97 @@ def test_combine_echodata(
             [concat_dims.get(group_name, concat_dims["default"])],
             data_vars=concat_data_vars.get(group_name, concat_data_vars["default"]),
             coords="minimal",
-            combine_attrs="drop"
+            combine_attrs="drop",
         )
         test_ds.attrs.update(union_attrs(eds_groups))
         test_ds = test_ds.drop_dims(
-            ["concat_dim", "old_ping_time", "ping_time"], errors="ignore"
-        ).drop_dims(
-            [f"{group}_attrs" for group in combined.group_map], errors="ignore"
-        )
+            [
+                "concat_dim",
+                "old_ping_time",
+                "ping_time",
+                "old_location_time",
+                "location_time",
+            ],
+            errors="ignore",
+        ).drop_dims([f"{group}_attrs" for group in combined.group_map], errors="ignore")
         assert combined_group is None or test_ds.identical(
-            combined_group.drop_dims(["old_ping_time", "ping_time"], errors="ignore")
+            combined_group.drop_dims(
+                ["old_ping_time", "ping_time", "old_location_time", "location_time"],
+                errors="ignore",
+            )
         )
 
-        if (
-            sonar_model == "EK60"
-            and check_reversed_ping_time
-            and combined_group is not None
-            and "ping_time" in combined_group
-        ):
+
+def test_ping_time_reversal():
+    eds = [
+        echopype.open_raw(file, "EK60") for file in ek60_reversed_ping_time_test_data
+    ]
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+
+    for group_name in combined.group_map:
+        combined_group: xr.Dataset = getattr(combined, group_name)
+
+        if combined_group is not None:
+            if "ping_time" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            assert not exist_reversed_time(combined_group, "ping_time")
+            if "location_time" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "location_time")
+            if "old_location_time" in combined_group:
+                assert exist_reversed_time(combined_group, "old_location_time")
+
+
+def test_attr_storage():
+    eds = [
+        echopype.open_raw(file, "EK60") for file in ek60_test_data
+    ]
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+    for group in combined.group_map:
+        if f"{group}_attrs" in combined.provenance:
+            group_attrs = combined.provenance[f"{group}_attrs"]
+            for i, ed in enumerate(eds):
+                for attr, value in getattr(ed, group).attrs.items():
+                    assert group_attrs.sel(echodata_object_index=i, attribute=attr).data[()] == value
+
+
+def test_combine_attrs():
+    eds = [
+        echopype.open_raw(file, "EK60") for file in ek60_test_data
+    ]
+    eds[0].beam.attrs.update({"foo": 1})
+    eds[1].beam.attrs.update({"foo": 2})
+    eds[2].beam.attrs.update({"foo": 3})
+
+    combined = echopype.combine_echodata(eds, "override")  # type: ignore
+    assert combined.beam.attrs["foo"] == 1
+
+    combined = echopype.combine_echodata(eds, "drop")  # type: ignore
+    assert "foo" not in combined.beam.attrs
+
+    try:
+        combined = echopype.combine_echodata(eds, "identical")  # type: ignore
+    except MergeError:
+        pass
+    else:
+        raise AssertionError
+
+    try:
+        combined = echopype.combine_echodata(eds, "no_conflicts")  # type: ignore
+    except MergeError:
+        pass
+    else:
+        raise AssertionError
+
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+    assert combined.beam.attrs["foo"] == 3
+
+    eds[0].beam.attrs.update({"foo": 1})
+    eds[1].beam.attrs.update({"foo": 1})
+    eds[2].beam.attrs.update({"foo": 1})
+
+    combined = echopype.combine_echodata(eds, "identical")  # type: ignore
+    assert combined.beam.attrs["foo"] == 1
+
+    combined = echopype.combine_echodata(eds, "no_conflicts")  # type: ignore
+    assert combined.beam.attrs["foo"] == 1
