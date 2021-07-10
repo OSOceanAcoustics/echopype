@@ -376,7 +376,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "sonar_software_name": "",
                 "sonar_software_version": "",
                 "sonar_firmware_version": "",
-                "sonar_type": "Acoustic Doppler Current Profiler (ADCP)",
+                "sonar_type": "acoustic Doppler current profiler (ADCP)",
             }
         )
         if "serial_number" in self.ds:
