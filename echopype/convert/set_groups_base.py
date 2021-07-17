@@ -184,17 +184,15 @@ class SetGroupsBase(abc.ABC):
                     time,
                     {
                         "axis": "T",
-                        "calendar": "gregorian",
                         "long_name": "Timestamps for NMEA datagrams",
                         "standard_name": "time",
-                        "units": "seconds since 1900-01-01 00:00:00Z",
                     },
                 )
             },
             attrs={"description": "All NMEA sensor datagrams"},
         )
 
-        return ds
+        return set_encodings(ds)
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
