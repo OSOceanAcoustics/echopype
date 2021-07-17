@@ -21,9 +21,9 @@ groups:
     description: contains information about the platform on which the sonar is installed.
     ep_group: Platform
   nmea:
-    name: NMEA
+    name: Platform/NMEA
     description: contains information specific to the NMEA protocol
-    ep_group: Nmea
+    ep_group: Platform/NMEA
   provenance:
     name: Provenance
     description: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
