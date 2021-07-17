@@ -20,6 +20,10 @@ groups:
     name: Platform
     description: contains information about the platform on which the sonar is installed.
     ep_group: Platform
+  nmea:
+    name: NMEA
+    description: contains information specific to the NMEA protocol
+    ep_group: Nmea
   provenance:
     name: Provenance
     description: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
@@ -32,10 +36,6 @@ groups:
     name: Beam
     description: contains backscatter data and other beam or channel-specific data.
     ep_group: Beam
-  beam_complex:
-    name: Beam Complex
-    description: contains raw AD2CP data samples from the echosounder mode.
-    ep_group: Beam_complex
   beam_power:
     name: Beam Power
     description: contains backscatter data (power-only) and other beam or channel-specific data.
