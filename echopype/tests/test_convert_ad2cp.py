@@ -83,7 +83,7 @@ def test_raw_output():
                 if base.attrs[f"Instrument_echo_pulseComp{i}"]:
                     pulse_compressed = i
                     break
-        assert echodata.beam_complex.attrs["pulse_compressed"] == pulse_compressed
+        assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed
         base.close()
 
         # check raw data transmit samples
@@ -100,51 +100,31 @@ def test_raw_output():
                 group="Data/RawEcho1_1000kHzTx",
             )
             if "090" in filepath.parts:
-                assert np.isclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_r"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
+                assert np.allclose(
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["DataI"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
-                ).all()
-                assert np.isclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_i"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
+                )
+                assert np.allclose(
+                    echodata.vendor["echosounder_raw_transmit_samples_q"]
                     .data.flatten(),
                     base["DataQ"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
-                ).all()
+                )
             else:
-                assert np.isclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_r"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
+                assert np.allclose(
+                    echodata.vendor["echosounder_raw_transmit_samples_i"]
                     .data.flatten(),
                     base["Data_I"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
-                ).all()
-                assert np.isclose(
-                    echodata.beam_complex["echosounder_raw_transmit_samples_i"]
-                    .sel(
-                        ping_time=echodata.beam_complex[
-                            "ping_time_echosounder_raw_transmit"
-                        ]
-                    )
+                )
+                assert np.allclose(
+                    echodata.vendor["echosounder_raw_transmit_samples_q"]
                     .data.flatten(),
                     base["Data_Q"].data.flatten(),
                     atol=ABSOLUTE_TOLERANCE,
-                ).all()
+                )
             base.close()
 
         # check raw data samples
@@ -152,34 +132,30 @@ def test_raw_output():
             str(ocean_contour_converted_data_path), group="Data/RawEcho1_1000kHz"
         )
         if "090" in filepath.parts:
-            assert np.isclose(
-                echodata.beam_complex["echosounder_raw_samples_r"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
+            assert np.allclose(
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["DataI"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
-            ).all()
-            assert np.isclose(
-                echodata.beam_complex["echosounder_raw_samples_i"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
+            )
+            assert np.allclose(
+                echodata.vendor["echosounder_raw_samples_q"]
                 .data.flatten(),
                 base["DataQ"].data.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
-            ).all()
+            )
         else:
             # note the transpose
-            assert np.isclose(
-                echodata.beam_complex["echosounder_raw_samples_r"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
+            assert np.allclose(
+                echodata.vendor["echosounder_raw_samples_i"]
                 .data.flatten(),
                 base["Data_I"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
-            ).all()
-            assert np.isclose(
-                echodata.beam_complex["echosounder_raw_samples_i"]
-                .sel(ping_time=echodata.beam_complex["ping_time_echosounder_raw"])
+            )
+            assert np.allclose(
+                echodata.vendor["echosounder_raw_samples_q"]
                 .data.flatten(),
                 base["Data_Q"].data.T.flatten(),
                 atol=ABSOLUTE_TOLERANCE,
-            ).all()
+            )
         base.close()

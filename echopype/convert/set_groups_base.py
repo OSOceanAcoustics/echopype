@@ -152,11 +152,6 @@ class SetGroupsBase(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def set_beam_complex(self) -> xr.Dataset:
-        """Set the Beam_complex group"""
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
         raise NotImplementedError
