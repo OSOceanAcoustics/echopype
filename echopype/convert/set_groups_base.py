@@ -15,49 +15,22 @@ COMPRESSION_SETTINGS = {
 
 DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 
+DEFAULT_TIME_ENCODING = {
+    "units": "seconds since 1900-01-01T00:00:00+00:00",
+    "calendar": "gregorian",
+    "_FillValue": np.nan,
+    "dtype": np.dtype("float64"),
+}
+
 DEFAULT_ENCODINGS = {
-    "ping_time": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "ping_time_burst": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "ping_time_average": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "ping_time_echosounder": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "ping_time_echosounder_raw": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "ping_time_echosounder_raw_transmit": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
-    "mru_time": {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-        "_FillValue": np.nan,
-        "dtype": np.dtype("float64"),
-    },
+    "ping_time": DEFAULT_TIME_ENCODING,
+    "ping_time_burst": DEFAULT_TIME_ENCODING,
+    "ping_time_average": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder_raw": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
+    "location_time": DEFAULT_TIME_ENCODING,
+    "mru_time": DEFAULT_TIME_ENCODING,
 }
 
 
@@ -179,11 +152,6 @@ class SetGroupsBase(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def set_beam_complex(self) -> xr.Dataset:
-        """Set the Beam_complex group"""
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
         raise NotImplementedError
@@ -216,17 +184,15 @@ class SetGroupsBase(abc.ABC):
                     time,
                     {
                         "axis": "T",
-                        "calendar": "gregorian",
                         "long_name": "Timestamps for NMEA datagrams",
                         "standard_name": "time",
-                        "units": "seconds since 1900-01-01 00:00:00Z",
                     },
                 )
             },
             attrs={"description": "All NMEA sensor datagrams"},
         )
 
-        return ds
+        return set_encodings(ds)
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
