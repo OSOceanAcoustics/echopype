@@ -4,20 +4,42 @@ What's new
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
 
+v0.5.2 (2021 Jul 18)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that addresses issues related to time encoding for data variables related to platform locations and data conversion/encoding for AD2CP data files.
+
+Bug fixes and improvements
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Fixed the `location_time` encoding in the `Platform` group for latitude and longitude data variables (#393)
+- Fixed the `location_time` encoding in the `Platform/NMEA` group (#395)
+- Updated `EchoData` repr to show `Platform/NMEA` (#395)
+- Improved AD2CP data parsing and conversion (#388)
+   - Cleaned up organization of data from different sampling modes and their corresponding time coordinates
+   - Fixed parsing issues that generated spikes in parsed echosounder mode amplitude data
+   - Removed the `Beam_complex` group and put raw IQ samples in the `Vendor` group per convention requirements
+   - Populated the `Sonar` group with AD2CP information
+
+
+
 v0.5.1 (2021 Jun 16)
 --------------------
 
 Overview
 ~~~~~~~~
 
-This is a minor release that addresses a couple of issues from the last major version (0.5.0) 
+This is a minor release that addresses a couple of issues from the last major version (0.5.0)
 and improves code maintenance and testing procedures.
 
 
 New features
 ~~~~~~~~~~~~
 
-- Added experimental functions to detect and correct ``ping_time`` reversals. 
+- Added experimental functions to detect and correct ``ping_time`` reversals.
   See `qc` subpackage (#297)
 
 
