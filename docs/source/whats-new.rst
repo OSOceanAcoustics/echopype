@@ -17,7 +17,7 @@ Bug fixes and improvements
 
 - Fixed the `location_time` encoding in the `Platform` group for latitude and longitude data variables (#393)
 - Fixed the `location_time` encoding in the `Platform/NMEA` group (#395)
-- Updated `EchoData` repr to show `Platform/NMEA` (#395)
+- Updated `EchoData` repr to show `Platform/NMEA` (#395, #396)
 - Improved AD2CP data parsing and conversion (#388)
    - Cleaned up organization of data from different sampling modes and their corresponding time coordinates
    - Fixed parsing issues that generated spikes in parsed echosounder mode amplitude data
