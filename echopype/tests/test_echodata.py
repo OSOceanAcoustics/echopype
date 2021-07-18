@@ -73,6 +73,7 @@ class TestEchoData:
               > top: (Top-level) contains metadata about the SONAR-netCDF4 file format.
               > environment: (Environment) contains information relevant to acoustic propagation through water.
               > platform: (Platform) contains information about the platform on which the sonar is installed.
+              > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
               > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
               > sonar: (Sonar) contains specific metadata for the sonar system.
               > beam: (Beam) contains backscatter data and other beam or channel-specific data.

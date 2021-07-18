@@ -22,7 +22,7 @@ groups:
     ep_group: Platform
   nmea:
     name: Platform/NMEA
-    description: contains information specific to the NMEA protocol
+    description: contains information specific to the NMEA protocol.
     ep_group: Platform/NMEA
   provenance:
     name: Provenance
