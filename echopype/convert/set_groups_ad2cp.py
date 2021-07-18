@@ -37,16 +37,16 @@ class SetGroupsAd2cp(SetGroupsBase):
         for packet in self.parser_obj.echosounder_raw_packets:
             # both _r and _i have same dimensions
             max_samples = max(
-                max_samples, packet.data["echosounder_raw_samples_r"].shape[0]
+                max_samples, packet.data["echosounder_raw_samples_i"].shape[0]
             )
         for packet in self.parser_obj.echosounder_raw_packets:
-            packet.data["echosounder_raw_samples_r"] = np.pad(
-                packet.data["echosounder_raw_samples_r"],
-                ((0, max_samples - packet.data["echosounder_raw_samples_r"].shape[0])),
-            )
             packet.data["echosounder_raw_samples_i"] = np.pad(
                 packet.data["echosounder_raw_samples_i"],
                 ((0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])),
+            )
+            packet.data["echosounder_raw_samples_q"] = np.pad(
+                packet.data["echosounder_raw_samples_q"],
+                ((0, max_samples - packet.data["echosounder_raw_samples_q"].shape[0])),
             )
 
         def make_dataset(
@@ -90,7 +90,12 @@ class SetGroupsAd2cp(SetGroupsBase):
                 packets[i] = new_packet
             if len(packets) > 0:
                 packets = merge_attrs(packets)
-                return xr.concat(packets, dim="ping_time", combine_attrs="override")
+                return xr.combine_by_coords(
+                    packets,
+                    data_vars="minimal",
+                    coords="minimal",
+                    combine_attrs="override",
+                )
             else:
                 return None
 
@@ -201,14 +206,15 @@ class SetGroupsAd2cp(SetGroupsBase):
             "velocity_scaling": self.ds.get("velocity_scaling"),
             "velocity_burst": self.ds.get("velocity_data_burst"),
             "velocity_average": self.ds.get("velocity_data_average"),
-            "velocity_echosounder": self.ds.get("velocity_data_echosounder"),
+            # "velocity_echosounder": self.ds.get("velocity_data_echosounder"),
             "amplitude_burst": self.ds.get("amplitude_data_burst"),
             "amplitude_average": self.ds.get("amplitude_data_average"),
-            "amplitude_echosounder": self.ds.get("amplitude_data_echosounder"),
+            # "amplitude_echosounder": self.ds.get("amplitude_data_echosounder"),
             "correlation_burst": self.ds.get("correlation_data_burst"),
             "correlation_average": self.ds.get("correlation_data_average"),
             "correlation_echosounder": self.ds.get("correlation_data_echosounder"),
-            "echosounder": self.ds.get("echosounder_data"),
+            # "echosounder": self.ds.get("echosounder_data"),
+            "amplitude_echosounder": self.ds.get("echosounder_data"),
             "figure_of_merit": self.ds.get("figure_of_merit_data"),
             "altimeter_distance": self.ds.get("altimeter_distance"),
             "altimeter_quality": self.ds.get("altimeter_quality"),
@@ -316,18 +322,34 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "std_dev_roll": self.ds.get("std_dev_roll"),
                 "std_dev_heading": self.ds.get("std_dev_heading"),
                 "std_dev_pressure": self.ds.get("std_dev_pressure"),
+                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
+                "echosounder_raw_samples_q": self.ds.get("echosounder_raw_samples_q"),
+                "echosounder_raw_transmit_samples_i": self.ds.get(
+                    "echosounder_raw_transmit_samples_i"
+                ),
+                "echosounder_raw_transmit_samples_q": self.ds.get(
+                    "echosounder_raw_transmit_samples_q"
+                ),
+                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
+                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
             },
             coords={
                 "ping_time": self.ds.get("ping_time"),
                 "ping_time_burst": self.ds.get("ping_time_burst"),
                 "ping_time_average": self.ds.get("ping_time_average"),
                 "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
+                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
+                "ping_time_echosounder_raw_transmit": self.ds.get(
+                    "ping_time_echosounder_raw_transmit"
+                ),
+                "sample": self.ds.get("sample"),
+                "sample_transmit": self.ds.get("sample_transmit"),
                 "beam": self.ds.get("beam"),
                 "range_bin_average": self.ds.get("range_bin_average"),
                 "range_bin_burst": self.ds.get("range_bin_burst"),
                 "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
             },
-            attrs=attrs,
+            attrs={**attrs, "pulse_compressed": self.pulse_compressed},
         )
         ds = ds.reindex(
             {
@@ -346,32 +368,23 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         return set_encodings(ds)
 
-    def set_beam_complex(self) -> xr.Dataset:
-        ds = xr.Dataset(
-            data_vars={
-                "echosounder_raw_samples_r": self.ds.get("echosounder_raw_samples_r"),
-                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
-                "echosounder_raw_transmit_samples_r": self.ds.get(
-                    "echosounder_raw_transmit_samples_r"
-                ),
-                "echosounder_raw_transmit_samples_i": self.ds.get(
-                    "echosounder_raw_transmit_samples_i"
-                ),
-                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
-                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
-            },
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
-                "ping_time_echosounder_raw_transmit": self.ds.get(
-                    "ping_time_echosounder_raw_transmit"
-                ),
-                "sample": self.ds.get("sample"),
-                "sample_transmit": self.ds.get("sample_transmit"),
-            },
-            attrs={"pulse_compressed": self.pulse_compressed},
-        )
-        return set_encodings(ds)
-
     def set_sonar(self) -> xr.Dataset:
-        return xr.Dataset()
+        ds = xr.Dataset(
+            attrs={
+                "sonar_manufacturer": "Nortek",
+                "sonar_model": "AD2CP",
+                "sonar_serial_number": "",
+                "sonar_software_name": "",
+                "sonar_software_version": "",
+                "sonar_firmware_version": "",
+                "sonar_type": "acoustic Doppler current profiler (ADCP)",
+            }
+        )
+        if "serial_number" in self.ds:
+            ds.attrs["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
+        firmware_version = self.parser_obj.get_firmware_version()
+        if firmware_version is not None:
+            ds.attrs["sonar_firmware_version"] = ", ".join(
+                [f"{k}:{v}" for k, v in firmware_version.items()]
+            )
+        return ds
