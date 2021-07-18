@@ -19,6 +19,7 @@ Bug fixes and improvements
 - Fixed the ``location_time`` encoding in the ``Platform/NMEA`` group (#395)
 - Updated ``EchoData`` repr to show ``Platform/NMEA`` (#395, #396)
 - Improved AD2CP data parsing and conversion (#388)
+
    - Cleaned up organization of data from different sampling modes and their corresponding time coordinates
    - Fixed parsing issues that generated spikes in parsed echosounder mode amplitude data
    - Removed the ``Beam_complex`` group and put raw IQ samples in the ``Vendor`` group per convention requirements
@@ -182,16 +183,23 @@ New features
 ~~~~~~~~~~~~
 
 - Add EK80 support:
+
   - File conversion from EK80 `.raw` files to netCDF and zarr formats
   - "Simple" calibration to frequency-average Sv based on pulse compression output is implemented but needs to be thoroughly tested.
+
 - Rename subpackage `echopype.model` to `echopype.process`
+
   - The new name better describes the subpackage's function to process data for further analysis
   - Also rename class `EchoData` to `Process` to mirror the structure in `Convert` better.
   - Importing using the old names will be deprecated in the next release.
+
 - Overhaul converting multiple files with `combine_opt=True`
+
   - If target format is netCDF, temporary files will be created and finally combined to a single netCDF. This is due to current restriction that xarray does not allow simply appending new data to an existing file.
   - If target format is zarr, data in each file are unpacked and appended to the same output file.
+
 - Allow reading Zarr into `Process` in addition to netCDF: thanks @lsetiawan!
+
 - Add a logo!
 
 Bug fixes
