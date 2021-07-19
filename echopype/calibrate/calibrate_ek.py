@@ -32,43 +32,6 @@ class CalibrateEK(CalibrateBase):
         """
         self.range_meter = self.echodata.compute_range(None, self.env_params["sound_speed"], waveform_mode)
 
-        # if waveform_mode == "CW":
-        #     sample_thickness = (
-        #         self.echodata.beam["sample_interval"]
-        #         * self.env_params["sound_speed"]
-        #         / 2
-        #     )
-        #     # TODO: Check with the AFSC about the half sample difference
-        #     range_meter = (
-        #         self.echodata.beam.range_bin - tvg_correction_factor
-        #     ) * sample_thickness  # [frequency x range_bin]
-        # elif waveform_mode == "BB":
-        #     # TODO: bug: right now only first ping_time has non-nan range
-        #     shift = self.echodata.beam[
-        #         "transmit_duration_nominal"
-        #     ]  # based on Lar Anderson's Matlab code
-        #     # TODO: once we allow putting in arbitrary sound_speed,
-        #     # change below to use linearly-interpolated values
-        #     range_meter = (
-        #         (
-        #             self.echodata.beam.range_bin * self.echodata.beam["sample_interval"]
-        #             - shift
-        #         )
-        #         * self.env_params["sound_speed"].squeeze()
-        #         / 2
-        #     )
-        #     # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
-        #     #  need to ask why and see if necessary here
-        # else:
-        #     raise ValueError("Input waveform_mode not recognized!")
-
-        # # make order of dims conform with the order of backscatter data
-        # range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
-        # range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
-        # range_meter.name = "range"  # add name to facilitate xr.merge
-
-        # self.range_meter = range_meter
-
     def _get_vend_cal_params_power(self, param):
         """Get cal parameters stored in the Vendor group.
 
