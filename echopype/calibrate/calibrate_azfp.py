@@ -88,7 +88,7 @@ class CalibrateAZFP(CalibrateBase):
             'Sp' for calculating point backscattering strength
         """
         self.range_meter = self.echodata.compute_range(
-            cal_type, self.env_params["sound_speed"], None
+            self.env_params["sound_speed"], azfp_cal_type=cal_type
         )
 
     def _cal_power(self, cal_type, **kwargs):

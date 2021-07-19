@@ -31,7 +31,7 @@ class CalibrateEK(CalibrateBase):
             range in units meter
         """
         self.range_meter = self.echodata.compute_range(
-            None, self.env_params["sound_speed"], waveform_mode
+            self.env_params["sound_speed"], ek_waveform_mode=waveform_mode
         )
 
     def _get_vend_cal_params_power(self, param):
