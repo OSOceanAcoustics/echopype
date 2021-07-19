@@ -30,7 +30,9 @@ class CalibrateEK(CalibrateBase):
         range_meter : xr.DataArray
             range in units meter
         """
-        self.range_meter = self.echodata.compute_range(None, self.env_params["sound_speed"], waveform_mode)
+        self.range_meter = self.echodata.compute_range(
+            None, self.env_params["sound_speed"], waveform_mode
+        )
 
     def _get_vend_cal_params_power(self, param):
         """Get cal parameters stored in the Vendor group.

@@ -147,7 +147,7 @@ class EchoData:
         ------
         ValueError
             - When `sonar_model` is `"AZFP"` but `azfp_cal_type` is not specified or is `None`.
-            - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode` 
+            - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode`
             is not specified or is `None`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
         """
@@ -155,7 +155,9 @@ class EchoData:
         if self.sonar_model == "AZFP":
             cal_type = azfp_cal_type
             if cal_type is None:
-                raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
+                raise ValueError(
+                    "azfp_cal_type must be specified when sonar_model is AZFP"
+                )
 
             # Notation below follows p.86 of user manual
             N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
@@ -190,15 +192,13 @@ class EchoData:
         elif self.sonar_model in ("EK60", "EK80"):
             waveform_mode = ek_waveform_mode
             if waveform_mode is None:
-                raise ValueError("ek_waveform_mode must be specified when sonar_model is EK60 or EK80") # noqa
+                raise ValueError(
+                    "ek_waveform_mode must be specified when sonar_model is EK60 or EK80"
+                )
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
-                sample_thickness = (
-                    self.beam["sample_interval"]
-                    * sound_speed
-                    / 2
-                )
+                sample_thickness = self.beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
                     self.beam.range_bin - tvg_correction_factor
@@ -211,10 +211,7 @@ class EchoData:
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (
-                        self.beam.range_bin * self.beam["sample_interval"]
-                        - shift
-                    )
+                    (self.beam.range_bin * self.beam["sample_interval"] - shift)
                     * sound_speed.squeeze()
                     / 2
                 )
@@ -225,12 +222,16 @@ class EchoData:
 
             # make order of dims conform with the order of backscatter data
             range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
-            range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
+            range_meter = range_meter.where(
+                range_meter > 0, 0
+            )  # set negative ranges to 0
             range_meter.name = "range"  # add name to facilitate xr.merge
 
             return range_meter
         else:
-            raise ValueError("this method only supports sonar_model values of AZFP, EK60, and EK80")
+            raise ValueError(
+                "this method only supports sonar_model values of AZFP, EK60, and EK80"
+            )
 
     @classmethod
     def _load_convert(cls, convert_obj):
