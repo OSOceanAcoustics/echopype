@@ -14,7 +14,7 @@ class CalibrateEK(CalibrateBase):
         self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
 
-    def compute_range_meter(self, waveform_mode, tvg_correction_factor):
+    def compute_range_meter(self, waveform_mode):
         """
         Parameters
         ----------
@@ -189,7 +189,7 @@ class CalibrateEK60(CalibrateEK):
         self.get_cal_params(cal_params)
 
         # default to CW mode recorded as power samples
-        self.compute_range_meter(waveform_mode="CW", tvg_correction_factor=2)
+        self.compute_range_meter(waveform_mode="CW")
 
     def get_env_params(self, env_params, **kwargs):
         """Get env params using user inputs or values from data file.
@@ -752,12 +752,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute Sv
         if flag_complex:
-            self.compute_range_meter(
-                waveform_mode=waveform_mode, tvg_correction_factor=0
-            )
+            self.compute_range_meter(waveform_mode=waveform_mode)
             ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
-            self.compute_range_meter(waveform_mode="CW", tvg_correction_factor=0)
+            self.compute_range_meter(waveform_mode="CW")
             ds_cal = self._cal_power(cal_type=cal_type, use_beam_power=use_beam_power)
 
         return ds_cal

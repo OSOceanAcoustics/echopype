@@ -116,11 +116,47 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
-    # def compute_range(self, cal_type, sound_speed, waveform_mode=None, tvg_correction_factor):
-    def compute_range(self, cal_type, sound_speed, waveform_mode=None):
-        # TODO: docstring
+    def compute_range(self, sound_speed, azfp_cal_type=None, ek_waveform_mode=None):
+        """
+        Computes the range of the data contained in this `EchoData` object, in meters.
+
+        This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
+        If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
+
+        Parameters
+        ----------
+        sound_speed: int or float
+            Constant representing the speed of sound.
+        azfp_cal_type : {"Sv", "Sp"}, optional
+            - `"Sv"` for calculating volume backscattering strength
+            - `"Sp"` for calculating point backscattering strength.
+            This parameter is only used if `sonar_model` is `"AZFP"`,
+            and in that case it must be specified.
+        ek_waveform_mode : {"CW", "BB"}, optional
+            - `"CW"` for CW-mode samples, either recorded as complex or power samples
+            - `"BB"` for BB-mode samples, recorded as complex samples
+            This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
+            and in those cases it must be specified.
+
+        Returns
+        -------
+        xr.DataArray
+            The range of the data in meters.
+
+        Raises
+        ------
+        ValueError
+            - When `sonar_model` is `"AZFP"` but `azfp_cal_type` is not specified or is `None`.
+            - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode` 
+            is not specified or is `None`.
+            - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
+        """
 
         if self.sonar_model == "AZFP":
+            cal_type = azfp_cal_type
+            if cal_type is None:
+                raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
+
             # Notation below follows p.86 of user manual
             N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
             f = self.vendor["digitization_rate"]  # digitization rate
@@ -152,6 +188,9 @@ class EchoData:
 
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
+            waveform_mode = ek_waveform_mode
+            if waveform_mode is None:
+                raise ValueError("ek_waveform_mode must be specified when sonar_model is EK60 or EK80") # noqa
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
@@ -190,6 +229,8 @@ class EchoData:
             range_meter.name = "range"  # add name to facilitate xr.merge
 
             return range_meter
+        else:
+            raise ValueError("this method only supports sonar_model values of AZFP, EK60, and EK80")
 
     @classmethod
     def _load_convert(cls, convert_obj):
