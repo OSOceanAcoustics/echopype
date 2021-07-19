@@ -191,6 +191,9 @@ class EchoData:
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
             waveform_mode = ek_waveform_mode
+            if self.sonar_model == "EK60" and waveform_mode == "BB":
+                raise ValueError("EK60 cannot have BB samples")
+
             if waveform_mode is None:
                 raise ValueError(
                     "ek_waveform_mode must be specified when sonar_model is EK60 or EK80"
