@@ -65,7 +65,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
 
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
         have non-monotonically increasing `ping_time`s or `location_time`s,
-        the `ping_time`s or `location_time`sin the output `EchoData` object will be increased
+        the `ping_time`s or `location_time`s in the output `EchoData` object will be increased
         starting at the timestamp where the reversal occurs such that all
         `ping_time`s and `location_time`s in the output are monotonically increasing.
         Additionally, the original `ping_time` and `location_time` values will be stored
