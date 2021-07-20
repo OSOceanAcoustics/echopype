@@ -253,17 +253,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
-    # Beam Complex Group: only AD2CP has Beam Complex
-    if hasattr(echodata, "beam_complex") and echodata.beam_complex is not None:
-        io.save_file(
-            echodata.beam_complex,
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Beam_complex",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
-
     # Platform group
     io.save_file(
         echodata.platform,  # TODO: chunking necessary? location_time and mru_time (EK80) only
@@ -275,7 +264,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Platform/NMEA group: some sonar model does not produce NMEA data
-    if hasattr(echodata, "nmea"):
+    if echodata.nmea is not None:
         io.save_file(
             echodata.nmea,  # TODO: chunking necessary?
             path=output_path,
@@ -528,8 +517,6 @@ def open_raw(
         echodata.beam, echodata.beam_power = setgrouper.set_beam()
     else:
         echodata.beam = setgrouper.set_beam()
-    if sonar_model == "AD2CP":
-        echodata.beam_complex = setgrouper.set_beam_complex()
     echodata.vendor = setgrouper.set_vendor()
 
     return echodata
