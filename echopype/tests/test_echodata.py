@@ -1,5 +1,6 @@
 from textwrap import dedent
 from pathlib import Path
+import echopype
 
 import fsspec
 
@@ -11,6 +12,9 @@ import pytest
 import xarray as xr
 
 ek60_path = TEST_DATA_FOLDER / "ek60"
+ek80_path = TEST_DATA_FOLDER / "ek80"
+azfp_path = TEST_DATA_FOLDER / "azfp"
+ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
 
 
 # TODO: Probably put the function below into a common module?
@@ -133,3 +137,33 @@ def test_open_converted(
             and converted_zarr.endswith(".nc")
         ):
             assert isinstance(e, ValueError) is True
+
+
+@pytest.mark.parametrize(
+    ("filepath", "sonar_model", "xml_path"),
+    [
+        (ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.raw", "EK60", None),
+        (ek80_path / "D20170912-T234910.raw", "EK80", None),
+        (azfp_path / "ooi" / "17032923.01A", "AZFP", azfp_path / "ooi" / "17032922.XML"),
+        (ad2cp_path / "raw" / "090" / "rawtest.090.00001.ad2cp", "AD2CP", None)
+    ]
+)
+def test_compute_range(filepath, sonar_model, xml_path):
+    ed = echopype.open_raw(filepath, sonar_model, xml_path)
+    sound_speed = 343
+    if sonar_model == "EK60":
+        range = ed.compute_range(sound_speed, ek_waveform_mode="CW")
+    elif sonar_model == "EK80":
+        range = ed.compute_range(sound_speed, ek_waveform_mode="CW")
+    elif sonar_model == "AZFP":
+        range = ed.compute_range(sound_speed, azfp_cal_type="Sv")
+    elif sonar_model == "AD2CP":
+        try:
+            ed.compute_range(sound_speed, ek_waveform_mode="CW", azfp_cal_type="Sv")
+        except ValueError:
+            return
+        else:
+            raise AssertionError
+
+    assert isinstance(range, xr.DataArray)
+    assert range.size > 0
