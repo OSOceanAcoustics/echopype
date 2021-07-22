@@ -239,6 +239,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # save location time before reversal correction
     if old_location_time is not None:
         result.provenance["old_location_time"] = old_location_time
+    # TODO: possible parameter to disable original attributes and original ping_time storage
+    # in provenance group?
     # save attrs from before combination
     for group in old_attrs:
         all_group_attrs = set()
