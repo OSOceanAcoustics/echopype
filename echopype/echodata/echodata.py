@@ -149,6 +149,8 @@ class EchoData:
             - When `sonar_model` is `"AZFP"` but `azfp_cal_type` is not specified or is `None`.
             - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode`
             is not specified or is `None`.
+            - When `sonar_model` is `"EK60"` but `waveform_mode` is `"BB"` (EK60 cannot have
+            broadband samples).
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
         """
 
