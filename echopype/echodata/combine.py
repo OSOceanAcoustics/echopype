@@ -137,6 +137,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     new_location_time = None
 
     # all attributes before combination
+    # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
     for group in EchoData.group_map:
@@ -239,20 +240,18 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     if old_location_time is not None:
         result.provenance["old_location_time"] = old_location_time
     # save attrs from before combination
-    all_attrs = set()
     for group in old_attrs:
+        all_group_attrs = set()
         for group_attrs in old_attrs[group]:
             for attr in group_attrs:
-                all_attrs.add(attr)
-    all_attrs = list(all_attrs)
-    for group in old_attrs:
+                all_group_attrs.add(attr)
         attrs = xr.DataArray(
             [
-                [group_attrs.get(attr) for attr in all_attrs]
+                [group_attrs.get(attr) for attr in all_group_attrs]
                 for group_attrs in old_attrs[group]
             ],
-            coords={"attribute": all_attrs},
-            dims=["echodata_object_index", "attribute"],
+            coords={f"{group}_attr_key": all_group_attrs},
+            dims=["echodata_object_index", f"{group}_attr_key"],
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
 
