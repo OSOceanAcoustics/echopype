@@ -5,7 +5,7 @@ import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, Literal, Union
+from typing import Dict, Union
 
 import fsspec
 from fsspec import FSMap
@@ -119,7 +119,7 @@ def sanitize_file_path(
 
 def validate_output_path(
     source_file: str,
-    engine: Literal["netcdf4", "zarr"],
+    engine: str,
     output_storage_options: Dict = {},
     save_path: Union[None, Path, str] = None,
 ) -> str:
