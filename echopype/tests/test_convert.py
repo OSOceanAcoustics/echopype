@@ -9,14 +9,11 @@ output tests.**
 
 
 import os
-import shutil
-import glob
 import fsspec
 import xarray as xr
 import pytest
 from pathlib import Path
 from echopype import open_raw
-from echopype.convert.api import _validate_path
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.set_groups_base import DEFAULT_ENCODINGS
 
@@ -82,175 +79,6 @@ def minio_bucket():
         fs.put(source_path, f'{test_data}/{d.name}', recursive=True)
 
     return common_storage_options
-
-
-@pytest.mark.parametrize("model", ["EK60"])
-@pytest.mark.parametrize("file_format", [".zarr"])
-@pytest.mark.parametrize(
-    "input_path",
-    [
-        "./echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
-        "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-    ],
-)
-@pytest.mark.parametrize(
-    "output_save_path",
-    [
-        None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
-    ],
-)
-def test_validate_path_single_source(
-    model, file_format, input_path, output_save_path, minio_bucket
-):
-
-    output_storage_options = {}
-    if output_save_path and output_save_path.startswith("s3://"):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-            key="minioadmin",
-            secret="minioadmin",
-        )
-    fsmap = fsspec.get_mapper(input_path)
-    single_fname = os.path.splitext(os.path.basename(fsmap.root))[0]
-
-    converted_raw_path = _validate_path(
-        source_file=single_fname,
-        file_format=file_format,
-        output_storage_options=output_storage_options,
-        save_path=output_save_path
-    )
-    # Used for cross-platform path comparisons
-    output_path = Path(converted_raw_path)
-
-    if output_save_path is not None:
-        fsmap_tmp = fsspec.get_mapper(output_save_path, **output_storage_options)
-        fs = fsmap_tmp.fs
-        if not output_save_path.startswith("s3"):
-            if output_save_path.endswith("/"):
-                # if an output folder is given, below works with and without the slash at the end
-                assert output_path == Path(os.path.join(fsmap_tmp.root, single_fname + ".zarr"))
-            elif output_save_path.endswith(".zarr"):
-                # if an output filename is given
-                assert output_path == Path(fsmap_tmp.root)
-            else:
-                # force output file extension to the called type (here .zarr)
-                assert output_path == Path(os.path.splitext(fsmap_tmp.root)[0] + ".zarr")
-            shutil.rmtree(os.path.dirname(converted_raw_path))
-        else:
-            if output_save_path.endswith("/"):
-                # if an output folder is given, below works with and without the slash at the end
-                assert output_path == Path(os.path.join(output_save_path, single_fname + ".zarr"))
-            elif output_save_path.endswith(".zarr"):
-                # if an output filename is given
-                assert output_path == Path(output_save_path)
-            else:
-                # force output file extension to the called type (here .zarr)
-                assert output_path == Path(os.path.splitext(output_save_path)[0] + ".zarr")
-            fs.delete(converted_raw_path)
-    else:
-        current_dir = Path.cwd()
-        temp_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        assert output_path == Path(str(temp_dir.joinpath(Path(single_fname + ".zarr"))))
-        shutil.rmtree(os.path.dirname(converted_raw_path))
-
-
-@pytest.mark.parametrize("model", ["EK60"])
-@pytest.mark.parametrize("file_format", [".zarr"])
-@pytest.mark.parametrize(
-    "input_path",
-    [
-        "./echopype/test_data/ek60/*.raw",
-        [
-            "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-        ],
-    ],
-)
-@pytest.mark.parametrize(
-    "output_save_path",
-    [
-        None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
-    ],
-)
-@pytest.mark.skip(reason='_validate_path only takes single files')
-def test_validate_path_multiple_source(
-    model, file_format, input_path, output_save_path, minio_bucket
-):
-    output_storage_options = {}
-    if output_save_path and output_save_path.startswith("s3://"):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-            key="minioadmin",
-            secret="minioadmin",
-        )
-
-    if isinstance(input_path, str):
-        mult_path = glob.glob(input_path)
-    else:
-        mult_path = input_path
-    echodata_mult = open_raw(mult_path, sonar_model="EK60")
-    echodata_mult._output_storage_options = output_storage_options
-
-    echodata_mult._validate_path(file_format=file_format, save_path=output_save_path)
-
-    if output_save_path is not None:
-        fsmap_tmp = fsspec.get_mapper(output_save_path, **output_storage_options)
-        fs = fsmap_tmp.fs
-        if not output_save_path.startswith("s3"):
-            if output_save_path.endswith("/"):
-                # if an output folder is given, below works with and without the slash at the end
-                assert echodata_mult.converted_raw_path == [
-                    os.path.join(
-                        fsmap_tmp.root,
-                        os.path.splitext(os.path.basename(f))[0] + ".zarr",
-                    )
-                    for f in mult_path
-                ]
-            elif output_save_path.endswith(".zarr"):
-                # if an output filename is given: only use the directory
-                assert echodata_mult.converted_raw_path == [os.path.abspath(output_save_path)]
-            elif output_save_path.endswith(".nc"):
-                # force output file extension to the called type (here .zarr)
-                assert echodata_mult.converted_raw_path == [
-                    os.path.abspath(output_save_path.replace(".nc", ".zarr"))
-                ]
-            shutil.rmtree(os.path.dirname(echodata_mult.converted_raw_path[0]))
-        else:
-            if output_save_path.endswith("/"):
-                # if an output folder is given, below works with and without the slash at the end
-                assert echodata_mult.converted_raw_path == [
-                    os.path.join(
-                        output_save_path,
-                        os.path.splitext(os.path.basename(f))[0] + ".zarr",
-                    )
-                    for f in mult_path
-                ]
-            elif output_save_path.endswith(".zarr"):
-                # if an output filename is given: only use the directory
-                assert echodata_mult.converted_raw_path == [output_save_path]
-            elif output_save_path.endswith(".nc"):
-                # force output file extension to the called type (here .zarr)
-                assert echodata_mult.converted_raw_path == [output_save_path.replace(".nc", ".zarr")]
-            fs.delete(echodata_mult.converted_raw_path[0])
-    else:
-        current_dir = Path.cwd()
-        temp_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        assert echodata_mult.converted_raw_path == [
-            str(temp_dir.joinpath(Path(os.path.splitext(os.path.basename(f))[0] + ".zarr")))
-            for f in mult_path
-        ]
-        shutil.rmtree(os.path.dirname(echodata_mult.converted_raw_path[0]))
 
 
 @pytest.mark.parametrize(
@@ -375,14 +203,18 @@ def test_convert_ek60(
         to_file = getattr(ec, "to_zarr")
     else:
         return
+    try:
+        to_file(
+            save_path=output_save_path,
+            overwrite=True,
+            output_storage_options=output_storage_options,
+        )
 
-    to_file(
-        save_path=output_save_path,
-        overwrite=True,
-        output_storage_options=output_storage_options,
-    )
-
-    _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+    except Exception as e:
+        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+            assert isinstance(e, ValueError) is True
+            assert str(e) == 'Only local netcdf4 is supported.'
 
 
 @pytest.mark.parametrize("model", ["azfp"])
@@ -452,14 +284,18 @@ def test_convert_azfp(
         to_file = getattr(ec, "to_zarr")
     else:
         return
+    try:
+        to_file(
+            save_path=output_save_path,
+            overwrite=True,
+            output_storage_options=output_storage_options,
+        )
 
-    to_file(
-        save_path=output_save_path,
-        overwrite=True,
-        output_storage_options=output_storage_options,
-    )
-
-    _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+    except Exception as e:
+        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+            assert isinstance(e, ValueError) is True
+            assert str(e) == 'Only local netcdf4 is supported.'
 
 
 @pytest.mark.parametrize("model", ["EK80"])
@@ -516,11 +352,16 @@ def test_convert_ek80(
     else:
         return
 
-    to_file(
-        save_path=output_save_path,
-        overwrite=True,
-        combine=combine_files,
-        output_storage_options=output_storage_options,
-    )
+    try:
+        to_file(
+            save_path=output_save_path,
+            overwrite=True,
+            combine=combine_files,
+            output_storage_options=output_storage_options,
+        )
 
-    _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+    except Exception as e:
+        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+            assert isinstance(e, ValueError) is True
+            assert str(e) == 'Only local netcdf4 is supported.'
