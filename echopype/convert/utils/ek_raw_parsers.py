@@ -1176,7 +1176,7 @@ class SimradConfigParser(_SimradDatagramParser):
         beam_config                     [str] Raw XML string containing beam config. info
 
 
-    Transducer Config Keys (ER60/ES60 sounders):
+    Transducer Config Keys (ER60/ES60/ES70 sounders):
         channel_id                      [str]   channel ident string
         beam_type                       [long]  Type of channel (0 = Single, 1 = Split)
         frequency                       [float] channel frequency
@@ -1311,6 +1311,33 @@ class SimradConfigParser(_SimradDatagramParser):
                 ("gpt_software_version", "16s"),
                 ("spare4", "28s"),
             ],
+            "ES70": [
+                ("channel_id", "128s"),
+                ("beam_type", "l"),
+                ("frequency", "f"),
+                ("gain", "f"),
+                ("equivalent_beam_angle", "f"),
+                ("beamwidth_alongship", "f"),
+                ("beamwidth_athwartship", "f"),
+                ("angle_sensitivity_alongship", "f"),
+                ("angle_sensitivity_athwartship", "f"),
+                ("angle_offset_alongship", "f"),
+                ("angle_offset_athwartship", "f"),
+                ("pos_x", "f"),
+                ("pos_y", "f"),
+                ("pos_z", "f"),
+                ("dir_x", "f"),
+                ("dir_y", "f"),
+                ("dir_z", "f"),
+                ("pulse_length_table", "5f"),
+                ("spare1", "8s"),
+                ("gain_table", "5f"),
+                ("spare2", "8s"),
+                ("sa_correction_table", "5f"),
+                ("spare3", "8s"),
+                ("gpt_software_version", "16s"),
+                ("spare4", "28s"),
+            ],
             "MBES": [
                 ("channel_id", "128s"),
                 ("beam_type", "l"),
@@ -1412,7 +1439,7 @@ class SimradConfigParser(_SimradDatagramParser):
 
                 txcvr = data["transceivers"].setdefault(txcvr_indx, {})
 
-                if _sounder_name_used in ["ER60", "ES60"]:
+                if _sounder_name_used in ["ER60", "ES60", "ES70"]:
                     for txcvr_field_indx, field in enumerate(txcvr_header_fields[:17]):
                         txcvr[field] = txcvr_header_values[txcvr_field_indx]
 
@@ -1505,7 +1532,7 @@ class SimradConfigParser(_SimradDatagramParser):
             for txcvr_indx, txcvr in list(data["transceivers"].items()):
                 txcvr_contents = []
 
-                if _sounder_name_used in ["ER60", "ES60"]:
+                if _sounder_name_used in ["ER60", "ES60", "ES70"]:
                     for field in txcvr_header_fields[:17]:
                         txcvr_contents.append(txcvr[field])
 
