@@ -477,11 +477,15 @@ class RawSimradFile(BufferedReader):
         old_file_pos = self._tell_bytes()
         log.warning("Attempting to find next valid datagram...")
 
-        while self.peek()["type"][:3] not in list(self.DGRAM_TYPE_KEY.keys()):
-            self._seek_bytes(1, 1)
-
-        log.warning("Found next datagram:  %s", self.peek())
-        log.warning("Skipped ahead %d bytes", self._tell_bytes() - old_file_pos)
+        try:
+            while self.peek()["type"][:3] not in list(self.DGRAM_TYPE_KEY.keys()):
+                self._seek_bytes(1, 1)
+        except DatagramReadError:
+            log.warning('No next datagram found. Ending reading of file.')
+            raise SimradEOF()
+        else:
+            log.warning("Found next datagram:  %s", self.peek())
+            log.warning("Skipped ahead %d bytes", self._tell_bytes() - old_file_pos)
 
     def tell(self):
         """
