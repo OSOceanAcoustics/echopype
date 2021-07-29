@@ -252,7 +252,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 [group_attrs.get(attr) for attr in all_group_attrs]
                 for group_attrs in old_attrs[group]
             ],
-            coords={f"{group}_attr_key": all_group_attrs},
+            coords={f"{group}_attr_key": list(all_group_attrs)},
             dims=["echodata_object_index", f"{group}_attr_key"],
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
