@@ -1,6 +1,7 @@
 import warnings
 from datetime import datetime
 from typing import Any, Dict, List
+from pathlib import Path
 
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -82,6 +83,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     ValueError
         If `echodatas` contains `EchoData` objects with different or `None` `sonar_model` values
         (i.e., all `EchoData` objects must have the same non-None `sonar_model` value).
+    ValueError
+        If EchoData objects have conflicting source file names.
 
     Warns
     -----
@@ -213,6 +216,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 if "location_time" in combined_group and exist_reversed_time(
                     combined_group, "location_time"
                 ):
+                    if group != "nmea":
                         if old_location_time is None:
                             warnings.warn(
                                 "EK60 location_time reversal detected; the location times will be corrected"  # noqa
@@ -247,13 +251,26 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         for group_attrs in old_attrs[group]:
             for attr in group_attrs:
                 all_group_attrs.add(attr)
+        echodata_filenames = []
+        for ed in echodatas:
+            if ed.source_file is not None:
+                filepath = ed.source_file
+            elif ed.converted_raw_path is not None:
+                filepath = ed.converted_raw_path
+            else:
+                # unreachable
+                raise ValueError("EchoData object does not have a file path")
+            filename = Path(filepath).name
+            if filename in echodata_filenames:
+                raise ValueError("EchoData objects have conflicting filenames")
+            echodata_filenames.append(filename)
         attrs = xr.DataArray(
             [
                 [group_attrs.get(attr) for attr in all_group_attrs]
                 for group_attrs in old_attrs[group]
             ],
-            coords={f"{group}_attr_key": list(all_group_attrs)},
-            dims=["echodata_object_index", f"{group}_attr_key"],
+            coords={"echodata_filename": echodata_filenames, f"{group}_attr_key": list(all_group_attrs)},
+            dims=["echodata_filename", f"{group}_attr_key"],
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
 
