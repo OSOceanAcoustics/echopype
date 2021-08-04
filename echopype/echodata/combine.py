@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime
-from typing import Any, Dict, List
 from pathlib import Path
+from typing import Any, Dict, List
 
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -269,7 +269,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 [group_attrs.get(attr) for attr in all_group_attrs]
                 for group_attrs in old_attrs[group]
             ],
-            coords={"echodata_filename": echodata_filenames, f"{group}_attr_key": list(all_group_attrs)},
+            coords={
+                "echodata_filename": echodata_filenames,
+                f"{group}_attr_key": list(all_group_attrs),
+            },
             dims=["echodata_filename", f"{group}_attr_key"],
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
