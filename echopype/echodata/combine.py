@@ -213,18 +213,18 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 if "location_time" in combined_group and exist_reversed_time(
                     combined_group, "location_time"
                 ):
-                    if old_location_time is None:
-                        warnings.warn(
-                            "EK60 location_time reversal detected; the location times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_location_time = combined_group["location_time"]
-                        coerce_increasing_time(
-                            combined_group, time_name="location_time"
-                        )
-                        new_location_time = combined_group["location_time"]
-                    else:
-                        combined_group["location_time"] = new_location_time
+                        if old_location_time is None:
+                            warnings.warn(
+                                "EK60 location_time reversal detected; the location times will be corrected"  # noqa
+                                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+                            )
+                            old_location_time = combined_group["location_time"]
+                            coerce_increasing_time(
+                                combined_group, time_name="location_time"
+                            )
+                            new_location_time = combined_group["location_time"]
+                        else:
+                            combined_group["location_time"] = new_location_time
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
