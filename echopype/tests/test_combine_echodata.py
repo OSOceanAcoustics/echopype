@@ -1,8 +1,11 @@
 from typing import Any, List, Optional, TYPE_CHECKING, Dict, Union
 from pathlib import Path
+
+import numpy as np
 import pytest
 import xarray as xr
 from xarray.core.merge import MergeError
+
 import echopype
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.qc import exist_reversed_time
@@ -133,6 +136,7 @@ def test_ping_time_reversal():
 
 
 def test_attr_storage():
+    # check storage of attributes before combination in provenance group
     eds = [
         echopype.open_raw(file, "EK60") for file in ek60_test_data
     ]
@@ -142,10 +146,19 @@ def test_attr_storage():
             group_attrs = combined.provenance[f"{group}_attrs"]
             for i, ed in enumerate(eds):
                 for attr, value in getattr(ed, group).attrs.items():
-                    assert group_attrs.sel(echodata_object_index=i, attribute=attr).data[()] == value
+                    assert group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()] == value
+
+    # check selection by echodata_filename
+    for file in ek60_test_data:
+        assert Path(file).name in combined.provenance["echodata_filename"]
+    for group in combined.group_map:
+        if f"{group}_attrs" in combined.provenance:
+            group_attrs = combined.provenance[f"{group}_attrs"]
+            assert np.array_equal(group_attrs.sel(echodata_filename=Path(ek60_test_data[0]).name), group_attrs.isel(echodata_filename=0))
 
 
 def test_combine_attrs():
+    # check parameter passed to combine_echodata that controls behavior of attribute combination
     eds = [
         echopype.open_raw(file, "EK60") for file in ek60_test_data
     ]
