@@ -9,6 +9,14 @@ with open("README.md") as file:
 # Dependencies.
 with open("requirements.txt") as f:
     requirements = f.readlines()
+
+with open("requirements-dev.txt") as f:
+    dev_reqs = f.readlines()
+
+EXTRA_REQUIRES = {
+    "dev": dev_reqs,
+}
+
 INSTALL_REQUIRES = [t.strip() for t in requirements]
 
 opts = dict(
@@ -16,6 +24,8 @@ opts = dict(
     packages=find_packages(),
     include_package_data=True,
     install_requires=INSTALL_REQUIRES,
+    extras_require=EXTRA_REQUIRES,
+    python_requires=">=3.6",
     py_modules=["_echopype_version"],
     use_scm_version={
         "fallback_version": "unknown",
