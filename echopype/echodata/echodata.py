@@ -8,7 +8,7 @@ import fsspec
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
-from ..utils.io import check_file_existance, sanitize_file_path
+from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from .convention import _get_convention
 
@@ -143,7 +143,7 @@ class EchoData:
 
     def _check_path(self, filepath):
         """ Check if converted_raw_path exists """
-        file_exists = check_file_existance(filepath, self.storage_options)
+        file_exists = check_file_existence(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
 

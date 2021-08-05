@@ -78,7 +78,23 @@ def sanitize_file_path(
     storage_options: dict = {},
     is_dir: bool = False,
 ) -> Union[Path, FSMap]:
-    """Determines file path, either Path or FSMap"""
+    """
+    Cleans and checks the user output file path type to
+    a standardized Path or FSMap type.
+
+    Parameters
+    ----------
+    file_path : str | Path | FSMap
+        The source file path
+    engine : str {'netcdf4', 'zarr'}
+        The engine to be used for file output
+    storage_options : dict
+        Storage options for file path
+    is_dir : bool
+        Flag for the function to know
+        if file_path is a directory or not.
+        If not, suffix will be determined.
+    """
 
     if not is_dir:
         suffix = _get_suffix(file_path)
@@ -198,7 +214,7 @@ def validate_output_path(
     return out_path
 
 
-def check_file_existance(
+def check_file_existence(
     file_path: Union[str, Path, FSMap], storage_options: dict = {}
 ) -> bool:
     """
