@@ -18,26 +18,26 @@ def delta_z(ds, zname='range'):
     return dz.where(dz != 0, other = np.nan)
 
 
-def convert_to_linear(da_Sv):
-    return 10 ** (da_Sv / 10)  # convert Sv to linear domain
+def convert_to_linear(ds, name='Sv'):
+    return 10 ** (ds[name] / 10)  # convert Sv to linear domain
 
 
 def abundance(ds, zname='range'):
     dz = delta_z(ds, zname=zname)
-    sv = convert_to_linear(ds['Sv'])
+    sv = convert_to_linear(ds, 'Sv')
     return (10 * np.log10(sv * dz)).sum(dim='range_bin')  # integrate over depth
 
 
 def center_of_mass(ds, zname='range'):
     dz = delta_z(ds, zname=zname)
-    sv = convert_to_linear(ds['Sv'])
+    sv = convert_to_linear(ds, 'Sv')
     return ((ds[zname] * sv * dz).sum(dim='range_bin') /
             (sv * dz).sum(dim='range_bin'))
 
 
 def inertia(ds, zname='range'):
     dz = delta_z(ds, zname=zname)
-    sv = convert_to_linear(ds['Sv'])
+    sv = convert_to_linear(ds, 'Sv')
     cm = center_of_mass(ds)
     return (((ds[zname] - cm) ** 2 * sv * dz).sum(dim='range_bin') /
             (sv * dz).sum(dim='range_bin'))
@@ -45,7 +45,7 @@ def inertia(ds, zname='range'):
 
 def evenness(ds, zname='range'):
     dz = delta_z(ds, zname=zname)
-    sv = convert_to_linear(ds['Sv'])
+    sv = convert_to_linear(ds, 'Sv')
     return (((sv * dz).sum(dim='range_bin')) ** 2 /
             (sv ** 2 * dz).sum(dim='range_bin'))
 
