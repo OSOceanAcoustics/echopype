@@ -15,7 +15,7 @@ def delta_z(ds, zname='range'):
     if zname not in ds:
         raise ValueError(f"{zname} not in the input Dataset!")
     dz = ds[zname].diff(dim='range_bin')  # here assume range or depth are data variables with the same dims as Sv
-    return dz.where(dz != 0, np.nan)
+    return dz.where(dz != 0, other = np.nan)
 
 
 def convert_to_linear(da_Sv):
