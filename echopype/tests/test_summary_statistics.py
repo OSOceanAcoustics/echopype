@@ -46,6 +46,8 @@ def create_test_ds(Sv, range):
 # Test Functions
 
 def test_abundance():
+	"""Compares summary_statistics.py calculation of abundance with verified outcomes
+	"""
     #case 1
     Sv = np.array([[[20, 40, 60],
                     [50, 20, 30]]])
@@ -59,6 +61,8 @@ def test_abundance():
 
     
 def test_center_of_mass():
+	"""Compares summary_statistics.py calculation of center_of_mass with verified outcomes
+	"""
     Sv = np.array([[[20, 40, 60],
                     [50, 20, 30]]])
     range = np.array([[[1, 2, 3],
@@ -70,6 +74,8 @@ def test_center_of_mass():
 
 
 def test_inertia():
+	"""Compares summary_statistics.py calculation of intertia with verified outcomes
+	"""
     Sv = np.array([[[20, 40, 60],
                     [50, 20, 30]]])
     range = np.array([[[1, 2, 3],
@@ -81,6 +87,8 @@ def test_inertia():
     
     
 def test_evenness():
+	"""Compares summary_statistics.py calculation of evenness with verified outcomes
+	"""
     Sv = np.array([[[20, 40, 60],
                     [50, 20, 30]]])
     range = np.array([[[1, 2, 3],
@@ -92,6 +100,8 @@ def test_evenness():
 
 
 def test_aggregation():
+	"""Compares summary_statistics.py calculation of aggregation with verified outcomes
+	"""
     Sv = np.array([[[20, 40, 60],
                     [50, 20, 30]]])
     range = np.array([[[1, 2, 3],
