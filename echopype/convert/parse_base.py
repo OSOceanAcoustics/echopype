@@ -353,7 +353,7 @@ class ParseEK(ParseBase):
             else:
                 mask = lens[:, None] > np.arange(lens.max())
             # Take care of problem of np.nan being implicitly "real"
-            if isinstance(data_list[0][0], (np.complex, np.complex64, np.complex128)):
+            if isinstance(data_list[0][0], (complex, np.complex64, np.complex128)):
                 out_array = np.full(mask.shape, np.nan + 0j)
             else:
                 out_array = np.full(mask.shape, np.nan)
