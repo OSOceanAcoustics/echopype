@@ -142,7 +142,7 @@ class EchoData:
                 setattr(self, group, ds)
 
     def _check_path(self, filepath):
-        """ Check if converted_raw_path exists """
+        """Check if converted_raw_path exists"""
         file_exists = check_file_existance(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
@@ -152,7 +152,7 @@ class EchoData:
         return filepath
 
     def _check_suffix(self, filepath):
-        """ Check if file type is supported. """
+        """Check if file type is supported."""
         # TODO: handle multiple files through the same set of checks for combining files
         if isinstance(filepath, fsspec.FSMap):
             suffix = Path(filepath.root).suffix
@@ -165,7 +165,7 @@ class EchoData:
         return suffix
 
     def _load_group(self, filepath, group=None):
-        """ Loads each echodata group """
+        """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
         return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
