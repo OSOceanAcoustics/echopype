@@ -18,7 +18,7 @@ import numpy as np
 
 from .ek_date_conversion import nt_to_unix
 
-TCVR_CH_NUM_MATCHER = re.compile(r"\d{6}-\w{1,2}")
+TCVR_CH_NUM_MATCHER = re.compile(r"\d{6}-\w{1,2}|\w{12}-\w{1,2}")
 
 __all__ = [
     "SimradNMEAParser",
@@ -416,7 +416,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                              ready for writing to disk
     """
 
-    nmea_head_re = re.compile("\$[A-Za-z]{5},")  # noqa
+    nmea_head_re = re.compile(r"\$[A-Za-z]{5},")  # noqa
 
     def __init__(self):
         headers = {
