@@ -1,12 +1,12 @@
 import abc
 
-
 ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
 
 CAL_PARAMS = {
     "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
+
 
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
