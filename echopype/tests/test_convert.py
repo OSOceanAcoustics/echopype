@@ -12,7 +12,6 @@ import os
 import fsspec
 import xarray as xr
 import pytest
-from pathlib import Path
 from echopype import open_raw
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.set_groups_base import DEFAULT_ENCODINGS
@@ -53,64 +52,34 @@ def _check_output_files(engine, output_files, storage_options):
             fs.delete(output_files)
 
 
-@pytest.fixture(scope="session")
-def minio_bucket():
-    common_storage_options = dict(
-        client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-        key="minioadmin",
-        secret="minioadmin",
-    )
-    bucket_name = "ooi-raw-data"
-    fs = fsspec.filesystem(
-        "s3",
-        **common_storage_options,
-    )
-    test_data = "data"
-    if not fs.exists(test_data):
-        fs.mkdir(test_data)
-
-    if not fs.exists(bucket_name):
-        fs.mkdir(bucket_name)
-
-    # Load test data into bucket
-    test_data_path = Path(__file__).parent.parent.joinpath(Path("test_data"))
-    for d in test_data_path.iterdir():
-        source_path = f'echopype/test_data/{d.name}'
-        fs.put(source_path, f'{test_data}/{d.name}', recursive=True)
-
-    return common_storage_options
-
-
 @pytest.mark.parametrize(
     "sonar_model, raw_file, xml_path",
     [
         (
             "azfp",
             TEST_DATA_FOLDER / "azfp/ooi/17032923.01A",
-            TEST_DATA_FOLDER / "azfp/ooi/17032922.XML"
+            TEST_DATA_FOLDER / "azfp/ooi/17032922.XML",
         ),
         (
             "ek60",
             TEST_DATA_FOLDER / "ek60/DY1801_EK60-D20180211-T164025.raw",
-            None
+            None,
         ),
         (
             "ek80",
             TEST_DATA_FOLDER / "ek80/ncei-wcsd/D20170826-T205615.raw",
-            None
+            None,
         ),
         (
             "ad2cp",
             TEST_DATA_FOLDER / "ad2cp/raw/076/rawtest.076.00000.ad2cp",
-            None
-        )
-    ]
+            None,
+        ),
+    ],
 )
 def test_convert_time_encodings(sonar_model, raw_file, xml_path):
     ed = open_raw(
-        sonar_model=sonar_model,
-        raw_file=raw_file,
-        xml_path=xml_path
+        sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path
     )
     ed.to_netcdf(overwrite=True)
     for group, details in ed._EchoData__group_map.items():
@@ -132,7 +101,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path):
                         file_da = xr.open_dataset(
                             ed.converted_raw_path,
                             group=details['ep_group'],
-                            decode_cf=False
+                            decode_cf=False,
                         )[var]
                         assert file_da.dtype == encoding['dtype']
 
@@ -183,12 +152,18 @@ def test_convert_ek60(
     if isinstance(input_path, list):
         ipath = input_path[0]
 
-    input_storage_options = common_storage_options if ipath.startswith("s3://") else {}
+    input_storage_options = (
+        common_storage_options if ipath.startswith("s3://") else {}
+    )
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
     # Only using one file
-    ec = open_raw(raw_file=ipath, sonar_model=model, storage_options=input_storage_options)
+    ec = open_raw(
+        raw_file=ipath,
+        sonar_model=model,
+        storage_options=input_storage_options,
+    )
 
     if (
         export_engine == "netcdf4"
@@ -210,7 +185,9 @@ def test_convert_ek60(
             output_storage_options=output_storage_options,
         )
 
-        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(
+            export_engine, ec.converted_raw_path, output_storage_options
+        )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
             assert isinstance(e, ValueError) is True
@@ -258,7 +235,9 @@ def test_convert_azfp(
     common_storage_options = minio_bucket
     output_storage_options = {}
 
-    input_storage_options = common_storage_options if input_path.startswith("s3://") else {}
+    input_storage_options = (
+        common_storage_options if input_path.startswith("s3://") else {}
+    )
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
@@ -291,7 +270,9 @@ def test_convert_azfp(
             output_storage_options=output_storage_options,
         )
 
-        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(
+            export_engine, ec.converted_raw_path, output_storage_options
+        )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
             assert isinstance(e, ValueError) is True
@@ -332,11 +313,17 @@ def test_convert_ek80(
     common_storage_options = minio_bucket
     output_storage_options = {}
 
-    input_storage_options = common_storage_options if input_path.startswith("s3://") else {}
+    input_storage_options = (
+        common_storage_options if input_path.startswith("s3://") else {}
+    )
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
-    ec = open_raw(raw_file=input_path, sonar_model=model, storage_options=input_storage_options)
+    ec = open_raw(
+        raw_file=input_path,
+        sonar_model=model,
+        storage_options=input_storage_options,
+    )
 
     if (
         export_engine == "netcdf4"
@@ -360,7 +347,9 @@ def test_convert_ek80(
             output_storage_options=output_storage_options,
         )
 
-        _check_output_files(export_engine, ec.converted_raw_path, output_storage_options)
+        _check_output_files(
+            export_engine, ec.converted_raw_path, output_storage_options
+        )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
             assert isinstance(e, ValueError) is True
