@@ -109,6 +109,11 @@ class EchoData:
             self._load_file(converted_raw_path)
             self.sonar_model = self.top.keywords
 
+            if isinstance(converted_raw_path, fsspec.FSMap):
+                # Convert fsmap to Path so it can be used
+                # for retrieving the path strings
+                converted_raw_path = Path(converted_raw_path.root)
+
         self.converted_raw_path = converted_raw_path
 
     @classmethod
