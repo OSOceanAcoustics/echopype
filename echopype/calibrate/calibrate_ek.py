@@ -31,7 +31,9 @@ class CalibrateEK(CalibrateBase):
             range in units meter
         """
         self.range_meter = self.echodata.compute_range(
-            self.env_params["sound_speed"], ek_waveform_mode=waveform_mode, ek_encode_mode=encode_mode
+            self.env_params["sound_speed"],
+            ek_waveform_mode=waveform_mode,
+            ek_encode_mode=encode_mode,
         )
 
     def _get_vend_cal_params_power(self, param):
@@ -74,18 +76,30 @@ class CalibrateEK(CalibrateBase):
             unique_pulse_length = np.unique(
                 self.echodata.beam_power["transmit_duration_nominal"], axis=1
             )
-            pulse_length = ds_vend["pulse_length"][np.where(np.isin(ds_vend["frequency"], self.echodata.beam_power["frequency"]))[0]]
+            pulse_length = ds_vend["pulse_length"][
+                np.where(
+                    np.isin(ds_vend["frequency"], self.echodata.beam_power["frequency"])
+                )[0]
+            ]
         else:
             unique_pulse_length = np.unique(
                 self.echodata.beam["transmit_duration_nominal"], axis=1
             )
-            pulse_length = ds_vend["pulse_length"][np.where(np.isin(ds_vend["frequency"], self.echodata.beam["frequency"]))[0]]
-        
+            pulse_length = ds_vend["pulse_length"][
+                np.where(
+                    np.isin(ds_vend["frequency"], self.echodata.beam["frequency"])
+                )[0]
+            ]
+
         idx_wanted = np.abs(pulse_length - unique_pulse_length).argmin(
             dim="pulse_length_bin"
         )
 
-        return ds_vend[param].isel(pulse_length_bin=idx_wanted.data).drop("pulse_length_bin")
+        return (
+            ds_vend[param]
+            .isel(pulse_length_bin=idx_wanted.data)
+            .drop("pulse_length_bin")
+        )
 
     def get_cal_params(self, cal_params, waveform_mode=None, encode_mode="complex"):
         """Get cal params using user inputs or values from data file.
@@ -95,19 +109,27 @@ class CalibrateEK(CalibrateBase):
         cal_params : dict
         """
 
-        if encode_mode == "power" and waveform_mode == "CW" and self.echodata.beam_power is not None:
+        if (
+            encode_mode == "power"
+            and waveform_mode == "CW"
+            and self.echodata.beam_power is not None
+        ):
             beam = self.echodata.beam_power
         else:
             beam = self.echodata.beam
 
         # Params from the Vendor group
         # only execute this if cw and power
-        if waveform_mode == "CW" and (self.echodata.beam_power is not None or "quadrant" not in self.echodata.beam):
+        if waveform_mode == "CW" and (
+            self.echodata.beam_power is not None or "quadrant" not in self.echodata.beam
+        ):
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
                 # substitute if None in user input
                 self.cal_params[p] = (
-                    cal_params[p] if p in cal_params else self._get_vend_cal_params_power(p)
+                    cal_params[p]
+                    if p in cal_params
+                    else self._get_vend_cal_params_power(p)
                 )
 
         # Other params
@@ -278,10 +300,14 @@ class CalibrateEK80(CalibrateEK):
         # load env and cal parameters
         if env_params is None:
             env_params = {}
-        self.get_env_params(env_params, waveform_mode=waveform_mode, encode_mode=encode_mode)
+        self.get_env_params(
+            env_params, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
         if cal_params is None:
             cal_params = {}
-        self.get_cal_params(cal_params, waveform_mode=waveform_mode, encode_mode=encode_mode)
+        self.get_cal_params(
+            cal_params, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
 
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
@@ -306,17 +332,18 @@ class CalibrateEK80(CalibrateEK):
             and ``power`` to compute Sv from only power samples.
         """
 
-        if encode_mode == "power" and waveform_mode == "CW" and self.echodata.beam_power is not None:
+        if (
+            encode_mode == "power"
+            and waveform_mode == "CW"
+            and self.echodata.beam_power is not None
+        ):
             beam = self.echodata.beam_power
         else:
             beam = self.echodata.beam
 
         # Use center frequency if in BB mode, else use nominal channel frequency
         if waveform_mode == "BB":
-            freq = (
-                beam["frequency_start"]
-                + beam["frequency_end"]
-            ) / 2
+            freq = (beam["frequency_start"] + beam["frequency_end"]) / 2
         else:
             freq = beam["frequency"]
 
@@ -784,7 +811,9 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute Sv
         if flag_complex:
-            self.compute_range_meter(waveform_mode=waveform_mode, encode_mode=encode_mode)
+            self.compute_range_meter(
+                waveform_mode=waveform_mode, encode_mode=encode_mode
+            )
             ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
             self.compute_range_meter(waveform_mode="CW", encode_mode=encode_mode)

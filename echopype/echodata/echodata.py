@@ -123,7 +123,13 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
-    def compute_range(self, env_params=None, azfp_cal_type=None, ek_waveform_mode=None, ek_encode_mode="complex"):
+    def compute_range(
+        self,
+        env_params=None,
+        azfp_cal_type=None,
+        ek_waveform_mode=None,
+        ek_encode_mode="complex",
+    ):
         """
         Computes the range of the data contained in this `EchoData` object, in meters.
 
@@ -184,19 +190,26 @@ class EchoData:
 
         if "sound_speed" in env_params:
             sound_speed = squeeze_non_scalar(env_params["sound_speed"])
-        elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
+        elif all(
+            [param in env_params for param in ("temperature", "salinity", "pressure")]
+        ):
             sound_speed = calc_sound_speed(
                 squeeze_non_scalar(env_params["temperature"]),
                 squeeze_non_scalar(env_params["salinity"]),
                 squeeze_non_scalar(env_params["pressure"]),
-                formula_source="Mackenzie"
+                formula_source="Mackenzie",
             )
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+        elif (
+            self.sonar_model in ("EK60", "EK80")
+            and "sound_speed_indicative" in self.environment
+        ):
             sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
         else:
-            raise ValueError("sound speed must be specified in env_params, "
+            raise ValueError(
+                "sound speed must be specified in env_params, "
                 "with temperature/salinity/pressure in env_params to be calculated, "
-                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models")
+                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
+            )
 
         if self.sonar_model == "AZFP":
             cal_type = azfp_cal_type
@@ -249,7 +262,11 @@ class EchoData:
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
-                if self.sonar_model == "EK80" and encode_mode == "power" and self.beam_power is not None:
+                if (
+                    self.sonar_model == "EK80"
+                    and encode_mode == "power"
+                    and self.beam_power is not None
+                ):
                     beam = self.beam_power
                 else:
                     beam = self.beam
