@@ -52,7 +52,7 @@ jobs:
       - name: Cache conda
         uses: actions/cache@v2
         env:
-          # Increase this value to reset cache if .ci_helpers/py${{ matrix.python-version }}.yaml has not changed
+          # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
           CACHE_NUMBER: 0
         with:
           path: ~/conda_pkgs_dir
@@ -92,7 +92,7 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')
         shell: bash -l {0}
         run: |
-          python pytest -vv --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+          pytest -vv --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
         if: "!contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')"
         shell: bash -l {0}
