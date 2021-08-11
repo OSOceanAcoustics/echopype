@@ -116,7 +116,7 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
-    def compute_range(self, sound_speed, azfp_cal_type=None, ek_waveform_mode=None):
+    def compute_range(self, env_params=None, azfp_cal_type=None, ek_waveform_mode=None):
         """
         Computes the range of the data contained in this `EchoData` object, in meters.
 
@@ -125,6 +125,12 @@ class EchoData:
 
         Parameters
         ----------
+        env_params: dict
+            This dictionary should contain either:
+            - `"sound_speed"`: `float`
+            - `"temperature"`, `"salinity"`, and `"pressure"`: `float`s, in which case the sound speed will be calculated
+            If the `sonar_model` is `"EK60"` or `"EK80"`, and `EchoData.environment.sound_speed_indicative` exists, then
+            this parameter does not need to be specified.
         sound_speed: int or float
             Constant representing the speed of sound.
         azfp_cal_type : {"Sv", "Sp"}, optional
@@ -151,8 +157,33 @@ class EchoData:
             is not specified or is `None`.
             - When `sonar_model` is `"EK60"` but `waveform_mode` is `"BB"` (EK60 cannot have
             broadband samples).
+            - When `sonar_model` is `"AZFP"` and `env_params` does not contain either `"sound_speed"`
+            or all of `"temperature"`, `"salinity"`, and `"pressure"`.
+            - When `sonar_model` is `"EK60"` or `"EK80"`, EchoData.environment.sound_speed_indicative does not exist,
+            and `env_params` does not contain either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
         """
+
+        def squeeze_non_scalar(n):
+            if not np.isscalar(n):
+                n = n.squeeze()
+            return n
+
+        if "sound_speed" in env_params:
+            sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+        elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
+            sound_speed = calc_sound_speed(
+                squeeze_non_scalar(env_params["temperature"]),
+                squeeze_non_scalar(env_params["salinity"]),
+                squeeze_non_scalar(env_params["pressure"]),
+                formula_source="Mackenzie"
+            )
+        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
+        else:
+            raise ValueError("sound speed must be specified in env_params, "
+                "with temperature/salinity/pressure in env_params to be calculated, "
+                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models")
 
         if self.sonar_model == "AZFP":
             cal_type = azfp_cal_type
@@ -217,7 +248,7 @@ class EchoData:
                 # change below to use linearly-interpolated values
                 range_meter = (
                     (self.beam.range_bin * self.beam["sample_interval"] - shift)
-                    * sound_speed.squeeze()
+                    * sound_speed
                     / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
