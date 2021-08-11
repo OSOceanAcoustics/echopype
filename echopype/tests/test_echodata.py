@@ -140,30 +140,27 @@ def test_open_converted(
 
 
 @pytest.mark.parametrize(
-    ("filepath", "sonar_model", "xml_path"),
+    ("filepath", "sonar_model", "azfp_xml_path", "azfp_cal_type", "ek_waveform_mode", "ek_encode_mode"),
     [
-        (ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.raw", "EK60", None),
-        (ek80_path / "D20170912-T234910.raw", "EK80", None),
-        (azfp_path / "ooi" / "17032923.01A", "AZFP", azfp_path / "ooi" / "17032922.XML"),
-        (ad2cp_path / "raw" / "090" / "rawtest.090.00001.ad2cp", "AD2CP", None)
+        (ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.raw", "EK60", None, None, "CW", "complex"),
+        (ek80_path / "D20190822-T161221.raw", "EK80", None, None, "CW", "power"),
+        (ek80_path / "D20170912-T234910.raw", "EK80", None, None, "BB", "complex"),
+        (azfp_path / "ooi" / "17032923.01A", "AZFP", azfp_path / "ooi" / "17032922.XML", "Sv", None, None),
+        (azfp_path / "ooi" / "17032923.01A", "AZFP", azfp_path / "ooi" / "17032922.XML", "Sp", None, None),
+        (ad2cp_path / "raw" / "090" / "rawtest.090.00001.ad2cp", "AD2CP", None, None, None, None)
     ]
 )
-def test_compute_range(filepath, sonar_model, xml_path):
-    ed = echopype.open_raw(filepath, sonar_model, xml_path)
-    sound_speed = 343
-    if sonar_model == "EK60":
-        range = ed.compute_range(sound_speed, ek_waveform_mode="CW")
-    elif sonar_model == "EK80":
-        range = ed.compute_range(sound_speed, ek_waveform_mode="CW")
-    elif sonar_model == "AZFP":
-        range = ed.compute_range(sound_speed, azfp_cal_type="Sv")
-    elif sonar_model == "AD2CP":
+def test_compute_range(filepath, sonar_model, azfp_xml_path, azfp_cal_type, ek_waveform_mode, ek_encode_mode):
+    ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
+    env_params = {"sound_speed": 343}
+
+    if sonar_model == "AD2CP":
         try:
-            ed.compute_range(sound_speed, ek_waveform_mode="CW", azfp_cal_type="Sv")
+            ed.compute_range(env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
         except ValueError:
             return
         else:
             raise AssertionError
-
-    assert isinstance(range, xr.DataArray)
-    assert range.size > 0
+    else:
+        range = ed.compute_range(env_params, azfp_cal_type, ek_waveform_mode, )
+        assert isinstance(range, xr.DataArray)
