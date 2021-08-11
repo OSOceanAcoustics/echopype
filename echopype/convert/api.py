@@ -1,11 +1,9 @@
-import os
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
 
 import fsspec
 import zarr
-from fsspec.implementations.local import LocalFileSystem
 
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
@@ -61,76 +59,6 @@ DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
-def _normalize_path(out_f, convert_type, output_storage_options):
-    if convert_type == "zarr":
-        return fsspec.get_mapper(out_f, **output_storage_options)
-    elif convert_type == "netcdf4":
-        return out_f
-
-
-def _validate_path(source_file, file_format, output_storage_options={}, save_path=None):
-    """Assemble output file names and path.
-
-    Parameters
-    ----------
-    file_format : str {'.nc', '.zarr'}
-    save_path : str
-        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
-        in the current working directory.
-    """
-    if save_path is None:
-        warnings.warn("save_path is not provided")
-
-        current_dir = Path.cwd()
-        # Check permission, raise exception if no permission
-        io.check_file_permissions(current_dir)
-        out_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        if not out_dir.exists():
-            out_dir.mkdir(parents=True)
-
-        warnings.warn(
-            f"Resulting converted file(s) will be available at {str(out_dir)}"
-        )
-        out_path = str(out_dir / (Path(source_file).stem + file_format))
-
-    else:
-        if not isinstance(save_path, Path) and not isinstance(save_path, str):
-            raise TypeError("save_path must be a string or Path")
-
-        fsmap = fsspec.get_mapper(str(save_path), **output_storage_options)
-        output_fs = fsmap.fs
-
-        # Use the full path such as s3://... if it's not local, otherwise use root
-        if isinstance(output_fs, LocalFileSystem):
-            root = fsmap.root
-        else:
-            root = save_path
-        if Path(root).suffix == "":  # directory
-            out_dir = root
-            out_path = os.path.join(root, Path(source_file).stem + file_format)
-        else:  # file
-            out_dir = os.path.dirname(root)
-            out_path = os.path.join(out_dir, Path(root).stem + file_format)
-
-    # Create folder if save_path does not exist already
-    fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
-    fs = fsmap.fs
-    if file_format == ".nc" and not isinstance(fs, LocalFileSystem):
-        raise ValueError("Only local filesystem allowed for NetCDF output.")
-    else:
-        try:
-            # Check permission, raise exception if no permission
-            io.check_file_permissions(fsmap)
-            if isinstance(fs, LocalFileSystem):
-                # Only make directory if local file system
-                # otherwise it will just create the object path
-                fs.mkdir(fsmap.root)
-        except FileNotFoundError:
-            raise ValueError("Specified save_path is not valid.")
-
-    return out_path  # output_path is always a string
-
-
 def to_file(
     echodata: EchoData,
     engine,
@@ -165,11 +93,9 @@ def to_file(
     if engine not in XARRAY_ENGINE_MAP.values():
         raise ValueError("Unknown type to convert file to!")
 
-    # Assemble output file names and path
-    format_mapping = dict(map(reversed, XARRAY_ENGINE_MAP.items()))
-    output_file = _validate_path(
+    output_file = io.validate_output_path(
         source_file=echodata.source_file,
-        file_format=format_mapping[engine],
+        engine=engine,
         save_path=save_path,
         output_storage_options=output_storage_options,
     )
@@ -191,7 +117,9 @@ def to_file(
             print(f"{dt.now().strftime('%H:%M:%S')}  saving {output_file}")
         _save_groups_to_file(
             echodata,
-            output_path=_normalize_path(output_file, engine, output_storage_options),
+            output_path=io.sanitize_file_path(
+                file_path=output_file, storage_options=output_storage_options
+            ),
             engine=engine,
             compress=compress,
         )

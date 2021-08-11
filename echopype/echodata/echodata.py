@@ -8,7 +8,7 @@ import fsspec
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
-from ..utils.io import check_file_existance, sanitize_file_path
+from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from .convention import _get_convention
 
@@ -109,6 +109,11 @@ class EchoData:
             self._load_file(converted_raw_path)
             self.sonar_model = self.top.keywords
 
+            if isinstance(converted_raw_path, fsspec.FSMap):
+                # Convert fsmap to Path so it can be used
+                # for retrieving the path strings
+                converted_raw_path = Path(converted_raw_path.root)
+
         self.converted_raw_path = converted_raw_path
 
     @classmethod
@@ -143,7 +148,7 @@ class EchoData:
 
     def _check_path(self, filepath):
         """ Check if converted_raw_path exists """
-        file_exists = check_file_existance(filepath, self.storage_options)
+        file_exists = check_file_existence(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
 
