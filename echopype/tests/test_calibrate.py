@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
+import xarray as xr
 
 azfp_path = Path('./echopype/test_data/azfp')
 ek60_path = Path('./echopype/test_data/ek60')
@@ -162,7 +163,8 @@ def test_compute_Sv_ek80_CW_complex():
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201210-T000409.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    assert ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    assert isinstance(sv, xr.Dataset) is True
 
 
 def test_compute_Sv_ek80_BB_complex():
@@ -170,4 +172,16 @@ def test_compute_Sv_ek80_BB_complex():
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201209-T235955.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    assert ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    assert isinstance(sv, xr.Dataset) is True
+
+def test_compute_Sv_ek80_CW_power():
+    """
+    Tests calibration in CW mode data encoded as power samples,
+    while the file also contains BB complex samples
+    """
+
+    ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+    sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
+    assert isinstance(sv, xr.Dataset)

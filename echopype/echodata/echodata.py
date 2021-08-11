@@ -5,11 +5,13 @@ from html import escape
 from pathlib import Path
 
 import fsspec
+import numpy as np
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
 from ..utils.io import check_file_existance, sanitize_file_path
 from ..utils.repr import HtmlTemplate
+from ..utils.uwa import calc_sound_speed
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP = {
@@ -116,7 +118,7 @@ class EchoData:
 
         self.converted_raw_path = converted_raw_path
 
-    def compute_range(self, env_params=None, azfp_cal_type=None, ek_waveform_mode=None):
+    def compute_range(self, env_params=None, azfp_cal_type=None, ek_waveform_mode=None, ek_encode_mode="complex"):
         """
         Computes the range of the data contained in this `EchoData` object, in meters.
 
@@ -143,6 +145,12 @@ class EchoData:
             - `"BB"` for BB-mode samples, recorded as complex samples
             This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
             and in those cases it must be specified.
+        ek_encode_mode : {"complex", "power"}, optional
+            For EK80 data, range can be computed from complex or power samples.
+            The type of sample used can be specified with this parameter.
+            - `"complex"` to use complex samples
+            - `"power"` to use power samples
+            This parameter is only used if `sonar_model` is `"EK80"`.
 
         Returns
         -------
@@ -224,6 +232,8 @@ class EchoData:
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
             waveform_mode = ek_waveform_mode
+            encode_mode = ek_encode_mode
+
             if self.sonar_model == "EK60" and waveform_mode == "BB":
                 raise ValueError("EK60 cannot have BB samples")
 
@@ -234,10 +244,15 @@ class EchoData:
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
-                sample_thickness = self.beam["sample_interval"] * sound_speed / 2
+                if self.sonar_model == "EK80" and encode_mode == "power" and self.beam_power is not None:
+                    beam = self.beam_power
+                else:
+                    beam = self.beam
+
+                sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
-                    self.beam.range_bin - tvg_correction_factor
+                    beam.range_bin - tvg_correction_factor
                 ) * sample_thickness  # [frequency x range_bin]
             elif waveform_mode == "BB":
                 # TODO: bug: right now only first ping_time has non-nan range
