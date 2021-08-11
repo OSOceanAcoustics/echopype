@@ -1,0 +1,46 @@
+# Descriptions retrieved from link below
+# https://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf
+# Page 8. Section 2.2.
+name: The SONAR-netCDF4 convention for sonar data
+version: 1.0
+release_date: "2018-05"
+organization:
+  name: ICES
+  description: INTERNATIONAL COUNCIL FOR THE EXPLORATION OF THE SEA
+groups:
+  top:
+    name: Top-level
+    description: contains metadata about the SONAR-netCDF4 file format.
+    ep_group:
+  environment:
+    name: Environment
+    description: contains information relevant to acoustic propagation through water.
+    ep_group: Environment
+  platform:
+    name: Platform
+    description: contains information about the platform on which the sonar is installed.
+    ep_group: Platform
+  nmea:
+    name: Platform/NMEA
+    description: contains information specific to the NMEA protocol.
+    ep_group: Platform/NMEA
+  provenance:
+    name: Provenance
+    description: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
+    ep_group: Provenance
+  sonar:
+    name: Sonar
+    description: contains specific metadata for the sonar system.
+    ep_group: Sonar
+  beam:
+    name: Beam
+    description: contains backscatter data and other beam or channel-specific data.
+    ep_group: Beam
+  beam_power:
+    name: Beam Power
+    description: contains backscatter data (power-only) and other beam or channel-specific data.
+    ep_group: Beam_power
+  vendor:
+    name: Vendor specific
+    description: contains vendor-specific information about the sonar and the data.
+    ep_group: Vendor

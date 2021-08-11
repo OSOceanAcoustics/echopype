@@ -1,5 +1,6 @@
 black
 check-manifest
+docker-compose
 flake8
 flake8-builtins
 flake8-comprehensions
@@ -17,5 +18,6 @@ pytest-xdist
 setuptools_scm
 sphinx
 sphinx-automodapi
+sphinx_rtd_theme
 twine
 wheel

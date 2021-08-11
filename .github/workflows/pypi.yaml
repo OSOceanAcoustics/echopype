@@ -1,23 +1,21 @@
 # Publish archives to PyPI and TestPyPI using GitHub Actions
 name: Publish to PyPI
 
-# Only run for tagged releases and pushes to the development branch
+# Only run for tagged releases
 on:
   release:
     types:
-      - published
+      - released
   push:
     branches:
-      - class-redesign
       - master
   workflow_dispatch:
 
 jobs:
-  publish-pypi:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
+  build-artifact:
+    name: Build echopype package
+    runs-on: ubuntu-20.04
     if: github.repository == 'OSOceanAcoustics/echopype'
-
     steps:
     - name: Checkout
       uses: actions/checkout@v2.3.4
@@ -41,22 +39,70 @@ jobs:
         # local part of the version isn't included, making the version string
         # compatible with PyPI.
         sed --in-place "s/node-and-date/no-local-version/g" setup.py
-      
+
     - name: Build source and wheel distributions
       run: |
         python setup.py sdist bdist_wheel
         echo ""
         echo "Generated files:"
         ls -lh dist/
-        
+    - uses: actions/upload-artifact@v2
+      with:
+        name: releases
+        path: dist
+
+  test-built-dist:
+    name: Test echopype package
+    needs: build-artifact
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/setup-python@v2
+      name: Install Python
+      with:
+        python-version: 3.9
+    - uses: actions/download-artifact@v2
+      with:
+        name: releases
+        path: dist
+    - name: List contents of built dist
+      run: |
+        ls -ltrh
+        ls -ltrh dist
     - name: Publish to Test PyPI
       uses: pypa/gh-action-pypi-publish@v1.4.2
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
+        verbose: true
+    - name: Check pypi packages
+      run: |
+        sleep 3
+        python -m pip install --upgrade pip
 
+        echo "=== Testing wheel file ==="
+        # Install wheel to get dependencies and check import
+        python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre echopype
+        python -c "import echopype; print(echopype.__version__)"
+        echo "=== Done testing wheel file ==="
+
+        echo "=== Testing source tar file ==="
+        # Install tar gz and check import
+        python -m pip uninstall --yes echopype
+        python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre --no-binary=:all: echopype
+        python -c "import echopype; print(echopype.__version__)"
+        echo "=== Done testing source tar file ==="
+
+  publish-pypi:
+    name: Push echopype to production pypi
+    needs: test-built-dist
+    if: startsWith(github.ref, 'refs/tags')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: releases
+        path: dist
     - name: Publish to PyPI
-      if: startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@v1.4.2
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}

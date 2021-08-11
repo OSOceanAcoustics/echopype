@@ -5,15 +5,15 @@ dependencies:
   - python=3.9
   - dask
   - matplotlib
-  - netCDF4==1.5.5
+  - netCDF4
   - numpy
   - pynmea2
   - pytz
   - scipy
-  - xarray==0.16.2
+  - xarray
   - zarr
-  - fsspec==0.8.7
+  - fsspec
   - requests
   - aiohttp
-  - s3fs>=0.5
+  - s3fs
   - mamba

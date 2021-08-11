@@ -2,7 +2,7 @@
 version: "3"
 services:
   minio:
-    image: cormorack/minioci:2021.04.06
+    image: cormorack/minioci:latest
     ports:
       - 9000:9000
     networks:
@@ -13,11 +13,10 @@ services:
     # it needs to be copied to the docker container
     # docker cp -L docker_httpserver_1:/usr/local/apache2/htdocs/data ./echopype/test_data
     # =====================================
-    image: cormorack/http:2021.04.06
+    image: cormorack/http:latest
     ports:
       - 8080:80
     networks:
       - echopypenetwork
 networks:
   echopypenetwork:
-      

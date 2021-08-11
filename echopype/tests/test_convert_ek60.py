@@ -1,9 +1,8 @@
 from pathlib import Path
 import numpy as np
-import xarray as xr
 import pandas as pd
 from scipy.io import loadmat
-from ..convert import open_raw
+from echopype import open_raw
 
 ek60_path = Path('./echopype/test_data/ek60/')
 
@@ -24,28 +23,24 @@ def test_convert_ek60_matlab_raw():
     ek60_matlab_path = str(ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025_rawData.mat'))
 
     # Convert file
-    echodata = open_raw(file=ek60_raw_path, model='EK60')
-    echodata.to_netcdf()
+    echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
 
     # Compare with matlab outputs
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
-        ds_matlab = loadmat(ek60_matlab_path)
+    ds_matlab = loadmat(ek60_matlab_path)
 
-        # power
-        assert np.allclose(
-            [ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx] for fidx in range(5)],
-            ds_beam.backscatter_r.transpose('frequency', 'range_bin', 'ping_time'),
-            rtol=0,
-            atol=1.6e-5
+    # power
+    assert np.allclose(
+        [ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx] for fidx in range(5)],
+        echodata.beam.backscatter_r.transpose('frequency', 'range_bin', 'ping_time'),
+        rtol=0,
+        atol=1.6e-5
+    )
+    # angle: alongship and athwartship
+    for angle in ['alongship', 'athwartship']:
+        assert np.array_equal(
+            [ds_matlab['rawData'][0]['pings'][0][angle][0][fidx] for fidx in range(5)],
+            echodata.beam['angle_' + angle].transpose('frequency', 'range_bin', 'ping_time')
         )
-        # angle: alongship and athwartship
-        for angle in ['alongship', 'athwartship']:
-            assert np.array_equal(
-                [ds_matlab['rawData'][0]['pings'][0][angle][0][fidx] for fidx in range(5)],
-                ds_beam['angle_' + angle].transpose('frequency', 'range_bin', 'ping_time')
-            )
-
-    Path(echodata.output_file).unlink()
 
 
 def test_convert_ek60_echoview_raw():
@@ -64,13 +59,10 @@ def test_convert_ek60_echoview_raw():
     test_power = np.stack(channels)
 
     # Convert to netCDF and check
-    echodata = open_raw(file=ek60_raw_path, model='EK60')
-    echodata.to_netcdf()
-    with xr.open_dataset(echodata.output_file, group='Beam') as ds_beam:
-        for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
-            assert np.allclose(
-                test_power[fidx, :, :],
-                ds_beam.backscatter_r.isel(frequency=fidx, ping_time=slice(None, 10), range_bin=slice(1, None)),
-                atol=9e-6, rtol=atol
-            )
-    Path(echodata.output_file).unlink()
+    echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
+    for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
+        assert np.allclose(
+            test_power[fidx, :, :],
+            echodata.beam.backscatter_r.isel(frequency=fidx, ping_time=slice(None, 10), range_bin=slice(1, None)),
+            atol=9e-6, rtol=atol
+        )

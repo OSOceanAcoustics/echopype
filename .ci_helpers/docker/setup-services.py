@@ -3,26 +3,26 @@
 Script to help bring up docker services for testing.
 
 """
+import argparse
 import os
 import shutil
 import sys
 from pathlib import Path
-import argparse
 
-HERE = Path('.').absolute()
+HERE = Path(".").absolute()
 BASE = Path(__file__).parent.absolute()
 COMPOSE_FILE = BASE / "docker-compose.yaml"
 TEST_DATA_PATH = HERE / "echopype" / "test_data"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Setup services for testing')
+    parser = argparse.ArgumentParser(description="Setup services for testing")
     parser.add_argument(
-        '--deploy', action='store_true', help="Flag to setup docker services"
+        "--deploy", action="store_true", help="Flag to setup docker services"
     )
     parser.add_argument(
-        '--tear-down',
-        action='store_true',
+        "--tear-down",
+        action="store_true",
         help="Flag to tear down docker services",
     )
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         print("Cannot have both --deploy and --tear-down. Exiting.")
         sys.exit(1)
 
-    if not all([args.deploy, args.tear_down]):
+    if not any([args.deploy, args.tear_down]):
         print(
             "Please provide either --deploy or --tear-down flags. For more help use --help flag."
         )
@@ -43,14 +43,19 @@ if __name__ == "__main__":
 
     if args.deploy:
         print("1) Starting test services deployment.")
-        print("2) Clearing up past services.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} down --remove-orphans")
 
-        print("3) Bringing up services for testing.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans")
+        print("2) Pulling latest images.")
+        os.system(f"docker-compose -f {COMPOSE_FILE} pull")
+
+        print("3) Bringing up services.")
+        os.system(
+            f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate"
+        )
 
         print(f"4) Deleting old test folder at {TEST_DATA_PATH}")
-        shutil.rmtree(TEST_DATA_PATH)
+        if TEST_DATA_PATH.exists():
+            print("SKIPPED.")
+            shutil.rmtree(TEST_DATA_PATH)
 
         print("5) Copying new test folder from http service")
         os.system(

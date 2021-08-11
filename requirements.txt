@@ -1,12 +1,13 @@
 dask[array]
 matplotlib
-netCDF4==1.5.5
+netCDF4
 numpy
 pynmea2
 pytz
 scipy
-xarray==0.16.2
+xarray
 zarr
-fsspec==0.8.7
+fsspec
+s3fs
 requests
 aiohttp
