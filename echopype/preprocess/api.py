@@ -42,7 +42,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
         sv.coords["range_meter"] = (
             ["range_bin"],
-            ds_Sv["range"].isel(frequency=0, ping_time=0),
+            ds_Sv["range"].isel(frequency=0, ping_time=0).data,
         )
         sv = sv.swap_dims({"range_bin": "range_meter"})
         sv_groupby_bins = (

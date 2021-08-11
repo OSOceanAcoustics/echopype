@@ -1,9 +1,8 @@
 from textwrap import dedent
-from pathlib import Path
-import echopype
 
 import fsspec
 
+import echopype
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.echodata import EchoData
 from echopype import open_converted
@@ -15,35 +14,6 @@ ek60_path = TEST_DATA_FOLDER / "ek60"
 ek80_path = TEST_DATA_FOLDER / "ek80"
 azfp_path = TEST_DATA_FOLDER / "azfp"
 ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
-
-
-# TODO: Probably put the function below into a common module?
-@pytest.fixture(scope="session")
-def minio_bucket():
-    common_storage_options = dict(
-        client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-        key="minioadmin",
-        secret="minioadmin",
-    )
-    bucket_name = "ooi-raw-data"
-    fs = fsspec.filesystem(
-        "s3",
-        **common_storage_options,
-    )
-    test_data = "data"
-    if not fs.exists(test_data):
-        fs.mkdir(test_data)
-
-    if not fs.exists(bucket_name):
-        fs.mkdir(bucket_name)
-
-    # Load test data into bucket
-    test_data_path = Path(__file__).parent.parent.joinpath(Path("test_data"))
-    for d in test_data_path.iterdir():
-        source_path = f'echopype/test_data/{d.name}'
-        fs.put(source_path, f'{test_data}/{d.name}', recursive=True)
-
-    return common_storage_options
 
 
 class TestEchoData:
