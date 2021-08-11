@@ -1,3 +1,6 @@
+import abc
+
+
 ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
 
 CAL_PARAMS = {
@@ -5,8 +8,7 @@ CAL_PARAMS = {
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
-
-class CalibrateBase:
+class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
     def __init__(self, echodata):
@@ -17,12 +19,15 @@ class CalibrateBase:
         # range_meter is computed in compute_Sv/Sp in child class
         self.range_meter = None
 
+    @abc.abstractmethod
     def get_env_params(self, **kwargs):
         pass
 
+    @abc.abstractmethod
     def get_cal_params(self, **kwargs):
         pass
 
+    @abc.abstractmethod
     def compute_range_meter(self, **kwargs):
         """Calculate range in units meter.
 
@@ -33,6 +38,7 @@ class CalibrateBase:
         """
         pass
 
+    @abc.abstractmethod
     def _cal_power(self, cal_type, **kwargs):
         """Calibrate power data for EK60, EK80, and AZFP.
 
@@ -44,9 +50,11 @@ class CalibrateBase:
         """
         pass
 
+    @abc.abstractmethod
     def compute_Sv(self, **kwargs):
         pass
 
+    @abc.abstractmethod
     def compute_Sp(self, **kwargs):
         pass
 
