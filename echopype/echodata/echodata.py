@@ -201,7 +201,7 @@ class EchoData:
                 squeeze_non_scalar(env_params["temperature"]),
                 squeeze_non_scalar(env_params["salinity"]),
                 squeeze_non_scalar(env_params["pressure"]),
-                formula_source="Mackenzie",
+                formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         elif (
             self.sonar_model in ("EK60", "EK80")
