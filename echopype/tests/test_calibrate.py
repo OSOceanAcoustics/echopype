@@ -29,8 +29,9 @@ def test_compute_Sv_ek60_echoview():
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
-    assert np.allclose(test_Sv[:, :, 7:],
-                       ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+    for i in range(5):
+        assert np.allclose(test_Sv[i, :, 7:],
+                        ds_Sv.Sv.isel(frequency=i, pulse_length_bin=i, ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
 
 def test_compute_Sv_ek60_matlab():
@@ -52,7 +53,7 @@ def test_compute_Sv_ek60_matlab():
 
     def check_output(ds_cmp, cal_type):
         for fidx in range(5):  # loop through all freq
-            assert np.allclose(ds_cmp[cal_type].isel(frequency=0).T.values,
+            assert np.allclose(ds_cmp[cal_type].isel(frequency=0, pulse_length_bin=0).T.values,
                                ds_base['data']['pings'][0][0][cal_type][0, 0],
                                atol=4e-5, rtol=0)  # difference due to use of Single in matlab code
     # Check Sv
@@ -134,7 +135,7 @@ def test_compute_Sv_ek80_pc_echoview():
 
     # Create a CalibrateEK80 object to perform pulse compression
     waveform_mode = 'BB'
-    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode)
+    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode, encode_mode="complex")
     cal_obj.compute_range_meter(waveform_mode=waveform_mode)  # compute range [m]
     chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
     pc = cal_obj.compress_pulse(chirp)

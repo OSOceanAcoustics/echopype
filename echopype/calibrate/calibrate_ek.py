@@ -31,7 +31,7 @@ class CalibrateEK(CalibrateBase):
             range in units meter
         """
         self.range_meter = self.echodata.compute_range(
-            self.env_params["sound_speed"],
+            self.env_params,
             ek_waveform_mode=waveform_mode,
             ek_encode_mode=encode_mode,
         )
@@ -227,10 +227,10 @@ class CalibrateEK60(CalibrateEK):
         self.get_env_params(env_params)
         if cal_params is None:
             cal_params = {}
-        self.get_cal_params(cal_params)
+        self.get_cal_params(cal_params, waveform_mode="CW", encode_mode="power")
 
         # default to CW mode recorded as power samples
-        self.compute_range_meter(waveform_mode="CW")
+        self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
     def get_env_params(self, env_params, **kwargs):
         """Get env params using user inputs or values from data file.
