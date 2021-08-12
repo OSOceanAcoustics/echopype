@@ -11,7 +11,7 @@ import zarr
 from ..core import SONAR_MODELS
 
 if TYPE_CHECKING:
-    from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
+    from ..core import EngineHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
@@ -61,9 +61,6 @@ def to_file(
         raise ValueError("Unknown type to convert file to!")
 
     # Assemble output file names and path
-    format_mapping: Dict["EngineHint", "FileFormatHint"] = dict(
-        map(reversed, XARRAY_ENGINE_MAP.items())
-    )  # type: ignore
     output_file = io.validate_output_path(
         source_file=echodata.source_file,
         engine=engine,
