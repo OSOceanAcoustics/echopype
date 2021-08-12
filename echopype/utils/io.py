@@ -5,12 +5,14 @@ import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 import fsspec
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
+if TYPE_CHECKING:
+    from ..core import PathHint
 SUPPORTED_ENGINES = {
     "netcdf4": {
         "ext": ".nc",
@@ -74,8 +76,8 @@ def _get_suffix(filepath: Union[str, Path, FSMap]) -> str:
 
 
 def sanitize_file_path(
-    file_path: Union[str, Path, FSMap],
-    storage_options: dict = {},
+    file_path: "PathHint",
+    storage_options: Dict[str, str] = {},
     is_dir: bool = False,
 ) -> Union[Path, FSMap]:
     """
@@ -215,7 +217,7 @@ def validate_output_path(
 
 
 def check_file_existence(
-    file_path: Union[str, Path, FSMap], storage_options: dict = {}
+    file_path: "PathHint", storage_options: Dict[str, str] = {}
 ) -> bool:
     """
     Checks if file exists in the specified path

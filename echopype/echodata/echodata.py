@@ -3,18 +3,22 @@ import warnings
 from collections import OrderedDict
 from html import escape
 from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Optional
 
 import fsspec
 import numpy as np
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
+if TYPE_CHECKING:
+    from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
+
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
 from .convention import _get_convention
 
-XARRAY_ENGINE_MAP = {
+XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
     ".zarr": "zarr",
 }
@@ -30,23 +34,27 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
+    group_map = OrderedDict(_get_convention()["groups"])
+
     def __init__(
         self,
-        converted_raw_path=None,
-        storage_options=None,
-        source_file=None,
-        xml_path=None,
-        sonar_model=None,
+        converted_raw_path: Optional["PathHint"] = None,
+        storage_options: Dict[str, str] = None,
+        source_file: Optional["PathHint"] = None,
+        xml_path: "PathHint" = None,
+        sonar_model: "SonarModelsHint" = None,
     ):
 
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
-        self.storage_options = storage_options if storage_options is not None else {}
-        self.source_file = source_file
-        self.xml_path = xml_path
-        self.sonar_model = sonar_model
-        self.converted_raw_path = None
+        self.storage_options: Dict[str, str] = (
+            storage_options if storage_options is not None else {}
+        )
+        self.source_file: Optional["PathHint"] = source_file
+        self.xml_path: Optional["PathHint"] = xml_path
+        self.sonar_model: Optional["SonarModelsHint"] = sonar_model
+        self.converted_raw_path: Optional["PathHint"] = None
 
         self.__setup_groups()
         self.__read_converted(converted_raw_path)
@@ -54,8 +62,8 @@ class EchoData:
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
         existing_groups = [
-            f"{group}: ({self.__group_map[group]['name']}) {self.__group_map[group]['description']}"  # noqa
-            for group in self.__group_map.keys()
+            f"{group}: ({self.group_map[group]['name']}) {self.group_map[group]['description']}"  # noqa
+            for group in self.group_map.keys()
             if isinstance(getattr(self, group), xr.Dataset)
         ]
         fpath = "Internal Memory"
@@ -77,17 +85,15 @@ class EchoData:
                 html_repr = f"<pre>{escape(repr(self))}</pre>"
             else:
                 xr_collections = []
-                for group in self.__group_map.keys():
+                for group in self.group_map.keys():
                     if isinstance(getattr(self, group), xr.Dataset):
                         xr_data = getattr(self, group)._repr_html_()
                         xr_collections.append(
                             HtmlTemplate.element_template.format(  # noqa
                                 group_id=group + str(uuid.uuid4()),
                                 group=group,
-                                group_name=self.__group_map[group]["name"],
-                                group_description=self.__group_map[group][
-                                    "description"
-                                ],
+                                group_name=self.group_map[group]["name"],
+                                group_description=self.group_map[group]["description"],
                                 xr_data=xr_data,
                             )
                         )
@@ -105,16 +111,14 @@ class EchoData:
         return html_repr
 
     def __setup_groups(self):
-        self.__group_map = OrderedDict(_get_convention()["groups"])
-        for group in self.__group_map.keys():
+        for group in self.group_map.keys():
             setattr(self, group, None)
 
-    def __read_converted(self, converted_raw_path):
+    def __read_converted(self, converted_raw_path: Optional["PathHint"]):
         if converted_raw_path is not None:
             self._check_path(converted_raw_path)
             converted_raw_path = self._sanitize_path(converted_raw_path)
             self._load_file(converted_raw_path)
-            self.sonar_model = self.top.keywords
 
             if isinstance(converted_raw_path, fsspec.FSMap):
                 # Convert fsmap to Path so it can be used
@@ -313,7 +317,7 @@ class EchoData:
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
-        for group in new_cls.__group_map.keys():
+        for group in new_cls.group_map.keys():
             if hasattr(convert_obj, group):
                 setattr(new_cls, group, getattr(convert_obj, group))
 
@@ -321,9 +325,9 @@ class EchoData:
         setattr(new_cls, "source_file", getattr(convert_obj, "source_file"))
         return new_cls
 
-    def _load_file(self, raw_path):
+    def _load_file(self, raw_path: "PathHint"):
         """Lazy load Top-level, Beam, Environment, and Vendor groups from raw file."""
-        for group, value in self.__group_map.items():
+        for group, value in self.group_map.items():
             # EK80 data may have a Beam_power group if both complex and power data exist.
             ds = None
             try:
@@ -334,24 +338,24 @@ class EchoData:
             except (OSError, GroupNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
-            if group == "top":
-                self.sonar_model = ds.keywords.upper()
+            if group == "top" and hasattr(ds, "keywords"):
+                self.sonar_model = ds.keywords.upper()  # type: ignore
 
             if isinstance(ds, xr.Dataset):
                 setattr(self, group, ds)
 
-    def _check_path(self, filepath):
-        """ Check if converted_raw_path exists """
+    def _check_path(self, filepath: "PathHint"):
+        """Check if converted_raw_path exists"""
         file_exists = check_file_existence(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
 
-    def _sanitize_path(self, filepath):
+    def _sanitize_path(self, filepath: "PathHint") -> "PathHint":
         filepath = sanitize_file_path(filepath, self.storage_options)
         return filepath
 
-    def _check_suffix(self, filepath):
-        """ Check if file type is supported. """
+    def _check_suffix(self, filepath: "PathHint") -> "FileFormatHint":
+        """Check if file type is supported."""
         # TODO: handle multiple files through the same set of checks for combining files
         if isinstance(filepath, fsspec.FSMap):
             suffix = Path(filepath.root).suffix
@@ -361,14 +365,14 @@ class EchoData:
         if suffix not in XARRAY_ENGINE_MAP:
             raise ValueError("Input file type not supported!")
 
-        return suffix
+        return suffix  # type: ignore
 
-    def _load_group(self, filepath, group=None):
-        """ Loads each echodata group """
+    def _load_group(self, filepath: "PathHint", group: Optional[str] = None):
+        """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
         return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
 
-    def to_netcdf(self, save_path=None, **kwargs):
+    def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):
         """Save content of EchoData to netCDF.
 
         Parameters
@@ -390,7 +394,7 @@ class EchoData:
 
         return to_file(self, "netcdf4", save_path=save_path, **kwargs)
 
-    def to_zarr(self, save_path=None, **kwargs):
+    def to_zarr(self, save_path: Optional["PathHint"] = None, **kwargs):
         """Save content of EchoData to zarr.
 
         Parameters
@@ -414,7 +418,7 @@ class EchoData:
 
     # TODO: Remove below in future versions. They are for supporting old API calls.
     @property
-    def nc_path(self):
+    def nc_path(self) -> Optional["PathHint"]:
         warnings.warn(
             "`nc_path` is deprecated, Use `converted_raw_path` instead.",
             DeprecationWarning,
@@ -427,7 +431,7 @@ class EchoData:
             return str(path.parent / (path.stem + ".nc"))
 
     @property
-    def zarr_path(self):
+    def zarr_path(self) -> Optional["PathHint"]:
         warnings.warn(
             "`zarr_path` is deprecated, Use `converted_raw_path` instead.",
             DeprecationWarning,
@@ -439,7 +443,13 @@ class EchoData:
             path = Path(self.converted_raw_path)
             return str(path.parent / (path.stem + ".zarr"))
 
-    def raw2nc(self, save_path=None, combine_opt=False, overwrite=False, compress=True):
+    def raw2nc(
+        self,
+        save_path: "PathHint" = None,
+        combine_opt: bool = False,
+        overwrite: bool = False,
+        compress: bool = True,
+    ):
         warnings.warn(
             "`raw2nc` is deprecated, use `to_netcdf` instead.",
             DeprecationWarning,
@@ -453,7 +463,11 @@ class EchoData:
         )
 
     def raw2zarr(
-        self, save_path=None, combine_opt=False, overwrite=False, compress=True
+        self,
+        save_path: "PathHint" = None,
+        combine_opt: bool = False,
+        overwrite: bool = False,
+        compress: bool = True,
     ):
         warnings.warn(
             "`raw2zarr` is deprecated, use `to_zarr` instead.",
