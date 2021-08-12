@@ -19,7 +19,7 @@ def test_compute_Sv_ek60_echoview():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
 
     # Compare with EchoView outputs
     channels = []
@@ -29,9 +29,8 @@ def test_compute_Sv_ek60_echoview():
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
-    for i in range(5):
-        assert np.allclose(test_Sv[i, :, 7:],
-                        ds_Sv.Sv.isel(frequency=i, pulse_length_bin=i, ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+    assert np.allclose(test_Sv[:, :, 7:],
+                    ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
 
 def test_compute_Sv_ek60_matlab():
@@ -42,8 +41,8 @@ def test_compute_Sv_ek60_matlab():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
-    ds_Sp = ep.calibrate.compute_Sp(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode="CW", encode_mode="power")
 
     # Load matlab outputs and test
 
@@ -53,7 +52,7 @@ def test_compute_Sv_ek60_matlab():
 
     def check_output(ds_cmp, cal_type):
         for fidx in range(5):  # loop through all freq
-            assert np.allclose(ds_cmp[cal_type].isel(frequency=0, pulse_length_bin=0).T.values,
+            assert np.allclose(ds_cmp[cal_type].isel(frequency=0).T.values,
                                ds_base['data']['pings'][0][0][cal_type][0, 0],
                                atol=4e-5, rtol=0)  # difference due to use of Single in matlab code
     # Check Sv

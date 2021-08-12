@@ -70,34 +70,26 @@ class CalibrateEK(CalibrateBase):
                 dim="ping_time", how="any", subset=["transmit_duration_nominal"]
             )
 
-        # Find index with correct pulse length
-
         if self.echodata.beam_power is not None:
-            unique_pulse_length = np.unique(
-                self.echodata.beam_power["transmit_duration_nominal"], axis=1
-            )
-            pulse_length = ds_vend["pulse_length"][
-                np.where(
-                    np.isin(ds_vend["frequency"], self.echodata.beam_power["frequency"])
-                )[0]
-            ]
+            beam = self.echodata.beam_power
         else:
-            unique_pulse_length = np.unique(
-                self.echodata.beam["transmit_duration_nominal"], axis=1
-            )
-            pulse_length = ds_vend["pulse_length"][
-                np.where(
-                    np.isin(ds_vend["frequency"], self.echodata.beam["frequency"])
-                )[0]
-            ]
+            beam = self.echodata.beam
 
+            # indexes of frequencies that are for power, not complex
+        relevant_indexes = np.where(np.isin(ds_vend["frequency"], beam["frequency"]))[0]
+
+        unique_pulse_length = np.unique(beam["transmit_duration_nominal"], axis=1)
+
+        pulse_length = ds_vend["pulse_length"][relevant_indexes]
+
+        # Find index with correct pulse length
         idx_wanted = np.abs(pulse_length - unique_pulse_length).argmin(
             dim="pulse_length_bin"
         )
 
         return (
             ds_vend[param]
-            .isel(pulse_length_bin=idx_wanted.data)
+            .isel(pulse_length_bin=idx_wanted, frequency=relevant_indexes)
             .drop("pulse_length_bin")
         )
 
