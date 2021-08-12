@@ -10,10 +10,10 @@ dependencies:
   - pynmea2
   - pytz
   - scipy
-  - xarray<0.18
+  - xarray
   - zarr
-  - fsspec==0.8.7
+  - fsspec
   - requests
   - aiohttp
-  - s3fs==0.5.2
+  - s3fs
   - mamba

@@ -1,36 +1,46 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/docs/source/_static/echopype_logo_banner.png" width="400">
+  <img src="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/docs/source/_static/echopype_logo_banner.png" width="400">
 </div>
 
 # Echopype
 
-<a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml">
-  <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml/badge.svg"/>
-</a>
+<div>
+  <a href="https://doi.org/10.5281/zenodo.4066742">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4066742.svg" alt="DOI">
+  </a>
 
-<a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
-  <img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
-</a>
+  <a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/OSOceanAcoustics/echopype">
+  </a>
+</div>
 
-<a href="https://codecov.io/gh/OSOceanAcoustics/echopype">
-  <img src="https://codecov.io/gh/OSOceanAcoustics/echopype/branch/master/graph/badge.svg?token=GT98F919XR"/>
-</a>
+<div>
+  <a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml">
+    <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml/badge.svg"/>
+  </a>
 
-<a href="https://pypi.org/project/echopype/">
-  <img src="https://img.shields.io/pypi/v/echopype.svg"/>
-</a>
+  <a href="https://results.pre-commit.ci/latest/github/OSOceanAcoustics/echopype/master">
+    <img src="https://results.pre-commit.ci/badge/github/OSOceanAcoustics/echopype/master.svg"/>
+  </a>
 
-<a href="https://anaconda.org/conda-forge/echopype">
-  <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
-</a>
+  <a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
+    <img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
+  </a>
 
-<a href="https://doi.org/10.5281/zenodo.4066742">
-  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4066742.svg" alt="DOI">
-</a>
+  <a href="https://codecov.io/gh/OSOceanAcoustics/echopype">
+    <img src="https://codecov.io/gh/OSOceanAcoustics/echopype/branch/master/graph/badge.svg?token=GT98F919XR"/>
+  </a>
+</div>
 
-<a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
-  <img alt="GitHub License" src="https://img.shields.io/github/license/OSOceanAcoustics/echopype">
-</a>
+<div>
+  <a href="https://pypi.org/project/echopype/">
+    <img src="https://img.shields.io/pypi/v/echopype.svg"/>
+  </a>
+
+  <a href="https://anaconda.org/conda-forge/echopype">
+    <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
+  </a>
+</div>
 
 Echopype is a package built to enable interoperability and scalability in ocean sonar data processing. These data are widely used for obtaining information about the distribution and abundance of marine animals, such as fish and krill. Our ability to collect large volumes of sonar data from a variety of ocean platforms has grown significantly in the last decade. However, most of the new data remain under-utilized. echopype aims to address the root cause of this problem - the lack of interoperable data format and scalable analysis workflows that adapt well with increasing data volume - by providing open-source tools as entry points for scientists to make discovery using these new data.
 
