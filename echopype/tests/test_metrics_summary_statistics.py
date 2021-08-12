@@ -53,12 +53,10 @@ def create_test_ds(Sv, range):
 
 def test_abundance():
     """Compares summary_statistics.py calculation of abundance with verified outcomes"""
-    # case 1
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
     range = np.array([[[1, 2, 3], [2, 3, 4]]])
     ab_ds1 = create_test_ds(Sv, range)
     ab_ds1_SOL = np.array([[60.04321374, 30.41392685]])
-
     assert np.allclose(
         abundance(ab_ds1), ab_ds1_SOL, rtol=1e-09
     ), 'Calculated output does not match expected output'
