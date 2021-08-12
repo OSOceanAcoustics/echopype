@@ -58,7 +58,7 @@ def test_abundance():
     ab_ds1 = create_test_ds(Sv, range)
     ab_ds1_SOL = np.array([[60.04321374, 30.41392685]])
     assert np.allclose(
-        abundance(ab_ds1), ab_ds1_SOL, rtol=1e-09
+        abundance(ab_ds1), ab_ds1_SOL, rtol=1e-07
     ), 'Calculated output does not match expected output'
 
 
