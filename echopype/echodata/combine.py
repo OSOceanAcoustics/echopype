@@ -138,6 +138,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     old_location_time = None
     # location time after reversal correction
     new_location_time = None
+    # mru time before reversal correction
+    old_mru_time = None
+    # mru time after reversal correction
+    new_mru_time = None
 
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
@@ -229,6 +233,19 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                             new_location_time = combined_group["location_time"]
                         else:
                             combined_group["location_time"] = new_location_time
+                if "mru_time" in combined_group and exist_reversed_time(
+                    combined_group, "mru_time"
+                ):
+                    if old_mru_time is None:
+                        warnings.warn(
+                            "EK60 mru_time reversal detected; the mru times will be corrected"
+                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+                        )
+                        old_mru_time = combined_group["mru_time"]
+                        coerce_increasing_time(combined_group, time_name="mru_time")
+                        new_mru_time = combined_group["mru_time"]
+                    else:
+                        combined_group["mru_time"] = new_mru_time
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
@@ -243,6 +260,9 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # save location time before reversal correction
     if old_location_time is not None:
         result.provenance["old_location_time"] = old_location_time
+    # save mru time before reversal correction
+    if old_mru_time is not None:
+        result.provenance["old_mru_time"] = old_mru_time
     # TODO: possible parameter to disable original attributes and original ping_time storage
     # in provenance group?
     # save attrs from before combination
