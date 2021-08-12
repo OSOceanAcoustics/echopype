@@ -14,20 +14,20 @@ from echopype.core import SONAR_MODELS
 if TYPE_CHECKING:
     from echopype.core import SonarModelsHint
 
-azfp_ooi_folder = TEST_DATA_FOLDER / "azfp" / "ooi" / "combine-echodata"
+azfp_ooi_folder = TEST_DATA_FOLDER / "azfp" / "ooi"
 azfp_test_data = [
     azfp_ooi_folder / "18100407.01A",
     azfp_ooi_folder / "18100409.01A",
     azfp_ooi_folder / "18100408.01A",
 ]
 azfp_xml_file = azfp_ooi_folder / "18092920.XML"
-ek60_ncei_wcsd_folder = TEST_DATA_FOLDER / "ek60" / "ncei-wcsd" / "combine-echodata"
+ek60_ncei_wcsd_folder = TEST_DATA_FOLDER / "ek60" / "ncei-wcsd"
 ek60_test_data = [
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T011027.raw",
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T014302.raw",
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T021537.raw",
 ]
-ek60_ooi_folder = TEST_DATA_FOLDER / "ek60" / "ooi" / "combine-echodata"
+ek60_ooi_folder = TEST_DATA_FOLDER / "ek60" / "ooi"
 ek60_reversed_ping_time_test_data = [
     ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161106-T000000.raw",
     ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161107-T000000.raw",
