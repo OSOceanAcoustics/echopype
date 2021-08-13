@@ -78,6 +78,10 @@ if __name__ == "__main__":
                     raise ValueError(
                         "pytest args may not have any cov arguments if --include-cov is set."
                     )
+            pytest_args = pytest_args + [
+                "--cov-report=xml",
+                "--cov-append",
+            ]
     test_to_run = {}
     for module, mod_extras in MODULES_TO_TEST.items():
         file_globs = [
@@ -95,22 +99,19 @@ if __name__ == "__main__":
                         test_to_run[module] = []
                     test_to_run[module].append(file_path)
 
+    original_pytest_args = pytest_args.copy()
     total_exit_codes = []
     for k, v in test_to_run.items():
         print(f"=== RUNNING {k.upper()} TESTS===")
         print(f"Touched files: {','.join([os.path.basename(p) for p in v])}")
         if args.include_cov:
-            pytest_args = pytest_args + [
-                "--cov-report=xml",
-                "--cov-append",
-            ]
             if k == "old":
-                pytest_args = pytest_args + [
+                pytest_args = original_pytest_args + [
                     "--cov=echopype/convert",
                     "--cov=echopype/process",
                 ]
             else:
-                pytest_args = pytest_args + [f"--cov=echopype/{k}"]
+                pytest_args = original_pytest_args + [f"--cov=echopype/{k}"]
         test_files = glob.glob(f"echopype/tests/{k}/*.py")
         final_args = pytest_args + test_files
         print(f"Pytest args: {final_args}")
