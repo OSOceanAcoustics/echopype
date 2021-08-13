@@ -71,6 +71,13 @@ if __name__ == "__main__":
     pytest_args = []
     if args.pytest_args:
         pytest_args = args.pytest_args.split(",")
+        if args.include_cov:
+            # Checks for cov in pytest_args
+            for arg in pytest_args:
+                if re.match("--cov", arg) is not None:
+                    raise ValueError(
+                        "pytest args may not have any cov arguments if --include-cov is set."
+                    )
     test_to_run = {}
     for module, mod_extras in MODULES_TO_TEST.items():
         file_globs = [
@@ -93,12 +100,6 @@ if __name__ == "__main__":
         print(f"=== RUNNING {k.upper()} TESTS===")
         print(f"Touched files: {','.join([os.path.basename(p) for p in v])}")
         if args.include_cov:
-            # Checks for cov in pytest_args
-            for arg in pytest_args:
-                if re.match("--cov", arg) is not None:
-                    raise ValueError(
-                        "pytest args may not have any cov arguments if --include-cov is set."
-                    )
             pytest_args = pytest_args + [
                 "--cov-report=xml",
                 "--cov-append",
