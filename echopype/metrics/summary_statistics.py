@@ -64,7 +64,7 @@ def abundance(ds, zname="range"):
     """
     dz = delta_z(ds, zname=zname)
     sv = convert_to_linear(ds, "Sv")
-    return (10 * np.log10(sv * dz)).sum(dim="range_bin")  # integrate over depth
+    return 10 * np.log10((sv * dz).sum(dim='range_bin'))
 
 
 def center_of_mass(ds, zname="range"):
