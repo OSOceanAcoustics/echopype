@@ -75,7 +75,7 @@ if __name__ == "__main__":
     for module, mod_extras in MODULES_TO_TEST.items():
         file_globs = [
             f"echopype/{module}/*",
-            f"echopype/tests/{module}*",
+            f"echopype/tests/{module}/*",
         ]
         if "extra_globs" in mod_extras:
             file_globs = file_globs + mod_extras["extra_globs"]
