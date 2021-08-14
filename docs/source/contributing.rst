@@ -96,6 +96,21 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 
+pre-commit hooks
+----------------
+
+The echopype development conda environment includes `pre-commit <https://pre-commit.com>`_,
+and useful pre-commit "hooks" have been configured in the 
+`.pre-commit-config.yaml file <https://github.com/OSOceanAcoustics/echopype/blob/master/.pre-commit-config.yaml>`_. 
+Current hooks include file formatting (linting) checks (trailing spaces, trailing lines,
+JSON and YAML format checks, etc) and Python style autoformatters (PEP8 / flake8, ``black`` and ``isort``).
+
+To run pre-commit hooks locally, run `pre-commit install` before running the 
+docker setup-service deploy statement described above. The hooks will run automatically 
+during ``git commit`` and will give you options as needed before committing your changes.
+You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code, by running ``pre-commit run --all-files``. See the `pre-commit usage documentation <https://pre-commit.com/#usage>`_ for details.
+
+
 Continuous integration GitHub Actions
 -------------------------------------
 
@@ -120,7 +135,7 @@ Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on
 in the ``docs`` directory, and the source documentation files, written in 
 `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
 (``.rst``) format, are in the ``docs/source`` directory. The echopype development
-conda environment created above will install all required sphinx dependencies.
+conda environment will install all required sphinx dependencies.
 To run sphinx locally:
 
 .. code-block:: bash
