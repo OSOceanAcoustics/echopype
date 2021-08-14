@@ -97,9 +97,10 @@ Running the tests
 -----------------
 
 To run the echopype unit tests in ``echopype/tests``, 
-`docker <https://docs.docker.com/get-docker/>`_ and 
-`docker-compose <https://docs.docker.com/compose/>`_ 
-will need to be installed if not already installed. To run the tests:
+`Docker <https://docs.docker.com/get-docker/>`_ 
+will need to be installed if not already present 
+(`docker-compose <https://docs.docker.com/compose/>`_ is also used, but it's installed
+in the conda environment for echopype development). To run the tests:
 
 .. code-block:: bash
 
