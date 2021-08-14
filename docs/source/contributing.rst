@@ -18,6 +18,20 @@ Please submit questions or report problems via GitHub issues. If you're new to G
 see these tips for submitting issues: 
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
+Git workflow:
+
+.. mermaid::
+
+    graph LR
+        classDef patch fill:#f2ece4
+        A[master] --> B[stable]
+        p1([doc patch]):::patch -.-> B
+        B --> |docs merge| D[release/0.x.y]
+        A --> C[dev]
+        p2([code patch]):::patch -.-> C
+        C --> |dev merge| D
+        D --> A
+
 
 Installation for echopype development
 -------------------------------------
