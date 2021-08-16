@@ -1435,7 +1435,7 @@ class SimradConfigParser(_SimradDatagramParser):
                 txcvr_header_values = list(txcvr_header_values_encoded)
                 for tx_idx, tx_val in enumerate(txcvr_header_values_encoded):
                     if isinstance(tx_val, bytes):
-                        txcvr_header_values[tx_idx] = tx_val.decode()
+                        txcvr_header_values[tx_idx] = tx_val.decode("latin_1")
 
                 txcvr = data["transceivers"].setdefault(txcvr_indx, {})
 
