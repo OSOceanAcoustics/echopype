@@ -27,6 +27,8 @@ Open raw and converted files
 .. automodule:: echopype
    :members: open_converted
 
+.. automodule:: echopype
+   :members: combine_echodata
 
 EchoData class
 --------------
@@ -57,6 +59,12 @@ preprocess
    :no-inheritance-diagram:
    :no-heading:
 
+qc
+^^^
+
+.. automodapi:: echopype.qc
+   :no-inheritance-diagram:
+   :no-heading:
 
 Utilities
 ---------
