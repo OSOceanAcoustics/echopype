@@ -11,3 +11,4 @@ fsspec
 s3fs
 requests
 aiohttp
+typing-extensions~=3.10
