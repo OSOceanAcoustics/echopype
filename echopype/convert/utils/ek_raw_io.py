@@ -209,7 +209,7 @@ class RawSimradFile(BufferedReader):
                 )
         else:
             dgram_type = buf
-        dgram_type = dgram_type.decode()
+        dgram_type = dgram_type.decode("latin_1")
 
         #  11/26/19 - RHT
         #  As part of the rewrite of read to remove the reverse seeking,
