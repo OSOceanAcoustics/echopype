@@ -51,12 +51,16 @@ ek60_reversed_ping_time_test_data = [
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
         ),
-        (
+        pytest.param(
             ek60_reversed_ping_time_test_data,
             "EK60",
             None,
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
+            marks=pytest.mark.xfail(
+                run=False,
+                reason="Currently exceeds memory limit in Github CI"
+            )
         ),
     ],
 )

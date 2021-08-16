@@ -5,6 +5,8 @@ from pathlib import Path
 
 import fsspec
 
+from echopype.testing import TEST_DATA_FOLDER
+
 
 @pytest.fixture(scope="session")
 def minio_bucket():
@@ -26,8 +28,7 @@ def minio_bucket():
         fs.mkdir(bucket_name)
 
     # Load test data into bucket
-    test_data_path = Path(__file__).parent.parent.joinpath(Path("test_data"))
-    for d in test_data_path.iterdir():
+    for d in TEST_DATA_FOLDER.iterdir():
         source_path = f'echopype/test_data/{d.name}'
         fs.put(source_path, f'{test_data}/{d.name}', recursive=True)
 
