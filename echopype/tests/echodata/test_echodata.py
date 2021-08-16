@@ -53,6 +53,18 @@ class TestEchoData:
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
         assert expected_repr == actual
 
+    def test_repr_html(self):
+        zarr_path_string = str(self.converted_zarr.absolute())
+        ed = EchoData(converted_raw_path=self.converted_zarr)
+        assert hasattr(ed, "_repr_html_")
+        html_repr = ed._repr_html_().strip()
+        assert f"""<div class="xr-obj-type">EchoData: standardized raw data from {zarr_path_string}</div>""" in html_repr
+
+        with xr.set_options(display_style="text"):
+            html_fallback = ed._repr_html_().strip()
+
+        assert html_fallback.startswith("<pre>EchoData") and html_fallback.endswith("</pre>")
+
 
 @pytest.mark.parametrize(
     "converted_zarr",

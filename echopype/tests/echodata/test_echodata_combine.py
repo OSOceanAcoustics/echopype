@@ -27,10 +27,10 @@ ek60_test_data = [
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T014302.raw",
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T021537.raw",
 ]
-ek60_ooi_folder = TEST_DATA_FOLDER / "ek60" / "ooi"
 ek60_reversed_ping_time_test_data = [
-    ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161106-T000000.raw",
-    ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161107-T000000.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T203615.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T205415.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T211347.raw",
 ]
 
 
@@ -129,10 +129,14 @@ def test_ping_time_reversal():
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            if "location_time" in combined_group and group_name != "provenance":
+            if "location_time" in combined_group and group_name not in ("provenance", "nmea"):
                 assert not exist_reversed_time(combined_group, "location_time")
             if "old_location_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_location_time")
+            if "mru_time" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "mru_time")
+            if "old_mru_time" in combined_group:
+                assert exist_reversed_time(combined_group, "old_mru_time")
 
 
 def test_attr_storage():
