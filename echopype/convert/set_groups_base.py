@@ -212,7 +212,7 @@ class SetGroupsBase(abc.ABC):
         for x in idx_loc:
             try:
                 nmea_msg.append(pynmea2.parse(self.parser_obj.nmea["nmea_string"][x]))
-            except (pynmea2.ChecksumError, pynmea2.SentenceTypeError, pynmea2.AttributeError, pynmea2.ParseError):
+            except (pynmea2.ChecksumError, pynmea2.SentenceTypeError, AttributeError, pynmea2.ParseError):
                 nmea_msg.append(None)
         lat = (
             np.array(
