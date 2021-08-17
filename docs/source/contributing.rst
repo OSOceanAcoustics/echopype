@@ -18,19 +18,19 @@ Please submit questions or report problems via GitHub issues. If you're new to G
 see these tips for submitting issues: 
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
-Git workflow:
+GitHub workflow:
 
 .. mermaid::
 
     graph LR
         classDef patch fill:#f2ece4
-        A[master] --> B[stable]
-        p1([doc patch]):::patch -.-> B
-        B --> |docs merge| D[release/0.x.y]
-        A --> C[dev]
-        p2([code patch]):::patch -.-> C
-        C --> |dev merge| D
-        D --> A
+        master --> stable
+        master --> dev
+        p1([doc patch]):::patch -.-> stable
+        p2([code patch]):::patch -.-> dev
+        stable --> |docs merge| rel[release/0.x.y]
+        dev --> |dev merge| rel
+        rel --> master
 
 
 Installation for echopype development
@@ -149,7 +149,7 @@ Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on
 in the ``docs`` directory, and the source documentation files, written in 
 `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
 (``.rst``) format, are in the ``docs/source`` directory. The echopype development
-conda environment will install all required sphinx dependencies.
+conda environment will install all required Sphinx dependencies.
 To run sphinx locally:
 
 .. code-block:: bash
@@ -174,8 +174,8 @@ on the ``echopype`` GitHub repository. In addition, the ``latest`` version
 (`<https://echopype.readthedocs.io/en/latest/>`_) is built from the `master` branch, 
 while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built 
 from the ``dev`` branch. Finally, each new echopype release is built as a new release version 
-on Read The Docs. Merging pull requests into any of these three branches or issuing a 
-new tagged release will automatically result in a new Read The Docs build for the 
+on ReadTheDocs. Merging pull requests into any of these three branches or issuing a 
+new tagged release will automatically result in a new ReadTheDocs build for the 
 corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
