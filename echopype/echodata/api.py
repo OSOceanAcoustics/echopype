@@ -7,11 +7,10 @@ from .echodata import EchoData
 
 
 def open_converted(
-    converted_raw_path: "PathHint", 
-    storage_options: Dict[str, str] = None
+    converted_raw_path: "PathHint", storage_options: Dict[str, str] = None
 ):
     """Create an EchoData object from a single converted netcdf or zarr file.
-    
+
     Parameters
     ----------
     converted_raw_path : str

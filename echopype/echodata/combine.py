@@ -51,7 +51,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         (see https://xarray.pydata.org/en/latest/generated/xarray.combine_nested.html)
         with the exception of the "overwrite_conflicts" value.
 
-        * "override": Default. skip comparing and copy attrs from the first `EchoData` 
+        * "override": Default. skip comparing and copy attrs from the first `EchoData`
           object to the result.
         * "drop": empty attrs on returned `EchoData` object.
         * "identical": all attrs must be the same on every object.
