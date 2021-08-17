@@ -225,6 +225,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                             new_location_time = combined_group["location_time"]
                         else:
                             combined_group["location_time"] = new_location_time
+            if sonar_model == "EK80":
                 if "mru_time" in combined_group and exist_reversed_time(
                     combined_group, "mru_time"
                 ):
