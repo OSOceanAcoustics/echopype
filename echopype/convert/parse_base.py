@@ -347,6 +347,14 @@ class ParseEK(ParseBase):
         if (
             np.unique(lens).size != 1
         ):  # if some pings have different lengths along range
+
+            # HACK: When 2D data (e.g., angles) has no data in the first ping
+            # it ends up with an empty 1D array in the first ping. This causes
+            # problems later in this function, so create some empty 2D data 
+            # instead in the first ping.
+            if data_list[0].ndim == 1 and data_list[1].ndim == 2:
+                data_list[0] = np.empty((0,2), dtype=data_list[1].dtype)
+
             if data_list[0].ndim == 2:
                 # Angle data have an extra dimension for alongship and athwartship samples
                 mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
