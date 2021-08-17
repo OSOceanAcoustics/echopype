@@ -125,7 +125,7 @@ class ParseEK(ParseBase):
             # Rectangularize all data and convert to numpy array indexed by channel
             for data_type in ["power", "angle", "complex"]:
                 for k, v in self.ping_data_dict[data_type].items():
-                    if all(x is None for x in v):  # if no data in a particular channel
+                    if all((x is None) or (x.size==0) for x in v):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
                         # Sort complex and power/angle channels
