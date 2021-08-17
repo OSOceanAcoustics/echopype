@@ -7,18 +7,22 @@ We welcome your contributions, large or small!
 Contributing on GitHub
 ----------------------
 
-For echopype development we use the **git forking workflow** (also known as fork & pull request workflow), where you first create your own fork of the source GitHub repository 
-`https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
-(``upstream``). Excellent tutorials for this workflow can be found 
-`here <https://jarednielsen.com/learn-git-fork-pull-request/>`_ and 
-`here <https://www.dataschool.io/how-to-contribute-on-github/>`_, 
-including guidance on opening pull requests.
-
 Please submit questions or report problems via GitHub issues. If you're new to GitHub, 
 see these tips for submitting issues: 
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
-GitHub workflow:
+For echopype development we use the **gitflow workflow** with forking. All development
+changes are merged into the ``dev`` development branch. First create your own fork of the 
+source GitHub repository 
+`https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
+(``upstream``), then clone your fork; your fork will be the ``origin`` remote. See 
+`this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for 
+guidance on forking and opening pull requests, but replace references to the ``master`` 
+branch with the ``dev`` development branch. See 
+`this description of the gitflow workflow <https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow>`_. 
+The complete workflow we use is depicted in the diagram below, which includes
+components involving documentation updates (see `Documentation development`_ below)
+and preparation of releases.
 
 .. mermaid::
 
