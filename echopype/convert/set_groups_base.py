@@ -208,9 +208,12 @@ class SetGroupsBase(abc.ABC):
         ).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
-        nmea_msg = [
-            pynmea2.parse(self.parser_obj.nmea["nmea_string"][x]) for x in idx_loc
-        ]
+        nmea_msg = []
+        for x in idx_loc:
+            try:
+                nmea_msg.append(pynmea2.parse(self.parser_obj.nmea["nmea_string"][x]))
+            except pynmea2.ChecksumError:
+                nmea_msg.append(None)
         lat = (
             np.array(
                 [x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg]
