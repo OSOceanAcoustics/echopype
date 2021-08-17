@@ -149,7 +149,7 @@ Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on
 in the ``docs`` directory, and the source documentation files, written in 
 `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
 (``.rst``) format, are in the ``docs/source`` directory. The echopype development
-conda environment will install all required sphinx dependencies.
+conda environment will install all required Sphinx dependencies.
 To run sphinx locally:
 
 .. code-block:: bash
@@ -174,8 +174,8 @@ on the ``echopype`` GitHub repository. In addition, the ``latest`` version
 (`<https://echopype.readthedocs.io/en/latest/>`_) is built from the `master` branch, 
 while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built 
 from the ``dev`` branch. Finally, each new echopype release is built as a new release version 
-on Read The Docs. Merging pull requests into any of these three branches or issuing a 
-new tagged release will automatically result in a new Read The Docs build for the 
+on ReadTheDocs. Merging pull requests into any of these three branches or issuing a 
+new tagged release will automatically result in a new ReadTheDocs build for the 
 corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_

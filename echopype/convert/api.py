@@ -343,6 +343,10 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
+
+    Returns
+    -------
+    EchoData object
     """
     if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
