@@ -1,5 +1,5 @@
 """
-Include code to unpack manufacturer-specific data files into an interoperable netCDF format.
+Unpack manufacturer-specific data files into an interoperable netCDF or Zarr format.
 
 The current version supports:
 

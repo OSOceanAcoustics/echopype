@@ -39,44 +39,31 @@ def assemble_combined_provenance(input_paths):
 
 def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
     """
-    Combines multiple `EchoData` objects into a single `EchoData` object
+    Combines multiple `EchoData` objects into a single `EchoData` object.
 
     Parameters
     ----------
     echodatas: List[EchoData]
         The list of `EchoData` objects to be combined.
-    combine_attrs: { "override", "drop", "identical", "no_conflicts" }
+    combine_attrs: { "override", "drop", "identical", "no_conflicts", "overwrite_conflicts" }
         String indicating how to combine attrs of the `EchoData` objects being merged.
         This parameter matches the identically named xarray parameter
-        (see <https://xarray.pydata.org/en/v0.16.2/generated/xarray.combine_nested.html>)
+        (see https://xarray.pydata.org/en/latest/generated/xarray.combine_nested.html)
         with the exception of the "overwrite_conflicts" value.
 
-        * "override": skip comparing and copy attrs from the first `EchoData` object to the result.
+        * "override": Default. skip comparing and copy attrs from the first `EchoData`
+          object to the result.
         * "drop": empty attrs on returned `EchoData` object.
         * "identical": all attrs must be the same on every object.
         * "no_conflicts": attrs from all objects are combined,
-            any that have the same name must also have the same value.
+          any that have the same name must also have the same value.
         * "overwrite_conflicts": attrs from all `EchoData` objects are combined,
-            attrs with conflicting keys will be overwritten by later `EchoData` objects.
+          attrs with conflicting keys will be overwritten by later `EchoData` objects.
 
     Returns
     -------
     EchoData
         An `EchoData` object with all of the data from the input `EchoData` objects combined.
-
-        If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`s or `location_time`s,
-        the `ping_time`s or `location_time`s in the output `EchoData` object will be increased
-        starting at the timestamp where the reversal occurs such that all
-        `ping_time`s and `location_time`s in the output are monotonically increasing.
-        Additionally, the original `ping_time` and `location_time` values will be stored
-        in the provenance group, although this behavior may change in future versions.
-
-        Attributes from all groups before the combination will be stored in the provenance group,
-        although this behavior may change in future versions.
-
-        The `source_file` and `converted_raw_path` attributes will be copied from the first
-        `EchoData` object in the given list, but this may change in future versions.
 
     Raises
     ------
@@ -90,10 +77,11 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     -----
     UserWarning
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`s or `location_time`s,
-        the `ping_time`s or `location_time`sin the output `EchoData` object will be increased
-        starting at the timestamp where the reversal occurs such that all
-        `ping_time`s and `location_time`s in the output are monotonically increasing.
+        have non-monotonically increasing `ping_time`, `location_time` or `mru_time` values,
+        the corresponding values in the output `EchoData` object will be increased starting at the
+        timestamp where the reversal occurs such that all values in the output are monotonically
+        increasing. Additionally, the original `ping_time`, `location_time` or `mru_time` values
+        will be stored in the `Provenance` group, although this behavior may change in future versions.
 
     Warnings
     --------
@@ -102,12 +90,16 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
 
     Notes
     -----
-    `EchoData` objects are combined by combining their groups individually.
+    * `EchoData` objects are combined by combining their groups individually.
+    * Attributes from all groups before the combination will be stored in the provenance group,
+      although this behavior may change in future versions.
+    * The `source_file` and `converted_raw_path` attributes will be copied from the first
+      `EchoData` object in the given list, but this may change in future versions.
 
     Examples
     --------
-    >>> ed1 = echopype.open_converted("file1")
-    >>> ed2 = echopype.open_converted("file2")
+    >>> ed1 = echopype.open_converted("file1.nc")
+    >>> ed2 = echopype.open_converted("file2.zarr")
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
