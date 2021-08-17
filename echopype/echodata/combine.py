@@ -81,7 +81,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         the corresponding values in the output `EchoData` object will be increased starting at the
         timestamp where the reversal occurs such that all values in the output are monotonically
         increasing. Additionally, the original `ping_time`, `location_time` or `mru_time` values
-        will be stored in the `Provenance` group, although this behavior may change in future versions.
+        will be stored in the `Provenance` group, although this behavior may change in future
+        versions.
 
     Warnings
     --------
