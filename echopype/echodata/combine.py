@@ -196,13 +196,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                         "<U50"
                     )
 
-            if sonar_model == "EK60":
+            if sonar_model in ("EK60", "EK80"):
                 if "ping_time" in combined_group and exist_reversed_time(
                     combined_group, "ping_time"
                 ):
                     if old_ping_time is None:
                         warnings.warn(
-                            "EK60 ping_time reversal detected; the ping times will be corrected"
+                            f"{sonar_model} ping_time reversal detected; the ping times will be corrected"  # noqa
                             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                         )
                         old_ping_time = combined_group["ping_time"]
@@ -216,7 +216,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     if group != "nmea":
                         if old_location_time is None:
                             warnings.warn(
-                                "EK60 location_time reversal detected; the location times will be corrected"  # noqa
+                                f"{sonar_model} location_time reversal detected; the location times will be corrected"  # noqa
                                 " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                             )
                             old_location_time = combined_group["location_time"]
@@ -232,7 +232,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 ):
                     if old_mru_time is None:
                         warnings.warn(
-                            "EK60 mru_time reversal detected; the mru times will be corrected"
+                            f"{sonar_model} mru_time reversal detected; the mru times will be corrected"  # noqa
                             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                         )
                         old_mru_time = combined_group["mru_time"]
