@@ -25,6 +25,7 @@ def _compute_cal(
         env_params=env_params,
         cal_params=cal_params,
         waveform_mode=waveform_mode,
+        encode_mode=encode_mode,
     )
     # Perform calibration
     if cal_type == "Sv":
