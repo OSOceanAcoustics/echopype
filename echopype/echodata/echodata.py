@@ -150,8 +150,6 @@ class EchoData:
             If the `sonar_model` is `"EK60"` or `"EK80"`, and
             `EchoData.environment.sound_speed_indicative` exists, then this parameter
             does not need to be specified.
-        sound_speed: int or float
-            Constant representing the speed of sound.
         azfp_cal_type : {"Sv", "Sp"}, optional
             - `"Sv"` for calculating volume backscattering strength
             - `"Sp"` for calculating point backscattering strength.
