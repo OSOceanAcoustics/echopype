@@ -81,7 +81,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         the corresponding values in the output `EchoData` object will be increased starting at the
         timestamp where the reversal occurs such that all values in the output are monotonically
         increasing. Additionally, the original `ping_time`, `location_time` or `mru_time` values
-        will be stored in the `Provenance` group, although this behavior may change in future versions.
+        will be stored in the `Provenance` group, although this behavior may change in future
+        versions.
 
     Warnings
     --------
@@ -195,13 +196,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                         "<U50"
                     )
 
-            if sonar_model == "EK60":
+            if sonar_model in ("EK60", "EK80"):
                 if "ping_time" in combined_group and exist_reversed_time(
                     combined_group, "ping_time"
                 ):
                     if old_ping_time is None:
                         warnings.warn(
-                            "EK60 ping_time reversal detected; the ping times will be corrected"
+                            f"{sonar_model} ping_time reversal detected; the ping times will be corrected"  # noqa
                             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                         )
                         old_ping_time = combined_group["ping_time"]
@@ -215,7 +216,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     if group != "nmea":
                         if old_location_time is None:
                             warnings.warn(
-                                "EK60 location_time reversal detected; the location times will be corrected"  # noqa
+                                f"{sonar_model} location_time reversal detected; the location times will be corrected"  # noqa
                                 " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                             )
                             old_location_time = combined_group["location_time"]
@@ -225,12 +226,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                             new_location_time = combined_group["location_time"]
                         else:
                             combined_group["location_time"] = new_location_time
+            if sonar_model == "EK80":
                 if "mru_time" in combined_group and exist_reversed_time(
                     combined_group, "mru_time"
                 ):
                     if old_mru_time is None:
                         warnings.warn(
-                            "EK60 mru_time reversal detected; the mru times will be corrected"
+                            f"{sonar_model} mru_time reversal detected; the mru times will be corrected"  # noqa
                             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                         )
                         old_mru_time = combined_group["mru_time"]
