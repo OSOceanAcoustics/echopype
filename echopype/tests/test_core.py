@@ -13,12 +13,16 @@ from ..core import SONAR_MODELS
     ("AZFP", ".12q"),
 
     ("EK60", ".raw"),
+    ("EK60", ".RAW"),
 
     ("EK80", ".raw"),
+    ("EK80", ".RAW"),
 
     ("EA640", ".raw"),
+    ("EA640", ".RAW"),
 
     ("AD2CP", ".ad2cp"),
+    ("AD2CP", ".AD2CP"),
 ])
 def test_file_extension_validation(sonar_model: "SonarModelsHint", ext: str):
     SONAR_MODELS[sonar_model]["validate_ext"](ext)
