@@ -32,7 +32,7 @@ def validate_azfp_ext(test_ext: str):
 
 def validate_ext(ext: str) -> Callable[[str], None]:
     def inner(test_ext: str):
-        if ext != test_ext:
+        if ext.casefold() != test_ext.casefold():
             raise ValueError(f"Expecting a {ext} file but got {test_ext}")
 
     return inner
