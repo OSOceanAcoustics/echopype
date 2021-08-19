@@ -24,6 +24,7 @@ EXIT_CODES = {
 }
 
 MODULES_TO_TEST = {
+    "root": {},  # This is to test the root folder.
     "convert": {},
     "calibrate": {},
     "echodata": {},
@@ -84,10 +85,16 @@ if __name__ == "__main__":
             ]
     test_to_run = {}
     for module, mod_extras in MODULES_TO_TEST.items():
-        file_globs = [
-            f"echopype/{module}/*",
-            f"echopype/tests/{module}/*",
-        ]
+        if module == "root":
+            file_globs = [
+                "echopype/*",
+                "echopype/tests/*",
+            ]
+        else:
+            file_globs = [
+                f"echopype/{module}/*",
+                f"echopype/tests/{module}/*",
+            ]
         if "extra_globs" in mod_extras:
             file_globs = file_globs + mod_extras["extra_globs"]
         for f in file_list:
@@ -104,6 +111,12 @@ if __name__ == "__main__":
     for k, v in test_to_run.items():
         print(f"=== RUNNING {k.upper()} TESTS===")
         print(f"Touched files: {','.join([os.path.basename(p) for p in v])}")
+        if k == "root":
+            file_glob_str = "echopype/tests/test_*.py"
+            cov_mod_arg = ["--cov=echopype"]
+        else:
+            file_glob_str = f"echopype/tests/{k}/*.py"
+            cov_mod_arg = [f"--cov=echopype/{k}"]
         if args.include_cov:
             if k == "old":
                 pytest_args = original_pytest_args + [
@@ -111,8 +124,8 @@ if __name__ == "__main__":
                     "--cov=echopype/process",
                 ]
             else:
-                pytest_args = original_pytest_args + [f"--cov=echopype/{k}"]
-        test_files = glob.glob(f"echopype/tests/{k}/*.py")
+                pytest_args = original_pytest_args + cov_mod_arg
+        test_files = glob.glob(file_glob_str)
         final_args = pytest_args + test_files
         print(f"Pytest args: {final_args}")
         exit_code = pytest.main(final_args)
