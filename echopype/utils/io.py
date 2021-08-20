@@ -62,7 +62,7 @@ def get_file_format(file):
 
 
 def _get_suffix(filepath: Union[str, Path, FSMap]) -> str:
-    """ Check if file type is supported. """
+    """Check if file type is supported."""
     # TODO: handle multiple files through the same set of checks for combining files
     if isinstance(filepath, FSMap):
         suffix = Path(filepath.root).suffix
