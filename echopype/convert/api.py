@@ -308,12 +308,11 @@ def _check_file(
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
-    ext = SONAR_MODELS[sonar_model]["ext"]
+    validate_ext = SONAR_MODELS[sonar_model]["validate_ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(f"There is no file named {Path(raw_file).name}")
 
-    if Path(raw_file).suffix.upper() != ext.upper():
-        raise ValueError(f"Expecting a {ext} file but got {raw_file}")
+    validate_ext(Path(raw_file).suffix.upper())
 
     return str(raw_file), str(xml)
 
