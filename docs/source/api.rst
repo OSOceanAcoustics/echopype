@@ -12,20 +12,11 @@ API components that most users will interact with.
 
 **Content**
 
-* `Open raw and converted files`_
 * `EchoData class`_
+* `Open raw and converted files`_
+* `Combine EchoData objects`_
 * `Data processing subpackages`_
 * `Utilities`_
-
-
-Open raw and converted files
-----------------------------
-
-.. automodule:: echopype
-   :members: open_raw
-
-.. automodule:: echopype
-   :members: open_converted
 
 
 EchoData class
@@ -39,6 +30,20 @@ EchoData class
    :no-inheritance-diagram:
    :no-heading:
 
+Open raw and converted files
+----------------------------
+
+.. automodule:: echopype
+   :members: open_raw
+
+.. automodule:: echopype
+   :members: open_converted
+
+Combine EchoData objects
+------------------------
+
+.. automodule:: echopype
+   :members: combine_echodata
 
 Data processing subpackages
 ---------------------------
@@ -57,10 +62,17 @@ preprocess
    :no-inheritance-diagram:
    :no-heading:
 
+qc
+^^^
+
+.. automodapi:: echopype.qc
+   :no-inheritance-diagram:
+   :no-heading:
 
 Utilities
 ---------
+
 .. automodapi:: echopype.utils.uwa
    :no-inheritance-diagram:
-   :members: calc_absorption, calc_sound_speed
    :no-heading:
+   :members: calc_absorption, calc_sound_speed
