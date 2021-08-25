@@ -9,6 +9,20 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase, set_encodings
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # correct duplicate ping_time
+        for ch in self.parser_obj.config_datagram["transceivers"].keys():
+            ping_time = self.parser_obj.ping_time[ch]
+            _, unique_idx = np.unique(ping_time, return_index=True)
+            duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
+            deltas = duplicates * np.timedelta64(1, "ms")
+            # deltas = np.isin(ping_time, ping_time) * np.timedelta64(1, "ms")
+            print(repr(deltas))
+            new_ping_time = ping_time + deltas
+            self.parser_obj.ping_time[ch] = new_ping_time
+
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -63,6 +77,129 @@ class SetGroupsEK60(SetGroupsBase):
                 valid_min=0.0,
             )
             ds_env.append(ds_tmp)
+
+        # avoid duplicate `ping_time`s
+        ping_times = set()
+        for i, ds in enumerate(ds_env):
+            print("ds")
+
+            # ts = set()
+            # for t in ds["ping_time"].data:
+            #     if t in ts:
+            #         print("dupe", t)
+            #     ts.add(t)
+
+            delta = np.timedelta64(1, "ms")
+
+            # new_times1 = ds["ping_time"].data
+
+            # _, counts = np.unique(ds["ping_time"].data, return_counts=True)
+            _, unique_idx = np.unique(ds["ping_time"].data, return_index=True)
+            duplicates = np.invert(np.isin(np.arange(len(ds["ping_time"].data)), unique_idx))
+            deltas = duplicates * delta
+            # deltas = np.isin(ds["ping_time"].data, ds["ping_time"].data) * np.timedelta64(1, "ms")
+            print(repr(deltas))
+            new_times1 = ds["ping_time"].data + deltas
+
+            new_times2 = new_times1
+            # duplicate_idx = []
+            # for j, t in enumerate(new_times1):
+            #     if t in ping_times:
+            #         duplicate_idx.append(j)
+            #         ping_times.add(t + delta)
+            #     else:
+            #         ping_times.add(t)
+            # # print(duplicate_idx)
+            # duplicates = np.isin(np.arange(len(new_times1)), duplicate_idx)
+            # deltas = duplicates * delta
+            # # print([d for d in deltas if d > 0])
+            # new_times2 = new_times1 + deltas
+
+
+            # # _, counts = np.unique(ds["ping_time"].data, return_counts=True)
+            # _, unique_idx = np.unique(ds["ping_time"].data, return_index=True)
+            # duplicates = np.invert(np.isin(np.arange(len(ds["ping_time"].data)), unique_idx))
+            # deltas = duplicates * np.timedelta64(1, "ms")
+            # # deltas = np.isin(ds["ping_time"].data, ds["ping_time"].data) * np.timedelta64(1, "ms")
+            # print(repr(deltas))
+            # new_times = ds["ping_time"].data + deltas
+            
+
+            # ts = set()
+            # for t in new_times:
+            #     if t in ts:
+            #         print("dupe", t)
+            #     ts.add(t)
+
+            # print(len(ts) == len(new_times))
+
+
+            ds = ds.assign_coords(ping_time=new_times2)
+            ds_env[i] = ds
+
+            # ts = set()
+            # for t in ds_env[i]["ping_time"].data:
+            #     if t in ts:
+            #         print("dupe", t)
+            #     ts.add(t)
+            
+            # ds = ds.expand_dims(ping_time2=new_times)
+            # print(ds)
+            # ds = ds.swap_dims({"ping_time": "ping_time2"})
+            # ds = ds.drop_dims("ping_time")
+            # ds = ds.rename_dims(ping_time2="ping_time")
+
+            # ds.set_index(ping_time="ping_time2")
+
+            # ds["ping_time"].reindex(ping_time=ds["ping_time2"])
+
+            # ds = ds.reindex(ping_time=new_times)
+
+
+
+            # for i, time in enumerate(ds["ping_time"].data):
+            #     if time in ping_times:
+
+
+                    # print("duplicate", time)
+                    # new_time = time + np.timedelta64(100, "ms")
+                    # print(time in ds["ping_time"].data)
+                    # print(new_time in ds["ping_time"].data)
+                    # new_times = ds["ping_time"].data.copy()
+                    # new_times[i] = new_time
+
+                    # print("old", time)
+                    # print("new", new_time)
+
+                    # ts = set()
+                    # for t in ds["ping_time"].data:
+                    #     if t in ts:
+                    #         print("old dupe", t)
+                    #     ts.add(t)
+
+
+                    # ts = set()
+                    # for t in new_times:
+                    #     if t in ts:
+                    #         print("new dupe", t)
+                    #     ts.add(t)
+
+                    # ds.reindex(ping_time=new_times)
+                    # ds["ping_time"].data[i] = new_time
+                    # ds["ping_time"][i] = new_time
+                    # ds.update()
+                    # ping_times.add(new_time)
+                # else:
+                #     ping_times.add(time)
+        
+        
+        ping_times2 = set()
+        print("len", len(ds_env))
+        for i, ds in enumerate(ds_env):
+            for time in ds["ping_time"].data:
+                if time in ping_times2:
+                    print(f"remaining duplicate in {i}", time)
+                ping_times2.add(time)
 
         # Merge data from all channels
         ds = xr.merge(ds_env)
