@@ -17,7 +17,7 @@ class SetGroupsEK60(SetGroupsBase):
             ping_time = self.parser_obj.ping_time[ch]
             _, unique_idx = np.unique(ping_time, return_index=True)
             duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
-            deltas = duplicates * np.timedelta64(1, "ms")
+            deltas = duplicates * np.timedelta64(1, "ns")
             new_ping_time = ping_time + deltas
             self.parser_obj.ping_time[ch] = new_ping_time
 
