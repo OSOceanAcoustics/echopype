@@ -312,6 +312,126 @@ class EchoData:
                 "this method only supports sonar_model values of AZFP, EK60, and EK80"
             )
 
+    def update_platform(self, extra_platform_data: xr.Dataset):
+        """
+        Updates the `EchoData.platform` group with additional external platform data.
+
+        `extra_platform_data` must be an xarray Dataset with a time dimension named `"time"`.
+        Data is extracted from `extra_platform_data` by variable name; only the data
+        in `extra_platform_data` with the following variable names will be used:
+            - `"pitch"`
+            - `"roll"`
+            - `"heave"`
+            - `"latitude"`
+            - `"longitude"`
+            - `"water_level"`
+
+        Only `sonar_model`s of `"EK60"`, `"EK80"`, and `"EA640"` are currently supported.
+
+        Parameters
+        ----------
+        extra_platform_data : xr.Dataset
+            An `xr.Dataset` containing the additional platform data to be added
+            to the `EchoData.platform` group.
+
+        Raises
+        ------
+        ValueError
+            If the `sonar_model` is not one of `"EK60"`, `"EK80"`, or `"EA640"`.
+
+        Examples
+        --------
+        >>> ed = echopype.open_raw(raw_file, "EK60")
+        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
+        >>> ed.update_platform(extra_platform_data)
+        """
+
+        # only take data during ping times
+        start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
+
+        # saildrone specific workaround
+        if "trajectory" in extra_platform_data:
+            extra_platform_data = extra_platform_data.sel(
+                {"trajectory": extra_platform_data["trajectory"][0]}
+            )
+            extra_platform_data = extra_platform_data.drop("trajectory")
+            extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
+
+        if self.sonar_model in ["EK80", "EA640"]:
+            time = "mru_time"
+        elif self.sonar_model == "EK60":
+            time = "location_time"
+        else:
+            raise ValueError("unsupported sonar_model for adding platform data")
+
+        extra_platform_data = extra_platform_data.sel(
+            {"time": slice(start_time, end_time)}
+        )
+        platform = self.platform.reindex(
+            {
+                time: extra_platform_data["time"].values,
+                "location_time": extra_platform_data["time"].values,
+            }
+        )
+        num_obs = len(extra_platform_data["time"])
+
+        def mapping_get_multiple(mapping, keys, default=None):
+            for key in keys:
+                if key in mapping:
+                    return mapping[key]
+            return default
+
+        self.platform = platform.update(
+            {
+                "pitch": (
+                    time,
+                    mapping_get_multiple(
+                        extra_platform_data,
+                        ["pitch", "PITCH"],
+                        np.full(num_obs, np.nan),
+                    ),
+                ),
+                "roll": (
+                    time,
+                    mapping_get_multiple(
+                        extra_platform_data, ["roll", "ROLL"], np.full(num_obs, np.nan)
+                    ),
+                ),
+                "heave": (
+                    time,
+                    mapping_get_multiple(
+                        extra_platform_data,
+                        ["heave", "HEAVE"],
+                        np.full(num_obs, np.nan),
+                    ),
+                ),
+                "latitude": (
+                    "location_time",
+                    mapping_get_multiple(
+                        extra_platform_data,
+                        ["lat", "latitude", "LATITUDE"],
+                        default=np.full(num_obs, np.nan),
+                    ),
+                ),
+                "longitude": (
+                    "location_time",
+                    mapping_get_multiple(
+                        extra_platform_data,
+                        ["lon", "longitude", "LONGITUDE"],
+                        default=np.full(num_obs, np.nan),
+                    ),
+                ),
+                "water_level": (
+                    "location_time",
+                    mapping_get_multiple(
+                        extra_platform_data,
+                        ["water_level", "WATER_LEVEL"],
+                        np.ones(num_obs),
+                    ),
+                ),
+            }
+        )
+
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
