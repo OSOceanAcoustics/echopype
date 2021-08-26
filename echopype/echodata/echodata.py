@@ -354,7 +354,7 @@ class EchoData:
             extra_platform_data = extra_platform_data.sel(
                 {"trajectory": extra_platform_data["trajectory"][0]}
             )
-            extra_platform_data = extra_platform_data.drop("trajectory")
+            extra_platform_data = extra_platform_data.drop_vars("trajectory")
             extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
 
         if self.sonar_model in ["EK80", "EA640"]:
