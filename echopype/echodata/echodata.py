@@ -378,7 +378,7 @@ class EchoData:
         def mapping_get_multiple(mapping, keys, default=None):
             for key in keys:
                 if key in mapping:
-                    return mapping[key]
+                    return mapping[key].data
             return default
 
         self.platform = platform.update(
