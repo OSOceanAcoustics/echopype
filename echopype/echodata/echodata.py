@@ -312,11 +312,13 @@ class EchoData:
                 "this method only supports sonar_model values of AZFP, EK60, and EK80"
             )
 
-    def update_platform(self, extra_platform_data: xr.Dataset):
+    def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
         """
         Updates the `EchoData.platform` group with additional external platform data.
 
-        `extra_platform_data` must be an xarray Dataset with a time dimension named `"time"`.
+        `extra_platform_data` must be an xarray Dataset.
+        The name of the time dimension in `extra_platform_data` is specified by the
+        `time_dim` parameter.
         Data is extracted from `extra_platform_data` by variable name; only the data
         in `extra_platform_data` with the following variable names will be used:
             - `"pitch"`
@@ -333,6 +335,9 @@ class EchoData:
         extra_platform_data : xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
             to the `EchoData.platform` group.
+        time_dim: str, default="time"
+            The name of the time dimension in `extra_platform_data`; used for extracting
+            data from `extra_platform_data`.
 
         Raises
         ------
@@ -355,7 +360,7 @@ class EchoData:
                 {"trajectory": extra_platform_data["trajectory"][0]}
             )
             extra_platform_data = extra_platform_data.drop_vars("trajectory")
-            extra_platform_data = extra_platform_data.swap_dims({"obs": "time"})
+            extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
         if self.sonar_model in ["EK80", "EA640"]:
             time = "mru_time"
@@ -365,15 +370,15 @@ class EchoData:
             raise ValueError("unsupported sonar_model for adding platform data")
 
         extra_platform_data = extra_platform_data.sel(
-            {"time": slice(start_time, end_time)}
+            {time_dim: slice(start_time, end_time)}
         )
         platform = self.platform.reindex(
             {
-                time: extra_platform_data["time"].values,
-                "location_time": extra_platform_data["time"].values,
+                time: extra_platform_data[time_dim].values,
+                "location_time": extra_platform_data[time_dim].values,
             }
         )
-        num_obs = len(extra_platform_data["time"])
+        num_obs = len(extra_platform_data[time_dim])
 
         def mapping_get_multiple(mapping, keys, default=None):
             for key in keys:
