@@ -1,0 +1,98 @@
+import matplotlib.pyplot as plt
+import xarray as xr
+from xarray.plot.facetgrid import FacetGrid
+from matplotlib.collections import QuadMesh
+from typing import Dict, Tuple, Union, List, TypeVar
+
+T = TypeVar('T', int, float)
+
+
+def _format_axis_label(axis_variable):
+    return axis_variable.replace('_', " ").title()
+
+
+def _set_label(
+    fg: Union[FacetGrid, QuadMesh, None] = None,
+    x: str = '',
+    y: str = '',
+    frequency: Union[int, float, None] = None,
+):
+    formatted = {'x': _format_axis_label(x), 'y': _format_axis_label(y)}
+    props = dict(boxstyle='square', facecolor='white', alpha=0.7)
+    if isinstance(fg, FacetGrid):
+        fg.set_xlabels(formatted['x'])
+        fg.set_ylabels(formatted['y'])
+
+        # Set each axis title
+        for idx, ax in enumerate(fg.axes.flat):
+            freq = fg.name_dicts[idx, 0]['frequency']
+            ax.set_title("")
+            ax.text(
+                0.02,
+                0.06,
+                f"{int(freq / 1000)} kHz",
+                transform=ax.transAxes,
+                fontsize=14,
+                verticalalignment='bottom',
+                bbox=props,
+            )
+    else:
+        if frequency is None:
+            raise ValueError(
+                'Frequency value is missing for single echogram plotting.'
+            )
+        ax = fg.axes
+        ax.text(
+            0.02,
+            0.04,
+            f"{int(frequency / 1000)} kHz",
+            transform=ax.transAxes,
+            fontsize=16,
+            verticalalignment='bottom',
+            bbox=props,
+        )
+        plt.xlabel(formatted['x'])
+        plt.ylabel(formatted['y'])
+        plt.title('')
+        plt.tight_layout()
+
+
+def _plot_echogram(
+    ds: xr.Dataset,
+    frequency: Union[int, float, List[T], None] = None,
+    variable: str = 'backscatter_r',
+    xaxis: str = 'ping_time',
+    yaxis: str = 'range',
+    cmap: str = 'jet',
+    figsize: Tuple = (15, 10),
+    robust: bool = False,
+    yincrease: bool = False,
+    col_wrap: int = 1,
+    plot_kwargs: Dict = {},
+) -> Union[FacetGrid, QuadMesh]:
+    # perform frequency filtering
+    if frequency:
+        filtered_ds = ds[variable].sel(frequency=frequency)
+    else:
+        # if frequency not provided, use all
+        filtered_ds = ds[variable].sel(frequency=slice(None))
+
+    # figure out frequency size
+    # to determine plotting method
+    col = None
+    if filtered_ds.frequency.size > 1:
+        col = 'frequency'
+
+    plot = filtered_ds.plot.pcolormesh(
+        x=xaxis,
+        y=yaxis,
+        cmap=cmap,
+        col=col,
+        col_wrap=col_wrap,
+        figsize=figsize,
+        yincrease=yincrease,
+        robust=robust,
+        **plot_kwargs,
+    )
+    _set_label(plot, x=xaxis, y=yaxis, frequency=frequency)
+    return plot
