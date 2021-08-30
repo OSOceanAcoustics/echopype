@@ -13,16 +13,10 @@ def _format_axis_label(axis_variable):
 
 def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
-    x: str = '',
-    y: str = '',
     frequency: Union[int, float, None] = None,
 ):
-    formatted = {'x': _format_axis_label(x), 'y': _format_axis_label(y)}
     props = dict(boxstyle='square', facecolor='white', alpha=0.7)
     if isinstance(fg, FacetGrid):
-        fg.set_xlabels(formatted['x'])
-        fg.set_ylabels(formatted['y'])
-
         # Set each axis title
         for idx, ax in enumerate(fg.axes.flat):
             freq = fg.name_dicts[idx, 0]['frequency']
@@ -51,8 +45,6 @@ def _set_label(
             verticalalignment='bottom',
             bbox=props,
         )
-        plt.xlabel(formatted['x'])
-        plt.ylabel(formatted['y'])
         plt.title('')
         plt.tight_layout()
 
@@ -83,6 +75,19 @@ def _plot_echogram(
     if filtered_ds.frequency.size > 1:
         col = 'frequency'
 
+    filtered_ds[xaxis].attrs = {
+        'long_name': filtered_ds[xaxis].attrs.get(
+            'long_name', _format_axis_label(xaxis)
+        ),
+        'units': filtered_ds[xaxis].attrs.get('units', ''),
+    }
+    filtered_ds[yaxis].attrs = {
+        'long_name': filtered_ds[yaxis].attrs.get(
+            'long_name', _format_axis_label(yaxis)
+        ),
+        'units': filtered_ds[yaxis].attrs.get('units', ''),
+    }
+
     plot = filtered_ds.plot.pcolormesh(
         x=xaxis,
         y=yaxis,
@@ -94,5 +99,5 @@ def _plot_echogram(
         robust=robust,
         **plot_kwargs,
     )
-    _set_label(plot, x=xaxis, y=yaxis, frequency=frequency)
+    _set_label(plot, frequency=frequency)
     return plot
