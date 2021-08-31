@@ -328,7 +328,7 @@ class EchoData:
             - `"longitude"`
             - `"water_level"`
 
-        Only `sonar_model`s of `"EK60"`, `"EK80"`, and `"EA640"` are currently supported.
+        Only `sonar_model`s of `"EK60"`, `"EK80"`, `"EA640"`, and `"AZFP"` are currently supported.
 
         Parameters
         ----------
@@ -342,7 +342,7 @@ class EchoData:
         Raises
         ------
         ValueError
-            If the `sonar_model` is not one of `"EK60"`, `"EK80"`, or `"EA640"`.
+            If the `sonar_model` is not one of `"EK60"`, `"EK80"`, `"EA640"`, or `"AZFP"`.
 
         Examples
         --------
@@ -365,6 +365,8 @@ class EchoData:
         if self.sonar_model in ["EK80", "EA640"]:
             time = "mru_time"
         elif self.sonar_model == "EK60":
+            time = "location_time"
+        elif self.sonar_model == "AZFP":
             time = "location_time"
         else:
             raise ValueError("unsupported sonar_model for adding platform data")
