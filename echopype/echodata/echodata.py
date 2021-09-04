@@ -357,11 +357,16 @@ class EchoData:
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
         # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
         # The Saildrone sample data file follows this convention
-        if ('featureType' in extra_platform_data.attrs and
-                extra_platform_data.attrs['featureType'].lower() == 'trajectory'):
+        if (
+            "featureType" in extra_platform_data.attrs
+            and extra_platform_data.attrs["featureType"].lower() == "trajectory"
+        ):
             for coordvar in extra_platform_data.coords:
-                if ('cf_role' in extra_platform_data[coordvar].attrs and
-                        extra_platform_data[coordvar].attrs['cf_role'] == 'trajectory_id'):
+                if (
+                    "cf_role" in extra_platform_data[coordvar].attrs
+                    and extra_platform_data[coordvar].attrs["cf_role"]
+                    == "trajectory_id"
+                ):
                     trajectory_var = coordvar
 
             # assumes there's only one trajectory in the dataset (index 0)
