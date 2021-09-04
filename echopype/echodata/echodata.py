@@ -354,19 +354,26 @@ class EchoData:
         # only take data during ping times
         start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
 
-        # saildrone specific workaround
-        if "trajectory" in extra_platform_data:
+        # Handle data stored as a CF Trajectory Discrete Sampling Geometry
+        # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
+        # The Saildrone sample data file follows this convention
+        if ('featureType' in extra_platform_data.attrs and
+                extra_platform_data.attrs['featureType'].lower() == 'trajectory'):
+            for coordvar in extra_platform_data.coords:
+                if ('cf_role' in extra_platform_data[coordvar].attrs and
+                        extra_platform_data[coordvar].attrs['cf_role'] == 'trajectory_id'):
+                    trajectory_var = coordvar
+
+            # assumes there's only one trajectory in the dataset (index 0)
             extra_platform_data = extra_platform_data.sel(
-                {"trajectory": extra_platform_data["trajectory"][0]}
+                {trajectory_var: extra_platform_data[trajectory_var][0]}
             )
-            extra_platform_data = extra_platform_data.drop_vars("trajectory")
+            extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
         if self.sonar_model in ["EK80", "EA640"]:
             time = "mru_time"
-        elif self.sonar_model == "EK60":
-            time = "location_time"
-        elif self.sonar_model == "AZFP":
+        elif self.sonar_model == ["EK60", "AZFP"]:
             time = "location_time"
         else:
             raise ValueError("unsupported sonar_model for adding platform data")
@@ -433,7 +440,7 @@ class EchoData:
                     mapping_get_multiple(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
-                        np.ones(num_obs),
+                        default=np.ones(num_obs),
                     ),
                 ),
             }
