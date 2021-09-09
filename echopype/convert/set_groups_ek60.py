@@ -1,9 +1,13 @@
+import warnings
 from collections import defaultdict
+from datetime import datetime as dt
 
 import numpy as np
 import xarray as xr
+from _echopype_version import version as ECHOPYPE_VERSION
 
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase, set_encodings
+
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -12,14 +16,55 @@ class SetGroupsEK60(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.duplicate_ping_times = {}
         # correct duplicate ping_time
         for ch in self.parser_obj.config_datagram["transceivers"].keys():
             ping_time = self.parser_obj.ping_time[ch]
             _, unique_idx = np.unique(ping_time, return_index=True)
             duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
-            deltas = duplicates * np.timedelta64(1, "ns")
-            new_ping_time = ping_time + deltas
-            self.parser_obj.ping_time[ch] = new_ping_time
+            if duplicates.any():
+                # backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
+                # for duplicate in ping_time[duplicates]:
+                #     both_duplicates_idx, = np.where(np.isin(ping_time, duplicate))
+                #     if np.array_equal(backscatter_r[both_duplicates_idx[0]], backscatter_r[both_duplicates_idx[1]]):
+                #         print("clock error")
+                #     else:
+                #         print("duplicate ping, not clock error")
+
+                warnings.warn("duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group")  # noqa
+                deltas = duplicates * np.timedelta64(1, "ns")
+                new_ping_time = ping_time + deltas
+                self.parser_obj.ping_time[ch] = new_ping_time
+
+                duplicates_idx = np.where(duplicates)
+                frequency = self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
+                self.duplicate_ping_times[frequency] = new_ping_time[duplicates_idx]
+
+
+    def set_provenance(self) -> xr.Dataset:
+        """Set the Provenance group."""
+        # Collect variables
+        prov_dict = {
+            "conversion_software_name": "echopype",
+            "conversion_software_version": ECHOPYPE_VERSION,
+            "conversion_time": dt.utcnow().isoformat(timespec="seconds")
+            + "Z",  # use UTC time
+            "src_filenames": self.input_file,
+        }
+        # Save
+        if self.duplicate_ping_times:
+            ds = xr.Dataset(
+                data_vars={
+                    "duplicate_ping_times": (("frequency", "ping_time"), list(self.duplicate_ping_times.values()))
+                },
+                coords={
+                    "frequency": list(self.duplicate_ping_times.keys())
+                }
+            )
+        else:
+            ds = xr.Dataset()
+        ds = ds.assign_attrs(prov_dict)
+        return ds
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
