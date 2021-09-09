@@ -32,7 +32,7 @@ class EnvParams:
 
         env_params = self.env_params
 
-        min_ping, max_ping = env_params["ping_time"].min(), env_params["ping_time"].max()
+        min_max = {dim : {"min": env_params[dim].min(), "max": env_params[dim].max()} for dim in dims}
         nearest = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method="nearest", kwargs={"fill_value": "extrapolate"})
 
         if self.extrap_method == "interp_method":
@@ -42,9 +42,9 @@ class EnvParams:
         env_params = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method=self.interp_method, kwargs={"fill_value": fill_value})
 
         if self.extrap_method == "nearest":
-            less = nearest.sel(ping_time=[t.data[()] for t in nearest["ping_time"] if t < min_ping])
-            middle = env_params.sel(ping_time=[t.data[()] for t in env_params["ping_time"] if min_ping <= t and t <= max_ping])
-            greater = nearest.sel(ping_time=[t.data[()] for t in nearest["ping_time"] if t > max_ping])
+            less = nearest.sel({dim : nearest[dim][nearest[dim] < min_max[dim]["min"]] for dim in dims})
+            middle = env_params.sel({dim : env_params[dim][np.logical_and(env_params[dim] >= min_max[dim]["min"], env_params[dim] <= min_max[dim]["max"])] for dim in dims})
+            greater = nearest.sel({dim : nearest[dim][nearest[dim] > min_max[dim]["max"]] for dim in dims})
             env_params = xr.concat([less, middle, greater], dim="ping_time")
 
         return env_params
