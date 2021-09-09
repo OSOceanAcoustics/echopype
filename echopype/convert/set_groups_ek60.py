@@ -22,29 +22,44 @@ class SetGroupsEK60(SetGroupsBase):
             _, unique_idx = np.unique(ping_time, return_index=True)
             duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
             if duplicates.any():
-                # backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
-                # for duplicate in ping_time[duplicates]:
-                #     (both_duplicates_idx,) = np.where(np.isin(ping_time, duplicate))
-                #     if np.array_equal(
-                #         backscatter_r[both_duplicates_idx[0]],
-                #         backscatter_r[both_duplicates_idx[1]],
-                #     ):
-                #         print("clock error")
-                #     else:
-                #         print("duplicate ping, not clock error")
-
-                warnings.warn(
-                    "duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group"  # noqa
+                backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
+                # indexes of duplicates including the originals
+                # (if there are 2 times that are the same, both will be included)
+                (all_duplicates_idx,) = np.where(
+                    np.isin(ping_time, ping_time[duplicates][0])
                 )
-                deltas = duplicates * np.timedelta64(1, "ns")
-                new_ping_time = ping_time + deltas
-                self.parser_obj.ping_time[ch] = new_ping_time
+                if np.array_equal(
+                    backscatter_r[all_duplicates_idx[0]],
+                    backscatter_r[all_duplicates_idx[1]],
+                ):
+                    warnings.warn(
+                        "duplicate pings with identical values detected; they will be removed"  # noqa
+                    )
+                    for v in self.parser_obj.ping_data_dict.values():
+                        if v[ch] is None or len(v[ch]) == 0:
+                            continue
+                        if isinstance(v[ch], np.ndarray):
+                            v[ch] = v[ch][unique_idx]
+                        else:
+                            v[ch] = [v[ch][i] for i in unique_idx]
+                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][
+                        unique_idx
+                    ]
+                else:
+                    warnings.warn(
+                        "duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group"  # noqa
+                    )
+                    deltas = duplicates * np.timedelta64(1, "ns")
+                    new_ping_time = ping_time + deltas
+                    self.parser_obj.ping_time[ch] = new_ping_time
 
-                duplicates_idx = np.where(duplicates)
-                frequency = self.parser_obj.config_datagram["transceivers"][ch][
-                    "frequency"
-                ]
-                self.duplicate_ping_times[frequency] = new_ping_time[duplicates_idx]
+                    # indexes of duplicates exluding the originals
+                    # (if there are 2 times that are the same, only 1 will be included)
+                    duplicates_idx = np.where(duplicates)
+                    frequency = self.parser_obj.config_datagram["transceivers"][ch][
+                        "frequency"
+                    ]
+                    self.duplicate_ping_times[frequency] = new_ping_time[duplicates_idx]
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""

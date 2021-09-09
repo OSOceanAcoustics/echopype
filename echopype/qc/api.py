@@ -102,7 +102,9 @@ def remove_duplicate_ping_times(echodata: EchoData):
                 echodata,
                 group_name,
                 group.drop_sel(
-                    ping_time=np.unique(echodata.provenance["duplicate_ping_times"].data.flatten()),
+                    ping_time=np.unique(
+                        echodata.provenance["duplicate_ping_times"].data.flatten()
+                    ),
                     errors="ignore",
                 ),
             )
