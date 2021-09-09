@@ -18,7 +18,7 @@ class EnvParams:
         env_params,
         data_kind: Literal["static", "mobile", "organized"],
         interp_method: Literal["linear", "nearest"] = "linear",
-        extrap_method: Optional[Literal["interp_method", "nearest"]] = None,
+        extrap_method: Optional[Literal["linear", "nearest"]] = None,
     ):
         self.env_params = env_params
         self.data_kind = data_kind
@@ -41,39 +41,33 @@ class EnvParams:
             dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
             for dim in dims
         }
-        nearest = env_params.interp(
+
+        extrap = env_params.interp(
             {dim: echodata.beam[dim] for dim in dims},
-            method="nearest",
+            method=self.extrap_method,
             kwargs={"fill_value": "extrapolate"},
         )
-
-        if self.extrap_method == "interp_method":
-            fill_value = "extrapolate"
-        else:
-            fill_value = np.nan
-        env_params = env_params.interp(
-            {dim: echodata.beam[dim] for dim in dims},
-            method=self.interp_method,
-            kwargs={"fill_value": fill_value},
+        interp = env_params.interp(
+            {dim: echodata.beam[dim] for dim in dims}, method=self.interp_method
         )
 
-        if self.extrap_method == "nearest":
-            less = nearest.sel(
-                {dim: nearest[dim][nearest[dim] < min_max[dim]["min"]] for dim in dims}
+        if self.extrap_method is not None:
+            less = extrap.sel(
+                {dim: extrap[dim][extrap[dim] < min_max[dim]["min"]] for dim in dims}
             )
-            middle = env_params.sel(
+            middle = interp.sel(
                 {
-                    dim: env_params[dim][
+                    dim: interp[dim][
                         np.logical_and(
-                            env_params[dim] >= min_max[dim]["min"],
-                            env_params[dim] <= min_max[dim]["max"],
+                            interp[dim] >= min_max[dim]["min"],
+                            interp[dim] <= min_max[dim]["max"],
                         )
                     ]
                     for dim in dims
                 }
             )
-            greater = nearest.sel(
-                {dim: nearest[dim][nearest[dim] > min_max[dim]["max"]] for dim in dims}
+            greater = extrap.sel(
+                {dim: extrap[dim][extrap[dim] > min_max[dim]["max"]] for dim in dims}
             )
             env_params = xr.concat([less, middle, greater], dim="ping_time")
 
