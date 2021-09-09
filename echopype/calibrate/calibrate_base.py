@@ -1,10 +1,8 @@
 import abc
-
-import xarray as xr
-import numpy as np
-
 from typing import Literal, Optional
 
+import numpy as np
+import xarray as xr
 
 ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
 
@@ -13,13 +11,20 @@ CAL_PARAMS = {
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
+
 class EnvParams:
-    def __init__(self, env_params, data_kind: Literal["static", "mobile", "organized"], interp_method: Literal["linear", "nearest"] = "linear", extrap_method: Optional[Literal["interp_method", "nearest"]] = None):
+    def __init__(
+        self,
+        env_params,
+        data_kind: Literal["static", "mobile", "organized"],
+        interp_method: Literal["linear", "nearest"] = "linear",
+        extrap_method: Optional[Literal["interp_method", "nearest"]] = None,
+    ):
         self.env_params = env_params
         self.data_kind = data_kind
         self.interp_method = interp_method
         self.extrap_method = extrap_method
-    
+
     def _apply(self, echodata) -> xr.Dataset:
         if self.data_kind == "static":
             dims = ["ping_time"]
@@ -32,22 +37,48 @@ class EnvParams:
 
         env_params = self.env_params
 
-        min_max = {dim : {"min": env_params[dim].min(), "max": env_params[dim].max()} for dim in dims}
-        nearest = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method="nearest", kwargs={"fill_value": "extrapolate"})
+        min_max = {
+            dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
+            for dim in dims
+        }
+        nearest = env_params.interp(
+            {dim: echodata.beam[dim] for dim in dims},
+            method="nearest",
+            kwargs={"fill_value": "extrapolate"},
+        )
 
         if self.extrap_method == "interp_method":
             fill_value = "extrapolate"
         else:
             fill_value = np.nan
-        env_params = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method=self.interp_method, kwargs={"fill_value": fill_value})
+        env_params = env_params.interp(
+            {dim: echodata.beam[dim] for dim in dims},
+            method=self.interp_method,
+            kwargs={"fill_value": fill_value},
+        )
 
         if self.extrap_method == "nearest":
-            less = nearest.sel({dim : nearest[dim][nearest[dim] < min_max[dim]["min"]] for dim in dims})
-            middle = env_params.sel({dim : env_params[dim][np.logical_and(env_params[dim] >= min_max[dim]["min"], env_params[dim] <= min_max[dim]["max"])] for dim in dims})
-            greater = nearest.sel({dim : nearest[dim][nearest[dim] > min_max[dim]["max"]] for dim in dims})
+            less = nearest.sel(
+                {dim: nearest[dim][nearest[dim] < min_max[dim]["min"]] for dim in dims}
+            )
+            middle = env_params.sel(
+                {
+                    dim: env_params[dim][
+                        np.logical_and(
+                            env_params[dim] >= min_max[dim]["min"],
+                            env_params[dim] <= min_max[dim]["max"],
+                        )
+                    ]
+                    for dim in dims
+                }
+            )
+            greater = nearest.sel(
+                {dim: nearest[dim][nearest[dim] > min_max[dim]["max"]] for dim in dims}
+            )
             env_params = xr.concat([less, middle, greater], dim="ping_time")
 
         return env_params
+
 
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
