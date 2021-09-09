@@ -1,5 +1,11 @@
 import abc
 
+import xarray as xr
+import numpy as np
+
+from typing import Literal, Optional
+
+
 ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
 
 CAL_PARAMS = {
@@ -7,6 +13,41 @@ CAL_PARAMS = {
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
+class EnvParams:
+    def __init__(self, env_params, data_kind: Literal["static", "mobile", "organized"], interp_method: Literal["linear", "nearest"] = "linear", extrap_method: Optional[Literal["interp_method", "nearest"]] = None):
+        self.env_params = env_params
+        self.data_kind = data_kind
+        self.interp_method = interp_method
+        self.extrap_method = extrap_method
+    
+    def _apply(self, echodata) -> xr.Dataset:
+        if self.data_kind == "static":
+            dims = ["ping_time"]
+        elif self.data_kind == "mobile":
+            dims = ["latitude", "longitude"]
+        elif self.data_kind == "organized":
+            dims = ["ping_time", "latitude", "longitude"]
+        else:
+            raise ValueError("invalid data_kind")
+
+        env_params = self.env_params
+
+        min_ping, max_ping = env_params["ping_time"].min(), env_params["ping_time"].max()
+        nearest = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method="nearest", kwargs={"fill_value": "extrapolate"})
+
+        if self.extrap_method == "interp_method":
+            fill_value = "extrapolate"
+        else:
+            fill_value = np.nan
+        env_params = env_params.interp({dim : echodata.beam[dim] for dim in dims}, method=self.interp_method, kwargs={"fill_value": fill_value})
+
+        if self.extrap_method == "nearest":
+            less = nearest.sel(ping_time=[t.data[()] for t in nearest["ping_time"] if t < min_ping])
+            middle = env_params.sel(ping_time=[t.data[()] for t in env_params["ping_time"] if min_ping <= t and t <= max_ping])
+            greater = nearest.sel(ping_time=[t.data[()] for t in nearest["ping_time"] if t > max_ping])
+            env_params = xr.concat([less, middle, greater], dim="ping_time")
+
+        return env_params
 
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""

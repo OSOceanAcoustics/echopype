@@ -3,7 +3,7 @@ import xarray as xr
 from scipy import signal
 
 from ..utils import uwa
-from .calibrate_base import CAL_PARAMS, ENV_PARAMS, CalibrateBase
+from .calibrate_base import CAL_PARAMS, ENV_PARAMS, CalibrateBase, EnvParams
 
 
 class CalibrateEK(CalibrateBase):
@@ -216,6 +216,8 @@ class CalibrateEK60(CalibrateEK):
         # load env and cal parameters
         if env_params is None:
             env_params = {}
+        elif isinstance(env_params, EnvParams):
+            env_params = env_params._apply(echodata)
         self.get_env_params(env_params)
         if cal_params is None:
             cal_params = {}
