@@ -9,7 +9,6 @@ from _echopype_version import version as ECHOPYPE_VERSION
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase, set_encodings
 
 
-
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files."""
 
@@ -25,21 +24,27 @@ class SetGroupsEK60(SetGroupsBase):
             if duplicates.any():
                 # backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
                 # for duplicate in ping_time[duplicates]:
-                #     both_duplicates_idx, = np.where(np.isin(ping_time, duplicate))
-                #     if np.array_equal(backscatter_r[both_duplicates_idx[0]], backscatter_r[both_duplicates_idx[1]]):
+                #     (both_duplicates_idx,) = np.where(np.isin(ping_time, duplicate))
+                #     if np.array_equal(
+                #         backscatter_r[both_duplicates_idx[0]],
+                #         backscatter_r[both_duplicates_idx[1]],
+                #     ):
                 #         print("clock error")
                 #     else:
                 #         print("duplicate ping, not clock error")
 
-                warnings.warn("duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group")  # noqa
+                warnings.warn(
+                    "duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group"  # noqa
+                )
                 deltas = duplicates * np.timedelta64(1, "ns")
                 new_ping_time = ping_time + deltas
                 self.parser_obj.ping_time[ch] = new_ping_time
 
                 duplicates_idx = np.where(duplicates)
-                frequency = self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
+                frequency = self.parser_obj.config_datagram["transceivers"][ch][
+                    "frequency"
+                ]
                 self.duplicate_ping_times[frequency] = new_ping_time[duplicates_idx]
-
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
@@ -55,11 +60,12 @@ class SetGroupsEK60(SetGroupsBase):
         if self.duplicate_ping_times:
             ds = xr.Dataset(
                 data_vars={
-                    "duplicate_ping_times": (("frequency", "ping_time"), list(self.duplicate_ping_times.values()))
+                    "duplicate_ping_times": (
+                        ("frequency", "ping_time"),
+                        list(self.duplicate_ping_times.values()),
+                    )
                 },
-                coords={
-                    "frequency": list(self.duplicate_ping_times.keys())
-                }
+                coords={"frequency": list(self.duplicate_ping_times.keys())},
             )
         else:
             ds = xr.Dataset()
