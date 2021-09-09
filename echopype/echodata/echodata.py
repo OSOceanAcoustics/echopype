@@ -445,7 +445,7 @@ class EchoData:
                     mapping_get_multiple(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
-                        default=np.ones(num_obs),
+                        default=np.zeros(num_obs),
                     ),
                 ),
             }
