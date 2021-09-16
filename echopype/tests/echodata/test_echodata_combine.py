@@ -150,7 +150,7 @@ def test_attr_storage():
             group_attrs = combined.provenance[f"{group}_attrs"]
             for i, ed in enumerate(eds):
                 for attr, value in getattr(ed, group).attrs.items():
-                    assert group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()] == value
+                    assert str(group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()]) == str(value)
 
     # check selection by echodata_filename
     for file in ek60_test_data:

@@ -73,4 +73,5 @@ def test_convert_ek60_duplicate_ping_times():
     raw_path = ek60_path / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
     ed = open_raw(raw_path, "EK60")
 
-    assert "duplicate_ping_times" in ed.provenance
+    assert "duplicate_ping_times" in ed.provenance.attrs
+    assert "old_ping_time" in ed.provenance
