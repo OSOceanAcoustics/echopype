@@ -287,34 +287,38 @@ class SetGroupsAd2cp(SetGroupsBase):
                 ),
                 "ensemble_counter": self.ds.get("ensemble_counter"),
                 "ahrs_rotation_matrix_mij": (
-                    ("mij", "ping_time"),
+                    ("mij", "ping_time")
+                    if "ahrs_rotation_matrix_m11" in self.ds
+                    else "mij",
                     [
-                        self.ds.get("ahrs_rotation_matrix_m11", []),
-                        self.ds.get("ahrs_rotation_matrix_m12", []),
-                        self.ds.get("ahrs_rotation_matrix_m13", []),
-                        self.ds.get("ahrs_rotation_matrix_m21", []),
-                        self.ds.get("ahrs_rotation_matrix_m22", []),
-                        self.ds.get("ahrs_rotation_matrix_m23", []),
-                        self.ds.get("ahrs_rotation_matrix_m31", []),
-                        self.ds.get("ahrs_rotation_matrix_m32", []),
-                        self.ds.get("ahrs_rotation_matrix_m33", []),
+                        self.ds.get("ahrs_rotation_matrix_m11"),
+                        self.ds.get("ahrs_rotation_matrix_m12"),
+                        self.ds.get("ahrs_rotation_matrix_m13"),
+                        self.ds.get("ahrs_rotation_matrix_m21"),
+                        self.ds.get("ahrs_rotation_matrix_m22"),
+                        self.ds.get("ahrs_rotation_matrix_m23"),
+                        self.ds.get("ahrs_rotation_matrix_m31"),
+                        self.ds.get("ahrs_rotation_matrix_m32"),
+                        self.ds.get("ahrs_rotation_matrix_m33"),
                     ],
                 ),
                 "ahrs_quaternions_wxyz": (
-                    ("wxyz", "ping_time"),
+                    ("wxyz", "ping_time")
+                    if "ahrs_quaternions_w" in self.ds
+                    else "wxyz",
                     [
-                        self.ds.get("ahrs_quaternions_w", []),
-                        self.ds.get("ahrs_quaternions_x", []),
-                        self.ds.get("ahrs_quaternions_y", []),
-                        self.ds.get("ahrs_quaternions_z", []),
+                        self.ds.get("ahrs_quaternions_w"),
+                        self.ds.get("ahrs_quaternions_x"),
+                        self.ds.get("ahrs_quaternions_y"),
+                        self.ds.get("ahrs_quaternions_z"),
                     ],
                 ),
                 "ahrs_gyro_xyz": (
-                    ("xyz", "ping_time"),
+                    ("xyz", "ping_time") if "ahrs_gyro_x" in self.ds else "xyz",
                     [
-                        self.ds.get("ahrs_gyro_x", []),
-                        self.ds.get("ahrs_gyro_y", []),
-                        self.ds.get("ahrs_gyro_z", []),
+                        self.ds.get("ahrs_gyro_x"),
+                        self.ds.get("ahrs_gyro_y"),
+                        self.ds.get("ahrs_gyro_z"),
                     ],
                 ),
                 "percentage_good_data": self.ds.get("percentage_good_data"),
