@@ -15,13 +15,30 @@ class SetGroupsEK60(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.duplicate_ping_times = {}
+        self.old_ping_time = None
         # correct duplicate ping_time
         for ch in self.parser_obj.config_datagram["transceivers"].keys():
             ping_time = self.parser_obj.ping_time[ch]
             _, unique_idx = np.unique(ping_time, return_index=True)
             duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
             if duplicates.any():
+                if self.old_ping_time is None:
+                    if (
+                        len({arr.shape for arr in self.parser_obj.ping_time.values()})
+                        == 1
+                        and np.unique(
+                            np.stack(self.parser_obj.ping_time.values()), axis=0
+                        ).shape[0]
+                        == 1
+                    ):
+                        self.old_ping_time = self.parser_obj.ping_time[ch]
+                    else:
+                        ping_times = [
+                            xr.DataArray(arr, dims="ping_time")
+                            for arr in self.parser_obj.ping_time.values()
+                        ]
+                        self.old_ping_time = xr.concat(ping_times, dim="ping_time")
+
                 backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
                 # indexes of duplicates including the originals
                 # (if there are 2 times that are the same, both will be included)
@@ -49,17 +66,10 @@ class SetGroupsEK60(SetGroupsBase):
                     warnings.warn(
                         "duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group"  # noqa
                     )
+
                     deltas = duplicates * np.timedelta64(1, "ns")
                     new_ping_time = ping_time + deltas
                     self.parser_obj.ping_time[ch] = new_ping_time
-
-                    # indexes of duplicates exluding the originals
-                    # (if there are 2 times that are the same, only 1 will be included)
-                    duplicates_idx = np.where(duplicates)
-                    frequency = self.parser_obj.config_datagram["transceivers"][ch][
-                        "frequency"
-                    ]
-                    self.duplicate_ping_times[frequency] = new_ping_time[duplicates_idx]
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
@@ -70,18 +80,11 @@ class SetGroupsEK60(SetGroupsBase):
             "conversion_time": dt.utcnow().isoformat(timespec="seconds")
             + "Z",  # use UTC time
             "src_filenames": self.input_file,
+            "duplicate_ping_times": 1 if self.old_ping_time is not None else 0,
         }
         # Save
-        if self.duplicate_ping_times:
-            ds = xr.Dataset(
-                data_vars={
-                    "duplicate_ping_times": (
-                        ("frequency", "ping_time"),
-                        list(self.duplicate_ping_times.values()),
-                    )
-                },
-                coords={"frequency": list(self.duplicate_ping_times.keys())},
-            )
+        if self.old_ping_time is not None:
+            ds = xr.Dataset(data_vars={"old_ping_time": self.old_ping_time})
         else:
             ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
