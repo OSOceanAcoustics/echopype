@@ -1,7 +1,5 @@
 import numpy as np
 
-from echopype.echodata.echodata import EchoData
-
 
 def _clean_ping_time(ping_time_old, local_win_len=100):
     ping_time_old_diff = np.diff(ping_time_old)
