@@ -351,8 +351,8 @@ class EchoData:
         >>> ed.update_platform(extra_platform_data)
         """
 
-        # only take data during ping times
-        start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
+        # # only take data during ping times
+        # start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
 
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
         # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
@@ -377,21 +377,62 @@ class EchoData:
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
         if self.sonar_model in ["EK80", "EA640"]:
-            time = "mru_time"
+            pitch_roll_heave_time = "mru_time"
+            lat_lon_water_level_time = "location_time"
         elif self.sonar_model == ["EK60", "AZFP"]:
-            time = "location_time"
+            pitch_roll_heave_time = "location_time"
+            lat_lon_water_level_time = "location_time"
+        elif self.sonar_model == "AD2CP":
+            pitch_roll_heave_time = "ping_time"
+            lat_lon_water_level_time = "ping_time"
         else:
             raise ValueError("unsupported sonar_model for adding platform data")
 
-        extra_platform_data = extra_platform_data.sel(
-            {time_dim: slice(start_time, end_time)}
-        )
-        platform = self.platform.reindex(
+        # extra_platform_data = extra_platform_data.sel(
+        #     {time_dim: slice(start_time, end_time)}
+        # )
+
+        platform = self.platform
+
+
+        platform = platform.reindex(
             {
-                time: extra_platform_data[time_dim].values,
-                "location_time": extra_platform_data[time_dim].values,
+                pitch_roll_heave_time: extra_platform_data[time_dim].values,
+                lat_lon_water_level_time: extra_platform_data[time_dim].values,
             }
         )
+
+
+        # print(platform[pitch_roll_heave_time])
+        # print(xr.DataArray(extra_platform_data[time_dim].values, dims=pitch_roll_heave_time))
+        # new_time_values = xr.concat([xr.DataArray(extra_platform_data[time_dim].values, coords={pitch_roll_heave_time: extra_platform_data[time_dim].values}, dims=pitch_roll_heave_time), platform[pitch_roll_heave_time], platform[lat_lon_water_level_time]], dim=pitch_roll_heave_time)
+        # print(new_time_values)
+        # print(np.unique(new_time_values).shape)
+        # platform = platform.reindex(
+        #     {
+        #         pitch_roll_heave_time: new_time_values,
+        #         lat_lon_water_level_time: new_time_values,
+        #         # pitch_roll_heave_time: xr.concat([xr.DataArray(extra_platform_data[time_dim].values, coords={pitch_roll_heave_time: extra_platform_data[time_dim].values}, dims=pitch_roll_heave_time), platform[pitch_roll_heave_time]], dim=pitch_roll_heave_time),
+        #         # lat_lon_water_level_time: xr.concat([xr.DataArray(extra_platform_data[time_dim].values, coords={lat_lon_water_level_time: extra_platform_data[time_dim].values}, dims=lat_lon_water_level_time), platform[lat_lon_water_level_time]], dim=lat_lon_water_level_time),
+        #     }
+        # )
+        # extra_platform_data = extra_platform_data.reindex(
+        #     {
+        #         time_dim: new_time_values.data
+        #     }
+        # )
+        # print(platform["magnetometer_raw_x"])
+        # print(platform["magnetometer_raw_x"][np.invert(platform["magnetometer_raw_x"].isnull().data)])
+
+
+        dropped_vars = []
+        for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
+            if var in platform and platform[var].isnull().all():
+                dropped_vars.append(var)
+        if len(dropped_vars) > 0:
+            warnings.warn(f"some variables will be overwritten by platform data: {', '.join(dropped_vars)}")
+        platform = platform.drop_vars(["pitch", "roll", "heave", "latitude", "longitude", "water_level"], errors="ignore")
+
         num_obs = len(extra_platform_data[time_dim])
 
         def mapping_get_multiple(mapping, keys, default=None):
@@ -403,49 +444,49 @@ class EchoData:
         self.platform = platform.update(
             {
                 "pitch": (
-                    time,
+                    pitch_roll_heave_time,
                     mapping_get_multiple(
                         extra_platform_data,
                         ["pitch", "PITCH"],
-                        np.full(num_obs, np.nan),
+                        platform.get("pitch", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "roll": (
-                    time,
+                    pitch_roll_heave_time,
                     mapping_get_multiple(
-                        extra_platform_data, ["roll", "ROLL"], np.full(num_obs, np.nan)
+                        extra_platform_data, ["roll", "ROLL"], platform.get("roll", np.full(num_obs, np.nan))
                     ),
                 ),
                 "heave": (
-                    time,
+                    pitch_roll_heave_time,
                     mapping_get_multiple(
                         extra_platform_data,
                         ["heave", "HEAVE"],
-                        np.full(num_obs, np.nan),
+                        platform.get("heave", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "latitude": (
-                    "location_time",
+                    lat_lon_water_level_time,
                     mapping_get_multiple(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
-                        default=np.full(num_obs, np.nan),
+                        default=platform.get("latitude", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "longitude": (
-                    "location_time",
+                    lat_lon_water_level_time,
                     mapping_get_multiple(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
-                        default=np.full(num_obs, np.nan),
+                        default=platform.get("longitude", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "water_level": (
-                    "location_time",
+                    lat_lon_water_level_time,
                     mapping_get_multiple(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
-                        default=np.zeros(num_obs),
+                        default=platform.get("water_level", np.zeros(num_obs)),
                     ),
                 ),
             }
