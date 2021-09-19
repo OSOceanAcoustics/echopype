@@ -373,6 +373,9 @@ class EchoData:
         platform = self.platform.assign_coords(
             time2=extra_platform_data[time_dim].values
         )
+        platform["time2"].attrs[
+            "long_name"
+        ] = "time dimension for external platform data"
 
         dropped_vars = []
         for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
