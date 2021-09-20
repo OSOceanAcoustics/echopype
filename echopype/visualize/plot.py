@@ -1,9 +1,11 @@
 import warnings
 import matplotlib.pyplot as plt
+import matplotlib.cm
 import xarray as xr
 from xarray.plot.facetgrid import FacetGrid
 from matplotlib.collections import QuadMesh
-from typing import Dict, Tuple, Union, List, TypeVar
+from echopype.visualize.cm import cmap_d
+from typing import Union, List, TypeVar
 
 T = TypeVar('T', int, float)
 
@@ -16,7 +18,7 @@ def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
     frequency: Union[int, float, None] = None,
 ):
-    props = dict(boxstyle='square', facecolor='white', alpha=0.7)
+    props = {'boxstyle': 'square', 'facecolor': 'white', 'alpha': 0.7}
     if isinstance(fg, FacetGrid):
         # Set each axis title
         for idx, ax in enumerate(fg.axes.flat):
@@ -56,13 +58,30 @@ def _set_plot_defaults(kwargs):
         'figsize': (15, 10),
         'robust': False,
         'yincrease': False,
-        'col_wrap': 1
+        'col_wrap': 1,
     }
 
     # Set plot defaults if not passed in kwargs
     for k, v in plot_defaults.items():
         if k not in kwargs:
             kwargs[k] = v
+        elif k == 'cmap' and k in kwargs:
+            cmap = kwargs[k]
+            try:
+                if cmap in cmap_d:
+                    cmap = f'ep.{cmap}'
+                    kwargs[k] = cmap
+                matplotlib.cm.get_cmap(cmap)
+            except:
+                import cmocean
+
+                if cmap.startswith('cmo'):
+                    _, cmap = cmap.split('.')
+
+                if cmap in cmocean.cm.cmap_d:
+                    kwargs[k] = f'cmo.{cmap}'
+                else:
+                    raise ValueError(f"{cmap} is not a valid colormap.")
 
     # Remove extra plotting attributes that should be set
     # by echopype devs

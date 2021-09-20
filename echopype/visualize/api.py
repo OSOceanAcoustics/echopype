@@ -1,6 +1,5 @@
-from typing import Union, List, Tuple
+from typing import Union, List
 
-import warnings
 import xarray as xr
 
 from echopype.visualize.plot import _plot_echogram, FacetGrid, QuadMesh, T
@@ -49,9 +48,6 @@ def create_echogram(
     **kwargs: optional
         Additional keyword arguments for xarray plot pcolormesh.
 
-    Returns
-    -------
-    EchoData object
     """
     range_attrs = {
         'long_name': 'Range',
