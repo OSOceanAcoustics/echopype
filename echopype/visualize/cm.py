@@ -63,12 +63,22 @@ for cmapname in cmapnames:
     reg_map = mpl.colors.ListedColormap(
         rgb_with_alpha, 'ep.' + cmapname, rgb.shape[0]
     )
+    if 'under' in colors_d:
+        reg_map.set_under(colors_d['under'])
+
+    if 'over' in colors_d:
+        reg_map.set_over(colors_d['over'])
     mpl.cm.register_cmap(cmap=reg_map)
 
     # Register the reversed map
     reg_map_r = mpl.colors.ListedColormap(
         rgb_with_alpha[::-1, :], 'ep.' + cmapname + '_r', rgb.shape[0]
     )
+    if 'under' in colors_d:
+        reg_map_r.set_over(colors_d['under'])
+
+    if 'over' in colors_d:
+        reg_map_r.set_under(colors_d['over'])
     mpl.cm.register_cmap(cmap=reg_map_r)
 
 # make colormaps available to call
