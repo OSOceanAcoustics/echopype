@@ -1,5 +1,6 @@
-from typing import Union, List
+from typing import Union, List, Tuple
 
+import warnings
 import xarray as xr
 
 from echopype.visualize.plot import _plot_echogram, FacetGrid, QuadMesh, T
@@ -27,39 +28,80 @@ def _compute_range(
 def create_echogram(
     data: Union[EchoData, xr.Dataset],
     frequency: Union[int, float, List[T], None] = None,
-    get_depth: bool = False,
+    get_range: bool = False,
+    water_level: Union[xr.DataArray, None] = None,
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
+    """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
+
+    Parameters
+    ----------
+    data : EchoData or xr.Dataset
+        Echodata or Xarray Dataset to be plotted
+    frequency : int, float, or list of float or ints, optional
+        The frequency to be plotted.
+        Otherwise all frequency will be plotted.
+    get_range : bool
+        Flag as to whether range should be computed or not,
+        by default it will just plot range_bin as the yaxis.
+    water_level : xr.DataArray, optional
+        Water level data array for platform water level correction.
+    **kwargs: optional
+        Additional keyword arguments for xarray plot pcolormesh.
+
+    Returns
+    -------
+    EchoData object
+    """
     range_attrs = {
-        'long_name': 'Depth',
+        'long_name': 'Range',
         'units': 'm',
     }
     if isinstance(data, EchoData):
         yaxis = 'range_bin'
         variable = 'backscatter_r'
         ds = data.beam
-        if get_depth:
-            yaxis = 'depth'
+        if get_range:
+            yaxis = 'range'
             range_in_meter = _compute_range(data)
             range_in_meter.attrs = range_attrs
-            ds = ds.assign_coords({'depth': range_in_meter})
+            if 'water_level' in data.platform:
+                # Adds water level to range if it exists
+                range_in_meter = range_in_meter + data.platform.water_level
+            ds = ds.assign_coords({'range': range_in_meter})
+            ds.range.attrs = range_attrs
     elif isinstance(data, xr.Dataset):
         variable = 'Sv'
         ds = data
-        if get_depth:
-            yaxis = 'depth'
+        if get_range:
+            yaxis = 'range'
         else:
             if 'range' in data.dims:
                 # This indicates that data is MVBS.
                 yaxis = 'range'
             else:
                 yaxis = 'range_bin'
-
-        ds = ds.assign_coords({'depth': ds.range})
-        ds.depth.attrs = range_attrs
+        # If depth is available in ds, use it.
+        ds = ds.set_coords('range')
+        if isinstance(water_level, xr.DataArray):
+            required_dims = ['frequency', 'ping_time']
+            if not all(
+                True if d in water_level.dims else False for d in required_dims
+            ):
+                raise ValueError(
+                    f"Water level must have dimensions: {', '.join(required_dims)}"
+                )
+            # Adds water level to range if it exists
+            ds['range'] = ds.range + water_level
+        ds.range.attrs = range_attrs
     else:
         ValueError(f"Unsupported data type: {type(data)}")
 
     return _plot_echogram(
-        ds, yaxis=yaxis, variable=variable, frequency=frequency, **kwargs
+        ds,
+        xaxis='ping_time',
+        yaxis=yaxis,
+        variable=variable,
+        frequency=frequency,
+        **kwargs,
     )

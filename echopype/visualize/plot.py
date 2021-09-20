@@ -1,3 +1,4 @@
+import warnings
 import matplotlib.pyplot as plt
 import xarray as xr
 from xarray.plot.facetgrid import FacetGrid
@@ -49,19 +50,40 @@ def _set_label(
         plt.tight_layout()
 
 
+def _set_plot_defaults(kwargs):
+    plot_defaults = {
+        'cmap': 'jet',
+        'figsize': (15, 10),
+        'robust': False,
+        'yincrease': False,
+        'col_wrap': 1
+    }
+
+    # Set plot defaults if not passed in kwargs
+    for k, v in plot_defaults.items():
+        if k not in kwargs:
+            kwargs[k] = v
+
+    # Remove extra plotting attributes that should be set
+    # by echopype devs
+    exclude_attrs = ['x', 'y', 'col']
+    for attr in exclude_attrs:
+        if attr in kwargs:
+            warnings.warn(f"{attr} in kwargs. Removing.")
+            kwargs.pop(attr)
+
+    return kwargs
+
+
 def _plot_echogram(
     ds: xr.Dataset,
     frequency: Union[int, float, List[T], None] = None,
     variable: str = 'backscatter_r',
     xaxis: str = 'ping_time',
     yaxis: str = 'range',
-    cmap: str = 'jet',
-    figsize: Tuple = (15, 10),
-    robust: bool = False,
-    yincrease: bool = False,
-    col_wrap: int = 1,
-    plot_kwargs: Dict = {},
+    **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
+    kwargs = _set_plot_defaults(kwargs)
     # perform frequency filtering
     if frequency:
         filtered_ds = ds[variable].sel(frequency=frequency)
@@ -91,13 +113,8 @@ def _plot_echogram(
     plot = filtered_ds.plot.pcolormesh(
         x=xaxis,
         y=yaxis,
-        cmap=cmap,
         col=col,
-        col_wrap=col_wrap,
-        figsize=figsize,
-        yincrease=yincrease,
-        robust=robust,
-        **plot_kwargs,
+        **kwargs,
     )
     _set_label(plot, frequency=frequency)
     return plot
