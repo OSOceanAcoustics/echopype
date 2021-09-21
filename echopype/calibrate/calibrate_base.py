@@ -1,5 +1,5 @@
 import abc
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict
 
 import numpy as np
 import xarray as xr
@@ -25,7 +25,7 @@ class EnvParams:
         self.interp_method = interp_method
         self.extrap_method = extrap_method
 
-    def _apply(self, echodata) -> xr.Dataset:
+    def _apply(self, echodata) -> Dict[str, xr.DataArray]:
         if self.data_kind == "static":
             dims = ["ping_time"]
         elif self.data_kind == "mobile":
@@ -71,15 +71,19 @@ class EnvParams:
             )
             env_params = xr.concat([less, middle, greater], dim="ping_time")
 
-        return env_params
+        return {var : env_params[var] for var in env_params.data_vars}
 
 
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
-    def __init__(self, echodata):
+    def __init__(self, echodata, env_params=None):
         self.echodata = echodata
-        self.env_params = None  # env_params are set in child class
+        if isinstance(env_params, EnvParams):
+            env_params = env_params._apply(echodata)
+        elif env_params is None:
+            env_params = {}
+        self.env_params = env_params  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
 
         # range_meter is computed in compute_Sv/Sp in child class

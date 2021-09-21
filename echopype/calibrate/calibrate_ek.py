@@ -7,11 +7,10 @@ from .calibrate_base import CAL_PARAMS, ENV_PARAMS, CalibrateBase, EnvParams
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata):
-        super().__init__(echodata)
+    def __init__(self, echodata, env_params):
+        super().__init__(echodata, env_params)
 
         # cal params specific to EK echosounders
-        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
 
     def compute_range_meter(self, waveform_mode, encode_mode="complex"):
@@ -211,14 +210,10 @@ class CalibrateEK(CalibrateBase):
 
 class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
-        super().__init__(echodata)
+        super().__init__(echodata, env_params)
 
         # load env and cal parameters
-        if env_params is None:
-            env_params = {}
-        elif isinstance(env_params, EnvParams):
-            env_params = env_params._apply(echodata)
-        self.get_env_params(env_params)
+        self.get_env_params()
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(cal_params, waveform_mode="CW", encode_mode="power")
@@ -226,7 +221,7 @@ class CalibrateEK60(CalibrateEK):
         # default to CW mode recorded as power samples
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
-    def get_env_params(self, env_params, **kwargs):
+    def get_env_params(self, **kwargs):
         """Get env params using user inputs or values from data file.
 
         EK60 file by default contains only sound speed and absorption.
@@ -239,12 +234,10 @@ class CalibrateEK60(CalibrateEK):
         """
         # Re-calculate environment parameters if user supply all env variables
         if (
-            ("temperature" in env_params)
-            and ("salinity" in env_params)
-            and ("pressure" in env_params)
+            ("temperature" in self.env_params)
+            and ("salinity" in self.env_params)
+            and ("pressure" in self.env_params)
         ):
-            for p in ["temperature", "salinity", "pressure"]:
-                self.env_params[p] = env_params[p]
             self.env_params["sound_speed"] = uwa.calc_sound_speed(
                 temperature=self.env_params["temperature"],
                 salinity=self.env_params["salinity"],
@@ -259,13 +252,13 @@ class CalibrateEK60(CalibrateEK):
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
             self.env_params["sound_speed"] = (
-                env_params["sound_speed"]
-                if "sound_speed" in env_params
+                self.env_params["sound_speed"]
+                if "sound_speed" in self.env_params
                 else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
-                env_params["sound_absorption"]
-                if "sound_absorption" in env_params
+                self.env_params["sound_absorption"]
+                if "sound_absorption" in self.env_params
                 else self.echodata.environment["absorption_indicative"]
             )
 
@@ -282,20 +275,17 @@ class CalibrateEK80(CalibrateEK):
     z_er = 1000
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
-        super().__init__(echodata)
+        super().__init__(echodata, env_params)
 
-        # initialize env and cal params
+        # initialize cal params
         # cal params are those used by both complex and power data calibration
         # TODO: add complex data-specific params, like the freq-dependent gain factor
-        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
         # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
-        if env_params is None:
-            env_params = {}
         self.get_env_params(
-            env_params, waveform_mode=waveform_mode, encode_mode=encode_mode
+            waveform_mode=waveform_mode, encode_mode=encode_mode
         )
         if cal_params is None:
             cal_params = {}
@@ -306,7 +296,7 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def get_env_params(self, env_params, waveform_mode=None, encode_mode="complex"):
+    def get_env_params(self, waveform_mode=None, encode_mode="complex"):
         """Get env params using user inputs or values from data file.
 
         EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -343,12 +333,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Re-calculate environment parameters if user supply all env variables
         if (
-            ("temperature" in env_params)
-            and ("salinity" in env_params)
-            and ("pressure" in env_params)
+            ("temperature" in self.env_params)
+            and ("salinity" in self.env_params)
+            and ("pressure" in self.env_params)
         ):
-            for p in ["temperature", "salinity", "pressure"]:
-                self.env_params[p] = env_params[p]
             self.env_params["sound_speed"] = uwa.calc_sound_speed(
                 temperature=self.env_params["temperature"],
                 salinity=self.env_params["salinity"],
