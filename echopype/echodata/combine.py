@@ -291,4 +291,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
 
+    # Add back sonar model
+    result.sonar_model = sonar_model
+
     return result
