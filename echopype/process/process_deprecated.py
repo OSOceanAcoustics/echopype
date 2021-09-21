@@ -49,6 +49,7 @@ class Process():
             env_params=self._env_params,
             cal_params=None,
             waveform_mode=self.waveform_mode,
+            encode_mode=self.encode_mode
         )
         # Deprecated data attributes
         self.Sv = None

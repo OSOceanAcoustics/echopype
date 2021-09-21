@@ -87,37 +87,9 @@ class CalibrateAZFP(CalibrateBase):
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
         """
-        # Notation below follows p.86 of user manual
-        N = self.echodata.vendor["number_of_samples_per_average_bin"]  # samples per bin
-        f = self.echodata.vendor["digitization_rate"]  # digitization rate
-        L = self.echodata.vendor["lockout_index"]  # number of lockout samples
-        sound_speed = self.env_params["sound_speed"]
-
-        # keep this in ref of AZFP matlab code,
-        # set to 1 since we want to calculate from raw data
-        bins_to_avg = 1
-
-        # Calculate range using parameters for each freq
-        # This is "the range to the centre of the sampling volume
-        # for bin m" from p.86 of user manual
-        if cal_type == "Sv":
-            range_offset = 0
-        else:
-            range_offset = (
-                sound_speed * self.echodata.beam["transmit_duration_nominal"] / 4
-            )  # from matlab code
-        range_meter = (
-            sound_speed * L / (2 * f)
-            + (sound_speed / 4)
-            * (
-                ((2 * (self.echodata.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
-                + self.echodata.beam["transmit_duration_nominal"]
-            )
-            - range_offset
+        self.range_meter = self.echodata.compute_range(
+            self.env_params, azfp_cal_type=cal_type
         )
-        range_meter.name = "range"  # add name to facilitate xr.merge
-
-        self.range_meter = range_meter
 
     def _cal_power(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
