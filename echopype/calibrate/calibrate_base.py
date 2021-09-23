@@ -16,7 +16,7 @@ class EnvParams:
     def __init__(
         self,
         env_params,
-        data_kind: Literal["static", "mobile", "organized"],
+        data_kind: Literal["stationary", "mobile", "organized"], # organized name?
         interp_method: Literal["linear", "nearest"] = "linear",
         extrap_method: Optional[Literal["linear", "nearest"]] = None,
     ):
@@ -26,12 +26,12 @@ class EnvParams:
         self.extrap_method = extrap_method
 
     def _apply(self, echodata) -> Dict[str, xr.DataArray]:
-        if self.data_kind == "static":
+        if self.data_kind == "stationary":
             dims = ["ping_time"]
         elif self.data_kind == "mobile":
             dims = ["latitude", "longitude"]
         elif self.data_kind == "organized":
-            dims = ["ping_time", "latitude", "longitude"]
+            dims = ["time", "latitude", "longitude"]
         else:
             raise ValueError("invalid data_kind")
 
