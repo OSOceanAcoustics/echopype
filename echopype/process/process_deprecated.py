@@ -20,7 +20,7 @@ class Process():
     """
     def __init__(self, file_path="", salinity=27.9, pressure=59, temperature=None):
         warnings.warn("Initializing a Process object is deprecated "
-                      "and it will be removed in a future version. "
+                      "and it will be removed in the next release. "
                       "More information on how to use the new processing "
                       "functions can be found in the echopype documentation.",
                       DeprecationWarning, 3)
