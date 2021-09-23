@@ -47,9 +47,13 @@ class EnvParams:
             method=self.extrap_method,
             kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
         )
+        extrap_unique_idx = {dim : np.unique(extrap[dim], return_index=True)[1] for dim in dims}
+        extrap = extrap.isel(**extrap_unique_idx)
         interp = env_params.interp(
             {dim: echodata.platform[dim].data for dim in dims}, method=self.interp_method
         )
+        interp_unique_idx = {dim : np.unique(interp[dim], return_index=True)[1] for dim in dims}
+        interp = interp.isel(**interp_unique_idx)
 
         if self.extrap_method is not None:
             less = extrap.sel(
