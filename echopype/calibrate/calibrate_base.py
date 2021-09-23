@@ -43,12 +43,12 @@ class EnvParams:
         }
 
         extrap = env_params.interp(
-            {dim: echodata.beam[dim] for dim in dims},
+            {dim: echodata.platform[dim].data for dim in dims},
             method=self.extrap_method,
             kwargs={"fill_value": "extrapolate"},
         )
         interp = env_params.interp(
-            {dim: echodata.beam[dim] for dim in dims}, method=self.interp_method
+            {dim: echodata.platform[dim].data for dim in dims}, method=self.interp_method
         )
 
         if self.extrap_method is not None:
