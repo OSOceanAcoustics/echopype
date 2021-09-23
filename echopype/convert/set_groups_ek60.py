@@ -50,7 +50,7 @@ class SetGroupsEK60(SetGroupsBase):
                     backscatter_r[all_duplicates_idx[1]],
                 ):
                     warnings.warn(
-                        "duplicate pings with identical values detected; they will be removed"  # noqa
+                        "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
                     )
                     for v in self.parser_obj.ping_data_dict.values():
                         if v[ch] is None or len(v[ch]) == 0:
@@ -64,7 +64,7 @@ class SetGroupsEK60(SetGroupsBase):
                     ]
                 else:
                     warnings.warn(
-                        "duplicate ping times detected; they will be incremented by 1ns and stored in the Provenance group"  # noqa
+                        "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
                     )
 
                     deltas = duplicates * np.timedelta64(1, "ns")
