@@ -379,7 +379,7 @@ class EchoData:
 
         dropped_vars = []
         for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
-            if var in platform and platform[var].isnull().all():
+            if var in platform and (~platform[var].isnull()).all():
                 dropped_vars.append(var)
         if len(dropped_vars) > 0:
             warnings.warn(
