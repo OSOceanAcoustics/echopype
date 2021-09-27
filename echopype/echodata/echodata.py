@@ -383,7 +383,7 @@ class EchoData:
                 dropped_vars.append(var)
         if len(dropped_vars) > 0:
             warnings.warn(
-                f"some variables will be overwritten by platform data: {', '.join(dropped_vars)}"
+                f"some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
             )
         platform = platform.drop_vars(
             ["pitch", "roll", "heave", "latitude", "longitude", "water_level"],
