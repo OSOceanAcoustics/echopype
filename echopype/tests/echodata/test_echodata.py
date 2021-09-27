@@ -9,6 +9,7 @@ from echopype import open_converted
 
 import pytest
 import xarray as xr
+import numpy as np
 
 ek60_path = TEST_DATA_FOLDER / "ek60"
 ek80_path = TEST_DATA_FOLDER / "ek80"
@@ -146,3 +147,20 @@ def test_compute_range(filepath, sonar_model, azfp_xml_path, azfp_cal_type, ek_w
     else:
         range = ed.compute_range(env_params, azfp_cal_type, ek_waveform_mode, )
         assert isinstance(range, xr.DataArray)
+
+def test_update_platform():
+    saildrone_path = ek80_path / "saildrone"
+    raw_file = saildrone_path / "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw"
+    extra_platform_data_file = saildrone_path / "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc"
+
+    ed = echopype.open_raw(raw_file, "EK80")
+
+    updated = ["pitch", "roll", "latitude", "longitude", "water_level"]
+    for variable in updated:
+        assert np.isnan(ed.platform[variable].values).all()
+
+    extra_platform_data = xr.open_dataset(extra_platform_data_file)
+    ed.update_platform(extra_platform_data)
+
+    for variable in updated:
+        assert not np.isnan(ed.platform[variable].values).all()
