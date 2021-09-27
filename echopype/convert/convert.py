@@ -23,7 +23,7 @@ CONVERT_PARAMS = [
 # TODO: Used for backwards compatibility. Delete in future versions
 def ConvertEK80(_filename=""):
     warnings.warn(
-        "`ConvertEK80` is deprecated, use echopype.open_raw(raw_file, sonar_model='EK80', ...) instead.",  # noqa
+        "`ConvertEK80` is deprecated and will be removed in the next release, use echopype.open_raw(raw_file, sonar_model='EK80', ...) instead.",  # noqa
         DeprecationWarning,
         2,
     )
@@ -37,7 +37,7 @@ class Convert:
 
     def __new__(cls, file=None, xml_path=None, model=None, storage_options=None):
         warnings.warn(
-            "Calling `echopype.Convert` is deprecated, "
+            "Calling `echopype.Convert` is deprecated and will be removed in the next release, "
             "use `echopype.open_raw(raw_file, sonar_model, ...)` instead.",
             DeprecationWarning,
             2,

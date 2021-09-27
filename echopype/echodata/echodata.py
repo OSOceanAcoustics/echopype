@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 import fsspec
+import numpy as np
 import xarray as xr
 from zarr.errors import GroupNotFoundError
 
@@ -14,11 +15,17 @@ if TYPE_CHECKING:
 
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
+from ..utils.uwa import calc_sound_speed
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
     ".zarr": "zarr",
+}
+
+TVG_CORRECTION_FACTOR = {
+    "EK60": 2,
+    "EK80": 0,
 }
 
 
@@ -119,6 +126,330 @@ class EchoData:
                 converted_raw_path = Path(converted_raw_path.root)
 
         self.converted_raw_path = converted_raw_path
+
+    def compute_range(
+        self,
+        env_params=None,
+        azfp_cal_type=None,
+        ek_waveform_mode=None,
+        ek_encode_mode="complex",
+    ):
+        """
+        Computes the range of the data contained in this `EchoData` object, in meters.
+
+        This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
+        If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
+
+        Parameters
+        ----------
+        env_params: dict
+            This dictionary should contain either:
+            - `"sound_speed"`: `float`
+            - `"temperature"`, `"salinity"`, and `"pressure"`: `float`s,
+            in which case the sound speed will be calculated.
+            If the `sonar_model` is `"EK60"` or `"EK80"`, and
+            `EchoData.environment.sound_speed_indicative` exists, then this parameter
+            does not need to be specified.
+        azfp_cal_type : {"Sv", "Sp"}, optional
+            - `"Sv"` for calculating volume backscattering strength
+            - `"Sp"` for calculating point backscattering strength.
+            This parameter is only used if `sonar_model` is `"AZFP"`,
+            and in that case it must be specified.
+        ek_waveform_mode : {"CW", "BB"}, optional
+            - `"CW"` for CW-mode samples, either recorded as complex or power samples
+            - `"BB"` for BB-mode samples, recorded as complex samples
+            This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
+            and in those cases it must be specified.
+        ek_encode_mode : {"complex", "power"}, optional
+            For EK80 data, range can be computed from complex or power samples.
+            The type of sample used can be specified with this parameter.
+            - `"complex"` to use complex samples
+            - `"power"` to use power samples
+            This parameter is only used if `sonar_model` is `"EK80"`.
+
+        Returns
+        -------
+        xr.DataArray
+            The range of the data in meters.
+
+        Raises
+        ------
+        ValueError
+            - When `sonar_model` is `"AZFP"` but `azfp_cal_type` is not specified or is `None`.
+            - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode`
+            is not specified or is `None`.
+            - When `sonar_model` is `"EK60"` but `waveform_mode` is `"BB"` (EK60 cannot have
+            broadband samples).
+            - When `sonar_model` is `"AZFP"` and `env_params` does not contain
+            either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
+            - When `sonar_model` is `"EK60"` or `"EK80"`,
+            EchoData.environment.sound_speed_indicative does not exist,
+            and `env_params` does not contain either `"sound_speed"` or all of `"temperature"`,
+            `"salinity"`, and `"pressure"`.
+            - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
+        """
+
+        def squeeze_non_scalar(n):
+            if not np.isscalar(n):
+                n = n.squeeze()
+            return n
+
+        if "sound_speed" in env_params:
+            sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+        elif all(
+            [param in env_params for param in ("temperature", "salinity", "pressure")]
+        ):
+            sound_speed = calc_sound_speed(
+                squeeze_non_scalar(env_params["temperature"]),
+                squeeze_non_scalar(env_params["salinity"]),
+                squeeze_non_scalar(env_params["pressure"]),
+                formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
+            )
+        elif (
+            self.sonar_model in ("EK60", "EK80")
+            and "sound_speed_indicative" in self.environment
+        ):
+            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
+        else:
+            raise ValueError(
+                "sound speed must be specified in env_params, "
+                "with temperature/salinity/pressure in env_params to be calculated, "
+                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
+            )
+
+        if self.sonar_model == "AZFP":
+            cal_type = azfp_cal_type
+            if cal_type is None:
+                raise ValueError(
+                    "azfp_cal_type must be specified when sonar_model is AZFP"
+                )
+
+            # Notation below follows p.86 of user manual
+            N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
+            f = self.vendor["digitization_rate"]  # digitization rate
+            L = self.vendor["lockout_index"]  # number of lockout samples
+
+            # keep this in ref of AZFP matlab code,
+            # set to 1 since we want to calculate from raw data
+            bins_to_avg = 1
+
+            # Calculate range using parameters for each freq
+            # This is "the range to the centre of the sampling volume
+            # for bin m" from p.86 of user manual
+            if cal_type == "Sv":
+                range_offset = 0
+            else:
+                range_offset = (
+                    sound_speed * self.beam["transmit_duration_nominal"] / 4
+                )  # from matlab code
+            range_meter = (
+                sound_speed * L / (2 * f)
+                + (sound_speed / 4)
+                * (
+                    ((2 * (self.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                    + self.beam["transmit_duration_nominal"]
+                )
+                - range_offset
+            )
+            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            return range_meter
+        elif self.sonar_model in ("EK60", "EK80"):
+            waveform_mode = ek_waveform_mode
+            encode_mode = ek_encode_mode
+
+            if self.sonar_model == "EK60" and waveform_mode == "BB":
+                raise ValueError("EK60 cannot have BB samples")
+
+            if waveform_mode is None:
+                raise ValueError(
+                    "ek_waveform_mode must be specified when sonar_model is EK60 or EK80"
+                )
+            tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
+
+            if waveform_mode == "CW":
+                if (
+                    self.sonar_model == "EK80"
+                    and encode_mode == "power"
+                    and self.beam_power is not None
+                ):
+                    beam = self.beam_power
+                else:
+                    beam = self.beam
+
+                sample_thickness = beam["sample_interval"] * sound_speed / 2
+                # TODO: Check with the AFSC about the half sample difference
+                range_meter = (
+                    beam.range_bin - tvg_correction_factor
+                ) * sample_thickness  # [frequency x range_bin]
+            elif waveform_mode == "BB":
+                # TODO: bug: right now only first ping_time has non-nan range
+                shift = self.beam[
+                    "transmit_duration_nominal"
+                ]  # based on Lar Anderson's Matlab code
+                # TODO: once we allow putting in arbitrary sound_speed,
+                # change below to use linearly-interpolated values
+                range_meter = (
+                    (self.beam.range_bin * self.beam["sample_interval"] - shift)
+                    * sound_speed
+                    / 2
+                )
+                # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
+                #  need to ask why and see if necessary here
+            else:
+                raise ValueError("Input waveform_mode not recognized!")
+
+            # make order of dims conform with the order of backscatter data
+            range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
+            range_meter = range_meter.where(
+                range_meter > 0, 0
+            )  # set negative ranges to 0
+            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            return range_meter
+        else:
+            raise ValueError(
+                "this method only supports sonar_model values of AZFP, EK60, and EK80"
+            )
+
+    def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
+        """
+        Updates the `EchoData.platform` group with additional external platform data.
+
+        `extra_platform_data` must be an xarray Dataset.
+        The name of the time dimension in `extra_platform_data` is specified by the
+        `time_dim` parameter.
+        Data is extracted from `extra_platform_data` by variable name; only the data
+        in `extra_platform_data` with the following variable names will be used:
+            - `"pitch"`
+            - `"roll"`
+            - `"heave"`
+            - `"latitude"`
+            - `"longitude"`
+            - `"water_level"`
+        The data inserted into the Platform group will be indexed by a dimension named `"time2"`.
+
+        Parameters
+        ----------
+        extra_platform_data : xr.Dataset
+            An `xr.Dataset` containing the additional platform data to be added
+            to the `EchoData.platform` group.
+        time_dim: str, default="time"
+            The name of the time dimension in `extra_platform_data`; used for extracting
+            data from `extra_platform_data`.
+
+        Examples
+        --------
+        >>> ed = echopype.open_raw(raw_file, "EK60")
+        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
+        >>> ed.update_platform(extra_platform_data)
+        """
+
+        # # only take data during ping times
+        # start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
+
+        # Handle data stored as a CF Trajectory Discrete Sampling Geometry
+        # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
+        # The Saildrone sample data file follows this convention
+        if (
+            "featureType" in extra_platform_data.attrs
+            and extra_platform_data.attrs["featureType"].lower() == "trajectory"
+        ):
+            for coordvar in extra_platform_data.coords:
+                if (
+                    "cf_role" in extra_platform_data[coordvar].attrs
+                    and extra_platform_data[coordvar].attrs["cf_role"]
+                    == "trajectory_id"
+                ):
+                    trajectory_var = coordvar
+
+            # assumes there's only one trajectory in the dataset (index 0)
+            extra_platform_data = extra_platform_data.sel(
+                {trajectory_var: extra_platform_data[trajectory_var][0]}
+            )
+            extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
+            extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
+
+        platform = self.platform.assign_coords(
+            time2=extra_platform_data[time_dim].values
+        )
+        platform["time2"].attrs[
+            "long_name"
+        ] = "time dimension for external platform data"
+
+        dropped_vars = []
+        for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
+            if var in platform and (~platform[var].isnull()).all():
+                dropped_vars.append(var)
+        if len(dropped_vars) > 0:
+            warnings.warn(
+                f"some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
+            )
+        platform = platform.drop_vars(
+            ["pitch", "roll", "heave", "latitude", "longitude", "water_level"],
+            errors="ignore",
+        )
+
+        num_obs = len(extra_platform_data[time_dim])
+
+        def mapping_search_variable(mapping, keys, default=None):
+            for key in keys:
+                if key in mapping:
+                    return mapping[key].data
+            return default
+
+        self.platform = platform.update(
+            {
+                "pitch": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["pitch", "PITCH"],
+                        platform.get("pitch", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "roll": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["roll", "ROLL"],
+                        platform.get("roll", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "heave": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["heave", "HEAVE"],
+                        platform.get("heave", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "latitude": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lat", "latitude", "LATITUDE"],
+                        default=platform.get("latitude", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "longitude": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lon", "longitude", "LONGITUDE"],
+                        default=platform.get("longitude", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "water_level": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["water_level", "WATER_LEVEL"],
+                        default=platform.get("water_level", np.zeros(num_obs)),
+                    ),
+                ),
+            }
+        )
 
     @classmethod
     def _load_convert(cls, convert_obj):

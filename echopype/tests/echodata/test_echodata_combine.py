@@ -27,10 +27,10 @@ ek60_test_data = [
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T014302.raw",
     ek60_ncei_wcsd_folder / "Summer2017-D20170620-T021537.raw",
 ]
-ek60_ooi_folder = TEST_DATA_FOLDER / "ek60" / "ooi"
 ek60_reversed_ping_time_test_data = [
-    ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161106-T000000.raw",
-    ek60_ooi_folder / "CE04OSPS-PC01B-05-ZPLSCB102_OOI-D20161107-T000000.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T203615.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T205415.raw",
+    ek60_ncei_wcsd_folder / "Summer2017-D20170719-T211347.raw",
 ]
 
 
@@ -51,16 +51,12 @@ ek60_reversed_ping_time_test_data = [
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
         ),
-        pytest.param(
+        (
             ek60_reversed_ping_time_test_data,
             "EK60",
             None,
             SONAR_MODELS["EK60"]["concat_dims"],
             SONAR_MODELS["EK60"]["concat_data_vars"],
-            marks=pytest.mark.xfail(
-                run=False,
-                reason="Currently exceeds memory limit in Github CI"
-            )
         ),
     ],
 )
@@ -133,10 +129,14 @@ def test_ping_time_reversal():
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            if "location_time" in combined_group and group_name != "provenance":
+            if "location_time" in combined_group and group_name not in ("provenance", "nmea"):
                 assert not exist_reversed_time(combined_group, "location_time")
             if "old_location_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_location_time")
+            if "mru_time" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "mru_time")
+            if "old_mru_time" in combined_group:
+                assert exist_reversed_time(combined_group, "old_mru_time")
 
 
 def test_attr_storage():
@@ -150,7 +150,7 @@ def test_attr_storage():
             group_attrs = combined.provenance[f"{group}_attrs"]
             for i, ed in enumerate(eds):
                 for attr, value in getattr(ed, group).attrs.items():
-                    assert group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()] == value
+                    assert str(group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()]) == str(value)
 
     # check selection by echodata_filename
     for file in ek60_test_data:

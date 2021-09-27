@@ -297,7 +297,10 @@ class ParseAd2cp(ParseBase):
                     try:
                         v = int(v)
                     except ValueError:
-                        v = float(v)
+                        try:
+                            v = float(v)
+                        except ValueError:
+                            v = str(v)
                 line_dict[k] = v
             result[tokens[0]] = line_dict
         return result
@@ -437,16 +440,10 @@ class Ad2cpDataPacket:
                 raise ValueError("invalid burst/average data record version")
         elif self.data_exclude["id"] in (0x17, 0x1B):  # bottom track
             self.data_record_type = DataRecordType.BOTTOM_TRACK
-        elif self.data_exclude["id"] in (0x23, 0x24):  # echosounder raw
-            if (
-                self.parser.get_pulse_compressed() > 0
-                and len(self.parser.echosounder_raw_transmit_packets) == 0
-            ):
-                # first echosounder raw packet is the transmit packet
-                # if pulse compression is enabled
-                self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
-            else:
-                self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
+        elif self.data_exclude["id"] == 0x23:  # echosounder raw
+            self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
+        elif self.data_exclude["id"] == 0x24:  # echosounder raw transmit
+            self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
         elif self.data_exclude["id"] == 0x1A:  # burst altimeter
             # altimeter is only supported by burst/average version 3
             self.data_record_type = DataRecordType.BURST_VERSION3
