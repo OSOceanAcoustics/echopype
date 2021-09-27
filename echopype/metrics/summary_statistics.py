@@ -85,7 +85,9 @@ def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return (ds[range_label] * sv * dz).sum(dim="range_bin") / (sv * dz).sum(dim="range_bin")
+    return (ds[range_label] * sv * dz).sum(dim="range_bin") / (sv * dz).sum(
+        dim="range_bin"
+    )
 
 
 def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
