@@ -392,7 +392,7 @@ class EchoData:
 
         num_obs = len(extra_platform_data[time_dim])
 
-        def mapping_get_multiple(mapping, keys, default=None):
+        def mapping_search_variable(mapping, keys, default=None):
             for key in keys:
                 if key in mapping:
                     return mapping[key].data
@@ -402,7 +402,7 @@ class EchoData:
             {
                 "pitch": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
                         platform.get("pitch", np.full(num_obs, np.nan)),
@@ -410,7 +410,7 @@ class EchoData:
                 ),
                 "roll": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
                         platform.get("roll", np.full(num_obs, np.nan)),
@@ -418,7 +418,7 @@ class EchoData:
                 ),
                 "heave": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["heave", "HEAVE"],
                         platform.get("heave", np.full(num_obs, np.nan)),
@@ -426,7 +426,7 @@ class EchoData:
                 ),
                 "latitude": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
                         default=platform.get("latitude", np.full(num_obs, np.nan)),
@@ -434,7 +434,7 @@ class EchoData:
                 ),
                 "longitude": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
                         default=platform.get("longitude", np.full(num_obs, np.nan)),
@@ -442,7 +442,7 @@ class EchoData:
                 ),
                 "water_level": (
                     "time2",
-                    mapping_get_multiple(
+                    mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
                         default=platform.get("water_level", np.zeros(num_obs)),
