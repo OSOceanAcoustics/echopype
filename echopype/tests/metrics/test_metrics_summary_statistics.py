@@ -6,7 +6,7 @@ from echopype.metrics.summary_statistics import (
     convert_to_linear,
     abundance,
     center_of_mass,
-    inertia,
+    dispersion,
     evenness,
     aggregation,
 )
@@ -81,7 +81,7 @@ def test_inertia():
     in_ds1 = create_test_ds(Sv, range)
     in_ds1_SOL = np.array([[0.00980296, 0.08264463]])
     assert np.allclose(
-        inertia(in_ds1), in_ds1_SOL, rtol=1e-09
+        dispersion(in_ds1), in_ds1_SOL, rtol=1e-09
     ), 'Calculated output does not match expected output'
 
 
