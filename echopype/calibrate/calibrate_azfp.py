@@ -1,7 +1,7 @@
 import numpy as np
 
 from ..utils import uwa
-from .calibrate_base import CAL_PARAMS, ENV_PARAMS
+from .calibrate_base import CAL_PARAMS
 from .calibrate_ek import CalibrateBase
 
 

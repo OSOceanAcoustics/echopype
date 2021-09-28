@@ -3,7 +3,7 @@ import xarray as xr
 from scipy import signal
 
 from ..utils import uwa
-from .calibrate_base import CAL_PARAMS, ENV_PARAMS, CalibrateBase, EnvParams
+from .calibrate_base import CAL_PARAMS, CalibrateBase
 
 
 class CalibrateEK(CalibrateBase):
@@ -284,9 +284,7 @@ class CalibrateEK80(CalibrateEK):
         # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
-        self.get_env_params(
-            waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        self.get_env_params(waveform_mode=waveform_mode, encode_mode=encode_mode)
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(
@@ -359,18 +357,18 @@ class CalibrateEK80(CalibrateEK):
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    env_params[p1]
-                    if p1 in env_params
+                    self.env_params[p1]
+                    if p1 in self.env_params
                     else self.echodata.environment[p2]
                 )
             self.env_params["sound_speed"] = (
-                env_params["sound_speed"]
-                if "sound_speed" in env_params
+                self.env_params["sound_speed"]
+                if "sound_speed" in self.env_params
                 else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
-                env_params["sound_absorption"]
-                if "sound_absorption" in env_params
+                self.env_params["sound_absorption"]
+                if "sound_absorption" in self.env_params
                 else uwa.calc_absorption(
                     frequency=freq,
                     temperature=self.env_params["temperature"],
