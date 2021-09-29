@@ -31,6 +31,7 @@ MODULES_TO_TEST = {
     "preprocess": {},
     "utils": {},
     "old": {"extra_globs": ["echopype/convert/convert.py", "echopype/process/*"]},
+    "metrics": {},
 }
 
 if __name__ == "__main__":
