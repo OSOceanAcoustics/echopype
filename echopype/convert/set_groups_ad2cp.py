@@ -287,7 +287,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 ),
                 "ensemble_counter": self.ds.get("ensemble_counter"),
                 "ahrs_rotation_matrix_mij": (
-                    "mij",
+                    ("mij", "ping_time")
+                    if "ahrs_rotation_matrix_m11" in self.ds
+                    else "mij",
                     [
                         self.ds.get("ahrs_rotation_matrix_m11"),
                         self.ds.get("ahrs_rotation_matrix_m12"),
@@ -301,7 +303,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                     ],
                 ),
                 "ahrs_quaternions_wxyz": (
-                    "wxyz",
+                    ("wxyz", "ping_time")
+                    if "ahrs_quaternions_w" in self.ds
+                    else "wxyz",
                     [
                         self.ds.get("ahrs_quaternions_w"),
                         self.ds.get("ahrs_quaternions_x"),
@@ -310,7 +314,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                     ],
                 ),
                 "ahrs_gyro_xyz": (
-                    "xyz",
+                    ("xyz", "ping_time") if "ahrs_gyro_x" in self.ds else "xyz",
                     [
                         self.ds.get("ahrs_gyro_x"),
                         self.ds.get("ahrs_gyro_y"),
