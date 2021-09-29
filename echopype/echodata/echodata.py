@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import fsspec
 import numpy as np
 import xarray as xr
-from zarr.errors import GroupNotFoundError
+from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
@@ -472,7 +472,7 @@ class EchoData:
                     raw_path,
                     group=value["ep_group"],
                 )
-            except (OSError, GroupNotFoundError):
+            except (OSError, GroupNotFoundError, PathNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
             if group == "top" and hasattr(ds, "keywords"):
