@@ -657,18 +657,24 @@ class CalibrateEK80(CalibrateEK):
         elif waveform_mode == "CW":
             wavelength = sound_speed / freq_nominal
 
-        # Use gain from vendor gain correction or interpolate gain to freq_center if nomimal frequency is within the calibrated frequencies range 
-        if waveform_mode =="BB":
-            gain = self._get_vend_cal_params_power('gain_correction')
-            if 'gain' in self.echodata.vendor.data_vars:
-                for ind in range(len(freq_nominal)):   
-                    if freq_nominal[ind]-self.echodata.vendor.cal_frequency[0] < self.echodata.vendor.cal_frequency[-1]-self.echodata.vendor.cal_frequency[0]: 
-                        gain[ind] = self.echodata.vendor.gain.interp(cal_frequency=freq_center[ind])[0][0]
+        # Use gain from vendor gain correction or interpolate gain to freq_center if nomimal frequency is within the calibrated frequencies range
+        if waveform_mode == "BB":
+            gain = self._get_vend_cal_params_power("gain_correction")
+            if "gain" in self.echodata.vendor.data_vars:
+                for ind in range(len(freq_nominal)):
+                    if (
+                        freq_nominal[ind] - self.echodata.vendor.cal_frequency[0]
+                        < self.echodata.vendor.cal_frequency[-1]
+                        - self.echodata.vendor.cal_frequency[0]
+                    ):
+                        gain[ind] = self.echodata.vendor.gain.interp(
+                            cal_frequency=freq_center[ind]
+                        )[0][0]
 
         # Transmission loss
         spreading_loss = (
             20 * np.log10(range_meter.where(range_meter >= 1, other=1)).squeeze()
-            )
+        )
         absorption_loss = (
             2 * self.env_params["sound_absorption"].squeeze() * range_meter.squeeze()
         )
