@@ -657,7 +657,8 @@ class CalibrateEK80(CalibrateEK):
         elif waveform_mode == "CW":
             wavelength = sound_speed / freq_nominal
 
-        # Use gain from vendor gain correction or interpolate gain to freq_center if nomimal frequency is within the calibrated frequencies range
+        # Use gain from vendor gain correction 
+        # or interpolate gain to freq_center if nomimal frequency is within the calibrated frequencies range
         if waveform_mode == "BB":
             gain = self._get_vend_cal_params_power("gain_correction")
             if "gain" in self.echodata.vendor.data_vars:
