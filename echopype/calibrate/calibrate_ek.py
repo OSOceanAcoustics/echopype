@@ -671,6 +671,8 @@ class CalibrateEK80(CalibrateEK):
                         gain[ind] = self.echodata.vendor.gain.interp(
                             cal_frequency=freq_center[ind]
                         )[0][0]
+        elif waveform_mode == "CW":
+            gain = self._get_vend_cal_params_power("gain_correction")
 
         # Transmission loss
         spreading_loss = (
