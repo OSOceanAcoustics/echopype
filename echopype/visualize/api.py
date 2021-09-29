@@ -28,6 +28,7 @@ def create_echogram(
     data: Union[EchoData, xr.Dataset],
     frequency: Union[int, float, List[T], None] = None,
     get_range: bool = False,
+    range_kwargs: dict = {},
     water_level: Union[xr.DataArray, None] = None,
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
@@ -43,6 +44,10 @@ def create_echogram(
     get_range : bool
         Flag as to whether range should be computed or not,
         by default it will just plot range_bin as the yaxis.
+    range_kwargs : dict
+        Keyword arguments dictionary for computing range.
+        Keys are `env_params`, `cal_params`, `waveform_mode`,
+        and `encode_mode`.
     water_level : xr.DataArray, optional
         Water level data array for platform water level correction.
     **kwargs: optional
@@ -53,19 +58,28 @@ def create_echogram(
         'long_name': 'Range',
         'units': 'm',
     }
+
+    if isinstance(frequency, list) and len(frequency) == 1:
+        frequency = frequency[0]
+
     if isinstance(data, EchoData):
         yaxis = 'range_bin'
         variable = 'backscatter_r'
         ds = data.beam
         if get_range:
+            if data.sonar_model.lower() == 'ek80':
+                raise ValueError(
+                    "Range calculation on raw ek80 data for visualization is unavailable."
+                )
             yaxis = 'range'
-            range_in_meter = _compute_range(data)
+            range_in_meter = _compute_range(data, **range_kwargs)
             range_in_meter.attrs = range_attrs
             if 'water_level' in data.platform:
                 # Adds water level to range if it exists
                 range_in_meter = range_in_meter + data.platform.water_level
             ds = ds.assign_coords({'range': range_in_meter})
             ds.range.attrs = range_attrs
+
     elif isinstance(data, xr.Dataset):
         variable = 'Sv'
         ds = data

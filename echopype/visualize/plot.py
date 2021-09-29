@@ -2,10 +2,11 @@ import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
 import xarray as xr
+import numpy as np
 from xarray.plot.facetgrid import FacetGrid
 from matplotlib.collections import QuadMesh
 from echopype.visualize.cm import cmap_d
-from typing import Union, List, TypeVar
+from typing import Optional, Union, List, TypeVar
 
 T = TypeVar('T', int, float)
 
@@ -17,19 +18,39 @@ def _format_axis_label(axis_variable):
 def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
     frequency: Union[int, float, None] = None,
+    col: Optional[str] = None
 ):
     props = {'boxstyle': 'square', 'facecolor': 'white', 'alpha': 0.7}
     if isinstance(fg, FacetGrid):
-        # Set each axis title
+        text_pos = [0.02, 0.06]
+        fontsize = 14
+        if col == 'quadrant':
+            if isinstance(frequency, list) or frequency is None:
+                for rl in fg.row_labels:
+                    if rl is not None:
+                        rl.set_text('')
+
+                for idx, cl in enumerate(fg.col_labels):
+                    if cl is not None:
+                        cl.set_text(f'Quadrant {fg.col_names[idx]}')
+
+            text_pos = [0.04, 0.06]
+            fontsize = 13
+
         for idx, ax in enumerate(fg.axes.flat):
-            freq = fg.name_dicts[idx, 0]['frequency']
-            ax.set_title("")
+            name_dicts = fg.name_dicts.flatten()
+            if 'frequency' in name_dicts[idx]:
+                freq = name_dicts[idx]['frequency']
+                if col == 'frequency':
+                    ax.set_title('')
+            else:
+                freq = frequency
+                ax.set_title(f'Quadrant {fg.col_names[idx]}')
             ax.text(
-                0.02,
-                0.06,
+                *text_pos,
                 f"{int(freq / 1000)} kHz",
                 transform=ax.transAxes,
-                fontsize=14,
+                fontsize=fontsize,
                 verticalalignment='bottom',
                 bbox=props,
             )
@@ -85,7 +106,7 @@ def _set_plot_defaults(kwargs):
 
     # Remove extra plotting attributes that should be set
     # by echopype devs
-    exclude_attrs = ['x', 'y', 'col']
+    exclude_attrs = ['x', 'y', 'col', 'row']
     for attr in exclude_attrs:
         if attr in kwargs:
             warnings.warn(f"{attr} in kwargs. Removing.")
@@ -103,18 +124,34 @@ def _plot_echogram(
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
     kwargs = _set_plot_defaults(kwargs)
+
+    row = None
+    col = None
+
+    if 'quadrant' in ds[variable].dims:
+        col = 'quadrant'
+        kwargs.update({
+            'figsize': (15, 5),
+            'col_wrap': None,
+        })
+        filtered_ds = np.abs(ds.backscatter_r + 1j * ds.backscatter_i)
+    else:
+        filtered_ds = ds[variable]
+
     # perform frequency filtering
     if frequency:
-        filtered_ds = ds[variable].sel(frequency=frequency)
+        filtered_ds = filtered_ds.sel(frequency=frequency)
     else:
         # if frequency not provided, use all
-        filtered_ds = ds[variable].sel(frequency=slice(None))
+        filtered_ds = filtered_ds.sel(frequency=slice(None))
 
     # figure out frequency size
     # to determine plotting method
-    col = None
     if filtered_ds.frequency.size > 1:
-        col = 'frequency'
+        if col is None:
+            col = 'frequency'
+        else:
+            row = 'frequency'
 
     filtered_ds[xaxis].attrs = {
         'long_name': filtered_ds[xaxis].attrs.get(
@@ -133,7 +170,8 @@ def _plot_echogram(
         x=xaxis,
         y=yaxis,
         col=col,
+        row=row,
         **kwargs,
     )
-    _set_label(plot, frequency=frequency)
+    _set_label(plot, frequency=frequency, col=col)
     return plot
