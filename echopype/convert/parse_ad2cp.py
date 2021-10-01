@@ -297,7 +297,10 @@ class ParseAd2cp(ParseBase):
                     try:
                         v = int(v)
                     except ValueError:
-                        v = float(v)
+                        try:
+                            v = float(v)
+                        except ValueError:
+                            v = str(v)
                 line_dict[k] = v
             result[tokens[0]] = line_dict
         return result
