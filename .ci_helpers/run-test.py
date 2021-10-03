@@ -60,16 +60,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.local:
         temp_path = Path("temp_echopype_output")
+        temp_path.mkdir(exist_ok=True)
         dump_path = Path("echopype/test_data/dump")
-        if temp_path.exists():
-            shutil.rmtree(temp_path)
-
-        if dump_path.exists():
-            shutil.rmtree(dump_path)
-        echopype_folder = Path("echopype")
-        file_list = glob.glob(str(echopype_folder / "**" / "*.py"), recursive=True)
+        dump_path.mkdir(exist_ok=True)
+        
+        if args.touchedfiles == "":
+            echopype_folder = Path("echopype")
+            file_list = glob.glob(str(echopype_folder / "**" / "*.py"), recursive=True)
+        else:
+            file_list = args.touchedfiles.split(",")
     else:
         file_list = args.touchedfiles.split(",")
+    
     pytest_args = []
     if args.pytest_args:
         pytest_args = args.pytest_args.split(",")
