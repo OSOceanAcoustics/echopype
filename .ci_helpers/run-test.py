@@ -62,7 +62,7 @@ if __name__ == "__main__":
         temp_path.mkdir(exist_ok=True)
         dump_path = Path("echopype/test_data/dump")
         dump_path.mkdir(exist_ok=True)
-        
+
         if args.touchedfiles == "":
             echopype_folder = Path("echopype")
             file_list = glob.glob(str(echopype_folder / "**" / "*.py"), recursive=True)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
             file_list = args.touchedfiles.split(",")
     else:
         file_list = args.touchedfiles.split(",")
-    
+
     pytest_args = []
     if args.pytest_args:
         pytest_args = args.pytest_args.split(",")
