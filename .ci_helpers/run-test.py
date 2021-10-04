@@ -1,13 +1,12 @@
 """run-test.py
 
-Script to run tests in Github.
+Script to run tests in Github and locally.
 
 """
 import argparse
 import glob
 import os
 import re
-import shutil
 import sys
 from pathlib import Path
 
