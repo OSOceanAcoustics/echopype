@@ -57,6 +57,11 @@ class EnvParams:
         env_params = self.env_params
 
         if self.data_kind == "mobile":
+            # compute_range needs indexing by ping_time
+            interp_plat = echodata.platform.interp(
+                {"location_time": echodata.platform["ping_time"]}
+            )
+
             result = {}
             for var, values in env_params.data_vars.items():
                 points = np.column_stack(
@@ -65,15 +70,17 @@ class EnvParams:
                 values = values.data
                 xi = np.column_stack(
                     (
-                        echodata.platform["latitude"].data,
-                        echodata.platform["longitude"].data,
+                        interp_plat["latitude"].data,
+                        interp_plat["longitude"].data,
                     )
                 )
                 interp = scipy.interpolate.griddata(
                     points, values, xi, method=self.interp_method
                 )
-                result[var] = interp
-            env_params = xr.Dataset(result)
+                result[var] = ("ping_time", interp)
+            env_params = xr.Dataset(
+                data_vars=result, coords={"ping_time": interp_plat["ping_time"]}
+            )
         else:
             min_max = {
                 dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
@@ -145,7 +152,8 @@ class EnvParams:
         #         }
         #     )
 
-        return {var: env_params[var] for var in env_params.data_vars}
+        return {var: env_params[var] for var in ("temperature", "salinity", "pressure")}
+        # return {var: env_params[var] for var in env_params.data_vars}
 
 
 class CalibrateBase(abc.ABC):
