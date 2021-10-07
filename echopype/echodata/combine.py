@@ -118,6 +118,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             )
         elif sonar_model is None:
             sonar_model = echodata.sonar_model
+            result.sonar_model = sonar_model
         elif echodata.sonar_model != sonar_model:
             raise ValueError(
                 "all EchoData objects must have the same sonar_model value"
