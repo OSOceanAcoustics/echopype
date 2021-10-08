@@ -4,24 +4,6 @@ import xarray as xr
 
 from echopype.visualize.plot import _plot_echogram, FacetGrid, QuadMesh, T
 from echopype.echodata import EchoData
-from echopype.calibrate.api import CALIBRATOR
-
-
-def _compute_range(
-    echodata: EchoData,
-    env_params=None,
-    cal_params=None,
-    waveform_mode=None,
-    encode_mode=None,
-):
-    cal_obj = CALIBRATOR[echodata.sonar_model](
-        echodata,
-        env_params=env_params,
-        cal_params=cal_params,
-        waveform_mode=waveform_mode,
-        encode_mode=encode_mode,
-    )
-    return cal_obj.range_meter
 
 
 def create_echogram(
@@ -46,8 +28,7 @@ def create_echogram(
         by default it will just plot range_bin as the yaxis.
     range_kwargs : dict
         Keyword arguments dictionary for computing range.
-        Keys are `env_params`, `cal_params`, `waveform_mode`,
-        and `encode_mode`.
+        Keys are `env_params`, `waveform_mode`, and `encode_mode`.
     water_level : xr.DataArray, optional
         Water level data array for platform water level correction.
     **kwargs: optional
@@ -63,16 +44,41 @@ def create_echogram(
         frequency = frequency[0]
 
     if isinstance(data, EchoData):
+        if data.sonar_model.lower() == 'ad2cp':
+            raise ValueError(
+                "Visualization for AD2CP sonar model is currently unsupported."
+            )
         yaxis = 'range_bin'
         variable = 'backscatter_r'
         ds = data.beam
         if get_range:
-            if data.sonar_model.lower() == 'ek80':
-                raise ValueError(
-                    "Range calculation on raw ek80 data for visualization is unavailable."
-                )
             yaxis = 'range'
-            range_in_meter = _compute_range(data, **range_kwargs)
+
+            if data.sonar_model.lower() == 'azfp':
+                if 'azfp_cal_type' not in range_kwargs:
+                    range_kwargs['azfp_cal_type'] = 'Sv'
+                if 'env_params' not in range_kwargs:
+                    raise ValueError(
+                        "Please provide env_params in range_kwargs!"
+                    )
+            elif data.sonar_model.lower() == 'ek60':
+                if 'waveform_mode' not in range_kwargs:
+                    range_kwargs['waveform_mode'] = 'CW'
+
+                if 'encode_mode' not in range_kwargs:
+                    range_kwargs['encode_mode'] = 'power'
+            elif data.sonar_model.lower() == 'ek80':
+                if 'waveform_mode' not in range_kwargs:
+                    raise ValueError(
+                        "Please provide waveform_mode in range_kwargs for EK80 sonar model."
+                    )
+
+            range_in_meter = data.compute_range(
+                env_params=range_kwargs.get('env_params', {}),
+                azfp_cal_type=range_kwargs.get('azfp_cal_type', None),
+                ek_waveform_mode=range_kwargs.get('waveform_mode', None),
+                ek_encode_mode=range_kwargs.get('encode_mode', 'complex'),
+            )
             range_in_meter.attrs = range_attrs
             if 'water_level' in data.platform:
                 # Adds water level to range if it exists
