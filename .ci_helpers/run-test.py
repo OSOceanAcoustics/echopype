@@ -7,6 +7,7 @@ import argparse
 import glob
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -59,9 +60,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.local:
         temp_path = Path("temp_echopype_output")
-        temp_path.mkdir(exist_ok=True)
         dump_path = Path("echopype/test_data/dump")
-        dump_path.mkdir(exist_ok=True)
+        if temp_path.exists():
+            shutil.rmtree(temp_path)
+        if dump_path.exists():
+            shutil.rmtree(dump_path)
 
         if args.touchedfiles == "":
             echopype_folder = Path("echopype")
