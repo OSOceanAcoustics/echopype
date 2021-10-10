@@ -106,7 +106,7 @@ but it's installed in the conda environment for echopype development). Then:
     # Test data files will be downloaded
     python .ci_helpers/docker/setup-services.py --deploy
 
-    # Run the tests. But first make sure the 
+    # Run all the tests. But first make sure the 
     # echopype development conda environment is activated
     python .ci_helpers/run-test.py --local --pytest-args="-vv"
 
@@ -118,7 +118,18 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-will execute all tests. For usage information, run it with the ``-h`` argument:
+will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
+or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``, 
+``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
+as an argument a comma-separated list of the modules that have changed. For example:
+
+.. code-block:: bash
+
+    python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
+
+will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
+
+For ``run-test.py`` usage information, use the ``-h`` argument:
 ``python .ci_helpers/run-test.py -h``
 
 pre-commit hooks
@@ -144,8 +155,8 @@ of unit tests and other code quality controls. Every pull request (PR) triggers 
 See `echopype/.github/workflows <https://github.com/OSOceanAcoustics/echopype/tree/main/.github/workflows>`_,
 especially `pr.yaml <https://github.com/OSOceanAcoustics/echopype/blob/main/.github/workflows/pr.yaml>`_.
 
-The entire test suite can be a bit slow, taking up to 30 minutes or more.
-To mitigate this, the CI default is to run tests only for modules that
+The entire test suite can be a bit slow, taking up to 40 minutes or more.
+To mitigate this, the CI default is to run tests only for subpackages that
 were modified in the PR; this is done via ``.ci_helpers/run-test.py``
 (see the `Running the tests`_ section). To have the CI execute the
 entire test suite, add the GitHub label ``Needs Complete Testing`` to the
