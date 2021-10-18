@@ -433,7 +433,7 @@ def open_raw(
         )
     echodata.environment = setgrouper.set_env()
     echodata.platform = setgrouper.set_platform()
-    if sonar_model in ["EK60", "EK80"]:
+    if sonar_model in ["EK60", "ES70", "EK80"]:
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
