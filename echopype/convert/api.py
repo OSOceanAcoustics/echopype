@@ -1,55 +1,20 @@
-import os
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
 import zarr
-from fsspec.implementations.local import LocalFileSystem
 
+# fmt: off
+# black and isort have conflicting ideas about how this should be formatted
+from ..core import SONAR_MODELS
+
+if TYPE_CHECKING:
+    from ..core import EngineHint, PathHint, SonarModelsHint
+# fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
-from .parse_ad2cp import ParseAd2cp
-from .parse_azfp import ParseAZFP
-from .parse_ek60 import ParseEK60
-from .parse_ek80 import ParseEK80
-from .set_groups_ad2cp import SetGroupsAd2cp
-from .set_groups_azfp import SetGroupsAZFP
-from .set_groups_ek60 import SetGroupsEK60
-from .set_groups_ek80 import SetGroupsEK80
-
-MODELS = {
-    "AZFP": {
-        "ext": ".01A",
-        "xml": True,
-        "parser": ParseAZFP,
-        "set_groups": SetGroupsAZFP,
-    },
-    "EK60": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK60,
-        "set_groups": SetGroupsEK60,
-    },
-    "EK80": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80,
-    },
-    "EA640": {
-        "ext": ".raw",
-        "xml": False,
-        "parser": ParseEK80,
-        "set_groups": SetGroupsEK80,
-    },
-    "AD2CP": {
-        "ext": ".ad2cp",
-        "xml": False,
-        "parser": ParseAd2cp,
-        "set_groups": SetGroupsAd2cp,
-    },
-}
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -61,84 +26,14 @@ DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
-def _normalize_path(out_f, convert_type, output_storage_options):
-    if convert_type == "zarr":
-        return fsspec.get_mapper(out_f, **output_storage_options)
-    elif convert_type == "netcdf4":
-        return out_f
-
-
-def _validate_path(source_file, file_format, output_storage_options={}, save_path=None):
-    """Assemble output file names and path.
-
-    Parameters
-    ----------
-    file_format : str {'.nc', '.zarr'}
-    save_path : str
-        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
-        in the current working directory.
-    """
-    if save_path is None:
-        warnings.warn("save_path is not provided")
-
-        current_dir = Path.cwd()
-        # Check permission, raise exception if no permission
-        io.check_file_permissions(current_dir)
-        out_dir = current_dir.joinpath(Path("temp_echopype_output"))
-        if not out_dir.exists():
-            out_dir.mkdir(parents=True)
-
-        warnings.warn(
-            f"Resulting converted file(s) will be available at {str(out_dir)}"
-        )
-        out_path = str(out_dir / (Path(source_file).stem + file_format))
-
-    else:
-        if not isinstance(save_path, Path) and not isinstance(save_path, str):
-            raise TypeError("save_path must be a string or Path")
-
-        fsmap = fsspec.get_mapper(str(save_path), **output_storage_options)
-        output_fs = fsmap.fs
-
-        # Use the full path such as s3://... if it's not local, otherwise use root
-        if isinstance(output_fs, LocalFileSystem):
-            root = fsmap.root
-        else:
-            root = save_path
-        if Path(root).suffix == "":  # directory
-            out_dir = root
-            out_path = os.path.join(root, Path(source_file).stem + file_format)
-        else:  # file
-            out_dir = os.path.dirname(root)
-            out_path = os.path.join(out_dir, Path(root).stem + file_format)
-
-    # Create folder if save_path does not exist already
-    fsmap = fsspec.get_mapper(str(out_dir), **output_storage_options)
-    fs = fsmap.fs
-    if file_format == ".nc" and not isinstance(fs, LocalFileSystem):
-        raise ValueError("Only local filesystem allowed for NetCDF output.")
-    else:
-        try:
-            # Check permission, raise exception if no permission
-            io.check_file_permissions(fsmap)
-            if isinstance(fs, LocalFileSystem):
-                # Only make directory if local file system
-                # otherwise it will just create the object path
-                fs.mkdir(fsmap.root)
-        except FileNotFoundError:
-            raise ValueError("Specified save_path is not valid.")
-
-    return out_path  # output_path is always a string
-
-
 def to_file(
     echodata: EchoData,
-    engine,
-    save_path=None,
-    compress=True,
-    overwrite=False,
-    parallel=False,
-    output_storage_options={},
+    engine: "EngineHint",
+    save_path: Optional["PathHint"] = None,
+    compress: bool = True,
+    overwrite: bool = False,
+    parallel: bool = False,
+    output_storage_options: Dict[str, str] = {},
     **kwargs,
 ):
     """Save content of EchoData to netCDF or zarr.
@@ -166,10 +61,9 @@ def to_file(
         raise ValueError("Unknown type to convert file to!")
 
     # Assemble output file names and path
-    format_mapping = dict(map(reversed, XARRAY_ENGINE_MAP.items()))
-    output_file = _validate_path(
+    output_file = io.validate_output_path(
         source_file=echodata.source_file,
-        file_format=format_mapping[engine],
+        engine=engine,
         save_path=save_path,
         output_storage_options=output_storage_options,
     )
@@ -191,7 +85,9 @@ def to_file(
             print(f"{dt.now().strftime('%H:%M:%S')}  saving {output_file}")
         _save_groups_to_file(
             echodata,
-            output_path=_normalize_path(output_file, engine, output_storage_options),
+            output_path=io.sanitize_file_path(
+                file_path=output_file, storage_options=output_storage_options
+            ),
             engine=engine,
             compress=compress,
         )
@@ -323,7 +219,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         )
 
 
-def _set_convert_params(param_dict):
+def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     """Set parameters (metadata) that may not exist in the raw files.
 
     The default set of parameters include:
@@ -366,7 +262,12 @@ def _set_convert_params(param_dict):
     return out_params
 
 
-def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
+def _check_file(
+    raw_file,
+    sonar_model: "SonarModelsHint",
+    xml_path: Optional["PathHint"] = None,
+    storage_options: Dict[str, str] = {},
+) -> Tuple[str, str]:
     """Checks whether the file and/or xml file exists and
     whether they have the correct extensions.
 
@@ -389,7 +290,7 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
         path to existing xml file
         empty string if no xml file is required for the specified model
     """
-    if MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
+    if SONAR_MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
             raise ValueError(f"XML file is required for {sonar_model} raw data")
         else:
@@ -407,23 +308,22 @@ def _check_file(raw_file, sonar_model, xml_path=None, storage_options={}):
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
-    ext = MODELS[sonar_model]["ext"]
+    validate_ext = SONAR_MODELS[sonar_model]["validate_ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(f"There is no file named {Path(raw_file).name}")
 
-    if Path(raw_file).suffix.upper() != ext.upper():
-        raise ValueError(f"Expecting a {ext} file but got {raw_file}")
+    validate_ext(Path(raw_file).suffix.upper())
 
     return str(raw_file), str(xml)
 
 
 def open_raw(
-    raw_file=None,
-    sonar_model=None,
-    xml_path=None,
-    convert_params=None,
-    storage_options=None,
-):
+    raw_file: Optional["PathHint"] = None,
+    sonar_model: Optional["SonarModelsHint"] = None,
+    xml_path: Optional["PathHint"] = None,
+    convert_params: Optional[Dict[str, str]] = None,
+    storage_options: Optional[Dict[str, str]] = None,
+) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -442,6 +342,10 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
+
+    Returns
+    -------
+    EchoData object
     """
     if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
@@ -474,12 +378,12 @@ def open_raw(
             )
     else:
         # Uppercased model in case people use lowercase
-        sonar_model = sonar_model.upper()
+        sonar_model = sonar_model.upper()  # type: ignore
 
         # Check models
-        if sonar_model not in MODELS:
+        if sonar_model not in SONAR_MODELS:
             raise ValueError(
-                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(MODELS)}"
+                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
             )
 
     # Check paths and file types
@@ -492,22 +396,24 @@ def open_raw(
     if not isinstance(raw_file, str):
         raise TypeError("file must be a string or Path")
 
+    assert sonar_model is not None
+
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
-    if MODELS[sonar_model]["xml"]:
+    if SONAR_MODELS[sonar_model]["xml"]:
         params = xml_chk
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
     # Parse raw file and organize data into groups
-    parser = MODELS[sonar_model]["parser"](
+    parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk, params=params, storage_options=storage_options
     )
     parser.parse_raw()
-    setgrouper = MODELS[sonar_model]["set_groups"](
+    setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
         output_path=None,

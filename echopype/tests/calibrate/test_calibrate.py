@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
+import xarray as xr
 
 azfp_path = Path('./echopype/test_data/azfp')
 ek60_path = Path('./echopype/test_data/ek60')
@@ -18,7 +19,7 @@ def test_compute_Sv_ek60_echoview():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
 
     # Compare with EchoView outputs
     channels = []
@@ -29,7 +30,7 @@ def test_compute_Sv_ek60_echoview():
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
     assert np.allclose(test_Sv[:, :, 7:],
-                       ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+                    ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
 
 
 def test_compute_Sv_ek60_matlab():
@@ -40,8 +41,8 @@ def test_compute_Sv_ek60_matlab():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
-    ds_Sp = ep.calibrate.compute_Sp(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode="CW", encode_mode="power")
 
     # Load matlab outputs and test
 
@@ -133,8 +134,8 @@ def test_compute_Sv_ek80_pc_echoview():
 
     # Create a CalibrateEK80 object to perform pulse compression
     waveform_mode = 'BB'
-    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode)
-    cal_obj.compute_range_meter(waveform_mode=waveform_mode, tvg_correction_factor=0)  # compute range [m]
+    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode, encode_mode="complex")
+    cal_obj.compute_range_meter(waveform_mode=waveform_mode)  # compute range [m]
     chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
     pc = cal_obj.compress_pulse(chirp)
     pc_mean = pc.pulse_compressed_output.isel(frequency=0).mean(dim='quadrant').dropna('range_bin')
@@ -162,7 +163,8 @@ def test_compute_Sv_ek80_CW_complex():
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201210-T000409.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    assert ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    assert isinstance(sv, xr.Dataset) is True
 
 
 def test_compute_Sv_ek80_BB_complex():
@@ -170,4 +172,16 @@ def test_compute_Sv_ek80_BB_complex():
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201209-T235955.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    assert ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    assert isinstance(sv, xr.Dataset) is True
+
+def test_compute_Sv_ek80_CW_power():
+    """
+    Tests calibration in CW mode data encoded as power samples,
+    while the file also contains BB complex samples
+    """
+
+    ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+    sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
+    assert isinstance(sv, xr.Dataset)

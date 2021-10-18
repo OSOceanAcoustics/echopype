@@ -19,5 +19,6 @@ setuptools_scm
 sphinx
 sphinx-automodapi
 sphinx_rtd_theme
+sphinxcontrib-mermaid
 twine
 wheel
