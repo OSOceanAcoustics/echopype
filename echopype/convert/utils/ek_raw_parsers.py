@@ -1151,7 +1151,7 @@ class SimradFILParser(_SimradDatagramParser):
 
 class SimradConfigParser(_SimradDatagramParser):
     """
-    Simrad Configuration Datagram parser operates on dictonaries with the following keys:
+    Simrad Configuration Datagram parser operates on dictionaries with the following keys:
 
         type:         string == 'CON0'
         low_date:     long uint representing LSBytes of 64bit NT date
@@ -1238,6 +1238,34 @@ class SimradConfigParser(_SimradDatagramParser):
                         ready for writing to disk
     """
 
+    COMMON_KEYS = [
+        ("channel_id", "128s"),
+        ("beam_type", "l"),
+        ("frequency", "f"),
+        ("gain", "f"),
+        ("equivalent_beam_angle", "f"),
+        ("beamwidth_alongship", "f"),
+        ("beamwidth_athwartship", "f"),
+        ("angle_sensitivity_alongship", "f"),
+        ("angle_sensitivity_athwartship", "f"),
+        ("angle_offset_alongship", "f"),
+        ("angle_offset_athwartship", "f"),
+        ("pos_x", "f"),
+        ("pos_y", "f"),
+        ("pos_z", "f"),
+        ("dir_x", "f"),
+        ("dir_y", "f"),
+        ("dir_z", "f"),
+        ("pulse_length_table", "5f"),
+        ("spare1", "8s"),
+        ("gain_table", "5f"),
+        ("spare2", "8s"),
+        ("sa_correction_table", "5f"),
+        ("spare3", "8s"),
+        ("gpt_software_version", "16s"),
+        ("spare4", "28s"),
+    ]
+
     def __init__(self):
         headers = {
             0: [
@@ -1257,87 +1285,9 @@ class SimradConfigParser(_SimradDatagramParser):
         _SimradDatagramParser.__init__(self, "CON", headers)
 
         self._transducer_headers = {
-            "ER60": [
-                ("channel_id", "128s"),
-                ("beam_type", "l"),
-                ("frequency", "f"),
-                ("gain", "f"),
-                ("equivalent_beam_angle", "f"),
-                ("beamwidth_alongship", "f"),
-                ("beamwidth_athwartship", "f"),
-                ("angle_sensitivity_alongship", "f"),
-                ("angle_sensitivity_athwartship", "f"),
-                ("angle_offset_alongship", "f"),
-                ("angle_offset_athwartship", "f"),
-                ("pos_x", "f"),
-                ("pos_y", "f"),
-                ("pos_z", "f"),
-                ("dir_x", "f"),
-                ("dir_y", "f"),
-                ("dir_z", "f"),
-                ("pulse_length_table", "5f"),
-                ("spare1", "8s"),
-                ("gain_table", "5f"),
-                ("spare2", "8s"),
-                ("sa_correction_table", "5f"),
-                ("spare3", "8s"),
-                ("gpt_software_version", "16s"),
-                ("spare4", "28s"),
-            ],
-            "ES60": [
-                ("channel_id", "128s"),
-                ("beam_type", "l"),
-                ("frequency", "f"),
-                ("gain", "f"),
-                ("equivalent_beam_angle", "f"),
-                ("beamwidth_alongship", "f"),
-                ("beamwidth_athwartship", "f"),
-                ("angle_sensitivity_alongship", "f"),
-                ("angle_sensitivity_athwartship", "f"),
-                ("angle_offset_alongship", "f"),
-                ("angle_offset_athwartship", "f"),
-                ("pos_x", "f"),
-                ("pos_y", "f"),
-                ("pos_z", "f"),
-                ("dir_x", "f"),
-                ("dir_y", "f"),
-                ("dir_z", "f"),
-                ("pulse_length_table", "5f"),
-                ("spare1", "8s"),
-                ("gain_table", "5f"),
-                ("spare2", "8s"),
-                ("sa_correction_table", "5f"),
-                ("spare3", "8s"),
-                ("gpt_software_version", "16s"),
-                ("spare4", "28s"),
-            ],
-            "ES70": [
-                ("channel_id", "128s"),
-                ("beam_type", "l"),
-                ("frequency", "f"),
-                ("gain", "f"),
-                ("equivalent_beam_angle", "f"),
-                ("beamwidth_alongship", "f"),
-                ("beamwidth_athwartship", "f"),
-                ("angle_sensitivity_alongship", "f"),
-                ("angle_sensitivity_athwartship", "f"),
-                ("angle_offset_alongship", "f"),
-                ("angle_offset_athwartship", "f"),
-                ("pos_x", "f"),
-                ("pos_y", "f"),
-                ("pos_z", "f"),
-                ("dir_x", "f"),
-                ("dir_y", "f"),
-                ("dir_z", "f"),
-                ("pulse_length_table", "5f"),
-                ("spare1", "8s"),
-                ("gain_table", "5f"),
-                ("spare2", "8s"),
-                ("sa_correction_table", "5f"),
-                ("spare3", "8s"),
-                ("gpt_software_version", "16s"),
-                ("spare4", "28s"),
-            ],
+            "ER60": self.COMMON_KEYS,
+            "ES60": self.COMMON_KEYS,
+            "ES70": self.COMMON_KEYS,
             "MBES": [
                 ("channel_id", "128s"),
                 ("beam_type", "l"),
