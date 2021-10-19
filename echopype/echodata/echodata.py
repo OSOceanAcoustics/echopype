@@ -43,6 +43,7 @@ class EchoData:
         source_file: Optional["PathHint"] = None,
         xml_path: "PathHint" = None,
         sonar_model: "SonarModelsHint" = None,
+        open_kwargs: Dict[str, str] = None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -50,6 +51,9 @@ class EchoData:
 
         self.storage_options: Dict[str, str] = (
             storage_options if storage_options is not None else {}
+        )
+        self.open_kwargs: Dict[str, str] = (
+            open_kwargs if open_kwargs is not None else {}
         )
         self.source_file: Optional["PathHint"] = source_file
         self.xml_path: Optional["PathHint"] = xml_path
@@ -507,7 +511,9 @@ class EchoData:
     def _load_group(self, filepath: "PathHint", group: Optional[str] = None):
         """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
-        return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
+        return xr.open_dataset(
+            filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix], **self.open_kwargs
+        )
 
     def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):
         """Save content of EchoData to netCDF.
