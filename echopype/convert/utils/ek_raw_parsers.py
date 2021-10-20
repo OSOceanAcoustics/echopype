@@ -1643,7 +1643,7 @@ class SimradRawParser(_SimradDatagramParser):
 
             else:
                 data["power"] = np.empty((0,), dtype="int16")
-                data["angle"] = np.empty((0,), dtype="int8")
+                data["angle"] = np.empty((0,2), dtype="int8")
 
         elif version == 3:
 
