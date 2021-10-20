@@ -100,7 +100,7 @@ class RawSimradFile(BufferedReader):
 
         #  create a raw file object for the buffered reader
         fmap = fsspec.get_mapper(name, **storage_options)
-        if isinstance(fmap, LocalFileSystem):
+        if isinstance(fmap.fs, LocalFileSystem):
             fio = FileIO(name, mode=mode, closefd=closefd)
         else:
             fio = fmap.fs.open(fmap.root)

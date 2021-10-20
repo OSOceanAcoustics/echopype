@@ -3,8 +3,8 @@ name: build
 on:
   push:
     branches:
-      - master
       - dev
+      - main
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
@@ -56,11 +56,11 @@ jobs:
       - name: Cache conda
         uses: actions/cache@v2
         env:
-          # Increase this value to reset cache if .ci_helpers/py${{ matrix.python-version }}.yaml has not changed
+          # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
           CACHE_NUMBER: 0
         with:
           path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('.ci_helpers/py${{ matrix.python-version }}.yaml') }}
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -87,7 +87,7 @@ jobs:
       - name: Running All Tests
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --local --pytest-args="--cov=echopype,--cov-report=xml,--log-cli-level=WARNING,-vv,--disable-warnings" |& tee ci_test_log.log
+          pytest -vv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2
