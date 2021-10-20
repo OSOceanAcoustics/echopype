@@ -125,7 +125,9 @@ class ParseEK(ParseBase):
             # Rectangularize all data and convert to numpy array indexed by channel
             for data_type in ["power", "angle", "complex"]:
                 for k, v in self.ping_data_dict[data_type].items():
-                    if all((x is None) or (x.size==0) for x in v):  # if no data in a particular channel
+                    if all(
+                        (x is None) or (x.size == 0) for x in v
+                    ):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
                         # Sort complex and power/angle channels
@@ -354,7 +356,7 @@ class ParseEK(ParseBase):
             else:
                 mask = lens[:, None] > np.arange(lens.max())
             # Take care of problem of np.nan being implicitly "real"
-            if data_list[0].dtype in {np.dtype('complex64'), np.dtype('complex128')}:
+            if data_list[0].dtype in {np.dtype("complex64"), np.dtype("complex128")}:
                 out_array = np.full(mask.shape, np.nan + 0j)
             else:
                 out_array = np.full(mask.shape, np.nan)

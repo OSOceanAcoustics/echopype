@@ -481,7 +481,7 @@ class RawSimradFile(BufferedReader):
             while self.peek()["type"][:3] not in list(self.DGRAM_TYPE_KEY.keys()):
                 self._seek_bytes(1, 1)
         except DatagramReadError:
-            log.warning('No next datagram found. Ending reading of file.')
+            log.warning("No next datagram found. Ending reading of file.")
             raise SimradEOF()
         else:
             log.warning("Found next datagram:  %s", self.peek())
