@@ -24,6 +24,7 @@ def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
 
 
 def assemble_combined_provenance(input_paths):
+    input_paths = [str(p) for p in input_paths]
     return xr.Dataset(
         data_vars={
             "src_filenames": ("file", input_paths),
