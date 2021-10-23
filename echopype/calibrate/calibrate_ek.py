@@ -659,19 +659,34 @@ class CalibrateEK80(CalibrateEK):
 
         # Use gain from vendor gain correction
         # or interpolate gain to freq_center
-        # if nomimal frequency is within the calibrated frequencies range
+        # if nominal frequency is within the calibrated frequencies range
         if waveform_mode == "BB":
-            gain = self._get_vend_cal_params_power("gain_correction")
+            gain_cw = self._get_vend_cal_params_power("gain_correction")
+            gain = []
             if "gain" in self.echodata.vendor.data_vars:
                 for ind in range(len(freq_nominal)):
+                    # if freq-dependent gain exists in data
                     if (
                         freq_nominal[ind] - self.echodata.vendor.cal_frequency[0]
                         < self.echodata.vendor.cal_frequency[-1]
-                        - self.echodata.vendor.cal_frequency[0]
+                            - self.echodata.vendor.cal_frequency[0]
                     ):
-                        gain[ind] = self.echodata.vendor.gain.interp(
+                        gain_temp = self.echodata.vendor.gain.interp(
                             cal_frequency=freq_center[ind]
-                        )[0][0]
+                        )
+                        gain_temp = gain_temp.squeeze(
+                            dim="cal_channel_id"
+                        ).drop(
+                            ["cal_channel_id", "frequency", "cal_frequency"]
+                        ).assign_coords(frequency=freq_nominal[ind]).expand_dims("frequency")
+                    # if no freq-dependent gain use CW gain
+                    else:
+                        gain_temp = gain_cw[ind].assign_coords(
+                            ping_time=np.datetime64(0, "ns")
+                        ).expand_dims("ping_time").reindex_like(prx, method="nearest").expand_dims("frequency")
+                    gain_temp.name = 'gain'
+                    gain.append(gain_temp)
+                gain = xr.merge(gain).gain  # select the single data variable
         elif waveform_mode == "CW":
             gain = self._get_vend_cal_params_power("gain_correction")
 
@@ -762,9 +777,9 @@ class CalibrateEK80(CalibrateEK):
         """
         # Raise error for wrong inputs
         if waveform_mode not in ("BB", "CW"):
-            raise ValueError("Input waveform_mode not recognized!")
+            raise ValueError("Input waveform_mode empty or not recognized!")
         if encode_mode not in ("complex", "power"):
-            raise ValueError("Input encode_mode not recognized!")
+            raise ValueError("Input encode_mode empty or not recognized!")
 
         # Set flag_complex
         #  - True: complex cal
