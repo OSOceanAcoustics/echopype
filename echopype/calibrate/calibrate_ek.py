@@ -669,22 +669,27 @@ class CalibrateEK80(CalibrateEK):
                     if (
                         freq_nominal[ind] - self.echodata.vendor.cal_frequency[0]
                         < self.echodata.vendor.cal_frequency[-1]
-                            - self.echodata.vendor.cal_frequency[0]
+                        - self.echodata.vendor.cal_frequency[0]
                     ):
                         gain_temp = self.echodata.vendor.gain.interp(
                             cal_frequency=freq_center[ind]
                         )
-                        gain_temp = gain_temp.squeeze(
-                            dim="cal_channel_id"
-                        ).drop(
-                            ["cal_channel_id", "frequency", "cal_frequency"]
-                        ).assign_coords(frequency=freq_nominal[ind]).expand_dims("frequency")
+                        gain_temp = (
+                            gain_temp.squeeze(dim="cal_channel_id")
+                            .drop(["cal_channel_id", "frequency", "cal_frequency"])
+                            .assign_coords(frequency=freq_nominal[ind])
+                            .expand_dims("frequency")
+                        )
                     # if no freq-dependent gain use CW gain
                     else:
-                        gain_temp = gain_cw[ind].assign_coords(
-                            ping_time=np.datetime64(0, "ns")
-                        ).expand_dims("ping_time").reindex_like(prx, method="nearest").expand_dims("frequency")
-                    gain_temp.name = 'gain'
+                        gain_temp = (
+                            gain_cw[ind]
+                            .assign_coords(ping_time=np.datetime64(0, "ns"))
+                            .expand_dims("ping_time")
+                            .reindex_like(prx, method="nearest")
+                            .expand_dims("frequency")
+                        )
+                    gain_temp.name = "gain"
                     gain.append(gain_temp)
                 gain = xr.merge(gain).gain  # select the single data variable
         elif waveform_mode == "CW":
