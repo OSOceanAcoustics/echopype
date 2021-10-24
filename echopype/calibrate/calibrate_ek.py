@@ -660,30 +660,25 @@ class CalibrateEK80(CalibrateEK):
         # Use gain from vendor gain correction
         # or interpolate gain to freq_center
         # if nominal frequency is within the calibrated frequencies range
+        # TODO: refactor getting gain to a function; index using channel_id
         if waveform_mode == "BB":
             gain_cw = self._get_vend_cal_params_power("gain_correction")
             gain = []
             if "gain" in self.echodata.vendor.data_vars:
-                for ind in range(len(freq_nominal)):
+                # index using channel_id as order of frequency across channel can be arbitrary
+                for fn in freq_nominal:
+                    ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
                     # if freq-dependent gain exists in data
-                    if (
-                        freq_nominal[ind] - self.echodata.vendor.cal_frequency[0]
-                        < self.echodata.vendor.cal_frequency[-1]
-                        - self.echodata.vendor.cal_frequency[0]
-                    ):
-                        gain_temp = self.echodata.vendor.gain.interp(
-                            cal_frequency=freq_center[ind]
-                        )
+                    if ch_id in self.echodata.vendor.cal_channel_id:
+                        gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
                         gain_temp = (
-                            gain_temp.squeeze(dim="cal_channel_id")
-                            .drop(["cal_channel_id", "frequency", "cal_frequency"])
-                            .assign_coords(frequency=freq_nominal[ind])
-                            .expand_dims("frequency")
-                        )
+                            gain_vec.interp(cal_frequency=freq_center.sel(frequency=fn))
+                                .drop(["cal_channel_id", "cal_frequency"])
+                        ).expand_dims("frequency")
                     # if no freq-dependent gain use CW gain
                     else:
                         gain_temp = (
-                            gain_cw[ind]
+                            gain_cw.sel(frequency=fn)
                             .assign_coords(ping_time=np.datetime64(0, "ns"))
                             .expand_dims("ping_time")
                             .reindex_like(prx, method="nearest")
