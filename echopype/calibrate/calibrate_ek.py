@@ -1,4 +1,5 @@
 from typing import Union
+
 import numpy as np
 import xarray as xr
 from scipy import signal
@@ -605,7 +606,9 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
-    def _get_gain_for_complex(self, waveform_mode, freq_center=None) -> Union[xr.DataArray, xr.DataArray]:
+    def _get_gain_for_complex(
+        self, waveform_mode, freq_center=None
+    ) -> Union[xr.DataArray, xr.DataArray]:
         """Get gain factor for calibrating complex samples.
 
         Use values from ``gain_correction`` in the Vendor group for CW mode samples,
@@ -636,17 +639,20 @@ class CalibrateEK80(CalibrateEK):
                     if ch_id in self.echodata.vendor.cal_channel_id:
                         gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
                         gain_temp = (
-                            gain_vec.interp(cal_frequency=freq_center.sel(frequency=fn))
-                                .drop(["cal_channel_id", "cal_frequency"])
+                            gain_vec.interp(
+                                cal_frequency=freq_center.sel(frequency=fn)
+                            ).drop(["cal_channel_id", "cal_frequency"])
                         ).expand_dims("frequency")
                     # if no freq-dependent gain use CW gain
                     else:
                         gain_temp = (
                             gain_cw.sel(frequency=fn)
-                                .assign_coords(ping_time=np.datetime64(0, "ns"))
-                                .expand_dims("ping_time")
-                                .reindex_like(self.echodata.beam.backscatter_r, method="nearest")
-                                .expand_dims("frequency")
+                            .assign_coords(ping_time=np.datetime64(0, "ns"))
+                            .expand_dims("ping_time")
+                            .reindex_like(
+                                self.echodata.beam.backscatter_r, method="nearest"
+                            )
+                            .expand_dims("frequency")
                         )
                     gain_temp.name = "gain"
                     gain.append(gain_temp)
@@ -710,7 +716,9 @@ class CalibrateEK80(CalibrateEK):
             wavelength = sound_speed / freq_nominal
 
         # Gain factor
-        gain = self._get_gain_for_complex(waveform_mode=waveform_mode, freq_center=freq_center)
+        gain = self._get_gain_for_complex(
+            waveform_mode=waveform_mode, freq_center=freq_center
+        )
 
         # Transmission loss
         spreading_loss = (
