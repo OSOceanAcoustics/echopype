@@ -576,10 +576,9 @@ class CalibrateEK80(CalibrateEK):
             frequency channels that transmit in BB mode
             (since CW mode can be in mixed in complex samples too)
         """
-        backscatter = (
-            self.echodata.beam["backscatter_r"].sel(frequency=freq_BB)
-            + 1j * self.echodata.beam["backscatter_i"].sel(frequency=freq_BB)
-        )
+        backscatter = self.echodata.beam["backscatter_r"].sel(
+            frequency=freq_BB
+        ) + 1j * self.echodata.beam["backscatter_i"].sel(frequency=freq_BB)
 
         pc_all = []
         for freq in freq_BB:
@@ -732,22 +731,8 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # # Derived params
-        # if waveform_mode == "BB":
-        #     wavelength = sound_speed / freq_center
-        #     gain = self._get_gain_for_complex(
-        #         waveform_mode=waveform_mode, freq_center=freq_center
-        #     )
-        # elif waveform_mode == "CW":
-        #     wavelength = sound_speed / self.echodata.beam.frequency
-        #     gain = self._get_gain_for_complex(
-        #         waveform_mode=waveform_mode, freq_center=self.echodata.beam.frequency
-        #     )
-
         # Transmission loss
-        spreading_loss = (
-            20 * np.log10(range_meter.where(range_meter >= 1, other=1))
-        )
+        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter
 
         # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
