@@ -38,7 +38,7 @@ class CalibrateEK(CalibrateBase):
             ek_encode_mode=encode_mode,
         )
 
-    def _get_vend_cal_params_power(self, param):
+    def _get_vend_cal_params_power(self, param, waveform_mode):
         """Get cal parameters stored in the Vendor group.
 
         Parameters
@@ -72,7 +72,7 @@ class CalibrateEK(CalibrateBase):
                 dim="ping_time", how="any", subset=["transmit_duration_nominal"]
             )
 
-        if self.echodata.beam_power is not None:
+        if waveform_mode == "CW" and self.echodata.beam_power is not None:
             beam = self.echodata.beam_power
         else:
             beam = self.echodata.beam
@@ -123,7 +123,7 @@ class CalibrateEK(CalibrateBase):
                 self.cal_params[p] = (
                     cal_params[p]
                     if p in cal_params
-                    else self._get_vend_cal_params_power(p)
+                    else self._get_vend_cal_params_power(p, waveform_mode=waveform_mode)
                 )
 
         # Other params
@@ -632,7 +632,7 @@ class CalibrateEK80(CalibrateEK):
         An xr.Dataset containing either Sv or Sp.
         """
         if waveform_mode == "BB":
-            gain_cw = self._get_vend_cal_params_power("gain_correction")
+            gain_single = self._get_vend_cal_params_power("gain_correction", waveform_mode=waveform_mode)
             gain = []
             if "gain" in self.echodata.vendor.data_vars:
                 # index using channel_id as order of frequency across channel can be arbitrary
@@ -651,7 +651,7 @@ class CalibrateEK80(CalibrateEK):
                     # if no freq-dependent gain use CW gain
                     else:
                         gain_temp = (
-                            gain_cw.sel(frequency=fn)
+                            gain_single.sel(frequency=fn)
                             .assign_coords(ping_time=np.datetime64(0, "ns"))
                             .expand_dims("ping_time")
                             .reindex_like(
@@ -663,7 +663,7 @@ class CalibrateEK80(CalibrateEK):
                     gain.append(gain_temp)
                 gain = xr.merge(gain).gain  # select the single data variable
         elif waveform_mode == "CW":
-            gain = self._get_vend_cal_params_power("gain_correction")
+            gain = self._get_vend_cal_params_power("gain_correction", waveform_mode=waveform_mode)
 
         return gain
 
@@ -688,6 +688,17 @@ class CalibrateEK80(CalibrateEK):
                 self.echodata.beam["frequency_start"]
                 + self.echodata.beam["frequency_end"]
             ).dropna(dim="frequency") / 2  # drop those that contain CW samples (nan in freq start/end)
+
+            # derived params
+            sound_speed = self.env_params["sound_speed"].squeeze()
+            absorption = self.env_params["sound_absorption"].sel(frequency=freq_center.frequency).squeeze()
+            range_meter = self.range_meter.sel(frequency=freq_center.frequency).squeeze()
+            wavelength = sound_speed / freq_center
+            gain = self._get_gain_for_complex(
+                waveform_mode=waveform_mode, freq_center=freq_center
+            )
+
+            # backscatter data
             pc = self.compress_pulse(chirp, freq_BB=freq_center.frequency)
             prx = (
                 self.echodata.beam.quadrant.size
@@ -697,6 +708,16 @@ class CalibrateEK80(CalibrateEK):
                 / self.z_et
             )
         else:
+            # derived params
+            sound_speed = self.env_params["sound_speed"].squeeze()
+            absorption = self.env_params["sound_absorption"].squeeze()
+            range_meter = self.range_meter.squeeze()
+            wavelength = sound_speed / self.echodata.beam.frequency
+            gain = self._get_gain_for_complex(
+                waveform_mode=waveform_mode, freq_center=self.echodata.beam.frequency
+            )
+
+            # backscatter data
             backscatter_cw = (
                 self.echodata.beam["backscatter_r"]
                 + 1j * self.echodata.beam["backscatter_i"]
@@ -711,20 +732,17 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # Derived params
-        sound_speed = self.env_params["sound_speed"].squeeze()
-        absorption = self.env_params["sound_absorption"].sel(frequency=freq_center.frequency).squeeze()
-        range_meter = self.range_meter.sel(frequency=freq_center.frequency).squeeze()
-        if waveform_mode == "BB":
-            wavelength = sound_speed / freq_center
-            gain = self._get_gain_for_complex(
-                waveform_mode=waveform_mode, freq_center=freq_center
-            )
-        elif waveform_mode == "CW":
-            wavelength = sound_speed / self.echodata.beam.frequency
-            gain = self._get_gain_for_complex(
-                waveform_mode=waveform_mode, freq_center=self.echodata.beam.frequency
-            )
+        # # Derived params
+        # if waveform_mode == "BB":
+        #     wavelength = sound_speed / freq_center
+        #     gain = self._get_gain_for_complex(
+        #         waveform_mode=waveform_mode, freq_center=freq_center
+        #     )
+        # elif waveform_mode == "CW":
+        #     wavelength = sound_speed / self.echodata.beam.frequency
+        #     gain = self._get_gain_for_complex(
+        #         waveform_mode=waveform_mode, freq_center=self.echodata.beam.frequency
+        #     )
 
         # Transmission loss
         spreading_loss = (
@@ -735,21 +753,25 @@ class CalibrateEK80(CalibrateEK):
         # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
         #  Is this due to the use of 'single' in matlab code?
         if cal_type == "Sv":
-            # get equivalent beam angle
-            if waveform_mode == "BB":
-                psifc = (
-                    self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_center.frequency)
-                    + 10 * np.log10(freq_center.frequency / freq_center)
-                )
-            elif waveform_mode == "CW":
-                psifc = self.echodata.beam["equivalent_beam_angle"]
-
             # effective pulse length
             tau_effective = xr.DataArray(
                 data=list(tau_effective.values()),
                 coords=[self.echodata.beam.frequency, self.echodata.beam.ping_time],
                 dims=["frequency", "ping_time"],
-            ).sel(frequency=freq_center.frequency)
+            )
+
+            # get params
+            if waveform_mode == "BB":
+                psifc = (
+                    self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_center.frequency)
+                    + 10 * np.log10(freq_center.frequency / freq_center)
+                )
+                tau_effective = tau_effective.sel(frequency=freq_center.frequency)
+                transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_center.frequency)
+            elif waveform_mode == "CW":
+                psifc = self.echodata.beam["equivalent_beam_angle"]
+                transmit_power = self.echodata.beam["transmit_power"]
+
             out = (
                 10 * np.log10(prx)
                 + spreading_loss
@@ -757,7 +779,7 @@ class CalibrateEK80(CalibrateEK):
                 - 10
                 * np.log10(
                     wavelength ** 2
-                    * self.echodata.beam["transmit_power"].sel(frequency=freq_center.frequency)
+                    * transmit_power
                     * sound_speed
                     / (32 * np.pi ** 2)
                 )
@@ -768,6 +790,11 @@ class CalibrateEK80(CalibrateEK):
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
         elif cal_type == "Sp":
+            if waveform_mode == "BB":
+                transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_center.frequency)
+            elif waveform_mode == "CW":
+                transmit_power = self.echodata.beam["transmit_power"]
+
             out = (
                 10 * np.log10(prx)
                 + 2 * spreading_loss
@@ -775,7 +802,7 @@ class CalibrateEK80(CalibrateEK):
                 - 10
                 * np.log10(
                     wavelength ** 2
-                    * self.echodata.beam["transmit_power"]
+                    * transmit_power
                     / (16 * np.pi ** 2)
                 )
                 - 2 * gain
