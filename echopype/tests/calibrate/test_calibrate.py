@@ -180,7 +180,6 @@ def test_compute_Sv_ek80_CW_power():
     Tests calibration in CW mode data encoded as power samples,
     while the file also contains BB complex samples
     """
-
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
     sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
