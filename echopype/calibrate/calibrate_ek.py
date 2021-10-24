@@ -1,3 +1,4 @@
+from typing import Union
 import numpy as np
 import xarray as xr
 from scipy import signal
@@ -604,6 +605,57 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
+    def _get_gain_for_complex(self, waveform_mode, freq_center=None) -> Union[xr.DataArray, xr.DataArray]:
+        """Get gain factor for calibrating complex samples.
+
+        Use values from ``gain_correction`` in the Vendor group for CW mode samples,
+        or interpolate ``gain`` to the center frequency of each ping for BB mode samples
+        if nominal frequency is within the calibrated frequencies range
+
+        Parameters
+        ----------
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
+        freq_center : None or xr.DataArray
+            center frequency, ``None`` for CW mode samples
+            and an xr.DataArray with coorindate ``ping_time`` for BB mode samples
+
+        Returns
+        -------
+        An xr.Dataset containing either Sv or Sp.
+        """
+        if waveform_mode == "BB":
+            gain_cw = self._get_vend_cal_params_power("gain_correction")
+            gain = []
+            if "gain" in self.echodata.vendor.data_vars:
+                # index using channel_id as order of frequency across channel can be arbitrary
+                for fn in self.echodata.beam.frequency:
+                    ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
+                    # if freq-dependent gain exists in data
+                    if ch_id in self.echodata.vendor.cal_channel_id:
+                        gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
+                        gain_temp = (
+                            gain_vec.interp(cal_frequency=freq_center.sel(frequency=fn))
+                                .drop(["cal_channel_id", "cal_frequency"])
+                        ).expand_dims("frequency")
+                    # if no freq-dependent gain use CW gain
+                    else:
+                        gain_temp = (
+                            gain_cw.sel(frequency=fn)
+                                .assign_coords(ping_time=np.datetime64(0, "ns"))
+                                .expand_dims("ping_time")
+                                .reindex_like(self.echodata.beam.backscatter_r, method="nearest")
+                                .expand_dims("frequency")
+                        )
+                    gain_temp.name = "gain"
+                    gain.append(gain_temp)
+                gain = xr.merge(gain).gain  # select the single data variable
+        elif waveform_mode == "CW":
+            gain = self._get_vend_cal_params_power("gain_correction")
+
+        return gain
+
     def _cal_complex(self, cal_type, waveform_mode):
         """Calibrate complex data from EK80.
 
@@ -657,38 +709,8 @@ class CalibrateEK80(CalibrateEK):
         elif waveform_mode == "CW":
             wavelength = sound_speed / freq_nominal
 
-        # Use gain from vendor gain correction
-        # or interpolate gain to freq_center
-        # if nominal frequency is within the calibrated frequencies range
-        # TODO: refactor getting gain to a function; index using channel_id
-        if waveform_mode == "BB":
-            gain_cw = self._get_vend_cal_params_power("gain_correction")
-            gain = []
-            if "gain" in self.echodata.vendor.data_vars:
-                # index using channel_id as order of frequency across channel can be arbitrary
-                for fn in freq_nominal:
-                    ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
-                    # if freq-dependent gain exists in data
-                    if ch_id in self.echodata.vendor.cal_channel_id:
-                        gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
-                        gain_temp = (
-                            gain_vec.interp(cal_frequency=freq_center.sel(frequency=fn))
-                                .drop(["cal_channel_id", "cal_frequency"])
-                        ).expand_dims("frequency")
-                    # if no freq-dependent gain use CW gain
-                    else:
-                        gain_temp = (
-                            gain_cw.sel(frequency=fn)
-                            .assign_coords(ping_time=np.datetime64(0, "ns"))
-                            .expand_dims("ping_time")
-                            .reindex_like(prx, method="nearest")
-                            .expand_dims("frequency")
-                        )
-                    gain_temp.name = "gain"
-                    gain.append(gain_temp)
-                gain = xr.merge(gain).gain  # select the single data variable
-        elif waveform_mode == "CW":
-            gain = self._get_vend_cal_params_power("gain_correction")
+        # Gain factor
+        gain = self._get_gain_for_complex(waveform_mode=waveform_mode, freq_center=freq_center)
 
         # Transmission loss
         spreading_loss = (
