@@ -688,12 +688,21 @@ class CalibrateEK80(CalibrateEK):
 
         # use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        freq_center = (
-            self.echodata.beam["frequency_start"]
-            + self.echodata.beam["frequency_end"]
-        ) / 2
+        if "frequency_start" in self.echodata.beam and "frequency_end" in self.echodata.beam:
+            freq_center = (
+                self.echodata.beam["frequency_start"]
+                + self.echodata.beam["frequency_end"]
+            ) / 2
+        else:
+            freq_center = None
 
         if waveform_mode == "BB":
+            if freq_center is None:
+                raise ValueError(
+                    "frequency_start and frequency_end should exist in BB mode data, "
+                    "double check the EchoData object!"
+                )
+            # if CW and BB complex samples co-exist
             # drop those that contain CW samples (nan in freq start/end)
             freq_sel = freq_center.dropna(dim="frequency")
 
@@ -707,8 +716,13 @@ class CalibrateEK80(CalibrateEK):
                 / self.z_et
             )
         else:
-            # drop those that contain BB samples (not nan in freq start/end)
-            freq_sel = freq_center.where(np.isnan(freq_center), drop=True).frequency
+            if freq_center is None:
+                # when only have CW complex samples
+                freq_sel = self.echodata.beam.frequency
+            else:
+                # if BB and CW complex samples co-exist
+                # drop those that contain BB samples (not nan in freq start/end)
+                freq_sel = freq_center.where(np.isnan(freq_center), drop=True).frequency
 
             # backscatter data
             backscatter_cw = (
