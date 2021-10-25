@@ -576,10 +576,9 @@ class CalibrateEK80(CalibrateEK):
             frequency channels that transmit in BB mode
             (since CW mode can be in mixed in complex samples too)
         """
-        backscatter = (
-            self.echodata.beam["backscatter_r"].sel(frequency=freq_BB)
-            + 1j * self.echodata.beam["backscatter_i"].sel(frequency=freq_BB)
-        )
+        backscatter = self.echodata.beam["backscatter_r"].sel(
+            frequency=freq_BB
+        ) + 1j * self.echodata.beam["backscatter_i"].sel(frequency=freq_BB)
 
         pc_all = []
         for freq in freq_BB:
@@ -688,7 +687,10 @@ class CalibrateEK80(CalibrateEK):
 
         # use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if "frequency_start" in self.echodata.beam and "frequency_end" in self.echodata.beam:
+        if (
+            "frequency_start" in self.echodata.beam
+            and "frequency_end" in self.echodata.beam
+        ):
             freq_center = (
                 self.echodata.beam["frequency_start"]
                 + self.echodata.beam["frequency_end"]
@@ -743,12 +745,10 @@ class CalibrateEK80(CalibrateEK):
         sound_speed = self.env_params["sound_speed"].squeeze()
         absorption = (
             self.env_params["sound_absorption"]
-                .sel(frequency=freq_sel.frequency)
-                .squeeze()
+            .sel(frequency=freq_sel.frequency)
+            .squeeze()
         )
-        range_meter = self.range_meter.sel(
-            frequency=freq_sel.frequency
-        ).squeeze()
+        range_meter = self.range_meter.sel(frequency=freq_sel.frequency).squeeze()
         if waveform_mode == "BB":
             # use true center frequency for BB pulse
             wavelength = sound_speed / freq_sel
@@ -782,14 +782,17 @@ class CalibrateEK80(CalibrateEK):
             ).sel(frequency=freq_sel.frequency)
 
             # other params
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+            transmit_power = self.echodata.beam["transmit_power"].sel(
+                frequency=freq_sel.frequency
+            )
             if waveform_mode == "BB":
-                psifc = (
-                    self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel.frequency)
-                    + 10 * np.log10(freq_sel.frequency / freq_center)
-                )
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
+                    frequency=freq_sel.frequency
+                ) + 10 * np.log10(freq_sel.frequency / freq_center)
             elif waveform_mode == "CW":
-                psifc = self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel.frequency)
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
+                    frequency=freq_sel.frequency
+                )
 
             out = (
                 10 * np.log10(prx)
@@ -806,7 +809,9 @@ class CalibrateEK80(CalibrateEK):
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
         elif cal_type == "Sp":
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+            transmit_power = self.echodata.beam["transmit_power"].sel(
+                frequency=freq_sel.frequency
+            )
 
             out = (
                 10 * np.log10(prx)
