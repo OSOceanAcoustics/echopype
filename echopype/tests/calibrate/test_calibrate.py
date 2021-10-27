@@ -6,14 +6,10 @@ import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
 import xarray as xr
 
-# azfp_path = Path('./echopype/test_data/azfp')
-# ek60_path = Path('./echopype/test_data/ek60')
-# ek80_path = Path('./echopype/test_data/ek80')
-
-azfp_path = Path('../echopype/echopype/test_data/azfp')
-ek60_path = Path('../echopype/echopype/test_data/ek60')
-ek80_path = Path('../echopype/echopype/test_data/ek80')
-ek80_cal_path = Path('../echopype/echopype/test_data/ek80_bb_with_calibration')
+azfp_path = Path('./echopype/test_data/azfp')
+ek60_path = Path('./echopype/test_data/ek60')
+ek80_path = Path('./echopype/test_data/ek80')
+ek80_cal_path = Path('./echopype/test_data/ek80_bb_with_calibration')
 
 
 def test_compute_Sv_ek60_echoview():
