@@ -48,7 +48,6 @@ class EnvParams:
             dims = ["ping_time"]
         elif self.data_kind == "mobile":
             dims = ["latitude", "longitude"]
-            # dims = ["time"] # lat/lon are coords
         elif self.data_kind == "organized":
             dims = ["time", "latitude", "longitude"]
         else:
@@ -153,7 +152,6 @@ class EnvParams:
         #     )
 
         return {var: env_params[var] for var in ("temperature", "salinity", "pressure")}
-        # return {var: env_params[var] for var in env_params.data_vars}
 
 
 class CalibrateBase(abc.ABC):
