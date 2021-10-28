@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 import xarray as xr
+from dask.array.core import Array
 from scipy import signal
 
 from ..utils import uwa
@@ -88,6 +89,10 @@ class CalibrateEK(CalibrateBase):
         idx_wanted = np.abs(pulse_length - unique_pulse_length).argmin(
             dim="pulse_length_bin"
         )
+
+        # Checks for dask array and compute first
+        if isinstance(idx_wanted.data, Array):
+            idx_wanted = idx_wanted.data.compute()
 
         return (
             ds_vend[param]

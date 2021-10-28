@@ -17,7 +17,7 @@ source GitHub repository
 `https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
 (``upstream``), then clone your fork; your fork will be the ``origin`` remote. See 
 `this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for 
-guidance on forking and opening pull requests, but replace references to the ``master`` 
+guidance on forking and opening pull requests, but replace references to the ``main`` 
 branch with the ``dev`` development branch. See 
 `this description of the gitflow workflow <https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow>`_. 
 The complete workflow we use is depicted in the diagram below, which includes
@@ -28,19 +28,20 @@ and preparation of releases.
 
     graph LR
         classDef patch fill:#f2ece4
-        master --> stable
-        master --> dev
+        main --> stable
+        main --> dev
         p1([doc patch]):::patch -.-> stable
         p2([code patch]):::patch -.-> dev
         stable --> |docs merge| rel[release/0.x.y]
         dev --> |dev merge| rel
-        rel --> master
+        rel --> main
 
 
 Installation for echopype development
 -------------------------------------
 
-To access and test the latest, unreleased development version of echopype, clone the ``master`` branch from the source repository:
+To access and test the latest, unreleased development version of echopype, 
+clone the ``main`` branch from the source repository:
 
 .. code-block:: bash
 
@@ -62,7 +63,7 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
 
 .. code-block:: bash
 
-    conda create -c conda-forge -n echopype --yes python=3.8 --file requirements.txt --file requirements-dev.txt
+    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt
     conda activate echopype
     # ipykernel is recommended, in order to use with JupyterLab and IPython
     # to aid with development. We recommend you install JupyterLab separately
@@ -72,38 +73,41 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
 
+Tests and test infrastructure
+-----------------------------
+
 Test data files
----------------
+~~~~~~~~~~~~~~~
 
 .. attention::
 
     Echopype previously used Git LFS for managing and accessing large test data files. 
     We have deprecated its use starting with echopype version 0.5.0. The files
-    in https://github.com/OSOceanAcoustics/echopype/tree/master/echopype/test_data
+    in https://github.com/OSOceanAcoustics/echopype/tree/main/echopype/test_data
     are also being deprecated.
 
 Test echosounder data files are managed in a private Google Drive folder and 
 made available via the `cormorack/http <https://hub.docker.com/r/cormorack/http>`_
 Docker image on Docker hub; the image is rebuilt daily when new test data are added
-on Google Drive. See the `Running the tests`_ section below for 
-details.
-
+on Google Drive. See the `Running the tests`_ section below for details.
 
 Running the tests
------------------
+~~~~~~~~~~~~~~~~~
 
-To run the echopype unit tests in ``echopype/tests``, 
+To run the echopype unit tests found in ``echopype/tests``, 
 `Docker <https://docs.docker.com/get-docker/>`_ 
 will need to be installed if not already present 
-(`docker-compose <https://docs.docker.com/compose/>`_ is also used, but it's installed
-in the conda environment for echopype development). To run the tests:
+(`docker-compose <https://docs.docker.com/compose/>`_ is also used, 
+but it's installed in the conda environment for echopype development). Then:
 
 .. code-block:: bash
 
-    # Install and/or deploy the echopype docker containers for testing
+    # Install and/or deploy the echopype docker containers for testing.
+    # Test data files will be downloaded
     python .ci_helpers/docker/setup-services.py --deploy
 
-    # Run the tests
+    # Run all the tests. But first make sure the 
+    # echopype development conda environment is activated
     python .ci_helpers/run-test.py --local --pytest-args="-vv"
 
     # When done, "tear down" the docker containers
@@ -113,30 +117,51 @@ The tests include reading and writing from locally set up (via docker) http
 and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources, 
 the latter via `minio <https://minio.io>`_.
 
+`.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
+will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
+or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``, 
+``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
+as an argument a comma-separated list of the modules that have changed. For example:
+
+.. code-block:: bash
+
+    python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
+
+will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
+
+For ``run-test.py`` usage information, use the ``-h`` argument:
+``python .ci_helpers/run-test.py -h``
 
 pre-commit hooks
-----------------
+~~~~~~~~~~~~~~~~
 
 The echopype development conda environment includes `pre-commit <https://pre-commit.com>`_,
 and useful pre-commit "hooks" have been configured in the 
-`.pre-commit-config.yaml file <https://github.com/OSOceanAcoustics/echopype/blob/master/.pre-commit-config.yaml>`_. 
+`.pre-commit-config.yaml file <https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml>`_. 
 Current hooks include file formatting (linting) checks (trailing spaces, trailing lines,
 JSON and YAML format checks, etc) and Python style autoformatters (PEP8 / flake8, ``black`` and ``isort``).
 
 To run pre-commit hooks locally, run `pre-commit install` before running the 
 docker setup-service deploy statement described above. The hooks will run automatically 
 during ``git commit`` and will give you options as needed before committing your changes.
-You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code, by running ``pre-commit run --all-files``. See the `pre-commit usage documentation <https://pre-commit.com/#usage>`_ for details.
-
+You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code, 
+by running ``pre-commit run --all-files``. See the `pre-commit usage documentation <https://pre-commit.com/#usage>`_ for details.
 
 Continuous integration GitHub Actions
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 echopype makes extensive use of GitHub Actions for continuous integration (CI)
-of unit tests and other code quality controls. Every pull request triggers the CI.
-See `echopype/.github/workflows <https://github.com/OSOceanAcoustics/echopype/tree/master/.github/workflows>`_.
+of unit tests and other code quality controls. Every pull request (PR) triggers the CI.
+See `echopype/.github/workflows <https://github.com/OSOceanAcoustics/echopype/tree/main/.github/workflows>`_,
+especially `pr.yaml <https://github.com/OSOceanAcoustics/echopype/blob/main/.github/workflows/pr.yaml>`_.
 
-The CI tests can be a bit slow, taking up to 20-30 minutes.
+The entire test suite can be a bit slow, taking up to 40 minutes or more.
+To mitigate this, the CI default is to run tests only for subpackages that
+were modified in the PR; this is done via ``.ci_helpers/run-test.py``
+(see the `Running the tests`_ section). To have the CI execute the
+entire test suite, add the GitHub label ``Needs Complete Testing`` to the
+PR before submitting it.
+
 Under special circumstances, when the submitted changes have a 
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing 
@@ -151,7 +176,7 @@ Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on
 `Sphinx <https://www.sphinx-doc.org>`_ and is hosted at 
 `Read The Docs <https://readthedocs.org>`_. The sphinx files are found
 in the ``docs`` directory, and the source documentation files, written in 
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
+`reStructuredText <https://www.sphinx-doc.org/en/main/usage/restructuredtext/index.html>`_
 (``.rst``) format, are in the ``docs/source`` directory. The echopype development
 conda environment will install all required Sphinx dependencies.
 To run Sphinx locally:
@@ -167,7 +192,8 @@ To view the generated HTML files generated by Sphinx, open the
 Updates to the documentation that are based on the current echopype release (that is,
 not involving echopype API changes) should be merged into the GitHub ``stable`` branch.
 These updates will then become available immediately on the default ReadTheDocs version.
-Examples of such updates include fixing spelling mistakes, expanding an explanation, and adding a new section that documents a previously undocumented feature.
+Examples of such updates include fixing spelling mistakes, expanding an explanation, 
+and adding a new section that documents a previously undocumented feature.
 
 Function and object doc strings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -175,14 +201,13 @@ Function and object doc strings
 For inline strings documenting functions and objects ("doc strings"), we use the
 `numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
 
-
 Documentation versions
 ~~~~~~~~~~~~~~~~~~~~~~
 
 `<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version, 
-`<https://echopype.readthedocs.io/en/stable/>`_, which is built from the `stable` branch 
+`<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch 
 on the ``echopype`` GitHub repository. In addition, the ``latest`` version 
-(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the `master` branch, 
+(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``main`` branch, 
 while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built 
 from the ``dev`` branch. Finally, each new echopype release is built as a new release version 
 on ReadTheDocs. Merging pull requests into any of these three branches or issuing a 
