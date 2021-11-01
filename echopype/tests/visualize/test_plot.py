@@ -148,3 +148,30 @@ def test_plot_Sv(
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
     plot = echopype.visualize.create_echogram(Sv)
     assert isinstance(plot, FacetGrid) is True
+
+
+@pytest.mark.parametrize(param_args, param_testdata)
+def test_plot_mvbs(
+    filepath,
+    sonar_model,
+    azfp_xml_path,
+    range_kwargs,
+):
+    # TODO: Need to figure out how to compare the actual rendered plots
+    ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
+    if ed.sonar_model.lower() == 'azfp':
+        avg_temperature = (
+            ed.environment['temperature'].mean('ping_time').values
+        )
+        env_params = {
+            'temperature': avg_temperature,
+            'salinity': 27.9,
+            'pressure': 59,
+        }
+        range_kwargs['env_params'] = env_params
+        if 'azfp_cal_type' in range_kwargs:
+            range_kwargs.pop('azfp_cal_type')
+    Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
+    mvbs = echopype.preprocess.compute_MVBS(Sv)
+    # plot = echopype.visualize.create_echogram(mvbs)
+    # assert isinstance(plot, FacetGrid) is True
