@@ -264,7 +264,10 @@ class EchoData:
             # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
             #   because it expects the range included in the Sv/Sp dataset
             #   to be indexed by ping_time
-            range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]})
+            range_meter = range_meter.expand_dims(
+                {"ping_time": self.beam["ping_time"]},
+                axis=1
+            )
 
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
