@@ -144,6 +144,9 @@ class EchoData:
         This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
         If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
 
+        If the `sonar_model` is `"AZFP"`, the returned range's data will be duplicated
+        for all `ping_time`s.
+
         Parameters
         ----------
         env_params: dict
@@ -256,6 +259,14 @@ class EchoData:
                 - range_offset
             )
             range_meter.name = "range"  # add name to facilitate xr.merge
+
+            # duplicate range for all ping_times for consistency with EK case
+            # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
+            #   because it expects the range included in the Sv/Sp dataset
+            #   to be indexed by ping_time
+            range_meter = range_meter.expand_dims(
+                {"ping_time": self.beam["ping_time"]}, axis=1
+            )
 
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
