@@ -265,8 +265,7 @@ class EchoData:
             #   because it expects the range included in the Sv/Sp dataset
             #   to be indexed by ping_time
             range_meter = range_meter.expand_dims(
-                {"ping_time": self.beam["ping_time"]},
-                axis=1
+                {"ping_time": self.beam["ping_time"]}, axis=1
             )
 
             return range_meter
