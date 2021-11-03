@@ -6,7 +6,7 @@
 
 <div>
   <a href="https://doi.org/10.5281/zenodo.3906999">
-    <img src="https://zenodo.org/badge/doi/10.5281/zenodo.3906999.svg" alt="DOI">
+    <img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI">
   </a>
 
   <a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
