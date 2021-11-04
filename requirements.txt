@@ -8,7 +8,7 @@ scipy
 xarray
 zarr
 fsspec
-s3fs
+s3fs==2021.10.1
 requests
 aiohttp
 typing-extensions~=3.10
