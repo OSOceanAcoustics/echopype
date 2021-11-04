@@ -337,7 +337,7 @@ def open_raw(
         model of the sonar instrument
 
         - ``EK60``: Kongsberg Simrad EK60 echosounder
-        - ``EK80``: Kongsberg Simrad EK60 and Kongsberg EA640 echsoounders
+        - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
         - ``AZFP``: ASL Environmental Sciences AZFP echosounder
         - ``AD2CP``: Nortek Signature series ADCP
           (tested with Signature 500 and Signature 1000)
