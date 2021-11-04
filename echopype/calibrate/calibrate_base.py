@@ -15,6 +15,7 @@ CAL_PARAMS = {
 
 DataKind = Literal["stationary", "mobile", "organized"]
 InterpMethod = Literal["linear", "nearest", "zero", "slinear", "quadratic", "cubic"]
+ExtrapMethod = Literal["linear", "nearest"]
 VALID_INTERP_METHODS: Dict[DataKind, List[InterpMethod]] = {
     "stationary": ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],
     "mobile": ["linear", "nearest", "cubic"],
@@ -25,14 +26,55 @@ VALID_INTERP_METHODS: Dict[DataKind, List[InterpMethod]] = {
 class EnvParams:
     def __init__(
         self,
-        env_params,
+        env_params: xr.Dataset,
         data_kind: DataKind,
         interp_method: InterpMethod = "linear",
-        extrap_method: Optional[Literal["linear", "nearest"]] = None,
+        extrap_method: Optional[ExtrapMethod] = None,
     ):
         """
-        Interp methods limited depending on data_kind
-        Extrap only available for stationary and organized
+        Class to hold and interpolate external environmental data for calibration purposes.
+
+        This class can be used as the `env_params` paremter in `echopype.calibrate.compute_Sv`
+        or `echopype.calibrate.compute_Sp`. It is intended to be used with environmental parameters
+        indexed by time. Environmental parameters will be interpolated onto dimensions within
+        the Platform group of the `EchoData` object being used for calibration.
+
+        Parameters
+        ----------
+        env_params : xr.Dataset
+            The environmental parameters to use for calibration. This data will be interpolated with
+            a provided `EchoData` object.
+
+            When `data_kind` is `"stationary"`, env_params must have a coordinate `"ping_time"`.
+            When `data_kind` is `"mobile"`, env_params must have coordinates `"latitude"`
+            and `"longitude"`.
+            When `data_kind` is `"mobile"`, env_params must have coordinates `"time"`,
+            `"latitude"`, and `"longitude"`.
+        data_kind : {"stationary", "mobile", "organized"}
+            The type of the environmental parameters.
+
+            `"stationary"`: environmental parameters from a fixed location
+            (for example, a single CTD).
+            `"mobile"` environmental parameters from a moving location (for example, a ship).
+            `"organized"`: environmental parameters from many fixed locations
+            (for example, multiple CTDs).
+        interp_method: {"linear", "nearest", "zero", "slinear", "quadratic", "cubic"}
+            Method for interpolation of environmental parameters with the data from the
+            provided `EchoData` object.
+        extrap_method: {None, "linear", "nearest"}
+            Optional method for extrapolation of environmental parameters with the data from the
+            provided `EchoData` object. Currently only supported when `data_kind` is `"stationary"`.
+
+        Notes
+        -----
+        Currently cases where `data_kind` is `"organized"` are not supported; support will be added
+        in a future version.
+
+        Examples
+        --------
+        >>> env_params = xr.open_dataset("env_params.nc")
+        >>> EnvParams(env_params, data_kind="mobile", interp_method="linear")
+        >>> echopype.calibrate.compute_Sv(echodata, env_params=env_params)
         """
         if interp_method not in VALID_INTERP_METHODS[data_kind]:
             raise ValueError(
