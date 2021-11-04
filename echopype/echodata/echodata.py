@@ -168,10 +168,10 @@ class EchoData:
             This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
             and in those cases it must be specified.
         ek_encode_mode : {"complex", "power"}, optional
-            For EK80 data, range can be computed from complex or power samples.
+            For EK80 data, range can be computed from complex or power/angle samples.
             The type of sample used can be specified with this parameter.
             - `"complex"` to use complex samples
-            - `"power"` to use power samples
+            - `"power"` to use power/angle samples
             This parameter is only used if `sonar_model` is `"EK80"`.
 
         Returns

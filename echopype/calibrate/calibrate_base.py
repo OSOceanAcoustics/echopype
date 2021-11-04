@@ -1,4 +1,5 @@
 import abc
+import xarray as xr
 
 ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
 
