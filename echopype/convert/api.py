@@ -341,7 +341,7 @@ def open_raw(
         - ``AZFP``: ASL Environmental Sciences AZFP echosounder
         - ``AD2CP``: Nortek Signature series ADCP
           (tested with Signature 500 and Signature 1000)
-          
+
     xml_path : str
         path to XML config file used by AZFP
     convert_params : dict
