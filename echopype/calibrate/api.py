@@ -41,7 +41,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     Compute volume backscattering strength (Sv) from raw data.
 
     The calibration routine varies depending on the sonar type.
-    Currently this operation is supported for the following ``sonar_model``s:
+    Currently this operation is supported for the following ``sonar_model``:
     EK60, AZFP, EK80 (see below for detail).
 
     The EK80 echosounder can be configured to transmit
@@ -59,15 +59,22 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     Parameters
     ----------
     waveform_mode : {"CW", "BB"}, optional
-        Type of transmit waveform.
-        - `"CW"` for CW-mode samples, either recorded as complex or power/angle samples
-        - `"BB"` for BB-mode samples, recorded as complex samples
+        Type of transmit waveform:
+
+        - `"CW"` for narrowband transmission,
+          returned echoes recorded either as complex or power/angle samples
+        - `"BB"` for broadband transmission samples,
+          returned echoes recorded as complex samples
+
         This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
         and in those cases it must be specified.
+
     encode_mode : {"complex", "power"}, optional
-        Type of encoded return echo data.
-        - `"complex"` to use complex samples
-        - `"power"` to use power/angle samples
+        Type of encoded return echo data:
+
+        - `"complex"` for complex samples
+        - `"power"` for power/angle samples
+
         This parameter is only used if `sonar_model` is `"EK80"`.
 
     Returns
@@ -102,15 +109,22 @@ def compute_Sp(echodata: EchoData, **kwargs):
     Parameters
     ----------
     waveform_mode : {"CW", "BB"}, optional
-        Type of transmit waveform.
-        - `"CW"` for CW-mode samples, either recorded as complex or power/angle samples
-        - `"BB"` for BB-mode samples, recorded as complex samples
+        Type of transmit waveform:
+
+        - `"CW"` for narrowband transmission,
+          returned echoes recorded either as complex or power/angle samples
+        - `"BB"` for broadband transmission samples,
+          returned echoes recorded as complex samples
+
         This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
         and in those cases it must be specified.
+
     encode_mode : {"complex", "power"}, optional
-        Type of encoded return echo data.
-        - `"complex"` to use complex samples
-        - `"power"` to use power/angle samples
+        Type of encoded return echo data:
+
+        - `"complex"` for complex samples
+        - `"power"` for power/angle samples
+
         This parameter is only used if `sonar_model` is `"EK80"`.
 
     Returns

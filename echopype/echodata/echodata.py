@@ -143,7 +143,6 @@ class EchoData:
 
         This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
         If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
-
         If the `sonar_model` is `"AZFP"`, the returned range's data will be duplicated
         for all `ping_time`s.
 
@@ -151,27 +150,41 @@ class EchoData:
         ----------
         env_params: dict
             This dictionary should contain either:
+
             - `"sound_speed"`: `float`
-            - `"temperature"`, `"salinity"`, and `"pressure"`: `float`s,
+            - `"temperature"`, `"salinity"`, and `"pressure"`: `float`s
+
             in which case the sound speed will be calculated.
             If the `sonar_model` is `"EK60"` or `"EK80"`, and
             `EchoData.environment.sound_speed_indicative` exists, then this parameter
             does not need to be specified.
+
         azfp_cal_type : {"Sv", "Sp"}, optional
+
             - `"Sv"` for calculating volume backscattering strength
             - `"Sp"` for calculating point backscattering strength.
+
             This parameter is only used if `sonar_model` is `"AZFP"`,
             and in that case it must be specified.
+
         ek_waveform_mode : {"CW", "BB"}, optional
-            - `"CW"` for CW-mode samples, either recorded as complex or power samples
-            - `"BB"` for BB-mode samples, recorded as complex samples
+            Type of transmit waveform:
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - `"BB"` for broadband transmission samples,
+              returned echoes recorded as complex samples
+
             This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
             and in those cases it must be specified.
+
         ek_encode_mode : {"complex", "power"}, optional
             For EK80 data, range can be computed from complex or power/angle samples.
             The type of sample used can be specified with this parameter.
-            - `"complex"` to use complex samples
-            - `"power"` to use power/angle samples
+
+            - `"complex"` for complex samples
+            - `"power"` for power/angle samples
+
             This parameter is only used if `sonar_model` is `"EK80"`.
 
         Returns
@@ -336,12 +349,14 @@ class EchoData:
         `time_dim` parameter.
         Data is extracted from `extra_platform_data` by variable name; only the data
         in `extra_platform_data` with the following variable names will be used:
-            - `"pitch"`
-            - `"roll"`
-            - `"heave"`
-            - `"latitude"`
-            - `"longitude"`
-            - `"water_level"`
+
+        - `"pitch"`
+        - `"roll"`
+        - `"heave"`
+        - `"latitude"`
+        - `"longitude"`
+        - `"water_level"`
+
         The data inserted into the Platform group will be indexed by a dimension named `"time2"`.
 
         Parameters
