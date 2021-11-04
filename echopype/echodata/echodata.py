@@ -375,6 +375,15 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
+        extra_platform_data = extra_platform_data.sel(
+            {
+                time_dim: np.logical_and(
+                    self.beam["ping_time"].min() < extra_platform_data[time_dim],
+                    extra_platform_data[time_dim] < self.beam["ping_time"].max(),
+                )
+            }
+        )
+
         platform = self.platform
         platform = platform.drop_dims("location_time", errors="ignore")
         platform = platform.assign_coords(
