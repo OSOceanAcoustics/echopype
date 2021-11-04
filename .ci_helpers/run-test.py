@@ -1,6 +1,6 @@
 """run-test.py
 
-Script to run tests in Github.
+Script to run tests in Github and locally.
 
 """
 import argparse
@@ -31,6 +31,7 @@ MODULES_TO_TEST = {
     "preprocess": {},
     "utils": {},
     "old": {"extra_globs": ["echopype/convert/convert.py", "echopype/process/*"]},
+    "metrics": {},
 }
 
 if __name__ == "__main__":
@@ -62,13 +63,17 @@ if __name__ == "__main__":
         dump_path = Path("echopype/test_data/dump")
         if temp_path.exists():
             shutil.rmtree(temp_path)
-
         if dump_path.exists():
             shutil.rmtree(dump_path)
-        echopype_folder = Path("echopype")
-        file_list = glob.glob(str(echopype_folder / "**" / "*.py"), recursive=True)
+
+        if args.touchedfiles == "":
+            echopype_folder = Path("echopype")
+            file_list = glob.glob(str(echopype_folder / "**" / "*.py"), recursive=True)
+        else:
+            file_list = args.touchedfiles.split(",")
     else:
         file_list = args.touchedfiles.split(",")
+
     pytest_args = []
     if args.pytest_args:
         pytest_args = args.pytest_args.split(",")

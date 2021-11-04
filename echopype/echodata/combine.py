@@ -24,6 +24,7 @@ def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
 
 
 def assemble_combined_provenance(input_paths):
+    input_paths = [str(p) for p in input_paths]
     return xr.Dataset(
         data_vars={
             "src_filenames": ("file", input_paths),
@@ -252,12 +253,15 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # save ping time before reversal correction
     if old_ping_time is not None:
         result.provenance["old_ping_time"] = old_ping_time
+        result.provenance.attrs["reversed_ping_times"] = 1
     # save location time before reversal correction
     if old_location_time is not None:
         result.provenance["old_location_time"] = old_location_time
+        result.provenance.attrs["reversed_ping_times"] = 1
     # save mru time before reversal correction
     if old_mru_time is not None:
         result.provenance["old_mru_time"] = old_mru_time
+        result.provenance.attrs["reversed_ping_times"] = 1
     # TODO: possible parameter to disable original attributes and original ping_time storage
     # in provenance group?
     # save attrs from before combination
@@ -291,5 +295,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             dims=["echodata_filename", f"{group}_attr_key"],
         )
         result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
+
+    # Add back sonar model
+    result.sonar_model = sonar_model
 
     return result

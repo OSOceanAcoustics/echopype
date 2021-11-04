@@ -62,7 +62,7 @@ def get_file_format(file):
 
 
 def _get_suffix(filepath: Union[str, Path, FSMap]) -> str:
-    """ Check if file type is supported. """
+    """Check if file type is supported."""
     # TODO: handle multiple files through the same set of checks for combining files
     if isinstance(filepath, FSMap):
         suffix = Path(filepath.root).suffix
@@ -200,19 +200,20 @@ def validate_output_path(
             if isinstance(sanitized_path, Path):
                 check_file_permissions(sanitized_path.parent)
                 final_path = sanitized_path
+                out_path = str(
+                    final_path.parent.joinpath(final_path.stem + file_ext).absolute()
+                )
             else:
                 path_dir = fsspec.get_mapper(
                     os.path.dirname(save_path), **output_storage_options
                 )
                 check_file_permissions(path_dir)
                 final_path = Path(save_path)
+                out_path = save_path
             if final_path.suffix != file_ext:
                 warnings.warn(
                     "Mismatch between specified engine and save_path found; forcing output format to engine."  # noqa
                 )
-            out_path = str(
-                final_path.parent.joinpath(final_path.stem + file_ext).absolute()
-            )
     return out_path
 
 

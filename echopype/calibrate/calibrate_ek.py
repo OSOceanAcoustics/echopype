@@ -1,5 +1,8 @@
+from typing import Union
+
 import numpy as np
 import xarray as xr
+from dask.array.core import Array
 from scipy import signal
 
 from ..utils import uwa
@@ -35,7 +38,7 @@ class CalibrateEK(CalibrateBase):
             ek_encode_mode=encode_mode,
         )
 
-    def _get_vend_cal_params_power(self, param):
+    def _get_vend_cal_params_power(self, param, waveform_mode):
         """Get cal parameters stored in the Vendor group.
 
         Parameters
@@ -69,7 +72,7 @@ class CalibrateEK(CalibrateBase):
                 dim="ping_time", how="any", subset=["transmit_duration_nominal"]
             )
 
-        if self.echodata.beam_power is not None:
+        if waveform_mode == "CW" and self.echodata.beam_power is not None:
             beam = self.echodata.beam_power
         else:
             beam = self.echodata.beam
@@ -85,6 +88,10 @@ class CalibrateEK(CalibrateBase):
         idx_wanted = np.abs(pulse_length - unique_pulse_length).argmin(
             dim="pulse_length_bin"
         )
+
+        # Checks for dask array and compute first
+        if isinstance(idx_wanted.data, Array):
+            idx_wanted = idx_wanted.data.compute()
 
         return (
             ds_vend[param]
@@ -120,7 +127,7 @@ class CalibrateEK(CalibrateBase):
                 self.cal_params[p] = (
                     cal_params[p]
                     if p in cal_params
-                    else self._get_vend_cal_params_power(p)
+                    else self._get_vend_cal_params_power(p, waveform_mode=waveform_mode)
                 )
 
         # Other params
@@ -551,21 +558,23 @@ class CalibrateEK80(CalibrateEK):
 
         return y_all, y_time_all, tau_effective
 
-    def compress_pulse(self, chirp):
+    def compress_pulse(self, chirp, freq_BB=None):
         """Perform pulse compression on the backscatter data.
 
         Parameters
         ----------
         chirp : dict
             transmit chirp replica indexed by channel_id
+        freq_BB : int or float
+            frequency channels that transmit in BB mode
+            (since CW mode can be in mixed in complex samples too)
         """
-        backscatter = (
-            self.echodata.beam["backscatter_r"]
-            + 1j * self.echodata.beam["backscatter_i"]
-        )
+        backscatter = self.echodata.beam["backscatter_r"].sel(
+            frequency=freq_BB
+        ) + 1j * self.echodata.beam["backscatter_i"].sel(frequency=freq_BB)
 
         pc_all = []
-        for freq in self.echodata.beam.frequency.values:
+        for freq in freq_BB:
             backscatter_freq = (
                 backscatter.sel(frequency=freq)
                 .dropna(dim="range_bin", how="all")
@@ -592,6 +601,68 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
+    def _get_gain_for_complex(
+        self, waveform_mode, freq_center
+    ) -> Union[xr.DataArray, xr.DataArray]:
+        """Get gain factor for calibrating complex samples.
+
+        Use values from ``gain_correction`` in the Vendor group for CW mode samples,
+        or interpolate ``gain`` to the center frequency of each ping for BB mode samples
+        if nominal frequency is within the calibrated frequencies range
+
+        Parameters
+        ----------
+        waveform_mode : str
+            ``CW`` for CW-mode samples, either recorded as complex or power samples
+            ``BB`` for BB-mode samples, recorded as complex samples
+        freq_center : xr.DataArray
+            Nominal channel frequency for CW mode samples
+            and an xr.DataArray with coorindate ``frequency`` and ``ping_time`` for BB mode samples
+
+        Returns
+        -------
+        An xr.Dataset containing either Sv or Sp.
+        """
+        if waveform_mode == "BB":
+            gain_single = self._get_vend_cal_params_power(
+                "gain_correction", waveform_mode=waveform_mode
+            )
+            gain = []
+            if "gain" in self.echodata.vendor.data_vars:
+                # index using channel_id as order of frequency across channel can be arbitrary
+                # refererence to freq_center in case some channels are CW complex samples
+                # (already dropped when computing freq_center in the calling function)
+                for fn in freq_center.frequency:
+                    ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
+                    # if freq-dependent gain exists in data
+                    if ch_id in self.echodata.vendor.cal_channel_id:
+                        gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
+                        gain_temp = (
+                            gain_vec.interp(
+                                cal_frequency=freq_center.sel(frequency=fn)
+                            ).drop(["cal_channel_id", "cal_frequency"])
+                        ).expand_dims("frequency")
+                    # if no freq-dependent gain use CW gain
+                    else:
+                        gain_temp = (
+                            gain_single.sel(frequency=fn)
+                            .assign_coords(ping_time=np.datetime64(0, "ns"))
+                            .expand_dims("ping_time")
+                            .reindex_like(
+                                self.echodata.beam.backscatter_r, method="nearest"
+                            )
+                            .expand_dims("frequency")
+                        )
+                    gain_temp.name = "gain"
+                    gain.append(gain_temp)
+                gain = xr.merge(gain).gain  # select the single data variable
+        elif waveform_mode == "CW":
+            gain = self._get_vend_cal_params_power(
+                "gain_correction", waveform_mode=waveform_mode
+            ).sel(frequency=freq_center.frequency)
+
+        return gain
+
     def _cal_complex(self, cal_type, waveform_mode):
         """Calibrate complex data from EK80.
 
@@ -607,9 +678,31 @@ class CalibrateEK80(CalibrateEK):
         # Transmit replica and effective pulse length
         chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
 
-        # pulse compression
+        # use center frequency for each ping to select BB or CW channels
+        # when all samples are encoded as complex samples
+        if (
+            "frequency_start" in self.echodata.beam
+            and "frequency_end" in self.echodata.beam
+        ):
+            freq_center = (
+                self.echodata.beam["frequency_start"]
+                + self.echodata.beam["frequency_end"]
+            ) / 2
+        else:
+            freq_center = None
+
         if waveform_mode == "BB":
-            pc = self.compress_pulse(chirp)
+            if freq_center is None:
+                raise ValueError(
+                    "frequency_start and frequency_end should exist in BB mode data, "
+                    "double check the EchoData object!"
+                )
+            # if CW and BB complex samples co-exist
+            # drop those that contain CW samples (nan in freq start/end)
+            freq_sel = freq_center.dropna(dim="frequency")
+
+            # backscatter data
+            pc = self.compress_pulse(chirp, freq_BB=freq_sel.frequency)
             prx = (
                 self.echodata.beam.quadrant.size
                 * np.abs(pc.mean(dim="quadrant")) ** 2
@@ -618,6 +711,15 @@ class CalibrateEK80(CalibrateEK):
                 / self.z_et
             )
         else:
+            if freq_center is None:
+                # when only have CW complex samples
+                freq_sel = self.echodata.beam.frequency
+            else:
+                # if BB and CW complex samples co-exist
+                # drop those that contain BB samples (not nan in freq start/end)
+                freq_sel = freq_center.where(np.isnan(freq_center), drop=True).frequency
+
+            # backscatter data
             backscatter_cw = (
                 self.echodata.beam["backscatter_r"]
                 + 1j * self.echodata.beam["backscatter_i"]
@@ -632,56 +734,66 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # Derived params
+        # derived params
         sound_speed = self.env_params["sound_speed"].squeeze()
-        range_meter = self.range_meter
-        freq_nominal = self.echodata.beam.frequency
+        absorption = (
+            self.env_params["sound_absorption"]
+            .sel(frequency=freq_sel.frequency)
+            .squeeze()
+        )
+        range_meter = self.range_meter.sel(frequency=freq_sel.frequency).squeeze()
         if waveform_mode == "BB":
-            freq_center = (
-                self.echodata.beam["frequency_start"]
-                + self.echodata.beam["frequency_end"]
-            ) / 2
-            wavelength = sound_speed / freq_center
-        elif waveform_mode == "CW":
-            wavelength = sound_speed / freq_nominal
-        # gain = self.echodata.vendor['gain']  # TODO: need to interpolate gain to at freq_center
-        gain = 27
+            # use true center frequency for BB pulse
+            wavelength = sound_speed / freq_sel
+
+            # use true center frequency to interpolate for gain factor
+            gain = self._get_gain_for_complex(
+                waveform_mode=waveform_mode, freq_center=freq_sel
+            )
+
+        else:
+            # use nominal channel frequency for CW pulse
+            wavelength = sound_speed / freq_sel
+
+            # use nominal channel frequency to select gain factor
+            gain = self._get_gain_for_complex(
+                waveform_mode=waveform_mode, freq_center=freq_sel
+            )
 
         # Transmission loss
-        spreading_loss = (
-            20 * np.log10(range_meter.where(range_meter >= 1, other=1)).squeeze()
-        )
-        absorption_loss = (
-            2 * self.env_params["sound_absorption"].squeeze() * range_meter.squeeze()
-        )
+        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
+        absorption_loss = 2 * absorption * range_meter
 
         # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
         #  Is this due to the use of 'single' in matlab code?
         if cal_type == "Sv":
-            # get equivalent beam angle
-            if waveform_mode == "BB":
-                psifc = self.echodata.beam["equivalent_beam_angle"] + 10 * np.log10(
-                    freq_nominal / freq_center
-                )
-            elif waveform_mode == "CW":
-                psifc = self.echodata.beam["equivalent_beam_angle"]
-
             # effective pulse length
             tau_effective = xr.DataArray(
                 data=list(tau_effective.values()),
                 coords=[self.echodata.beam.frequency, self.echodata.beam.ping_time],
                 dims=["frequency", "ping_time"],
+            ).sel(frequency=freq_sel.frequency)
+
+            # other params
+            transmit_power = self.echodata.beam["transmit_power"].sel(
+                frequency=freq_sel.frequency
             )
+            if waveform_mode == "BB":
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
+                    frequency=freq_sel.frequency
+                ) + 10 * np.log10(freq_sel.frequency / freq_center)
+            elif waveform_mode == "CW":
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
+                    frequency=freq_sel.frequency
+                )
+
             out = (
                 10 * np.log10(prx)
                 + spreading_loss
                 + absorption_loss
                 - 10
                 * np.log10(
-                    wavelength ** 2
-                    * self.echodata.beam["transmit_power"]
-                    * sound_speed
-                    / (32 * np.pi ** 2)
+                    wavelength ** 2 * transmit_power * sound_speed / (32 * np.pi ** 2)
                 )
                 - 2 * gain
                 - 10 * np.log10(tau_effective)
@@ -690,16 +802,15 @@ class CalibrateEK80(CalibrateEK):
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
         elif cal_type == "Sp":
+            transmit_power = self.echodata.beam["transmit_power"].sel(
+                frequency=freq_sel.frequency
+            )
+
             out = (
                 10 * np.log10(prx)
                 + 2 * spreading_loss
                 + absorption_loss
-                - 10
-                * np.log10(
-                    wavelength ** 2
-                    * self.echodata.beam["transmit_power"]
-                    / (16 * np.pi ** 2)
-                )
+                - 10 * np.log10(wavelength ** 2 * transmit_power / (16 * np.pi ** 2))
                 - 2 * gain
             )
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sp"})
@@ -734,9 +845,9 @@ class CalibrateEK80(CalibrateEK):
         """
         # Raise error for wrong inputs
         if waveform_mode not in ("BB", "CW"):
-            raise ValueError("Input waveform_mode not recognized!")
+            raise ValueError("Input waveform_mode empty or not recognized!")
         if encode_mode not in ("complex", "power"):
-            raise ValueError("Input encode_mode not recognized!")
+            raise ValueError("Input encode_mode empty or not recognized!")
 
         # Set flag_complex
         #  - True: complex cal

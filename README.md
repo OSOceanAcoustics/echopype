@@ -5,8 +5,8 @@
 # Echopype
 
 <div>
-  <a href="https://doi.org/10.5281/zenodo.4066742">
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4066742.svg" alt="DOI">
+  <a href="https://doi.org/10.5281/zenodo.3906999">
+    <img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI">
   </a>
 
   <a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">

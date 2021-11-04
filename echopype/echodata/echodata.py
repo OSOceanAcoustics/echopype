@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import fsspec
 import numpy as np
 import xarray as xr
-from zarr.errors import GroupNotFoundError
+from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
@@ -43,6 +43,7 @@ class EchoData:
         source_file: Optional["PathHint"] = None,
         xml_path: "PathHint" = None,
         sonar_model: "SonarModelsHint" = None,
+        open_kwargs: Dict[str, str] = None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -50,6 +51,9 @@ class EchoData:
 
         self.storage_options: Dict[str, str] = (
             storage_options if storage_options is not None else {}
+        )
+        self.open_kwargs: Dict[str, str] = (
+            open_kwargs if open_kwargs is not None else {}
         )
         self.source_file: Optional["PathHint"] = source_file
         self.xml_path: Optional["PathHint"] = xml_path
@@ -139,6 +143,9 @@ class EchoData:
 
         This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
         If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
+
+        If the `sonar_model` is `"AZFP"`, the returned range's data will be duplicated
+        for all `ping_time`s.
 
         Parameters
         ----------
@@ -253,6 +260,14 @@ class EchoData:
             )
             range_meter.name = "range"  # add name to facilitate xr.merge
 
+            # duplicate range for all ping_times for consistency with EK case
+            # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
+            #   because it expects the range included in the Sv/Sp dataset
+            #   to be indexed by ping_time
+            range_meter = range_meter.expand_dims(
+                {"ping_time": self.beam["ping_time"]}, axis=1
+            )
+
             return range_meter
         elif self.sonar_model in ("EK60", "EK80"):
             waveform_mode = ek_waveform_mode
@@ -312,6 +327,145 @@ class EchoData:
                 "this method only supports sonar_model values of AZFP, EK60, and EK80"
             )
 
+    def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
+        """
+        Updates the `EchoData.platform` group with additional external platform data.
+
+        `extra_platform_data` must be an xarray Dataset.
+        The name of the time dimension in `extra_platform_data` is specified by the
+        `time_dim` parameter.
+        Data is extracted from `extra_platform_data` by variable name; only the data
+        in `extra_platform_data` with the following variable names will be used:
+            - `"pitch"`
+            - `"roll"`
+            - `"heave"`
+            - `"latitude"`
+            - `"longitude"`
+            - `"water_level"`
+        The data inserted into the Platform group will be indexed by a dimension named `"time2"`.
+
+        Parameters
+        ----------
+        extra_platform_data : xr.Dataset
+            An `xr.Dataset` containing the additional platform data to be added
+            to the `EchoData.platform` group.
+        time_dim: str, default="time"
+            The name of the time dimension in `extra_platform_data`; used for extracting
+            data from `extra_platform_data`.
+
+        Examples
+        --------
+        >>> ed = echopype.open_raw(raw_file, "EK60")
+        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
+        >>> ed.update_platform(extra_platform_data)
+        """
+
+        # # only take data during ping times
+        # start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
+
+        # Handle data stored as a CF Trajectory Discrete Sampling Geometry
+        # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
+        # The Saildrone sample data file follows this convention
+        if (
+            "featureType" in extra_platform_data.attrs
+            and extra_platform_data.attrs["featureType"].lower() == "trajectory"
+        ):
+            for coordvar in extra_platform_data.coords:
+                if (
+                    "cf_role" in extra_platform_data[coordvar].attrs
+                    and extra_platform_data[coordvar].attrs["cf_role"]
+                    == "trajectory_id"
+                ):
+                    trajectory_var = coordvar
+
+            # assumes there's only one trajectory in the dataset (index 0)
+            extra_platform_data = extra_platform_data.sel(
+                {trajectory_var: extra_platform_data[trajectory_var][0]}
+            )
+            extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
+            extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
+
+        platform = self.platform.assign_coords(
+            time2=extra_platform_data[time_dim].values
+        )
+        platform["time2"].attrs[
+            "long_name"
+        ] = "time dimension for external platform data"
+
+        dropped_vars = []
+        for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
+            if var in platform and (~platform[var].isnull()).all():
+                dropped_vars.append(var)
+        if len(dropped_vars) > 0:
+            warnings.warn(
+                f"some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
+            )
+        platform = platform.drop_vars(
+            ["pitch", "roll", "heave", "latitude", "longitude", "water_level"],
+            errors="ignore",
+        )
+
+        num_obs = len(extra_platform_data[time_dim])
+
+        def mapping_search_variable(mapping, keys, default=None):
+            for key in keys:
+                if key in mapping:
+                    return mapping[key].data
+            return default
+
+        self.platform = platform.update(
+            {
+                "pitch": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["pitch", "PITCH"],
+                        platform.get("pitch", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "roll": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["roll", "ROLL"],
+                        platform.get("roll", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "heave": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["heave", "HEAVE"],
+                        platform.get("heave", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "latitude": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lat", "latitude", "LATITUDE"],
+                        default=platform.get("latitude", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "longitude": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lon", "longitude", "LONGITUDE"],
+                        default=platform.get("longitude", np.full(num_obs, np.nan)),
+                    ),
+                ),
+                "water_level": (
+                    "time2",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["water_level", "WATER_LEVEL"],
+                        default=platform.get("water_level", np.zeros(num_obs)),
+                    ),
+                ),
+            }
+        )
+
     @classmethod
     def _load_convert(cls, convert_obj):
         new_cls = cls()
@@ -333,7 +487,7 @@ class EchoData:
                     raw_path,
                     group=value["ep_group"],
                 )
-            except (OSError, GroupNotFoundError):
+            except (OSError, GroupNotFoundError, PathNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
             if group == "top" and hasattr(ds, "keywords"):
@@ -368,7 +522,9 @@ class EchoData:
     def _load_group(self, filepath: "PathHint", group: Optional[str] = None):
         """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
-        return xr.open_dataset(filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix])
+        return xr.open_dataset(
+            filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix], **self.open_kwargs
+        )
 
     def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):
         """Save content of EchoData to netCDF.
