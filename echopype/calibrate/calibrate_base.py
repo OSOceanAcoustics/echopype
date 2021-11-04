@@ -135,6 +135,7 @@ class EnvParams:
                 # scipy interp uses "extrapolate" but scipy interpn uses None
                 kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
             )
+            # only keep unique indexes; xarray requires that indexes be unique
             extrap_unique_idx = {
                 dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims
             }
