@@ -6,8 +6,6 @@ import scipy.interpolate
 import xarray as xr
 from typing_extensions import Literal
 
-ENV_PARAMS = ("temperature", "salinity", "pressure", "sound_speed", "sound_absorption")
-
 CAL_PARAMS = {
     "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
