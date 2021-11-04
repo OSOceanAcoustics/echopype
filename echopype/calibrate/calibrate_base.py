@@ -174,7 +174,8 @@ class EnvParams:
                     }
                 )
 
-                # remove zero length dims (xarray does not support in combine_by_coords)
+                # remove empty datasets (xarray does not allow any dims from any datasets
+                # to be length 0 in combine_by_coords)
                 non_zero_dims = [
                     ds
                     for ds in (less, middle, greater)
