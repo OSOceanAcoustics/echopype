@@ -37,11 +37,14 @@ File conversion for different types of echosounders is achieved by
 using the single function ``open_raw`` to parse the raw data and
 create a fully parsed ``EchoData`` object.
 
-For data files from EK60, EK80 and  EA640 echosounders,
-use the parameter ``sonar_model`` to indicate the echosounder type,
-since there is no specific information in the extension ``.raw``
-that includes information about the echosounder type.
-In this example, ``open_raw`` is used to convert a raw EK80 file,
+Use the parameter ``sonar_model`` to indicate the echosounder type:
+    - ``EK60``: Kongsberg Simrad EK60 echosounder
+    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
+    - ``AZFP``: ASL Environmental Sciences AZFP echosounder
+    - ``AD2CP``: Nortek Signature series ADCP
+      (tested with Signature 500 and Signature 1000)
+
+In the following example, ``open_raw`` is used to convert a raw EK80 file,
 return the EchoData object ``ed``, and generate a converted
 netCDF file named ``FILENAME.nc`` saved to the directory path
 ``./unpacked_files``:
