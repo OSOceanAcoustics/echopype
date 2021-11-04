@@ -331,7 +331,8 @@ class EchoData:
             - `"latitude"`
             - `"longitude"`
             - `"water_level"`
-        The data inserted into the Platform group will be indexed by a dimension named `"time2"`.
+        The data inserted into the Platform group will be indexed by a dimension named
+        `"location_time"`.
 
         Parameters
         ----------
@@ -374,10 +375,12 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
-        platform = self.platform.assign_coords(
-            time2=extra_platform_data[time_dim].values
+        platform = self.platform
+        platform = platform.drop_dims("location_time", errors="ignore")
+        platform = platform.assign_coords(
+            location_time=extra_platform_data[time_dim].values
         )
-        platform["time2"].attrs[
+        platform["location_time"].attrs[
             "long_name"
         ] = "time dimension for external platform data"
 
@@ -405,7 +408,7 @@ class EchoData:
         self.platform = platform.update(
             {
                 "pitch": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
@@ -413,7 +416,7 @@ class EchoData:
                     ),
                 ),
                 "roll": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
@@ -421,7 +424,7 @@ class EchoData:
                     ),
                 ),
                 "heave": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["heave", "HEAVE"],
@@ -429,7 +432,7 @@ class EchoData:
                     ),
                 ),
                 "latitude": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
@@ -437,7 +440,7 @@ class EchoData:
                     ),
                 ),
                 "longitude": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
@@ -445,7 +448,7 @@ class EchoData:
                     ),
                 ),
                 "water_level": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
