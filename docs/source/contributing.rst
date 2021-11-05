@@ -17,12 +17,10 @@ source GitHub repository
 `https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
 (``upstream``), then clone your fork; your fork will be the ``origin`` remote. See 
 `this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for 
-guidance on forking and opening pull requests, but replace references to the ``main`` 
+guidance on forking and opening pull requests (PRs), but replace references to the ``main`` 
 branch with the ``dev`` development branch. See 
 `this description of the gitflow workflow <https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow>`_. 
-The complete workflow we use is depicted in the diagram below, which includes
-components involving documentation updates (see `Documentation development`_ below)
-and preparation of releases.
+This diagram depicts the complete workflow we use in the source GitHub repository:
 
 .. mermaid::
 
@@ -35,6 +33,15 @@ and preparation of releases.
         stable --> |docs merge| rel[release/0.x.y]
         dev --> |dev merge| rel
         rel --> main
+
+- ``doc patch``: Updates to the documentation that refer to the current ``echopype`` 
+  release can be pushed out immediately to the `echopype documentation site <https://echopype.readthedocs.io>`_ 
+  by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_ 
+  below for more details.
+- ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
+  branch; changes in the documentation corresponding to changes in the code can be 
+  carried out in this branch as well. 
+- New releases are prepared in a new release branch that merges changes in ``dev`` and ``stable``.
 
 
 Installation for echopype development
@@ -184,12 +191,6 @@ These updates will then become available immediately on the default ReadTheDocs 
 Examples of such updates include fixing spelling mistakes, expanding an explanation, 
 and adding a new section that documents a previously undocumented feature.
 
-Function and object doc strings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For inline strings documenting functions and objects ("doc strings"), we use the
-`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
-
 Documentation versions
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -205,3 +206,9 @@ corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
 for viewing and debugging larger, more experimental changes, typically from a separate fork.
+
+Function and object doc strings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For inline strings documenting functions and objects ("doc strings"), we use the
+`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
