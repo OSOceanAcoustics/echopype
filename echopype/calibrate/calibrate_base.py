@@ -206,6 +206,10 @@ class CalibrateBase(abc.ABC):
             env_params = env_params._apply(echodata)
         elif env_params is None:
             env_params = {}
+        elif not isinstance(env_params, dict):
+            raise ValueError(
+                "invalid env_params type; provide an EnvParams instance, a dict, or None"
+            )
         self.env_params = env_params  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
 
