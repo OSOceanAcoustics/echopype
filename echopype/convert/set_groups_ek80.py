@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from .set_groups_base import SetGroupsBase, set_encodings
+from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase, set_encodings
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -347,11 +347,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
                 ),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -394,14 +390,17 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamp of each ping",
-                        "standard_name": "time",
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
                 ),
-                "range_bin": (["range_bin"], np.arange(data_shape[1])),
-                "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
+                "range_bin": (
+                    ["range_bin"],
+                    np.arange(data_shape[1]),
+                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                ),
+                "quadrant": (
+                    ["quadrant"],
+                    np.arange(num_transducer_sectors)
+                ),
             },
         )
 
@@ -469,13 +468,13 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamp of each ping",
-                        "standard_name": "time",
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
                 ),
-                "range_bin": (["range_bin"], np.arange(data_shape[1])),
+                "range_bin": (
+                    ["range_bin"],
+                    np.arange(data_shape[1]),
+                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                ),
             },
         )
 
@@ -548,13 +547,13 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamp of each ping",
-                        "standard_name": "time",
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
                 ),
-                "range_bin": (["range_bin"], np.arange(range_bin_size)),
+                "range_bin": (
+                    ["range_bin"],
+                    np.arange(range_bin_size),
+                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                ),
             },
         )
         return set_encodings(ds_common)
@@ -630,9 +629,7 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
             ds_data["frequency"] = ds_data["frequency"].assign_attrs(
-                units="Hz",
-                long_name="Transducer frequency",
-                valid_min=0.0,
+                **DEFAULT_BEAM_COORD_ATTRS["frequency"]
             )
             if ch in self.parser_obj.ch_ids["complex"]:
                 ds_complex.append(ds_data)
@@ -698,11 +695,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     param_dict["transducer_frequency"],
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
                 ),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
