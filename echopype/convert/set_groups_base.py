@@ -27,9 +27,7 @@ DEFAULT_BEAM_COORD_ATTRS = {
         "standard_name": "time",
         "axis": "T",
     },
-    "range_bin": {
-        "long_name": "Along-range bin (sample) number, base 0"
-    }
+    "range_bin": {"long_name": "Along-range bin (sample) number, base 0"},
 }
 
 DEFAULT_TIME_ENCODING = {

@@ -7,7 +7,10 @@ import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
 from .set_groups_base import (
-    DEFAULT_CHUNK_SIZE, DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase, set_encodings
+    DEFAULT_BEAM_COORD_ATTRS,
+    DEFAULT_CHUNK_SIZE,
+    SetGroupsBase,
+    set_encodings,
 )
 
 

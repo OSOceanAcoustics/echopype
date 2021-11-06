@@ -397,10 +397,7 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     DEFAULT_BEAM_COORD_ATTRS["range_bin"],
                 ),
-                "quadrant": (
-                    ["quadrant"],
-                    np.arange(num_transducer_sectors)
-                ),
+                "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
             },
         )
 
