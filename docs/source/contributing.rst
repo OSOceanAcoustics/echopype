@@ -125,8 +125,9 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-will execute all tests. For usage information, run it with the ``-h`` argument:
-``python .ci_helpers/run-test.py -h``
+will execute all tests. Passing a comma separated list of modules at the end will limit
+the execution to only tests in the corresponding subpackages. For usage information, 
+run it with the ``-h`` argument: ``python .ci_helpers/run-test.py -h``
 
 pre-commit hooks
 ~~~~~~~~~~~~~~~~
