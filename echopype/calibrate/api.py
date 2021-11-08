@@ -46,13 +46,22 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
 
     Parameters
     ----------
+    echodata : EchoData
+        An `EchoData` object created by using `open_raw` or `open_converted`
+
+    env_params : dict
+        Environmental variables, such as sound speed and absorption, or
+        other variables that can be used to compute these two variables.
+
+    cal_params : dict
+
     waveform_mode : {"CW", "BB"}, optional
         Type of transmit waveform.
         Required only for data from the EK80 echosounder.
 
         - `"CW"` for narrowband transmission,
           returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission samples,
+        - `"BB"` for broadband transmission,
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}, optional
