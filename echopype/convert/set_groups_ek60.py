@@ -6,7 +6,12 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase, set_encodings
+from .set_groups_base import (
+    DEFAULT_BEAM_COORD_ATTRS,
+    DEFAULT_CHUNK_SIZE,
+    SetGroupsBase,
+    set_encodings,
+)
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -514,11 +519,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
                 )
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -600,13 +601,13 @@ class SetGroupsEK60(SetGroupsBase):
                     "ping_time": (
                         ["ping_time"],
                         self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamp of each ping",
-                            "standard_name": "time",
-                        },
+                        DEFAULT_BEAM_COORD_ATTRS["ping_time"],
                     ),
-                    "range_bin": (["range_bin"], np.arange(data_shape[1])),
+                    "range_bin": (
+                        ["range_bin"],
+                        np.arange(data_shape[1]),
+                        DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    ),
                 },
             )
 
