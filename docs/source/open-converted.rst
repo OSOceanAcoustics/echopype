@@ -15,13 +15,14 @@ that returns a lazy loaded ``EchoData`` object (only metadata are read during op
    ed = ep.open_converted(nc_path)              # create an EchoData object
 
 
-.. TODO: Demo opening from Zarr on S3, and opening multiple files.
+.. TODO: Demo opening from Zarr on S3
 
 
 EchoData object
 ---------------
 
-.. TODO: Examine EchoData objects
+.. TODO: Examine EchoData objects. Include the echopype echodata HTML repr, 
+   and a sample of the xarray HTML repr for one of the groups
 
 ``EchoData`` is an object for conveniently handling raw converted data from either 
 raw instrument files (via ``open_raw``) or previously converted and standardized raw files
@@ -29,3 +30,12 @@ raw instrument files (via ``open_raw``) or previously converted and standardized
 where each such object corresponds to one of the netCDF4 groups specified in the SONAR-netCDF4
 convention followed by echopype. It is used for conveniently accessing and exploring the 
 echosounder data and for calibration and other processing.
+
+
+.. TODO: Add section on combine_echodata, including the sample code from echopype_tour nb
+   ed_list = []
+   for converted_file in sorted(glob.glob(str(converted_dpath / "*.nc"))):
+      ed_list.append(ep.open_converted(converted_file))
+   combined_ed = ep.combine_echodata(ed_list)
+
+.. TODO: Mention ep.qc.exist_reversed_time and coerce rev time ..
