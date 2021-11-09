@@ -24,13 +24,9 @@ def _compute_cal(
                 "waveform_mode and encode_mode must be specified for EK80 calibration"
             )
         elif waveform_mode not in ("BB", "CW"):
-            raise ValueError(
-                "Input waveform_mode not recognized!"
-            )
+            raise ValueError("Input waveform_mode not recognized!")
         elif encode_mode not in ("complex", "power"):
-            raise ValueError(
-                "Input encode_mode not recognized!"
-            )
+            raise ValueError("Input encode_mode not recognized!")
         elif waveform_mode == "BB" and encode_mode == "power":
             raise ValueError(
                 "Data from broadband ('BB') transmission must be recorded as complex samples"
