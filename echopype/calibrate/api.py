@@ -1,3 +1,5 @@
+import warnings
+
 import xarray as xr
 
 from ..echodata import EchoData
@@ -15,12 +17,35 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
-    # TODO: Check required waveform_mode and encode_mode for EK80 here
-    # Sanity check on inputs
-    if (waveform_mode is not None) and (waveform_mode not in ("BB", "CW")):
-        raise ValueError("Input waveform_mode not recognized!")
-    if (encode_mode is not None) and (encode_mode not in ("complex", "power")):
-        raise ValueError("Input encode_mode not recognized!")
+    # Check on waveform_mode and encode_mode inputs
+    if echodata.sonar_model == "EK80":
+        if waveform_mode is None or encode_mode is None:
+            raise ValueError(
+                "waveform_mode and encode_mode must be specified for EK80 calibration"
+            )
+        elif waveform_mode not in ("BB", "CW"):
+            raise ValueError(
+                "Input waveform_mode not recognized!"
+            )
+        elif encode_mode not in ("complex", "power"):
+            raise ValueError(
+                "Input encode_mode not recognized!"
+            )
+        elif waveform_mode == "BB" and encode_mode == "power":
+            raise ValueError(
+                "Data from broadband ('BB') transmission must be recorded as complex samples"
+            )
+    elif echodata.sonar_model in ("EK60", "AZFP"):
+        if waveform_mode is not None and waveform_mode != "CW":
+            warnings.warn(
+                "This sonar model transmits only narrowband signals (waveform_mode='CW'). "
+                "Calibration will be in CW mode",
+            )
+        if encode_mode is not None and encode_mode != "power":
+            warnings.warn(
+                "This sonar model only record data as power or power/angle samples "
+                "(encode_mode='power'). Calibration will be done on the power samples.",
+            )
 
     # Set up calibration object
     cal_obj = CALIBRATOR[echodata.sonar_model](
