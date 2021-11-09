@@ -630,9 +630,7 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
-    def _get_gain_for_complex(
-        self, waveform_mode, freq_center
-    ) -> xr.DataArray:
+    def _get_gain_for_complex(self, waveform_mode, freq_center) -> xr.DataArray:
         """Get gain factor for calibrating complex samples.
 
         Use values from ``gain_correction`` in the Vendor group for CW mode samples,
@@ -923,9 +921,7 @@ class CalibrateEK80(CalibrateEK):
         # This simple check is only possible for BB-only data,
         #   since for data with both BB and CW complex samples,
         #   frequency_start will exist in echodata.beam for the BB channels
-        if (
-            waveform_mode == "BB" and "frequency_start" not in self.echodata.beam
-        ):
+        if waveform_mode == "BB" and "frequency_start" not in self.echodata.beam:
             raise ValueError("waveform_mode='BB' but broadband data not found!")
 
         # Set use_beam_power
@@ -955,7 +951,9 @@ class CalibrateEK80(CalibrateEK):
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
-            if "quadrant" in self.echodata.beam.dims:  # data contain only complex samples
+            if (
+                "quadrant" in self.echodata.beam.dims
+            ):  # data contain only complex samples
                 if encode_mode == "power":
                     raise TypeError(
                         "File does not contain power samples! Use encode_mode='complex'"

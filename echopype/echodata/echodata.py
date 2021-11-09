@@ -147,7 +147,7 @@ class EchoData:
         Parameters
         ----------
         env_params : dict
-            Environmental parameters needed for computing sonar range. 
+            Environmental parameters needed for computing sonar range.
             Users can supply `"sound speed"` directly,
             or specify other variables that can be used to compute them,
             including `"temperature"`, `"salinity"`, and `"pressure"`.

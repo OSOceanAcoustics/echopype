@@ -51,7 +51,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         An `EchoData` object created by using `open_raw` or `open_converted`
 
     env_params : dict
-        Environmental parameters needed for calibration. 
+        Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
         or specify other variables that can be used to compute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
@@ -130,7 +130,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
         An `EchoData` object created by using `open_raw` or `open_converted`
 
     env_params : dict
-        Environmental parameters needed for calibration. 
+        Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
         or specify other variables that can be used to compute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
