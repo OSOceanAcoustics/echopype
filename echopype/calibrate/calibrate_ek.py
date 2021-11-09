@@ -15,17 +15,26 @@ class CalibrateEK(CalibrateBase):
         self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
 
-    def compute_range_meter(self, waveform_mode, encode_mode="complex"):
+    def compute_range_meter(self, waveform_mode, encode_mode):
         """
         Parameters
         ----------
-        waveform_mode : str
-            - ``CW`` for CW-mode samples, either recorded as complex or power samples
-            - ``BB`` for BB-mode samples, recorded as complex samples
-        # TODO: remove tvg_correction_factor since no longer used
-        tvg_correction_factor : int
-            - 2 for CW-mode power samples
-            - 0 for CW-mode complex samples
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+            Required only for data from the EK80 echosounder.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
+        encode_mode : {"complex", "power"}
+            Type of encoded return echo data.
+            Required only for data from the EK80 echosounder.
+
+            - `"complex"` for complex samples
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -99,7 +108,7 @@ class CalibrateEK(CalibrateBase):
             .drop("pulse_length_bin")
         )
 
-    def get_cal_params(self, cal_params, waveform_mode=None, encode_mode="complex"):
+    def get_cal_params(self, cal_params, waveform_mode, encode_mode):
         """Get cal params using user inputs or values from data file.
 
         Parameters
@@ -311,7 +320,7 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def get_env_params(self, env_params, waveform_mode=None, encode_mode="complex"):
+    def get_env_params(self, env_params, waveform_mode="BB", encode_mode="complex"):
         """Get env params using user inputs or values from data file.
 
         EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -322,13 +331,21 @@ class CalibrateEK80(CalibrateEK):
         Parameters
         ----------
         env_params : dict
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
-        encode_mode : str
-            EK80 data can be encoded as complex samples or power samples.
-            Use ``complex`` to compute Sv from only complex samples,
-            and ``power`` to compute Sv from only power samples.
+
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - (default) `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
+        encode_mode : {"complex", "power"}
+            Type of encoded return echo data.
+
+            - (default) `"complex"` for complex samples
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
         """
 
         if (
@@ -683,9 +700,13 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
 
         Returns
         -------
@@ -849,14 +870,21 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        waveform_mode : {"BB", "CW"}
-            ``"BB"`` for BB-mode samples, recorded as complex samples (default)
-            ``"CW"`` for CW-mode samples, either recorded as complex or power samples
+
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
         encode_mode : {"complex", "power"}
-            Use ``complex`` to compute Sv from only complex samples,
-            and ``power`` to compute Sv from only power samples.
-            Broadband ("BB") EK80 data can only be encoded as complex samples,
-            whereas narrowband ("CW") EK80 data can be encoded as either complex or power samples
+            Type of encoded return echo data.
+
+            - `"complex"` for complex samples
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -867,12 +895,12 @@ class CalibrateEK80(CalibrateEK):
         if waveform_mode not in ("BB", "CW"):
             raise ValueError(
                 "Input waveform_mode not recognized! "
-                "waveform_mode must be 'BB' or 'CW' for EK80 data."
+                "waveform_mode must be either 'BB' or 'CW' for EK80 data."
             )
         if encode_mode not in ("complex", "power"):
             raise ValueError(
                 "Input encode_mode not recognized! "
-                "encode_mode must be 'complex' or 'power' for EK80 data."
+                "encode_mode must be either 'complex' or 'power' for EK80 data."
             )
 
         # Set flag_complex
@@ -957,15 +985,20 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        encode_mode : str
-            For EK80 data by default calibration is performed for the complex samples.
-            Use ``complex`` to compute Sv from only complex samples (default),
-            and ``power`` to compute Sv from only power samples.
-            Note if waveform_mode='BB', only complex samples are collected.
-            For all other sonar systems, calibration for power samples is performed.
-        waveform_mode : str
-            ``BB`` for BB-mode samples, recorded as complex samples (default)
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - (default) `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
+        encode_mode : {"complex", "power"}
+            Type of encoded return echo data.
+
+            - (default) `"complex"` for complex samples
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -982,15 +1015,20 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        encode_mode : str
-            For EK80 data by default calibration is performed for the complex samples.
-            Use ``complex`` to compute Sv from only complex samples (default),
-            and ``power`` to compute Sv from only power samples.
-            Note if waveform_mode='BB', only complex samples are collected.
-            For all other sonar systems, calibration for power samples is performed.
-        waveform_mode : str
-            ``BB`` for BB-mode samples, recorded as complex samples (default)
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - (default) `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
+        encode_mode : {"complex", "power"}
+            Type of encoded return echo data.
+
+            - (default) `"complex"` for complex samples
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
 
         Returns
         -------

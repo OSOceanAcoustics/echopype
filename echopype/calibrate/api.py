@@ -15,6 +15,7 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
+    # TODO: Check required waveform_mode and encode_mode for EK80 here
     # Sanity check on inputs
     if (waveform_mode is not None) and (waveform_mode not in ("BB", "CW")):
         raise ValueError("Input waveform_mode not recognized!")

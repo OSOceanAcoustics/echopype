@@ -139,13 +139,12 @@ def test_compute_Sv_ek80_pc_echoview():
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
 
     # Create a CalibrateEK80 object to perform pulse compression
-    waveform_mode = 'BB'
     cal_obj = CalibrateEK80(
-        echodata, env_params=None, cal_params=None, 
-        waveform_mode=waveform_mode, encode_mode="complex"
+        echodata, env_params=None, cal_params=None,
+        waveform_mode="BB", encode_mode="complex"
     )
-    cal_obj.compute_range_meter(waveform_mode=waveform_mode)  # compute range [m]
-    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
+    cal_obj.compute_range_meter(waveform_mode="BB", encode_mode="complex")  # compute range [m]
+    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
     freq_center = (
         echodata.beam["frequency_start"]
         + echodata.beam["frequency_end"]
