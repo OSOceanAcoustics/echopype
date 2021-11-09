@@ -50,10 +50,26 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         An `EchoData` object created by using `open_raw` or `open_converted`
 
     env_params : dict
-        Environmental variables, such as sound speed and absorption, or
-        other variables that can be used to compute these two variables.
+        Environmental parameters needed for calibration, including
+        `"sound speed"` and `"absorption"`,
+        or other variables that can be used to compute these variables,
+        including `"temperature"`, `"salinity"`, and `"pressure"`.
+
+        By default echopype uses environmental variables stored in the data files.
+        For the AZFP echosounder, salinity and pressure need to be supplied
+        because only temperature is stored in the instrument.
+        Some AZFP echosounders are equipped with a pressure sensor.
 
     cal_params : dict
+        Intrument-dependent calibration parameters.
+
+        - for EK60 echosounder, allowed parameters include:
+          `"sa_correction"`, `"gain_correction"`, `"equivalent_beam_angle"`
+        - for AZFP echosounder, allowed parameters include:
+          `"EL"`, `"DS"`, `"TVR"`, `"VTX"`, `"equivalent_beam_angle"`, `"Sv_offset"`
+
+        Passing in calibration parameters for other echosounders
+        are not currently supported
 
     waveform_mode : {"CW", "BB"}, optional
         Type of transmit waveform.
