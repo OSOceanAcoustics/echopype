@@ -50,15 +50,17 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         An `EchoData` object created by using `open_raw` or `open_converted`
 
     env_params : dict
-        Environmental parameters needed for calibration, including
-        `"sound speed"` and `"absorption"`,
-        or other variables that can be used to compute these variables,
+        Environmental parameters needed for calibration. 
+        Users can supply `"sound speed"` and `"absorption"` directly,
+        or specify other variables that can be used to compute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
 
-        By default echopype uses environmental variables stored in the data files.
-        For the AZFP echosounder, salinity and pressure need to be supplied
-        because only temperature is stored in the instrument.
-        Some AZFP echosounders are equipped with a pressure sensor.
+        For EK60 and EK80 echosounders, by default echopype uses
+        environmental variables stored in the data files.
+        For AZFP echosounder, all environmental parameters need to be supplied.
+        AZFP echosounders typically are equipped with an internal temperature
+        sensor, and some are equipped with a pressure sensor, but automatically
+        using these pressure data is not currently supported.
 
     cal_params : dict
         Intrument-dependent calibration parameters.
@@ -81,16 +83,17 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}, optional
-        Type of encoded return echo data. 
+        Type of encoded return echo data.
         Required only for data from the EK80 echosounder.
 
         - `"complex"` for complex samples
-        - `"power"` for power/angle samples
+        - `"power"` for power/angle samples, only allowed when
+          the echosounder is configured for narrowband transmission
 
     Returns
     -------
     xr.Dataset
-        The calibrated Sv dataset, including calibration parameters
+        The calibrated Sp dataset, including calibration parameters
         and environmental variables used in the calibration operations.
 
     Notes
@@ -101,8 +104,9 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     When transmitting in broadband mode, the returned echoes are
     encoded as complex samples (``encode_mode="complex"``).
     When transmitting in narrowband mode, the returned echoes can be encoded
-    either as complex samples or as power/angle combinations in a format
-    similar to those recorded by EK60 echosounders (``encode_mode="power"``).
+    either as complex samples (``encode_mode="complex"``)
+    or as power/angle combinations (``encode_mode="power"``) in a format
+    similar to those recorded by EK60 echosounders.
 
     The current calibration implemented for EK80 broadband complex data
     uses band-integrated Sv with the gain computed at the center frequency
@@ -125,15 +129,17 @@ def compute_Sp(echodata: EchoData, **kwargs):
         An `EchoData` object created by using `open_raw` or `open_converted`
 
     env_params : dict
-        Environmental parameters needed for calibration, including
-        `"sound speed"` and `"absorption"`,
-        or other variables that can be used to compute these variables,
+        Environmental parameters needed for calibration. 
+        Users can supply `"sound speed"` and `"absorption"` directly,
+        or specify other variables that can be used to compute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
 
-        By default echopype uses environmental variables stored in the data files.
-        For the AZFP echosounder, salinity and pressure need to be supplied
-        because only temperature is stored in the instrument.
-        Some AZFP echosounders are equipped with a pressure sensor.
+        For EK60 and EK80 echosounders, by default echopype uses
+        environmental variables stored in the data files.
+        For AZFP echosounder, all environmental parameters need to be supplied.
+        AZFP echosounders typically are equipped with an internal temperature
+        sensor, and some are equipped with a pressure sensor, but automatically
+        using these pressure data is not currently supported.
 
     cal_params : dict
         Intrument-dependent calibration parameters.
@@ -156,11 +162,12 @@ def compute_Sp(echodata: EchoData, **kwargs):
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}, optional
-        Type of encoded return echo data. 
+        Type of encoded return echo data.
         Required only for data from the EK80 echosounder.
 
         - `"complex"` for complex samples
-        - `"power"` for power/angle samples
+        - `"power"` for power/angle samples, only allowed when
+          the echosounder is configured for narrowband transmission
 
     Returns
     -------
@@ -176,8 +183,9 @@ def compute_Sp(echodata: EchoData, **kwargs):
     When transmitting in broadband mode, the returned echoes are
     encoded as complex samples (``encode_mode="complex"``).
     When transmitting in narrowband mode, the returned echoes can be encoded
-    either as complex samples or as power/angle combinations in a format
-    similar to those recorded by EK60 echosounders (``encode_mode="power"``).
+    either as complex samples (``encode_mode="complex"``)
+    or as power/angle combinations (``encode_mode="power"``) in a format
+    similar to those recorded by EK60 echosounders.
 
     The current calibration implemented for EK80 broadband complex data
     uses band-integrated Sv with the gain computed at the center frequency

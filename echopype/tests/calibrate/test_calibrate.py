@@ -14,14 +14,14 @@ ek80_cal_path = Path('./echopype/test_data/ek80_bb_with_calibration')
 
 def test_compute_Sv_ek60_echoview():
     # constant range_bin
-    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))
     ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     # Convert file
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
 
     # Compare with EchoView outputs
     channels = []
@@ -45,8 +45,8 @@ def test_compute_Sv_ek60_matlab():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
-    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sp = ep.calibrate.compute_Sp(echodata)
 
     # Load matlab outputs and test
 

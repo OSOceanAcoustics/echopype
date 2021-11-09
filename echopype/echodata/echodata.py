@@ -141,51 +141,48 @@ class EchoData:
         """
         Computes the range of the data contained in this `EchoData` object, in meters.
 
-        This method only applies to `sonar_model`s of `"AZFP"`, `"EK60"`, and `"EK80"`.
-        If the `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`, an error is raised.
-        If the `sonar_model` is `"AZFP"`, the returned range's data will be duplicated
-        for all `ping_time`s.
+        Currently this operation is supported for the following ``sonar_model``:
+        EK60, AZFP, EK80 (see Notes below for detail).
 
         Parameters
         ----------
-        env_params: dict
-            This dictionary should contain either:
+        env_params : dict
+            Environmental parameters needed for computing sonar range. 
+            Users can supply `"sound speed"` directly,
+            or specify other variables that can be used to compute them,
+            including `"temperature"`, `"salinity"`, and `"pressure"`.
 
-            - `"sound_speed"`: `float`
-            - `"temperature"`, `"salinity"`, and `"pressure"`: `float`s
-
-            in which case the sound speed will be calculated.
-            If the `sonar_model` is `"EK60"` or `"EK80"`, and
-            `EchoData.environment.sound_speed_indicative` exists, then this parameter
-            does not need to be specified.
+            For EK60 and EK80 echosounders, by default echopype uses
+            environmental variables stored in the data files.
+            For AZFP echosounder, all environmental parameters need to be supplied.
+            AZFP echosounders typically are equipped with an internal temperature
+            sensor, and some are equipped with a pressure sensor, but automatically
+            using these pressure data is not currently supported.
 
         azfp_cal_type : {"Sv", "Sp"}, optional
 
             - `"Sv"` for calculating volume backscattering strength
             - `"Sp"` for calculating point backscattering strength.
 
-            This parameter is only used if `sonar_model` is `"AZFP"`,
-            and in that case it must be specified.
+            This parameter needs to be specified for data from the AZFP echosounder,
+            due to a difference in computing range for Sv and Sp.
 
         ek_waveform_mode : {"CW", "BB"}, optional
-            Type of transmit waveform:
+            Type of transmit waveform.
+            Required only for data from the EK80 echosounder.
 
             - `"CW"` for narrowband transmission,
               returned echoes recorded either as complex or power/angle samples
-            - `"BB"` for broadband transmission samples,
+            - `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-            This parameter is only used if `sonar_model` is `"EK60"` or `"EK80"`,
-            and in those cases it must be specified.
-
         ek_encode_mode : {"complex", "power"}, optional
-            For EK80 data, range can be computed from complex or power/angle samples.
-            The type of sample used can be specified with this parameter.
+            Type of encoded return echo data.
+            Required only for data from the EK80 echosounder.
 
             - `"complex"` for complex samples
-            - `"power"` for power/angle samples
-
-            This parameter is only used if `sonar_model` is `"EK80"`.
+            - `"power"` for power/angle samples, only allowed when
+              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -196,17 +193,31 @@ class EchoData:
         ------
         ValueError
             - When `sonar_model` is `"AZFP"` but `azfp_cal_type` is not specified or is `None`.
-            - When `sonar_model` is `"EK60"` or `"EK80"` but `ek_waveform_mode`
-            is not specified or is `None`.
-            - When `sonar_model` is `"EK60"` but `waveform_mode` is `"BB"` (EK60 cannot have
-            broadband samples).
+            - When `sonar_model` is `"EK80"` but `ek_waveform_mode` is not specified or is `None`.
+            - When `sonar_model` is `"EK60"` but `waveform_mode` is `"BB"`
             - When `sonar_model` is `"AZFP"` and `env_params` does not contain
-            either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
+              either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is `"EK60"` or `"EK80"`,
-            EchoData.environment.sound_speed_indicative does not exist,
-            and `env_params` does not contain either `"sound_speed"` or all of `"temperature"`,
-            `"salinity"`, and `"pressure"`.
+              EchoData.environment.sound_speed_indicative does not exist,
+              and `env_params` does not contain either `"sound_speed"`
+              or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
+
+        Notes
+        -----
+        The EK80 echosounder can be configured to transmit
+        either broadband (``waveform_mode="BB"``)
+        or narrowband (``waveform_mode="CW"``) signals.
+        When transmitting in broadband mode, the returned echoes are
+        encoded as complex samples (``encode_mode="complex"``).
+        When transmitting in narrowband mode, the returned echoes can be encoded
+        either as complex samples (``encode_mode="complex"``)
+        or as power/angle combinations (``encode_mode="power"``) in a format
+        similar to those recorded by EK60 echosounders.
+
+        For AZFP echosounder, the returned range is duplicated along `ping_time`
+        to conform with outputs from other echosounders, even though within each data
+        file the range is held constant.
         """
 
         def squeeze_non_scalar(n):
@@ -237,6 +248,7 @@ class EchoData:
                 "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
             )
 
+        # AZFP
         if self.sonar_model == "AZFP":
             cal_type = azfp_cal_type
             if cal_type is None:
@@ -282,17 +294,28 @@ class EchoData:
             )
 
             return range_meter
+
+        # EK
         elif self.sonar_model in ("EK60", "EK80"):
             waveform_mode = ek_waveform_mode
             encode_mode = ek_encode_mode
 
-            if self.sonar_model == "EK60" and waveform_mode == "BB":
-                raise ValueError("EK60 cannot have BB samples")
+            # EK60 can only be CW mode
+            if self.sonar_model == "EK60":
+                if waveform_mode is None:
+                    waveform_mode = "CW"  # default to CW mode
+                elif waveform_mode != "CW":
+                    raise ValueError("EK60 must have CW samples")
 
-            if waveform_mode is None:
+            # EK80 needs waveform_mode specification
+            if self.sonar_model == "EK80" and waveform_mode is None:
                 raise ValueError(
-                    "ek_waveform_mode must be specified when sonar_model is EK60 or EK80"
+                    "ek_waveform_mode must be specified when sonar_model is EK80"
                 )
+
+            # TVG correction factor changes depending when the echo recording starts
+            # wrt when the transmit signal is sent out.
+            # This implementation is different for EK60 and EK80.
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
@@ -301,6 +324,8 @@ class EchoData:
                     and encode_mode == "power"
                     and self.beam_power is not None
                 ):
+                    # if both CW and BB exist and beam_power group is not empty
+                    # this means that CW is recorded in power/angle mode
                     beam = self.beam_power
                 else:
                     beam = self.beam
@@ -335,9 +360,11 @@ class EchoData:
             range_meter.name = "range"  # add name to facilitate xr.merge
 
             return range_meter
+
+        # OTHERS
         else:
             raise ValueError(
-                "this method only supports sonar_model values of AZFP, EK60, and EK80"
+                "this method only supports the following sonar_model: AZFP, EK60, and EK80"
             )
 
     def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
