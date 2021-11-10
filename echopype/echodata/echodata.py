@@ -1,7 +1,7 @@
+import datetime
 import uuid
 import warnings
 from collections import OrderedDict
-import datetime
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
@@ -92,6 +92,8 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
             new_ds[var].encoding = encoding
 
     return new_ds
+
+
 # ------------ End of duplicated block ----------------------------------------
 
 
@@ -383,10 +385,10 @@ class EchoData:
             )
 
     def update_platform(
-            self,
-            extra_platform_data: xr.Dataset,
-            time_dim="time",
-            extra_platform_data_file_name=None
+        self,
+        extra_platform_data: xr.Dataset,
+        time_dim="time",
+        extra_platform_data_file_name=None,
     ):
         """
         Updates the `EchoData.platform` group with additional external platform data.
@@ -463,7 +465,9 @@ class EchoData:
         platform = platform.assign_coords(
             location_time=extra_platform_data[time_dim].values
         )
-        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        history_attr = (
+            f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        )
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
         location_time_attrs = {**DEFAULT_PLATFORM_COORD_ATTRS['location_time'], **{'history': history_attr}}
