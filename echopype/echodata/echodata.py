@@ -470,8 +470,13 @@ class EchoData:
         )
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
-        location_time_attrs = {**DEFAULT_PLATFORM_COORD_ATTRS['location_time'], **{'history': history_attr}}
-        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
+        location_time_attrs = {
+            **DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+            **{"history": history_attr},
+        }
+        platform["location_time"] = platform["location_time"].assign_attrs(
+            **location_time_attrs
+        )
 
         dropped_vars = []
         for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
