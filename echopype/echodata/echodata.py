@@ -1,6 +1,7 @@
 import uuid
 import warnings
 from collections import OrderedDict
+import datetime
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import fsspec
 import numpy as np
 import xarray as xr
+from xarray import coding
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
+# from ..convert.set_groups_base import set_encodings
 from .convention import _get_convention
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
@@ -28,6 +31,65 @@ TVG_CORRECTION_FACTOR = {
     "EK80": 0,
 }
 
+DEFAULT_PLATFORM_COORD_ATTRS = {
+    "axis": "T",
+    "long_name": "Timestamps for NMEA datagrams",
+    "standard_name": "time",
+}
+
+# ---- Duplicated everything in this block from ..convert.set_groups_base -----
+# ---- to circumvent circular imports error
+DEFAULT_TIME_ENCODING = {
+    "units": "seconds since 1900-01-01T00:00:00+00:00",
+    "calendar": "gregorian",
+    "_FillValue": np.nan,
+    "dtype": np.dtype("float64"),
+}
+
+DEFAULT_ENCODINGS = {
+    "ping_time": DEFAULT_TIME_ENCODING,
+    "ping_time_burst": DEFAULT_TIME_ENCODING,
+    "ping_time_average": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder_raw": DEFAULT_TIME_ENCODING,
+    "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
+    "location_time": DEFAULT_TIME_ENCODING,
+    "mru_time": DEFAULT_TIME_ENCODING,
+}
+
+
+def _encode_dataarray(da, dtype):
+    """Encodes and decode datetime64 array similar to writing to file"""
+    if da.size == 0:
+        return da
+    read_encoding = {
+        "units": "seconds since 1900-01-01T00:00:00+00:00",
+        "calendar": "gregorian",
+    }
+
+    if dtype in [np.float64, np.int64]:
+        encoded_data = da
+    else:
+        encoded_data, _, _ = coding.times.encode_cf_datetime(da, **read_encoding)
+    return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
+
+def set_encodings(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Set the default encoding for variables.
+    """
+    new_ds = ds.copy(deep=True)
+    for var, encoding in DEFAULT_ENCODINGS.items():
+        if var in new_ds:
+            da = new_ds[var].copy()
+            if "_time" in var:
+                new_ds[var] = xr.apply_ufunc(
+                    _encode_dataarray, da, keep_attrs=True, kwargs={"dtype": da.dtype}
+                )
+
+            new_ds[var].encoding = encoding
+
+    return new_ds
+# ------------ End of duplicated block ----------------------------------------
 
 class EchoData:
     """Echo data model class for handling raw converted data,
@@ -316,7 +378,12 @@ class EchoData:
                 "this method only supports sonar_model values of AZFP, EK60, and EK80"
             )
 
-    def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
+    def update_platform(
+            self,
+            extra_platform_data: xr.Dataset,
+            time_dim="time",
+            extra_platform_data_file_name=None
+    ):
         """
         Updates the `EchoData.platform` group with additional external platform data.
 
@@ -342,6 +409,8 @@ class EchoData:
         time_dim: str, default="time"
             The name of the time dimension in `extra_platform_data`; used for extracting
             data from `extra_platform_data`.
+        extra_platform_data_file_name: str, default=None
+            File name for source of extra platform data, if read from a file
 
         Examples
         --------
@@ -375,6 +444,7 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
+        # TODO: Expand the clipping range by one (or 2?) indices
         extra_platform_data = extra_platform_data.sel(
             {
                 time_dim: np.logical_and(
@@ -389,9 +459,11 @@ class EchoData:
         platform = platform.assign_coords(
             location_time=extra_platform_data[time_dim].values
         )
-        platform["location_time"].attrs[
-            "long_name"
-        ] = "time dimension for external platform data"
+        platform["location_time"].assign_attrs(**DEFAULT_PLATFORM_COORD_ATTRS)
+        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        if extra_platform_data_file_name:
+            history_attr += ", from file " + extra_platform_data_file_name
+        platform["location_time"].assign_attrs(history=history_attr)
 
         dropped_vars = []
         for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
@@ -414,57 +486,59 @@ class EchoData:
                     return mapping[key].data
             return default
 
-        self.platform = platform.update(
-            {
-                "pitch": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["pitch", "PITCH"],
-                        platform.get("pitch", np.full(num_obs, np.nan)),
+        self.platform = set_encodings(
+            platform.update(
+                {
+                    "pitch": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["pitch", "PITCH"],
+                            platform.get("pitch", np.full(num_obs, np.nan)),
+                        ),
                     ),
-                ),
-                "roll": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["roll", "ROLL"],
-                        platform.get("roll", np.full(num_obs, np.nan)),
+                    "roll": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["roll", "ROLL"],
+                            platform.get("roll", np.full(num_obs, np.nan)),
+                        ),
                     ),
-                ),
-                "heave": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["heave", "HEAVE"],
-                        platform.get("heave", np.full(num_obs, np.nan)),
+                    "heave": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["heave", "HEAVE"],
+                            platform.get("heave", np.full(num_obs, np.nan)),
+                        ),
                     ),
-                ),
-                "latitude": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lat", "latitude", "LATITUDE"],
-                        default=platform.get("latitude", np.full(num_obs, np.nan)),
+                    "latitude": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["lat", "latitude", "LATITUDE"],
+                            default=platform.get("latitude", np.full(num_obs, np.nan)),
+                        ),
                     ),
-                ),
-                "longitude": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lon", "longitude", "LONGITUDE"],
-                        default=platform.get("longitude", np.full(num_obs, np.nan)),
+                    "longitude": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["lon", "longitude", "LONGITUDE"],
+                            default=platform.get("longitude", np.full(num_obs, np.nan)),
+                        ),
                     ),
-                ),
-                "water_level": (
-                    "location_time",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["water_level", "WATER_LEVEL"],
-                        default=platform.get("water_level", np.zeros(num_obs)),
+                    "water_level": (
+                        "location_time",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            ["water_level", "WATER_LEVEL"],
+                            default=platform.get("water_level", np.zeros(num_obs)),
+                        ),
                     ),
-                ),
-            }
+                }
+            )
         )
 
     @classmethod

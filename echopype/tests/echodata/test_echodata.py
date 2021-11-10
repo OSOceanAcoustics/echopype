@@ -151,7 +151,8 @@ def test_compute_range(filepath, sonar_model, azfp_xml_path, azfp_cal_type, ek_w
 def test_update_platform():
     saildrone_path = ek80_path / "saildrone"
     raw_file = saildrone_path / "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw"
-    extra_platform_data_file = saildrone_path / "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc"
+    extra_platform_data_file_name = "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc"
+    extra_platform_data_file = saildrone_path / extra_platform_data_file_name
 
     ed = echopype.open_raw(raw_file, "EK80")
 
@@ -160,7 +161,10 @@ def test_update_platform():
         assert np.isnan(ed.platform[variable].values).all()
 
     extra_platform_data = xr.open_dataset(extra_platform_data_file)
-    ed.update_platform(extra_platform_data)
+    ed.update_platform(
+        extra_platform_data,
+        extra_platform_data_file_name=extra_platform_data_file_name
+    )
 
     for variable in updated:
         assert not np.isnan(ed.platform[variable].values).all()
