@@ -32,9 +32,11 @@ TVG_CORRECTION_FACTOR = {
 }
 
 DEFAULT_PLATFORM_COORD_ATTRS = {
-    "axis": "T",
-    "long_name": "Timestamps for NMEA datagrams",
-    "standard_name": "time",
+    "location_time": {
+        "axis": "T",
+        "long_name": "Timestamps for NMEA datagrams",
+        "standard_name": "time",
+    }
 }
 
 # ---- Duplicated everything in this block from ..convert.set_groups_base -----
@@ -73,6 +75,7 @@ def _encode_dataarray(da, dtype):
         encoded_data, _, _ = coding.times.encode_cf_datetime(da, **read_encoding)
     return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
 
+
 def set_encodings(ds: xr.Dataset) -> xr.Dataset:
     """
     Set the default encoding for variables.
@@ -90,6 +93,7 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
 
     return new_ds
 # ------------ End of duplicated block ----------------------------------------
+
 
 class EchoData:
     """Echo data model class for handling raw converted data,
@@ -459,11 +463,11 @@ class EchoData:
         platform = platform.assign_coords(
             location_time=extra_platform_data[time_dim].values
         )
-        platform["location_time"].assign_attrs(**DEFAULT_PLATFORM_COORD_ATTRS)
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
-        platform["location_time"].assign_attrs(history=history_attr)
+        location_time_attrs = {**DEFAULT_PLATFORM_COORD_ATTRS['location_time'], **{'history': history_attr}}
+        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
 
         dropped_vars = []
         for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
