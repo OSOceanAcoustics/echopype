@@ -4,7 +4,8 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 import numpy as np
 import xarray as xr
 
-from .set_groups_base import SetGroupsBase, set_encodings
+from ..utils.coding import set_encodings
+from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsAZFP(SetGroupsBase):
