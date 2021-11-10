@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from .set_groups_base import SetGroupsBase
+from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase
 
 
 class SetGroupsAZFP(SetGroupsBase):
@@ -158,17 +158,21 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
             },
             coords={
-                "frequency": (["frequency"], freq, {"units": "Hz", "valid_min": 0.0}),
+                "frequency": (
+                    ["frequency"],
+                    freq,
+                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                ),
                 "ping_time": (
                     ["ping_time"],
                     ping_time,
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamp of each ping",
-                        "standard_name": "time",
-                    },
+                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
                 ),
-                "range_bin": (["range_bin"], range_bin),
+                "range_bin": (
+                    ["range_bin"],
+                    range_bin,
+                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                ),
             },
             attrs={
                 "beam_mode": "",
