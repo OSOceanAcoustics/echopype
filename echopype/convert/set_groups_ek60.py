@@ -6,12 +6,12 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from .set_groups_base import (
-    DEFAULT_BEAM_COORD_ATTRS,
-    DEFAULT_CHUNK_SIZE,
-    SetGroupsBase,
-    set_encodings,
-)
+from ..utils.coding import set_encodings
+
+# fmt: off
+from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, DEFAULT_CHUNK_SIZE, SetGroupsBase
+
+# fmt: on
 
 
 class SetGroupsEK60(SetGroupsBase):

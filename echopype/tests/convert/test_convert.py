@@ -14,7 +14,7 @@ import xarray as xr
 import pytest
 from echopype import open_raw
 from echopype.testing import TEST_DATA_FOLDER
-from echopype.convert.set_groups_base import DEFAULT_ENCODINGS
+from echopype.utils.coding import DEFAULT_ENCODINGS
 
 
 def _check_file_group(data_file, engine, groups):

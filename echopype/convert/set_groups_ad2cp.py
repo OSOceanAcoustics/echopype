@@ -3,8 +3,9 @@ from typing import List, Optional
 import numpy as np
 import xarray as xr
 
+from ..utils.coding import set_encodings
 from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
-from .set_groups_base import SetGroupsBase, set_encodings
+from .set_groups_base import SetGroupsBase
 
 
 def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:

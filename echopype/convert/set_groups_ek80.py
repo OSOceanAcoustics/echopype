@@ -4,7 +4,8 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase, set_encodings
+from ..utils.coding import set_encodings
+from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase
 
 
 class SetGroupsEK80(SetGroupsBase):
