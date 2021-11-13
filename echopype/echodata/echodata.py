@@ -414,7 +414,7 @@ class EchoData:
         )
 
         platform = self.platform
-        platform_vars_attrs = {var:platform[var].attrs for var in platform.variables}
+        platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
         platform = platform.drop_dims(["location_time"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(
@@ -433,7 +433,14 @@ class EchoData:
             **location_time_attrs
         )
 
-        dropped_vars_target = ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]
+        dropped_vars_target = [
+            "pitch",
+            "roll",
+            "heave",
+            "latitude",
+            "longitude",
+            "water_level",
+        ]
         dropped_vars = []
         for var in dropped_vars_target:
             if var in platform and (~platform[var].isnull()).all():
