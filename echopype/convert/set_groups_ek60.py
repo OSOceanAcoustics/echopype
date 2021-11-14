@@ -6,10 +6,12 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from ..utils.coding import set_encodings
 from ..echodata.convention.attrs import (
-    DEFAULT_BEAM_COORD_ATTRS, DEFAULT_PLATFORM_COORD_ATTRS, DEFAULT_PLATFORM_VAR_ATTRS
+    DEFAULT_BEAM_COORD_ATTRS,
+    DEFAULT_PLATFORM_COORD_ATTRS,
+    DEFAULT_PLATFORM_VAR_ATTRS,
 )
+from ..utils.coding import set_encodings
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase

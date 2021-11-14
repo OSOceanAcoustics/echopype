@@ -59,7 +59,7 @@ DEFAULT_PLATFORM_VAR_ATTRS = {
     },
     "water_level": {
         "long_name": "z-axis distance from the platform coordinate system "
-                     "origin to the sonar transducer",
+        "origin to the sonar transducer",
         "units": "m",
     },
 }
