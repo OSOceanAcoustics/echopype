@@ -403,6 +403,8 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
+        # clip incoming time to 1 less than min of EchoData.beam["ping_time"] and
+        #   1 greater than max of EchoData.beam["ping_time"]
         # account for unsorted time
         sorted_external_time = extra_platform_data[time_dim].data
         sorted_external_time.sort()
@@ -416,8 +418,7 @@ class EchoData:
         max_index = min(
             np.searchsorted(
                 sorted_external_time, self.beam["ping_time"].max(), side="left"
-            )
-            + 1,
+            ),
             len(sorted_external_time) - 1,
         )
         extra_platform_data = extra_platform_data.sel(
