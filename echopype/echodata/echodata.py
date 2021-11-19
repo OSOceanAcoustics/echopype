@@ -403,12 +403,28 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
-        # TODO: Expand the clipping range by one (or 2?) indices
+        # account for unsorted time
+        sorted_external_time = extra_platform_data[time_dim].data
+        sorted_external_time.sort()
+        min_index = max(
+            np.searchsorted(
+                sorted_external_time, self.beam["ping_time"].min(), side="right"
+            )
+            - 1,
+            0,
+        )
+        max_index = min(
+            np.searchsorted(
+                sorted_external_time, self.beam["ping_time"].max(), side="left"
+            )
+            + 1,
+            len(sorted_external_time) - 1,
+        )
         extra_platform_data = extra_platform_data.sel(
             {
                 time_dim: np.logical_and(
-                    self.beam["ping_time"].min() < extra_platform_data[time_dim],
-                    extra_platform_data[time_dim] < self.beam["ping_time"].max(),
+                    sorted_external_time[min_index] <= extra_platform_data[time_dim],
+                    extra_platform_data[time_dim] <= sorted_external_time[max_index],
                 )
             }
         )
