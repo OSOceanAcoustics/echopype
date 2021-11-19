@@ -19,7 +19,8 @@ class Process():
     the new Calibrate and Preprocess functions under the hood.
     """
     def __init__(self, file_path="", salinity=27.9, pressure=59, temperature=None):
-        warnings.warn("Initializing a Process object is deprecated. "
+        warnings.warn("Initializing a Process object is deprecated "
+                      "and it will be removed in the next release. "
                       "More information on how to use the new processing "
                       "functions can be found in the echopype documentation.",
                       DeprecationWarning, 3)
@@ -49,6 +50,7 @@ class Process():
             env_params=self._env_params,
             cal_params=None,
             waveform_mode=self.waveform_mode,
+            encode_mode=self.encode_mode
         )
         # Deprecated data attributes
         self.Sv = None
