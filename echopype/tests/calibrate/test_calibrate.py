@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
+from echopype.calibrate.calibrate_base import EnvParams
 import xarray as xr
 
 azfp_path = Path('./echopype/test_data/azfp')
@@ -218,3 +219,47 @@ def test_compute_Sv_ek80_CW_complex_BB_complex():
     assert isinstance(ds_Sv, xr.Dataset)
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
     assert isinstance(ds_Sv, xr.Dataset)
+
+def test_env_params():
+    """
+    Tests EnvParams interpolation
+    """
+
+    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+
+    # stationary
+    env_params_data = xr.Dataset(
+        data_vars={
+            "pressure": ("ping_time", np.arange(100)),
+            "salinity": ("ping_time", np.arange(100)),
+            "temperature": ("ping_time", np.arange(100)),
+        },
+        coords={
+            "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:50", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+        }
+    )
+    env_params = EnvParams(env_params_data, "stationary")
+    converted_env_params = env_params._apply(ed)
+    for var in converted_env_params.values():
+        assert np.all(np.diff(var) > 0)
+        assert np.all(0 <= var)
+        assert np.all(var < 100)
+
+    # mobile
+    rng = np.random.default_rng(0)
+    env_params_data = xr.Dataset(
+        data_vars={
+            "pressure": ("time", np.arange(100)),
+            "salinity": ("time", np.arange(100)),
+            "temperature": ("time", np.arange(100)),
+        },
+        coords={
+            "latitude": ("time", rng.random(size=100) + 44),
+            "longitude": ("time", rng.random(size=100) - 125),
+        }
+    )
+    env_params = EnvParams(env_params_data, "mobile")
+    converted_env_params = env_params._apply(ed)
+    for var in converted_env_params.values():
+        assert np.all(0 <= var[~np.isnan(var)])
+        assert np.all(var[~np.isnan(var)] < 100)
