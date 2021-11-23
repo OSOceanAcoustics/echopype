@@ -56,7 +56,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             for i in range(len(packets)):
                 packet = packets[i]
                 data_vars = dict()
-                for field_name, field_value in packet.data.items():
+                for field_name, field_value in packet.raw_fields.items():
                     # add dimension names to data vars for xarray
                     # TODO might not work with altimeter_spare
                     field = HeaderOrDataRecordFormats.data_record_format(
@@ -129,10 +129,6 @@ class SetGroupsAd2cp(SetGroupsBase):
             )
             if ds
         ]
-
-        for dataset in datasets:
-            if "offset_of_data" in dataset:
-                print(dataset["offset_of_data"])
 
         datasets = merge_attrs(datasets)
         self.ds = xr.merge(datasets)

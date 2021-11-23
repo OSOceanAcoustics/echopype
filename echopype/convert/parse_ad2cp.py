@@ -34,51 +34,6 @@ class DataRecordType(Enum):
     BOTTOM_TRACK = auto()
     STRING = auto()
 
-    def is_burst(self) -> bool:
-        """
-        Returns whether this data record type is burst
-        """
-
-        return self in (DataRecordType.BURST_VERSION2, DataRecordType.BURST_VERSION3)
-
-    def is_average(self) -> bool:
-        """
-        Returns whether this data record type is average
-        """
-
-        return self in (
-            DataRecordType.AVERAGE_VERSION2,
-            DataRecordType.AVERAGE_VERSION3,
-        )
-
-    def is_echosounder(self) -> bool:
-        """
-        Returns whether this data record type is echosounder
-        """
-
-        return self == DataRecordType.ECHOSOUNDER
-
-    def is_echosounder_raw(self) -> bool:
-        """
-        Returns whether this data record type is raw echosounder
-        """
-
-        return self == DataRecordType.ECHOSOUNDER_RAW
-
-    def is_echosounder_raw_transmit(self) -> bool:
-        """
-        Returns whether this data record type is raw echosounder transmit
-        """
-
-        return self == DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
-
-    def is_string(self) -> bool:
-        """
-        Returns whether this data record type is string
-        """
-
-        return self == DataRecordType.STRING
-
 
 @unique
 class DataType(Enum):
@@ -123,6 +78,9 @@ class Dimension(Enum):
     NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
     SAMPLE = "sample"
     SAMPLE_TRANSMIT = "sample_transmit"
+    MIJ = "mij"
+    XYZ = "xyz"
+    WXYZ = "wxyz"
 
 
 class Field:
@@ -144,7 +102,7 @@ class Field:
         ] = [Dimension.TIME],
         field_units: Optional[str] = None,
         field_unit_conversion: Callable[
-            ["Ad2cpDataPacket", Union[int, float]], float
+            ["Ad2cpDataPacket", np.ndarray], np.ndarray
         ] = lambda self, x: x,
         field_exists_predicate: Callable[["Ad2cpDataPacket"], bool] = lambda _: True,
     ):
@@ -222,15 +180,9 @@ class ParseAd2cp(ParseBase):
     ):
         super().__init__(*args, **kwargs)
         self.burst_average_data_record_version = burst_average_data_record_version
-        self.previous_packet_data_record_type = None
         self.config = None
 
-        self.burst_packets: List[Ad2cpDataPacket] = []
-        self.average_packets: List[Ad2cpDataPacket] = []
-        self.echosounder_packets: List[Ad2cpDataPacket] = []
-        self.echosounder_raw_packets: List[Ad2cpDataPacket] = []
-        self.echosounder_raw_transmit_packets: List[Ad2cpDataPacket] = []
-        self.string_packets: List[Ad2cpDataPacket] = []
+        self.packets: List[Ad2cpDataPacket] = []
 
     def parse_raw(self):
         """
@@ -243,25 +195,13 @@ class ParseAd2cp(ParseBase):
                     packet = Ad2cpDataPacket(
                         f, self, self.burst_average_data_record_version
                     )
-                    self.previous_packet_data_record_type = packet.data_record_type
-                    if packet.is_burst():
-                        self.burst_packets.append(packet)
-                    elif packet.is_average():
-                        self.average_packets.append(packet)
-                    elif packet.is_echosounder():
-                        self.echosounder_packets.append(packet)
-                    elif packet.is_echosounder_raw():
-                        self.echosounder_raw_packets.append(packet)
-                    elif packet.is_echosounder_raw_transmit():
-                        self.echosounder_raw_transmit_packets.append(packet)
-                    elif packet.is_string():
-                        self.string_packets.append(packet)
+                    self.packets.append(packet)
                 except NoMorePackets:
                     break
                 else:
-                    if self.config is None and len(self.string_packets) > 0:
+                    if self.config is None and packet.is_string():
                         self.config = self.parse_config(
-                            self.string_packets[0].data["string_data"]
+                            packet.raw_fields["string_data"]
                         )
 
         if self.config is not None and "GETCLOCKSTR" in self.config:
@@ -286,7 +226,7 @@ class ParseAd2cp(ParseBase):
         """
 
         result = dict()
-        for line in data.splitlines():
+        for line in data[()].splitlines():
             tokens = line.split(",")
             line_dict = dict()
             for token in tokens[1:]:
@@ -329,8 +269,7 @@ class Ad2cpDataPacket:
         self.parser = parser
         self.burst_average_data_record_version = burst_average_data_record_version
         self.data_record_type: Optional[DataRecordType] = None
-        self.data = dict()
-        self.data_exclude = dict()
+        self.raw_fields = dict()
         self._read_data_record_header(f)
         self._read_data_record(f)
 
@@ -340,13 +279,13 @@ class Ad2cpDataPacket:
         Calculates and returns the timestamp of the packet
         """
 
-        year = self.data["year"] + 1900
-        month = self.data["month"] + 1
-        day = self.data["day"]
-        hour = self.data["hour"]
-        minute = self.data["minute"]
-        seconds = self.data["seconds"]
-        microsec100 = self.data["microsec100"]
+        year = self.raw_fields["year"] + 1900
+        month = self.raw_fields["month"] + 1
+        day = self.raw_fields["day"]
+        hour = self.raw_fields["hour"]
+        minute = self.raw_fields["minute"]
+        seconds = self.raw_fields["seconds"]
+        microsec100 = self.raw_fields["microsec100"]
         return np.datetime64(
             f"{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{seconds:02}.{microsec100:04}"
         )
@@ -356,42 +295,65 @@ class Ad2cpDataPacket:
         Returns whether the current packet is a burst packet
         """
 
-        return self.data_record_type.is_burst()
+        return self.raw_fields["id"] in (0x15, 0x18)
 
     def is_average(self) -> bool:
         """
         Returns whether the current packet is an average packet
         """
 
-        return self.data_record_type.is_average()
+        return self.raw_fields["id"] == 0x16
+
+    def is_bottom_track(self) -> bool:
+        """
+        Returns whether the current packet is a bottom track packet
+        """
+
+        return self.raw_fields["id"] in (0x17, 0x1B)
 
     def is_echosounder(self) -> bool:
         """
         Returns whether the current packet is an echosounder packet
         """
 
-        return self.data_record_type.is_echosounder()
+        return self.raw_fields["id"] == 0x1C
 
     def is_echosounder_raw(self) -> bool:
         """
         Returns whether the current packet is a raw echosounder packet
         """
 
-        return self.data_record_type.is_echosounder_raw()
+        return self.raw_fields["id"] == 0x23
 
     def is_echosounder_raw_transmit(self) -> bool:
         """
         Returns whether the current packet is a raw echosounder transmit packet
         """
 
-        return self.data_record_type.is_echosounder_raw_transmit()
+        return self.raw_fields["id"] == 0x24
+
+    def is_burst_altimeter(self) -> bool:
+
+        return self.raw_fields["id"] == 0x1A
+
+    def is_dvl_water_track(self) -> bool:
+
+        return self.raw_fields["id"] == 0x1D
+
+    def is_altimeter(self) -> bool:
+
+        return self.raw_fields["id"] == 0x1E
+
+    def is_average_altimeter(self) -> bool:
+
+        return self.raw_fields["id"] == 0x1F
 
     def is_string(self) -> bool:
         """
         Returns whether the current packet is a string packet
         """
 
-        return self.data_record_type.is_string()
+        return self.raw_fields["id"] == 0xA0
 
     def _read_data_record_header(self, f: BinaryIO):
         """
@@ -402,7 +364,7 @@ class Ad2cpDataPacket:
         raw_header = self._read_data(f, self.data_record_format)
         # don't include the last 2 bytes, which is the header checksum itself
         calculated_checksum = self.checksum(raw_header[:-2])
-        expected_checksum = self.data_exclude["header_checksum"]
+        expected_checksum = self.raw_fields["header_checksum"]
         assert (
             calculated_checksum == expected_checksum
         ), f"invalid header checksum: found {calculated_checksum}, expected {expected_checksum}"
@@ -412,7 +374,7 @@ class Ad2cpDataPacket:
         Reads the data record part of the AD2CP packet from the stream
         """
 
-        if self.data_exclude["id"] in (0x15, 0x18):  # burst
+        if self.is_burst():  # burst
             if (
                 self.burst_average_data_record_version
                 == BurstAverageDataRecordVersion.VERSION2
@@ -425,7 +387,7 @@ class Ad2cpDataPacket:
                 self.data_record_type = DataRecordType.BURST_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
-        elif self.data_exclude["id"] == 0x16:  # average
+        elif self.is_average():  # average
             if (
                 self.burst_average_data_record_version
                 == BurstAverageDataRecordVersion.VERSION2
@@ -438,31 +400,31 @@ class Ad2cpDataPacket:
                 self.data_record_type = DataRecordType.AVERAGE_VERSION3
             else:
                 raise ValueError("invalid burst/average data record version")
-        elif self.data_exclude["id"] in (0x17, 0x1B):  # bottom track
+        elif self.is_bottom_track():  # bottom track
             self.data_record_type = DataRecordType.BOTTOM_TRACK
-        elif self.data_exclude["id"] == 0x23:  # echosounder raw
+        elif self.is_echosounder_raw():  # echosounder raw
             self.data_record_type = DataRecordType.ECHOSOUNDER_RAW
-        elif self.data_exclude["id"] == 0x24:  # echosounder raw transmit
+        elif self.is_echosounder_raw_transmit():  # echosounder raw transmit
             self.data_record_type = DataRecordType.ECHOSOUNDER_RAW_TRANSMIT
-        elif self.data_exclude["id"] == 0x1A:  # burst altimeter
+        elif self.is_burst_altimeter():  # burst altimeter
             # altimeter is only supported by burst/average version 3
             self.data_record_type = DataRecordType.BURST_VERSION3
-        elif self.data_exclude["id"] == 0x1C:  # echosounder
+        elif self.is_echosounder():  # echosounder
             # echosounder is only supported by burst/average version 3
             self.data_record_type = DataRecordType.ECHOSOUNDER
-        elif self.data_exclude["id"] == 0x1D:  # dvl water track record
+        elif self.is_dvl_water_track():  # dvl water track record
             # TODO: is this correct?
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data_exclude["id"] == 0x1E:  # altimeter
+        elif self.is_altimeter():  # altimeter
             # altimeter is only supported by burst/average version 3
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data_exclude["id"] == 0x1F:  # average altimeter
+        elif self.is_average_altimeter():  # average altimeter
             self.data_record_type = DataRecordType.AVERAGE_VERSION3
-        elif self.data_exclude["id"] == 0xA0:  # string data
+        elif self.is_string():  # string data
             self.data_record_type = DataRecordType.STRING
         else:
             raise ValueError(
-                "invalid data record type id: 0x{:02x}".format(self.data_exclude["id"])
+                "invalid data record type id: 0x{:02x}".format(self.raw_fields["id"])
             )
 
         self.data_record_format = HeaderOrDataRecordFormats.data_record_format(
@@ -471,7 +433,7 @@ class Ad2cpDataPacket:
 
         raw_data_record = self._read_data(f, self.data_record_format)
         calculated_checksum = self.checksum(raw_data_record)
-        expected_checksum = self.data_exclude["data_record_checksum"]
+        expected_checksum = self.raw_fields["data_record_checksum"]
         assert (
             calculated_checksum == expected_checksum
         ), f"invalid data record checksum: found {calculated_checksum}, expected {expected_checksum}"  # noqa
@@ -527,39 +489,38 @@ class Ad2cpDataPacket:
             # which, if not read in the correct order with other fields,
             # will offset the rest of the data
             if field_name is not None:
-                self.data[field_name] = parsed_field
+                self.raw_fields[field_name] = parsed_field
                 self._postprocess(field_name)
 
         return raw_bytes
 
     @staticmethod
-    def _parse(value: bytes, data_type: DataType) -> Any:
+    def _parse(value: bytes, data_type: DataType) -> np.ndarray:
         """
         Parses raw bytes into a value given its data type
         """
 
         # all numbers are little endian
         if data_type == DataType.RAW_BYTES:
-            return value
+            return np.frombuffer(value, dtype=np.uint8)
         elif data_type == DataType.STRING:
-            return value.decode("utf-8")
+            return np.array(value.decode("utf-8"))
         elif data_type == DataType.SIGNED_INTEGER:
-            return np.int64(int.from_bytes(value, byteorder="little", signed=True))
+            return np.array(int.from_bytes(value, byteorder="little", signed=True))
         elif data_type == DataType.UNSIGNED_INTEGER:
-            return np.int64(int.from_bytes(value, byteorder="little", signed=False))
+            return np.array(int.from_bytes(value, byteorder="little", signed=False))
         # elif data_type == DataType.UNSIGNED_LONG:
         #     return struct.unpack("<L", value)
         elif data_type == DataType.FLOAT and len(value) == 4:
-            return np.float64(struct.unpack("<f", value)[0])
+            return np.array(struct.unpack("<f", value)[0])
         elif data_type == DataType.FLOAT and len(value) == 8:
-            return np.float64(struct.unpack("<d", value)[0])
+            return np.array(struct.unpack("<d", value)[0])
         elif data_type == DataType.SIGNED_FRACTION:
             # Although the specification states that the data is represented in a
             # signed-magnitude format, an email exchange with Nortek revealed that it is
             # actually in 2's complement form.
-            return (
-                np.float64(int.from_bytes(value, byteorder="little", signed=True))
-                / 2147483648.0
+            return np.array(
+                int.from_bytes(value, byteorder="little", signed=True) / 2147483648.0
             )
         else:
             raise RuntimeError("unrecognized data type")
@@ -599,280 +560,274 @@ class Ad2cpDataPacket:
         Calculates values based on parsed data. This should be called immediately after
         parsing each field in a data record.
         """
-        if field_name in (
-            "header_size",
-            "id",
-            "data_record_size",
-            "data_record_checksum",
-            "header_checksum",
-            "version",
-            "offset_of_data",
-        ):
-            self.data_exclude[field_name] = self.data[field_name]
-            del self.data[field_name]
-        elif (
+        if (
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
         ):
             if field_name == "configuration":
-                self.data["pressure_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0001
+                self.raw_fields["pressure_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0001
                 )
-                self.data["temperature_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0010
+                self.raw_fields["temperature_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0010
                 ) >> 1
-                self.data["compass_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0100
+                self.raw_fields["compass_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0100
                 ) >> 2
-                self.data["tilt_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_1000
+                self.raw_fields["tilt_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_1000
                 ) >> 3
-                self.data["velocity_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_0010_0000
+                self.raw_fields["velocity_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0010_0000
                 ) >> 4
-                self.data["amplitude_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_0100_0000
+                self.raw_fields["amplitude_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0100_0000
                 ) >> 5
-                self.data["correlation_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_1000_0000
+                self.raw_fields["correlation_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_1000_0000
                 ) >> 6
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
-                self.data["num_cells"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["num_cells"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b0000_0011_1111_1111
                 )
-                self.data["coordinate_system"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["coordinate_system"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b0000_1100_0000_0000
                 ) >> 10
-                self.data["num_beams"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["num_beams"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b1111_0000_0000_0000
                 ) >> 12
             elif field_name == "dataset_description":
-                self.data_exclude["beams"] = [
+                self.raw_fields["beams"] = [
                     beam
                     for beam in [
-                        self.data["dataset_description"] & 0b0000_0000_0000_0111,
-                        (self.data["dataset_description"] & 0b0000_0000_0011_1000) >> 3,
-                        (self.data["dataset_description"] & 0b0000_0001_1100_0000) >> 6,
-                        (self.data["dataset_description"] & 0b0000_1110_0000_0000) >> 9,
-                        (self.data["dataset_description"] & 0b0111_0000_0000_0000)
+                        self.raw_fields["dataset_description"] & 0b0000_0000_0000_0111,
+                        (self.raw_fields["dataset_description"] & 0b0000_0000_0011_1000)
+                        >> 3,
+                        (self.raw_fields["dataset_description"] & 0b0000_0001_1100_0000)
+                        >> 6,
+                        (self.raw_fields["dataset_description"] & 0b0000_1110_0000_0000)
+                        >> 9,
+                        (self.raw_fields["dataset_description"] & 0b0111_0000_0000_0000)
                         >> 12,
                     ]
                     if beam > 0
                 ]
-                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
-                    self.parser.echosounder_raw_packets[-1].data[
+                if self.parser.packets[-1].is_echosounder_raw():
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_beam"
-                    ] = self.data_exclude["beams"][0]
+                    ] = self.raw_fields["beams"][0]
                 elif (
-                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.echosounder_raw_transmit_packets[-1].data[
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_beam"
-                    ] = self.data_exclude["beams"][0]
+                    ] = self.raw_fields["beams"][0]
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
         ):
             if field_name == "configuration":
-                self.data["pressure_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0001
+                self.raw_fields["pressure_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0001
                 )
-                self.data["temperature_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0010
+                self.raw_fields["temperature_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0010
                 ) >> 1
-                self.data["compass_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_0100
+                self.raw_fields["compass_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_0100
                 ) >> 2
-                self.data["tilt_sensor_valid"] = (
-                    self.data["configuration"] & 0b0000_0000_0000_1000
+                self.raw_fields["tilt_sensor_valid"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0000_1000
                 ) >> 3
-                self.data["velocity_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_0010_0000
+                self.raw_fields["velocity_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0010_0000
                 ) >> 5
-                self.data["amplitude_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_0100_0000
+                self.raw_fields["amplitude_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_0100_0000
                 ) >> 6
-                self.data["correlation_data_included"] = (
-                    self.data["configuration"] & 0b0000_0000_1000_0000
+                self.raw_fields["correlation_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0000_1000_0000
                 ) >> 7
-                self.data["altimeter_data_included"] = (
-                    self.data["configuration"] & 0b0000_0001_0000_0000
+                self.raw_fields["altimeter_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0001_0000_0000
                 ) >> 8
-                self.data["altimeter_raw_data_included"] = (
-                    self.data["configuration"] & 0b0000_0010_0000_0000
+                self.raw_fields["altimeter_raw_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0010_0000_0000
                 ) >> 9
-                self.data["ast_data_included"] = (
-                    self.data["configuration"] & 0b0000_0100_0000_0000
+                self.raw_fields["ast_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_0100_0000_0000
                 ) >> 10
-                self.data["echosounder_data_included"] = (
-                    self.data["configuration"] & 0b0000_1000_0000_0000
+                self.raw_fields["echosounder_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0000_1000_0000_0000
                 ) >> 11
-                self.data["ahrs_data_included"] = (
-                    self.data["configuration"] & 0b0001_0000_0000_0000
+                self.raw_fields["ahrs_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0001_0000_0000_0000
                 ) >> 12
-                self.data["percentage_good_data_included"] = (
-                    self.data["configuration"] & 0b0010_0000_0000_0000
+                self.raw_fields["percentage_good_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0010_0000_0000_0000
                 ) >> 13
-                self.data["std_dev_data_included"] = (
-                    self.data["configuration"] & 0b0100_0000_0000_0000
+                self.raw_fields["std_dev_data_included"] = (
+                    self.raw_fields["configuration"] & 0b0100_0000_0000_0000
                 ) >> 14
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
-                if self.data["echosounder_data_included"]:
-                    self.data["num_echosounder_cells"] = self.data[
+                if self.raw_fields["echosounder_data_included"]:
+                    self.raw_fields["num_echosounder_cells"] = self.raw_fields[
                         "num_beams_and_coordinate_system_and_num_cells"
                     ]
                 else:
-                    self.data["num_cells"] = (
-                        self.data["num_beams_and_coordinate_system_and_num_cells"]
+                    self.raw_fields["num_cells"] = (
+                        self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                         & 0b0000_0011_1111_1111
                     )
-                    self.data["coordinate_system"] = (
-                        self.data["num_beams_and_coordinate_system_and_num_cells"]
+                    self.raw_fields["coordinate_system"] = (
+                        self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                         & 0b0000_1100_0000_0000
                     ) >> 10
-                    self.data["num_beams"] = (
-                        self.data["num_beams_and_coordinate_system_and_num_cells"]
+                    self.raw_fields["num_beams"] = (
+                        self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                         & 0b1111_0000_0000_0000
                     ) >> 12
             elif field_name == "ambiguity_velocity_or_echosounder_frequency":
-                if self.data["echosounder_data_included"]:
+                if self.raw_fields["echosounder_data_included"]:
                     # This is specified as "echo sounder frequency", but the description technically
                     # says "number of echo sounder cells".
                     # It is probably the frequency and not the number of cells
                     # because the number of cells already replaces the data in
                     # "num_beams_and_coordinate_system_and_num_cells"
                     # when an echo sounder is present
-                    self.data["echosounder_frequency"] = self.data[
+                    self.raw_fields["echosounder_frequency"] = self.raw_fields[
                         "ambiguity_velocity_or_echosounder_frequency"
                     ]
                 else:
-                    self.data["ambiguity_velocity"] = self.data[
+                    self.raw_fields["ambiguity_velocity"] = self.raw_fields[
                         "ambiguity_velocity_or_echosounder_frequency"
                     ]
             elif field_name == "velocity_scaling":
-                if not self.data["echosounder_data_included"]:
+                if not self.raw_fields["echosounder_data_included"]:
                     # The unit conversion for ambiguity velocity is done here because it
                     # requires the velocity_scaling, which is not known
                     # when ambiguity velocity field is parsed
-                    self.data["ambiguity_velocity"] = self.data[
+                    self.raw_fields["ambiguity_velocity"] = self.raw_fields[
                         "ambiguity_velocity"
-                    ] * (10.0 ** self.data["velocity_scaling"])
+                    ] * (10.0 ** self.raw_fields["velocity_scaling"])
             elif field_name == "dataset_description":
-                self.data_exclude["beams"] = [
+                self.raw_fields["beams"] = [
                     beam
                     for beam in [
-                        self.data["dataset_description"] & 0b0000_0000_0000_1111,
-                        (self.data["dataset_description"] & 0b0000_0000_1111_0000) >> 4,
-                        (self.data["dataset_description"] & 0b0000_1111_0000_0000) >> 8,
-                        (self.data["dataset_description"] & 0b1111_0000_0000_0000)
+                        self.raw_fields["dataset_description"] & 0b0000_0000_0000_1111,
+                        (self.raw_fields["dataset_description"] & 0b0000_0000_1111_0000)
+                        >> 4,
+                        (self.raw_fields["dataset_description"] & 0b0000_1111_0000_0000)
+                        >> 8,
+                        (self.raw_fields["dataset_description"] & 0b1111_0000_0000_0000)
                         >> 12,
                     ]
                     if beam > 0
                 ]
-                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
-                    self.parser.echosounder_raw_packets[-1].data[
+                if self.parser.packets[-1].is_echosounder_raw():
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_beam"
-                    ] = self.data_exclude["beams"][0]
+                    ] = self.raw_fields["beams"][0]
                 elif (
-                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.echosounder_raw_transmit_packets[-1].data[
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_beam"
-                    ] = self.data_exclude["beams"][0]
+                    ] = self.raw_fields["beams"][0]
             elif field_name == "status":
-                if self.parser.previous_packet_data_record_type.is_echosounder_raw():
-                    self.parser.echosounder_raw_packets[-1].data[
+                if self.parser.packets[-1].is_echosounder_raw():
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_echogram"
-                    ] = ((self.data["status"] >> 12) & 0b1111) + 1
+                    ] = ((self.raw_fields["status"] >> 12) & 0b1111) + 1
                 elif (
-                    self.parser.previous_packet_data_record_type.is_echosounder_raw_transmit()
+                    self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.echosounder_raw_transmit_packets[-1].data[
+                    self.parser.packets[-1].raw_fields[
                         "echosounder_raw_echogram"
-                    ] = ((self.data["status"] >> 12) & 0b1111) + 1
+                    ] = ((self.raw_fields["status"] >> 12) & 0b1111) + 1
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT
         ):
             if field_name == "configuration":
-                self.data["pressure_sensor_valid"] = (
-                    self.data["data"]["configuration"] & 0b0000_0000_0000_0001
+                self.raw_fields["pressure_sensor_valid"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0000_0000_0001
                 )
-                self.data["temperature_sensor_valid"] = (
-                    self.data["data"]["configuration"] & 0b0000_0000_0000_0010
+                self.raw_fields["temperature_sensor_valid"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0000_0000_0010
                 ) >> 1
-                self.data["compass_sensor_valid"] = (
-                    self.data["data"]["configuration"] & 0b0000_0000_0000_0100
+                self.raw_fields["compass_sensor_valid"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0000_0000_0100
                 ) >> 2
-                self.data["tilt_sensor_valid"] = (
-                    self.data["data"]["configuration"] & 0b0000_0000_0000_1000
+                self.raw_fields["tilt_sensor_valid"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0000_0000_1000
                 ) >> 3
-                self.data["velocity_data_included"] = (
-                    self.data["data"]["configuration"] & 0b0000_0000_0010_0000
+                self.raw_fields["velocity_data_included"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0000_0010_0000
                 ) >> 5
-                self.data["distance_data_included"] = (
-                    self.data["data"]["configuration"] & 0b0000_0001_0000_0000
+                self.raw_fields["distance_data_included"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0001_0000_0000
                 ) >> 8
-                self.data["figure_of_merit_data_included"] = (
-                    self.data["data"]["configuration"] & 0b0000_0010_0000_0000
+                self.raw_fields["figure_of_merit_data_included"] = (
+                    self.raw_fields["data"]["configuration"] & 0b0000_0010_0000_0000
                 ) >> 9
             elif field_name == "num_beams_and_coordinate_system_and_num_cells":
-                self.data["num_cells"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["num_cells"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b0000_0011_1111_1111
                 )
-                self.data["coordinate_system"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["coordinate_system"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b0000_1100_0000_0000
                 ) >> 10
-                self.data["num_beams"] = (
-                    self.data["num_beams_and_coordinate_system_and_num_cells"]
+                self.raw_fields["num_beams"] = (
+                    self.raw_fields["num_beams_and_coordinate_system_and_num_cells"]
                     & 0b1111_0000_0000_0000
                 ) >> 12
             elif field_name == "dataset_description":
-                self.data["beam0"] = (
-                    self.data["dataset_description"] & 0b0000_0000_0000_1111
+                self.raw_fields["beam0"] = (
+                    self.raw_fields["dataset_description"] & 0b0000_0000_0000_1111
                 )
-                self.data["beam1"] = (
-                    self.data["dataset_description"] & 0b0000_0000_1111_0000
+                self.raw_fields["beam1"] = (
+                    self.raw_fields["dataset_description"] & 0b0000_0000_1111_0000
                 ) >> 4
-                self.data["beam2"] = (
-                    self.data["dataset_description"] & 0b0000_1111_0000_0000
+                self.raw_fields["beam2"] = (
+                    self.raw_fields["dataset_description"] & 0b0000_1111_0000_0000
                 ) >> 8
-                self.data["beam3"] = (
-                    self.data["dataset_description"] & 0b1111_0000_0000_0000
+                self.raw_fields["beam3"] = (
+                    self.raw_fields["dataset_description"] & 0b1111_0000_0000_0000
                 ) >> 12
-                self.data["beam4"] = 0
+                self.raw_fields["beam4"] = 0
             elif field_name == "velocity_scaling":
                 # The unit conversion for ambiguity velocity is done here because it
                 # requires the velocity_scaling,
                 # which is not known when ambiguity velocity field is parsed
-                self.data["ambiguity_velocity"] = self.data["ambiguity_velocity"] * (
-                    10.0 ** self.data["velocity_scaling"]
-                )
+                self.raw_fields["ambiguity_velocity"] = self.raw_fields[
+                    "ambiguity_velocity"
+                ] * (10.0 ** self.raw_fields["velocity_scaling"])
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT
         ):
             if field_name == "echosounder_raw_samples":
-                self.data["echosounder_raw_samples_i"] = self.data[
+                self.raw_fields["echosounder_raw_samples_i"] = self.raw_fields[
                     "echosounder_raw_samples"
                 ][:, 0]
-                self.data["echosounder_raw_samples_q"] = self.data[
+                self.raw_fields["echosounder_raw_samples_q"] = self.raw_fields[
                     "echosounder_raw_samples"
                 ][:, 1]
-                del self.data["echosounder_raw_samples"]
+                del self.raw_fields["echosounder_raw_samples"]
             elif field_name == "echosounder_raw_transmit_samples":
-                self.data["echosounder_raw_transmit_samples_i"] = self.data[
+                self.raw_fields["echosounder_raw_transmit_samples_i"] = self.raw_fields[
                     "echosounder_raw_transmit_samples"
                 ][:, 0]
-                self.data["echosounder_raw_transmit_samples_q"] = self.data[
+                self.raw_fields["echosounder_raw_transmit_samples_q"] = self.raw_fields[
                     "echosounder_raw_transmit_samples"
                 ][:, 1]
-                del self.data["echosounder_raw_transmit_samples"]
+                del self.raw_fields["echosounder_raw_transmit_samples"]
 
     @staticmethod
     def checksum(data: bytes) -> int:
@@ -953,11 +908,11 @@ class HeaderOrDataRecordFormats:
             F("family", 1, UNSIGNED_INTEGER),
             F(
                 "data_record_size",
-                lambda packet: 4 if packet.data_exclude["id"] in (0x23, 0x24) else 2,
+                lambda packet: 4 if packet.raw_fields["id"] in (0x23, 0x24) else 2,
                 UNSIGNED_INTEGER,
             ),
-            # F("data_record_size", lambda packet: 4 if packet.data_exclude["id"] in (
-            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.data_exclude["id"]
+            # F("data_record_size", lambda packet: 4 if packet.raw_fields["id"] in (
+            #     0x23, 0x24) else 2, lambda packet: UNSIGNED_LONG if packet.raw_fields["id"]
             #     in (0x23, 0x24) else UNSIGNED_INTEGER),
             F("data_record_checksum", 2, UNSIGNED_INTEGER),
             F("header_checksum", 2, UNSIGNED_INTEGER),
@@ -968,7 +923,7 @@ class HeaderOrDataRecordFormats:
             F("string_data_id", 1, UNSIGNED_INTEGER),
             F(
                 "string_data",
-                lambda packet: packet.data_exclude["data_record_size"] - 1,
+                lambda packet: packet.raw_fields["data_record_size"] - 1,
                 STRING,
             ),
         ]
@@ -1098,8 +1053,8 @@ class HeaderOrDataRecordFormats:
                     2,
                     SIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
@@ -1108,17 +1063,17 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
+                    * (10.0 ** packet.raw_fields["velocity_scaling"]),
                     field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["velocity_data_included"],
+                    and packet.raw_fields["velocity_data_included"],
                 ),
                 F(  # used when average
                     "velocity_data_average",
                     2,
                     SIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
@@ -1127,17 +1082,17 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
+                    * (10.0 ** packet.raw_fields["velocity_scaling"]),
                     field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["velocity_data_included"],
+                    and packet.raw_fields["velocity_data_included"],
                 ),
                 F(  # used when echosounder
                     "velocity_data_echosounder",
                     2,
                     SIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
@@ -1146,17 +1101,17 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
+                    * (10.0 ** packet.raw_fields["velocity_scaling"]),
                     field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["velocity_data_included"],
+                    and packet.raw_fields["velocity_data_included"],
                 ),
                 F(
                     "amplitude_data_burst",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
@@ -1166,15 +1121,15 @@ class HeaderOrDataRecordFormats:
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
                     field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["amplitude_data_included"],
+                    and packet.raw_fields["amplitude_data_included"],
                 ),
                 F(
                     "amplitude_data_average",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
@@ -1184,15 +1139,15 @@ class HeaderOrDataRecordFormats:
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
                     field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["amplitude_data_included"],
+                    and packet.raw_fields["amplitude_data_included"],
                 ),
                 F(
                     "amplitude_data_echosounder",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
@@ -1202,15 +1157,15 @@ class HeaderOrDataRecordFormats:
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
                     field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["amplitude_data_included"],
+                    and packet.raw_fields["amplitude_data_included"],
                 ),
                 F(
                     "correlation_data_burst",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
@@ -1219,15 +1174,15 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["correlation_data_included"],
+                    and packet.raw_fields["correlation_data_included"],
                 ),
                 F(
                     "correlation_data_average",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
@@ -1236,15 +1191,15 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["correlation_data_included"],
+                    and packet.raw_fields["correlation_data_included"],
                 ),
                 F(
                     "correlation_data_echosounder",
                     1,
                     UNSIGNED_INTEGER,
                     field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
+                        packet.raw_fields.get("num_beams", 0),
+                        packet.raw_fields.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
@@ -1253,7 +1208,7 @@ class HeaderOrDataRecordFormats:
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["correlation_data_included"],
+                    and packet.raw_fields["correlation_data_included"],
                 ),
             ]
         )
@@ -1391,8 +1346,8 @@ class HeaderOrDataRecordFormats:
                 2,
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
@@ -1401,17 +1356,17 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10.0 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.raw_fields["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_burst()
-                and packet.data["velocity_data_included"],
+                and packet.raw_fields["velocity_data_included"],
             ),
             F(
                 "velocity_data_average",
                 2,
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
@@ -1420,17 +1375,17 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10.0 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.raw_fields["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_average()
-                and packet.data["velocity_data_included"],
+                and packet.raw_fields["velocity_data_included"],
             ),
             F(
                 "velocity_data_echosounder",
                 2,
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
@@ -1439,17 +1394,17 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10.0 ** packet.data["velocity_scaling"]),
+                * (10.0 ** packet.raw_fields["velocity_scaling"]),
                 field_exists_predicate=lambda packet: packet.is_echosounder()
-                and packet.data["velocity_data_included"],
+                and packet.raw_fields["velocity_data_included"],
             ),
             F(
                 "amplitude_data_burst",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
@@ -1459,15 +1414,15 @@ class HeaderOrDataRecordFormats:
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
                 field_exists_predicate=lambda packet: packet.is_burst()
-                and packet.data["amplitude_data_included"],
+                and packet.raw_fields["amplitude_data_included"],
             ),
             F(
                 "amplitude_data_average",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
@@ -1477,15 +1432,15 @@ class HeaderOrDataRecordFormats:
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
                 field_exists_predicate=lambda packet: packet.is_average()
-                and packet.data["amplitude_data_included"],
+                and packet.raw_fields["amplitude_data_included"],
             ),
             F(
                 "amplitude_data_echosounder",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
@@ -1495,15 +1450,15 @@ class HeaderOrDataRecordFormats:
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
                 field_exists_predicate=lambda packet: packet.is_echosounder()
-                and packet.data["amplitude_data_included"],
+                and packet.raw_fields["amplitude_data_included"],
             ),
             F(
                 "correlation_data_burst",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
@@ -1512,15 +1467,15 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_burst()
-                and packet.data["correlation_data_included"],
+                and packet.raw_fields["correlation_data_included"],
             ),
             F(
                 "correlation_data_average",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
@@ -1529,15 +1484,15 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_average()
-                and packet.data["correlation_data_included"],
+                and packet.raw_fields["correlation_data_included"],
             ),
             F(
                 "correlation_data_echosounder",
                 1,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_beams", 0),
-                    packet.data.get("num_cells", 0),
+                    packet.raw_fields.get("num_beams", 0),
+                    packet.raw_fields.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
@@ -1546,14 +1501,14 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_echosounder()
-                and packet.data["correlation_data_included"],
+                and packet.raw_fields["correlation_data_included"],
             ),
             F(
                 "altimeter_distance",
                 4,
                 FLOAT,
                 field_units="m",
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "altimeter_data_included"
                 ],
             ),
@@ -1561,7 +1516,7 @@ class HeaderOrDataRecordFormats:
                 "altimeter_quality",
                 2,
                 UNSIGNED_INTEGER,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "altimeter_data_included"
                 ],
             ),
@@ -1570,34 +1525,44 @@ class HeaderOrDataRecordFormats:
                 4,
                 FLOAT,
                 field_units="m",
-                field_exists_predicate=lambda packet: packet.data["ast_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ast_data_included"
+                ],
             ),
             F(
                 "ast_quality",
                 2,
                 UNSIGNED_INTEGER,
-                field_exists_predicate=lambda packet: packet.data["ast_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ast_data_included"
+                ],
             ),
             F(
                 "ast_offset_100us",
                 2,
                 SIGNED_INTEGER,
                 field_units="100 μs",
-                field_exists_predicate=lambda packet: packet.data["ast_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ast_data_included"
+                ],
             ),
             F(
                 "ast_pressure",
                 4,
                 FLOAT,
                 field_units="dBar",
-                field_exists_predicate=lambda packet: packet.data["ast_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ast_data_included"
+                ],
             ),
             F(
                 "altimeter_spare",
                 1,
                 RAW_BYTES,
                 field_shape=[8],
-                field_exists_predicate=lambda packet: packet.data["ast_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ast_data_included"
+                ],
             ),
             F(
                 "altimeter_raw_data_num_samples",
@@ -1607,7 +1572,7 @@ class HeaderOrDataRecordFormats:
                 # sizes were likely incorrectly swapped.
                 2,
                 UNSIGNED_INTEGER,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "altimeter_raw_data_included"
                 ],
             ),
@@ -1617,7 +1582,7 @@ class HeaderOrDataRecordFormats:
                 UNSIGNED_INTEGER,
                 field_units="m",
                 field_unit_conversion=lambda packet, x: x / 10000,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "altimeter_raw_data_included"
                 ],
             ),
@@ -1626,10 +1591,10 @@ class HeaderOrDataRecordFormats:
                 2,
                 SIGNED_FRACTION,
                 field_shape=lambda packet: [
-                    packet.data["altimeter_raw_data_num_samples"]
+                    packet.raw_fields["altimeter_raw_data_num_samples"]
                 ],
                 field_dimensions=[Dimension.TIME, Dimension.NUM_ALTIMETER_SAMPLES],
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "altimeter_raw_data_included"
                 ],
             ),
@@ -1640,7 +1605,7 @@ class HeaderOrDataRecordFormats:
                 # testing has shown that it should be a signed integer
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [
-                    packet.data.get("num_echosounder_cells", 0)
+                    packet.raw_fields.get("num_echosounder_cells", 0)
                 ],
                 field_dimensions=[
                     Dimension.TIME_ECHOSOUNDER,
@@ -1648,7 +1613,7 @@ class HeaderOrDataRecordFormats:
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 100,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "echosounder_data_included"
                 ],
             ),
@@ -1656,113 +1621,145 @@ class HeaderOrDataRecordFormats:
                 "ahrs_rotation_matrix_m11",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m12",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m13",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m21",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m22",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m23",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m31",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m32",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_rotation_matrix_m33",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_quaternions_w",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_quaternions_x",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_quaternions_y",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_quaternions_z",
                 4,
                 FLOAT,
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_gyro_x",
                 4,
                 FLOAT,
                 field_units="degrees/s",
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_gyro_y",
                 4,
                 FLOAT,
                 field_units="degrees/s",
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             F(
                 "ahrs_gyro_z",
                 4,
                 FLOAT,
                 field_units="degrees/s",
-                field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
+                field_exists_predicate=lambda packet: packet.raw_fields[
+                    "ahrs_data_included"
+                ],
             ),
             # ("ahrs_gyro", 4, FLOAT, [3], lambda packet: packet.data["ahrs_data_included"]),
             F(
                 "percentage_good_data",
                 1,
                 UNSIGNED_INTEGER,
-                field_shape=lambda packet: [packet.data.get("num_cells", 0)],
+                field_shape=lambda packet: [packet.raw_fields.get("num_cells", 0)],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME,
                     range_bin(data_record_type),
                 ],
                 field_units="%",
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "percentage_good_data_included"
                 ],
             ),
@@ -1774,7 +1771,7 @@ class HeaderOrDataRecordFormats:
                 SIGNED_INTEGER,
                 field_units="degrees",
                 field_unit_conversion=lambda packet, x: x / 100,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "std_dev_data_included"
                 ],
             ),
@@ -1784,7 +1781,7 @@ class HeaderOrDataRecordFormats:
                 SIGNED_INTEGER,
                 field_units="degrees",
                 field_unit_conversion=lambda packet, x: x / 100,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "std_dev_data_included"
                 ],
             ),
@@ -1794,7 +1791,7 @@ class HeaderOrDataRecordFormats:
                 SIGNED_INTEGER,
                 field_units="degrees",
                 field_unit_conversion=lambda packet, x: x / 100,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "std_dev_data_included"
                 ],
             ),
@@ -1804,7 +1801,7 @@ class HeaderOrDataRecordFormats:
                 SIGNED_INTEGER,
                 field_units="dBar",
                 field_unit_conversion=lambda packet, x: x / 100,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "std_dev_data_included"
                 ],
             ),
@@ -1812,7 +1809,7 @@ class HeaderOrDataRecordFormats:
                 None,
                 24,
                 RAW_BYTES,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "std_dev_data_included"
                 ],
             ),
@@ -1941,12 +1938,12 @@ class HeaderOrDataRecordFormats:
                 "velocity_data",
                 4,
                 SIGNED_INTEGER,
-                field_shape=lambda packet: [packet.data.get("num_beams", 0)],
+                field_shape=lambda packet: [packet.raw_fields.get("num_beams", 0)],
                 field_dimensions=[Dimension.TIME, Dimension.BEAM],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
-                * (10.0 ** packet.data["velocity_scaling"]),
-                field_exists_predicate=lambda packet: packet.data[
+                * (10.0 ** packet.raw_fields["velocity_scaling"]),
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "velocity_data_included"
                 ],
             ),
@@ -1954,10 +1951,10 @@ class HeaderOrDataRecordFormats:
                 "distance_data",
                 4,
                 SIGNED_INTEGER,
-                field_shape=lambda packet: [packet.data.get("num_beams", 0)],
+                field_shape=lambda packet: [packet.raw_fields.get("num_beams", 0)],
                 field_dimensions=[Dimension.TIME, Dimension.BEAM],
                 field_unit_conversion=lambda packet, x: x / 1000,
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "distance_data_included"
                 ],
             ),
@@ -1965,9 +1962,9 @@ class HeaderOrDataRecordFormats:
                 "figure_of_merit_data",
                 2,
                 UNSIGNED_INTEGER,
-                field_shape=lambda packet: [packet.data.get("num_beams", 0)],
+                field_shape=lambda packet: [packet.raw_fields.get("num_beams", 0)],
                 field_dimensions=[Dimension.TIME, Dimension.BEAM],
-                field_exists_predicate=lambda packet: packet.data[
+                field_exists_predicate=lambda packet: packet.raw_fields[
                     "figure_of_merit_data_included"
                 ],
             ),
@@ -1995,7 +1992,10 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_samples",
                 4,
                 SIGNED_FRACTION,
-                field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
+                field_shape=lambda packet: [
+                    packet.raw_fields["num_complex_samples"],
+                    2,
+                ],
                 field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw(),
             ),
@@ -2022,7 +2022,10 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_transmit_samples",
                 4,
                 SIGNED_FRACTION,
-                field_shape=lambda packet: [packet.data["num_complex_samples"], 2],
+                field_shape=lambda packet: [
+                    packet.raw_fields["num_complex_samples"],
+                    2,
+                ],
                 field_dimensions=[
                     Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT,
                     Dimension.SAMPLE_TRANSMIT,
