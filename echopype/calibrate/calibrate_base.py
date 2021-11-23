@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import scipy.interpolate
@@ -27,7 +27,7 @@ class EnvParams:
         env_params: xr.Dataset,
         data_kind: DataKind,
         interp_method: InterpMethod = "linear",
-        extrap_method: Optional[ExtrapMethod] = None,
+        extrap_method: ExtrapMethod = "linear",
     ):
         """
         Class to hold and interpolate external environmental data for calibration purposes.
@@ -59,8 +59,8 @@ class EnvParams:
         interp_method: {"linear", "nearest", "zero", "slinear", "quadratic", "cubic"}
             Method for interpolation of environmental parameters with the data from the
             provided `EchoData` object.
-        extrap_method: {None, "linear", "nearest"}
-            Optional method for extrapolation of environmental parameters with the data from the
+        extrap_method: {"linear", "nearest"}
+            Method for extrapolation of environmental parameters with the data from the
             provided `EchoData` object. Currently only supported when `data_kind` is `"stationary"`.
 
         Notes
