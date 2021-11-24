@@ -200,7 +200,6 @@ class ParseAd2cp(ParseBase):
     ):
         super().__init__(*args, **kwargs)
         self.config = None
-
         self.packets: List[Ad2cpDataPacket] = []
 
     def parse_raw(self):
@@ -807,14 +806,6 @@ RANGE_BINS = {
 }
 
 
-def range_bin(data_record_type: DataRecordType) -> Dimension:
-    """
-    Gets the correct range bin dimension for the given data record type
-    """
-
-    return RANGE_BINS[data_record_type]
-
-
 class HeaderOrDataRecordFormat:
     """
     A collection of fields which represents the header format or a data record format
@@ -1012,7 +1003,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1031,7 +1022,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1050,7 +1041,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1069,7 +1060,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1087,7 +1078,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1105,7 +1096,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1123,7 +1114,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_BURST,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_burst()
@@ -1140,7 +1131,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_AVERAGE,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_average()
@@ -1157,7 +1148,7 @@ class HeaderOrDataRecordFormats:
                     field_dimensions=lambda data_record_type: [
                         Dimension.TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        range_bin(data_record_type),
+                        RANGE_BINS[data_record_type],
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_echosounder()
@@ -1305,7 +1296,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1324,7 +1315,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1343,7 +1334,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1362,7 +1353,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1380,7 +1371,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1398,7 +1389,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1416,7 +1407,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_BURST,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_burst()
@@ -1433,7 +1424,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_AVERAGE,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_average()
@@ -1450,7 +1441,7 @@ class HeaderOrDataRecordFormats:
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_echosounder()
@@ -1667,7 +1658,7 @@ class HeaderOrDataRecordFormats:
                 field_shape=lambda packet: [packet.data.get("num_cells", 0)],
                 field_dimensions=lambda data_record_type: [
                     Dimension.TIME,
-                    range_bin(data_record_type),
+                    RANGE_BINS[data_record_type],
                 ],
                 field_units="%",
                 field_exists_predicate=lambda packet: packet.data[
