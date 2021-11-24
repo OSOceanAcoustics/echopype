@@ -56,7 +56,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             for i in range(len(packets)):
                 packet = packets[i]
                 data_vars = dict()
-                for field_name, field_value in packet.raw_fields.items():
+                for field_name, field_value in packet.data.items():
                     # add dimension names to data vars for xarray
                     # TODO might not work with altimeter_spare
                     field = HeaderOrDataRecordFormats.data_record_format(
