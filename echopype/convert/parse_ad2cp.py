@@ -1,20 +1,9 @@
-import struct
 from collections import OrderedDict
 from enum import Enum, auto, unique
-from typing_extensions import Literal
-from typing import (
-    Any,
-    BinaryIO,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
-    Tuple,
-)
+from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+from typing_extensions import Literal
 
 from .parse_base import ParseBase
 
@@ -240,7 +229,7 @@ class ParseAd2cp(ParseBase):
             self.ping_time.append(np.datetime64())
 
     @staticmethod
-    def parse_config(data: str) -> Dict[str, Dict[str, Any]]:
+    def parse_config(data: np.ndarray) -> Dict[str, Dict[str, Any]]:
         """
         Parses the configuration string for the ADCP, which will be the first string data record.
         The data is in the form:
@@ -276,11 +265,11 @@ class ParseAd2cp(ParseBase):
         return result
 
     def get_firmware_version(self) -> Optional[Dict[str, Any]]:
-        return self.config.get("GETHW")
+        return self.config.get("GETHW")  # type: ignore
 
     def get_pulse_compressed(self) -> int:
         for i in range(1, 3 + 1):
-            if "GETECHO" in self.config and self.config["GETECHO"][f"PULSECOMP{i}"] > 0:
+            if "GETECHO" in self.config and self.config["GETECHO"][f"PULSECOMP{i}"] > 0:  # type: ignore # noqa
                 return i
         return 0
 
