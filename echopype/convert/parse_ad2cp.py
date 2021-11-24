@@ -1,6 +1,7 @@
 import struct
 from collections import OrderedDict
 from enum import Enum, auto, unique
+from typing_extensions import Literal
 from typing import (
     Any,
     BinaryIO,
@@ -8,7 +9,6 @@ from typing import (
     Dict,
     Iterable,
     List,
-    Literal,
     Optional,
     Union,
     Tuple,
