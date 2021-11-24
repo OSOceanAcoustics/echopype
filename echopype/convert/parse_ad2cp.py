@@ -289,7 +289,7 @@ class Ad2cpDataPacket:
         self.burst_average_data_record_version = burst_average_data_record_version
         self.data_record_type: Optional[DataRecordType] = None
         self.data = dict()
-        self._read_data_record_header(f)
+        self._read_header(f)
         self._read_data_record(f)
 
     @property
@@ -374,7 +374,7 @@ class Ad2cpDataPacket:
 
         return self.data["id"] == 0xA0
 
-    def _read_data_record_header(self, f: BinaryIO):
+    def _read_header(self, f: BinaryIO):
         """
         Reads the header part of the AD2CP packet from the given stream
         """
