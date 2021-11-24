@@ -195,12 +195,10 @@ class ParseAd2cp(ParseBase):
     def __init__(
         self,
         *args,
-        burst_average_data_record_version: BurstAverageDataRecordVersion = BurstAverageDataRecordVersion.VERSION3,  # noqa
         params,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.burst_average_data_record_version = burst_average_data_record_version
         self.config = None
 
         self.packets: List[Ad2cpDataPacket] = []
@@ -213,9 +211,7 @@ class ParseAd2cp(ParseBase):
         with open(self.source_file, "rb") as f:
             while True:
                 try:
-                    packet = Ad2cpDataPacket(
-                        f, self, self.burst_average_data_record_version
-                    )
+                    packet = Ad2cpDataPacket(f, self)
                     self.packets.append(packet)
                 except NoMorePackets:
                     break
@@ -283,10 +279,8 @@ class Ad2cpDataPacket:
         self,
         f: BinaryIO,
         parser: ParseAd2cp,
-        burst_average_data_record_version: BurstAverageDataRecordVersion,
     ):
         self.parser = parser
-        self.burst_average_data_record_version = burst_average_data_record_version
         self.data_record_type: Optional[DataRecordType] = None
         self.data = dict()
         self._read_header(f)
@@ -394,31 +388,9 @@ class Ad2cpDataPacket:
         """
 
         if self.is_burst():  # burst
-            if (
-                self.burst_average_data_record_version
-                == BurstAverageDataRecordVersion.VERSION2
-            ):
-                self.data_record_type = DataRecordType.BURST_VERSION2
-            elif (
-                self.burst_average_data_record_version
-                == BurstAverageDataRecordVersion.VERSION3
-            ):
-                self.data_record_type = DataRecordType.BURST_VERSION3
-            else:
-                raise ValueError("invalid burst/average data record version")
+            self.data_record_type = DataRecordType.BURST_VERSION3
         elif self.is_average():  # average
-            if (
-                self.burst_average_data_record_version
-                == BurstAverageDataRecordVersion.VERSION2
-            ):
-                self.data_record_type = DataRecordType.AVERAGE_VERSION2
-            elif (
-                self.burst_average_data_record_version
-                == BurstAverageDataRecordVersion.VERSION3
-            ):
-                self.data_record_type = DataRecordType.AVERAGE_VERSION3
-            else:
-                raise ValueError("invalid burst/average data record version")
+            self.data_record_type = DataRecordType.AVERAGE_VERSION3
         elif self.is_bottom_track():  # bottom track
             self.data_record_type = DataRecordType.BOTTOM_TRACK
         elif self.is_echosounder_raw():  # echosounder raw
@@ -600,7 +572,12 @@ class Ad2cpDataPacket:
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
         ):
-            if field_name == "configuration":
+            if field_name == "version":
+                if self.data["version"] == 3:
+                    self.data_record_format = (
+                        HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
+                    )
+            elif field_name == "configuration":
                 self._postprocess_bitfield(
                     self.data["configuration"],
                     [
@@ -638,7 +615,12 @@ class Ad2cpDataPacket:
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
         ):
-            if field_name == "configuration":
+            if field_name == "version":
+                if self.data["version"] == 2:
+                    self.data_record_format = (
+                        HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT
+                    )
+            elif field_name == "configuration":
                 self._postprocess_bitfield(
                     self.data["configuration"],
                     [
