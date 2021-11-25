@@ -722,6 +722,37 @@ class Ad2cpDataPacket:
                     self.parser.packets[-1].data[
                         "echosounder_raw_echogram"
                     ] = self.data["echosounder_index"]
+            elif field_name == "ahrs_rotation_matrix_m33":
+                self.data["ahrs_rotation_matrix"] = np.array(
+                    [
+                        self.data["ahrs_rotation_matrix_m11"],
+                        self.data["ahrs_rotation_matrix_m12"],
+                        self.data["ahrs_rotation_matrix_m13"],
+                        self.data["ahrs_rotation_matrix_m21"],
+                        self.data["ahrs_rotation_matrix_m22"],
+                        self.data["ahrs_rotation_matrix_m23"],
+                        self.data["ahrs_rotation_matrix_m31"],
+                        self.data["ahrs_rotation_matrix_m32"],
+                        self.data["ahrs_rotation_matrix_m33"],
+                    ]
+                )
+            elif field_name == "ahrs_quaternions_z":
+                self.data["ahrs_quaternions"] = np.array(
+                    [
+                        self.data["ahrs_quaternions_w"],
+                        self.data["ahrs_quaternions_x"],
+                        self.data["ahrs_quaternions_y"],
+                        self.data["ahrs_quaternions_z"],
+                    ]
+                )
+            elif field_name == "ahrs_gyro_z":
+                self.data["ahrs_gyro"] = np.array(
+                    [
+                        self.data["ahrs_gyro_x"],
+                        self.data["ahrs_gyro_y"],
+                        self.data["ahrs_gyro_z"],
+                    ]
+                )
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT
