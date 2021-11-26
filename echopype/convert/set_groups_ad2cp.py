@@ -1,10 +1,10 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
+from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats, Dimension
 from .set_groups_base import SetGroupsBase
 
 
@@ -21,12 +21,146 @@ def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
         ds.attrs = total_attrs
     return datasets
 
+AHRS_COORDS: Dict[Dimension, np.ndarray] = {
+    Dimension.MIJ: np.array(["11", "12", "13", "21", "22", "23", "31", "32", "33"]),
+    Dimension.WXYZ: np.array(["w", "x", "y", "z"]),
+    Dimension.XYZ: np.array(["x", "y", "z"]),
+}
+
 
 class SetGroupsAd2cp(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
-        self.combine_packets()
+        # self.combine_packets()
+        self.times: Dict[Dimension, np.ndarray] = dict()
+        self._make_time_coords()
+
+    def _make_time_coords(self):
+        ping_time = []
+        ping_time_average = []
+        ping_time_burst = []
+        ping_time_echosounder = []
+        ping_time_echosounder_raw = []
+        ping_time_echosounder_raw_transmit = []
+
+        for packet in self.parser_obj.packets:
+            if not packet.has_timestamp():
+                continue
+            timestamp = packet.timestamp
+            ping_time.append(timestamp)
+            if packet.is_average():
+                ping_time_average.append(timestamp)
+            elif packet.is_burst():
+                ping_time_burst.append(timestamp)
+            elif packet.is_echosounder():
+                ping_time_echosounder.append(timestamp)
+            elif packet.is_echosounder_raw():
+                ping_time_echosounder_raw.append(timestamp)
+            elif packet.is_echosounder_raw_transmit():
+                ping_time_echosounder_raw_transmit.append(timestamp)
+
+        self.times = {
+            Dimension.PING_TIME: np.array(ping_time),
+            Dimension.PING_TIME_AVERAGE: np.array(ping_time_average),
+            Dimension.PING_TIME_BURST: np.array(ping_time_burst),
+            Dimension.PING_TIME_ECHOSOUNDER: np.array(ping_time_echosounder),
+            Dimension.PING_TIME_ECHOSOUNDER_RAW: np.array(ping_time_echosounder_raw),
+            Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT: np.array(
+                ping_time_echosounder_raw_transmit
+            ),
+        }
+        unique_ping_time, unique_ping_time_idx = np.unique(
+            self.times[Dimension.PING_TIME], return_index=True
+        )
+        self.times[Dimension.PING_TIME] = unique_ping_time
+        self.unique_ping_time_idx = unique_ping_time_idx
+
+    def _make_dataset(self, var_names: Dict[str, str]) -> xr.Dataset:
+        """
+        Constructs a dataset of the given variables using parser_obj data
+        var_names maps parser_obj field names to output dataset variable names
+        """
+
+        # {field_name: [field_value]}
+        #   [field_value] lines up with time_dim
+        fields: Dict[str, List[np.ndarray]] = dict()
+        # {field_name: [Dimension]}
+        dims = dict()
+        # separate by time dim
+        for packet in self.parser_obj.packets:
+            data_record_format = HeaderOrDataRecordFormats.data_record_format(
+                packet.data_record_type
+            )
+            for field_name in var_names.keys():
+                field = data_record_format.get_field(field_name)
+                if field is not None:
+                    if field_name not in dims:
+                        dims[field_name] = field.dimensions(packet.data_record_type)
+
+                    if field_name not in fields:
+                        # init list
+                        fields[field_name] = []
+                    if field_name in packet.data:  # field is in this packet
+                        fields[field_name].append(packet.data[field_name])
+                    else:  # field is not in this packet
+                        # pad the list of field values with an empty array so that
+                        #   the time dimension still lines up with the field values
+                        field_entry_size_bytes = field.field_entry_size_bytes
+                        if callable(field_entry_size_bytes):
+                            field_entry_size_bytes = field_entry_size_bytes(packet)
+                        fields[field_name].append(
+                            np.array(
+                                [],
+                                dtype=field.field_entry_data_type.dtype(
+                                    field_entry_size_bytes
+                                ),
+                            )
+                        )
+
+        # {field_name: field_value}
+        #   field_value is now combined along time_dim
+        combined_fields: Dict[str, np.ndarray] = dict()
+        # pad to max shape and stack
+        for field_name, field_values in fields.items():
+            max_shape = np.amax(
+                np.stack([field_value.shape for field_value in field_values]),
+                axis=0,
+            )
+            field_values = [
+                np.pad(
+                    field_value,
+                    tuple(
+                        [
+                            (0, max_axis_len - field_value.shape[i])
+                            for i, max_axis_len in enumerate(max_shape)  # type: ignore
+                        ]
+                    ),
+                )
+                for field_value in field_values
+            ]
+            field_values = np.stack(field_values)
+            combined_fields[field_name] = field_values
+
+        # take unique ping_time
+        for field_name, field_value in combined_fields.items():
+            if dims[field_name][0] == Dimension.PING_TIME:
+                combined_fields[field_name] = field_value[self.unique_ping_time_idx]
+
+        # make ds
+        used_dims = {dim for dims_list in dims.values() for dim in dims_list}
+        data_vars = {
+            var_name: ([dim.value for dim in dims[field_name]], combined_fields[field_name])
+            for field_name, var_name in var_names.items()
+        }
+        coords = dict()
+        for time_dim, time_values in self.times.items():
+            if time_dim in used_dims:
+                coords[time_dim.value] = time_values
+        for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
+            if ahrs_dim in used_dims:
+                coords[ahrs_dim.value] = ahrs_coords
+        return xr.Dataset(data_vars=data_vars, coords=coords)
 
     def combine_packets(self):
         self.ds = None

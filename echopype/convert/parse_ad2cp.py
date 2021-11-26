@@ -49,6 +49,18 @@ class DataType(Enum):
     FLOAT = auto()
     SIGNED_FRACTION = auto()
 
+    def dtype(self, size_bytes: int) -> np.dtype:
+        if self in (SIGNED_INTEGER, UNSIGNED_INTEGER, FLOAT):
+            return np.dtype(DTYPES[(self, size_bytes)]) # type: ignore
+        elif self == RAW_BYTES:
+            return np.dtype("<u1")
+        elif self == STRING:
+            return np.dtype("U")
+        elif self == SIGNED_FRACTION:
+            return np.dtype("<f8")
+        else:
+            raise ValueError("unrecognized data type")
+
 
 RAW_BYTES = DataType.RAW_BYTES
 STRING = DataType.STRING
@@ -86,12 +98,12 @@ class Dimension(Enum):
     Determines the dimensions of the data in the output dataset
     """
 
-    TIME = "ping_time"
-    TIME_AVERAGE = "ping_time_average"
-    TIME_BURST = "ping_time_burst"
-    TIME_ECHOSOUNDER = "ping_time_echosounder"
-    TIME_ECHOSOUNDER_RAW = "ping_time_echosounder_raw"
-    TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time_echosounder_raw_transmit"
+    PING_TIME = "ping_time"
+    PING_TIME_AVERAGE = "ping_time_average"
+    PING_TIME_BURST = "ping_time_burst"
+    PING_TIME_ECHOSOUNDER = "ping_time_echosounder"
+    PING_TIME_ECHOSOUNDER_RAW = "ping_time_echosounder_raw"
+    PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time_echosounder_raw_transmit"
     BEAM = "beam"
     RANGE_BIN_BURST = "range_bin_burst"
     RANGE_BIN_AVERAGE = "range_bin_average"
@@ -120,7 +132,7 @@ class Field:
         field_shape: Union[List[int], Callable[["Ad2cpDataPacket"], List[int]]] = [],
         field_dimensions: Union[
             List[Dimension], Callable[[DataRecordType], List[Dimension]]
-        ] = [Dimension.TIME],
+        ] = [Dimension.PING_TIME],
         field_units: Optional[str] = None,
         field_unit_conversion: Callable[
             ["Ad2cpDataPacket", np.ndarray], np.ndarray
@@ -170,7 +182,7 @@ class Field:
         Returns the default dimensions for fields
         """
 
-        return [Dimension.TIME]
+        return [Dimension.PING_TIME]
 
     def units(self):
         """
@@ -367,6 +379,13 @@ class Ad2cpDataPacket:
 
         return self.data["id"] == 0xA0
 
+    def has_timestamp(self) -> bool:
+        """
+        Returns whether the packet has a timestamp (.timestamp can be called)
+        """
+
+        return not self.is_string()
+
     def _read_header(self, f: BinaryIO):
         """
         Reads the header part of the AD2CP packet from the given stream
@@ -487,7 +506,7 @@ class Ad2cpDataPacket:
             # signed-magnitude format, an email exchange with Nortek revealed that it is
             # actually in 2's complement form.
             dtype = np.dtype(DTYPES[(SIGNED_FRACTION, size_bytes)])  # type: ignore
-            return np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)
+            return (np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)).astype("<f8")
         else:
             raise ValueError("unrecognized data type")
 
@@ -1001,7 +1020,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_BURST,
+                        Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1020,7 +1039,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_AVERAGE,
+                        Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1039,7 +1058,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_ECHOSOUNDER,
+                        Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1058,7 +1077,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_BURST,
+                        Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1076,7 +1095,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_AVERAGE,
+                        Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1094,7 +1113,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_ECHOSOUNDER,
+                        Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1112,7 +1131,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_BURST,
+                        Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1129,7 +1148,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_AVERAGE,
+                        Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1146,7 +1165,7 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_cells", 0),
                     ],
                     field_dimensions=lambda data_record_type: [
-                        Dimension.TIME_ECHOSOUNDER,
+                        Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
                         RANGE_BINS[data_record_type],
                     ],
@@ -1294,7 +1313,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_BURST,
+                    Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1313,7 +1332,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_AVERAGE,
+                    Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1332,7 +1351,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_ECHOSOUNDER,
+                    Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1351,7 +1370,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_BURST,
+                    Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1369,7 +1388,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_AVERAGE,
+                    Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1387,7 +1406,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_ECHOSOUNDER,
+                    Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1405,7 +1424,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_BURST,
+                    Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1422,7 +1441,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_AVERAGE,
+                    Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1439,7 +1458,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_cells", 0),
                 ],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME_ECHOSOUNDER,
+                    Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
                     RANGE_BINS[data_record_type],
                 ],
@@ -1527,7 +1546,7 @@ class HeaderOrDataRecordFormats:
                 field_shape=lambda packet: [
                     packet.data["altimeter_raw_data_num_samples"]
                 ],
-                field_dimensions=[Dimension.TIME, Dimension.NUM_ALTIMETER_SAMPLES],
+                field_dimensions=[Dimension.PING_TIME, Dimension.NUM_ALTIMETER_SAMPLES],
                 field_exists_predicate=lambda packet: packet.data[
                     "altimeter_raw_data_included"
                 ],
@@ -1542,7 +1561,7 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_echosounder_cells", 0)
                 ],
                 field_dimensions=[
-                    Dimension.TIME_ECHOSOUNDER,
+                    Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.RANGE_BIN_ECHOSOUNDER,
                 ],
                 field_units="dB/count",
@@ -1556,7 +1575,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 FLOAT,
                 field_shape=[9],
-                field_dimensions=[Dimension.TIME, Dimension.MIJ],
+                field_dimensions=[Dimension.PING_TIME, Dimension.MIJ],
                 field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
             ),
             F(
@@ -1564,7 +1583,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 FLOAT,
                 field_shape=[4],
-                field_dimensions=[Dimension.TIME, Dimension.WXYZ],
+                field_dimensions=[Dimension.PING_TIME, Dimension.WXYZ],
                 field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
             ),
             F(
@@ -1572,7 +1591,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 FLOAT,
                 field_shape=[3],
-                field_dimensions=[Dimension.TIME, Dimension.XYZ],
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
                 field_exists_predicate=lambda packet: packet.data["ahrs_data_included"],
             ),
             F(
@@ -1581,7 +1600,7 @@ class HeaderOrDataRecordFormats:
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [packet.data.get("num_cells", 0)],
                 field_dimensions=lambda data_record_type: [
-                    Dimension.TIME,
+                    Dimension.PING_TIME,
                     RANGE_BINS[data_record_type],
                 ],
                 field_units="%",
@@ -1765,7 +1784,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [packet.data.get("num_beams", 0)],
-                field_dimensions=[Dimension.TIME, Dimension.BEAM],
+                field_dimensions=[Dimension.PING_TIME, Dimension.BEAM],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
                 * (10.0 ** packet.data["velocity_scaling"]),
@@ -1778,7 +1797,7 @@ class HeaderOrDataRecordFormats:
                 4,
                 SIGNED_INTEGER,
                 field_shape=lambda packet: [packet.data.get("num_beams", 0)],
-                field_dimensions=[Dimension.TIME, Dimension.BEAM],
+                field_dimensions=[Dimension.PING_TIME, Dimension.BEAM],
                 field_unit_conversion=lambda packet, x: x / 1000,
                 field_exists_predicate=lambda packet: packet.data[
                     "distance_data_included"
@@ -1789,7 +1808,7 @@ class HeaderOrDataRecordFormats:
                 2,
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [packet.data.get("num_beams", 0)],
-                field_dimensions=[Dimension.TIME, Dimension.BEAM],
+                field_dimensions=[Dimension.PING_TIME, Dimension.BEAM],
                 field_exists_predicate=lambda packet: packet.data[
                     "figure_of_merit_data_included"
                 ],
@@ -1822,7 +1841,7 @@ class HeaderOrDataRecordFormats:
                     packet.data["num_complex_samples"],
                     2,
                 ],
-                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw(),
             ),
             # These next 2 fields are included so that the dimensions for these fields
@@ -1832,14 +1851,14 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_samples_i",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
                 "echosounder_raw_samples_q",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
@@ -1851,7 +1870,7 @@ class HeaderOrDataRecordFormats:
                     2,
                 ],
                 field_dimensions=[
-                    Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT,
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT,
                     Dimension.SAMPLE_TRANSMIT,
                 ],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw_transmit(),
@@ -1864,7 +1883,7 @@ class HeaderOrDataRecordFormats:
                 0,
                 RAW_BYTES,
                 field_dimensions=[
-                    Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT,
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT,
                     Dimension.SAMPLE_TRANSMIT,
                 ],
                 field_exists_predicate=lambda packet: False,
@@ -1874,7 +1893,7 @@ class HeaderOrDataRecordFormats:
                 0,
                 RAW_BYTES,
                 field_dimensions=[
-                    Dimension.TIME_ECHOSOUNDER_RAW_TRANSMIT,
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT,
                     Dimension.SAMPLE_TRANSMIT,
                 ],
                 field_exists_predicate=lambda packet: False,
