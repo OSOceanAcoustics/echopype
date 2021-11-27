@@ -683,6 +683,8 @@ class CalibrateEK80(CalibrateEK):
                     gain_temp.name = "gain"
                     gain.append(gain_temp)
                 gain = xr.merge(gain).gain  # select the single data variable
+            else:
+                gain = gain_single
         elif waveform_mode == "CW":
             gain = self._get_vend_cal_params_power(
                 "gain_correction", waveform_mode=waveform_mode
