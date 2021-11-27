@@ -84,45 +84,71 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # {field_name: [field_value]}
         #   [field_value] lines up with time_dim
-        fields: Dict[str, List[np.ndarray]] = dict()
+        fields: Dict[str, List[np.ndarray]] = {
+            field_name: [] for field_name in var_names.keys()
+        }
         # {field_name: [Dimension]}
         dims = dict()
+        # {field_name: np.dtype}
+        dtypes = dict()
+        # {field_name: [idx of padding]}
+        pad_idx: Dict[str, List[int]] = {
+            field_name: [] for field_name in var_names.keys()
+        }
         # separate by time dim
-        for packet in self.parser_obj.packets:
+        for i, packet in enumerate(self.parser_obj.packets):
             data_record_format = HeaderOrDataRecordFormats.data_record_format(
                 packet.data_record_type
             )
             for field_name in var_names.keys():
                 field = data_record_format.get_field(field_name)
-                print(field_name, packet.data_record_type)
-                print(field)
                 if field is None:
                     field_dimensions = Field.default_dimensions()
-                    field_dtype = DataType.default_dtype()
+                    # print("got dims from default")
+                    # field_dtype = DataType.default_dtype()
                 else:
                     field_dimensions = field.dimensions(packet.data_record_type)
-                    field_entry_size_bytes = field.field_entry_size_bytes
-                    if callable(field_entry_size_bytes):
-                        field_entry_size_bytes = field_entry_size_bytes(packet)
-                    field_dtype = field.field_entry_data_type.dtype(
-                        field_entry_size_bytes
-                    )
+                    # print("non default dims", field_dimensions)
 
-                if field_name not in dims:
-                    dims[field_name] = field_dimensions
+                    if field_name not in dims:
+                        dims[field_name] = field_dimensions
+                    if field_name not in dtypes:
+                        field_entry_size_bytes = field.field_entry_size_bytes
+                        if callable(field_entry_size_bytes):
+                            field_entry_size_bytes = field_entry_size_bytes(packet)
+                        dtypes[field_name] = field.field_entry_data_type.dtype(
+                            field_entry_size_bytes
+                        )
 
-                if field_name not in fields:
-                    # init list
-                    fields[field_name] = []
+                # if field_name not in fields:
+                #     # init list
+                #     fields[field_name] = []
                 if field_name in packet.data:  # field is in this packet
                     fields[field_name].append(packet.data[field_name])
                 else:  # field is not in this packet
                     # pad the list of field values with an empty array so that
                     #   the time dimension still lines up with the field values
-                    fields[field_name].append(
-                        np.zeros(np.ones(len(dims[field_name]) - 1, dtype="u8"), dtype=field_dtype)  # type: ignore # noqa
-                    )
-        print(fields)
+                    # print(dims[field_name], np.zeros(np.ones(len(dims[field_name]) - 1, dtype="u1"), dtype=field_dtype))
+                    fields[field_name].append(np.array(0))
+                    pad_idx[field_name].append(i)
+
+        # add dimensions to dims if they were not found
+        for field_name in fields.keys():
+            if field_name not in dims:
+                dims[field_name] = Field.default_dimensions()
+
+        # add dtypes to dtypes if they were not found
+        for field_name in fields.keys():
+            if field_name not in dtypes:
+                dtypes[field_name] = DataType.default_dtype()
+
+        # replace padding with correct shaped padding
+        for field_name, pad_idxs in pad_idx.items():
+            for i in pad_idxs:
+                fields[field_name][i] = np.zeros(
+                    np.ones(len(dims[field_name]) - 1, dtype="u1"),  # type: ignore
+                    dtype=dtypes[field_name],
+                )
 
         # {field_name: field_value}
         #   field_value is now combined along time_dim
@@ -135,16 +161,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                     np.stack(shapes),
                     axis=0,
                 )
-                print(max_shape)
-                print(
-                    [
-                        tuple(
-                            (0, max_axis_len - field_value.shape[i])
-                            for i, max_axis_len in enumerate(max_shape)  # type: ignore
-                        )
-                        for field_value in field_values
-                    ]
-                )
                 field_values = [
                     np.pad(
                         field_value,
@@ -155,14 +171,10 @@ class SetGroupsAd2cp(SetGroupsBase):
                     )
                     for field_value in field_values
                 ]
-                print(field_values)
+            print(field_name, field_values)
             field_values = np.stack(field_values)
-            print(field_values)
             combined_fields[field_name] = field_values
-        print(combined_fields)
 
-        print(len(self.timestamps))
-        print([(time_dim, len(time)) for time_dim, time in self.times_idx.items()])
         # slice fields to time_dim
         for field_name, field_value in combined_fields.items():
             combined_fields[field_name] = field_value[
@@ -179,9 +191,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             for field_name, var_name in var_names.items()
         }
         coords = dict()
-        for time_dim, time_values in self.times_idx.items():
+        for time_dim, time_idxs in self.times_idx.items():
             if time_dim in used_dims:
-                coords[time_dim.value] = time_values
+                coords[time_dim.value] = self.timestamps[time_idxs]
         for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
             if ahrs_dim in used_dims:
                 coords[ahrs_dim.value] = ahrs_coords

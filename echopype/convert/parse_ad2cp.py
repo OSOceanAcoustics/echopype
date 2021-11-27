@@ -562,8 +562,9 @@ class Ad2cpDataPacket:
         e.g., with mask 0b00111100, start bit is 5 and end bit is 2
         """
         for bit_sequence_name, start_bit, end_bit in bitfield_format:
-            self.data[bit_sequence_name] = (field_value >> end_bit) & (
-                (1 << (start_bit - end_bit + 1)) - 1
+            self.data[bit_sequence_name] = np.array(
+                (field_value >> end_bit) & ((1 << (start_bit - end_bit + 1)) - 1),
+                dtype="<u8",
             )
 
     def _postprocess_beams(
@@ -585,7 +586,7 @@ class Ad2cpDataPacket:
             beam = (field_value >> end_bit) & ((1 << (start_bit - end_bit + 1)) - 1)
             if beam > 0:
                 beams.append(beam)
-        self.data["beams"] = np.array(beams)
+        self.data["beams"] = np.array(beams, dtype="<u8")
 
     def _postprocess(self, field_name):
         """
