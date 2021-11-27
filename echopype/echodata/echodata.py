@@ -404,19 +404,20 @@ class EchoData:
 
         # clip incoming time to 1 less than min of EchoData.beam["ping_time"] and
         #   1 greater than max of EchoData.beam["ping_time"]
-        # account for unsorted time
+        # account for unsorted external time by checking whether each time value is between
+        #   min and max ping_time instead of finding the 2 external times corresponding to the
+        #   min and max ping_time and taking all the times between those indices
         sorted_external_time = extra_platform_data[time_dim].data
         sorted_external_time.sort()
         min_index = max(
             np.searchsorted(
-                sorted_external_time, self.beam["ping_time"].min(), side="right"
-            )
-            - 1,
+                sorted_external_time, self.beam["ping_time"].min(), side="left"
+            ) - 1, # noqa
             0,
         )
         max_index = min(
             np.searchsorted(
-                sorted_external_time, self.beam["ping_time"].max(), side="left"
+                sorted_external_time, self.beam["ping_time"].max(), side="right"
             ),
             len(sorted_external_time) - 1,
         )
