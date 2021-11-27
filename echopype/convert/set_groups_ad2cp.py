@@ -63,7 +63,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 times_idx[Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT].append(i)
 
         self.times_idx = {
-            time_dim: np.array(time_values)
+            time_dim: np.array(time_values, dtype="u8")
             for time_dim, time_values in times_idx.items()
         }
         self.timestamps = np.array(timestamps)
