@@ -1,3 +1,4 @@
+import datetime
 import uuid
 import warnings
 from collections import OrderedDict
@@ -13,6 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
@@ -26,6 +28,15 @@ XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
 TVG_CORRECTION_FACTOR = {
     "EK60": 2,
     "EK80": 0,
+}
+
+# TODO: Move to a new utility module in, say, echodata.convention
+DEFAULT_PLATFORM_COORD_ATTRS = {
+    "location_time": {
+        "axis": "T",
+        "long_name": "Timestamps for NMEA datagrams",
+        "standard_name": "time",
+    }
 }
 
 
@@ -367,7 +378,12 @@ class EchoData:
                 "this method only supports the following sonar_model: AZFP, EK60, and EK80"
             )
 
-    def update_platform(self, extra_platform_data: xr.Dataset, time_dim="time"):
+    def update_platform(
+        self,
+        extra_platform_data: xr.Dataset,
+        time_dim="time",
+        extra_platform_data_file_name=None,
+    ):
         """
         Updates the `EchoData.platform` group with additional external platform data.
 
@@ -376,15 +392,14 @@ class EchoData:
         `time_dim` parameter.
         Data is extracted from `extra_platform_data` by variable name; only the data
         in `extra_platform_data` with the following variable names will be used:
-
-        - `"pitch"`
-        - `"roll"`
-        - `"heave"`
-        - `"latitude"`
-        - `"longitude"`
-        - `"water_level"`
-
-        The data inserted into the Platform group will be indexed by a dimension named `"time2"`.
+            - `"pitch"`
+            - `"roll"`
+            - `"heave"`
+            - `"latitude"`
+            - `"longitude"`
+            - `"water_level"`
+        The data inserted into the Platform group will be indexed by a dimension named
+        `"location_time"`.
 
         Parameters
         ----------
@@ -394,16 +409,16 @@ class EchoData:
         time_dim: str, default="time"
             The name of the time dimension in `extra_platform_data`; used for extracting
             data from `extra_platform_data`.
+        extra_platform_data_file_name: str, default=None
+            File name for source of extra platform data, if read from a file
 
         Examples
         --------
         >>> ed = echopype.open_raw(raw_file, "EK60")
         >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
-        >>> ed.update_platform(extra_platform_data)
+        >>> ed.update_platform(extra_platform_data,
+        >>>         extra_platform_data_file_name=extra_platform_data_file)
         """
-
-        # # only take data during ping times
-        # start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
 
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
         # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
@@ -427,23 +442,74 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
-        platform = self.platform.assign_coords(
-            time2=extra_platform_data[time_dim].values
+        # clip incoming time to 1 less than min of EchoData.beam["ping_time"] and
+        #   1 greater than max of EchoData.beam["ping_time"]
+        # account for unsorted external time by checking whether each time value is between
+        #   min and max ping_time instead of finding the 2 external times corresponding to the
+        #   min and max ping_time and taking all the times between those indices
+        sorted_external_time = extra_platform_data[time_dim].data
+        sorted_external_time.sort()
+        # fmt: off
+        min_index = max(
+            np.searchsorted(
+                sorted_external_time, self.beam["ping_time"].min(), side="left"
+            ) - 1,
+            0,
         )
-        platform["time2"].attrs[
-            "long_name"
-        ] = "time dimension for external platform data"
+        # fmt: on
+        max_index = min(
+            np.searchsorted(
+                sorted_external_time, self.beam["ping_time"].max(), side="right"
+            ),
+            len(sorted_external_time) - 1,
+        )
+        extra_platform_data = extra_platform_data.sel(
+            {
+                time_dim: np.logical_and(
+                    sorted_external_time[min_index] <= extra_platform_data[time_dim],
+                    extra_platform_data[time_dim] <= sorted_external_time[max_index],
+                )
+            }
+        )
 
+        platform = self.platform
+        platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
+        platform = platform.drop_dims(["location_time"], errors="ignore")
+        # drop_dims is also dropping latitude, longitude and sentence_type why?
+        platform = platform.assign_coords(
+            location_time=extra_platform_data[time_dim].values
+        )
+        history_attr = (
+            f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        )
+        if extra_platform_data_file_name:
+            history_attr += ", from file " + extra_platform_data_file_name
+        location_time_attrs = {
+            **DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+            **{"history": history_attr},
+        }
+        platform["location_time"] = platform["location_time"].assign_attrs(
+            **location_time_attrs
+        )
+
+        dropped_vars_target = [
+            "pitch",
+            "roll",
+            "heave",
+            "latitude",
+            "longitude",
+            "water_level",
+        ]
         dropped_vars = []
-        for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
+        for var in dropped_vars_target:
             if var in platform and (~platform[var].isnull()).all():
                 dropped_vars.append(var)
         if len(dropped_vars) > 0:
             warnings.warn(
-                f"some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
+                f"Some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
             )
         platform = platform.drop_vars(
-            ["pitch", "roll", "heave", "latitude", "longitude", "water_level"],
+            dropped_vars_target,
             errors="ignore",
         )
 
@@ -455,10 +521,10 @@ class EchoData:
                     return mapping[key].data
             return default
 
-        self.platform = platform.update(
+        platform = platform.update(
             {
                 "pitch": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
@@ -466,7 +532,7 @@ class EchoData:
                     ),
                 ),
                 "roll": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
@@ -474,7 +540,7 @@ class EchoData:
                     ),
                 ),
                 "heave": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["heave", "HEAVE"],
@@ -482,7 +548,7 @@ class EchoData:
                     ),
                 ),
                 "latitude": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
@@ -490,7 +556,7 @@ class EchoData:
                     ),
                 ),
                 "longitude": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
@@ -498,7 +564,7 @@ class EchoData:
                     ),
                 ),
                 "water_level": (
-                    "time2",
+                    "location_time",
                     mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
@@ -507,6 +573,10 @@ class EchoData:
                 ),
             }
         )
+        for var in dropped_vars_target:
+            platform[var] = platform[var].assign_attrs(**platform_vars_attrs[var])
+
+        self.platform = set_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):

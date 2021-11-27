@@ -4,68 +4,27 @@ from datetime import datetime as dt
 import numpy as np
 import pynmea2
 import xarray as xr
-import zarr
 from _echopype_version import version as ECHOPYPE_VERSION
-from xarray import coding
 
-COMPRESSION_SETTINGS = {
-    "netcdf4": {"zlib": True, "complevel": 4},
-    "zarr": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
-}
+from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 
-DEFAULT_TIME_ENCODING = {
-    "units": "seconds since 1900-01-01T00:00:00+00:00",
-    "calendar": "gregorian",
-    "_FillValue": np.nan,
-    "dtype": np.dtype("float64"),
+# TODO: Move to a new utility module in, say, echodata.convention
+DEFAULT_BEAM_COORD_ATTRS = {
+    "frequency": {
+        "long_name": "Transducer frequency",
+        "standard_name": "sound_frequency",
+        "units": "Hz",
+        "valid_min": 0.0,
+    },
+    "ping_time": {
+        "long_name": "Timestamp of each ping",
+        "standard_name": "time",
+        "axis": "T",
+    },
+    "range_bin": {"long_name": "Along-range bin (sample) number, base 0"},
 }
-
-DEFAULT_ENCODINGS = {
-    "ping_time": DEFAULT_TIME_ENCODING,
-    "ping_time_burst": DEFAULT_TIME_ENCODING,
-    "ping_time_average": DEFAULT_TIME_ENCODING,
-    "ping_time_echosounder": DEFAULT_TIME_ENCODING,
-    "ping_time_echosounder_raw": DEFAULT_TIME_ENCODING,
-    "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
-    "location_time": DEFAULT_TIME_ENCODING,
-    "mru_time": DEFAULT_TIME_ENCODING,
-}
-
-
-def _encode_dataarray(da, dtype):
-    """Encodes and decode datetime64 array similar to writing to file"""
-    if da.size == 0:
-        return da
-    read_encoding = {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-    }
-
-    if dtype in [np.float64, np.int64]:
-        encoded_data = da
-    else:
-        encoded_data, _, _ = coding.times.encode_cf_datetime(da, **read_encoding)
-    return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
-
-
-def set_encodings(ds: xr.Dataset) -> xr.Dataset:
-    """
-    Set the default encoding for variables.
-    """
-    new_ds = ds.copy(deep=True)
-    for var, encoding in DEFAULT_ENCODINGS.items():
-        if var in new_ds:
-            da = new_ds[var].copy()
-            if "_time" in var:
-                new_ds[var] = xr.apply_ufunc(
-                    _encode_dataarray, da, keep_attrs=True, kwargs={"dtype": da.dtype}
-                )
-
-            new_ds[var].encoding = encoding
-
-    return new_ds
 
 
 class SetGroupsBase(abc.ABC):
