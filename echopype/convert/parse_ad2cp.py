@@ -990,7 +990,7 @@ class HeaderOrDataRecordFormats:
                     2,
                     SIGNED_INTEGER,
                     field_shape=[3],
-                    field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+                    field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
                 ),
                 F(
                     "accelerometer_raw_x_axis",
@@ -1279,7 +1279,7 @@ class HeaderOrDataRecordFormats:
                 2,
                 SIGNED_INTEGER,
                 field_shape=[3],
-                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
             ),
             F(
                 "accelerometer_raw_x_axis",
@@ -1759,7 +1759,7 @@ class HeaderOrDataRecordFormats:
                 2,
                 SIGNED_INTEGER,
                 field_shape=[3],
-                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
             ),
             F(
                 "accelerometer_raw_x_axis",
