@@ -82,21 +82,33 @@ class SetGroupsAd2cp(SetGroupsBase):
         var_names maps parser_obj field names to output dataset variable names
         """
 
+        """
+        TODO:
+        units
+        beam coords
+        """
+
         # {field_name: [field_value]}
         #   [field_value] lines up with time_dim
         fields: Dict[str, List[np.ndarray]] = {
             field_name: [] for field_name in var_names.keys()
         }
         # {field_name: [Dimension]}
-        dims = dict()
-        # {field_name: np.dtype}
-        dtypes = dict()
+        dims: Dict[str, List[Dimension]] = dict()
+        # {field_name: field dtype}
+        dtypes: Dict[str, np.dtype] = dict()
         # {field_name: [idx of padding]}
         pad_idx: Dict[str, List[int]] = {
             field_name: [] for field_name in var_names.keys()
         }
+        # {field_name: field exists}
+        field_exists: Dict[str, bool] = {
+            field_name: False for field_name in var_names.keys()
+        }
         # separate by time dim
-        for i, packet in enumerate(self.parser_obj.packets):
+        for packet in self.parser_obj.packets:
+            if not packet.has_timestamp():
+                continue
             data_record_format = HeaderOrDataRecordFormats.data_record_format(
                 packet.data_record_type
             )
@@ -104,11 +116,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 field = data_record_format.get_field(field_name)
                 if field is None:
                     field_dimensions = Field.default_dimensions()
-                    # print("got dims from default")
-                    # field_dtype = DataType.default_dtype()
                 else:
                     field_dimensions = field.dimensions(packet.data_record_type)
-                    # print("non default dims", field_dimensions)
 
                     if field_name not in dims:
                         dims[field_name] = field_dimensions
@@ -120,17 +129,14 @@ class SetGroupsAd2cp(SetGroupsBase):
                             field_entry_size_bytes
                         )
 
-                # if field_name not in fields:
-                #     # init list
-                #     fields[field_name] = []
                 if field_name in packet.data:  # field is in this packet
                     fields[field_name].append(packet.data[field_name])
+                    field_exists[field_name] = True
                 else:  # field is not in this packet
                     # pad the list of field values with an empty array so that
                     #   the time dimension still lines up with the field values
-                    # print(dims[field_name], np.zeros(np.ones(len(dims[field_name]) - 1, dtype="u1"), dtype=field_dtype))
                     fields[field_name].append(np.array(0))
-                    pad_idx[field_name].append(i)
+                    pad_idx[field_name].append(len(fields[field_name]) - 1)
 
         # add dimensions to dims if they were not found
         for field_name in fields.keys():
@@ -171,7 +177,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                     )
                     for field_value in field_values
                 ]
-            print(field_name, field_values)
             field_values = np.stack(field_values)
             combined_fields[field_name] = field_values
 
@@ -188,6 +193,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 [dim.value for dim in dims[field_name]],
                 combined_fields[field_name],
             )
+            if field_exists[field_name]
+            else ((), None)
             for field_name, var_name in var_names.items()
         }
         coords = dict()
@@ -197,6 +204,8 @@ class SetGroupsAd2cp(SetGroupsBase):
         for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
             if ahrs_dim in used_dims:
                 coords[ahrs_dim.value] = ahrs_coords
+        # if Dimension.BEAM in used_dims:
+        #     coords[Dimension.BEAM.value] =
         return xr.Dataset(data_vars=data_vars, coords=coords)
 
     def combine_packets(self):
