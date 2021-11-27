@@ -4,13 +4,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from .parse_ad2cp import (  # noqa
-    Ad2cpDataPacket,
-    DataType,
-    Dimension,
-    Field,
-    HeaderOrDataRecordFormats,
-)
+from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
 
 
@@ -250,9 +244,9 @@ class SetGroupsAd2cp(SetGroupsBase):
         )
         ds = ds.assign_attrs(
             {
-                "platform_name": self.ui_param["platform_name"],
-                "platform_type": self.ui_param["platform_type"],
-                "platform_code_ICES": self.ui_param["platform_code_ICES"],
+                "platform_name": self.ui_param["platform_name"],  # type: ignore
+                "platform_type": self.ui_param["platform_type"],  # type: ignore
+                "platform_code_ICES": self.ui_param["platform_code_ICES"],  # type: ignore
             }
         )
         return set_encodings(ds)
