@@ -10,10 +10,11 @@ from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 
+# TODO: Move to a new utility module in, say, echodata.convention
 DEFAULT_BEAM_COORD_ATTRS = {
     "frequency": {
         "long_name": "Transducer frequency",
-        # TODO: is there an appropriate standard_name for frequency?
+        "standard_name": "sound_frequency",
         "units": "Hz",
         "valid_min": 0.0,
     },

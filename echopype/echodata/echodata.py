@@ -30,6 +30,7 @@ TVG_CORRECTION_FACTOR = {
     "EK80": 0,
 }
 
+# TODO: Move to a new utility module in, say, echodata.convention
 DEFAULT_PLATFORM_COORD_ATTRS = {
     "location_time": {
         "axis": "T",
@@ -375,11 +376,9 @@ class EchoData:
         --------
         >>> ed = echopype.open_raw(raw_file, "EK60")
         >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
-        >>> ed.update_platform(extra_platform_data)
+        >>> ed.update_platform(extra_platform_data,
+        >>>         extra_platform_data_file_name=extra_platform_data_file)
         """
-
-        # # only take data during ping times
-        # start_time, end_time = min(self.beam["ping_time"]), max(self.beam["ping_time"])
 
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
         # http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#trajectory-data
@@ -403,6 +402,7 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
+        # only take data during ping times
         # TODO: Expand the clipping range by one (or 2?) indices
         extra_platform_data = extra_platform_data.sel(
             {
@@ -414,7 +414,9 @@ class EchoData:
         )
 
         platform = self.platform
-        platform = platform.drop_dims("location_time", errors="ignore")
+        platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
+        platform = platform.drop_dims(["location_time"], errors="ignore")
+        # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(
             location_time=extra_platform_data[time_dim].values
         )
@@ -431,16 +433,24 @@ class EchoData:
             **location_time_attrs
         )
 
+        dropped_vars_target = [
+            "pitch",
+            "roll",
+            "heave",
+            "latitude",
+            "longitude",
+            "water_level",
+        ]
         dropped_vars = []
-        for var in ["pitch", "roll", "heave", "latitude", "longitude", "water_level"]:
+        for var in dropped_vars_target:
             if var in platform and (~platform[var].isnull()).all():
                 dropped_vars.append(var)
         if len(dropped_vars) > 0:
             warnings.warn(
-                f"some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
+                f"Some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
             )
         platform = platform.drop_vars(
-            ["pitch", "roll", "heave", "latitude", "longitude", "water_level"],
+            dropped_vars_target,
             errors="ignore",
         )
 
@@ -452,60 +462,62 @@ class EchoData:
                     return mapping[key].data
             return default
 
-        self.platform = set_encodings(
-            platform.update(
-                {
-                    "pitch": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["pitch", "PITCH"],
-                            platform.get("pitch", np.full(num_obs, np.nan)),
-                        ),
+        platform = platform.update(
+            {
+                "pitch": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["pitch", "PITCH"],
+                        platform.get("pitch", np.full(num_obs, np.nan)),
                     ),
-                    "roll": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["roll", "ROLL"],
-                            platform.get("roll", np.full(num_obs, np.nan)),
-                        ),
+                ),
+                "roll": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["roll", "ROLL"],
+                        platform.get("roll", np.full(num_obs, np.nan)),
                     ),
-                    "heave": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["heave", "HEAVE"],
-                            platform.get("heave", np.full(num_obs, np.nan)),
-                        ),
+                ),
+                "heave": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["heave", "HEAVE"],
+                        platform.get("heave", np.full(num_obs, np.nan)),
                     ),
-                    "latitude": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["lat", "latitude", "LATITUDE"],
-                            default=platform.get("latitude", np.full(num_obs, np.nan)),
-                        ),
+                ),
+                "latitude": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lat", "latitude", "LATITUDE"],
+                        default=platform.get("latitude", np.full(num_obs, np.nan)),
                     ),
-                    "longitude": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["lon", "longitude", "LONGITUDE"],
-                            default=platform.get("longitude", np.full(num_obs, np.nan)),
-                        ),
+                ),
+                "longitude": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["lon", "longitude", "LONGITUDE"],
+                        default=platform.get("longitude", np.full(num_obs, np.nan)),
                     ),
-                    "water_level": (
-                        "location_time",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            ["water_level", "WATER_LEVEL"],
-                            default=platform.get("water_level", np.zeros(num_obs)),
-                        ),
+                ),
+                "water_level": (
+                    "location_time",
+                    mapping_search_variable(
+                        extra_platform_data,
+                        ["water_level", "WATER_LEVEL"],
+                        default=platform.get("water_level", np.zeros(num_obs)),
                     ),
-                }
-            )
+                ),
+            }
         )
+        for var in dropped_vars_target:
+            platform[var] = platform[var].assign_attrs(**platform_vars_attrs[var])
+
+        self.platform = set_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):
