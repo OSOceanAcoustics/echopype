@@ -409,12 +409,14 @@ class EchoData:
         #   min and max ping_time and taking all the times between those indices
         sorted_external_time = extra_platform_data[time_dim].data
         sorted_external_time.sort()
+        # fmt: off
         min_index = max(
             np.searchsorted(
                 sorted_external_time, self.beam["ping_time"].min(), side="left"
-            ) - 1, # noqa
+            ) - 1,
             0,
         )
+        # fmt: on
         max_index = min(
             np.searchsorted(
                 sorted_external_time, self.beam["ping_time"].max(), side="right"
