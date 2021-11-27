@@ -60,6 +60,10 @@ class DataType(Enum):
             return np.dtype("<f8")
         else:
             raise ValueError("unrecognized data type")
+    
+    @staticmethod
+    def default_dtype() -> np.dtype:
+        return np.dtype("<u8")
 
 
 RAW_BYTES = DataType.RAW_BYTES
