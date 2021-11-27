@@ -51,7 +51,7 @@ class DataType(Enum):
 
     def dtype(self, size_bytes: int) -> np.dtype:
         if self in (SIGNED_INTEGER, UNSIGNED_INTEGER, FLOAT):
-            return np.dtype(DTYPES[(self, size_bytes)]) # type: ignore
+            return np.dtype(DTYPES[(self, size_bytes)])  # type: ignore
         elif self == RAW_BYTES:
             return np.dtype("<u1")
         elif self == STRING:
@@ -60,7 +60,7 @@ class DataType(Enum):
             return np.dtype("<f8")
         else:
             raise ValueError("unrecognized data type")
-    
+
     @staticmethod
     def default_dtype() -> np.dtype:
         return np.dtype("<u8")
@@ -510,7 +510,9 @@ class Ad2cpDataPacket:
             # signed-magnitude format, an email exchange with Nortek revealed that it is
             # actually in 2's complement form.
             dtype = np.dtype(DTYPES[(SIGNED_FRACTION, size_bytes)])  # type: ignore
-            return (np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)).astype("<f8")
+            return (
+                np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)
+            ).astype("<f8")
         else:
             raise ValueError("unrecognized data type")
 
@@ -1845,7 +1847,10 @@ class HeaderOrDataRecordFormats:
                     packet.data["num_complex_samples"],
                     2,
                 ],
-                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW,
+                    Dimension.SAMPLE,
+                ],
                 field_exists_predicate=lambda packet: packet.is_echosounder_raw(),
             ),
             # These next 2 fields are included so that the dimensions for these fields
@@ -1855,14 +1860,20 @@ class HeaderOrDataRecordFormats:
                 "echosounder_raw_samples_i",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW,
+                    Dimension.SAMPLE,
+                ],
                 field_exists_predicate=lambda packet: False,
             ),
             F(
                 "echosounder_raw_samples_q",
                 0,
                 RAW_BYTES,
-                field_dimensions=[Dimension.PING_TIME_ECHOSOUNDER_RAW, Dimension.SAMPLE],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER_RAW,
+                    Dimension.SAMPLE,
+                ],
                 field_exists_predicate=lambda packet: False,
             ),
             F(

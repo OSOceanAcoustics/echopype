@@ -4,13 +4,12 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from .parse_ad2cp import (
+from .parse_ad2cp import (  # noqa
     Ad2cpDataPacket,
-    DataRecordType,
     DataType,
+    Dimension,
     Field,
     HeaderOrDataRecordFormats,
-    Dimension,
 )
 from .set_groups_base import SetGroupsBase
 
@@ -97,9 +96,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 field = data_record_format.get_field(field_name)
                 print(field_name, packet.data_record_type)
                 print(field)
-                # FIXME: does not work with postprocessed fields because data_record_format.get_field will always return None
-                #   use Field.default_dimensions for dimension
-                #
                 if field is None:
                     field_dimensions = Field.default_dimensions()
                     field_dtype = DataType.default_dtype()
@@ -124,7 +120,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                     # pad the list of field values with an empty array so that
                     #   the time dimension still lines up with the field values
                     fields[field_name].append(
-                        np.zeros(np.ones(len(dims[field_name]) - 1, dtype="u8"), dtype=field_dtype)  # type: ignore
+                        np.zeros(np.ones(len(dims[field_name]) - 1, dtype="u8"), dtype=field_dtype)  # type: ignore # noqa
                     )
         print(fields)
 
@@ -135,11 +131,6 @@ class SetGroupsAd2cp(SetGroupsBase):
         for field_name, field_values in fields.items():
             if len(dims[field_name]) > 1:
                 shapes = [field_value.shape for field_value in field_values]
-                # print(shapes)
-                # max_shape_len = np.amax([len(shape) for shape in shapes])
-                # print(max_shape_len)
-                # padded_shapes = [np.pad(shape, (0, max_shape_len - len(shape))) for shape in shapes]
-                # print(padded_shapes)
                 max_shape = np.amax(
                     np.stack(shapes),
                     axis=0,
