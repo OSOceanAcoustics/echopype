@@ -1026,10 +1026,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_BURST,
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1045,10 +1045,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_AVERAGE,
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1064,10 +1064,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_ECHOSOUNDER,
                     ],
                     field_units="m/s",
                     field_unit_conversion=lambda packet, x: x
@@ -1083,10 +1083,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_BURST,
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1101,10 +1101,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_AVERAGE,
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1119,10 +1119,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_ECHOSOUNDER,
                     ],
                     field_units="dB/count",
                     field_unit_conversion=lambda packet, x: x / 2,
@@ -1137,10 +1137,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_BURST,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_BURST,
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_burst()
@@ -1154,10 +1154,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_AVERAGE,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_AVERAGE,
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_average()
@@ -1171,10 +1171,10 @@ class HeaderOrDataRecordFormats:
                         packet.data.get("num_beams", 0),
                         packet.data.get("num_cells", 0),
                     ],
-                    field_dimensions=lambda data_record_type: [
+                    field_dimensions=[
                         Dimension.PING_TIME_ECHOSOUNDER,
                         Dimension.BEAM,
-                        RANGE_BINS[data_record_type],
+                        Dimension.RANGE_BIN_ECHOSOUNDER,
                     ],
                     field_units="0-100",
                     field_exists_predicate=lambda packet: packet.is_echosounder()
@@ -1319,10 +1319,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_BURST,
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1338,10 +1338,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_AVERAGE,
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1357,10 +1357,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_ECHOSOUNDER,
                 ],
                 field_units="m/s",
                 field_unit_conversion=lambda packet, x: x
@@ -1376,10 +1376,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_BURST,
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1394,10 +1394,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_AVERAGE,
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1412,10 +1412,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_ECHOSOUNDER,
                 ],
                 field_units="dB/count",
                 field_unit_conversion=lambda packet, x: x / 2,
@@ -1430,10 +1430,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_BURST,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_BURST,
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_burst()
@@ -1447,10 +1447,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_AVERAGE,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_AVERAGE,
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_average()
@@ -1464,10 +1464,10 @@ class HeaderOrDataRecordFormats:
                     packet.data.get("num_beams", 0),
                     packet.data.get("num_cells", 0),
                 ],
-                field_dimensions=lambda data_record_type: [
+                field_dimensions=[
                     Dimension.PING_TIME_ECHOSOUNDER,
                     Dimension.BEAM,
-                    RANGE_BINS[data_record_type],
+                    Dimension.RANGE_BIN_ECHOSOUNDER,
                 ],
                 field_units="0-100",
                 field_exists_predicate=lambda packet: packet.is_echosounder()

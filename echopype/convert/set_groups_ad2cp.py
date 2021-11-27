@@ -82,12 +82,6 @@ class SetGroupsAd2cp(SetGroupsBase):
         var_names maps parser_obj field names to output dataset variable names
         """
 
-        """
-        TODO:
-        units
-        beam coords
-        """
-
         # {field_name: [field_value]}
         #   [field_value] lines up with time_dim
         fields: Dict[str, List[np.ndarray]] = {
@@ -97,6 +91,8 @@ class SetGroupsAd2cp(SetGroupsBase):
         dims: Dict[str, List[Dimension]] = dict()
         # {field_name: field dtype}
         dtypes: Dict[str, np.dtype] = dict()
+        # {field_name: units}
+        units: Dict[str, Optional[str]] = dict()
         # {field_name: [idx of padding]}
         pad_idx: Dict[str, List[int]] = {
             field_name: [] for field_name in var_names.keys()
@@ -105,10 +101,13 @@ class SetGroupsAd2cp(SetGroupsBase):
         field_exists: Dict[str, bool] = {
             field_name: False for field_name in var_names.keys()
         }
+        beam_coords: Optional[np.ndarray] = None
         # separate by time dim
         for packet in self.parser_obj.packets:
             if not packet.has_timestamp():
                 continue
+            if "beams" in packet.data and beam_coords is None:
+                beam_coords = packet.data["beams"]
             data_record_format = HeaderOrDataRecordFormats.data_record_format(
                 packet.data_record_type
             )
@@ -128,6 +127,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                         dtypes[field_name] = field.field_entry_data_type.dtype(
                             field_entry_size_bytes
                         )
+                    if field_name not in units:
+                        units[field_name] = field.units()
 
                 if field_name in packet.data:  # field is in this packet
                     fields[field_name].append(packet.data[field_name])
@@ -187,11 +188,19 @@ class SetGroupsAd2cp(SetGroupsBase):
             ]
 
         # make ds
-        used_dims = {dim for dims_list in dims.values() for dim in dims_list}
+        used_dims = {
+            dim
+            for field_name, dims_list in dims.items()
+            for dim in dims_list
+            if field_exists[field_name]
+        }
         data_vars = {
             var_name: (
                 [dim.value for dim in dims[field_name]],
                 combined_fields[field_name],
+                {"Units": units[field_name]}
+                if field_name in units and units[field_name] is not None
+                else {},
             )
             if field_exists[field_name]
             else ((), None)
@@ -204,9 +213,13 @@ class SetGroupsAd2cp(SetGroupsBase):
         for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
             if ahrs_dim in used_dims:
                 coords[ahrs_dim.value] = ahrs_coords
-        # if Dimension.BEAM in used_dims:
-        #     coords[Dimension.BEAM.value] =
-        return xr.Dataset(data_vars=data_vars, coords=coords)
+        if Dimension.BEAM in used_dims and beam_coords is not None:
+            coords[Dimension.BEAM.value] = beam_coords
+        # make arange coords for the remaining dims
+        ds = xr.Dataset(data_vars=data_vars, coords=coords)
+        non_coord_dims = {dim.value for dim in used_dims} - set(ds.coords.keys())
+        ds = ds.assign_coords({dim: np.arange(ds.dims[dim]) for dim in non_coord_dims})
+        return ds
 
     def combine_packets(self):
         self.ds = None
