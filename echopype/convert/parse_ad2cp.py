@@ -985,9 +985,13 @@ class HeaderOrDataRecordFormats:
                     field_units="V",
                     field_unit_conversion=lambda packet, x: x / 10,
                 ),
-                F("magnetometer_raw_x", 2, SIGNED_INTEGER),
-                F("magnetometer_raw_y", 2, SIGNED_INTEGER),
-                F("magnetometer_raw_z", 2, SIGNED_INTEGER),
+                F(
+                    "magnetometer_raw",
+                    2,
+                    SIGNED_INTEGER,
+                    field_shape=[3],
+                    field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+                ),
                 F(
                     "accelerometer_raw_x_axis",
                     2,
@@ -1270,9 +1274,13 @@ class HeaderOrDataRecordFormats:
                 field_units="V",
                 field_unit_conversion=lambda packet, x: x / 10,
             ),
-            F("magnetometer_raw_x", 2, SIGNED_INTEGER),
-            F("magnetometer_raw_y", 2, SIGNED_INTEGER),
-            F("magnetometer_raw_z", 2, SIGNED_INTEGER),
+            F(
+                "magnetometer_raw",
+                2,
+                SIGNED_INTEGER,
+                field_shape=[3],
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+            ),
             F(
                 "accelerometer_raw_x_axis",
                 2,
@@ -1746,9 +1754,13 @@ class HeaderOrDataRecordFormats:
                 field_units="V",
                 field_unit_conversion=lambda packet, x: x / 10,
             ),
-            F("magnetometer_raw_x", 2, SIGNED_INTEGER),
-            F("magnetometer_raw_y", 2, SIGNED_INTEGER),
-            F("magnetometer_raw_z", 2, SIGNED_INTEGER),
+            F(
+                "magnetometer_raw",
+                2,
+                SIGNED_INTEGER,
+                field_shape=[3],
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ]
+            ),
             F(
                 "accelerometer_raw_x_axis",
                 2,
