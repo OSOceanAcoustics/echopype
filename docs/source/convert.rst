@@ -40,8 +40,8 @@ create a fully parsed ``EchoData`` object.
 Use the parameter ``sonar_model`` to indicate the echosounder type:
     - ``EK60``: Kongsberg Simrad EK60 echosounder
     - ``ES70``: Kongsberg Simrad ES70 echosounder
-    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
-    - ``ES80``: Kongsberg Simrad ES80 echsoounder
+    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echosounders
+    - ``ES80``: Kongsberg Simrad ES80 echosounder
     - ``AZFP``: ASL Environmental Sciences AZFP echosounder
     - ``AD2CP``: Nortek Signature series ADCP
       (tested with Signature 500 and Signature 1000)
