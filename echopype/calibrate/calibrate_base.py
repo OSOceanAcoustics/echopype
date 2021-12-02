@@ -107,7 +107,7 @@ class EnvParams:
         if self.data_kind == "mobile":
             # compute_range needs indexing by ping_time
             interp_plat = echodata.platform.interp(
-                {"location_time": echodata.platform["ping_time"]}
+                {"location_time": echodata.beam["ping_time"]}
             )
 
             result = {}
