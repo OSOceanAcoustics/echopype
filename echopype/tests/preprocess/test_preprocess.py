@@ -290,7 +290,9 @@ def test_preprocess_mvbs(
     azfp_xml_path,
     range_kwargs,
 ):
-    # TODO: Need to figure out how to compare the actual rendered plots
+    """
+    Test running through from open_raw to compute_MVBS.
+    """
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
