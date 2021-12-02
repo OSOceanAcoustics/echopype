@@ -12,8 +12,8 @@ see these tips for submitting issues:
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
 For echopype development we use the **gitflow workflow** with forking. All development
-changes are merged into the ``dev`` development branch. First create your own fork of the 
-source GitHub repository 
+changes (except for documentation) are merged into the ``dev`` development branch. 
+First create your own fork of the source GitHub repository 
 `https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
 (``upstream``), then clone your fork; your fork will be the ``origin`` remote. See 
 `this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for 
@@ -42,6 +42,12 @@ This diagram depicts the complete workflow we use in the source GitHub repositor
   branch; changes in the documentation corresponding to changes in the code can be 
   carried out in this branch as well. 
 - New releases are prepared in a new release branch that merges changes in ``dev`` and ``stable``.
+
+To maintain a clean and readable commit history, use "Merge pull request > Squash and merge" 
+when merging an individual PR to `dev` or a documentation-only PR to `stable`. This will 
+highlight the specific feature(s) contributed by the PR. When merging an ``echopype`` 
+release PR to `main`, use "Merge pull request > Create a merge commit" in order to 
+retain all the squashed PR commits in the commit history.
 
 
 Installation for echopype development
@@ -125,7 +131,7 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-will execute all tests. Passing a comma separated list of modules at the end will limit
+will execute all tests by default. Passing a comma separated list of modules at the end will limit
 the execution to only tests in the corresponding subpackages. For usage information, 
 run it with the ``-h`` argument: ``python .ci_helpers/run-test.py -h``
 
@@ -138,7 +144,7 @@ and useful pre-commit "hooks" have been configured in the
 Current hooks include file formatting (linting) checks (trailing spaces, trailing lines,
 JSON and YAML format checks, etc) and Python style autoformatters (PEP8 / flake8, ``black`` and ``isort``).
 
-To run pre-commit hooks locally, run `pre-commit install` before running the 
+To run pre-commit hooks locally, run ``pre-commit install`` before running the 
 docker setup-service deploy statement described above. The hooks will run automatically 
 during ``git commit`` and will give you options as needed before committing your changes.
 You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code, 
@@ -168,6 +174,15 @@ This is done by including the string "[skip ci]" in your last commit's message.
 
 Documentation development
 -------------------------
+
+Function and object doc strings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For inline strings documenting functions and objects ("doc strings"), we use the
+`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
+
+Sphinx ReadTheDocs documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on 
 `Sphinx <https://www.sphinx-doc.org>`_ and is hosted at 
@@ -207,9 +222,3 @@ corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
 for viewing and debugging larger, more experimental changes, typically from a separate fork.
-
-Function and object doc strings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For inline strings documenting functions and objects ("doc strings"), we use the
-`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
