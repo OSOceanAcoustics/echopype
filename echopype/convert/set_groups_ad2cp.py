@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -6,20 +6,6 @@ import xarray as xr
 from ..utils.coding import set_encodings
 from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
-
-
-def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
-    """
-    Merges attrs from a list of datasets.
-    Prioritizes keys from later datsets.
-    """
-
-    total_attrs = dict()
-    for ds in datasets:
-        total_attrs.update(ds.attrs)
-    for ds in datasets:
-        ds.attrs = total_attrs
-    return datasets
 
 
 AHRS_COORDS: Dict[Dimension, np.ndarray] = {
@@ -33,7 +19,6 @@ class SetGroupsAd2cp(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
-        # self.combine_packets()
         self._make_time_coords()
 
     def _make_time_coords(self):
@@ -182,13 +167,16 @@ class SetGroupsAd2cp(SetGroupsBase):
             ]
 
         # make ds
-        used_dims = {
+        used_dims: Set[Dimension] = {
             dim
             for field_name, dims_list in dims.items()
             for dim in dims_list
             if field_exists[field_name]
         }
-        data_vars = {
+        data_vars: Dict[
+            str,
+            Union[Tuple[List[str], np.ndarray, Dict[str, str]], Tuple[Tuple[()], None]],
+        ] = {
             var_name: (
                 [dim.value for dim in dims[field_name]],
                 combined_fields[field_name],
@@ -199,8 +187,8 @@ class SetGroupsAd2cp(SetGroupsBase):
             if field_exists[field_name]
             else ((), None)
             for field_name, var_name in var_names.items()
-        }
-        coords = dict()
+        } # type: ignore
+        coords: Dict[str, np.ndarray] = dict()
         for time_dim, time_idxs in self.times_idx.items():
             if time_dim in used_dims:
                 coords[time_dim.value] = self.timestamps[time_idxs]
@@ -209,8 +197,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 coords[ahrs_dim.value] = ahrs_coords
         if Dimension.BEAM in used_dims and beam_coords is not None:
             coords[Dimension.BEAM.value] = beam_coords
-        # make arange coords for the remaining dims
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
+        # make arange coords for the remaining dims
         non_coord_dims = {dim.value for dim in used_dims} - set(ds.coords.keys())
         ds = ds.assign_coords({dim: np.arange(ds.dims[dim]) for dim in non_coord_dims})
         return ds
