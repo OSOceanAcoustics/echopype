@@ -11,7 +11,7 @@ def create_echogram(
     frequency: Union[int, float, List[T], None] = None,
     get_range: bool = False,
     range_kwargs: dict = {},
-    water_level: Union[xr.DataArray, None] = None,
+    water_level: Union[int, float, xr.DataArray, None] = None,
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
     """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
@@ -99,16 +99,20 @@ def create_echogram(
                 yaxis = 'range_bin'
         # If depth is available in ds, use it.
         ds = ds.set_coords('range')
-        if isinstance(water_level, xr.DataArray):
-            required_dims = ['frequency', 'ping_time']
-            if not all(
-                True if d in water_level.dims else False for d in required_dims
-            ):
-                raise ValueError(
-                    f"Water level must have dimensions: {', '.join(required_dims)}"
-                )
-            # Adds water level to range if it exists
-            ds['range'] = ds.range + water_level
+        if water_level is not None:
+            if isinstance(water_level, xr.DataArray):
+                check_dims = ds['range'].dims
+                if not any(
+                    True if d in water_level.dims else False
+                    for d in check_dims
+                ):
+                    raise ValueError(
+                        f"Water level must have any of these dimensions: {', '.join(check_dims)}"
+                    )
+                # Adds water level to range if it exists
+                ds['range'] = ds.range + water_level
+            elif isinstance(water_level, (int, float)):
+                ds['range'] = ds.range + water_level
         ds.range.attrs = range_attrs
     else:
         ValueError(f"Unsupported data type: {type(data)}")
