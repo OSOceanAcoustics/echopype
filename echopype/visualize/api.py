@@ -1,5 +1,5 @@
 import warnings
-from typing import Union, List
+from typing import Optional, Union, List
 
 import xarray as xr
 
@@ -10,7 +10,7 @@ from echopype.echodata import EchoData
 def create_echogram(
     data: Union[EchoData, xr.Dataset],
     frequency: Union[int, float, List[T], None] = None,
-    get_range: bool = False,
+    get_range: Optional[bool] = False,
     range_kwargs: dict = {},
     water_level: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
@@ -24,9 +24,12 @@ def create_echogram(
     frequency : int, float, or list of float or ints, optional
         The frequency to be plotted.
         Otherwise all frequency will be plotted.
-    get_range : bool
+    get_range : bool, optional
         Flag as to whether range should be computed or not,
         by default it will just plot range_bin as the yaxis.
+
+        Note that for data that is "Sv" xarray dataset, `get_range` defaults
+        to `True`.
     range_kwargs : dict
         Keyword arguments dictionary for computing range.
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
@@ -67,7 +70,7 @@ def create_echogram(
         yaxis = 'range_bin'
         variable = 'backscatter_r'
         ds = data.beam
-        if get_range:
+        if get_range is True:
             yaxis = 'range'
 
             if data.sonar_model.lower() == 'azfp':
@@ -131,14 +134,11 @@ def create_echogram(
     elif isinstance(data, xr.Dataset):
         variable = 'Sv'
         ds = data
-        if get_range:
-            yaxis = 'range'
-        else:
-            if 'range' in data.dims:
-                # This indicates that data is MVBS.
-                yaxis = 'range'
-            else:
-                yaxis = 'range_bin'
+        yaxis = 'range'
+        if 'range' not in data.dims and get_range is False:
+            # Range in dims indicates that data is MVBS.
+            yaxis = 'range_bin'
+
         # If depth is available in ds, use it.
         ds = ds.set_coords('range')
         if water_level is not None:
