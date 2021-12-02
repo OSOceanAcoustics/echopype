@@ -8,6 +8,7 @@ from xarray.core.merge import MergeError
 
 import echopype
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
 from echopype.core import SONAR_MODELS
 
@@ -75,7 +76,9 @@ def test_combine_echodata(
             continue
         combined_group: xr.Dataset = getattr(combined, group_name)
         eds_groups = [
-            getattr(ed, group_name) for ed in eds if getattr(ed, group_name) is not None
+            getattr(ed, group_name)
+            for ed in eds
+            if getattr(ed, group_name) is not None
         ]
 
         def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
@@ -92,7 +95,9 @@ def test_combine_echodata(
         test_ds = xr.combine_nested(
             eds_groups,
             [concat_dims.get(group_name, concat_dims["default"])],
-            data_vars=concat_data_vars.get(group_name, concat_data_vars["default"]),
+            data_vars=concat_data_vars.get(
+                group_name, concat_data_vars["default"]
+            ),
             coords="minimal",
             combine_attrs="drop",
         )
@@ -106,10 +111,17 @@ def test_combine_echodata(
                 "location_time",
             ],
             errors="ignore",
-        ).drop_dims([f"{group}_attrs" for group in combined.group_map], errors="ignore")
+        ).drop_dims(
+            [f"{group}_attrs" for group in combined.group_map], errors="ignore"
+        )
         assert combined_group is None or test_ds.identical(
             combined_group.drop_dims(
-                ["old_ping_time", "ping_time", "old_location_time", "location_time"],
+                [
+                    "old_ping_time",
+                    "ping_time",
+                    "old_location_time",
+                    "location_time",
+                ],
                 errors="ignore",
             )
         )
@@ -117,7 +129,8 @@ def test_combine_echodata(
 
 def test_ping_time_reversal():
     eds = [
-        echopype.open_raw(file, "EK60") for file in ek60_reversed_ping_time_test_data
+        echopype.open_raw(file, "EK60")
+        for file in ek60_reversed_ping_time_test_data
     ]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
@@ -129,7 +142,10 @@ def test_ping_time_reversal():
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            if "location_time" in combined_group and group_name not in ("provenance", "nmea"):
+            if "location_time" in combined_group and group_name not in (
+                "provenance",
+                "nmea",
+            ):
                 assert not exist_reversed_time(combined_group, "location_time")
             if "old_location_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_location_time")
@@ -141,16 +157,18 @@ def test_ping_time_reversal():
 
 def test_attr_storage():
     # check storage of attributes before combination in provenance group
-    eds = [
-        echopype.open_raw(file, "EK60") for file in ek60_test_data
-    ]
+    eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
     for group in combined.group_map:
         if f"{group}_attrs" in combined.provenance:
             group_attrs = combined.provenance[f"{group}_attrs"]
             for i, ed in enumerate(eds):
                 for attr, value in getattr(ed, group).attrs.items():
-                    assert str(group_attrs.isel(echodata_filename=i).sel({f"{group}_attr_key": attr}).data[()]) == str(value)
+                    assert str(
+                        group_attrs.isel(echodata_filename=i)
+                        .sel({f"{group}_attr_key": attr})
+                        .data[()]
+                    ) == str(value)
 
     # check selection by echodata_filename
     for file in ek60_test_data:
@@ -158,14 +176,17 @@ def test_attr_storage():
     for group in combined.group_map:
         if f"{group}_attrs" in combined.provenance:
             group_attrs = combined.provenance[f"{group}_attrs"]
-            assert np.array_equal(group_attrs.sel(echodata_filename=Path(ek60_test_data[0]).name), group_attrs.isel(echodata_filename=0))
+            assert np.array_equal(
+                group_attrs.sel(
+                    echodata_filename=Path(ek60_test_data[0]).name
+                ),
+                group_attrs.isel(echodata_filename=0),
+            )
 
 
 def test_combine_attrs():
     # check parameter passed to combine_echodata that controls behavior of attribute combination
-    eds = [
-        echopype.open_raw(file, "EK60") for file in ek60_test_data
-    ]
+    eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
     eds[0].beam.attrs.update({"foo": 1})
     eds[1].beam.attrs.update({"foo": 2})
     eds[2].beam.attrs.update({"foo": 3})
@@ -202,3 +223,25 @@ def test_combine_attrs():
 
     combined = echopype.combine_echodata(eds, "no_conflicts")  # type: ignore
     assert combined.beam.attrs["foo"] == 1
+
+
+def test_combined_encodings():
+    eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+
+    group_checks = []
+    for group in combined.group_map:
+        ds = getattr(combined, group)
+        if ds is not None:
+            for k, v in ds.variables.items():
+                if k in DEFAULT_ENCODINGS:
+                    encoding = ds[k].encoding
+                    if encoding != DEFAULT_ENCODINGS[k]:
+                        group_checks.append(
+                            f"  {combined.group_map[group]['name']}::{k}"
+                        )
+
+    if len(group_checks) > 0:
+        all_messages = ['Encoding mismatch found!'] + group_checks
+        message_text = '\n'.join(all_messages)
+        raise AssertionError(message_text)
