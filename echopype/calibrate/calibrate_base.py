@@ -130,6 +130,7 @@ class EnvParams:
                 data_vars=result, coords={"ping_time": interp_plat["ping_time"]}
             )
         else:
+            # TODO: organized case
             min_max = {
                 dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
                 for dim in dims
