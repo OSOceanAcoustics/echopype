@@ -32,7 +32,7 @@ class EnvParams:
         """
         Class to hold and interpolate external environmental data for calibration purposes.
 
-        This class can be used as the `env_params` paremter in `echopype.calibrate.compute_Sv`
+        This class can be used as the `env_params` parameter in `echopype.calibrate.compute_Sv`
         or `echopype.calibrate.compute_Sp`. It is intended to be used with environmental parameters
         indexed by time. Environmental parameters will be interpolated onto dimensions within
         the Platform group of the `EchoData` object being used for calibration.
