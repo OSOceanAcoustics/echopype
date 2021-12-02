@@ -1,3 +1,4 @@
+import warnings
 from typing import Union, List
 
 import xarray as xr
@@ -11,7 +12,7 @@ def create_echogram(
     frequency: Union[int, float, List[T], None] = None,
     get_range: bool = False,
     range_kwargs: dict = {},
-    water_level: Union[int, float, xr.DataArray, None] = None,
+    water_level: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
     """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
@@ -29,8 +30,11 @@ def create_echogram(
     range_kwargs : dict
         Keyword arguments dictionary for computing range.
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
-    water_level : xr.DataArray, optional
+    water_level : int, float, xr.DataArray, or bool, optional
         Water level data array for platform water level correction.
+        Note that auto addition of water level can be performed
+        when data is an EchoData object by setting this argument
+        to `True`.
     **kwargs: optional
         Additional keyword arguments for xarray plot pcolormesh.
 
@@ -80,7 +84,7 @@ def create_echogram(
                 ek_encode_mode=range_kwargs.get('encode_mode', 'complex'),
             )
             range_in_meter.attrs = range_attrs
-            if 'water_level' in data.platform:
+            if water_level is True and 'water_level' in data.platform:
                 # Adds water level to range if it exists
                 range_in_meter = range_in_meter + data.platform.water_level
             ds = ds.assign_coords({'range': range_in_meter})
@@ -113,6 +117,10 @@ def create_echogram(
                 ds['range'] = ds.range + water_level
             elif isinstance(water_level, (int, float)):
                 ds['range'] = ds.range + water_level
+            elif isinstance(water_level, bool):
+                warnings.warn(
+                    "Boolean type found for water level. Ignored since data is an xarray dataset."
+                )
         ds.range.attrs = range_attrs
     else:
         ValueError(f"Unsupported data type: {type(data)}")
