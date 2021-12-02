@@ -14,6 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
@@ -206,6 +207,9 @@ class EchoData:
             `"salinity"`, and `"pressure"`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
         """
+
+        if isinstance(env_params, EnvParams):
+            env_params = env_params._apply(self)
 
         def squeeze_non_scalar(n):
             if not np.isscalar(n):
