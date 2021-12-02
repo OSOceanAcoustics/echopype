@@ -10,7 +10,7 @@ from echopype.echodata import EchoData
 def create_echogram(
     data: Union[EchoData, xr.Dataset],
     frequency: Union[int, float, List[T], None] = None,
-    get_range: Optional[bool] = False,
+    get_range: Optional[bool] = None,
     range_kwargs: dict = {},
     water_level: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
