@@ -68,9 +68,17 @@ def create_echogram(
             elif data.sonar_model.lower() == 'ek60':
                 if 'waveform_mode' not in range_kwargs:
                     range_kwargs['waveform_mode'] = 'CW'
+                elif range_kwargs['waveform_mode'] != 'CW':
+                    raise ValueError(
+                        f"waveform_mode {range_kwargs['waveform_mode']} is invalid. EK60 waveform_mode must be 'CW'."  # noqa
+                    )
 
                 if 'encode_mode' not in range_kwargs:
                     range_kwargs['encode_mode'] = 'power'
+                elif range_kwargs['encode_mode'] != 'power':
+                    raise ValueError(
+                        f"encode_mode {range_kwargs['encode_mode']} is invalid. EK60 encode_mode must be 'power'."  # noqa
+                    )
             elif data.sonar_model.lower() == 'ek80':
                 if 'waveform_mode' not in range_kwargs:
                     raise ValueError(
