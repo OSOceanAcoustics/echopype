@@ -172,6 +172,6 @@ def test_plot_mvbs(
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
-    mvbs = echopype.preprocess.compute_MVBS(Sv)
+    mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='1S')
     plot = echopype.visualize.create_echogram(mvbs)
     assert isinstance(plot, FacetGrid) is True
