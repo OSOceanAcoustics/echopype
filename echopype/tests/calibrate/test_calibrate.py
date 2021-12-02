@@ -9,17 +9,19 @@ import xarray as xr
 azfp_path = Path('./echopype/test_data/azfp')
 ek60_path = Path('./echopype/test_data/ek60')
 ek80_path = Path('./echopype/test_data/ek80')
+ek80_cal_path = Path('./echopype/test_data/ek80_bb_with_calibration')
 
 
 def test_compute_Sv_ek60_echoview():
-    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  # constant range_bin
+    # constant range_bin
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))
     ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     # Convert file
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
 
     # Compare with EchoView outputs
     channels = []
@@ -29,8 +31,10 @@ def test_compute_Sv_ek60_echoview():
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
-    assert np.allclose(test_Sv[:, :, 7:],
-                    ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8)
+    assert np.allclose(
+        test_Sv[:, :, 7:],
+        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)), atol=1e-8
+    )
 
 
 def test_compute_Sv_ek60_matlab():
@@ -41,8 +45,8 @@ def test_compute_Sv_ek60_matlab():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
-    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sp = ep.calibrate.compute_Sp(echodata)
 
     # Load matlab outputs and test
 
@@ -128,16 +132,24 @@ def test_compute_Sv_ek80_pc_echoview():
     Unresolved: the difference is large and it is not clear why.
     """
     ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
-    ek80_bb_pc_test_path = str(ek80_path.joinpath('from_echoview/70 kHz pulse-compressed power.complex.csv'))
+    ek80_bb_pc_test_path = str(ek80_path.joinpath(
+        'from_echoview/70 kHz pulse-compressed power.complex.csv'
+    ))
 
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
 
     # Create a CalibrateEK80 object to perform pulse compression
-    waveform_mode = 'BB'
-    cal_obj = CalibrateEK80(echodata, env_params=None, cal_params=None, waveform_mode=waveform_mode, encode_mode="complex")
-    cal_obj.compute_range_meter(waveform_mode=waveform_mode)  # compute range [m]
-    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
-    pc = cal_obj.compress_pulse(chirp)
+    cal_obj = CalibrateEK80(
+        echodata, env_params=None, cal_params=None,
+        waveform_mode="BB", encode_mode="complex"
+    )
+    cal_obj.compute_range_meter(waveform_mode="BB", encode_mode="complex")  # compute range [m]
+    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
+    freq_center = (
+        echodata.beam["frequency_start"]
+        + echodata.beam["frequency_end"]
+    ).dropna(dim="frequency") / 2  # drop those that contain CW samples (nan in freq start/end)
+    pc = cal_obj.compress_pulse(chirp, freq_BB=freq_center.frequency)
     pc_mean = pc.pulse_compressed_output.isel(frequency=0).mean(dim='quadrant').dropna('range_bin')
 
     # Read EchoView pc raw power output
@@ -159,29 +171,49 @@ def test_compute_Sv_ek80_pc_echoview():
 
 
 def test_compute_Sv_ek80_CW_complex():
-    """Test calibrate CW mode data encoded as complex sam[les.
+    """Test calibrate CW mode data encoded as complex samples.
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201210-T000409.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
-    assert isinstance(sv, xr.Dataset) is True
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='CW', encode_mode='complex')
+    assert isinstance(ds_Sv, xr.Dataset) is True
+    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode='CW', encode_mode='complex')
+    assert isinstance(ds_Sp, xr.Dataset) is True
 
 
 def test_compute_Sv_ek80_BB_complex():
-    """Test calibrate BB mode data encoded as complex sam[les.
+    """Test calibrate BB mode data encoded as complex samples.
     """
     ek80_raw_path = str(ek80_path.joinpath('ar2.0-D20201209-T235955.raw'))  # CW complex
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
-    assert isinstance(sv, xr.Dataset) is True
+    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+    assert isinstance(ds_Sv, xr.Dataset) is True
+    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode='BB', encode_mode='complex')
+    assert isinstance(ds_Sp, xr.Dataset) is True
 
-def test_compute_Sv_ek80_CW_power():
-    """
-    Tests calibration in CW mode data encoded as power samples,
-    while the file also contains BB complex samples
-    """
 
+def test_compute_Sv_ek80_CW_power_BB_complex():
+    """
+    Tests calibration in CW mode data encoded as power samples
+    and calibration in BB mode data encoded as complex seamples,
+    while the file contains both CW power and BB complex samples.
+    """
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
-    sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
-    assert isinstance(sv, xr.Dataset)
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
+    assert isinstance(ds_Sv, xr.Dataset)
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    assert isinstance(ds_Sv, xr.Dataset)
+
+
+def test_compute_Sv_ek80_CW_complex_BB_complex():
+    """
+    Tests calibration for file containing both BB and CW mode data
+    with both encoded as complex samples.
+    """
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex")
+    assert isinstance(ds_Sv, xr.Dataset)
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    assert isinstance(ds_Sv, xr.Dataset)
