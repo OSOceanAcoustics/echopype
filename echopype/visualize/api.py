@@ -38,6 +38,18 @@ def create_echogram(
     **kwargs: optional
         Additional keyword arguments for xarray plot pcolormesh.
 
+    Notes
+    -----
+    The EK80 echosounder can be configured to transmit
+    either broadband (``waveform_mode="BB"``)
+    or narrowband (``waveform_mode="CW"``) signals.
+    When transmitting in broadband mode, the returned echoes are
+    encoded as complex samples (``encode_mode="complex"``).
+    When transmitting in narrowband mode, the returned echoes can be encoded
+    either as complex samples (``encode_mode="complex"``)
+    or as power/angle combinations (``encode_mode="power"``) in a format
+    similar to those recorded by EK60 echosounders.
+
     """
     range_attrs = {
         'long_name': 'Range',
@@ -80,9 +92,27 @@ def create_echogram(
                         f"encode_mode {range_kwargs['encode_mode']} is invalid. EK60 encode_mode must be 'power'."  # noqa
                     )
             elif data.sonar_model.lower() == 'ek80':
-                if 'waveform_mode' not in range_kwargs:
+                if not all(
+                    True if mode in range_kwargs else False
+                    for mode in ['waveform_mode', 'encode_mode']
+                ):
                     raise ValueError(
-                        "Please provide waveform_mode in range_kwargs for EK80 sonar model."
+                        "Please provide waveform_mode and encode_mode in range_kwargs for EK80 sonar model."
+                    )
+                waveform_mode = range_kwargs['waveform_mode']
+                encode_mode = range_kwargs['encode_mode']
+
+                if waveform_mode not in ("BB", "CW"):
+                    raise ValueError(
+                        f"waveform_mode {waveform_mode} is invalid. EK80 waveform_mode must be 'BB' or 'CW'."  # noqa
+                    )
+                elif encode_mode not in ("complex", "power"):
+                    raise ValueError(
+                        f"encode_mode {encode_mode} is invalid. EK80 waveform_mode must be 'complex' or 'power'."  # noqa
+                    )
+                elif waveform_mode == "BB" and encode_mode == "power":
+                    raise ValueError(
+                        "Data from broadband ('BB') transmission must be recorded as complex samples"
                     )
 
             range_in_meter = data.compute_range(
