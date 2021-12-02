@@ -46,8 +46,8 @@ class EnvParams:
             When `data_kind` is `"stationary"`, env_params must have a coordinate `"ping_time"`.
             When `data_kind` is `"mobile"`, env_params must have coordinates `"latitude"`
             and `"longitude"`.
-            When `data_kind` is `"mobile"`, env_params must have coordinates `"time"`,
-            `"latitude"`, and `"longitude"`.
+            When `data_kind` is `"organized"`, env_params must have coordinates `"time"`,
+            `"latitude"`, and `"longitude"`. This `data_kind` is not currently supported.
         data_kind : {"stationary", "mobile", "organized"}
             The type of the environmental parameters.
 
@@ -59,6 +59,14 @@ class EnvParams:
         interp_method: {"linear", "nearest", "zero", "slinear", "quadratic", "cubic"}
             Method for interpolation of environmental parameters with the data from the
             provided `EchoData` object.
+
+            When `data_kind` is `"stationary"`, valid `interp_method`s are `"linear"`, `"nearest"`,
+            `"zero"`, `"slinear"`, `"quadratic"`, and `"cubic"`
+            (see <https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.interpolate.interp1d.html>).
+            When `data_kind` is `"mobile"`, valid `interp_method`s are `"linear"`, `"nearest"`, and `"cubic"`
+            (see <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.griddata.html>).
+            When `data_kind` is `"organized"`, valid `interp_method`s are `"linear"` and `"nearest"`
+            (see <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interpn.html>).
         extrap_method: {"linear", "nearest"}
             Method for extrapolation of environmental parameters with the data from the
             provided `EchoData` object. Currently only supported when `data_kind` is `"stationary"`.
