@@ -4,11 +4,7 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 import numpy as np
 import xarray as xr
 
-from ..echodata.convention.attrs import (
-    DEFAULT_BEAM_COORD_ATTRS,
-    DEFAULT_PLATFORM_COORD_ATTRS,
-    DEFAULT_PLATFORM_VAR_ATTRS,
-)
+from ..echodata.convention.attrs import DEFAULT_BEAM_COORD_ATTRS
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
