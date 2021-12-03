@@ -19,6 +19,7 @@ from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
 from .convention import _get_convention
+from .convention.attrs import DEFAULT_PLATFORM_COORD_ATTRS
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -28,15 +29,6 @@ XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
 TVG_CORRECTION_FACTOR = {
     "EK60": 2,
     "EK80": 0,
-}
-
-# TODO: Move to a new utility module in, say, echodata.convention
-DEFAULT_PLATFORM_COORD_ATTRS = {
-    "location_time": {
-        "axis": "T",
-        "long_name": "Timestamps for NMEA datagrams",
-        "standard_name": "time",
-    }
 }
 
 

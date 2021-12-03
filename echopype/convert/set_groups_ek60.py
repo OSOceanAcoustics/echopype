@@ -6,10 +6,15 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
+from ..echodata.convention.attrs import (
+    DEFAULT_BEAM_COORD_ATTRS,
+    DEFAULT_PLATFORM_COORD_ATTRS,
+    DEFAULT_PLATFORM_VAR_ATTRS,
+)
 from ..utils.coding import set_encodings
 
 # fmt: off
-from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, DEFAULT_CHUNK_SIZE, SetGroupsBase
+from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 
 # fmt: on
 
@@ -183,22 +188,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "latitude": (
                     ["location_time"],
                     lat,
-                    {
-                        "long_name": "Platform latitude",
-                        "standard_name": "latitude",
-                        "units": "degrees_north",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    DEFAULT_PLATFORM_VAR_ATTRS["latitude"],
                 ),
                 "longitude": (
                     ["location_time"],
                     lon,
-                    {
-                        "long_name": "Platform longitude",
-                        "standard_name": "longitude",
-                        "units": "degrees_east",
-                        "valid_range": (-180.0, 180.0),
-                    },
+                    DEFAULT_PLATFORM_VAR_ATTRS["longitude"],
                 ),
                 "sentence_type": (["location_time"], msg_type),
             },
@@ -206,11 +201,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "location_time": (
                     ["location_time"],
                     location_time,
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for NMEA position datagrams",
-                        "standard_name": "time",
-                    },
+                    DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
                 )
             },
         )
@@ -235,41 +226,22 @@ class SetGroupsEK60(SetGroupsBase):
                         "pitch": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["pitch"][ch],
-                            {
-                                "long_name": "Platform pitch",
-                                "standard_name": "platform_pitch_angle",
-                                "units": "arc_degree",
-                                "valid_range": (-90.0, 90.0),
-                            },
+                            DEFAULT_PLATFORM_VAR_ATTRS["pitch"],
                         ),
                         "roll": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["roll"][ch],
-                            {
-                                "long_name": "Platform roll",
-                                "standard_name": "platform_roll_angle",
-                                "units": "arc_degree",
-                                "valid_range": (-90.0, 90.0),
-                            },
+                            DEFAULT_PLATFORM_VAR_ATTRS["roll"],
                         ),
                         "heave": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["heave"][ch],
-                            {
-                                "long_name": "Platform heave",
-                                "standard_name": "platform_heave_angle",
-                                "units": "arc_degree",
-                                "valid_range": (-90.0, 90.0),
-                            },
+                            DEFAULT_PLATFORM_VAR_ATTRS["heave"],
                         ),
                         "water_level": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            {
-                                "long_name": "z-axis distance from the platform coordinate system "
-                                "origin to the sonar transducer",
-                                "units": "m",
-                            },
+                            DEFAULT_PLATFORM_VAR_ATTRS["water_level"],
                         ),
                     },
                     coords={
