@@ -98,4 +98,5 @@ TEST ECHODATA HTML REPR
 -----------------------
 
 .. raw:: html
-   :file: ../echodata_html_repr.html
+
+    <iframe src="_static/echodata_sample.html" width="100%" height="400" style="border: none;"></iframe>
