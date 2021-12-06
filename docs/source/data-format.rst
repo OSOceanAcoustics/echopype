@@ -94,3 +94,8 @@ sequence of the index of the selected frequency:
     data_120k = ds.backscatter_r.sel(frequency=120000)  # explicit indexing for frequency
 
 
+TEST ECHODATA HTML REPR
+-----------------------
+
+.. raw:: html
+   :file: ../echodata_html_repr.html
