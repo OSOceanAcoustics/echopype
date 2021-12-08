@@ -136,6 +136,8 @@ def create_echogram(
             ds.range.attrs = range_attrs
 
     elif isinstance(data, xr.Dataset):
+        if 'ping_time' in data and data.ping_time.shape[0] < 2:
+            raise ValueError("Ping time must be greater or equal to 2 data points.")
         variable = 'Sv'
         ds = data
         yaxis = 'range'
@@ -153,7 +155,7 @@ def create_echogram(
             )
         ds.range.attrs = range_attrs
     else:
-        ValueError(f"Unsupported data type: {type(data)}")
+        raise ValueError(f"Unsupported data type: {type(data)}")
 
     return _plot_echogram(
         ds,

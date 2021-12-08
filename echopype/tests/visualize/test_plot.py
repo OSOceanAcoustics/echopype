@@ -174,9 +174,17 @@ def test_plot_mvbs(
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
-    mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='1S')
-    plot = echopype.visualize.create_echogram(mvbs)
-    assert isinstance(plot, FacetGrid) is True
+    mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='10S')
+
+    plot = None
+    try:
+        plot = echopype.visualize.create_echogram(mvbs)
+    except Exception as e:
+        assert isinstance(e, ValueError)
+        assert str(e) == "Ping time must be greater or equal to 2 data points."  # noqa
+
+    if plot is not None:
+        assert isinstance(plot, FacetGrid) is True
 
 
 @pytest.mark.parametrize(
