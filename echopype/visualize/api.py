@@ -121,13 +121,17 @@ def create_echogram(
             range_in_meter = data.compute_range(
                 env_params=range_kwargs.get('env_params', {}),
                 azfp_cal_type=range_kwargs.get('azfp_cal_type', None),
-                ek_waveform_mode=range_kwargs.get('waveform_mode', None),
-                ek_encode_mode=range_kwargs.get('encode_mode', 'complex'),
+                ek_waveform_mode=range_kwargs.get('waveform_mode', 'CW'),
+                ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
             )
             range_in_meter.attrs = range_attrs
-            if water_level is True and 'water_level' in data.platform:
-                # Adds water level to range if it exists
-                range_in_meter = range_in_meter + data.platform.water_level
+            if water_level is not None:
+                range_in_meter = _add_water_level(
+                    range_in_meter=range_in_meter,
+                    water_level=water_level,
+                    data_type=EchoData,
+                    platform_data=data.platform,
+                )
             ds = ds.assign_coords({'range': range_in_meter})
             ds.range.attrs = range_attrs
 
@@ -142,23 +146,11 @@ def create_echogram(
         # If depth is available in ds, use it.
         ds = ds.set_coords('range')
         if water_level is not None:
-            if isinstance(water_level, xr.DataArray):
-                check_dims = ds['range'].dims
-                if not any(
-                    True if d in water_level.dims else False
-                    for d in check_dims
-                ):
-                    raise ValueError(
-                        f"Water level must have any of these dimensions: {', '.join(check_dims)}"
-                    )
-                # Adds water level to range if it exists
-                ds['range'] = ds.range + water_level
-            elif isinstance(water_level, (int, float)):
-                ds['range'] = ds.range + water_level
-            elif isinstance(water_level, bool):
-                warnings.warn(
-                    "Boolean type found for water level. Ignored since data is an xarray dataset."
-                )
+            ds['range'] = _add_water_level(
+                range_in_meter=ds.range,
+                water_level=water_level,
+                data_type=xr.Dataset,
+            )
         ds.range.attrs = range_attrs
     else:
         ValueError(f"Unsupported data type: {type(data)}")
@@ -171,3 +163,43 @@ def create_echogram(
         frequency=frequency,
         **kwargs,
     )
+
+
+def _add_water_level(
+    range_in_meter: xr.DataArray,
+    water_level: Union[int, float, xr.DataArray, bool],
+    data_type: str,
+    platform_data: Optional[xr.Dataset] = None,
+) -> xr.DataArray:
+    if isinstance(water_level, bool):
+        if water_level is True:
+            if data_type == xr.Dataset:
+                warnings.warn(
+                    "Boolean type found for water level. Ignored since data is an xarray dataset."
+                )
+                return range_in_meter
+            elif data_type == EchoData:
+                if (
+                    isinstance(platform_data, xr.Dataset)
+                    and 'water_level' in platform_data
+                ):
+                    return range_in_meter + platform_data.water_level
+                else:
+                    warnings.warn(
+                        "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
+                    )
+                    return range_in_meter
+        warnings.warn(f"Water level value of {water_level} is ignored.")
+        return range_in_meter
+    if isinstance(water_level, xr.DataArray):
+        check_dims = range_in_meter.dims
+        if not any(
+            True if d in water_level.dims else False for d in check_dims
+        ):
+            raise ValueError(
+                f"Water level must have any of these dimensions: {', '.join(check_dims)}"
+            )
+        # Adds water level to range if it exists
+        return range_in_meter + water_level
+    elif isinstance(water_level, (int, float)):
+        return range_in_meter + water_level
