@@ -7,7 +7,6 @@ from ..utils.coding import set_encodings
 from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
 
-
 AHRS_COORDS: Dict[Dimension, np.ndarray] = {
     Dimension.MIJ: np.array(["11", "12", "13", "21", "22", "23", "31", "32", "33"]),
     Dimension.WXYZ: np.array(["w", "x", "y", "z"]),
@@ -187,7 +186,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             if field_exists[field_name]
             else ((), None)
             for field_name, var_name in var_names.items()
-        } # type: ignore
+        }  # type: ignore
         coords: Dict[str, np.ndarray] = dict()
         for time_dim, time_idxs in self.times_idx.items():
             if time_dim in used_dims:
