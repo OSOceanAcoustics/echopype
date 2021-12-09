@@ -81,7 +81,7 @@ class EnvParams:
         >>> env_params = xr.open_dataset("env_params.nc")
         >>> EnvParams(env_params, data_kind="mobile", interp_method="linear")
         >>> echopype.calibrate.compute_Sv(echodata, env_params=env_params)
-        """
+        """  # noqa
         if interp_method not in VALID_INTERP_METHODS[data_kind]:
             raise ValueError(
                 f"invalid interp_method {interp_method} for data_kind {data_kind}"
@@ -101,6 +101,12 @@ class EnvParams:
             dims = ["time", "latitude", "longitude"]
         else:
             raise ValueError("invalid data_kind")
+
+        for dim in dims:
+            if dim not in echodata.platform:
+                raise ValueError(
+                    f"could not interpolate env_params; EchoData is missing dimension {dim}"
+                )
 
         env_params = self.env_params
 
