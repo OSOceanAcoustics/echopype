@@ -5,23 +5,40 @@ Open converted files
 Open a converted netCDF or Zarr dataset
 ---------------------------------------
 
-Converted netCDF and Zarr files can be opened with the ``open_converted`` function
+Converted netCDF files can be opened with the ``open_converted`` function
 that returns a lazy loaded ``EchoData`` object (only metadata are read during opening):
 
 .. code-block:: python
 
    import echopype as ep
-   nc_path = './converted_files/file.nc'        # path to a converted nc file
-   ed = ep.open_converted(nc_path)              # create an EchoData object
+   file_path = "./converted_files/file.nc"      # path to a converted nc file
+   ed = ep.open_converted(file_path)            # create an EchoData object
 
+Likewise, specify the path to open a Zarr dataset. To open such a dataset from 
+cloud storage, use the same ``storage_options`` parameter as with 
+`open_raw <convert.html#aws-s3-access>`_. For example:
 
-.. TODO: Demo opening from Zarr on S3
+.. code-block:: python
 
-.. TODO: Add section on combine_echodata, including the sample code from echopype_tour nb
+   s3_path = "s3://s3bucketname/directory_path/dataset.zarr"     # S3 dataset path
+   ed = ep.open_converted(s3_path, storage_options={"anon": True})
+
+Combine EchoData objects
+------------------------
+
+Converted data found in multiple files corresponding to the same instrument deployment can be 
+combined into a single ``EchoData`` object. First assemble a list of ``EchoData`` objects from the 
+converted files (netCDF or Zarr). Then apply ``combine_echodata`` on this list to combine all
+the data into a single ``EchoData`` object in memory:
+
+.. code-block:: python
+
    ed_list = []
-   for converted_file in sorted(glob.glob(str(converted_dpath / "*.nc"))):
+   for converted_file in ["convertedfile1.nc", "convertedfile2.nc"]
       ed_list.append(ep.open_converted(converted_file))
+
    combined_ed = ep.combine_echodata(ed_list)
+
 
 .. TODO: Mention ep.qc.exist_reversed_time and coerce rev time ..
 
