@@ -296,7 +296,7 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
     if isinstance(water_level, xr.DataArray):
         if 'frequency' in water_level.dims:
             original_array = single_array + water_level.isel(frequency=0).values
-    elif isinstance(water_level, (int, float)):
+    elif not isinstance(water_level, bool) and isinstance(water_level, (int, float)):
         original_array = single_array + water_level
     else:
         original_array = single_array
