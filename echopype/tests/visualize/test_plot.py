@@ -218,17 +218,17 @@ def test_water_level_echodata(water_level, expect_warning):
         ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
     )
     single_array = range_in_meter.isel(frequency=0, ping_time=0).values
-    no_water_level = False
+    no_input_water_level = False
     if isinstance(water_level, list):
         water_level = water_level[0]
         echodata.platform = echodata.platform.drop_vars('water_level')
-        no_water_level = True
+        no_input_water_level = True
 
     if isinstance(water_level, xr.DataArray):
         if 'frequency' in water_level.dims:
             original_array = single_array + water_level.isel(frequency=0).values
     elif isinstance(water_level, bool) and water_level is True:
-        if no_water_level is False:
+        if no_input_water_level is False:
             original_array = (
                 single_array
                 + echodata.platform.water_level.isel(frequency=0, ping_time=0).values
