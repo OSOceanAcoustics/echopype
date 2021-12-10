@@ -34,7 +34,7 @@ the data into a single ``EchoData`` object in memory:
 .. code-block:: python
 
    ed_list = []
-   for converted_file in ["convertedfile1.nc", "convertedfile2.nc"]
+   for converted_file in ["convertedfile1.nc", "convertedfile2.nc"]:
       ed_list.append(ep.open_converted(converted_file))
 
    combined_ed = ep.combine_echodata(ed_list)
