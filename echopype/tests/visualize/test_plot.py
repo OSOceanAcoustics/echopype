@@ -261,7 +261,7 @@ def test_water_level_echodata(water_level, expect_warning):
         assert isinstance(e, ValueError)
         assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_bin'  # noqa
 
-    if isinstance(results, xr.Dataset):
+    if isinstance(results, xr.DataArray):
         final_array = results.isel(frequency=0, ping_time=0).values
 
         assert np.array_equal(original_array, final_array)
@@ -320,7 +320,7 @@ def test_water_level_dataset(water_level, expect_warning):
         assert isinstance(e, ValueError)
         assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_bin'  # noqa
 
-    if isinstance(results, xr.Dataset):
+    if isinstance(results, xr.DataArray):
         final_array = results.isel(frequency=0, ping_time=0).values
 
         assert np.array_equal(original_array, final_array)
