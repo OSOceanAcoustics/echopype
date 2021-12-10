@@ -235,7 +235,7 @@ def test_water_level_echodata(water_level, expect_warning):
             )
         else:
             original_array = single_array
-    elif isinstance(water_level, (int, float)):
+    elif water_level is not False and isinstance(water_level, (int, float)):
         original_array = single_array + water_level
     else:
         original_array = single_array
