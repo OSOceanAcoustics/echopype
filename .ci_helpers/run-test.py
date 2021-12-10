@@ -30,6 +30,7 @@ MODULES_TO_TEST = {
     "echodata": {},
     "preprocess": {},
     "utils": {},
+    "visualize": {},
     "old": {"extra_globs": ["echopype/convert/convert.py", "echopype/process/*"]},
     "metrics": {},
 }
