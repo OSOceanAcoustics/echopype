@@ -37,7 +37,11 @@ def create_echogram(
         Water level data array for platform water level correction.
         Note that auto addition of water level can be performed
         when data is an EchoData object by setting this argument
-        to `True`.
+        to `True`. Currently because the water level information
+        is not available as part of the Sv dataset, a warning is issued
+        when `water_level=True` in this case and no correction is
+        performed. This behavior will change in the future when the
+        default content of Sv dataset is updated to include this information.
     **kwargs: optional
         Additional keyword arguments for xarray plot pcolormesh.
 
