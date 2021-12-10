@@ -278,7 +278,7 @@ def test_water_level_echodata(water_level, expect_warning):
         (30.5, False),
     ],
 )
-def test_water_level_dataset(water_level, expect_warning):
+def test_water_level_Sv_dataset(water_level, expect_warning):
     from echopype.visualize.api import _add_water_level
 
     filepath = ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw"
