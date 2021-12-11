@@ -1,4 +1,6 @@
 from pathlib import Path
+from datetime import datetime
+
 from echopype.calibrate.ecs_parser import ECSParser
 
 data_dir = Path("./echopype/test_data/ecs")
@@ -12,6 +14,11 @@ def test_convert_ecs():
     ecs.parse()
 
     # Spot test parsed outcome
+    assert ecs.data_type == "SimradEK60Raw"
+    assert ecs.version == "1.00"
+    assert ecs.file_creation_time == datetime(
+        year=2015, month=6, day=19, hour=23, minute=26, second=4
+    )
     assert ecs.parsed_params["fileset"]["SoundSpeed"] == "1496"
     assert ecs.parsed_params["sourcecal"]["T1"]["MinorAxisAngleOffset"] == "-0.18"
     assert ecs.parsed_params["sourcecal"]["T2"]["MajorAxis3dbBeamAngle"] == "6.85"
