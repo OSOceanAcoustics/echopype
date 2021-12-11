@@ -2,3 +2,4 @@ sphinx_rtd_theme
 sphinx-automodapi
 sphinxcontrib-mermaid
 numpydoc
+docutils<0.18

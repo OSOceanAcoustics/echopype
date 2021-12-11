@@ -4,6 +4,120 @@ What's new
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
 
+v0.5.5 (2021 Dec 10)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that includes new features, enhancements, bug fixes, and linking to an echopype preprint.
+
+New features
+~~~~~~~~~~~~
+
+- Allow converting ES60/70/80 files and handle  various datagram anomaly (#409)
+- Add simple echogram plotting functionality (beta) (#436)
+
+Enhancements
+~~~~~~~~~~~~
+
+- ``update_platform`` method for ``EchoData`` now include proper variable attributes and correctly selects time range of platform data variables corresponding to those of the acoustic data (#476, #492, #493, #488)
+- Improve testing for ``preprocess.compute_MVBS`` by running through real data for all supported sonar models (#454)
+- Generalize handling of Beam group coordinate attributes and a subset of variable attributes (#480, #493)
+- Allow optional kwargs when loading ``EchoData`` groups to enable delaying operations (#456)
+
+Bug fixes
+~~~~~~~~~
+
+- The gain factor for band-integrated Sv is now computed from broadband calibration data stored in the Vendor group (when available) or use nominal narrowband values (#446, #477)
+- Fix time variable encoding for ``combine_echodata`` (#486)
+- Fix missing ``ping_time`` dimension in AZFP Sv dataset to enable MVBS computation (#453)
+- Fix bugs re path when writing to cloud (#462)
+
+Documentation
+~~~~~~~~~~~~~
+
+- Improvements to the "Contributing to echopype" page: Elaborate on the git branch workflow. Add description of PR squash and merge vs merge commit. Add instructions for running only a subset of tests locally (#482)
+- Add documentation about ``output_storage_options`` for writing to cloud storage (#482)
+- Add documentation and docstring for ``sonar_model`` in ``open_raw`` (#475)
+- Improve documentation of EchoData object by adding a sample of the xarray Dataset HTML browser (#503)
+
+Others
+~~~~~~
+
+- Zenodo badge update (#469)
+- Add github citation file (#496), linking to `echopype preprint on arXiv <https://arxiv.org/abs/2111.00187>`_
+
+
+v0.5.4 (2021 Sep 27)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that contains a few bug fixes and new functionalities. 
+The repo has migrated to use ``main`` instead of ``master`` after this release.
+
+New features
+~~~~~~~~~~~~
+
+- Adding external platform-related data (e.g., latitude, longitude) to the ``EchoData`` object via the ``update_platform`` method (#434)
+- Allow converting and storing data with duplicated ping times (#433)
+- Add simple functions to compute summary statistics under the ``metrics`` subpackage (#444)
+
+Bug fixes
+~~~~~~~~~
+
+- Allow string info in AD2CP data packet header (#438)
+- Re-attach ``sonar_model`` attribute to outputs of ``combine_echodata`` (#437)
+- Handle exception in ``open_converted`` due to potentially empty ``beam_power`` group in Zarr files (#447)
+
+Others
+~~~~~~
+
+- Warn users of removal of old API in the next release (#443)
+
+
+v0.5.3 (2021 Aug 20)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that adds a few new functionalities, in particular a method to combine multiple ``EchoData`` objects, addresses a few bugs, improves packaging by removing pinning for dependencies, and improving the testing framework.
+
+New features
+~~~~~~~~~~~~
+
+- Add a new method to combine multiple EchoData objects (#383, #414, #422, #425 )
+
+  - Potential time reversal problems in time coordinates (e.g., ``ping_time``, ``location_time``) are checked and corrected as part of the combine function
+  - The original timestamps are stored in the ``Provenance`` group
+
+- Add a new method ``compute_range`` for ``EchoData`` object (#400)
+- Allow flexible extensions for AZFP files in the form ".XXY" where XX is a number and Y is a letter (#428)
+
+Bug fixes
+~~~~~~~~~
+
+- Fix the bug/logic problems that prevented calibrating data in EK80 files that contains coexisting BB and CW data (#400)
+- Fix the bug that prevented using the latest version of ``fsspec``  (#401)
+- Fix the bug that placed ``echosounder_raw_transmit_samples_i/q`` as the first ping in ``echosounder_raw_samples_i/q`` as they should be separate variables (#427)
+
+Improvements
+~~~~~~~~~~~~
+
+- Consolidate functions that handle local/remote paths and checking file existence (#401)
+- Unpin all dependencies (#401)
+- Improve test coverage accuracy (#411)
+- Improve testing structure to match with subpackage structure (#401, #416, #429 )
+
+Documentation
+~~~~~~~~~~~~~
+
+- Expand ``Contributing to echopype`` page, including development workflow and testing strategy (#417, #420, #423)
+
+
 v0.5.2 (2021 Jul 18)
 --------------------
 
@@ -24,7 +138,6 @@ Bug fixes and improvements
    - Fixed parsing issues that generated spikes in parsed echosounder mode amplitude data
    - Removed the ``Beam_complex`` group and put raw IQ samples in the ``Vendor`` group per convention requirements
    - Populated the ``Sonar`` group with AD2CP information
-
 
 
 v0.5.1 (2021 Jun 16)
@@ -140,7 +253,6 @@ Bug fixes
 - Fix time encoding discrepancy in AZFP conversion (#328)
 - Fix problematic automatic encoding of AZFP frequency (previously as ``int``) to ``float64`` (#309)
 - Overhaul EK80 pulse compressed calibration (current implementation remaining in beta, see #308)
-
 
 
 v0.4.1 (2020 Oct 20)

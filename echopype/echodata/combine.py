@@ -8,6 +8,7 @@ from _echopype_version import version as ECHOPYPE_VERSION
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
+from ..utils.coding import set_encodings
 from .echodata import EchoData
 
 
@@ -24,6 +25,7 @@ def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
 
 
 def assemble_combined_provenance(input_paths):
+    input_paths = [str(p) for p in input_paths]
     return xr.Dataset(
         data_vars={
             "src_filenames": ("file", input_paths),
@@ -246,6 +248,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         if combined_group is not None:
             # xarray inserts this dimension when concating along multiple dimensions
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
+
+        combined_group = set_encodings(combined_group)
         setattr(result, group, combined_group)
 
     # save ping time before reversal correction

@@ -335,6 +335,15 @@ def open_raw(
         path to raw data file
     sonar_model : str
         model of the sonar instrument
+
+        - ``EK60``: Kongsberg Simrad EK60 echosounder
+        - ``ES70``: Kongsberg Simrad ES70 echosounder
+        - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
+        - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
+        - ``AZFP``: ASL Environmental Sciences AZFP echosounder
+        - ``AD2CP``: Nortek Signature series ADCP
+          (tested with Signature 500 and Signature 1000)
+
     xml_path : str
         path to XML config file used by AZFP
     convert_params : dict
@@ -423,7 +432,7 @@ def open_raw(
     # Set up echodata object
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     # Top-level date_created varies depending on sonar model
-    if sonar_model in ["EK60", "EK80"]:
+    if sonar_model in ["EK60", "ES70", "EK80", "ES80"]:
         echodata.top = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.config_datagram["timestamp"]
         )
@@ -433,7 +442,7 @@ def open_raw(
         )
     echodata.environment = setgrouper.set_env()
     echodata.platform = setgrouper.set_platform()
-    if sonar_model in ["EK60", "EK80"]:
+    if sonar_model in ["EK60", "ES70", "EK80", "ES80"]:
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
