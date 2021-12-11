@@ -3,7 +3,8 @@ from datetime import datetime
 
 
 SEPARATOR = re.compile("#=+#\n")
-STATUS = re.compile("#\s+(?P<status>(.+))\s+#\n")  # noqa  # TODO: removing trailing 0s
+STATUS_CRUDE = re.compile("#\s+(?P<status>(.+))\s+#\n")  # noqa  # TODO: removing trailing 0s
+STATUS_FINE = re.compile("#\s+(?P<status>\w+) SETTINGS\s*#\n")  # noqa
 ECS_HEADER = re.compile("#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n")  # noqa
 ECS_TIME = re.compile("#\s+(?P<date>\d{1,2}\/\d{1,2}\/\d{4}) (?P<time>\d{1,2}\:\d{1,2}\:\d{1,2})(.\d+)?\s+#\n")  # noqa
 ECS_VERSION = re.compile("Version (?P<version>\d+\.\d+)\s*\n")  # noqa
@@ -53,7 +54,6 @@ class ECSParser():
         status : str {"sourcecal", "localcal"}
         """
         param_val = dict()
-        param_val_src = None
         if SEPARATOR.match(fid.readline()) is None:  # skip 1 separator line
             raise ValueError("Unexpected line in ECS file!")
         source = None
@@ -70,19 +70,15 @@ class ECSParser():
             else:
                 if status == "fileset" and source is None:
                     source = "fileset"  # force this for easy organization
-                    param_val_src = dict()
+                    param_val[source] = dict()
                 elif status in line.lower():  # {"sourcecal", "localcal"}
-                    if source is not None:
-                        param_val[source] = param_val_src  # save previous source params
                     source = CAL.match(line)["source"]
-                    param_val_src = dict()
+                    param_val[source] = dict()
                 else:
                     if line != "\n" and source is not None:
                         tmp = PARAM_MATCHER.match(line)
                         if tmp["skip"] == "":  # not skipping
-                            param_val_src[tmp["param"]] = tmp["val"]
-        if status == "fileset":
-            param_val["fileset"] = param_val_src
+                            param_val[source][tmp["param"]] = tmp["val"]
         return param_val
 
     def parse(self):
@@ -90,6 +86,7 @@ class ECSParser():
         fid = open(self.input_file, encoding="utf-8-sig")
         line = fid.readline()
 
+        ecs_params = dict()
         status = None  # status = {"ecs", "fileset", "sourcecal", "localcal"}
         while line != "":  # EOF: line=""
             if line != "\n":  # skip empty line
@@ -97,20 +94,18 @@ class ECSParser():
                     if status is not None:  # entering another block
                         status = None
                 elif status is None:  # going into a block
-                    status_str = STATUS.match(line)["status"].lower()
+                    status_str = STATUS_CRUDE.match(line)["status"].lower()
                     if "ecs" in status_str:
                         status = "ecs"
                         self.data_type = ECS_HEADER.match(line)["data_type"]  # get data type
                         self._parse_header(fid)
-                    elif "fileset" in status_str:
-                        status = "fileset"
-                        self._parse_block(fid, status)
-                    elif "sourcecal" in status_str:
-                        status = "sourcecal"
-                        self._parse_block(fid, status)
-                    elif "localcal" in status_str:
-                        status = "localcal"
-                        self._parse_block(fid, status)
+                    elif (
+                        "fileset" in status_str
+                        or "sourcecal" in status_str
+                        or "localcal" in status_str
+                    ):
+                        status = STATUS_FINE.match(line)["status"].lower()
+                        ecs_params[status] = self._parse_block(fid, status)
                     else:
                         raise ValueError("Expecting a new block but got something else!")
             line = fid.readline()  # read next line
