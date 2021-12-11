@@ -1,18 +1,27 @@
 import re
 from datetime import datetime
 
-
 SEPARATOR = re.compile("#=+#\n")
-STATUS_CRUDE = re.compile("#\s+(?P<status>(.+))\s+#\n")  # noqa  # TODO: removing trailing 0s
+STATUS_CRUDE = re.compile(
+    "#\s+(?P<status>(.+))\s+#\n"
+)  # noqa  # TODO: removing trailing 0s
 STATUS_FINE = re.compile("#\s+(?P<status>\w+) SETTINGS\s*#\n")  # noqa
-ECS_HEADER = re.compile("#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n")  # noqa
-ECS_TIME = re.compile("#\s+(?P<date>\d{1,2}\/\d{1,2}\/\d{4}) (?P<time>\d{1,2}\:\d{1,2}\:\d{1,2})(.\d+)?\s+#\n")  # noqa
+ECS_HEADER = re.compile(
+    "#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n"
+)  # noqa
+ECS_TIME = re.compile(
+    "#\s+(?P<date>\d{1,2}\/\d{1,2}\/\d{4}) (?P<time>\d{1,2}\:\d{1,2}\:\d{1,2})(.\d+)?\s+#\n"
+)  # noqa
 ECS_VERSION = re.compile("Version (?P<version>\d+\.\d+)\s*\n")  # noqa
-PARAM_MATCHER = re.compile("\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>-?\d+(?:\.\d+)?)?\s*#?(.*)\n")  # noqa
-CAL = re.compile("(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
+PARAM_MATCHER = re.compile(
+    "\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>-?\d+(?:\.\d+)?)?\s*#?(.*)\n"
+)  # noqa
+CAL = re.compile(
+    "(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I
+)  # ignore case  # noqa
 
 
-class ECSParser():
+class ECSParser:
     """
     Class for parsing Echoview calibration supplement (ECS) files.
     """
@@ -21,8 +30,8 @@ class ECSParser():
         self.input_file = input_file
         self.data_type = None
         self.version = None
-        self.file_creation_time : datetime = None
-        self.parsed_params : dict() = None
+        self.file_creation_time: datetime = None
+        self.parsed_params: dict() = None
 
     def _parse_header(self, fid) -> bool:
         """
@@ -30,7 +39,7 @@ class ECSParser():
         """
         tmp = ECS_TIME.match(fid.readline())
         self.file_creation_time = datetime.strptime(
-            tmp["date"] + ' ' + tmp["time"], "%m/%d/%Y %H:%M:%S"
+            tmp["date"] + " " + tmp["time"], "%m/%d/%Y %H:%M:%S"
         )
         if SEPARATOR.match(fid.readline()) is None:  # line 4: separator
             raise ValueError("Unexpected line in ECS file!")
@@ -100,7 +109,9 @@ class ECSParser():
                     status_str = STATUS_CRUDE.match(line)["status"].lower()
                     if "ecs" in status_str:
                         status = "ecs"
-                        self.data_type = ECS_HEADER.match(line)["data_type"]  # get data type
+                        self.data_type = ECS_HEADER.match(line)[
+                            "data_type"
+                        ]  # get data type
                         self._parse_header(fid)
                     elif (
                         "fileset" in status_str
@@ -110,7 +121,9 @@ class ECSParser():
                         status = STATUS_FINE.match(line)["status"].lower()
                         parsed_params[status] = self._parse_block(fid, status)
                     else:
-                        raise ValueError("Expecting a new block but got something else!")
+                        raise ValueError(
+                            "Expecting a new block but got something else!"
+                        )
             line = fid.readline()  # read next line
 
         # Make FileSet settings dict less awkward
