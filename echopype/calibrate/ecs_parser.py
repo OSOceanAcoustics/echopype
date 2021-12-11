@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 
 SEPARATOR = re.compile("#=+#\n")
@@ -21,7 +21,8 @@ class ECSParser():
         self.input_file = input_file
         self.data_type = None
         self.version = None
-        self.file_creation_time = None
+        self.file_creation_time : datetime = None
+        self.parsed_params : dict() = None
 
     def _parse_header(self, fid) -> bool:
         """
@@ -46,7 +47,7 @@ class ECSParser():
 
     def _parse_block(self, fid, status) -> dict:
         """
-        Parse the SourceCal or LocalCal block.
+        Parse the FileSet, SourceCal or LocalCal block.
 
         Parameters
         ----------
@@ -70,6 +71,7 @@ class ECSParser():
             else:
                 if status == "fileset" and source is None:
                     source = "fileset"  # force this for easy organization
+                    # TODO: remove the below second level of dict
                     param_val[source] = dict()
                 elif status in line.lower():  # {"sourcecal", "localcal"}
                     source = CAL.match(line)["source"]
@@ -82,11 +84,13 @@ class ECSParser():
         return param_val
 
     def parse(self):
-
+        """
+        Parse the entire ECS file.
+        """
         fid = open(self.input_file, encoding="utf-8-sig")
         line = fid.readline()
 
-        ecs_params = dict()
+        parsed_params = dict()
         status = None  # status = {"ecs", "fileset", "sourcecal", "localcal"}
         while line != "":  # EOF: line=""
             if line != "\n":  # skip empty line
@@ -105,7 +109,49 @@ class ECSParser():
                         or "localcal" in status_str
                     ):
                         status = STATUS_FINE.match(line)["status"].lower()
-                        ecs_params[status] = self._parse_block(fid, status)
+                        parsed_params[status] = self._parse_block(fid, status)
                     else:
                         raise ValueError("Expecting a new block but got something else!")
             line = fid.readline()  # read next line
+        self.parsed_params = parsed_params
+
+    def get_cal_params(self, localcal_name=None) -> dict():
+        """
+        Get a consolidated set of calibration parameters that is applied to data by Echoview.
+
+        The calibration settings in Echoview have an overwriting hierarchy as documented
+        `here <https://support.echoview.com/WebHelp/Reference/File_formats/Echoview_calibration_supplement_files.html>`_.
+
+        Parameters
+        ----------
+        localcal_name : str or None
+            Name of the LocalCal settings selected in Echoview.
+            Default is the first one read in the ECS file.
+
+        Returns
+        -------
+        A dictionary containing calibration parameters as interpreted by Echoview.
+        """
+        # Create template based on sources
+        sources = self.parsed_params["sourcecal"].keys()
+        ev_cal_params = dict().fromkeys(sources)
+
+        # FileSet settings: apply to all sources
+        fileset_dict = self.parsed_params["fileset"]["fileset"]
+        for src in sources:
+            ev_cal_params[src] = fileset_dict
+
+        # SourceCal settings: overwrite FileSet settings for each source
+        for src in sources:
+            for k, v in self.parsed_params["sourcecal"][src].items():
+                ev_cal_params[src][k] = v
+
+        # LocalCal settings: overwrite the above settings for all sources
+        if self.parsed_params["localcal"] != {}:
+            if localcal_name is None:  # use the first LocalCal setting by default
+                localcal_name = list(self.parsed_params["localcal"].keys())[0]
+            for k, v in self.parsed_params["localcal"][localcal_name].items():
+                for src in sources:
+                    ev_cal_params[src][k] = v
+
+        return ev_cal_params
