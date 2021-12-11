@@ -53,48 +53,36 @@ class ECSParser():
         status : str {"sourcecal", "localcal"}
         """
         param_val = dict()
-        if status == "fileset":  # go straight into parsing params
-            if SEPARATOR.match(fid.readline()) is None:  # skip 1 separator line
-                raise ValueError("Unexpected line in ECS file!")
-            cont = True
-            while cont:
-                curr_pos = fid.tell()  # current position
-                line = fid.readline()
-                if SEPARATOR.match(line) is not None:
-                    # reverse to previous position and jump out
-                    fid.seek(curr_pos)
-                    cont = False
+        param_val_src = None
+        if SEPARATOR.match(fid.readline()) is None:  # skip 1 separator line
+            raise ValueError("Unexpected line in ECS file!")
+        source = None
+        cont = True
+        while cont:
+            curr_pos = fid.tell()  # current position
+            line = fid.readline()
+            if SEPARATOR.match(line) is not None:
+                # reverse to previous position and jump out
+                fid.seek(curr_pos)
+                cont = False
+            elif line == "":  # EOF
+                break
+            else:
+                if status == "fileset" and source is None:
+                    source = "fileset"  # force this for easy organization
+                    param_val_src = dict()
+                elif status in line.lower():  # {"sourcecal", "localcal"}
+                    if source is not None:
+                        param_val[source] = param_val_src  # save previous source params
+                    source = CAL.match(line)["source"]
+                    param_val_src = dict()
                 else:
-                    if line != "\n":
+                    if line != "\n" and source is not None:
                         tmp = PARAM_MATCHER.match(line)
                         if tmp["skip"] == "":  # not skipping
-                            param_val[tmp["param"]] = tmp["val"]
-        else:
-            param_val_src = None
-            if SEPARATOR.match(fid.readline()) is None:  # skip 1 separator line
-                raise ValueError("Unexpected line in ECS file!")
-            source = None
-            cont = True
-            while cont:
-                curr_pos = fid.tell()  # current position
-                line = fid.readline()
-                if SEPARATOR.match(line) is not None:
-                    # reverse to previous position and jump out
-                    fid.seek(curr_pos)
-                    cont = False
-                elif line == "":
-                    break
-                else:
-                    if status in line.lower():  # {"sourcecal", "localcal"}
-                        if source is not None:
-                            param_val[source] = param_val_src  # save previous source params
-                        source = CAL.match(line)["source"]
-                        param_val_src = dict()
-                    else:
-                        if line != "\n" and source is not None:
-                            tmp = PARAM_MATCHER.match(line)
-                            if tmp["skip"] == "":  # not skipping
-                                param_val_src[tmp["param"]] = tmp["val"]
+                            param_val_src[tmp["param"]] = tmp["val"]
+        if status == "fileset":
+            param_val["fileset"] = param_val_src
         return param_val
 
     def parse(self):
