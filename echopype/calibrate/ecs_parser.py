@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime
+from datetime import datetime
 
 
 SEPARATOR = re.compile("#=+#\n")
@@ -71,7 +71,6 @@ class ECSParser():
             else:
                 if status == "fileset" and source is None:
                     source = "fileset"  # force this for easy organization
-                    # TODO: remove the below second level of dict
                     param_val[source] = dict()
                 elif status in line.lower():  # {"sourcecal", "localcal"}
                     source = CAL.match(line)["source"]
@@ -113,6 +112,11 @@ class ECSParser():
                     else:
                         raise ValueError("Expecting a new block but got something else!")
             line = fid.readline()  # read next line
+
+        # Make FileSet settings dict less awkward
+        parsed_params["fileset"] = parsed_params["fileset"]["fileset"]
+
+        # Store params
         self.parsed_params = parsed_params
 
     def get_cal_params(self, localcal_name=None) -> dict():
@@ -120,7 +124,7 @@ class ECSParser():
         Get a consolidated set of calibration parameters that is applied to data by Echoview.
 
         The calibration settings in Echoview have an overwriting hierarchy as documented
-        `here <https://support.echoview.com/WebHelp/Reference/File_formats/Echoview_calibration_supplement_files.html>`_.
+        `here <https://support.echoview.com/WebHelp/Reference/File_formats/Echoview_calibration_supplement_files.html>`_.  # noqa
 
         Parameters
         ----------
@@ -137,7 +141,7 @@ class ECSParser():
         ev_cal_params = dict().fromkeys(sources)
 
         # FileSet settings: apply to all sources
-        fileset_dict = self.parsed_params["fileset"]["fileset"]
+        fileset_dict = self.parsed_params["fileset"].copy()
         for src in sources:
             ev_cal_params[src] = fileset_dict
 
