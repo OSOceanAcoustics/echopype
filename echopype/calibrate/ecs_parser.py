@@ -2,9 +2,7 @@ import re
 from datetime import datetime
 
 SEPARATOR = re.compile("#=+#\n")
-STATUS_CRUDE = re.compile(
-    "#\s+(?P<status>(.+))\s+#\n"  # noqa
-)
+STATUS_CRUDE = re.compile("#\s+(?P<status>(.+))\s+#\n")  # noqa
 STATUS_FINE = re.compile("#\s+(?P<status>\w+) SETTINGS\s*#\n")  # noqa
 ECS_HEADER = re.compile(
     "#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n"  # noqa
