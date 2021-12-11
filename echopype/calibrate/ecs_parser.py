@@ -7,8 +7,7 @@ STATUS = re.compile("#\s+(?P<status>(.+))\s+#\n")  # noqa  # TODO: removing trai
 ECS_HEADER = re.compile("#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n")  # noqa
 ECS_TIME = re.compile("#\s+(?P<date>\d{1,2}\/\d{1,2}\/\d{4}) (?P<time>\d{1,2}\:\d{1,2}\:\d{1,2})(.\d+)?\s+#\n")  # noqa
 ECS_VERSION = re.compile("Version (?P<version>\d+\.\d+)\s*\n")  # noqa
-# TODO: allow negative value
-PARAM_MATCHER = re.compile("\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>\d+(?:\.\d+)?)?\s*#?(.*)\n")  # noqa
+PARAM_MATCHER = re.compile("\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>-?\d+(?:\.\d+)?)?\s*#?(.*)\n")  # noqa
 CAL = re.compile("(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
 
 
