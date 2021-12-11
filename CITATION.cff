@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Lee"
+  given-names: "Wu-Jung"
+  orcid: "https://orcid.org/0000-0002-4112-2034"
+- family-names: "Nguyen"
+  given-names: "Kavin"
+  orcid: "https://orcid.org/0000-0003-4923-728X"
+- family-names: "Setiawan"
+  given-names: "Landung"
+  orcid: "https://orcid.org/0000-0002-1624-2667"
+- family-names: "Mayorga"
+  given-names: "Emilio"
+  orcid: "https://orcid.org/0000-0003-2574-4623"
+- family-names: "Majeed"
+  given-names: "Imran"
+  orcid: "https://orcid.org/0000-0002-2032-6476"
+- family-names: "Staneva"
+  given-names: "Valentina"
+  orcid: "https://orcid.org/0000-0002-3412-0364"
+title: "echopype"
+doi: 10.5281/zenodo.3906999
+# but pointing to a specific release/version will
+# require having to update this file with each release
+version: 0.5.4
+date-released: 2021-10-01
+url: "https://github.com/OSOceanAcoustics/echopype"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Lee"
+    given-names: "Wu-Jung"
+    orcid: "https://orcid.org/0000-0002-4112-2034"
+  - family-names: "Mayorga"
+    given-names: "Emilio"
+    orcid: "https://orcid.org/0000-0003-2574-4623"
+  - family-names: "Setiawan"
+    given-names: "Landung"
+    orcid: "https://orcid.org/0000-0002-1624-2667"
+  - family-names: "Majeed"
+    given-names: "Imran"
+    orcid: "https://orcid.org/0000-0002-2032-6476"
+  - family-names: "Nguyen"
+    given-names: "Kavin"
+    orcid: "https://orcid.org/0000-0003-4923-728X"
+  - family-names: "Staneva"
+    given-names: "Valentina"
+    orcid: "https://orcid.org/0000-0002-3412-0364"
+  journal: "arXiv preprint arXiv:2111.00187"
+  month: 10
+  title: "Echopype: A Python library for interoperable and scalable processing of water column sonar data for biological information"
+  year: 2021
