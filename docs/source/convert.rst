@@ -41,7 +41,7 @@ Use the parameter ``sonar_model`` to indicate the echosounder type:
     - ``EK60``: Kongsberg Simrad EK60 echosounder
     - ``ES70``: Kongsberg Simrad ES70 echosounder
     - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echosounders
-    - ``ES80``: Kongsberg Simrad ES80 echosounder
+    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
     - ``AZFP``: ASL Environmental Sciences AZFP echosounder
     - ``AD2CP``: Nortek Signature series ADCP
       (tested with Signature 500 and Signature 1000)
@@ -157,7 +157,7 @@ through ``storage_options`` keywords:
 
    ed = open_raw(
       raw_file_s3path, sonar_model='EK60',
-      storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
+      storage_options={'key': 'ACCESSKEY', 'secret': 'SECRETKEY'}
    )
 
 or via a credentials file stored in the default AWS credentials file 
@@ -263,10 +263,14 @@ Save to AWS S3
 .. attention::
    Saving to S3 was introduced in version 0.5.0.
 
-Converted files can be saved directly into an AWS S3 bucket by specifying ``storage_options``
-as done with input files (see above, "AWS S3 access"). The example below illustrates a 
-fully remote processing pipeline, reading a raw file from a web server and saving the
-converted Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
+Converted files can be saved directly into an AWS S3 bucket by specifying 
+``output_storage_options``, similar to ``storage_options`` with input files 
+(see above, "AWS S3 access"). The example below illustrates a fully remote 
+processing pipeline, reading a raw file from a web server and saving the
+converted Zarr dataset to S3. (As with ``storage_options`` when accessing 
+raw data from S3, a ``profile``-based ``session`` can also be used, passing the 
+``session`` to ``output_storage_options``). Writing netCDF4 to S3 is 
+currently not supported.
 
 .. code-block:: python
 
@@ -275,7 +279,7 @@ converted Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
       ed.to_zarr(
          overwrite=True,
          save_path='s3://mybucket/converted_file.zarr',
-         storage_options={key: 'ACCESSKEY', secret: 'SECRETKEY'}
+         output_storage_options={'key': 'ACCESSKEY', 'secret': 'SECRETKEY'}
       )
 
 .. note::

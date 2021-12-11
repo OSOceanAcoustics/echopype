@@ -12,17 +12,15 @@ see these tips for submitting issues:
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
 For echopype development we use the **gitflow workflow** with forking. All development
-changes are merged into the ``dev`` development branch. First create your own fork of the 
-source GitHub repository 
+changes (except for documentation) are merged into the ``dev`` development branch. 
+First create your own fork of the source GitHub repository 
 `https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_ 
 (``upstream``), then clone your fork; your fork will be the ``origin`` remote. See 
 `this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for 
-guidance on forking and opening pull requests, but replace references to the ``main`` 
+guidance on forking and opening pull requests (PRs), but replace references to the ``main`` 
 branch with the ``dev`` development branch. See 
 `this description of the gitflow workflow <https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow>`_. 
-The complete workflow we use is depicted in the diagram below, which includes
-components involving documentation updates (see `Documentation development`_ below)
-and preparation of releases.
+This diagram depicts the complete workflow we use in the source GitHub repository:
 
 .. mermaid::
 
@@ -35,6 +33,21 @@ and preparation of releases.
         stable --> |docs merge| rel[release/0.x.y]
         dev --> |dev merge| rel
         rel --> main
+
+- ``doc patch``: Updates to the documentation that refer to the current ``echopype`` 
+  release can be pushed out immediately to the `echopype documentation site <https://echopype.readthedocs.io>`_ 
+  by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_ 
+  below for more details.
+- ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
+  branch; changes in the documentation corresponding to changes in the code can be 
+  carried out in this branch as well. 
+- New releases are prepared in a new release branch that merges changes in ``dev`` and ``stable``.
+
+To maintain a clean and readable commit history, use "Merge pull request > Squash and merge" 
+when merging an individual PR to `dev` or a documentation-only PR to `stable`. This will 
+highlight the specific feature(s) contributed by the PR. When merging an ``echopype`` 
+release PR to `main`, use "Merge pull request > Create a merge commit" in order to 
+retain all the squashed PR commits in the commit history.
 
 
 Installation for echopype development
@@ -118,6 +131,7 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
+
 will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
 or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``, 
 ``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
@@ -141,7 +155,7 @@ and useful pre-commit "hooks" have been configured in the
 Current hooks include file formatting (linting) checks (trailing spaces, trailing lines,
 JSON and YAML format checks, etc) and Python style autoformatters (PEP8 / flake8, ``black`` and ``isort``).
 
-To run pre-commit hooks locally, run `pre-commit install` before running the 
+To run pre-commit hooks locally, run ``pre-commit install`` before running the 
 docker setup-service deploy statement described above. The hooks will run automatically 
 during ``git commit`` and will give you options as needed before committing your changes.
 You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code, 
@@ -172,6 +186,15 @@ This is done by including the string "[skip ci]" in your last commit's message.
 Documentation development
 -------------------------
 
+Function and object doc strings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For inline strings documenting functions and objects ("doc strings"), we use the
+`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
+
+Sphinx ReadTheDocs documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on 
 `Sphinx <https://www.sphinx-doc.org>`_ and is hosted at 
 `Read The Docs <https://readthedocs.org>`_. The sphinx files are found
@@ -194,12 +217,6 @@ not involving echopype API changes) should be merged into the GitHub ``stable`` 
 These updates will then become available immediately on the default ReadTheDocs version.
 Examples of such updates include fixing spelling mistakes, expanding an explanation, 
 and adding a new section that documents a previously undocumented feature.
-
-Function and object doc strings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For inline strings documenting functions and objects ("doc strings"), we use the
-`numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
 
 Documentation versions
 ~~~~~~~~~~~~~~~~~~~~~~
