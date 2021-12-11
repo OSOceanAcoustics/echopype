@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+import numpy as np
 
 SEPARATOR = re.compile("#=+#\n")
 STATUS_CRUDE = re.compile(
@@ -25,6 +26,12 @@ class ECSParser:
     """
     Class for parsing Echoview calibration supplement (ECS) files.
     """
+
+    TvgRangeCorrection_allowed_str = [
+        "None", "BySamples",
+        "SimradEx500", "SimradEx60",
+        "BioSonics", "Kaijo", "PulseLength", "Ex500Forced"
+    ]
 
     def __init__(self, input_file=None):
         self.input_file = input_file
@@ -91,6 +98,26 @@ class ECSParser:
                             param_val[source][tmp["param"]] = tmp["val"]
         return param_val
 
+    def _convert_param_type(self):
+        """
+        Convert data type for all parameters.
+        """
+        def convert_type(input_dict):
+            for k, v in input_dict.items():
+                if k == "TvgRangeCorrection":
+                    if v not in self.TvgRangeCorrection_allowed_str:
+                        raise ValueError("TvgRangeCorrection contains unexpected setting!")
+                else:
+                    input_dict[k] = np.float(v)
+
+        for status, status_settings in self.parsed_params.items():
+            if status == "fileset":  # fileset only has 1 layer of dict
+                convert_type(status_settings)
+            else:  # sourcecal or localcal has another layer of dict
+                for src_k, src_v in status_settings.items():
+                    for k, v in src_v.items():
+                        convert_type(src_v)
+
     def parse(self):
         """
         Parse the entire ECS file.
@@ -131,6 +158,9 @@ class ECSParser:
 
         # Store params
         self.parsed_params = parsed_params
+
+        # Convert parameter type to float
+        self._convert_param_type()
 
     def get_cal_params(self, localcal_name=None) -> dict():
         """

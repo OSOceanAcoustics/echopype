@@ -19,16 +19,16 @@ def test_convert_ecs():
     assert ecs.file_creation_time == datetime(
         year=2015, month=6, day=19, hour=23, minute=26, second=4
     )
-    assert ecs.parsed_params["fileset"]["SoundSpeed"] == "1496"
-    assert ecs.parsed_params["sourcecal"]["T1"]["MinorAxisAngleOffset"] == "-0.18"
-    assert ecs.parsed_params["sourcecal"]["T2"]["MajorAxis3dbBeamAngle"] == "6.85"
-    assert ecs.parsed_params["sourcecal"]["T3"]["Ek60TransducerGain"] == "26.55"
-    assert ecs.parsed_params["localcal"]["MyCal"]["TwoWayBeamAngle"] == "-17.37"
+    assert ecs.parsed_params["fileset"]["SoundSpeed"] == 1496
+    assert ecs.parsed_params["sourcecal"]["T1"]["MinorAxisAngleOffset"] == -0.18
+    assert ecs.parsed_params["sourcecal"]["T2"]["MajorAxis3dbBeamAngle"] == 6.85
+    assert ecs.parsed_params["sourcecal"]["T3"]["Ek60TransducerGain"] == 26.55
+    assert ecs.parsed_params["localcal"]["MyCal"]["TwoWayBeamAngle"] == -17.37
 
     cal_params = ecs.get_cal_params()
 
     # Test SourceCal overwrite FileSet settings
-    assert cal_params["T1"]["SoundSpeed"] == "1480.60"
+    assert cal_params["T1"]["SoundSpeed"] == 1480.60
 
     # Test overwrite by LocalCal
-    assert cal_params["T2"]["TwoWayBeamAngle"] == "-17.37"
+    assert cal_params["T2"]["TwoWayBeamAngle"] == -17.37
