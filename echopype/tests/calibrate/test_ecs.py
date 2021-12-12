@@ -20,6 +20,8 @@ def test_convert_ecs():
         year=2015, month=6, day=19, hour=23, minute=26, second=4
     )
     assert ecs.parsed_params["fileset"]["SoundSpeed"] == 1496
+    assert ecs.parsed_params["fileset"]["TvgRangeCorrection"] == "BySamples"
+    assert ecs.parsed_params["fileset"]["TvgRangeCorrectionOffset"] == 2
     assert ecs.parsed_params["sourcecal"]["T1"]["MinorAxisAngleOffset"] == -0.18
     assert ecs.parsed_params["sourcecal"]["T2"]["MajorAxis3dbBeamAngle"] == 6.85
     assert ecs.parsed_params["sourcecal"]["T3"]["Ek60TransducerGain"] == 26.55

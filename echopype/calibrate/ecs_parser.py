@@ -15,7 +15,7 @@ ECS_TIME = re.compile(
 )
 ECS_VERSION = re.compile("Version (?P<version>\d+\.\d+)\s*\n")  # noqa
 PARAM_MATCHER = re.compile(
-    "\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>-?\d+(?:\.\d+)?)?\s*#?(.*)\n"  # noqa
+    "\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+))|\w+)?)?\s*#?(.*)\n"  # noqa
 )
 CAL = re.compile(
     "(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I  # ignore case  # noqa
@@ -27,11 +27,11 @@ class ECSParser:
     Class for parsing Echoview calibration supplement (ECS) files.
     """
 
-    TvgRangeCorrection_allowed_str = [
+    TvgRangeCorrection_allowed_str = (
         "None", "BySamples",
         "SimradEx500", "SimradEx60",
         "BioSonics", "Kaijo", "PulseLength", "Ex500Forced"
-    ]
+    )
 
     def __init__(self, input_file=None):
         self.input_file = input_file
