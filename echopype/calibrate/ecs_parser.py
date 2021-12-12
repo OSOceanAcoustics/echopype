@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+
 import numpy as np
 
 SEPARATOR = re.compile("#=+#\n")
@@ -26,9 +27,14 @@ class ECSParser:
     """
 
     TvgRangeCorrection_allowed_str = (
-        "None", "BySamples",
-        "SimradEx500", "SimradEx60",
-        "BioSonics", "Kaijo", "PulseLength", "Ex500Forced"
+        "None",
+        "BySamples",
+        "SimradEx500",
+        "SimradEx60",
+        "BioSonics",
+        "Kaijo",
+        "PulseLength",
+        "Ex500Forced",
     )
 
     def __init__(self, input_file=None):
@@ -100,11 +106,14 @@ class ECSParser:
         """
         Convert data type for all parameters.
         """
+
         def convert_type(input_dict):
             for k, v in input_dict.items():
                 if k == "TvgRangeCorrection":
                     if v not in self.TvgRangeCorrection_allowed_str:
-                        raise ValueError("TvgRangeCorrection contains unexpected setting!")
+                        raise ValueError(
+                            "TvgRangeCorrection contains unexpected setting!"
+                        )
                 else:
                     input_dict[k] = np.float(v)
 
