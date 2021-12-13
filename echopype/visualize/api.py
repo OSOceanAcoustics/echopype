@@ -3,8 +3,8 @@ from typing import Optional, Union, List
 
 import xarray as xr
 
-from echopype.visualize.plot import _plot_echogram, FacetGrid, QuadMesh, T
-from echopype.echodata import EchoData
+from .plot import _plot_echogram, FacetGrid, QuadMesh, T
+from ..echodata import EchoData
 
 
 def create_echogram(
