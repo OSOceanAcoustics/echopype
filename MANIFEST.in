@@ -17,6 +17,5 @@ exclude echopype/testing.py
 exclude .gitattributes
 
 # Ignore some unfinished scripts
-prune echopype/visualize
 exclude **/add_ancillary.py
 exclude **/convert_combine.py
