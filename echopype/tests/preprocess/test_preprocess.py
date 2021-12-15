@@ -2,6 +2,57 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import echopype as ep
+import pytest
+
+from echopype.testing import TEST_DATA_FOLDER
+
+ek60_path = TEST_DATA_FOLDER / "ek60"
+ek80_path = TEST_DATA_FOLDER / "ek80_new"
+azfp_path = TEST_DATA_FOLDER / "azfp"
+ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
+
+param_args = ("filepath", "sonar_model", "azfp_xml_path", "range_kwargs")
+param_testdata = [
+    (
+        ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw",
+        "EK60",
+        None,
+        {},
+    ),
+    (
+        ek80_path / "echopype-test-D20211004-T235930.raw",
+        "EK80",
+        None,
+        {'waveform_mode': 'BB', 'encode_mode': 'complex'},
+    ),
+    (
+        ek80_path / "D20211004-T233354.raw",
+        "EK80",
+        None,
+        {'waveform_mode': 'CW', 'encode_mode': 'power'},
+    ),
+    (
+        ek80_path / "D20211004-T233115.raw",
+        "EK80",
+        None,
+        {'waveform_mode': 'CW', 'encode_mode': 'complex'},
+    ),
+    (
+        azfp_path / "17082117.01A",
+        "AZFP",
+        azfp_path / "17041823.XML",
+        {},
+    ),  # Will always need env variables
+    pytest.param(
+        ad2cp_path / "raw" / "090" / "rawtest.090.00001.ad2cp",
+        "AD2CP",
+        None,
+        {},
+        marks=pytest.mark.skip(
+            reason="Not supported at this time.",
+        ),
+    ),
+]
 
 
 def test_remove_noise():
@@ -230,3 +281,30 @@ def test_compute_MVBS():
     # Test to see if range was resampled correctly
     test_range = np.arange(0, total_range, range_meter_bin)
     assert np.array_equal(data_test.range, test_range)
+
+
+@pytest.mark.parametrize(param_args, param_testdata)
+def test_preprocess_mvbs(
+    filepath,
+    sonar_model,
+    azfp_xml_path,
+    range_kwargs,
+):
+    """
+    Test running through from open_raw to compute_MVBS.
+    """
+    ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
+    if ed.sonar_model.lower() == 'azfp':
+        avg_temperature = (
+            ed.environment['temperature'].mean('ping_time').values
+        )
+        env_params = {
+            'temperature': avg_temperature,
+            'salinity': 27.9,
+            'pressure': 59,
+        }
+        range_kwargs['env_params'] = env_params
+        if 'azfp_cal_type' in range_kwargs:
+            range_kwargs.pop('azfp_cal_type')
+    Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
+    assert ep.preprocess.compute_MVBS(Sv) is not None

@@ -335,6 +335,15 @@ def open_raw(
         path to raw data file
     sonar_model : str
         model of the sonar instrument
+
+        - ``EK60``: Kongsberg Simrad EK60 echosounder
+        - ``ES70``: Kongsberg Simrad ES70 echosounder
+        - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
+        - ``ES80``: Kongsberg Simrad ES80 echsoounder
+        - ``AZFP``: ASL Environmental Sciences AZFP echosounder
+        - ``AD2CP``: Nortek Signature series ADCP
+          (tested with Signature 500 and Signature 1000)
+
     xml_path : str
         path to XML config file used by AZFP
     convert_params : dict

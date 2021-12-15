@@ -218,3 +218,13 @@ def test_update_platform():
 
     for variable in updated:
         assert not np.isnan(ed.platform[variable].values).all()
+
+    # times have max interval of 2s
+    # check times are > min(ed.beam["ping_time"]) - 2s
+    assert (ed.platform["location_time"] > ed.beam["ping_time"].min() - np.timedelta64(2, "s")).all()
+    # check there is only 1 time < min(ed.beam["ping_time"])
+    assert np.count_nonzero(ed.platform["location_time"] < ed.beam["ping_time"].min()) == 1
+    # check times are < max(ed.beam["ping_time"]) + 2s
+    assert (ed.platform["location_time"] < ed.beam["ping_time"].max() + np.timedelta64(2, "s")).all()
+    # check there is only 1 time > max(ed.beam["ping_time"])
+    assert np.count_nonzero(ed.platform["location_time"] > ed.beam["ping_time"].max()) == 1

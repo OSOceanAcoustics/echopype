@@ -15,14 +15,14 @@ ek80_cal_path = Path('./echopype/test_data/ek80_bb_with_calibration')
 
 def test_compute_Sv_ek60_echoview():
     # constant range_bin
-    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))
     ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     # Convert file
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
 
     # Compare with EchoView outputs
     channels = []
@@ -46,8 +46,8 @@ def test_compute_Sv_ek60_matlab():
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata, waveform_mode="CW", encode_mode="power")
-    ds_Sp = ep.calibrate.compute_Sp(echodata, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sp = ep.calibrate.compute_Sp(echodata)
 
     # Load matlab outputs and test
 
@@ -140,13 +140,12 @@ def test_compute_Sv_ek80_pc_echoview():
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
 
     # Create a CalibrateEK80 object to perform pulse compression
-    waveform_mode = 'BB'
     cal_obj = CalibrateEK80(
-        echodata, env_params=None, cal_params=None, 
-        waveform_mode=waveform_mode, encode_mode="complex"
+        echodata, env_params=None, cal_params=None,
+        waveform_mode="BB", encode_mode="complex"
     )
-    cal_obj.compute_range_meter(waveform_mode=waveform_mode)  # compute range [m]
-    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode=waveform_mode)
+    cal_obj.compute_range_meter(waveform_mode="BB", encode_mode="complex")  # compute range [m]
+    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
     freq_center = (
         echodata.beam["frequency_start"]
         + echodata.beam["frequency_end"]
