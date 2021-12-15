@@ -140,24 +140,25 @@ class SetGroupsAd2cp(SetGroupsBase):
         combined_fields: Dict[str, np.ndarray] = dict()
         # pad to max shape and stack
         for field_name, field_values in fields.items():
-            if len(dims[field_name]) > 1:
-                shapes = [field_value.shape for field_value in field_values]
-                max_shape = np.amax(
-                    np.stack(shapes),
-                    axis=0,
-                )
-                field_values = [
-                    np.pad(
-                        field_value,
-                        tuple(
-                            (0, max_axis_len - field_value.shape[i])
-                            for i, max_axis_len in enumerate(max_shape)  # type: ignore
-                        ),
+            if field_exists[field_name]:
+                if len(dims[field_name]) > 1:
+                    shapes = [field_value.shape for field_value in field_values]
+                    max_shape = np.amax(
+                        np.stack(shapes),
+                        axis=0,
                     )
-                    for field_value in field_values
-                ]
-            field_values = np.stack(field_values)
-            combined_fields[field_name] = field_values
+                    field_values = [
+                        np.pad(
+                            field_value,
+                            tuple(
+                                (0, max_axis_len - field_value.shape[i])
+                                for i, max_axis_len in enumerate(max_shape)  # type: ignore
+                            ),
+                        )
+                        for field_value in field_values
+                    ]
+                field_values = np.stack(field_values)
+                combined_fields[field_name] = field_values
 
         # slice fields to time_dim
         for field_name, field_value in combined_fields.items():
