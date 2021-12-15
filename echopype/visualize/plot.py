@@ -5,8 +5,8 @@ import xarray as xr
 import numpy as np
 from xarray.plot.facetgrid import FacetGrid
 from matplotlib.collections import QuadMesh
-from echopype.visualize.cm import cmap_d
 from typing import Optional, Union, List, TypeVar
+from .cm import cmap_d
 
 T = TypeVar('T', int, float)
 

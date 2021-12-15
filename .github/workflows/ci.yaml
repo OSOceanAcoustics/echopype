@@ -67,10 +67,14 @@ jobs:
           activate-environment: ${{ env.CONDA_ENV }}
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
           miniforge-variant: Mambaforge
-          miniforge-version: 4.10.0-0
+          miniforge-version: 4.11.0-0
           use-mamba: true
           auto-activate-base: false
           use-only-tar-bz2: true
+      - name: Update mamba
+        shell: bash -l {0}
+        run: |
+          conda update -c conda-forge --yes mamba
       - name: Print conda env
         shell: bash -l {0}
         run: |

@@ -3,8 +3,8 @@ from typing import Optional, Union, List
 
 import xarray as xr
 
-from echopype.visualize.plot import _plot_echogram, FacetGrid, QuadMesh, T
-from echopype.echodata import EchoData
+from .plot import _plot_echogram, FacetGrid, QuadMesh, T
+from ..echodata import EchoData
 
 
 def create_echogram(
@@ -104,7 +104,7 @@ def create_echogram(
                     for mode in ['waveform_mode', 'encode_mode']
                 ):
                     raise ValueError(
-                        "Please provide waveform_mode and encode_mode in range_kwargs for EK80 sonar model."
+                        "Please provide waveform_mode and encode_mode in range_kwargs for EK80 sonar model."  # noqa
                     )
                 waveform_mode = range_kwargs['waveform_mode']
                 encode_mode = range_kwargs['encode_mode']
@@ -119,7 +119,7 @@ def create_echogram(
                     )
                 elif waveform_mode == "BB" and encode_mode == "power":
                     raise ValueError(
-                        "Data from broadband ('BB') transmission must be recorded as complex samples"
+                        "Data from broadband ('BB') transmission must be recorded as complex samples"  # noqa
                     )
 
             range_in_meter = data.compute_range(
