@@ -4,8 +4,9 @@ from typing import List
 import numpy as np
 import xarray as xr
 
+from ..echodata.convention.attrs import DEFAULT_BEAM_COORD_ATTRS
 from ..utils.coding import set_encodings
-from .set_groups_base import DEFAULT_BEAM_COORD_ATTRS, SetGroupsBase
+from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsEK80(SetGroupsBase):
