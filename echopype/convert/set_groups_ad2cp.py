@@ -84,8 +84,13 @@ class SetGroupsAd2cp(SetGroupsBase):
         for packet in self.parser_obj.packets:
             if not packet.has_timestamp():
                 continue
-            if "beams" in packet.data and beam_coords is None:
-                beam_coords = packet.data["beams"]
+            if "beams" in packet.data:
+                if beam_coords is None:
+                    beam_coords = packet.data["beams"]
+                else:
+                    beam_coords = max(
+                        beam_coords, packet.data["beams"], key=lambda x: len(x)
+                    )
             data_record_format = HeaderOrDataRecordFormats.data_record_format(
                 packet.data_record_type
             )
