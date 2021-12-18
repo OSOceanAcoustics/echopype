@@ -8,16 +8,6 @@ from echopype.testing import TEST_DATA_FOLDER
 
 
 @pytest.fixture
-def normal_test_file_dir(test_path):
-    return test_path["AD2CP"] / "normal"
-
-
-@pytest.fixture
-def raw_test_file_dir(test_path):
-    return test_path["AD2CP"] / "raw"
-
-
-@pytest.fixture
 def ocean_contour_export_dir(test_path):
     return test_path["AD2CP"] / "ocean-contour"
 
@@ -97,15 +87,15 @@ def test_raw_output(
     if "090" in filepath_raw.parts:
         ocean_contour_converted_config_path = (
             ocean_contour_export_090_dir.joinpath(
-                filepath_raw.with_suffix(filepath_raw.suffix + ".00000.nc").name
+                filepath_raw.with_suffix(
+                    filepath_raw.suffix + ".00000.nc"
+                ).name
             )
         )
         ocean_contour_converted_transmit_data_path = (
             ocean_contour_converted_config_path
         )
-        ocean_contour_converted_data_path = (
-            ocean_contour_converted_config_path
-        )
+        ocean_contour_converted_data_path = ocean_contour_converted_config_path
     else:
         ocean_contour_converted_config_path = (
             ocean_contour_export_076_dir
