@@ -13,7 +13,6 @@ import fsspec
 import xarray as xr
 import pytest
 from echopype import open_raw
-from echopype.testing import TEST_DATA_FOLDER
 from echopype.utils.coding import DEFAULT_ENCODINGS
 
 
@@ -52,32 +51,136 @@ def _check_output_files(engine, output_files, storage_options):
             fs.delete(output_files)
 
 
+def _create_path_str(test_folder, paths):
+    return str(test_folder.joinpath(*paths).absolute())
+
+
+@pytest.fixture(
+    params=[
+        None,
+        "./echopype/test_data/dump/",
+        "./echopype/test_data/dump/tmp.zarr",
+        "./echopype/test_data/dump/tmp.nc",
+        "s3://ooi-raw-data/dump/",
+        "s3://ooi-raw-data/dump/tmp.zarr",
+        "s3://ooi-raw-data/dump/tmp.nc",
+    ],
+    ids=[
+        "None",
+        "folder_string",
+        "zarr_file_string",
+        "netcdf_file_string",
+        "s3_folder_string",
+        "s3_zarr_file_string",
+        "s3_netcdf_file_string",
+    ],
+)
+def output_save_path(request):
+    return request.param
+
+
+@pytest.fixture(params=["zarr", "netcdf4"])
+def export_engine(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("ncei-wcsd", "Summer2017-D20170615-T190214.raw"),
+        "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+        [
+            "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+            "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190843.raw",
+        ],
+    ],
+    ids=["file_path_string", "s3_file_string", "multiple_http_file_string"],
+)
+def ek60_input_paths(request, test_path):
+    if isinstance(request.param, tuple):
+        return _create_path_str(test_path["EK60"], request.param)
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("ooi", "17032923.01A"),
+        "http://localhost:8080/data/azfp/ooi/17032923.01A",
+    ],
+    ids=["file_path_string", "http_file_string"],
+)
+def azfp_input_paths(request, test_path):
+    if isinstance(request.param, tuple):
+        return _create_path_str(test_path["AZFP"], request.param)
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("ooi", "17032922.XML"),
+        "http://localhost:8080/data/azfp/ooi/17032922.XML",
+    ],
+    ids=["xml_file_path_string", "xml_http_file_string"],
+)
+def azfp_xml_paths(request, test_path):
+    if isinstance(request.param, tuple):
+        return _create_path_str(test_path["AZFP"], request.param)
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("echopype-test-D20211005-T001135.raw",),
+        "http://localhost:8080/data/ek80_new/echopype-test-D20211005-T001135.raw",
+        "s3://data/ek80_new/echopype-test-D20211005-T001135.raw",
+    ],
+    ids=["file_path_string", "http_file_string", "s3_file_string"],
+)
+def ek80_input_paths(request, test_path):
+    if isinstance(request.param, tuple):
+        return _create_path_str(test_path["EK80_NEW"], request.param)
+    return request.param
+
+
 @pytest.mark.parametrize(
     "sonar_model, raw_file, xml_path",
     [
         (
             "azfp",
-            TEST_DATA_FOLDER / "azfp/ooi/17032923.01A",
-            TEST_DATA_FOLDER / "azfp/ooi/17032922.XML",
+            ("ooi", "17032923.01A"),
+            ("ooi", "17032922.XML")
         ),
         (
             "ek60",
-            TEST_DATA_FOLDER / "ek60/DY1801_EK60-D20180211-T164025.raw",
+            ("DY1801_EK60-D20180211-T164025.raw",),
             None,
         ),
         (
             "ek80",
-            TEST_DATA_FOLDER / "ek80/ncei-wcsd/D20170826-T205615.raw",
+            ("echopype-test-D20211004-T235757.raw",),
             None,
         ),
         (
             "ad2cp",
-            TEST_DATA_FOLDER / "ad2cp/raw/076/rawtest.076.00000.ad2cp",
+            ("raw", "076", "rawtest.076.00000.ad2cp"),
             None,
         ),
     ],
+    ids=[
+        "azfp",
+        "ek60",
+        "ek80",
+        "ad2cp"
+    ]
 )
-def test_convert_time_encodings(sonar_model, raw_file, xml_path):
+def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
+    path_model = sonar_model.upper()
+    if path_model == "EK80":
+        path_model = path_model + "_NEW"
+
+    raw_file = str(test_path[path_model].joinpath(*raw_file).absolute())
+    if xml_path is not None:
+        xml_path = str(test_path[path_model].joinpath(*xml_path).absolute())
+
     ed = open_raw(
         sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path
     )
@@ -114,43 +217,18 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path):
     os.unlink(ed.converted_raw_path)
 
 
-@pytest.mark.parametrize("model", ["EK60"])
-@pytest.mark.parametrize(
-    "input_path",
-    [
-        "./echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-        "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-        [
-            "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-            "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190843.raw",
-        ],
-    ],
-)
-@pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
-@pytest.mark.parametrize(
-    "output_save_path",
-    [
-        None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
-    ],
-)
 def test_convert_ek60(
-    model,
-    input_path,
+    ek60_input_paths,
     export_engine,
     output_save_path,
     minio_bucket,
+    model="EK60",
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
-    ipath = input_path
-    if isinstance(input_path, list):
-        ipath = input_path[0]
+    ipath = ek60_input_paths
+    if isinstance(ek60_input_paths, list):
+        ipath = ek60_input_paths[0]
 
     input_storage_options = (
         common_storage_options if ipath.startswith("s3://") else {}
@@ -194,61 +272,31 @@ def test_convert_ek60(
             assert str(e) == 'Only local netcdf4 is supported.'
 
 
-@pytest.mark.parametrize("model", ["azfp"])
-@pytest.mark.parametrize(
-    "input_path",
-    [
-        "./echopype/test_data/azfp/ooi/17032923.01A",
-        "http://localhost:8080/data/azfp/ooi/17032923.01A",
-    ],
-)
-@pytest.mark.parametrize(
-    "xml_path",
-    [
-        "./echopype/test_data/azfp/ooi/17032922.XML",
-        "http://localhost:8080/data/azfp/ooi/17032922.XML",
-    ],
-)
-@pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
-@pytest.mark.parametrize(
-    "output_save_path",
-    [
-        None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
-    ],
-)
-@pytest.mark.parametrize("combine_files", [False])
 def test_convert_azfp(
-    model,
-    input_path,
-    xml_path,
+    azfp_input_paths,
+    azfp_xml_paths,
     export_engine,
     output_save_path,
-    combine_files,
     minio_bucket,
+    model="AZFP",
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
 
     input_storage_options = (
-        common_storage_options if input_path.startswith("s3://") else {}
+        common_storage_options if azfp_input_paths.startswith("s3://") else {}
     )
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
     ec = open_raw(
-        raw_file=input_path,
-        xml_path=xml_path,
+        raw_file=azfp_input_paths,
+        xml_path=azfp_xml_paths,
         sonar_model=model,
         storage_options=input_storage_options,
     )
 
-    assert ec.xml_path == xml_path
+    assert ec.xml_path == azfp_xml_paths
 
     if (
         export_engine == "netcdf4"
@@ -279,48 +327,25 @@ def test_convert_azfp(
             assert str(e) == 'Only local netcdf4 is supported.'
 
 
-@pytest.mark.parametrize("model", ["EK80"])
-@pytest.mark.parametrize(
-    "input_path",
-    [
-        "./echopype/test_data/ek80/ncei-wcsd/D20170826-T205615.raw",
-        "http://localhost:8080/data/ek80/ncei-wcsd/D20170826-T205615.raw",
-        "s3://data/ek80/ncei-wcsd/D20170826-T205615.raw",
-    ],
-)
-@pytest.mark.parametrize("export_engine", ["zarr", "netcdf4"])
-@pytest.mark.parametrize(
-    "output_save_path",
-    [
-        None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
-    ],
-)
-@pytest.mark.parametrize("combine_files", [False])
 def test_convert_ek80(
-    model,
-    input_path,
+    ek80_input_paths,
     export_engine,
     output_save_path,
-    combine_files,
     minio_bucket,
+    model="EK80",
+    combine_files=False,
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
 
     input_storage_options = (
-        common_storage_options if input_path.startswith("s3://") else {}
+        common_storage_options if ek80_input_paths.startswith("s3://") else {}
     )
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
     ec = open_raw(
-        raw_file=input_path,
+        raw_file=ek80_input_paths,
         sonar_model=model,
         storage_options=input_storage_options,
     )
