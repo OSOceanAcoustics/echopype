@@ -1,11 +1,29 @@
 """``pytest`` configuration."""
 
 import pytest
-from pathlib import Path
 
 import fsspec
 
 from echopype.testing import TEST_DATA_FOLDER
+
+
+def pytest_generate_tests(metafunc):
+    ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
+    ek80_files = ek80_new_path.glob("**/*.raw")
+    if "ek80_file" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "ek80_file", ek80_files, ids=lambda f: str(f.name)
+        )
+
+
+@pytest.fixture(scope="session")
+def ek80_file(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def dump_output_dir():
+    return TEST_DATA_FOLDER / "dump"
 
 
 @pytest.fixture(scope="session")
@@ -16,6 +34,7 @@ def test_path():
     azfp_path = TEST_DATA_FOLDER / "azfp"
     ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
     return {
+        'ROOT': TEST_DATA_FOLDER,
         'EK60': ek60_path,
         'EK80': ek80_path,
         'EK80_NEW': ek80_new_path,

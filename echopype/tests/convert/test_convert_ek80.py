@@ -17,6 +17,16 @@ def ek80_path(test_path):
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
+def test_convert(ek80_file, dump_output_dir):
+    print("converting", ek80_file)
+    echodata = open_raw(raw_file=str(ek80_file), sonar_model="EK80")
+    echodata.to_netcdf(save_path=dump_output_dir, overwrite=True)
+
+    nc_file = (dump_output_dir / ek80_file.name).with_suffix('.nc')
+    assert nc_file.is_file() is True
+
+    nc_file.unlink()
+
 
 def test_convert_ek80_complex_matlab(ek80_path):
     """Compare parsed EK80 CW power/angle data with Matlab parsed data."""
