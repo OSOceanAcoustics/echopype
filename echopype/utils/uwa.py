@@ -90,7 +90,6 @@ def calc_absorption(
     -------
     Sea absorption [dB/m]
     """
-    # fmt: off
     if formula_source == "FG":
         f = frequency / 1000.0
         d = distance / 1000.0
@@ -100,29 +99,33 @@ def calc_absorption(
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
         P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure * pressure
-        f2 = 8.17 * 10 ** (8 - 1990 / (temperature + 273)) / (1 + 0.0018 * (salinity - 35))  # noqa
+        f2 = (
+            8.17
+            * 10 ** (8 - 1990 / (temperature + 273))
+            / (1 + 0.0018 * (salinity - 35))
+        )
         P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure * pressure
         if temperature < 20:
             A3 = (
                 4.937e-4
                 - 2.59e-5 * temperature
-                + 9.11e-7 * temperature ** 2
-                - 1.5e-8 * temperature ** 3
+                + 9.11e-7 * temperature * temperature
+                - 1.5e-8 * temperature * temperature * temperature
             )
         else:
             A3 = (
                 3.964e-4
                 - 1.146e-5 * temperature
-                + 1.45e-7 * temperature ** 2
-                - 6.5e-10 * temperature ** 3
+                + 1.45e-7 * temperature * temperature
+                - 6.5e-10 * temperature * temperature * temperature
             )
         a = (
             A1 * P1 * f1 * f * f / (f1 * f1 + f * f)
             + A2 * P2 * f2 * f * f / (f2 * f2 + f * f)
             + A3 * P3 * f * f
         )
-        # convert to db/m from db/km
-        sea_abs = -20 * np.log10(10 ** (-a * d / 20.0)) / 1000
+        sea_abs = a * d
+
     elif formula_source == "AM":
         freq = frequency / 1000
         D = pressure / 1000
@@ -144,6 +147,7 @@ def calc_absorption(
         )
         a3 = 0.00049 * freq ** 2 * np.exp(-(temperature / 27 + D))
         sea_abs = (a1 + a2 + a3) / 1000  # convert to db/m from db/km
+
     elif formula_source == "AZFP":
         temp_k = temperature + 273.0
         f1 = 1320.0 * temp_k * np.exp(-1700 / temp_k)
@@ -177,5 +181,5 @@ def calc_absorption(
             )
     else:
         ValueError("Unknown formula source")
-    # fmt: on
+
     return sea_abs
