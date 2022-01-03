@@ -30,16 +30,20 @@ def dump_output_dir():
 def test_path():
     ek60_path = TEST_DATA_FOLDER / "ek60"
     ek80_path = TEST_DATA_FOLDER / "ek80"
+    es70_path = TEST_DATA_FOLDER / "es70"
     ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
     azfp_path = TEST_DATA_FOLDER / "azfp"
     ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
+    ek80_cal = TEST_DATA_FOLDER / "ek80_bb_with_calibration"
     return {
         'ROOT': TEST_DATA_FOLDER,
         'EK60': ek60_path,
         'EK80': ek80_path,
         'EK80_NEW': ek80_new_path,
+        'ES70': es70_path,
         'AZFP': azfp_path,
-        'AD2CP': ad2cp_path
+        'AD2CP': ad2cp_path,
+        'EK80_CAL': ek80_cal,
     }
 
 

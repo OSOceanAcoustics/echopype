@@ -91,6 +91,14 @@ def ek60_converted_zarr(request, test_path):
             "complex",
         ),
         (
+            ("ES70", "D20151202-T020259.raw"),
+            "ES70",
+            None,
+            None,
+            None,
+            None,
+        ),
+        (
             ("AZFP", "ooi", "17032923.01A"),
             "AZFP",
             ("AZFP", "ooi", "17032922.XML"),
@@ -120,6 +128,7 @@ def ek60_converted_zarr(request, test_path):
         "ek80_cw_power",
         "ek80_bb_complex",
         "ek80_cw_complex",
+        "es70",
         "azfp_sv",
         "azfp_sp",
         "ad2cp",
@@ -134,6 +143,10 @@ def compute_range_samples(request, test_path):
         ek_waveform_mode,
         ek_encode_mode,
     ) = request.param
+    if sonar_model.lower() == 'es70':
+        pytest.xfail(
+            reason="Not supported at the moment",
+        )
     path_model, *paths = filepath
     filepath = test_path[path_model].joinpath(*paths)
 
@@ -168,8 +181,12 @@ def compute_range_samples(request, test_path):
 )
 def update_platform_samples(request, test_path):
     return (
-        test_path[request.param["path_model"]].joinpath(*request.param['raw_path']),
-        test_path[request.param["path_model"]].joinpath(*request.param['extra_data_path'])
+        test_path[request.param["path_model"]].joinpath(
+            *request.param['raw_path']
+        ),
+        test_path[request.param["path_model"]].joinpath(
+            *request.param['extra_data_path']
+        ),
     )
 
 
