@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from echopype.utils.uwa import calc_absorption
+from echopype.utils.uwa import calc_absorption, calc_sound_speed
 
 
 # Tolerance used here are set empirically
@@ -32,3 +32,27 @@ def test_absorption(frequency, temperature, salinity, pressure, pH, tolerance):
             formula_source=fm,
         )
     assert np.abs(abs_dB_m["AM"] - abs_dB_m["FG"]) < tolerance
+
+
+# These tests are just to make sure the code runs
+# and the difference between formula is not too dramatic,
+# instead of trying to verify the actual numbers
+# as we don't know the source of the AZFP formula.
+@pytest.mark.parametrize(
+    "temperature, salinity, pressure, tolerance",
+    [
+        (27, 35, 10, 0.07),
+        (27, 35, 100, 0.07),
+        (5, 35, 3500, 0.5),
+    ],
+)
+def test_sound_speed(temperature, salinity, pressure, tolerance):
+    c = dict()
+    for fm in ["Mackenzie", "AZFP"]:
+        c[fm] = calc_sound_speed(
+            temperature=temperature,
+            salinity=salinity,
+            pressure=pressure,
+            formula_source=fm
+        )
+    assert np.abs(np.diff(list(c.values()))) < tolerance
