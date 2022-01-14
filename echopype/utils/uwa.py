@@ -8,27 +8,34 @@ def calc_sound_speed(
     temperature=27, salinity=35, pressure=10, formula_source="Mackenzie"
 ):
     """
-    Calculate sound speed in meters per second.
-    Uses the default salinity and pressure.
+    Calculate sound speed in [m/s].
 
     Parameters
     ----------
     temperature : num
-        temperature in deg C
+        temperature [deg C]
     salinity : num
-        salinity in ppt
+        salinity [PSU, part per thousand]
     pressure : num
-        pressure in dbars
+        pressure [dbars]
 
-    formula_source : str
-        Source of formula used for calculating sound speed.
-        Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
-        Another option is to use Mackenzie (1981)
-        supplied by ``arlpy`` (``formula_source='Mackenzie'``).
+    formula_source : str, {"Mackenzie", "AZFP"}
+        Source of formula used to calculate sound speed.
+        "Mackenzie" uses the formula from Mackenzie 1981 (see Notes below)
+        as implemented in ``arlpy``.
+        "AZFP" uses the the formula supplied in the AZFP Matlab code.
 
     Returns
     -------
-    A sound speed [m/s] for each temperature.
+    Sound speed [m/s] for each input temperature values.
+
+    Notes
+    -----
+    Mackenzie KV (1981) Nine‐term equation for sound speed in the oceans.
+    The Journal of the Acoustical Society of America, 70(3), 807–812.
+    https://doi.org/10.1121/1.386920
+    The ranges of validity encompass the following:
+    temperature −2° to 30° C, salinity 30° to 40°/°°, and depth 0 to 8000 m.
     """
     if formula_source == "Mackenzie":
         ss = (
@@ -63,32 +70,48 @@ def calc_absorption(
     pH=8.1,
     formula_source="AM",
 ):
-    """Calculate sea absorption in dB/m
+    """
+    Calculate sea water absorption in units [dB/m].
 
     Parameters
     ----------
     frequency : int or numpy array
-        frequency in Hz
-    distance : num
-        distance in m (FG formula only)
+        frequency [Hz]
     temperature : num
-        temperature in deg C
+        temperature [deg C]
     salinity : num
-        salinity in ppt
+        salinity [PSU, part per thousand]
     pressure : num
-        pressure in dbars
+        pressure [dbars]
     pH : num
         pH of water
-    formula_source : str
-        Source of formula used for calculating sound speed.
-        Default is to use Ainlie and McColm (1998) (``formula_source='AM'``).
-        Another option is to the formula supplied by AZFP (``formula_source='AZFP'``).
-        Another option is to use Francois and Garrison (1982)
-        supplied by ``arlpy`` (``formula_source='FG'``).
+    formula_source : str, {"AM", "FG", "AZFP"}
+        Source of formula used to calculate sound speed.
+        "AM" uses the formula from Ainslie and McColm (1998).
+        "FG" uses the formula from Francois and Garrison (1982).
+        "AZFP" uses the the formula supplied in the AZFP Matlab code.
+        See Notes below for the references.
 
     Returns
     -------
-    Sea absorption [dB/m]
+    Seaw ater absorption [dB/m].
+
+    Notes
+    -----
+    Ainslie MA, McColm JG. (1998). A simplified formula for viscous
+    and chemical absorption in sea water.
+    The Journal of the Acoustical Society of America, 103(3), 1671–1672.
+    https://doi.org/10.1121/1.421258
+
+    Francois RE, Garrison GR. (1982). Sound absorption based on
+    ocean measurements. Part II: Boric acid contribution and equation
+    for total absorption.
+    The Journal of the Acoustical Society of America, 72(6), 1879–1890.
+    https://doi.org/10.1121/1.388673
+
+    The accuracy of the simplified formula from Ainslie & McColm 1998
+    compared with the original complicated formula from Francois & Garrison 1982
+    was demostrated between 100 Hz and 1 MHz.
     """
     if formula_source == "FG":
         f = frequency / 1000.0
