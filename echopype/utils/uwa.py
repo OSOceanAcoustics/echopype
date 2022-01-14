@@ -13,14 +13,14 @@ def calc_sound_speed(
 
     Parameters
     ----------
-    temperature : num
+    temperature: num
         temperature in deg C
-    salinity : num
+    salinity: num
         salinity in ppt
-    pressure : num
+    pressure: num
         pressure in dbars
 
-    formula_source : str
+    formula_source: str
         Source of formula used for calculating sound speed.
         Default is to use the formula supplied by AZFP (``formula_source='AZFP'``).
         Another option is to use Mackenzie (1981)
@@ -67,19 +67,19 @@ def calc_absorption(
 
     Parameters
     ----------
-    frequency : int or numpy array
+    frequency: int or numpy array
         frequency in Hz
-    distance : num
+    distance: num
         distance in m (FG formula only)
-    temperature : num
+    temperature: num
         temperature in deg C
-    salinity : num
+    salinity: num
         salinity in ppt
-    pressure : num
+    pressure: num
         pressure in dbars
-    pH : num
+    pH: num
         pH of water
-    formula_source : str
+    formula_source: str
         Source of formula used for calculating sound speed.
         Default is to use Ainlie and McColm (1998) (``formula_source='AM'``).
         Another option is to the formula supplied by AZFP (``formula_source='AZFP'``).

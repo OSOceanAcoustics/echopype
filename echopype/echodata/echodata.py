@@ -149,7 +149,7 @@ class EchoData:
 
         Parameters
         ----------
-        env_params : dict
+        env_params: dict
             Environmental parameters needed for computing sonar range.
             Users can supply `"sound speed"` directly,
             or specify other variables that can be used to compute them,
@@ -162,7 +162,7 @@ class EchoData:
             sensor, and some are equipped with a pressure sensor, but automatically
             using these pressure data is not currently supported.
 
-        azfp_cal_type : {"Sv", "Sp"}, optional
+        azfp_cal_type: {"Sv", "Sp"}, optional
 
             - `"Sv"` for calculating volume backscattering strength
             - `"Sp"` for calculating point backscattering strength.
@@ -170,7 +170,7 @@ class EchoData:
             This parameter needs to be specified for data from the AZFP echosounder,
             due to a difference in computing range for Sv and Sp.
 
-        ek_waveform_mode : {"CW", "BB"}, optional
+        ek_waveform_mode: {"CW", "BB"}, optional
             Type of transmit waveform.
             Required only for data from the EK80 echosounder.
 
@@ -179,7 +179,7 @@ class EchoData:
             - `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        ek_encode_mode : {"complex", "power"}, optional
+        ek_encode_mode: {"complex", "power"}, optional
             Type of encoded return echo data.
             Required only for data from the EK80 echosounder.
 
@@ -395,7 +395,7 @@ class EchoData:
 
         Parameters
         ----------
-        extra_platform_data : xr.Dataset
+        extra_platform_data: xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
             to the `EchoData.platform` group.
         time_dim: str, default="time"
@@ -635,17 +635,17 @@ class EchoData:
 
         Parameters
         ----------
-        save_path : str
+        save_path: str
             path that converted .nc file will be saved
-        compress : bool
+        compress: bool
             whether or not to perform compression on data variables
             Defaults to ``True``
-        overwrite : bool
+        overwrite: bool
             whether or not to overwrite existing files
             Defaults to ``False``
-        parallel : bool
+        parallel: bool
             whether or not to use parallel processing. (Not yet implemented)
-        output_storage_options : dict
+        output_storage_options: dict
             Additional keywords to pass to the filesystem class.
         """
         from ..convert.api import to_file
@@ -657,17 +657,17 @@ class EchoData:
 
         Parameters
         ----------
-        save_path : str
+        save_path: str
             path that converted .nc file will be saved
-        compress : bool
+        compress: bool
             whether or not to perform compression on data variables
             Defaults to ``True``
-        overwrite : bool
+        overwrite: bool
             whether or not to overwrite existing files
             Defaults to ``False``
-        parallel : bool
+        parallel: bool
             whether or not to use parallel processing. (Not yet implemented)
-        output_storage_options : dict
+        output_storage_options: dict
             Additional keywords to pass to the filesystem class.
         """
         from ..convert.api import to_file

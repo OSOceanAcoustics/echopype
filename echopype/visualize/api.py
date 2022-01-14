@@ -19,21 +19,21 @@ def create_echogram(
 
     Parameters
     ----------
-    data : EchoData or xr.Dataset
+    data: EchoData or xr.Dataset
         Echodata or Xarray Dataset to be plotted
-    frequency : int, float, or list of float or ints, optional
+    frequency: int, float, or list of float or ints, optional
         The frequency to be plotted.
         Otherwise all frequency will be plotted.
-    get_range : bool, optional
+    get_range: bool, optional
         Flag as to whether range should be computed or not,
         by default it will just plot range_bin as the yaxis.
 
         Note that for data that is "Sv" xarray dataset, `get_range` defaults
         to `True`.
-    range_kwargs : dict
+    range_kwargs: dict
         Keyword arguments dictionary for computing range.
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
-    water_level : int, float, xr.DataArray, or bool, optional
+    water_level: int, float, xr.DataArray, or bool, optional
         Water level data array for platform water level correction.
         Note that auto addition of water level can be performed
         when data is an EchoData object by setting this argument

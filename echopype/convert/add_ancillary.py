@@ -2,9 +2,9 @@ def update_platform(self, files=None, extra_platform_data=None):
     """
     Parameters
     ----------
-    files : str / list
+    files: str / list
         path of converted .nc/.zarr files
-    extra_platform_data : xarray dataset
+    extra_platform_data: xarray dataset
         dataset containing platform information along a 'time' dimension
     """
     # self.extra_platform data passed into to_netcdf or from another function

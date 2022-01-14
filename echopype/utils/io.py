@@ -86,13 +86,13 @@ def sanitize_file_path(
 
     Parameters
     ----------
-    file_path : str | Path | FSMap
+    file_path: str | Path | FSMap
         The source file path
-    engine : str {'netcdf4', 'zarr'}
+    engine: str {'netcdf4', 'zarr'}
         The engine to be used for file output
-    storage_options : dict
+    storage_options: dict
         Storage options for file path
-    is_dir : bool
+    is_dir: bool
         Flag for the function to know
         if file_path is a directory or not.
         If not, suffix will be determined.
@@ -146,13 +146,13 @@ def validate_output_path(
 
     Parameters
     ----------
-    source_file : str
+    source_file: str
         The source file path
-    engine : str {'netcdf4', 'zarr'}
+    engine: str {'netcdf4', 'zarr'}
         The engine to be used for file output
-    output_storage_options : dict
+    output_storage_options: dict
         Storage options for remote output path
-    save_path : str | Path | None
+    save_path: str | Path | None
         Either a directory or a file. If none then the save path is 'temp_echopype_output/'
         in the current working directory.
     """
@@ -225,9 +225,9 @@ def check_file_existence(
 
     Parameters
     ----------
-    file_path : str or pathlib.Path or fsspec.FSMap
+    file_path: str or pathlib.Path or fsspec.FSMap
         path to file
-    storage_options : dict
+    storage_options: dict
         options for cloud storage
     """
     if isinstance(file_path, Path):

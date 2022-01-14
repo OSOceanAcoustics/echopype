@@ -98,7 +98,7 @@ class ParseAZFP(ParseBase):
 
         Parameters
         ----------
-        raw : list
+        raw: list
             raw filename
         """
 

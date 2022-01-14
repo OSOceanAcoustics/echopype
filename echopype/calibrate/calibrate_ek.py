@@ -19,7 +19,7 @@ class CalibrateEK(CalibrateBase):
         """
         Parameters
         ----------
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
             Required only for data from the EK80 echosounder.
 
@@ -28,7 +28,7 @@ class CalibrateEK(CalibrateBase):
             - `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        encode_mode : {"complex", "power"}
+        encode_mode: {"complex", "power"}
             Type of encoded return echo data.
             Required only for data from the EK80 echosounder.
 
@@ -38,7 +38,7 @@ class CalibrateEK(CalibrateBase):
 
         Returns
         -------
-        range_meter : xr.DataArray
+        range_meter: xr.DataArray
             range in units meter
         """
         self.range_meter = self.echodata.compute_range(
@@ -52,7 +52,7 @@ class CalibrateEK(CalibrateBase):
 
         Parameters
         ----------
-        param : str
+        param: str
             name of parameter to retrieve
         """
         # TODO: need to test with EK80 power/angle data
@@ -113,7 +113,7 @@ class CalibrateEK(CalibrateBase):
 
         Parameters
         ----------
-        cal_params : dict
+        cal_params: dict
         """
 
         if (
@@ -151,10 +151,10 @@ class CalibrateEK(CalibrateBase):
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        use_beam_power : bool
+        use_beam_power: bool
             whether to use beam_power.
             If ``True`` use ``echodata.beam_power``; if ``False`` use ``echodata.beam``.
             Note ``echodata.beam_power`` could only exist for EK80 data.
@@ -249,7 +249,7 @@ class CalibrateEK60(CalibrateEK):
 
         Parameters
         ----------
-        env_params : dict
+        env_params: dict
         """
         # Re-calculate environment parameters if user supply all env variables
         if (
@@ -330,9 +330,9 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        env_params : dict
+        env_params: dict
 
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
 
             - `"CW"` for narrowband transmission,
@@ -340,7 +340,7 @@ class CalibrateEK80(CalibrateEK):
             - (default) `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        encode_mode : {"complex", "power"}
+        encode_mode: {"complex", "power"}
             Type of encoded return echo data.
 
             - (default) `"complex"` for complex samples
@@ -418,11 +418,11 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        channel_id : str
+        channel_id: str
             channel id for which the param to be retrieved
-        filter_name : str
+        filter_name: str
             name of filter coefficients to retrieve
-        param_type : str
+        param_type: str
             'coeff' or 'decimation'
         """
         if param_type == "coeff":
@@ -472,9 +472,9 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        y : np.array
+        y: np.array
             chirp from _tapered_chirp
-        ch_id : str
+        ch_id: str
             channel_id to select the right coefficients and factors
         """
         # filter coefficients and decimation factor
@@ -506,9 +506,9 @@ class CalibrateEK80(CalibrateEK):
         ----------
         ytx :array
             transmit signal
-        fs_deci : float
+        fs_deci: float
             sampling frequency of the decimated (recorded) signal
-        waveform_mode : str
+        waveform_mode: str
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
         """
@@ -528,7 +528,7 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        waveform_mode : str
+        waveform_mode: str
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
         """
@@ -592,9 +592,9 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        chirp : dict
+        chirp: dict
             transmit chirp replica indexed by channel_id
-        freq_BB : int or float
+        freq_BB: int or float
             frequency channels that transmit in BB mode
             (since CW mode can be in mixed in complex samples too)
         """
@@ -639,10 +639,10 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        waveform_mode : str
+        waveform_mode: str
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
-        freq_center : xr.DataArray
+        freq_center: xr.DataArray
             Nominal channel frequency for CW mode samples
             and an xr.DataArray with coorindate ``frequency`` and ``ping_time`` for BB mode samples
 
@@ -697,10 +697,10 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
 
             - `"CW"` for narrowband transmission,
@@ -867,11 +867,11 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
 
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
 
             - `"CW"` for narrowband transmission,
@@ -879,7 +879,7 @@ class CalibrateEK80(CalibrateEK):
             - `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        encode_mode : {"complex", "power"}
+        encode_mode: {"complex", "power"}
             Type of encoded return echo data.
 
             - `"complex"` for complex samples
@@ -985,7 +985,7 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
 
             - `"CW"` for narrowband transmission,
@@ -993,7 +993,7 @@ class CalibrateEK80(CalibrateEK):
             - (default) `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        encode_mode : {"complex", "power"}
+        encode_mode: {"complex", "power"}
             Type of encoded return echo data.
 
             - (default) `"complex"` for complex samples
@@ -1002,7 +1002,7 @@ class CalibrateEK80(CalibrateEK):
 
         Returns
         -------
-        Sv : xr.DataSet
+        Sv: xr.DataSet
             A DataSet containing volume backscattering strength (``Sv``)
             and the corresponding range (``range``) in units meter.
         """
@@ -1015,7 +1015,7 @@ class CalibrateEK80(CalibrateEK):
 
         Parameters
         ----------
-        waveform_mode : {"CW", "BB"}
+        waveform_mode: {"CW", "BB"}
             Type of transmit waveform.
 
             - `"CW"` for narrowband transmission,
@@ -1023,7 +1023,7 @@ class CalibrateEK80(CalibrateEK):
             - (default) `"BB"` for broadband transmission,
               returned echoes recorded as complex samples
 
-        encode_mode : {"complex", "power"}
+        encode_mode: {"complex", "power"}
             Type of encoded return echo data.
 
             - (default) `"complex"` for complex samples
@@ -1032,7 +1032,7 @@ class CalibrateEK80(CalibrateEK):
 
         Returns
         -------
-        Sp : xr.DataSet
+        Sp: xr.DataSet
             A DataSet containing point backscattering strength (``Sp``)
             and the corresponding range (``range``) in units meter.
         """

@@ -21,11 +21,11 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
     Parameters
     ----------
-    ds_Sv : xr.Dataset
+    ds_Sv: xr.Dataset
         dataset containing Sv and range [m]
-    range_meter_bin : Union[int, float]
+    range_meter_bin: Union[int, float]
         bin size along ``range`` in meters, default to ``20``
-    ping_time_bin : str
+    ping_time_bin: str
         bin size along ``ping_time``, default to ``20S``
 
     Returns
@@ -83,11 +83,11 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
 
     Parameters
     ----------
-    ds_Sv : xr.Dataset
+    ds_Sv: xr.Dataset
         dataset containing Sv and range [m]
-    range_bin_num : int
+    range_bin_num: int
         number of samples to average along the ``range_bin`` dimension, default to 100
-    ping_num : int
+    ping_num: int
         number of pings to average, default to 100
 
     Returns
@@ -135,13 +135,13 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
 
     Parameters
     ----------
-    ds_Sv : xr.Dataset
+    ds_Sv: xr.Dataset
         dataset containing Sv and range [m]
-    ping_num : int
+    ping_num: int
         number of pings to obtain noise estimates
-    range_bin_num : int
+    range_bin_num: int
         number of samples along the ``range_bin`` dimension to obtain noise estimates
-    noise_max : float
+    noise_max: float
         the upper limit for background noise expected under the operating conditions
 
     Returns
@@ -167,15 +167,15 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
 
     Parameters
     ----------
-    ds_Sv : xr.Dataset
+    ds_Sv: xr.Dataset
         dataset containing Sv and range [m]
-    ping_num : int
+    ping_num: int
         number of pings to obtain noise estimates
-    range_bin_num : int
+    range_bin_num: int
         number of samples along the ``range_bin`` dimension to obtain noise estimates
-    noise_max : float
+    noise_max: float
         the upper limit for background noise expected under the operating conditions
-    SNR_threshold : float
+    SNR_threshold: float
         acceptable signal-to-noise ratio, default to 3 dB
 
     Returns

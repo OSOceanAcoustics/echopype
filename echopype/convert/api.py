@@ -40,19 +40,19 @@ def to_file(
 
     Parameters
     ----------
-    engine : str {'netcdf4', 'zarr'}
+    engine: str {'netcdf4', 'zarr'}
         type of converted file
-    save_path : str
+    save_path: str
         path that converted .nc file will be saved
-    compress : bool
+    compress: bool
         whether or not to perform compression on data variables
         Defaults to ``True``
-    overwrite : bool
+    overwrite: bool
         whether or not to overwrite existing files
         Defaults to ``False``
-    parallel : bool
+    parallel: bool
         whether or not to use parallel processing. (Not yet implemented)
-    output_storage_options : dict
+    output_storage_options: dict
         Additional keywords to pass to the filesystem class.
     """
     if parallel:
@@ -273,20 +273,20 @@ def _check_file(
 
     Parameters
     ----------
-    raw_file : str
+    raw_file: str
         path to raw data file
-    sonar_model : str
+    sonar_model: str
         model of the sonar instrument
-    xml_path : str
+    xml_path: str
         path to XML config file used by AZFP
-    storage_options : dict
+    storage_options: dict
         options for cloud storage
 
     Returns
     -------
-    file : str
+    file: str
         path to existing raw data file
-    xml : str
+    xml: str
         path to existing xml file
         empty string if no xml file is required for the specified model
     """
@@ -331,9 +331,9 @@ def open_raw(
 
     Parameters
     ----------
-    raw_file : str
+    raw_file: str
         path to raw data file
-    sonar_model : str
+    sonar_model: str
         model of the sonar instrument
 
         - ``EK60``: Kongsberg Simrad EK60 echosounder
@@ -344,12 +344,12 @@ def open_raw(
         - ``AD2CP``: Nortek Signature series ADCP
           (tested with Signature 500 and Signature 1000)
 
-    xml_path : str
+    xml_path: str
         path to XML config file used by AZFP
-    convert_params : dict
+    convert_params: dict
         parameters (metadata) that may not exist in the raw file
         and need to be added to the converted file
-    storage_options : dict
+    storage_options: dict
         options for cloud storage
 
     Returns

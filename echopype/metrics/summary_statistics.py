@@ -18,8 +18,8 @@ def delta_z(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns
@@ -37,8 +37,8 @@ def convert_to_linear(ds: xr.Dataset, Sv_label="Sv") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    Sv_label : str
+    ds: xr.Dataset
+    Sv_label: str
         Name of an xarray DataArray in `ds` containing volume backscattering strength (Sv).
 
     Returns
@@ -55,8 +55,8 @@ def abundance(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns
@@ -75,8 +75,8 @@ def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns
@@ -97,8 +97,8 @@ def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns
@@ -121,8 +121,8 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns
@@ -142,8 +142,8 @@ def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:
 
     Parameters
     ----------
-    ds : xr.Dataset
-    range_label : str
+    ds: xr.Dataset
+    range_label: str
         Name of an xarray DataArray in `ds` containing range information.
 
     Returns

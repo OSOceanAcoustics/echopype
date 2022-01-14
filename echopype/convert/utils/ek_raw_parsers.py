@@ -516,7 +516,7 @@ class SimradMRUParser(_SimradDatagramParser):
         high_date:    long uint representing MSBytes of 64bit NT date
         timestamp:    datetime.datetime object of NT date, assumed to be UTC
         heave:        float
-        roll :        float
+        roll:        float
         pitch:        float
         heading:      float
 

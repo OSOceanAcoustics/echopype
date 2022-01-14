@@ -68,10 +68,10 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
 
     Parameters
     ----------
-    echodata : EchoData
+    echodata: EchoData
         An `EchoData` object created by using `open_raw` or `open_converted`
 
-    env_params : dict, optional
+    env_params: dict, optional
         Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
         or specify other variables that can be used to compute them,
@@ -84,7 +84,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         sensor, and some are equipped with a pressure sensor, but automatically
         using these pressure data is not currently supported.
 
-    cal_params : dict, optional
+    cal_params: dict, optional
         Intrument-dependent calibration parameters.
 
         For EK60, EK80, and AZFP echosounders, by default echopype uses
@@ -99,7 +99,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         Passing in calibration parameters for other echosounders
         are not currently supported.
 
-    waveform_mode : {"CW", "BB"}, optional
+    waveform_mode: {"CW", "BB"}, optional
         Type of transmit waveform.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.
@@ -109,7 +109,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"BB"` for broadband transmission,
           returned echoes recorded as complex samples
 
-    encode_mode : {"complex", "power"}, optional
+    encode_mode: {"complex", "power"}, optional
         Type of encoded return echo data.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.
@@ -153,10 +153,10 @@ def compute_Sp(echodata: EchoData, **kwargs):
 
     Parameters
     ----------
-    echodata : EchoData
+    echodata: EchoData
         An `EchoData` object created by using `open_raw` or `open_converted`
 
-    env_params : dict, optional
+    env_params: dict, optional
         Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
         or specify other variables that can be used to compute them,
@@ -169,7 +169,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
         sensor, and some are equipped with a pressure sensor, but automatically
         using these pressure data is not currently supported.
 
-    cal_params : dict, optional
+    cal_params: dict, optional
         Intrument-dependent calibration parameters.
 
         For EK60, EK80, and AZFP echosounders, by default echopype uses
@@ -184,7 +184,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
         Passing in calibration parameters for other echosounders
         are not currently supported.
 
-    waveform_mode : {"CW", "BB"}, optional
+    waveform_mode: {"CW", "BB"}, optional
         Type of transmit waveform.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.
@@ -194,7 +194,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
         - `"BB"` for broadband transmission,
           returned echoes recorded as complex samples
 
-    encode_mode : {"complex", "power"}, optional
+    encode_mode: {"complex", "power"}, optional
         Type of encoded return echo data.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.

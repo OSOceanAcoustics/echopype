@@ -207,9 +207,9 @@ class SetGroupsEK80(SetGroupsBase):
 
         Parameters
         ----------
-        data_type : str
+        data_type: str
             'complex' or 'power'
-        params : dict
+        params: dict
             beam parameters that do not change across ping
         """
         ch_ids = self.parser_obj.ch_ids[data_type]

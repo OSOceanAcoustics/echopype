@@ -13,11 +13,11 @@ def open_converted(
 
     Parameters
     ----------
-    converted_raw_path : str
+    converted_raw_path: str
         path to converted data file
-    storage_options : dict
+    storage_options: dict
         options for cloud storage
-    kwargs : dict
+    kwargs: dict
         optional keyword arguments to be passed
         into xr.open_dataset
 

@@ -335,13 +335,13 @@ class ParseEK(ParseBase):
 
         Parameters
         ----------
-        data_list : list
+        data_list: list
             Power, angle, or complex samples for each channel from RAW3 datagram.
             Each ping is one entry in the list.
 
         Returns
         -------
-        out_array : np.ndarray
+        out_array: np.ndarray
             Numpy array containing samplings from all pings.
             The array is NaN-padded if some pings are of different lengths.
         """

@@ -151,9 +151,9 @@ class Process():
         based on the input file format.
         Parameters
         ----------
-        ds : xr.Dataset
+        ds: xr.Dataset
             xarray dataset object
-        path : str
+        path: str
             output file
         """
         if self._file_format == 'netcdf4':

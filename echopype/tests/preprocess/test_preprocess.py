@@ -112,15 +112,15 @@ def _construct_MVBS_toy_data(nfreq, npings, nrange_bins, ping_size, range_bin_si
 
     Parameters
     ----------
-    nfreq : int
+    nfreq: int
         number of frequencies
-    npings : int
+    npings: int
         number of pings
-    nrange_bins : int
+    nrange_bins: int
         number of range_bins
-    ping_size : int
+    ping_size: int
         number of pings with the same value
-    range_bin_size : int
+    range_bin_size: int
         number of range_bins with the same value
 
     Returns
@@ -148,11 +148,11 @@ def _construct_MVBS_test_data(nfreq, npings, nrange_bins):
 
     Parameters
     ----------
-    nfreq : int
+    nfreq: int
         number of frequencies
-    npings : int
+    npings: int
         number of pings
-    nrange_bins : int
+    nrange_bins: int
         number of range_bins
 
     Returns

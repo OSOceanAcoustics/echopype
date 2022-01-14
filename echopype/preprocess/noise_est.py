@@ -7,11 +7,11 @@ class NoiseEst:
     """
     Attributes
     ----------
-    ds_Sv : xr.Dataset
+    ds_Sv: xr.Dataset
         dataset containing Sv and range [m]
-    ping_num : int
+    ping_num: int
         number of pings to obtain noise estimates
-    range_bin_num : int
+    range_bin_num: int
         number of samples along range to obtain noise estimates
     """
 
@@ -55,7 +55,7 @@ class NoiseEst:
 
         Parameters
         ----------
-        noise_max : Union[int, float]
+        noise_max: Union[int, float]
             the upper limit for background noise expected under the operating conditions
         """
         power_cal_binned_avg = 10 * np.log10(  # binned averages of calibrated power
@@ -94,9 +94,9 @@ class NoiseEst:
 
         Parameters
         ----------
-        noise_max : float
+        noise_max: float
             the upper limit for background noise expected under the operating conditions
-        SNR_threshold : float
+        SNR_threshold: float
             acceptable signal-to-noise ratio, default to 3 dB
         """
         # Compute Sv_noise

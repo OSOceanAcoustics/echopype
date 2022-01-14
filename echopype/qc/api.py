@@ -36,11 +36,11 @@ def coerce_increasing_time(ds, time_name="ping_time", local_win_len=100):
 
     Parameters
     ----------
-    ds : xr.Dataset
+    ds: xr.Dataset
         a dataset for which the time coordinate needs to be corrected
-    time_name : str
+    time_name: str
         name of the time coordinate to be corrected
-    local_win_len : int
+    local_win_len: int
         half length of the local window within which the median pinging interval
         is used to infer the correct next ping time
 
@@ -57,9 +57,9 @@ def exist_reversed_time(ds, time_name):
 
     Parameters
     ----------
-    ds : xr.Dataset
+    ds: xr.Dataset
         a dataset for which the time coordinate will be tested
-    time_name : str
+    time_name: str
         name of the time coordinate to be tested
 
     Returns

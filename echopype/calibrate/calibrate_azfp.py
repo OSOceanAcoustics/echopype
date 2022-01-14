@@ -29,7 +29,7 @@ class CalibrateAZFP(CalibrateBase):
 
         Parameters
         ----------
-        cal_params : dict
+        cal_params: dict
         """
         # Params from the Beam group
         for p in ["EL", "DS", "TVR", "VTX", "Sv_offset", "equivalent_beam_angle"]:
@@ -43,7 +43,7 @@ class CalibrateAZFP(CalibrateBase):
 
         Parameters
         ----------
-        env_params : dict
+        env_params: dict
         """
         # Temperature comes from either user input or data file
         self.env_params["temperature"] = (
@@ -83,7 +83,7 @@ class CalibrateAZFP(CalibrateBase):
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
         """

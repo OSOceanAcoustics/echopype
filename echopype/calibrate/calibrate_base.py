@@ -33,7 +33,7 @@ class CalibrateBase(abc.ABC):
 
         Returns
         -------
-        range_meter : xr.DataArray
+        range_meter: xr.DataArray
             range in units meter
         """
         pass
@@ -44,7 +44,7 @@ class CalibrateBase(abc.ABC):
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
         """
