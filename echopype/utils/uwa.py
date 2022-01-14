@@ -12,14 +12,14 @@ def calc_sound_speed(
 
     Parameters
     ----------
-    temperature : num
+    temperature: num
         temperature [deg C]
-    salinity : num
+    salinity: num
         salinity [PSU, part per thousand]
-    pressure : num
+    pressure: num
         pressure [dbars]
 
-    formula_source : str, {"Mackenzie", "AZFP"}
+    formula_source: str, {"Mackenzie", "AZFP"}
         Source of formula used to calculate sound speed.
         "Mackenzie" uses the formula from Mackenzie 1981 (see Notes below)
         as implemented in ``arlpy``.
@@ -75,17 +75,17 @@ def calc_absorption(
 
     Parameters
     ----------
-    frequency : int or numpy array
+    frequency: int or numpy array
         frequency [Hz]
-    temperature : num
+    temperature: num
         temperature [deg C]
-    salinity : num
+    salinity: num
         salinity [PSU, part per thousand]
-    pressure : num
+    pressure: num
         pressure [dbars]
-    pH : num
+    pH: num
         pH of water
-    formula_source : str, {"AM", "FG", "AZFP"}
+    formula_source: str, {"AM", "FG", "AZFP"}
         Source of formula used to calculate sound speed.
         "AM" uses the formula from Ainslie and McColm (1998).
         "FG" uses the formula from Francois and Garrison (1982).
