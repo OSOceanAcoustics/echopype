@@ -57,7 +57,6 @@ def calc_sound_speed(
 
 def calc_absorption(
     frequency,
-    distance=1000,
     temperature=27,
     salinity=35,
     pressure=10,
@@ -93,7 +92,7 @@ def calc_absorption(
     """
     if formula_source == "FG":
         f = frequency / 1000.0
-        d = distance / 1000.0
+        d = 1 / 1000.0  # ref to 1 m
         c = 1412.0 + 3.21 * temperature + 1.19 * salinity + 0.0167 * pressure
         A1 = 8.86 / c * 10 ** (0.78 * pH - 5)
         P1 = 1.0
