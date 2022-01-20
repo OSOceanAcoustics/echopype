@@ -103,60 +103,121 @@ class SetGroupsEK60(SetGroupsBase):
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        ds_env = []
-        # Loop over channels
+        combined_ping_times = np.sort(
+            np.array(
+                list(set(np.concatenate(list(self.parser_obj.ping_time.values()))))
+            )
+        )
+        var_names = {
+            "absorption_coefficient": "absorption_indicative",
+            "sound_velocity": "sound_speed_indicative",
+        }
+        var_attrs = {
+            "absorption_coefficient": {
+                "long_name": "Indicative acoustic absorption",
+                "units": "dB/m",
+                "valid_min": 0.0,
+            },
+            "sound_velocity": {
+                "long_name": "Indicative sound speed",
+                "standard_name": "speed_of_sound_in_sea_water",
+                "units": "m/s",
+                "valid_min": 0.0,
+            },
+            "ping_time": {
+                "axis": "T",
+                "long_name": "Timestamps for NMEA position datagrams",
+                "standard_name": "time",
+            },
+            "frequency": {
+                "units": "Hz",
+                "long_name": "Transducer frequency",
+                "valid_min": 0.0,
+            }
+        }
+        vars = {var_name: [] for var_name in var_names}
         for ch in ch_ids:
-            ds_tmp = xr.Dataset(
-                {
-                    "absorption_indicative": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["absorption_coefficient"][ch],
-                        {
-                            "long_name": "Indicative acoustic absorption",
-                            "units": "dB/m",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "sound_speed_indicative": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["sound_velocity"][ch],
-                        {
-                            "long_name": "Indicative sound speed",
-                            "standard_name": "speed_of_sound_in_sea_water",
-                            "units": "m/s",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                },
-                coords={
-                    "ping_time": (
-                        ["ping_time"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamps for NMEA position datagrams",
-                            "standard_name": "time",
-                        },
-                    )
-                },
+            for var_name in var_names:
+                if len(self.parser_obj.ping_time[ch]) == len(combined_ping_times):
+                    vars[var_name].append(self.parser_obj.ping_data_dict[var_name][ch])
+                else:
+                    var_data = []
+                    for i, ping_time in enumerate(self.parser_obj.ping_time[ch]):
+                        while ping_time != combined_ping_times[len(var_data)]:
+                            var_data.append(np.nan)
+                        var_data.append(self.parser_obj.ping_data_dict[var_name][ch][i])
+                    vars[var_name].append(np.array(var_data))
+        stacked_vars = {
+            var_name: np.stack(var_data) for var_name, var_data in vars.items()
+        }
+        data_vars = {
+            var_names[var_name]: (
+                ["frequency", "ping_time"],
+                stacked_vars[var_name],
+                var_attrs[var_name],
             )
-            # Attach frequency dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
-                {
-                    "frequency": [
-                        self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-                    ]
-                }
-            )
-            ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-                units="Hz",
-                long_name="Transducer frequency",
-                valid_min=0.0,
-            )
-            ds_env.append(ds_tmp)
+            for var_name in stacked_vars
+        }
+        coords = {
+            "frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"] for ch in ch_ids],
+            "ping_time": combined_ping_times
+        }
+        ds = xr.Dataset(data_vars=data_vars, coords=coords)
 
-        # Merge data from all channels
-        ds = xr.merge(ds_env)
+        # ds_env = []
+        # Loop over channels
+        # for ch in ch_ids:
+        #     ds_tmp = xr.Dataset(
+        #         {
+        #             "absorption_indicative": (
+        #                 ["ping_time"],
+        #                 self.parser_obj.ping_data_dict["absorption_coefficient"][ch],
+        #                 {
+        #                     "long_name": "Indicative acoustic absorption",
+        #                     "units": "dB/m",
+        #                     "valid_min": 0.0,
+        #                 },
+        #             ),
+        #             "sound_speed_indicative": (
+        #                 ["ping_time"],
+        #                 self.parser_obj.ping_data_dict["sound_velocity"][ch],
+        #                 {
+        #                     "long_name": "Indicative sound speed",
+        #                     "standard_name": "speed_of_sound_in_sea_water",
+        #                     "units": "m/s",
+        #                     "valid_min": 0.0,
+        #                 },
+        #             ),
+        #         },
+        #         coords={
+        #             "ping_time": (
+        #                 ["ping_time"],
+        #                 self.parser_obj.ping_time[ch],
+        #                 {
+        #                     "axis": "T",
+        #                     "long_name": "Timestamps for NMEA position datagrams",
+        #                     "standard_name": "time",
+        #                 },
+        #             )
+        #         },
+        #     )
+        #     # Attach frequency dimension/coordinate
+        #     ds_tmp = ds_tmp.expand_dims(
+        #         {
+        #             "frequency": [
+        #                 self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
+        #             ]
+        #         }
+        #     )
+        #     ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
+        #         units="Hz",
+        #         long_name="Transducer frequency",
+        #         valid_min=0.0,
+        #     )
+        #     ds_env.append(ds_tmp)
+
+        # # Merge data from all channels
+        # ds = xr.merge(ds_env)
 
         return set_encodings(ds)
 
