@@ -1,5 +1,4 @@
 dask[array]
-matplotlib
 netCDF4
 numpy
 pynmea2
