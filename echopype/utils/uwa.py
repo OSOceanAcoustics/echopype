@@ -21,13 +21,13 @@ def calc_sound_speed(
 
     formula_source: str, {"Mackenzie", "AZFP"}
         Source of formula used to calculate sound speed.
-        "Mackenzie" uses the formula from Mackenzie 1981 (see Notes below)
-        as implemented in ``arlpy``.
-        "AZFP" uses the the formula supplied in the AZFP Matlab code.
+        "Mackenzie" (default) uses the formula from Mackenzie 1981
+        (see Notes below) as implemented in ``arlpy`` package.
+        "AZFP" uses the formula supplied in the AZFP Matlab code.
 
     Returns
     -------
-    Sound speed [m/s] for each input temperature values.
+    Sound speed [m/s] for each input temperature value.
 
     Notes
     -----
@@ -35,7 +35,7 @@ def calc_sound_speed(
     The Journal of the Acoustical Society of America, 70(3), 807–812.
     https://doi.org/10.1121/1.386920
     The ranges of validity encompass the following:
-    temperature −2° to 30° C, salinity 30° to 40°/°°, and depth 0 to 8000 m.
+    temperature −2 to 30 °C, salinity 30 to 40 ppt, and depth 0 to 8000 m.
     """
     if formula_source == "Mackenzie":
         ss = (
@@ -87,14 +87,14 @@ def calc_absorption(
         pH of water
     formula_source: str, {"AM", "FG", "AZFP"}
         Source of formula used to calculate sound speed.
-        "AM" uses the formula from Ainslie and McColm (1998).
+        "AM" (default) uses the formula from Ainslie and McColm (1998).
         "FG" uses the formula from Francois and Garrison (1982).
         "AZFP" uses the the formula supplied in the AZFP Matlab code.
         See Notes below for the references.
 
     Returns
     -------
-    Seaw ater absorption [dB/m].
+    Sea water absorption [dB/m].
 
     Notes
     -----
@@ -121,26 +121,24 @@ def calc_absorption(
         P1 = 1.0
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
-        P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure * pressure
-        f2 = (
-            8.17
-            * 10 ** (8 - 1990 / (temperature + 273))
-            / (1 + 0.0018 * (salinity - 35))
-        )
-        P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure * pressure
+        P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure ** 2
+        f2 = 8.17 * 10 ** (
+            8 - 1990 / (temperature + 273)) / (1 + 0.0018 * (salinity - 35)
+            )
+        P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure ** 2
         if temperature < 20:
             A3 = (
                 4.937e-4
                 - 2.59e-5 * temperature
-                + 9.11e-7 * temperature * temperature
-                - 1.5e-8 * temperature * temperature * temperature
+                + 9.11e-7 * temperature ** 2
+                - 1.5e-8 * temperature ** 3
             )
         else:
             A3 = (
                 3.964e-4
                 - 1.146e-5 * temperature
-                + 1.45e-7 * temperature * temperature
-                - 6.5e-10 * temperature * temperature * temperature
+                + 1.45e-7 * temperature ** 2
+                - 6.5e-10 * temperature ** 3
             )
         a = (
             A1 * P1 * f1 * f * f / (f1 * f1 + f * f)
