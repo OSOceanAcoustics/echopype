@@ -12,8 +12,8 @@ from echopype.utils.uwa import calc_absorption, calc_sound_speed
     [
         (18e3, 27, 35, 10, 8, 3e-5),
         (18e3, 27, 35, 100, 8, 3e-5),
-        (38e3, 27, 35, 10, 8, 2.1e-3),
-        (38e3, 10, 35, 10, 8, 2.1e-3),
+        (38e3, 27, 35, 10, 8, 2.1e-4),
+        (38e3, 10, 35, 10, 8, 2.1e-4),
         (120e3, 27, 35, 10, 8, 3e-5),
         (200e3, 27, 35, 10, 8, 3.1e-3),
         (455e3, 20, 35, 10, 8, 7.4e-3),
@@ -55,4 +55,4 @@ def test_sound_speed(temperature, salinity, pressure, tolerance):
             pressure=pressure,
             formula_source=fm
         )
-    assert np.abs(np.diff(list(c.values()))) < tolerance
+    assert np.abs(c["Mackenzie"] - c["AZFP"]) < tolerance
