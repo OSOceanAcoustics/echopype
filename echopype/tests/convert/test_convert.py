@@ -107,7 +107,6 @@ def ek60_input_paths(request, test_path):
         "s3://data/es70/D20151202-T020259.raw",
         [
             "http://localhost:8080/data/es70/D20151202-T020259.raw",
-            "http://localhost:8080/data/es70/D20151202-T020259.raw",
         ],
     ],
     ids=["file_path_string", "s3_file_string", "multiple_http_file_string"],
@@ -124,7 +123,6 @@ def es70_input_paths(request, test_path):
         ("WBT-but-internally-marked-as-EK80-D20210710-T204029.raw",),
         "s3://data/es80/WBT-D20210620-T012250.raw",
         [
-            "http://localhost:8080/data/es80/WBT-D20210620-T012250.raw",
             "http://localhost:8080/data/es80/WBT-D20210620-T012250.raw",
         ],
     ],
