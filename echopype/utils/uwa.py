@@ -114,8 +114,7 @@ def calc_absorption(
     was demostrated between 100 Hz and 1 MHz.
     """
     if formula_source == "FG":
-        f = frequency / 1000.0
-        d = 1 / 1000.0  # ref to 1 m
+        f = frequency / 1000.0  # convert from Hz to kHz due to formula
         c = 1412.0 + 3.21 * temperature + 1.19 * salinity + 0.0167 * pressure
         A1 = 8.86 / c * 10 ** (0.78 * pH - 5)
         P1 = 1.0
@@ -147,7 +146,7 @@ def calc_absorption(
             + A2 * P2 * f2 * f * f / (f2 * f2 + f * f)
             + A3 * P3 * f * f
         )
-        sea_abs = a * d
+        sea_abs = a / 1000  # formula output is in unit [dB/km]
 
     elif formula_source == "AM":
         freq = frequency / 1000
