@@ -35,7 +35,9 @@ def test_absorption(frequency, temperature, salinity, pressure, pH, tolerance, t
 
     # AZFP values are an order of magnitude larger than the other 2
     assert np.all(
-        np.abs([abs_dB_m["AM"] - abs_dB_m["AZFP"], abs_dB_m["FG"] - abs_dB_m["AZFP"]]) < tolerance_AZFP
+        np.abs(
+            [abs_dB_m["AM"] - abs_dB_m["AZFP"], abs_dB_m["FG"] - abs_dB_m["AZFP"]]
+        ) < tolerance_AZFP
     )
 
 
