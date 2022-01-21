@@ -447,7 +447,7 @@ def open_raw(
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
     # Beam_power group only exist if EK80 has both complex and power/angle data
-    if sonar_model == "EK80":
+    if sonar_model in ["EK80", "ES80"]:
         echodata.beam, echodata.beam_power = setgrouper.set_beam()
     else:
         echodata.beam = setgrouper.set_beam()
