@@ -8,19 +8,19 @@ from echopype.utils.uwa import calc_absorption, calc_sound_speed
 # Tolerance used here are set empirically
 # so the test captures a sort of current status
 @pytest.mark.parametrize(
-    "frequency, temperature, salinity, pressure, pH, tolerance",
+    "frequency, temperature, salinity, pressure, pH, tolerance, tolerance_AZFP",
     [
-        (18e3, 27, 35, 10, 8, 3e-5),
-        (18e3, 27, 35, 100, 8, 3e-5),
-        (38e3, 27, 35, 10, 8, 2.1e-4),
-        (38e3, 10, 35, 10, 8, 2.1e-4),
-        (120e3, 27, 35, 10, 8, 3e-5),
-        (200e3, 27, 35, 10, 8, 3.1e-3),
-        (455e3, 20, 35, 10, 8, 7.4e-3),
-        (1e6, 10, 35, 10, 8, 2.49e-2),
+        (18e3, 27, 35, 10, 8, 2.11e-5, 2.3e-4),
+        (18e3, 27, 35, 100, 8, 3e-5, 2.2e-4),
+        (38e3, 27, 35, 10, 8, 1.8e-4, 8.5e-4),
+        (38e3, 10, 35, 10, 8, 2.1e-4, 2.4e-3),
+        (120e3, 27, 35, 10, 8, 3e-5, 7.4e-3),
+        (200e3, 27, 35, 10, 8, 3.1e-3, 0.02),
+        (455e3, 20, 35, 10, 8, 7.4e-3, 2.1e-2),
+        (1e6, 10, 35, 10, 8, 2.49e-2, 1.4e-2),
     ],
 )
-def test_absorption(frequency, temperature, salinity, pressure, pH, tolerance):
+def test_absorption(frequency, temperature, salinity, pressure, pH, tolerance, tolerance_AZFP):
     abs_dB_m = dict()
     for fm in ["AM", "FG", "AZFP"]:
         abs_dB_m[fm] = calc_absorption(
@@ -32,6 +32,11 @@ def test_absorption(frequency, temperature, salinity, pressure, pH, tolerance):
             formula_source=fm,
         )
     assert np.abs(abs_dB_m["AM"] - abs_dB_m["FG"]) < tolerance
+
+    # AZFP values are an order of magnitude larger than the other 2
+    assert np.all(
+        np.abs([abs_dB_m["AM"] - abs_dB_m["AZFP"], abs_dB_m["FG"] - abs_dB_m["AZFP"]]) < tolerance_AZFP
+    )
 
 
 # These tests are just to make sure the code runs
