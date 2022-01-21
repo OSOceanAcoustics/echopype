@@ -21,13 +21,13 @@ def calc_sound_speed(
 
     formula_source: str, {"Mackenzie", "AZFP"}
         Source of formula used to calculate sound speed.
-        "Mackenzie" uses the formula from Mackenzie 1981 (see Notes below)
-        as implemented in ``arlpy``.
-        "AZFP" uses the the formula supplied in the AZFP Matlab code.
+        "Mackenzie" (default) uses the formula from Mackenzie 1981
+        (see Notes below) as implemented in ``arlpy`` package.
+        "AZFP" uses the formula supplied in the AZFP Matlab code.
 
     Returns
     -------
-    Sound speed [m/s] for each input temperature values.
+    Sound speed [m/s] for each input temperature value.
 
     Notes
     -----
@@ -35,7 +35,7 @@ def calc_sound_speed(
     The Journal of the Acoustical Society of America, 70(3), 807–812.
     https://doi.org/10.1121/1.386920
     The ranges of validity encompass the following:
-    temperature −2° to 30° C, salinity 30° to 40°/°°, and depth 0 to 8000 m.
+    temperature −2 to 30 °C, salinity 30 to 40 ppt, and depth 0 to 8000 m.
     """
     if formula_source == "Mackenzie":
         ss = (
@@ -87,14 +87,14 @@ def calc_absorption(
         pH of water
     formula_source: str, {"AM", "FG", "AZFP"}
         Source of formula used to calculate sound speed.
-        "AM" uses the formula from Ainslie and McColm (1998).
+        "AM" (default) uses the formula from Ainslie and McColm (1998).
         "FG" uses the formula from Francois and Garrison (1982).
         "AZFP" uses the the formula supplied in the AZFP Matlab code.
         See Notes below for the references.
 
     Returns
     -------
-    Seaw ater absorption [dB/m].
+    Sea water absorption [dB/m].
 
     Notes
     -----
