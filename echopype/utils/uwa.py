@@ -122,7 +122,8 @@ def calc_absorption(
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
         P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure ** 2
         f2 = (
-            8.17 * 10 ** (8 - 1990 / (temperature + 273))
+            8.17
+            * 10 ** (8 - 1990 / (temperature + 273))
             / (1 + 0.0018 * (salinity - 35))
         )
         P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure ** 2
