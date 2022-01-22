@@ -24,20 +24,14 @@ class SetGroupsEK80(SetGroupsBase):
         ping_time = np.array([ping_time.astype("datetime64[ns]")])
 
         # Collect variables
+        tmp_env = self.parser_obj.environment.copy()
+        tmp_env.pop("timestamp")
+        tmp_env.pop("xml")
+        dict_env = dict()
+        for k, v in tmp_env.items():
+            dict_env[k] = (["ping_time"], [v])
         ds = xr.Dataset(
-            {
-                "temperature": (
-                    ["ping_time"],
-                    [self.parser_obj.environment["temperature"]],
-                ),
-                "depth": (["ping_time"], [self.parser_obj.environment["depth"]]),
-                "acidity": (["ping_time"], [self.parser_obj.environment["acidity"]]),
-                "salinity": (["ping_time"], [self.parser_obj.environment["salinity"]]),
-                "sound_speed_indicative": (
-                    ["ping_time"],
-                    [self.parser_obj.environment["sound_speed"]],
-                ),
-            },
+            dict_env,
             coords={
                 "ping_time": (
                     ["ping_time"],
