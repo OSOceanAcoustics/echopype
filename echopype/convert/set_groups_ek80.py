@@ -25,11 +25,10 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Collect variables
         tmp_env = self.parser_obj.environment.copy()
-        tmp_env.pop("timestamp")
-        tmp_env.pop("xml")
         dict_env = dict()
         for k, v in tmp_env.items():
-            dict_env[k] = (["ping_time"], [v])
+            if k in ["temperature", "depth", "acidity", "salinity", "sound_speed"]:
+                dict_env[k] = (["ping_time"], [v])
         ds = xr.Dataset(
             dict_env,
             coords={
