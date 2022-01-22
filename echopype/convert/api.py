@@ -432,7 +432,7 @@ def open_raw(
     # Set up echodata object
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     # Top-level date_created varies depending on sonar model
-    if sonar_model in ["EK60", "ES70", "EK80", "ES80"]:
+    if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         echodata.top = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.config_datagram["timestamp"]
         )
@@ -442,7 +442,7 @@ def open_raw(
         )
     echodata.environment = setgrouper.set_env()
     echodata.platform = setgrouper.set_platform()
-    if sonar_model in ["EK60", "ES70", "EK80", "ES80"]:
+    if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
