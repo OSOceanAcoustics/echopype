@@ -338,8 +338,8 @@ def open_raw(
 
         - ``EK60``: Kongsberg Simrad EK60 echosounder
         - ``ES70``: Kongsberg Simrad ES70 echosounder
-        - ``EK80``: Kongsberg Simrad EK80 echsoounder
-        - ``EA640``: Kongsberg EA640 echsoounder
+        - ``EK80``: Kongsberg Simrad EK80 echosounder
+        - ``EA640``: Kongsberg EA640 echosounder
         - ``AZFP``: ASL Environmental Sciences AZFP echosounder
         - ``AD2CP``: Nortek Signature series ADCP
           (tested with Signature 500 and Signature 1000)
