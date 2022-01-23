@@ -32,7 +32,10 @@ class SetGroupsEK80(SetGroupsBase):
         # Rename to conform with those defined in convention
         if "sound_speed" in dict_env:
             dict_env["sound_speed_indicative"] = dict_env.pop("sound_speed")
-        for k in ["sound_absorption", "absorption"]:  # add possible variation until having example
+        for k in [
+            "sound_absorption",
+            "absorption",
+        ]:  # add possible variation until having example
             if k in dict_env:
                 dict_env["absorption_indicative"] = dict_env.pop(k)
 
