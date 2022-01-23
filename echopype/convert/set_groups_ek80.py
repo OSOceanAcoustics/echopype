@@ -24,11 +24,18 @@ class SetGroupsEK80(SetGroupsBase):
         ping_time = np.array([ping_time.astype("datetime64[ns]")])
 
         # Collect variables
-        tmp_env = self.parser_obj.environment.copy()
         dict_env = dict()
-        for k, v in tmp_env.items():
+        for k, v in self.parser_obj.environment.items():
             if k in ["temperature", "depth", "acidity", "salinity", "sound_speed"]:
                 dict_env[k] = (["ping_time"], [v])
+
+        # Rename to conform with those defined in convention
+        if "sound_speed" in dict_env:
+            dict_env["sound_speed_indicative"] = dict_env.pop("sound_speed")
+        for k in ["sound_absorption", "absorption"]:  # add possible variation until having example
+            if k in dict_env:
+                dict_env["absorption_indicative"] = dict_env.pop(k)
+
         ds = xr.Dataset(
             dict_env,
             coords={
