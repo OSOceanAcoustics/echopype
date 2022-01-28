@@ -13,7 +13,7 @@ with open("requirements.txt") as f:
 with open("requirements-dev.txt") as f:
     dev_reqs = f.readlines()
 
-EXTRA_REQUIRES = {"dev": dev_reqs, "plot": ["cmocean"]}
+EXTRA_REQUIRES = {"dev": dev_reqs, "plot": ["cmocean", "matplotlib"]}
 
 INSTALL_REQUIRES = [t.strip() for t in requirements]
 
