@@ -5,8 +5,8 @@ API components that most users will interact with.
 
 .. attention::
 
-   In echopype versions prior to 0.5.0, the API in this page focused 
-   on the ``convert`` and ``process`` subpackages. See the 
+   In echopype versions prior to 0.5.0, the API in this page focused
+   on the ``convert`` and ``process`` subpackages. See the
    `0.4.1 API page <https://echopype.readthedocs.io/en/v0.4.1/api.html>`_
    if you're using a previous release. That workflow is being deprecated.
 
