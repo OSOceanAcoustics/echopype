@@ -141,6 +141,26 @@ def es80_input_paths(request, test_path):
 
 @pytest.fixture(
     params=[
+        ("ea640_test.raw",),
+        "s3://data/ea640/ea640_test.raw",
+        [
+            "http://localhost:8080/data/ea640/ea640_test.raw",
+        ],
+    ],
+    ids=[
+        "file_path_string",
+        "s3_file_string",
+        "multiple_http_file_string",
+    ],
+)
+def ea640_input_paths(request, test_path):
+    if isinstance(request.param, tuple):
+        return _create_path_str(test_path["EA640"], request.param)
+    return request.param
+
+
+@pytest.fixture(
+    params=[
         ("ooi", "17032923.01A"),
         "http://localhost:8080/data/azfp/ooi/17032923.01A",
     ],
@@ -199,6 +219,11 @@ def ek80_input_paths(request, test_path):
             None,
         ),
         (
+            "ea640",
+            ("ea640_test.raw",),
+            None,
+        ),
+        (
             "ek80",
             ("echopype-test-D20211004-T235757.raw",),
             None,
@@ -209,7 +234,7 @@ def ek80_input_paths(request, test_path):
             None,
         ),
     ],
-    ids=["azfp", "ek60", "es70", "es80", "ek80", "ad2cp"],
+    ids=["azfp", "ek60", "es70", "es80", "ea640", "ek80", "ad2cp"],
 )
 def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
     path_model = sonar_model.upper()
@@ -487,6 +512,61 @@ def test_convert_es80(
     ipath = es80_input_paths
     if isinstance(es80_input_paths, list):
         ipath = es80_input_paths[0]
+
+    input_storage_options = (
+        common_storage_options if ipath.startswith("s3://") else {}
+    )
+    if output_save_path and output_save_path.startswith("s3://"):
+        output_storage_options = common_storage_options
+
+    # Only using one file
+    ec = open_raw(
+        raw_file=ipath,
+        sonar_model=model,
+        storage_options=input_storage_options,
+    )
+
+    if (
+        export_engine == "netcdf4"
+        and output_save_path is not None
+        and output_save_path.startswith("s3://")
+    ):
+        return
+
+    if export_engine == "netcdf4":
+        to_file = getattr(ec, "to_netcdf")
+    elif export_engine == "zarr":
+        to_file = getattr(ec, "to_zarr")
+    else:
+        return
+    try:
+        to_file(
+            save_path=output_save_path,
+            overwrite=True,
+            output_storage_options=output_storage_options,
+        )
+
+        _check_output_files(
+            export_engine, ec.converted_raw_path, output_storage_options
+        )
+    except Exception as e:
+        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+            assert isinstance(e, ValueError) is True
+            assert str(e) == 'Only local netcdf4 is supported.'
+
+
+def test_convert_ea640(
+    ea640_input_paths,
+    export_engine,
+    output_save_path,
+    minio_bucket,
+    model="EA640",
+):
+    common_storage_options = minio_bucket
+    output_storage_options = {}
+    ipath = ea640_input_paths
+    if isinstance(ea640_input_paths, list):
+        ipath = ea640_input_paths[0]
 
     input_storage_options = (
         common_storage_options if ipath.startswith("s3://") else {}
