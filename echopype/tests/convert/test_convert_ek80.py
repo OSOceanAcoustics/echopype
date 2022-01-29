@@ -119,7 +119,7 @@ def test_convert_ek80_cw_bb_in_single_file():
     ek80_raw_path_bb_cw = str(ek80_path.joinpath('Summer2018--D20180905-T033113.raw'))
     echodata = open_raw(raw_file=ek80_raw_path_bb_cw, sonar_model='EK80')
 
-    # Check there are both Beam and Beam_power groups in the converted file
+    # Check there are both Sonar/Beam and Beam_power groups in the converted file
     assert echodata.beam_power is not None
     assert echodata.beam is not None
 

@@ -206,7 +206,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
-        """Assemble dataset for ping-invariant params in the Beam group.
+        """Assemble dataset for ping-invariant params in the Sonar/Beam group.
 
         Parameters
         ----------
@@ -561,7 +561,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds_common)
 
     def set_beam(self) -> List[xr.Dataset]:
-        """Set the Beam group."""
+        """Set the Sonar/Beam group."""
 
         def merge_save(ds_combine, ds_type, group_name):
             """Merge data from all complex or all power/angle channels"""
@@ -639,16 +639,16 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_power.append(ds_data)
 
         # Merge and save group:
-        #  if both complex and power data exist: complex data in Beam group
+        #  if both complex and power data exist: complex data in Sonar/Beam group
         #   and power data in Beam_power
-        #  if only one type of data exist: data in Beam group
+        #  if only one type of data exist: data in Sonar/Beam group
         ds_beam_power = None
         if len(ds_complex) > 0:
-            ds_beam = merge_save(ds_complex, "complex", group_name="Beam")
+            ds_beam = merge_save(ds_complex, "complex", group_name="Sonar/Beam")
             if len(ds_power) > 0:
                 ds_beam_power = merge_save(ds_power, "power", group_name="Beam_power")
         else:
-            ds_beam = merge_save(ds_power, "power", group_name="Beam")
+            ds_beam = merge_save(ds_power, "power", group_name="Sonar/Beam")
 
         return [ds_beam, ds_beam_power]
 

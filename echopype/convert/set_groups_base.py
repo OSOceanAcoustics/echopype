@@ -91,7 +91,7 @@ class SetGroupsBase(abc.ABC):
 
     @abc.abstractmethod
     def set_beam(self) -> xr.Dataset:
-        """Set the Beam group."""
+        """Set the Sonar/Beam group."""
         raise NotImplementedError
 
     @abc.abstractmethod

@@ -108,7 +108,7 @@ def test_convert_azfp_01a_different_ranges():
 #     tmp = Convert(file=raw_paths[1:5], model='AZFP', xml_path=raw_paths[0])
 #     tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
 #
-#     with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
+#     with xr.open_dataset(tmp.output_file, group='https://washington.zoom.us/j/5615195405?pwd=WG80Y1BGMzVpSWJ4SXplbnFsYXVOZz09Beam') as ds_beam:
 #         # Test if the concatenation along ping time worked
 #         assert len(ds_beam.ping_time) == 960
 #     shutil.rmtree(export_folder)

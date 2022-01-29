@@ -28,7 +28,7 @@ def _check_output_files(engine, output_files, storage_options):
     groups = [
         "Provenance",
         "Environment",
-        "Beam",
+        "Sonar/Beam",
         "Sonar",
         "Vendor",
         "Platform",

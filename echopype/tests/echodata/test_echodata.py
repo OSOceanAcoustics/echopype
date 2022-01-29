@@ -51,7 +51,7 @@ class TestEchoData:
               > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
               > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
               > sonar: (Sonar) contains specific metadata for the sonar system.
-              > beam: (Beam) contains backscatter data and other beam or channel-specific data.
+              > beam: (Sonar/Beam) contains backscatter data and other beam or channel-specific data.
               > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData(converted_raw_path=self.converted_zarr)
