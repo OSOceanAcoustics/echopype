@@ -582,7 +582,7 @@ class EchoData:
         return new_cls
 
     def _load_file(self, raw_path: "PathHint"):
-        """Lazy load Top-level, Sonar/Beam, Environment, and Vendor groups from raw file."""
+        """Lazy load Top-level, /Sonar/Beam, Environment, and Vendor groups from raw file."""
         for group, value in self.group_map.items():
             # EK80 data may have a Beam_power group if both complex and power data exist.
             ds = None

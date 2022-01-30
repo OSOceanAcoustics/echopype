@@ -132,7 +132,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
     )
 
-    # Sonar/Beam group
+    # /Sonar/Beam group
     if echodata.sonar_model == "AD2CP":
         io.save_file(
             echodata.beam.chunk(
@@ -143,7 +143,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Sonar/Beam",
+            group="/Sonar/Beam",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
@@ -157,7 +157,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Sonar/Beam",
+            group="/Sonar/Beam",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     if echodata.beam_power is not None:

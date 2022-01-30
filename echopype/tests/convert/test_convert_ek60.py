@@ -17,7 +17,7 @@ ek60_path = Path('./echopype/test_data/ek60/')
 
 
 def test_convert_ek60_matlab_raw():
-    """Compare parsed Sonar/Beam group data with Matlab outputs.
+    """Compare parsed /Sonar/Beam group data with Matlab outputs.
     """
     ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))
     ek60_matlab_path = str(ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025_rawData.mat'))
