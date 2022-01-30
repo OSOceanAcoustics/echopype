@@ -19,7 +19,8 @@ ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
 
 class TestEchoData:
     converted_zarr = (
-        ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"
+        # ek60_path / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"
+        TEST_DATA_FOLDER / "Summer2017-D20170615-T190214-beamassubgroup.nc"
     )
 
     def test_constructor(self):
