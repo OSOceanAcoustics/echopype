@@ -9,7 +9,7 @@ from .noise_est import NoiseEst
 
 def _check_range_uniqueness(ds):
     """Check if range changes across ping in a given frequency channel."""
-    return (ds["range"].isel(ping_time=0) == ds["range"]).all()
+    return (ds["range"].isel(ping_time=0).dropna(dim="range_bin") == ds["range"].dropna(dim="range_bin")).all()
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
