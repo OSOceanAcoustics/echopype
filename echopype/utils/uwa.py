@@ -34,8 +34,8 @@ def calc_sound_speed(
         ss = (
             1448.96
             + 4.591 * temperature
-            - 5.304e-2 * temperature ** 2
-            + 2.374e-4 * temperature ** 3
+            - 5.304e-2 * temperature**2
+            + 2.374e-4 * temperature**3
         )
         # fmt: off
         ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure ** 2
