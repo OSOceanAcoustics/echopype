@@ -2,7 +2,7 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml", "docs"]
 
 env:
   CONDA_ENV: echopype
