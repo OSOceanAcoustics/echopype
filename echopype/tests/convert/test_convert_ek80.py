@@ -4,10 +4,26 @@ import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 
+from echopype.testing import TEST_DATA_FOLDER
+
 
 @pytest.fixture
 def ek80_path(test_path):
     return test_path["EK80"]
+
+
+def pytest_generate_tests(metafunc):
+    ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
+    ek80_new_files = ek80_new_path.glob("**/*.raw")
+    if "ek80_new_file" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "ek80_new_file", ek80_new_files, ids=lambda f: str(f.name)
+        )
+
+
+@pytest.fixture
+def ek80_new_file(request):
+    return request.param
 
 
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
@@ -17,12 +33,12 @@ def ek80_path(test_path):
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
-def test_convert(ek80_file, dump_output_dir):
-    print("converting", ek80_file)
-    echodata = open_raw(raw_file=str(ek80_file), sonar_model="EK80")
+def test_convert(ek80_new_file, dump_output_dir):
+    print("converting", ek80_new_file)
+    echodata = open_raw(raw_file=str(ek80_new_file), sonar_model="EK80")
     echodata.to_netcdf(save_path=dump_output_dir, overwrite=True)
 
-    nc_file = (dump_output_dir / ek80_file.name).with_suffix('.nc')
+    nc_file = (dump_output_dir / ek80_new_file.name).with_suffix('.nc')
     assert nc_file.is_file() is True
 
     nc_file.unlink()
