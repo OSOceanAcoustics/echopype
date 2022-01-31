@@ -347,9 +347,7 @@ class EchoData:
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (beam.range_bin * beam["sample_interval"] - shift)
-                    * sound_speed
-                    / 2
+                    (beam.range_bin * beam["sample_interval"] - shift) * sound_speed / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -364,7 +362,9 @@ class EchoData:
 
             # set entries with NaN backscatter data to NaN
             if "quadrant" in beam["backscatter_r"].dims:
-                valid_idx = ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+                valid_idx = (
+                    ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+                )
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)
