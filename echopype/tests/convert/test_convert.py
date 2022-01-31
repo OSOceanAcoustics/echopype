@@ -301,7 +301,7 @@ def test_convert_ek60(
         output_storage_options = common_storage_options
 
     # Only using one file
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=ipath,
         sonar_model=model,
         storage_options=input_storage_options,
@@ -315,9 +315,9 @@ def test_convert_ek60(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
     try:
@@ -328,7 +328,7 @@ def test_convert_ek60(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
@@ -353,14 +353,14 @@ def test_convert_azfp(
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=azfp_input_paths,
         xml_path=azfp_xml_paths,
         sonar_model=model,
         storage_options=input_storage_options,
     )
 
-    assert ec.xml_path == azfp_xml_paths
+    assert echodata.xml_path == azfp_xml_paths
 
     if (
         export_engine == "netcdf4"
@@ -370,9 +370,9 @@ def test_convert_azfp(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
     try:
@@ -383,7 +383,7 @@ def test_convert_azfp(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
@@ -408,7 +408,7 @@ def test_convert_ek80(
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=ek80_input_paths,
         sonar_model=model,
         storage_options=input_storage_options,
@@ -422,9 +422,9 @@ def test_convert_ek80(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
 
@@ -437,7 +437,7 @@ def test_convert_ek80(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
@@ -465,7 +465,7 @@ def test_convert_es70(
         output_storage_options = common_storage_options
 
     # Only using one file
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=ipath,
         sonar_model=model,
         storage_options=input_storage_options,
@@ -479,9 +479,9 @@ def test_convert_es70(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
     try:
@@ -492,7 +492,7 @@ def test_convert_es70(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
@@ -520,7 +520,7 @@ def test_convert_es80(
         output_storage_options = common_storage_options
 
     # Only using one file
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=ipath,
         sonar_model=model,
         storage_options=input_storage_options,
@@ -534,9 +534,9 @@ def test_convert_es80(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
     try:
@@ -547,7 +547,7 @@ def test_convert_es80(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
@@ -575,7 +575,7 @@ def test_convert_ea640(
         output_storage_options = common_storage_options
 
     # Only using one file
-    ec = open_raw(
+    echodata = open_raw(
         raw_file=ipath,
         sonar_model=model,
         storage_options=input_storage_options,
@@ -589,9 +589,9 @@ def test_convert_ea640(
         return
 
     if export_engine == "netcdf4":
-        to_file = getattr(ec, "to_netcdf")
+        to_file = getattr(echodata, "to_netcdf")
     elif export_engine == "zarr":
-        to_file = getattr(ec, "to_zarr")
+        to_file = getattr(echodata, "to_zarr")
     else:
         return
     try:
@@ -602,7 +602,7 @@ def test_convert_ea640(
         )
 
         _check_output_files(
-            export_engine, ec.converted_raw_path, output_storage_options
+            export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
         if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
