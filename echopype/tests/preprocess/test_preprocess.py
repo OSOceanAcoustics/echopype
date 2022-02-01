@@ -4,55 +4,75 @@ import xarray as xr
 import echopype as ep
 import pytest
 
-from echopype.testing import TEST_DATA_FOLDER
 
-ek60_path = TEST_DATA_FOLDER / "ek60"
-ek80_path = TEST_DATA_FOLDER / "ek80_new"
-azfp_path = TEST_DATA_FOLDER / "azfp"
-ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
-
-param_args = ("filepath", "sonar_model", "azfp_xml_path", "range_kwargs")
-param_testdata = [
-    (
-        ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw",
-        "EK60",
-        None,
-        {},
-    ),
-    (
-        ek80_path / "echopype-test-D20211004-T235930.raw",
-        "EK80",
-        None,
-        {'waveform_mode': 'BB', 'encode_mode': 'complex'},
-    ),
-    (
-        ek80_path / "D20211004-T233354.raw",
-        "EK80",
-        None,
-        {'waveform_mode': 'CW', 'encode_mode': 'power'},
-    ),
-    (
-        ek80_path / "D20211004-T233115.raw",
-        "EK80",
-        None,
-        {'waveform_mode': 'CW', 'encode_mode': 'complex'},
-    ),
-    (
-        azfp_path / "17082117.01A",
-        "AZFP",
-        azfp_path / "17041823.XML",
-        {},
-    ),  # Will always need env variables
-    pytest.param(
-        ad2cp_path / "raw" / "090" / "rawtest.090.00001.ad2cp",
-        "AD2CP",
-        None,
-        {},
-        marks=pytest.mark.skip(
-            reason="Not supported at this time.",
+@pytest.fixture(
+    params=[
+        (
+            ("EK60", "ncei-wcsd", "Summer2017-D20170719-T211347.raw"),
+            "EK60",
+            None,
+            {},
         ),
-    ),
-]
+        (
+            ("EK80_NEW", "echopype-test-D20211004-T235930.raw"),
+            "EK80",
+            None,
+            {'waveform_mode': 'BB', 'encode_mode': 'complex'},
+        ),
+        (
+            ("EK80_NEW", "D20211004-T233354.raw"),
+            "EK80",
+            None,
+            {'waveform_mode': 'CW', 'encode_mode': 'power'},
+        ),
+        (
+            ("EK80_NEW", "D20211004-T233115.raw"),
+            "EK80",
+            None,
+            {'waveform_mode': 'CW', 'encode_mode': 'complex'},
+        ),
+        (("ES70", "D20151202-T020259.raw"), "ES70", None, {}),
+        (("AZFP", "17082117.01A"), "AZFP", ("AZFP", "17041823.XML"), {}),
+        (
+            ("AD2CP", "raw", "090", "rawtest.090.00001.ad2cp"),
+            "AD2CP",
+            None,
+            {},
+        ),
+    ],
+    ids=[
+        "ek60_cw_complex",
+        "ek80_bb_complex",
+        "ek80_cw_power",
+        "ek80_cw_complex",
+        "es70",
+        "azfp",
+        "ad2cp",
+    ],
+)
+def test_data_samples(request, test_path):
+    (
+        filepath,
+        sonar_model,
+        azfp_xml_path,
+        range_kwargs,
+    ) = request.param
+    if sonar_model.lower() in ['es70', 'ad2cp']:
+        pytest.xfail(
+            reason="Not supported at the moment",
+        )
+    path_model, *paths = filepath
+    filepath = test_path[path_model].joinpath(*paths)
+
+    if azfp_xml_path is not None:
+        path_model, *paths = azfp_xml_path
+        azfp_xml_path = test_path[path_model].joinpath(*paths)
+    return (
+        filepath,
+        sonar_model,
+        azfp_xml_path,
+        range_kwargs,
+    )
 
 
 def test_remove_noise():
@@ -71,41 +91,76 @@ def test_remove_noise():
     # Add more pings
     data = np.array([data] * npings)
     # Make DataArray
-    Sv = xr.DataArray([data], coords=[('frequency', freq),
-                                      ('ping_time', ping_index),
-                                      ('range_bin', range_bin)])
+    Sv = xr.DataArray(
+        [data],
+        coords=[
+            ('frequency', freq),
+            ('ping_time', ping_index),
+            ('range_bin', range_bin),
+        ],
+    )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
 
-    ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, 10, nrange_bins)] * npings]), coords=Sv.coords))
+    ds_Sv = ds_Sv.assign(
+        range=xr.DataArray(
+            np.array([[np.linspace(0, 10, nrange_bins)] * npings]),
+            coords=Sv.coords,
+        )
+    )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.preprocess.remove_noise(ds_Sv, ping_num=2, range_bin_num=5, SNR_threshold=0)
+    ds_Sv = ep.preprocess.remove_noise(
+        ds_Sv, ping_num=2, range_bin_num=5, SNR_threshold=0
+    )
 
     # Test if noise points are are nan
-    assert np.isnan(ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_bin=30))
-    assert np.isnan(ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_bin=60))
+    assert np.isnan(
+        ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_bin=30)
+    )
+    assert np.isnan(
+        ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_bin=60)
+    )
 
     # Test remove noise on a normal distribution
     np.random.seed(1)
-    data = np.random.normal(loc=-100, scale=2, size=(nfreq, npings, nrange_bins))
+    data = np.random.normal(
+        loc=-100, scale=2, size=(nfreq, npings, nrange_bins)
+    )
     # Make Dataset to pass into remove_noise
-    Sv = xr.DataArray(data, coords=[('frequency', freq),
-                                    ('ping_time', ping_index),
-                                    ('range_bin', range_bin)])
+    Sv = xr.DataArray(
+        data,
+        coords=[
+            ('frequency', freq),
+            ('ping_time', ping_index),
+            ('range_bin', range_bin),
+        ],
+    )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     # Attach required range and sound_absorption values
-    ds_Sv = ds_Sv.assign(range=xr.DataArray(np.array([[np.linspace(0, 3, nrange_bins)] * npings]), coords=Sv.coords))
+    ds_Sv = ds_Sv.assign(
+        range=xr.DataArray(
+            np.array([[np.linspace(0, 3, nrange_bins)] * npings]),
+            coords=Sv.coords,
+        )
+    )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.preprocess.remove_noise(ds_Sv, ping_num=2, range_bin_num=5, SNR_threshold=0)
+    ds_Sv = ep.preprocess.remove_noise(
+        ds_Sv, ping_num=2, range_bin_num=5, SNR_threshold=0
+    )
     null = ds_Sv.Sv_corrected.isnull()
     # Test to see if the right number of points are removed before the range gets too large
-    assert np.count_nonzero(null.isel(frequency=0, range_bin=slice(None, 50))) == 6
+    assert (
+        np.count_nonzero(null.isel(frequency=0, range_bin=slice(None, 50)))
+        == 6
+    )
 
 
-def _construct_MVBS_toy_data(nfreq, npings, nrange_bins, ping_size, range_bin_size):
+def _construct_MVBS_toy_data(
+    nfreq, npings, nrange_bins, ping_size, range_bin_size
+):
     """Construct data with values that increase every ping_num and range_bin_num
     so that the result of computing MVBS is a smaller array
     that increases regularly for each resampled ping_time and range_bin
@@ -133,7 +188,9 @@ def _construct_MVBS_toy_data(nfreq, npings, nrange_bins, ping_size, range_bin_si
     data = np.ones((nfreq, npings, nrange_bins))
     for p_i, ping in enumerate(range(0, npings, ping_size)):
         for r_i, rb in enumerate(range(0, nrange_bins, range_bin_size)):
-            data[0, ping:ping + ping_size, rb:rb + range_bin_size] += r_i + p_i
+            data[0, ping : ping + ping_size, rb : rb + range_bin_size] += (
+                r_i + p_i
+            )
     # First frequency increases by 1 each row and column, second increases by 2, third by 3, etc.
     for f in range(nfreq):
         data[f] = data[0] * (f + 1)
@@ -172,8 +229,8 @@ def test_compute_MVBS_index_binning():
 
     # Parameters for toy data
     nfreq, npings, nrange_bins = 4, 40, 400
-    ping_num = 3             # number of pings to average over
-    range_bin_num = 7        # number of range_bins to average over
+    ping_num = 3  # number of pings to average over
+    range_bin_num = 7  # number of range_bins to average over
 
     # Construct toy data that increases regularly every ping_num and range_bin_num
     data = _construct_MVBS_toy_data(
@@ -181,37 +238,46 @@ def test_compute_MVBS_index_binning():
         npings=npings,
         nrange_bins=nrange_bins,
         ping_size=ping_num,
-        range_bin_size=range_bin_num
+        range_bin_size=range_bin_num,
     )
 
-    data_log = 10 * np.log10(data)      # Convert to log domain
+    data_log = 10 * np.log10(data)  # Convert to log domain
     freq_index = np.arange(nfreq)
     ping_index = np.arange(npings)
     range_bin = np.arange(nrange_bins)
-    Sv = xr.DataArray(data_log, coords=[('frequency', freq_index),
-                                        ('ping_time', ping_index),
-                                        ('range_bin', range_bin)])
+    Sv = xr.DataArray(
+        data_log,
+        coords=[
+            ('frequency', freq_index),
+            ('ping_time', ping_index),
+            ('range_bin', range_bin),
+        ],
+    )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(np.array([[np.linspace(0, 10, nrange_bins)] * npings] * nfreq),
-                           coords=Sv.coords)
+        range=xr.DataArray(
+            np.array([[np.linspace(0, 10, nrange_bins)] * npings] * nfreq),
+            coords=Sv.coords,
+        )
     )
 
     # Binned MVBS test
     ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
-        ds_Sv,
-        range_bin_num=range_bin_num,
-        ping_num=ping_num
+        ds_Sv, range_bin_num=range_bin_num, ping_num=ping_num
     )
-    data_test = (10 ** (ds_MVBS.Sv / 10))    # Convert to linear domain
+    data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
 
     # Shape test
-    data_binned_shape = np.ceil((nfreq, npings / ping_num, nrange_bins / range_bin_num)).astype(int)
+    data_binned_shape = np.ceil(
+        (nfreq, npings / ping_num, nrange_bins / range_bin_num)
+    ).astype(int)
     assert np.all(data_test.shape == data_binned_shape)
 
     # Construct test array that increases by 1 for each range_bin and ping_time
-    test_array = _construct_MVBS_test_data(nfreq, data_binned_shape[1], data_binned_shape[2])
+    test_array = _construct_MVBS_test_data(
+        nfreq, data_binned_shape[1], data_binned_shape[2]
+    )
 
     # Test all values in MVBS
     assert np.allclose(data_test, test_array, rtol=0, atol=1e-12)
@@ -222,15 +288,19 @@ def test_compute_MVBS():
 
     # Parameters for fake data
     nfreq, npings, nrange_bins = 4, 100, 4000
-    range_meter_bin = 7          # range in meters to average over
-    ping_time_bin = 3            # number of seconds to average over
-    ping_rate = 2                # Number of pings per second
-    range_bin_per_meter = 30     # Number of range_bins per meter
+    range_meter_bin = 7  # range in meters to average over
+    ping_time_bin = 3  # number of seconds to average over
+    ping_rate = 2  # Number of pings per second
+    range_bin_per_meter = 30  # Number of range_bins per meter
 
     # Useful conversions
-    ping_num = npings / ping_rate / ping_time_bin                           # number of pings to average over
-    range_bin_num = nrange_bins / range_bin_per_meter / range_meter_bin     # number of range_bins to average over
-    total_range = nrange_bins / range_bin_per_meter                         # total range in meters
+    ping_num = (
+        npings / ping_rate / ping_time_bin
+    )  # number of pings to average over
+    range_bin_num = (
+        nrange_bins / range_bin_per_meter / range_meter_bin
+    )  # number of range_bins to average over
+    total_range = nrange_bins / range_bin_per_meter  # total range in meters
 
     # Construct data with values that increase with range and time
     # so that when compute_MVBS is performed, the result is a smaller array
@@ -240,42 +310,57 @@ def test_compute_MVBS():
         npings=npings,
         nrange_bins=nrange_bins,
         ping_size=ping_rate * ping_time_bin,
-        range_bin_size=range_bin_per_meter * range_meter_bin
+        range_bin_size=range_bin_per_meter * range_meter_bin,
     )
 
-    data_log = 10 * np.log10(data)      # Convert to log domain
+    data_log = 10 * np.log10(data)  # Convert to log domain
     freq_index = np.arange(nfreq)
     # Generate a date range with `npings` number of pings with the frequency of the ping_rate
-    ping_time = pd.date_range('1/1/2020', periods=npings, freq=f'{1/ping_rate}S')
+    ping_time = pd.date_range(
+        '1/1/2020', periods=npings, freq=f'{1/ping_rate}S'
+    )
     range_bin = np.arange(nrange_bins)
-    Sv = xr.DataArray(data_log, coords=[('frequency', freq_index),
-                                        ('ping_time', ping_time),
-                                        ('range_bin', range_bin)])
+    Sv = xr.DataArray(
+        data_log,
+        coords=[
+            ('frequency', freq_index),
+            ('ping_time', ping_time),
+            ('range_bin', range_bin),
+        ],
+    )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(np.array([[np.linspace(0, total_range, nrange_bins)] * npings] * nfreq),
-                           coords=Sv.coords)
+        range=xr.DataArray(
+            np.array(
+                [[np.linspace(0, total_range, nrange_bins)] * npings] * nfreq
+            ),
+            coords=Sv.coords,
+        )
     )
     ds_MVBS = ep.preprocess.compute_MVBS(
         ds_Sv,
         range_meter_bin=range_meter_bin,
-        ping_time_bin=f'{ping_time_bin}S'
+        ping_time_bin=f'{ping_time_bin}S',
     )
-    data_test = (10 ** (ds_MVBS.Sv / 10))    # Convert to linear domain
+    data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
 
     # Shape test
     data_binned_shape = np.ceil((nfreq, ping_num, range_bin_num)).astype(int)
     assert np.all(data_test.shape == data_binned_shape)
 
     # Construct test array that increases by 1 for each range_bin and ping_time
-    test_array = _construct_MVBS_test_data(nfreq, data_binned_shape[1], data_binned_shape[2])
+    test_array = _construct_MVBS_test_data(
+        nfreq, data_binned_shape[1], data_binned_shape[2]
+    )
 
     # Test all values in MVBS
     assert np.allclose(data_test, test_array, rtol=0, atol=1e-12)
 
     # Test to see if ping_time was resampled correctly
-    test_ping_time = pd.date_range('1/1/2020', periods=np.ceil(ping_num), freq=f'{ping_time_bin}S')
+    test_ping_time = pd.date_range(
+        '1/1/2020', periods=np.ceil(ping_num), freq=f'{ping_time_bin}S'
+    )
     assert np.array_equal(data_test.ping_time, test_ping_time)
 
     # Test to see if range was resampled correctly
@@ -283,16 +368,16 @@ def test_compute_MVBS():
     assert np.array_equal(data_test.range, test_range)
 
 
-@pytest.mark.parametrize(param_args, param_testdata)
-def test_preprocess_mvbs(
-    filepath,
-    sonar_model,
-    azfp_xml_path,
-    range_kwargs,
-):
+def test_preprocess_mvbs(test_data_samples):
     """
     Test running through from open_raw to compute_MVBS.
     """
+    (
+        filepath,
+        sonar_model,
+        azfp_xml_path,
+        range_kwargs,
+    ) = test_data_samples
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
