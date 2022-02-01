@@ -1,4 +1,4 @@
-.. echopype documentation master file, created by
+OA.. echopype documentation master file, created by
    sphinx-quickstart on Wed Feb 13 15:33:27 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -17,7 +17,7 @@ However, most of the new data remain under-utilized.
 echopype aims to address the root cause of this problem - the lack of
 interoperable data format and scalable analysis workflows that adapt well
 with increasing data volume - by providing open-source tools as entry points for
-scientists to make discovery using these new data.
+scientists to make discovery using these new data. .
 
 
 Documentation
