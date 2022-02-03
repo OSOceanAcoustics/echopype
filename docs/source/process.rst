@@ -125,9 +125,9 @@ critical in biological interpretation of ocean sonar data. They influence:
 
 By default, echopype uses the following for calibration:
 
-- EK60 and EK80: Environmental parameters saved with the raw data files. 
-  For EK60, instrument operators may enter temperature and salinity values into the 
-  `Simrad EK60 software's Environment dialog 
+- EK60 and EK80: Environmental parameters saved with the raw data files.
+  For EK60, instrument operators may enter temperature and salinity values into the
+  `Simrad EK60 software's Environment dialog
   <https://www.simrad.online/ek60/ref_english/default.htm?startat=/ek60/ref_english/xxx_para_environment.html>`_
   and the Simrad software will calculate sound speed and sound absorption;
   alternatively, sound speed may be entered directly.
@@ -136,8 +136,8 @@ By default, echopype uses the following for calibration:
 - AZFP: Salinity and pressure provided by the user,
   and temperature recorded at the instrument.
 
-Seawater sound absorption and sound speed may be recalculated with echopype if 
-more accurate in-situ environmental parameters are available. 
+Seawater sound absorption and sound speed may be recalculated with echopype if
+more accurate in-situ environmental parameters are available.
 To update these values, pass the environmental parameters
 as a dictionary while calling ``ep.calibrate.compute_Sv()``:
 
@@ -162,8 +162,8 @@ The updated values can be retrieved with:
    ds_Sv['range']              # range for each sonar sample in [m]
 
 
-For EK60 and EK80 data, echopype updates 
-the sound speed using the formula from Mackenzie (1981) [2]_  and 
+For EK60 and EK80 data, echopype updates
+the sound speed using the formula from Mackenzie (1981) [2]_  and
 seawater absorption using the formula from Ainslie and McColm (1981) [3]_.
 
 For AZFP data, echopype updates the sound speed and seawater absorption

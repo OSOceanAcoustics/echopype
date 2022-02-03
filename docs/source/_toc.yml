@@ -1,0 +1,22 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: index.rst
+parts:
+- caption: Getting Started
+  chapters:
+  - file: why
+  - file: installation
+- caption: User guide
+  chapters:
+  - file: convert
+  - file: open-converted
+  - file: process
+  - file: data-format
+- caption: Help & reference
+  chapters:
+  - file: api
+  - file: whats-new
+  - file: contributing
+  - file: resources
