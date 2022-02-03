@@ -166,6 +166,29 @@ def compute_range_samples(request, test_path):
 @pytest.fixture(
     params=[
         {
+            "path_model": "EK60",
+            "raw_path": "Winter2017-D20170115-T150122.raw",
+        },
+        {
+            "path_model": "EK80",
+            "raw_path": "D20170912-T234910.raw",
+        },
+    ],
+    ids=[
+        "ek60_winter2017",
+        "ek80_summer2017",
+    ],
+)
+def range_check_files(request, test_path):
+    return (
+        request.param["path_model"],
+        test_path[request.param["path_model"]].joinpath(request.param['raw_path'])
+    )
+
+
+@pytest.fixture(
+    params=[
+        {
             "path_model": "EK80",
             "raw_path": (
                 "saildrone",
@@ -306,6 +329,24 @@ def test_compute_range(compute_range_samples):
             ek_waveform_mode,
         )
         assert isinstance(range, xr.DataArray)
+
+
+def test_nan_range_entries(range_check_files):
+    sonar_model, ek_file = range_check_files
+    echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
+    if sonar_model == "EK80":
+        ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+        range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
+        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(quadrant=0).drop("quadrant").isnull()
+    else:
+        ds_Sv = echopype.calibrate.compute_Sv(echodata)
+        range_output = echodata.compute_range(env_params=[])
+        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isnull()
+
+    nan_locs_Sv_range = ~ds_Sv.range.isnull()
+    nan_locs_range = ~range_output.isnull()
+    assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_range)
+    assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_Sv_range)
 
 
 def test_update_platform(update_platform_samples):
