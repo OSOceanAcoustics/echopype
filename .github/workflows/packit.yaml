@@ -83,7 +83,6 @@ jobs:
         echo "=== Testing source tar file ==="
         # Install tar gz and check import
         source_file=$(ls ./dist | grep ".tar.gz")
-        python -m pip uninstall --yes echopype
         python -m pip install ./dist/$source_file
         python -c "import echopype; print(echopype.__version__)"
         echo "=== Done testing source tar file ==="
