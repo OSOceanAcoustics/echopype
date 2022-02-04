@@ -1,0 +1,89 @@
+name: Packaging
+
+# Only run for tagged releases
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  build-artifact:
+    name: Build echopype package
+    runs-on: ubuntu-20.04
+    if: github.repository == 'OSOceanAcoustics/echopype'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.3.4
+      with:
+        # fetch all history so that setuptools-scm works
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v2.2.1
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: python -m pip install setuptools wheel
+
+    # This step is only necessary for testing purposes and for TestPyPI
+    - name: Fix up version string for TestPyPI
+      if: ${{ !startsWith(github.ref, 'refs/tags') }}
+      run: |
+        # Change setuptools-scm local_scheme to "no-local-version" so the
+        # local part of the version isn't included, making the version string
+        # compatible with PyPI.
+        sed --in-place "s/node-and-date/no-local-version/g" setup.py
+
+    - name: Build source and wheel distributions
+      run: |
+        python setup.py sdist bdist_wheel
+        echo ""
+        echo "Generated files:"
+        ls -lh dist/
+    - uses: actions/upload-artifact@v2
+      with:
+        name: releases
+        path: dist
+
+  test-built-dist:
+    name: Test echopype package
+    needs: build-artifact
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/setup-python@v2
+      name: Install Python
+      with:
+        python-version: 3.9
+    - uses: actions/download-artifact@v2
+      with:
+        name: releases
+        path: dist
+    - name: List contents of built dist
+      run: |
+        ls -ltrh
+        ls -ltrh dist
+    - name: Upgrade pip
+      run: |
+        sleep 3
+        python -m pip install --upgrade pip
+    - name: Check wheel file
+      run: |
+        python -m pip uninstall --yes echopype
+        echo "=== Testing wheel file ==="
+        # Install wheel to get dependencies and check import
+        wheel_file=$(ls ./dist | grep ".whl")
+        python -m pip install ./dist/$wheel_file
+        python -c "import echopype; print(echopype.__version__)"
+        echo "=== Done testing wheel file ==="
+    - name: Check source tar
+      run: |
+        python -m pip uninstall --yes echopype
+        echo "=== Testing source tar file ==="
+        # Install tar gz and check import
+        source_file=$(ls ./dist | grep ".tar.gz")
+        python -m pip uninstall --yes echopype
+        python -m pip install ./dist/$source_file
+        python -c "import echopype; print(echopype.__version__)"
+        echo "=== Done testing source tar file ==="
