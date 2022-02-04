@@ -10,22 +10,6 @@ from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 
-# TODO: Move to a new utility module in, say, echodata.convention
-DEFAULT_BEAM_COORD_ATTRS = {
-    "frequency": {
-        "long_name": "Transducer frequency",
-        "standard_name": "sound_frequency",
-        "units": "Hz",
-        "valid_min": 0.0,
-    },
-    "ping_time": {
-        "long_name": "Timestamp of each ping",
-        "standard_name": "time",
-        "axis": "T",
-    },
-    "range_bin": {"long_name": "Along-range bin (sample) number, base 0"},
-}
-
 
 class SetGroupsBase(abc.ABC):
     """Base class for saving groups to netcdf or zarr from echosounder data files."""

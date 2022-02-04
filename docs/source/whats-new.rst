@@ -4,13 +4,58 @@ What's new
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
 
+v0.5.5 (2021 Dec 10)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that includes new features, enhancements, bug fixes, and linking to an echopype preprint.
+
+New features
+~~~~~~~~~~~~
+
+- Allow converting ES60/70/80 files and handle  various datagram anomaly (#409)
+- Add simple echogram plotting functionality (beta) (#436)
+
+Enhancements
+~~~~~~~~~~~~
+
+- ``update_platform`` method for ``EchoData`` now include proper variable attributes and correctly selects time range of platform data variables corresponding to those of the acoustic data (#476, #492, #493, #488)
+- Improve testing for ``preprocess.compute_MVBS`` by running through real data for all supported sonar models (#454)
+- Generalize handling of Beam group coordinate attributes and a subset of variable attributes (#480, #493)
+- Allow optional kwargs when loading ``EchoData`` groups to enable delaying operations (#456)
+
+Bug fixes
+~~~~~~~~~
+
+- The gain factor for band-integrated Sv is now computed from broadband calibration data stored in the Vendor group (when available) or use nominal narrowband values (#446, #477)
+- Fix time variable encoding for ``combine_echodata`` (#486)
+- Fix missing ``ping_time`` dimension in AZFP Sv dataset to enable MVBS computation (#453)
+- Fix bugs re path when writing to cloud (#462)
+
+Documentation
+~~~~~~~~~~~~~
+
+- Improvements to the "Contributing to echopype" page: Elaborate on the git branch workflow. Add description of PR squash and merge vs merge commit. Add instructions for running only a subset of tests locally (#482)
+- Add documentation about ``output_storage_options`` for writing to cloud storage (#482)
+- Add documentation and docstring for ``sonar_model`` in ``open_raw`` (#475)
+- Improve documentation of EchoData object by adding a sample of the xarray Dataset HTML browser (#503)
+
+Others
+~~~~~~
+
+- Zenodo badge update (#469)
+- Add github citation file (#496), linking to `echopype preprint on arXiv <https://arxiv.org/abs/2111.00187>`_
+
+
 v0.5.4 (2021 Sep 27)
 --------------------
 
 Overview
 ~~~~~~~~
 
-This is a minor release that contains a few bug fixes and new functionalities. 
+This is a minor release that contains a few bug fixes and new functionalities.
 The repo has migrated to use ``main`` instead of ``master`` after this release.
 
 New features
@@ -67,8 +112,8 @@ Improvements
 - Improve test coverage accuracy (#411)
 - Improve testing structure to match with subpackage structure (#401, #416, #429 )
 
-Documentaion
-~~~~~~~~~~~~
+Documentation
+~~~~~~~~~~~~~
 
 - Expand ``Contributing to echopype`` page, including development workflow and testing strategy (#417, #420, #423)
 
@@ -116,7 +161,7 @@ Updates and bug fixes
 ~~~~~~~~~~~~~~~~~~~~~
 
 - Fixed ADCP encoding issues (#361)
-- Updated ``SetGroupsBase`` to use 
+- Updated ``SetGroupsBase`` to use
   `ABC (Abstract Base Classes) Interface <https://docs.python.org/3/library/abc.html>`_ (#366)
 - Whole code-base linted for pep8 (#317)
 - Removed old test data from the repository (#369)
@@ -150,7 +195,7 @@ This major release includes:
 API updates
 ~~~~~~~~~~~
 
-The existing API for converting files from raw instrument formats to a standardized format, and for calibrating data and performing operations such as binned averages and noise removal has been updated. 
+The existing API for converting files from raw instrument formats to a standardized format, and for calibrating data and performing operations such as binned averages and noise removal has been updated.
 
 The new API uses a new ``EchoData`` object to encapsulate all data and metadata related to/parsed from a raw instrument data file. Beyond the calibration of backscatter quantities, other processing functions follow a consistent form to take an xarray Dataset as input argument and returns another xarray Dataset as output.
 
@@ -163,7 +208,7 @@ The major changes include:
 - create a new ``EchoData`` object class that encapsulates all raw data and metadata from instrument data files, regardless of whether the data is being parsed directly from the raw binary instrument files (returned by the new function ``open_raw``) or being read from an already converted file (returned by the new function ``open_converted``)
 
 
-Subpackage and class restructuring 
+Subpackage and class restructuring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The subpackages and classes were restructured to improve modularity that will help will future expansion and maintenance. The major restructuring includes:
