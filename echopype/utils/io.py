@@ -180,7 +180,8 @@ def validate_output_path(
     else:
         if isinstance(save_path, str):
             # Clean folder path by stripping '/' at the end
-            save_path = save_path.strip("/")
+            if save_path.endswith("/"):
+                save_path = save_path[:-1]
 
             # Determine whether this is a directory or not
             is_dir = True if Path(save_path).suffix == "" else False

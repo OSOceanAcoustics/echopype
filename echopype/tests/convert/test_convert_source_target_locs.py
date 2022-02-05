@@ -12,6 +12,7 @@ import os
 import fsspec
 import xarray as xr
 import pytest
+from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
 
@@ -58,9 +59,9 @@ def _create_path_str(test_folder, paths):
 @pytest.fixture(
     params=[
         None,
-        "./echopype/test_data/dump/",
-        "./echopype/test_data/dump/tmp.zarr",
-        "./echopype/test_data/dump/tmp.nc",
+        "/",
+        "/tmp.zarr",
+        "/tmp.nc",
         "s3://ooi-raw-data/dump/",
         "s3://ooi-raw-data/dump/tmp.zarr",
         "s3://ooi-raw-data/dump/tmp.nc",
@@ -308,18 +309,34 @@ def test_convert_ek(
         to_file = getattr(echodata, "to_zarr")
     else:
         return
-    try:
-        to_file(
-            save_path=output_save_path,
-            overwrite=True,
-            output_storage_options=output_storage_options,
-        )
 
-        _check_output_files(
-            export_engine, echodata.converted_raw_path, output_storage_options
-        )
+    try:
+        if output_save_path is not None and output_save_path.startswith('/'):
+            with TemporaryDirectory() as tmpdir:
+                output_save_path = tmpdir + output_save_path
+                to_file(
+                    save_path=output_save_path,
+                    overwrite=True,
+                    output_storage_options=output_storage_options,
+                )
+
+                _check_output_files(
+                    export_engine, echodata.converted_raw_path, output_storage_options
+                )
+        else:
+            to_file(
+                save_path=output_save_path,
+                overwrite=True,
+                output_storage_options=output_storage_options,
+            )
+            _check_output_files(
+                export_engine, echodata.converted_raw_path, output_storage_options
+            )
     except Exception as e:
-        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+        if export_engine == 'netcdf4' and (
+            output_save_path is not None
+            and output_save_path.startswith("s3://")
+        ):
             assert isinstance(e, ValueError) is True
             assert str(e) == 'Only local netcdf4 is supported.'
 
