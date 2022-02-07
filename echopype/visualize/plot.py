@@ -18,7 +18,7 @@ def _format_axis_label(axis_variable):
 def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
     frequency: Union[int, float, None] = None,
-    col: Optional[str] = None
+    col: Optional[str] = None,
 ):
     props = {'boxstyle': 'square', 'facecolor': 'white', 'alpha': 0.7}
     if isinstance(fg, FacetGrid):
@@ -130,10 +130,12 @@ def _plot_echogram(
 
     if 'quadrant' in ds[variable].dims:
         col = 'quadrant'
-        kwargs.update({
-            'figsize': (15, 5),
-            'col_wrap': None,
-        })
+        kwargs.update(
+            {
+                'figsize': (15, 5),
+                'col_wrap': None,
+            }
+        )
         filtered_ds = np.abs(ds.backscatter_r + 1j * ds.backscatter_i)
     else:
         filtered_ds = ds[variable]
@@ -166,12 +168,43 @@ def _plot_echogram(
         'units': filtered_ds[yaxis].attrs.get('units', ''),
     }
 
-    plot = filtered_ds.plot.pcolormesh(
-        x=xaxis,
-        y=yaxis,
-        col=col,
-        row=row,
-        **kwargs,
-    )
-    _set_label(plot, frequency=frequency, col=col)
-    return plot
+    plots = []
+    if not filtered_ds.frequency.shape:
+        plot = filtered_ds.plot.pcolormesh(
+            x=xaxis,
+            y=yaxis,
+            col=col,
+            row=row,
+            **kwargs,
+        )
+        _set_label(plot, frequency=frequency, col=col)
+        plots.append(plot)
+    else:
+        for f in filtered_ds.frequency:
+            d = filtered_ds[filtered_ds.frequency == f.values]
+            if (
+                np.any(d.isnull()).values == np.array(True)
+                and 'range' in d.coords
+                and 'range_bin' in d.dims
+                and variable in ['backscatter_r', 'Sv']
+            ):
+                # Handle the nans for echodata and Sv
+                d = d.sel(
+                    range_bin=d.range_bin.where(
+                        ~d.range.sel(frequency=f.values)
+                        .isel(ping_time=0)
+                        .isnull()
+                    )
+                    .dropna(dim='range_bin')
+                    .data
+                )
+            plot = d.plot.pcolormesh(
+                x=xaxis,
+                y=yaxis,
+                col=col,
+                row=row,
+                **kwargs,
+            )
+            _set_label(plot, frequency=frequency, col=col)
+            plots.append(plot)
+    return plots

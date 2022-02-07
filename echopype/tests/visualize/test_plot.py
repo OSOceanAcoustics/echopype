@@ -66,8 +66,9 @@ def test_plot_multi(
 ):
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    plot = echopype.visualize.create_echogram(ed)
-    assert isinstance(plot, FacetGrid) is True
+    plots = echopype.visualize.create_echogram(ed)
+    assert isinstance(plots, list) is True
+    assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -79,16 +80,17 @@ def test_plot_single(
 ):
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    plot = echopype.visualize.create_echogram(
+    plots = echopype.visualize.create_echogram(
         ed, frequency=ed.beam.frequency[0].values
     )
+    assert isinstance(plots, list) is True
     if (
         sonar_model.lower() == 'ek80'
         and range_kwargs['encode_mode'] == 'complex'
     ):
-        assert isinstance(plot, FacetGrid) is True
+        assert all(isinstance(plot, FacetGrid) for plot in plots) is True
     else:
-        assert isinstance(plot, QuadMesh) is True
+        assert all(isinstance(plot, QuadMesh) for plot in plots) is True
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -110,20 +112,23 @@ def test_plot_multi_get_range(
             'pressure': 59,
         }
         range_kwargs['env_params'] = env_params
-    plot = echopype.visualize.create_echogram(
+    plots = echopype.visualize.create_echogram(
         ed, get_range=True, range_kwargs=range_kwargs
     )
-    assert isinstance(plot, FacetGrid) is True
+    assert isinstance(plots, list) is True
+    assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
+    # Quadrant shape check
     if (
         sonar_model.lower() == 'ek80'
         and range_kwargs['encode_mode'] == 'complex'
     ):
-        assert plot.axes.shape[-1] > 1
+        assert plots[0].axes.shape[-1] > 1
     else:
-        assert plot.axes.shape[-1] == 1
+        assert plots[0].axes.shape[-1] == 1
 
-    assert ed.beam.frequency.shape[0] == plot.axes.shape[0]
+    # Frequency shape check
+    assert ed.beam.frequency.shape[0] == len(plots)
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -148,8 +153,9 @@ def test_plot_Sv(
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
-    plot = echopype.visualize.create_echogram(Sv)
-    assert isinstance(plot, FacetGrid) is True
+    plots = echopype.visualize.create_echogram(Sv)
+    assert isinstance(plots, list) is True
+    assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -176,15 +182,16 @@ def test_plot_mvbs(
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
     mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='10S')
 
-    plot = None
+    plots = []
+    plots = echopype.visualize.create_echogram(mvbs)
     try:
-        plot = echopype.visualize.create_echogram(mvbs)
+        plots = echopype.visualize.create_echogram(mvbs)
     except Exception as e:
         assert isinstance(e, ValueError)
         assert str(e) == "Ping time must be greater or equal to 2 data points."  # noqa
 
-    if plot is not None:
-        assert isinstance(plot, FacetGrid) is True
+    if len(plots) > 0:
+        assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
 
 @pytest.mark.parametrize(

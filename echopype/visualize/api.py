@@ -14,7 +14,7 @@ def create_echogram(
     range_kwargs: dict = {},
     water_level: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
-) -> Union[FacetGrid, QuadMesh]:
+) -> List[Union[FacetGrid, QuadMesh]]:
     """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
 
     Parameters
