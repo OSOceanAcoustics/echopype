@@ -183,7 +183,6 @@ def test_plot_mvbs(
     mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='10S')
 
     plots = []
-    plots = echopype.visualize.create_echogram(mvbs)
     try:
         plots = echopype.visualize.create_echogram(mvbs)
     except Exception as e:
