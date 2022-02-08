@@ -88,7 +88,6 @@ class SetGroupsEK60(SetGroupsBase):
         var_coords: Dict[str, List[str]],
         var_attrs: Dict[str, Any],
         coords: List[str],
-        var_modifier: Dict[str, Callable[[np.ndarray], np.ndarray]] = {}
     ):
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
         combined_ping_times = np.sort(
@@ -114,12 +113,15 @@ class SetGroupsEK60(SetGroupsBase):
                             var_data.append(np.nan)
                     if i < len(self.parser_obj.ping_data_dict[var_name][ch]):
                         data = self.parser_obj.ping_data_dict[var_name][ch][i]
+                        # TODO: below needs to be changed to use
+                        #  self.convert_obj.ping_data_dict['mode'][ch] == 3
+                        #  1 = Power only, 2 = Angle only 3 = Power & Angle
+                        # Set angle data if in split beam mode (beam_type == 1)
+                        # because single beam mode (beam_type == 0) does not record angle data
                         if var_name == "angle_athwartship":
                             data = data[:, :, 0]
                         elif var_name == "angle_alongship":
                             data = data[:, :, 1]
-                        # if var_name in var_modifier:
-                        #     data = var_modifier[var_name](data)
                         var_data.append(data)
                     else:
                         if "range_bin" in var_coords[var_name]:
@@ -160,10 +162,6 @@ class SetGroupsEK60(SetGroupsBase):
             coords_values.update({"ping_time": combined_ping_times})
         if "range_bin" in coords:
             coords_values.update({"range_bin": np.arange(max_range_bin)})
-        # with open("out.txt", "w") as f:
-        #     f.write(str(data_vars))
-        #     f.write("\n" * 20)
-        #     f.write(str(coords_values))
         return xr.Dataset(data_vars=data_vars, coords=coords_values)
 
     def set_provenance(self) -> xr.Dataset:
@@ -225,92 +223,7 @@ class SetGroupsEK60(SetGroupsBase):
             },
         }
         coords = ["frequency", "ping_time"]
-        """
-        vars = {var_name: [] for var_name in var_names}
-        for ch in ch_ids:
-            for var_name in var_names:
-                if len(self.parser_obj.ping_time[ch]) == len(combined_ping_times):
-                    vars[var_name].append(self.parser_obj.ping_data_dict[var_name][ch])
-                else:
-                    var_data = []
-                    for i, ping_time in enumerate(self.parser_obj.ping_time[ch]):
-                        while ping_time != combined_ping_times[len(var_data)]:
-                            var_data.append(np.nan)
-                        var_data.append(self.parser_obj.ping_data_dict[var_name][ch][i])
-                    vars[var_name].append(np.array(var_data))
-        stacked_vars = {
-            var_name: np.stack(var_data) for var_name, var_data in vars.items()
-        }
-        data_vars = {
-            var_names[var_name]: (
-                ["frequency", "ping_time"],
-                stacked_vars[var_name],
-                var_attrs[var_name],
-            )
-            for var_name in stacked_vars
-        }
-        coords = {
-            "frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"] for ch in ch_ids],
-            "ping_time": combined_ping_times
-        }
-        ds = xr.Dataset(data_vars=data_vars, coords=coords)
-        """
         ds = self.make_dataset(var_names, var_coords, var_attrs, coords)
-
-        # ds_env = []
-        # Loop over channels
-        # for ch in ch_ids:
-        #     ds_tmp = xr.Dataset(
-        #         {
-        #             "absorption_indicative": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["absorption_coefficient"][ch],
-        #                 {
-        #                     "long_name": "Indicative acoustic absorption",
-        #                     "units": "dB/m",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #             "sound_speed_indicative": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["sound_velocity"][ch],
-        #                 {
-        #                     "long_name": "Indicative sound speed",
-        #                     "standard_name": "speed_of_sound_in_sea_water",
-        #                     "units": "m/s",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #         },
-        #         coords={
-        #             "ping_time": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_time[ch],
-        #                 {
-        #                     "axis": "T",
-        #                     "long_name": "Timestamps for NMEA position datagrams",
-        #                     "standard_name": "time",
-        #                 },
-        #             )
-        #         },
-        #     )
-        #     # Attach frequency dimension/coordinate
-        #     ds_tmp = ds_tmp.expand_dims(
-        #         {
-        #             "frequency": [
-        #                 self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-        #             ]
-        #         }
-        #     )
-        #     ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-        #         units="Hz",
-        #         long_name="Transducer frequency",
-        #         valid_min=0.0,
-        #     )
-        #     ds_env.append(ds_tmp)
-
-        # # Merge data from all channels
-        # ds = xr.merge(ds_env)
 
         return set_encodings(ds)
 
@@ -400,85 +313,6 @@ class SetGroupsEK60(SetGroupsBase):
                     "platform_type": self.ui_param["platform_type"],
                 }
             )
-
-            """
-            ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-
-            # TODO: consider allow users to set water_level like in EK80?
-            # if self.ui_param['water_level'] is not None:
-            #     water_level = self.ui_param['water_level']
-            # else:
-            #     water_level = np.nan
-            #     print('WARNING: The water_level_draft was not in the file. Value '
-            #           'set to None.')
-
-            # Loop over channels and merge all
-            ds_plat = []
-            for ch in ch_ids:
-                ds_tmp = xr.Dataset(
-                    {
-                        "pitch": (
-                            ["ping_time"],
-                            self.parser_obj.ping_data_dict["pitch"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["pitch"],
-                        ),
-                        "roll": (
-                            ["ping_time"],
-                            self.parser_obj.ping_data_dict["roll"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["roll"],
-                        ),
-                        "heave": (
-                            ["ping_time"],
-                            self.parser_obj.ping_data_dict["heave"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["heave"],
-                        ),
-                        "water_level": (
-                            ["ping_time"],
-                            self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["water_level"],
-                        ),
-                    },
-                    coords={
-                        "ping_time": (
-                            ["ping_time"],
-                            self.parser_obj.ping_time[ch],
-                            {
-                                "axis": "T",
-                                "long_name": "Timestamps for position datagrams",
-                                "standard_name": "time",
-                            },
-                        )
-                    },
-                    attrs={
-                        "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                        "platform_name": self.ui_param["platform_name"],
-                        "platform_type": self.ui_param["platform_type"],
-                    },
-                )
-
-                # Attach frequency dimension/coordinate
-                ds_tmp = ds_tmp.expand_dims(
-                    {
-                        "frequency": [
-                            self.parser_obj.config_datagram["transceivers"][ch][
-                                "frequency"
-                            ]
-                        ]
-                    }
-                )
-                ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-                    units="Hz",
-                    long_name="Transducer frequency",
-                    valid_min=0.0,
-                )
-                ds_plat.append(ds_tmp)
-
-            # Merge data from all channels
-            # TODO: for current test data we see all
-            #  pitch/roll/heave are the same for all freq channels
-            #  consider only saving those from the first channel
-            ds_plat = xr.merge(ds_plat)
-            """
 
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs="override")
@@ -753,150 +587,13 @@ class SetGroupsEK60(SetGroupsBase):
             "range_bin": DEFAULT_BEAM_COORD_ATTRS["range_bin"],
         }
         coords = ["frequency", "ping_time", "range_bin"]
-        var_modifier = {}
 
         # FIXME: angle_athwartship and angle_alongship???
 
-        # TODO: below needs to be changed to use
-        #  self.convert_obj.ping_data_dict['mode'][ch] == 3
-        #  1 = Power only, 2 = Angle only 3 = Power & Angle
-        # Set angle data if in split beam mode (beam_type == 1)
-        # because single beam mode (beam_type == 0) does not record angle data
-        # if self.parser_obj.config_datagram["transceivers"][ch]["beam_type"] == 1:
-        #     var_names.update()
-        #     var_modifier = {
-        #         "angle_athwartship": lambda x: x[:, : 0],
-        #         "angle_alongship": lambda x: x[:, : 1]
-        #     }
-
-        ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs, coords, var_modifier)
-
-
-        # # Construct Dataset with ping-by-ping data from all channels
-        # ds_backscatter = []
-        # for ch in ch_ids:
-        #     data_shape = self.parser_obj.ping_data_dict["power"][ch].shape
-        #     ds_tmp = xr.Dataset(
-        #         {
-        #             "backscatter_r": (
-        #                 ["ping_time", "range_bin"],
-        #                 self.parser_obj.ping_data_dict["power"][ch],
-        #                 {"long_name": "Backscatter power", "units": "dB"},
-        #             ),
-        #             "sample_interval": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["sample_interval"][ch],
-        #                 {
-        #                     "long_name": "Interval between recorded raw data samples",
-        #                     "units": "s",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #             "transmit_bandwidth": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["bandwidth"][ch],
-        #                 {
-        #                     "long_name": "Nominal bandwidth of transmitted pulse",
-        #                     "units": "Hz",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #             "transmit_duration_nominal": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["pulse_length"][ch],
-        #                 {
-        #                     "long_name": "Nominal bandwidth of transmitted pulse",
-        #                     "units": "s",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #             "transmit_power": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["transmit_power"][ch],
-        #                 {
-        #                     "long_name": "Nominal transmit power",
-        #                     "units": "W",
-        #                     "valid_min": 0.0,
-        #                 },
-        #             ),
-        #             "data_type": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["mode"][ch],
-        #                 {
-        #                     "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
-        #                 },
-        #             ),
-        #             "count": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["count"][ch],
-        #                 {"long_name": "Number of samples "},
-        #             ),
-        #             "offset": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["offset"][ch],
-        #                 {"long_name": "Offset of first sample"},
-        #             ),
-        #             "transmit_mode": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_data_dict["transmit_mode"][ch],
-        #                 {
-        #                     "long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"
-        #                 },
-        #             ),
-        #         },
-        #         coords={
-        #             "ping_time": (
-        #                 ["ping_time"],
-        #                 self.parser_obj.ping_time[ch],
-        #                 DEFAULT_BEAM_COORD_ATTRS["ping_time"],
-        #             ),
-        #             "range_bin": (
-        #                 ["range_bin"],
-        #                 np.arange(data_shape[1]),
-        #                 DEFAULT_BEAM_COORD_ATTRS["range_bin"],
-        #             ),
-        #         },
-        #     )
-
-        #     # TODO: below needs to be changed to use
-        #     #  self.convert_obj.ping_data_dict['mode'][ch] == 3
-        #     #  1 = Power only, 2 = Angle only 3 = Power & Angle
-        #     # Set angle data if in split beam mode (beam_type == 1)
-        #     # because single beam mode (beam_type == 0) does not record angle data
-        #     if self.parser_obj.config_datagram["transceivers"][ch]["beam_type"] == 1:
-        #         ds_tmp = ds_tmp.assign(
-        #             {
-        #                 "angle_athwartship": (
-        #                     ["ping_time", "range_bin"],
-        #                     self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
-        #                     {"long_name": "electrical athwartship angle"},
-        #                 ),
-        #                 "angle_alongship": (
-        #                     ["ping_time", "range_bin"],
-        #                     self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
-        #                     {"long_name": "electrical alongship angle"},
-        #                 ),
-        #             }
-        #         )
-
-        #     # Attach frequency dimension/coordinate
-        #     ds_tmp = ds_tmp.expand_dims(
-        #         {
-        #             "frequency": [
-        #                 self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-        #             ]
-        #         }
-        #     )
-        #     ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-        #         units="Hz",
-        #         long_name="Transducer frequency",
-        #         valid_min=0.0,
-        #     )
-        #     ds_backscatter.append(ds_tmp)
+        ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs, coords)
 
         # Merge data from all channels
         ds = xr.merge(
-            # [ds, xr.merge(ds_backscatter)], combine_attrs="override"
             [ds, ds_backscatter], combine_attrs="override"
         )  # override keeps the Dataset attributes
 
