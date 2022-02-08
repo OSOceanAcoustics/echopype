@@ -308,7 +308,7 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path):
     )
     assert isinstance(ds_Sv, xr.Dataset)
 
-def test_env_params():
+def test_env_params(ek60_path):
     """
     Tests EnvParams interpolation
     """
