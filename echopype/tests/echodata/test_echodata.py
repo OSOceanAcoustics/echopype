@@ -352,7 +352,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="mobile"
     )
-    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP":
+    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["location_time"]).all():
         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
