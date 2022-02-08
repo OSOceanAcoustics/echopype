@@ -71,10 +71,6 @@ jobs:
           use-mamba: true
           auto-activate-base: false
           use-only-tar-bz2: true
-      - name: Update mamba
-        shell: bash -l {0}
-        run: |
-          conda update -c conda-forge --yes mamba
       - name: Print conda env
         shell: bash -l {0}
         run: |
