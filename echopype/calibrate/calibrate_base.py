@@ -112,7 +112,9 @@ class EnvParams:
 
         if self.data_kind == "mobile":
             if np.isnan(echodata.platform["location_time"]).all():
-                raise ValueError("cannot perform mobile interpolation without location_time")
+                raise ValueError(
+                    "cannot perform mobile interpolation without location_time"
+                )
             # compute_range needs indexing by ping_time
             interp_plat = echodata.platform.interp(
                 {"location_time": echodata.beam["ping_time"]}
