@@ -321,7 +321,9 @@ def test_convert_ek(
                 )
 
                 _check_output_files(
-                    export_engine, echodata.converted_raw_path, output_storage_options
+                    export_engine,
+                    echodata.converted_raw_path,
+                    output_storage_options,
                 )
         else:
             to_file(
@@ -330,7 +332,9 @@ def test_convert_ek(
                 output_storage_options=output_storage_options,
             )
             _check_output_files(
-                export_engine, echodata.converted_raw_path, output_storage_options
+                export_engine,
+                echodata.converted_raw_path,
+                output_storage_options,
             )
     except Exception as e:
         if export_engine == 'netcdf4' and (
@@ -391,6 +395,9 @@ def test_convert_azfp(
             export_engine, echodata.converted_raw_path, output_storage_options
         )
     except Exception as e:
-        if export_engine == 'netcdf4' and output_save_path.startswith("s3://"):
+        if export_engine == 'netcdf4' and (
+            output_save_path is not None
+            and output_save_path.startswith("s3://")
+        ):
             assert isinstance(e, ValueError) is True
             assert str(e) == 'Only local netcdf4 is supported.'
