@@ -96,12 +96,12 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')
         shell: bash -l {0}
         run: |
-          pytest -vv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+          pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
         if: "!contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')"
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vv,-rx,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=4,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2
