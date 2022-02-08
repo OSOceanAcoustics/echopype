@@ -21,7 +21,7 @@ jobs:
         include:
         - python-version: 3.9
           experimental: true
-        - python-version: 3.10
+        - python-version: "3.10"
           experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
