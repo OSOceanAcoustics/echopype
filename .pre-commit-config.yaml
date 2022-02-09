@@ -41,3 +41,9 @@ repos:
     hooks:
     - id: jb-to-sphinx
       args: ["docs/source"]
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+      - id: codespell
+        args: ["-w", "docs/source", "echopype"]

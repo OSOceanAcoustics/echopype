@@ -119,7 +119,7 @@ def test_combine_echodata(raw_datasets):
         def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
             """
             Merges attrs from a list of datasets.
-            Prioritizes keys from later datsets.
+            Prioritizes keys from later datasets.
             """
 
             total_attrs = {}

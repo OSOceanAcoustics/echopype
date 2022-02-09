@@ -111,7 +111,7 @@ def calc_absorption(
 
     The accuracy of the simplified formula from Ainslie & McColm 1998
     compared with the original complicated formula from Francois & Garrison 1982
-    was demostrated between 100 Hz and 1 MHz.
+    was demonstrated between 100 Hz and 1 MHz.
     """
     if formula_source == "FG":
         f = frequency / 1000.0  # convert from Hz to kHz due to formula
