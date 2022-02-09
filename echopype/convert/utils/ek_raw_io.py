@@ -360,7 +360,7 @@ class RawSimradFile(BufferedReader):
             in bytes,
         :type bytes_read: int
 
-        Returns a formated datagram object using the data in raw_datagram_string
+        Returns a formatted datagram object using the data in raw_datagram_string
         """
 
         #  11/26/19 - RHT - Modified this method to pass through the number of
@@ -430,7 +430,7 @@ class RawSimradFile(BufferedReader):
         :type k: int
 
         Reads the next k datagrams.  A list of datagrams is returned if k > 1.  The entire
-        file is read from the CURRENT POSITION if k < 0. (does not necessarily read from begining
+        file is read from the CURRENT POSITION if k < 0. (does not necessarily read from beginning
         of file if previous datagrams were read)
         """
 
@@ -516,7 +516,7 @@ class RawSimradFile(BufferedReader):
 
     def __next__(self):
         """
-        Returns the next datagram (synonomous with self.read(1))
+        Returns the next datagram (synonymous with self.read(1))
         """
 
         return self.read(1)
@@ -656,7 +656,7 @@ class RawSimradFile(BufferedReader):
             # Do we need to generate the total number of datagrams w/in the file?
             try:
                 self._set_total_dgram_count()
-                # Throws a value error if _total_dgram_count has alread been set.  We can ignore it
+                # Throws a value error if _total_dgram_count has already been set.  We can ignore it
             except ValueError:
                 pass
 

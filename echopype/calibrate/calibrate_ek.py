@@ -162,7 +162,7 @@ class CalibrateEK(CalibrateBase):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset contaning Sv or Sp
+            The calibrated dataset containing Sv or Sp
         """
         # Select source of backscatter data
         if use_beam_power:
@@ -657,7 +657,7 @@ class CalibrateEK80(CalibrateEK):
             gain = []
             if "gain" in self.echodata.vendor.data_vars:
                 # index using channel_id as order of frequency across channel can be arbitrary
-                # refererence to freq_center in case some channels are CW complex samples
+                # reference to freq_center in case some channels are CW complex samples
                 # (already dropped when computing freq_center in the calling function)
                 for fn in freq_center.frequency:
                     ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
@@ -711,7 +711,7 @@ class CalibrateEK80(CalibrateEK):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset contaning Sv or Sp
+            The calibrated dataset containing Sv or Sp
         """
         # Transmit replica and effective pulse length
         chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
