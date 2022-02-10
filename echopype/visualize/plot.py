@@ -1,6 +1,7 @@
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
+import math
 import xarray as xr
 import numpy as np
 from xarray.plot.facetgrid import FacetGrid
@@ -170,6 +171,20 @@ def _plot_echogram(
 
     plots = []
     if not filtered_ds.frequency.shape:
+        if (
+            np.any(filtered_ds.isnull()).values == np.array(True)
+            and 'range' in filtered_ds.coords
+            and 'range_bin' in filtered_ds.dims
+            and variable in ['backscatter_r', 'Sv']
+        ):
+            # Handle the nans for echodata and Sv
+            filtered_ds = filtered_ds.sel(
+                range_bin=filtered_ds.range_bin.where(
+                    ~filtered_ds.range.isel(ping_time=0).isnull()
+                )
+                .dropna(dim='range_bin')
+                .data
+            )
         plot = filtered_ds.plot.pcolormesh(
             x=xaxis,
             y=yaxis,
@@ -180,6 +195,20 @@ def _plot_echogram(
         _set_label(plot, frequency=frequency, col=col)
         plots.append(plot)
     else:
+        # Scale plots
+        num_freq = len(filtered_ds.frequency)
+        freq_scaling = (-0.06, -0.16)
+        figsize_scale = tuple(
+            [1 + (scale * num_freq) for scale in freq_scaling]
+        )
+        new_size = tuple(
+            [
+                size * figsize_scale[idx]
+                for idx, size in enumerate(kwargs.get('figsize'))
+            ]
+        )
+        kwargs.update({'figsize': new_size})
+
         for f in filtered_ds.frequency:
             d = filtered_ds[filtered_ds.frequency == f.values]
             if (
