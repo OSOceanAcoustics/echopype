@@ -369,7 +369,7 @@ def test_compute_range(compute_range_samples):
                 env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
             )
         except ValueError:
-            pass
+            pass  # AD2CP is not currently supported in ed.compute_range
         else:
             raise AssertionError
     else:
