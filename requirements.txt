@@ -1,5 +1,4 @@
 dask[array]
-matplotlib
 netCDF4
 numpy
 pynmea2
@@ -8,7 +7,8 @@ scipy
 xarray
 zarr
 fsspec
-s3fs==2021.10.1
+# https://github.com/fsspec/s3fs/pull/554
+s3fs==2021.11.0
 requests
 aiohttp
 typing-extensions~=3.10

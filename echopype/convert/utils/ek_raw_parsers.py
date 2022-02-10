@@ -112,7 +112,7 @@ class SimradDepthParser(_SimradDatagramParser):
         low_date:     long uint representing LSBytes of 64bit NT date
         high_date:    long uint representing MSBytes of 64bit NT date
         timestamp:    datetime.datetime object of NT date, assumed to be UTC
-        transceiver_count:  [long uint] with number of tranceivers
+        transceiver_count:  [long uint] with number of transceivers
 
         depth:        [float], one value for each active channel
         reflectivity: [float], one value for each active channel
@@ -227,7 +227,7 @@ class SimradBottomParser(_SimradDatagramParser):
         low_date:     long uint representing LSBytes of 64bit NT date
         high_date:    long uint representing MSBytes of 64bit NT date
         datetime:     datetime.datetime object of NT date converted to UTC
-        transceiver_count:  long uint with number of tranceivers
+        transceiver_count:  long uint with number of transceivers
         depth:        [float], one value for each active channel
 
     The following methods are defined:
@@ -384,7 +384,7 @@ class SimradAnnotationParser(_SimradDatagramParser):
             else:
                 tmp_string = data["text"]
 
-            # Pad with more nulls to 4-byte word boundry if necessary
+            # Pad with more nulls to 4-byte word boundary if necessary
             if len(tmp_string) % 4:
                 tmp_string += "\x00" * (4 - (len(tmp_string) % 4))
 
@@ -491,7 +491,7 @@ class SimradNMEAParser(_SimradDatagramParser):
             else:
                 tmp_string = data["nmea_string"]
 
-            # Pad with more nulls to 4-byte word boundry if necessary
+            # Pad with more nulls to 4-byte word boundary if necessary
             if len(tmp_string) % 4:
                 tmp_string += "\x00" * (4 - (len(tmp_string) % 4))
 
@@ -585,7 +585,7 @@ class SimradMRUParser(_SimradDatagramParser):
             else:
                 tmp_string = data["nmea_string"]
 
-            # Pad with more nulls to 4-byte word boundry if necessary
+            # Pad with more nulls to 4-byte word boundary if necessary
             if len(tmp_string) % 4:
                 tmp_string += "\x00" * (4 - (len(tmp_string) % 4))
 
@@ -759,7 +759,7 @@ class SimradXMLParser(_SimradDatagramParser):
                         try:
                             data = xml_dict[k].split(parse_opts[k][2])
                         except:
-                            #  bad or empty parse chararacter(s) provided
+                            #  bad or empty parse character(s) provided
                             data = xml_dict[k]
                     else:
                         #  no parse char provided - nothing to parse
@@ -921,7 +921,7 @@ class SimradXMLParser(_SimradDatagramParser):
                         tcvr_ch_num = TCVR_CH_NUM_MATCHER.search(channel_id)[0]
 
                         # parse the Transducers section from the root
-                        # TODO Remove Transducers if doesnt exist
+                        # TODO Remove Transducers if doesn't exist
                         xducer = root.find("Transducers")
                         if xducer is not None:
                             # built occurrence lookup table for transducer name
@@ -1044,7 +1044,7 @@ class SimradXMLParser(_SimradDatagramParser):
             else:
                 tmp_string = data["nmea_string"]
 
-            # Pad with more nulls to 4-byte word boundry if necessary
+            # Pad with more nulls to 4-byte word boundary if necessary
             if len(tmp_string) % 4:
                 tmp_string += "\x00" * (4 - (len(tmp_string) % 4))
 
@@ -1527,7 +1527,7 @@ class SimradConfigParser(_SimradDatagramParser):
 
 class SimradRawParser(_SimradDatagramParser):
     """
-    Sample Data Datagram parser operates on dictonaries with the following keys:
+    Sample Data Datagram parser operates on dictionaries with the following keys:
 
         type:         string == 'RAW0'
         low_date:     long uint representing LSBytes of 64bit NT date

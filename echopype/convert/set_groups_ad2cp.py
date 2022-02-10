@@ -11,7 +11,7 @@ from .set_groups_base import SetGroupsBase
 def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
     """
     Merges attrs from a list of datasets.
-    Prioritizes keys from later datsets.
+    Prioritizes keys from later datasets.
     """
 
     total_attrs = dict()
@@ -33,7 +33,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # # TODO: where to put string data in output?
 
-        # pad raw samples so that "sample" dimenion has same length
+        # pad raw samples so that "sample" dimension has same length
         max_samples = 0
         for packet in self.parser_obj.echosounder_raw_packets:
             # both _r and _i have same dimensions
