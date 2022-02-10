@@ -81,7 +81,7 @@ jobs:
           conda info
           conda list
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == "3.10" }}
+        if: ${{ matrix.python-version == '3.10' }}
         shell: bash -l {0}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
