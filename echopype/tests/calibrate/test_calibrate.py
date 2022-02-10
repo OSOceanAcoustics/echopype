@@ -4,6 +4,7 @@ import pytest
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
+from echopype.calibrate.calibrate_base import EnvParams
 import xarray as xr
 
 
@@ -306,3 +307,134 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path):
         ed, waveform_mode="BB", encode_mode="complex"
     )
     assert isinstance(ds_Sv, xr.Dataset)
+
+def test_env_params(ek60_path):
+    """
+    Tests EnvParams interpolation
+    """
+
+    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+
+    # stationary
+    # since the raw ping_times go up to 1:43 but the env_params ping_time stops at 1:25,
+    # values after 1:25 will be extrapolated
+    env_params_data = xr.Dataset(
+        data_vars={
+            "pressure": ("ping_time", np.arange(50)),
+            "salinity": ("ping_time", np.arange(50)),
+            "temperature": ("ping_time", np.arange(50)),
+        },
+        coords={
+            "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+        }
+    )
+    env_params = EnvParams(env_params_data, "stationary")
+    converted_env_params = env_params._apply(ed)
+    for var in converted_env_params.values():
+        assert np.all(np.diff(var) > 0)
+        assert np.all(0 <= var)
+        assert np.all(var < 100)
+    # TODO: substitute ping_time and input values of the env variables
+    #       so that interpolation gives nice outputs
+    known_values = {
+        "temperature": {
+            "2017-06-20T01:10:27.136999936": 20.904566664533334,
+            "2017-06-20T01:10:28.149000192": 20.9383000064,
+            "2017-06-20T01:10:29.160999936": 20.9720333312,
+            "2017-06-20T01:10:30.174000128": 21.005800004266668,
+            "2017-06-20T01:10:31.184999936": 21.039499997866667,
+            "2017-06-20T01:42:56.995999744": 85.89986665813333,
+            "2017-06-20T01:42:58.008999936": 85.9336333312,
+            "2017-06-20T01:42:59.020000256": 85.96733334186666,
+            "2017-06-20T01:43:00.032000000": 86.00106666666667,
+            "2017-06-20T01:43:01.045000192": 86.03483333973334,
+        },
+        "salinity": {
+            "2017-06-20T01:10:27.136999936": 20.904566664533334,
+            "2017-06-20T01:10:28.149000192": 20.9383000064,
+            "2017-06-20T01:10:29.160999936": 20.9720333312,
+            "2017-06-20T01:10:30.174000128": 21.005800004266668,
+            "2017-06-20T01:10:31.184999936": 21.039499997866667,
+            "2017-06-20T01:42:56.995999744": 85.89986665813333,
+            "2017-06-20T01:42:58.008999936": 85.9336333312,
+            "2017-06-20T01:42:59.020000256": 85.96733334186666,
+            "2017-06-20T01:43:00.032000000": 86.00106666666667,
+            "2017-06-20T01:43:01.045000192": 86.0348333397333,
+        },
+        "pressure": {
+            "2017-06-20T01:10:27.136999936": 20.904566664533334,
+            "2017-06-20T01:10:28.149000192": 20.9383000064,
+            "2017-06-20T01:10:29.160999936": 20.9720333312,
+            "2017-06-20T01:10:30.174000128": 21.005800004266668,
+            "2017-06-20T01:10:31.184999936": 21.039499997866667,
+            "2017-06-20T01:42:56.995999744": 85.89986665813333,
+            "2017-06-20T01:42:58.008999936": 85.9336333312,
+            "2017-06-20T01:42:59.020000256": 85.96733334186666,
+            "2017-06-20T01:43:00.032000000": 86.00106666666667,
+            "2017-06-20T01:43:01.045000192": 86.03483333973334,
+        }
+    }
+    for var, values in known_values.items():
+        for time, value in values.items():
+            assert np.isclose(converted_env_params[var].sel(ping_time=time), value)
+
+    # mobile
+    rng = np.random.default_rng(0)
+    env_params_data = xr.Dataset(
+        data_vars={
+            "pressure": ("time", np.arange(100)),
+            "salinity": ("time", np.arange(100)),
+            "temperature": ("time", np.arange(100)),
+        },
+        coords={
+            "latitude": ("time", rng.random(size=100) + 44),
+            "longitude": ("time", rng.random(size=100) - 125),
+        }
+    )
+    env_params = EnvParams(env_params_data, "mobile")
+    converted_env_params = env_params._apply(ed)
+    for var in converted_env_params.values():
+        assert np.all(0 <= var[~np.isnan(var)])
+        assert np.all(var[~np.isnan(var)] < 100)
+    known_values = {
+        "temperature": {
+            "2017-06-20T01:10:27.136999936":  np.nan,
+            "2017-06-20T01:10:28.149000192":  72.57071056437047,
+            "2017-06-20T01:10:29.160999936":  72.56164311204404,
+            "2017-06-20T01:10:30.174000128":  72.5641609908268,
+            "2017-06-20T01:10:31.184999936":  72.5540675620769,
+            "2017-06-20T01:42:56.995999744":  64.78639664394186,
+            "2017-06-20T01:42:58.008999936":  64.76543272189699,
+            "2017-06-20T01:42:59.020000256":  64.77890258158483,
+            "2017-06-20T01:43:00.032000000":  64.76186093048929,
+            "2017-06-20T01:43:01.045000192":  64.76763007606817,
+        },
+        "salinity": {
+            "2017-06-20T01:10:27.136999936":  np.nan,
+            "2017-06-20T01:10:28.149000192":  72.57071056437047,
+            "2017-06-20T01:10:29.160999936":  72.56164311204404,
+            "2017-06-20T01:10:30.174000128":  72.5641609908268,
+            "2017-06-20T01:10:31.184999936":  72.5540675620769,
+            "2017-06-20T01:42:56.995999744":  64.78639664394186,
+            "2017-06-20T01:42:58.008999936":  64.76543272189699,
+            "2017-06-20T01:42:59.020000256":  64.77890258158483,
+            "2017-06-20T01:43:00.032000000":  64.76186093048929,
+            "2017-06-20T01:43:01.045000192":  64.76763007606817,
+        },
+        "pressure": {
+            "2017-06-20T01:10:27.136999936": np.nan,
+            "2017-06-20T01:10:28.149000192": 72.57071056437047,
+            "2017-06-20T01:10:29.160999936": 72.56164311204404,
+            "2017-06-20T01:10:30.174000128": 72.5641609908268,
+            "2017-06-20T01:10:31.184999936": 72.5540675620769,
+            "2017-06-20T01:42:56.995999744": 64.78639664394186,
+            "2017-06-20T01:42:58.008999936": 64.76543272189699,
+            "2017-06-20T01:42:59.020000256": 64.77890258158483,
+            "2017-06-20T01:43:00.032000000": 64.76186093048929,
+            "2017-06-20T01:43:01.045000192": 64.76763007606817,
+        },
+    }
+    for var, values in known_values.items():
+        for time, value in values.items():
+            print(var, time, value)
+            assert np.isnan(value) or np.isclose(converted_env_params[var].sel(ping_time=time), value)

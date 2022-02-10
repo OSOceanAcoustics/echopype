@@ -3,6 +3,7 @@ from textwrap import dedent
 import fsspec
 
 import echopype
+from echopype.calibrate.calibrate_base import EnvParams
 from echopype.echodata import EchoData
 from echopype import open_converted
 
@@ -311,15 +312,64 @@ def test_compute_range(compute_range_samples):
         ek_encode_mode,
     ) = compute_range_samples
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    env_params = {"sound_speed": 343}
+    print(ed.platform)
+    rng = np.random.default_rng(0)
+    stationary_env_params = EnvParams(
+        xr.Dataset(
+            data_vars={
+                "pressure": ("ping_time", np.arange(50)),
+                "salinity": ("ping_time", np.arange(50)),
+                "temperature": ("ping_time", np.arange(50)),
+            },
+            coords={
+                "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+            }
+        ),
+        data_kind="stationary"
+    )
+    if "ping_time" in ed.platform and sonar_model != "AD2CP":
+        ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
+    else:
+        try:
+            ed.compute_range(stationary_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError
 
+
+    mobile_env_params = EnvParams(
+        xr.Dataset(
+            data_vars={
+                "pressure": ("time", np.arange(100)),
+                "salinity": ("time", np.arange(100)),
+                "temperature": ("time", np.arange(100)),
+            },
+            coords={
+                "latitude": ("time", rng.random(size=100) + 44),
+                "longitude": ("time", rng.random(size=100) - 125),
+            }
+        ),
+        data_kind="mobile"
+    )
+    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["location_time"]).all():
+        ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
+    else:
+        try:
+            ed.compute_range(mobile_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError
+
+    env_params = {"sound_speed": 343}
     if sonar_model == "AD2CP":
         try:
             ed.compute_range(
                 env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
             )
         except ValueError:
-            return
+            pass  # AD2CP is not currently supported in ed.compute_range
         else:
             raise AssertionError
     else:
