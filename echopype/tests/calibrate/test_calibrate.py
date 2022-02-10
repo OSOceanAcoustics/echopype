@@ -334,6 +334,8 @@ def test_env_params(ek60_path):
         assert np.all(np.diff(var) > 0)
         assert np.all(0 <= var)
         assert np.all(var < 100)
+    # TOOD: substitute ping_time and input values of the env variables
+    #       so that interpolation gives nice outputs
     known_values = {
         "temperature": {
             "2017-06-20T01:10:27.136999936": 20.904566664533334,
