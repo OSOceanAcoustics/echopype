@@ -292,7 +292,7 @@ class ParseEK(ParseBase):
                 self.mru["heave"].append(new_datagram["heave"])
                 self.mru["timestamp"].append(new_datagram["timestamp"])
 
-            # FIL datagrams contain filters for proccessing bascatter data for EK80
+            # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):
                 self.fil_coeffs[new_datagram["channel_id"]][
                     new_datagram["stage"]

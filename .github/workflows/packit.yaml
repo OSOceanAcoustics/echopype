@@ -1,14 +1,10 @@
-# Publish archives to PyPI and TestPyPI using GitHub Actions
-name: Publish to PyPI
+name: Packaging
 
 # Only run for tagged releases
 on:
-  release:
-    types:
-      - released
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -68,42 +64,25 @@ jobs:
       run: |
         ls -ltrh
         ls -ltrh dist
-    - name: Publish to Test PyPI
-      uses: pypa/gh-action-pypi-publish@v1.4.2
-      with:
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
-        verbose: true
-        skip_existing: true
-    - name: Check pypi packages
+    - name: Upgrade pip
       run: |
         sleep 3
         python -m pip install --upgrade pip
-
+    - name: Check wheel file
+      run: |
+        python -m pip uninstall --yes echopype
         echo "=== Testing wheel file ==="
         # Install wheel to get dependencies and check import
-        python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre echopype
+        wheel_file=$(ls ./dist | grep ".whl")
+        python -m pip install ./dist/$wheel_file
         python -c "import echopype; print(echopype.__version__)"
         echo "=== Done testing wheel file ==="
-
+    - name: Check source tar
+      run: |
+        python -m pip uninstall --yes echopype
         echo "=== Testing source tar file ==="
         # Install tar gz and check import
-        python -m pip uninstall --yes echopype
-        python -m pip install --extra-index-url https://test.pypi.org/simple --upgrade --pre --no-binary=:all: echopype
+        source_file=$(ls ./dist | grep ".tar.gz")
+        python -m pip install ./dist/$source_file
         python -c "import echopype; print(echopype.__version__)"
         echo "=== Done testing source tar file ==="
-
-  publish-pypi:
-    name: Push echopype to production pypi
-    needs: test-built-dist
-    if: startsWith(github.ref, 'refs/tags')
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: releases
-        path: dist
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.4.2
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}

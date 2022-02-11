@@ -75,7 +75,7 @@ def test_center_of_mass():
 
 
 def test_inertia():
-    """Compares summary_statistics.py calculation of intertia with verified outcomes"""
+    """Compares summary_statistics.py calculation of inertia with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
     range = np.array([[[1, 2, 3], [2, 3, 4]]])
     in_ds1 = create_test_ds(Sv, range)

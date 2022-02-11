@@ -80,10 +80,10 @@ class ParseAZFP(ParseBase):
             "BP": "BP",
         }
 
-        # Retreive integer parameters from the xml file
+        # Retrieve integer parameters from the xml file
         for old_name, new_name in int_params.items():
             self.parameters[new_name] = int(get_value_by_tag_name(old_name))
-        # Retreive floating point parameters from the xml file
+        # Retrieve floating point parameters from the xml file
         for param in float_params:
             self.parameters[param] = float(get_value_by_tag_name(param))
         # Retrieve frequency dependent parameters from the xml file

@@ -19,63 +19,6 @@ interoperable data format and scalable analysis workflows that adapt well
 with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
-
-Documentation
--------------
-
-Getting started
-~~~~~~~~~~~~~~~
-
-* :doc:`why`
-* :doc:`installation`
-.. * :doc:`examples`
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Getting started
-
-   why
-   installation
-..   examples
-
-User guide
-~~~~~~~~~~
-
-* :doc:`convert`
-* :doc:`open-converted`
-* :doc:`process`
-* :doc:`data-format`
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: User guide
-
-   convert
-   open-converted
-   process
-   data-format
-
-Help & reference
-~~~~~~~~~~~~~~~~
-
-* :doc:`api`
-* :doc:`whats-new`
-* :doc:`contributing`
-* :doc:`resources`
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Help & reference
-
-   api
-   whats-new
-   contributing
-   resources
-
-
 Contributors
 ------------
 
@@ -110,5 +53,5 @@ Simrad EK60 and EK80 echosounders.
 License
 -------
 
-Echopype is licensed under the open source 
+Echopype is licensed under the open source
 `Apache 2.0 license <https://opensource.org/licenses/Apache-2.0>`_.
