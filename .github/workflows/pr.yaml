@@ -2,7 +2,7 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml", "docs"]
 
 env:
   CONDA_ENV: echopype
@@ -16,10 +16,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.7, 3.8]
-        experimental: [false]
         include:
+        - python-version: 3.7
+          experimental: false
+        - python-version: 3.8
+          experimental: false
         - python-version: 3.9
+          experimental: true
+        - python-version: "3.10"
           experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -67,15 +71,15 @@ jobs:
           use-mamba: true
           auto-activate-base: false
           use-only-tar-bz2: true
-      - name: Update mamba
-        shell: bash -l {0}
-        run: |
-          conda update -c conda-forge --yes mamba
       - name: Print conda env
         shell: bash -l {0}
         run: |
           conda info
           conda list
+      - name: Remove docker-compose python
+        if: ${{ matrix.python-version == '3.10' }}
+        shell: bash -l {0}
+        run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
         shell: bash -l {0}
         run: |
@@ -96,12 +100,12 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')
         shell: bash -l {0}
         run: |
-          pytest -vv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+          pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
         if: "!contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')"
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vv,-rx,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=4,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2

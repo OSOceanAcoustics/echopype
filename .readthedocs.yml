@@ -22,6 +22,10 @@ python:
    install:
       - requirements: requirements.txt
       - requirements: docs/requirements.txt
+      - method: pip
+        path: .
+        extra_requirements:
+           - plot
       - method: setuptools
         path: .
 #   system_packages: true
