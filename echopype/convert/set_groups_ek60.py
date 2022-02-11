@@ -101,6 +101,15 @@ class SetGroupsEK60(SetGroupsBase):
             [self.parser_obj.ping_data_dict["power"][ch].shape[1] for ch in ch_ids]
         )
         vars = {var_name: [] for var_name in var_names}
+
+        def padding(var_name: str) -> Any:
+            if "range_bin" in var_coords[var_name]:
+                # 2d
+                return np.full(max_range_bin, np.nan)
+            else:
+                # 1d
+                return np.nan
+
         for ch in ch_ids:
             for var_name in var_names:
                 var_data = []
@@ -109,42 +118,26 @@ class SetGroupsEK60(SetGroupsBase):
                     # then other channels have ping_time values that this one does not
                     # so we need to pad the variable until we get to a ping_time value we recognize
                     while ping_time != combined_ping_times[len(var_data)]:
-                        if "range_bin" in var_coords[var_name]:
-                            # 2d
-                            var_data.append(np.full(max_range_bin, np.nan))
-                        else:
-                            # 1d
-                            var_data.append(np.nan)
-                    if i < len(self.parser_obj.ping_data_dict[var_name][ch]):
-                        data = self.parser_obj.ping_data_dict[var_name][ch][i]
-                        # TODO: (this comment is copied from previous implementation)
-                        #  below needs to be changed to use
-                        #  self.convert_obj.ping_data_dict['mode'][ch] == 3
-                        #  1 = Power only, 2 = Angle only 3 = Power & Angle
-                        # Set angle data if in split beam mode (beam_type == 1)
-                        # because single beam mode (beam_type == 0) does not record angle data
+                        var_data.append(padding(var_name))
+                    if i < len(self.parser_obj.ping_data_dict[var_names[var_name]][ch]):
+                        data = self.parser_obj.ping_data_dict[var_names[var_name]][ch][i]
 
                         # special case for angle_athwartship and angle_alongship
                         if var_name == "angle_athwartship":
-                            data = data[:, :, 0]
+                            data = data[:, 0]
                         elif var_name == "angle_alongship":
-                            data = data[:, :, 1]
+                            data = data[:, 1]
                         var_data.append(data)
                     else:
                         # if we have a ping at this time but we've run out of data, pad
-                        if "range_bin" in var_coords[var_name]:
-                            # 2d
-                            var_data.append(np.full(max_range_bin, np.nan))
-                        else:
-                            # 1d
-                            var_data.append(np.nan)
+                        var_data.append(padding(var_name))
                 vars[var_name].append(np.array(var_data))
         # pad variables with range_bin to maximum range_bin length across all frequencies
         for var_name, var_data in vars.items():
             if "range_bin" in var_coords[var_name]:
                 for freq, data in enumerate(var_data):
                     vars[var_name][freq] = np.pad(
-                        data,
+                        data.astype(np.float64),
                         ((0, 0), (0, max_range_bin - data.shape[1])),
                         constant_values=(np.nan, np.nan),
                     )
@@ -153,7 +146,7 @@ class SetGroupsEK60(SetGroupsBase):
             var_name: np.stack(var_data) for var_name, var_data in vars.items()
         }
         data_vars = {
-            var_names[var_name]: (
+            var_name: (
                 var_coords[var_name],
                 stacked_vars[var_name],
                 var_attrs[var_name],
@@ -550,6 +543,15 @@ class SetGroupsEK60(SetGroupsBase):
             "offset": "offset",
             "transmit_mode": "transmit_mode",
         }
+        # TODO: below needs to be changed to use
+        #  self.convert_obj.ping_data_dict['mode'][ch] == 3
+        #  1 = Power only, 2 = Angle only 3 = Power & Angle
+        # Set angle data if in split beam mode (beam_type == 1)
+        # because single beam mode (beam_type == 0) does not record angle data
+        for ch in ch_ids:
+            if self.parser_obj.config_datagram["transceivers"][ch]["beam_type"] == 1:
+                var_names.update({"angle_athwartship": "angle"})
+                var_names.update({"angle_alongship": "angle"})
         var_coords = {
             "backscatter_r": ["frequency", "ping_time", "range_bin"],
             "sample_interval": ["frequency", "ping_time"],
@@ -560,6 +562,8 @@ class SetGroupsEK60(SetGroupsBase):
             "count": ["frequency", "ping_time"],
             "offset": ["frequency", "ping_time"],
             "transmit_mode": ["frequency", "ping_time"],
+            "angle_athwartship": ["frequency", "ping_time", "range_bin"],
+            "angle_alongship": ["frequency", "ping_time", "range_bin"],
         }
         var_attrs = {
             "backscatter_r": {"long_name": "Backscatter power", "units": "dB"},
@@ -598,10 +602,10 @@ class SetGroupsEK60(SetGroupsBase):
             },
             "ping_time": DEFAULT_BEAM_COORD_ATTRS["ping_time"],
             "range_bin": DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+            "angle_athwartship": {"long_name": "electrical athwartship angle"},
+            "angle_alongship": {"long_name": "electrical alongship angle"}
         }
         coords = ["frequency", "ping_time", "range_bin"]
-
-        # FIXME: angle_athwartship and angle_alongship???
 
         ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs, coords)
 
