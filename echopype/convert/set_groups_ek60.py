@@ -125,7 +125,9 @@ class SetGroupsEK60(SetGroupsBase):
                     while ping_time != combined_ping_times[len(var_data)]:
                         var_data.append(padding(var_name))
                     if i < len(self.parser_obj.ping_data_dict[var_names[var_name]][ch]):
-                        data = self.parser_obj.ping_data_dict[var_names[var_name]][ch][i]
+                        data = self.parser_obj.ping_data_dict[var_names[var_name]][ch][
+                            i
+                        ]
 
                         # special case for angle_athwartship and angle_alongship
                         if var_name == "angle_athwartship":
@@ -609,7 +611,7 @@ class SetGroupsEK60(SetGroupsBase):
             "ping_time": DEFAULT_BEAM_COORD_ATTRS["ping_time"],
             "range_bin": DEFAULT_BEAM_COORD_ATTRS["range_bin"],
             "angle_athwartship": {"long_name": "electrical athwartship angle"},
-            "angle_alongship": {"long_name": "electrical alongship angle"}
+            "angle_alongship": {"long_name": "electrical alongship angle"},
         }
 
         ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs)
