@@ -90,45 +90,56 @@ class SetGroupsEK60(SetGroupsBase):
         coords: List[str],
     ):
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
+        # combine ping_time into one array in case different channels have different ping_times
         combined_ping_times = np.sort(
             np.array(
                 list(set(np.concatenate(list(self.parser_obj.ping_time.values()))))
             )
         )
+        # find the maximum length of the range_bin dim across channels
         max_range_bin = max(
             [self.parser_obj.ping_data_dict["power"][ch].shape[1] for ch in ch_ids]
         )
         vars = {var_name: [] for var_name in var_names}
         for ch in ch_ids:
             for var_name in var_names:
-                # if len(self.parser_obj.ping_time[ch]) == len(combined_ping_times):
-                #     vars[var_name].append(self.parser_obj.ping_data_dict[var_name][ch])
-                # else:
                 var_data = []
                 for i, ping_time in enumerate(self.parser_obj.ping_time[ch]):
+                    # if this channel's ping_time does not line up with the combined ping_time,
+                    # then other channels have ping_time values that this one does not
+                    # so we need to pad the variable until we get to a ping_time value we recognize
                     while ping_time != combined_ping_times[len(var_data)]:
                         if "range_bin" in var_coords[var_name]:
+                            # 2d
                             var_data.append(np.full(max_range_bin, np.nan))
                         else:
+                            # 1d
                             var_data.append(np.nan)
                     if i < len(self.parser_obj.ping_data_dict[var_name][ch]):
                         data = self.parser_obj.ping_data_dict[var_name][ch][i]
-                        # TODO: below needs to be changed to use
+                        # TODO: (this comment is copied from previous implementation)
+                        #  below needs to be changed to use
                         #  self.convert_obj.ping_data_dict['mode'][ch] == 3
                         #  1 = Power only, 2 = Angle only 3 = Power & Angle
                         # Set angle data if in split beam mode (beam_type == 1)
                         # because single beam mode (beam_type == 0) does not record angle data
+
+                        # special case for angle_athwartship and angle_alongship
                         if var_name == "angle_athwartship":
                             data = data[:, :, 0]
                         elif var_name == "angle_alongship":
                             data = data[:, :, 1]
                         var_data.append(data)
                     else:
+                        # if we have a ping at this time but we've run out of data, pad
                         if "range_bin" in var_coords[var_name]:
+                            # 2d
                             var_data.append(np.full(max_range_bin, np.nan))
                         else:
+                            # 1d
                             var_data.append(np.nan)
                 vars[var_name].append(np.array(var_data))
+        # pad variables with range_bin to maximum range_bin length across all frequencies
         for var_name, var_data in vars.items():
             if "range_bin" in var_coords[var_name]:
                 for freq, data in enumerate(var_data):
@@ -137,6 +148,7 @@ class SetGroupsEK60(SetGroupsBase):
                         ((0, 0), (0, max_range_bin - data.shape[1])),
                         constant_values=(np.nan, np.nan),
                     )
+        # stack padded variables
         stacked_vars = {
             var_name: np.stack(var_data) for var_name, var_data in vars.items()
         }
@@ -148,6 +160,7 @@ class SetGroupsEK60(SetGroupsBase):
             )
             for var_name in stacked_vars
         }
+        # add coordinates
         coords_values = {}
         if "frequency" in coords:
             coords_values.update(
