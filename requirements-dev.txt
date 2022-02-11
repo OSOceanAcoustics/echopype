@@ -1,5 +1,6 @@
 black
 check-manifest
+codespell
 docker-compose
 flake8
 flake8-builtins

@@ -80,10 +80,10 @@ class ParseAZFP(ParseBase):
             "BP": "BP",
         }
 
-        # Retreive integer parameters from the xml file
+        # Retrieve integer parameters from the xml file
         for old_name, new_name in int_params.items():
             self.parameters[new_name] = int(get_value_by_tag_name(old_name))
-        # Retreive floating point parameters from the xml file
+        # Retrieve floating point parameters from the xml file
         for param in float_params:
             self.parameters[param] = float(get_value_by_tag_name(param))
         # Retrieve frequency dependent parameters from the xml file
@@ -122,7 +122,7 @@ class ParseAZFP(ParseBase):
             return T
 
         def compute_tilt(N, a, b, c, d):
-            return a + b * N + c * N ** 2 + d * N ** 3
+            return a + b * N + c * N**2 + d * N**3
 
         def compute_battery(N):
             USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
