@@ -44,10 +44,10 @@ def calc_sound_speed(
             - 5.304e-2 * temperature ** 2
             + 2.374e-4 * temperature ** 3
         )
-        ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure**2
+        ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure ** 2
         ss += (
             -1.025e-2 * temperature * (salinity - 35)
-            - 7.139e-13 * temperature * pressure**3
+            - 7.139e-13 * temperature * pressure ** 3
         )
     elif formula_source == "AZFP":
         z = temperature / 10
@@ -120,31 +120,31 @@ def calc_absorption(
         P1 = 1.0
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
-        P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure**2
+        P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure ** 2
         f2 = (
             8.17
             * 10 ** (8 - 1990 / (temperature + 273))
             / (1 + 0.0018 * (salinity - 35))
         )
-        P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure**2
+        P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure ** 2
         if temperature < 20:
             A3 = (
                 4.937e-4
                 - 2.59e-5 * temperature
-                + 9.11e-7 * temperature**2
-                - 1.5e-8 * temperature**3
+                + 9.11e-7 * temperature ** 2
+                - 1.5e-8 * temperature ** 3
             )
         else:
             A3 = (
                 3.964e-4
                 - 1.146e-5 * temperature
-                + 1.45e-7 * temperature**2
-                - 6.5e-10 * temperature**3
+                + 1.45e-7 * temperature ** 2
+                - 6.5e-10 * temperature ** 3
             )
         a = (
-            A1 * P1 * f1 * f**2 / (f**2 + f1**2)
-            + A2 * P2 * f2 * f**2 / (f**2 + f2**2)
-            + A3 * P3 * f**2
+            A1 * P1 * f1 * f ** 2 / (f ** 2 + f1 ** 2)
+            + A2 * P2 * f2 * f ** 2 / (f ** 2 + f2 ** 2)
+            + A3 * P3 * f ** 2
         )
         sea_abs = a / 1000  # formula output is in unit [dB/km]
 
@@ -155,19 +155,19 @@ def calc_absorption(
         f2 = 42 * np.exp(temperature / 17)
         a1 = (
             0.106
-            * (f1 * (freq**2))
-            / ((f1**2) + (freq**2))
+            * (f1 * (freq ** 2))
+            / ((f1 ** 2) + (freq ** 2))
             * np.exp((pH - 8) / 0.56)
         )
         a2 = (
             0.52
             * (1 + temperature / 43)
             * (salinity / 35)
-            * (f2 * (freq**2))
-            / ((f2**2) + (freq**2))
+            * (f2 * (freq ** 2))
+            / ((f2 ** 2) + (freq ** 2))
             * np.exp(-D / 6)
         )
-        a3 = 0.00049 * freq**2 * np.exp(-(temperature / 27 + D))
+        a3 = 0.00049 * freq ** 2 * np.exp(-(temperature / 27 + D))
         sea_abs = (a1 + a2 + a3) / 1000  # convert to db/m from db/km
 
     elif formula_source == "AZFP":
@@ -182,7 +182,7 @@ def calc_absorption(
             (salinity / 35.0)
             * 4.88e-7
             * (1 + 0.0134 * temperature)
-            * (1 - 0.00103 * k + 3.7e-7 * k**2)
+            * (1 - 0.00103 * k + 3.7e-7 * k ** 2)
         )
         c = (
             4.86e-13
@@ -194,12 +194,12 @@ def calc_absorption(
             * (1 + k * (-3.84e-4 + k * 7.57e-8))
         )
         if salinity == 0:
-            sea_abs = c * frequency**2
+            sea_abs = c * frequency ** 2
         else:
             sea_abs = (
-                (a * f1 * frequency**2) / (f1**2 + frequency**2)
-                + (b * f2 * frequency**2) / (f2**2 + frequency**2)
-                + c * frequency**2
+                (a * f1 * frequency ** 2) / (f1 ** 2 + frequency ** 2)
+                + (b * f2 * frequency ** 2) / (f2 ** 2 + frequency ** 2)
+                + c * frequency ** 2
             )
     else:
         ValueError("Unknown formula source")
