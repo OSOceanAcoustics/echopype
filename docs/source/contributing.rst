@@ -34,16 +34,10 @@ This diagram depicts the complete workflow we use in the source GitHub repositor
         dev --> |dev merge| rel
         rel --> main
 
-<<<<<<< HEAD
 - ``doc patch``: Updates to the documentation that refer to the current ``echopype`` 
   release can be pushed out immediately to the 
   `echopype documentation site <https://echopype.readthedocs.io>`_ 
   by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_ 
-=======
-- ``doc patch``: Updates to the documentation that refer to the current ``echopype``
-  release can be pushed out immediately to the `echopype documentation site <https://echopype.readthedocs.io>`_
-  by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_
->>>>>>> main
   below for more details.
 - ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
   branch; changes in the documentation corresponding to changes in the code can be
@@ -226,7 +220,6 @@ and adding a new section that documents a previously undocumented feature.
 Documentation versions
 ~~~~~~~~~~~~~~~~~~~~~~
 
-<<<<<<< HEAD
 `<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version, 
 `<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch 
 on the ``echopype`` GitHub repository. In addition, the ``latest`` version 
@@ -235,16 +228,6 @@ therefore it reflects the bleeding edge development code (which may occasionally
 the documenation build). Finally, each new echopype release is built as a new release version 
 on ReadTheDocs. Merging pull requests into ``stable`` or ``dev`` or issuing a new 
 tagged release will automatically result in a new ReadTheDocs build for the 
-=======
-`<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version,
-`<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch
-on the ``echopype`` GitHub repository. In addition, the ``latest`` version
-(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``main`` branch,
-while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built
-from the ``dev`` branch. Finally, each new echopype release is built as a new release version
-on ReadTheDocs. Merging pull requests into any of these three branches or issuing a
-new tagged release will automatically result in a new ReadTheDocs build for the
->>>>>>> main
 corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
