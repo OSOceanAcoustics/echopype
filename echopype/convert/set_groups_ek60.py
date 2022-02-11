@@ -1,7 +1,7 @@
 import warnings
 from collections import defaultdict
 from datetime import datetime as dt
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import xarray as xr
@@ -86,9 +86,14 @@ class SetGroupsEK60(SetGroupsBase):
         self,
         var_names: Dict[str, str],
         var_coords: Dict[str, List[str]],
-        var_attrs: Dict[str, Any],
-        coords: List[str],
+        var_attrs: Dict[str, Dict[str, str]],
     ):
+        """
+        var_names: maps output Dataset variable name to ping_data_dict variable name
+        var_coords: maps output Dataset variable name to variable coordinates
+        var_attrs: maps output Dataset variable name to variable attributes
+        """
+
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
         # combine ping_time into one array in case different channels have different ping_times
         combined_ping_times = np.sort(
@@ -155,7 +160,10 @@ class SetGroupsEK60(SetGroupsBase):
         }
         # add coordinates
         coords_values = {}
-        if "frequency" in coords:
+        all_coords = set()
+        for coords in var_coords.values():
+            all_coords = all_coords.union(set(coords))
+        if "frequency" in all_coords:
             coords_values.update(
                 {
                     "frequency": [
@@ -164,9 +172,9 @@ class SetGroupsEK60(SetGroupsBase):
                     ]
                 }
             )
-        if "ping_time" in coords:
+        if "ping_time" in all_coords:
             coords_values.update({"ping_time": combined_ping_times})
-        if "range_bin" in coords:
+        if "range_bin" in all_coords:
             coords_values.update({"range_bin": np.arange(max_range_bin)})
         return xr.Dataset(data_vars=data_vars, coords=coords_values)
 
@@ -228,8 +236,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "valid_min": 0.0,
             },
         }
-        coords = ["frequency", "ping_time"]
-        ds = self.make_dataset(var_names, var_coords, var_attrs, coords)
+        ds = self.make_dataset(var_names, var_coords, var_attrs)
 
         return set_encodings(ds)
 
@@ -309,9 +316,8 @@ class SetGroupsEK60(SetGroupsBase):
                     "valid_min": 0.0,
                 },
             }
-            coords = ["frequency", "ping_time"]
 
-            ds_plat = self.make_dataset(var_names, var_coords, var_attrs, coords)
+            ds_plat = self.make_dataset(var_names, var_coords, var_attrs)
             ds_plat = ds_plat.assign_attrs(
                 {
                     "platform_code_ICES": self.ui_param["platform_code_ICES"],
@@ -605,9 +611,8 @@ class SetGroupsEK60(SetGroupsBase):
             "angle_athwartship": {"long_name": "electrical athwartship angle"},
             "angle_alongship": {"long_name": "electrical alongship angle"}
         }
-        coords = ["frequency", "ping_time", "range_bin"]
 
-        ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs, coords)
+        ds_backscatter = self.make_dataset(var_names, var_coords, var_attrs)
 
         # Merge data from all channels
         ds = xr.merge(
