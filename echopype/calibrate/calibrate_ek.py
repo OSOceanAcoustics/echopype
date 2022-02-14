@@ -4,15 +4,14 @@ from dask.array.core import Array
 from scipy import signal
 
 from ..utils import uwa
-from .calibrate_base import CAL_PARAMS, ENV_PARAMS, CalibrateBase
+from .calibrate_base import CAL_PARAMS, CalibrateBase
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata):
-        super().__init__(echodata)
+    def __init__(self, echodata, env_params):
+        super().__init__(echodata, env_params)
 
         # cal params specific to EK echosounders
-        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
 
     def compute_range_meter(self, waveform_mode, encode_mode):
@@ -162,7 +161,7 @@ class CalibrateEK(CalibrateBase):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset contaning Sv or Sp
+            The calibrated dataset containing Sv or Sp
         """
         # Select source of backscatter data
         if use_beam_power:
@@ -186,10 +185,10 @@ class CalibrateEK(CalibrateBase):
                 + self.cal_params["equivalent_beam_angle"]
                 + 10
                 * np.log10(
-                    wavelength ** 2
+                    wavelength**2
                     * beam["transmit_duration_nominal"]
                     * self.env_params["sound_speed"]
-                    / (32 * np.pi ** 2)
+                    / (32 * np.pi**2)
                 )
             )
 
@@ -208,7 +207,7 @@ class CalibrateEK(CalibrateBase):
             CSp = (
                 10 * np.log10(beam["transmit_power"])
                 + 2 * self.cal_params["gain_correction"]
-                + 10 * np.log10(wavelength ** 2 / (16 * np.pi ** 2))
+                + 10 * np.log10(wavelength**2 / (16 * np.pi**2))
             )
 
             # Calibration and echo integration
@@ -227,12 +226,10 @@ class CalibrateEK(CalibrateBase):
 
 class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
-        super().__init__(echodata)
+        super().__init__(echodata, env_params)
 
         # load env and cal parameters
-        if env_params is None:
-            env_params = {}
-        self.get_env_params(env_params)
+        self.get_env_params()
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(cal_params, waveform_mode="CW", encode_mode="power")
@@ -240,7 +237,7 @@ class CalibrateEK60(CalibrateEK):
         # default to CW mode recorded as power samples
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
-    def get_env_params(self, env_params, **kwargs):
+    def get_env_params(self, **kwargs):
         """Get env params using user inputs or values from data file.
 
         EK60 file by default contains only sound speed and absorption.
@@ -253,12 +250,10 @@ class CalibrateEK60(CalibrateEK):
         """
         # Re-calculate environment parameters if user supply all env variables
         if (
-            ("temperature" in env_params)
-            and ("salinity" in env_params)
-            and ("pressure" in env_params)
+            ("temperature" in self.env_params)
+            and ("salinity" in self.env_params)
+            and ("pressure" in self.env_params)
         ):
-            for p in ["temperature", "salinity", "pressure"]:
-                self.env_params[p] = env_params[p]
             self.env_params["sound_speed"] = uwa.calc_sound_speed(
                 temperature=self.env_params["temperature"],
                 salinity=self.env_params["salinity"],
@@ -273,13 +268,13 @@ class CalibrateEK60(CalibrateEK):
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
             self.env_params["sound_speed"] = (
-                env_params["sound_speed"]
-                if "sound_speed" in env_params
+                self.env_params["sound_speed"]
+                if "sound_speed" in self.env_params
                 else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
-                env_params["sound_absorption"]
-                if "sound_absorption" in env_params
+                self.env_params["sound_absorption"]
+                if "sound_absorption" in self.env_params
                 else self.echodata.environment["absorption_indicative"]
             )
 
@@ -296,21 +291,16 @@ class CalibrateEK80(CalibrateEK):
     z_er = 1000
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
-        super().__init__(echodata)
+        super().__init__(echodata, env_params)
 
-        # initialize env and cal params
+        # initialize cal params
         # cal params are those used by both complex and power data calibration
         # TODO: add complex data-specific params, like the freq-dependent gain factor
-        self.env_params = dict.fromkeys(ENV_PARAMS)
         self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
         # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
-        if env_params is None:
-            env_params = {}
-        self.get_env_params(
-            env_params, waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        self.get_env_params(waveform_mode=waveform_mode, encode_mode=encode_mode)
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(
@@ -320,7 +310,7 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def get_env_params(self, env_params, waveform_mode="BB", encode_mode="complex"):
+    def get_env_params(self, waveform_mode=None, encode_mode="complex"):
         """Get env params using user inputs or values from data file.
 
         EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -365,12 +355,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Re-calculate environment parameters if user supply all env variables
         if (
-            ("temperature" in env_params)
-            and ("salinity" in env_params)
-            and ("pressure" in env_params)
+            ("temperature" in self.env_params)
+            and ("salinity" in self.env_params)
+            and ("pressure" in self.env_params)
         ):
-            for p in ["temperature", "salinity", "pressure"]:
-                self.env_params[p] = env_params[p]
             self.env_params["sound_speed"] = uwa.calc_sound_speed(
                 temperature=self.env_params["temperature"],
                 salinity=self.env_params["salinity"],
@@ -393,18 +381,18 @@ class CalibrateEK80(CalibrateEK):
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    env_params[p1]
-                    if p1 in env_params
+                    self.env_params[p1]
+                    if p1 in self.env_params
                     else self.echodata.environment[p2]
                 )
             self.env_params["sound_speed"] = (
-                env_params["sound_speed"]
-                if "sound_speed" in env_params
+                self.env_params["sound_speed"]
+                if "sound_speed" in self.env_params
                 else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
-                env_params["sound_absorption"]
-                if "sound_absorption" in env_params
+                self.env_params["sound_absorption"]
+                if "sound_absorption" in self.env_params
                 else uwa.calc_absorption(
                     frequency=freq,
                     temperature=self.env_params["temperature"],
@@ -657,7 +645,7 @@ class CalibrateEK80(CalibrateEK):
             gain = []
             if "gain" in self.echodata.vendor.data_vars:
                 # index using channel_id as order of frequency across channel can be arbitrary
-                # refererence to freq_center in case some channels are CW complex samples
+                # reference to freq_center in case some channels are CW complex samples
                 # (already dropped when computing freq_center in the calling function)
                 for fn in freq_center.frequency:
                     ch_id = self.echodata.beam.channel_id.sel(frequency=fn)
@@ -711,7 +699,7 @@ class CalibrateEK80(CalibrateEK):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset contaning Sv or Sp
+            The calibrated dataset containing Sv or Sp
         """
         # Transmit replica and effective pulse length
         chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
@@ -831,7 +819,7 @@ class CalibrateEK80(CalibrateEK):
                 + absorption_loss
                 - 10
                 * np.log10(
-                    wavelength ** 2 * transmit_power * sound_speed / (32 * np.pi ** 2)
+                    wavelength**2 * transmit_power * sound_speed / (32 * np.pi**2)
                 )
                 - 2 * gain
                 - 10 * np.log10(tau_effective)
@@ -848,7 +836,7 @@ class CalibrateEK80(CalibrateEK):
                 10 * np.log10(prx)
                 + 2 * spreading_loss
                 + absorption_loss
-                - 10 * np.log10(wavelength ** 2 * transmit_power / (16 * np.pi ** 2))
+                - 10 * np.log10(wavelength**2 * transmit_power / (16 * np.pi**2))
                 - 2 * gain
             )
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sp"})

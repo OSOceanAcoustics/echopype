@@ -14,6 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
@@ -223,6 +224,9 @@ class EchoData:
         file the range is held constant.
         """
 
+        if isinstance(env_params, EnvParams):
+            env_params = env_params._apply(self)
+
         def squeeze_non_scalar(n):
             if not np.isscalar(n):
                 n = n.squeeze()
@@ -339,16 +343,15 @@ class EchoData:
                     beam.range_bin - tvg_correction_factor
                 ) * sample_thickness  # [frequency x range_bin]
             elif waveform_mode == "BB":
+                beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
-                shift = self.beam[
+                shift = beam[
                     "transmit_duration_nominal"
                 ]  # based on Lar Anderson's Matlab code
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (self.beam.range_bin * self.beam["sample_interval"] - shift)
-                    * sound_speed
-                    / 2
+                    (beam.range_bin * beam["sample_interval"] - shift) * sound_speed / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -360,7 +363,18 @@ class EchoData:
             range_meter = range_meter.where(
                 range_meter > 0, 0
             )  # set negative ranges to 0
-            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            # set entries with NaN backscatter data to NaN
+            if "quadrant" in beam["backscatter_r"].dims:
+                valid_idx = (
+                    ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+                )
+            else:
+                valid_idx = ~beam["backscatter_r"].isnull()
+            range_meter = range_meter.where(valid_idx)
+
+            # add name to facilitate xr.merge
+            range_meter.name = "range"
 
             return range_meter
 

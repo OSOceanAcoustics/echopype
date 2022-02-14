@@ -131,7 +131,7 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return ((sv * dz).sum(dim="range_bin")) ** 2 / (sv ** 2 * dz).sum(dim="range_bin")
+    return ((sv * dz).sum(dim="range_bin")) ** 2 / (sv**2 * dz).sum(dim="range_bin")
 
 
 def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:

@@ -1,6 +1,7 @@
 Other resources
 ================
 
+
 Software
 --------
 
@@ -51,6 +52,6 @@ as well as the programming language in which it is written.
 Echosounder information
 -----------------------
 
-- `ASL Environemntal Sciences Acoustic Zooplankton Fish Profiler (AZFP) <https://aslenv.com/azfp.html>`_
+- `ASL Environmental Sciences Acoustic Zooplankton Fish Profiler (AZFP) <https://aslenv.com/azfp.html>`_
 - `Kongsberg Simrad EK60 <https://www.simrad.online/ek60/ref_english/default.htm>`_
 - `Kongsberg Simrad EK80 <https://www.simrad.online/ek80/ref_en/default.htm>`_
