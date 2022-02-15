@@ -13,6 +13,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..calibrate.calibrate_base import EnvParams
 from .convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
@@ -223,6 +224,9 @@ class EchoData:
         to conform with outputs from other echosounders, even though within each data
         file the range is held constant.
         """
+
+        if isinstance(env_params, EnvParams):
+            env_params = env_params._apply(self)
 
         def squeeze_non_scalar(n):
             if not np.isscalar(n):

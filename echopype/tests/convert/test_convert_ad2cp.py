@@ -10,6 +10,8 @@ import xarray as xr
 import numpy as np
 import netCDF4
 import pytest
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
@@ -31,24 +33,30 @@ def ocean_contour_export_090_dir(ocean_contour_export_dir):
 
 
 @pytest.fixture
-def output_dir(test_path):
-    return test_path["AD2CP"] / "echopype_test-export"
+def output_dir():
+    return "/echopype_test-export"
 
 
 def pytest_generate_tests(metafunc):
     ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
-    test_file_dir = ad2cp_path / "normal"  # "normal" files do not have IQ samples
+    test_file_dir = (
+        ad2cp_path / "normal"
+    )  # "normal" files do not have IQ samples
     raw_test_file_dir = ad2cp_path / "raw"  # "raw" files contain IQ samples
     ad2cp_files = test_file_dir.glob("**/*.ad2cp")
     raw_ad2cp_files = raw_test_file_dir.glob("**/*.ad2cp")
     if "filepath" in metafunc.fixturenames:
         metafunc.parametrize(
-            argnames="filepath", argvalues=ad2cp_files, ids=lambda f: str(f.name)
+            argnames="filepath",
+            argvalues=ad2cp_files,
+            ids=lambda f: str(f.name),
         )
 
     if "filepath_raw" in metafunc.fixturenames:
         metafunc.parametrize(
-            argnames="filepath_raw", argvalues=raw_ad2cp_files, ids=lambda f: str(f.name)
+            argnames="filepath_raw",
+            argvalues=raw_ad2cp_files,
+            ids=lambda f: str(f.name),
         )
 
 
@@ -68,18 +76,37 @@ def absolute_tolerance():
 
 
 def test_convert(filepath, output_dir):
-    print("converting", filepath)
-    echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
-    echodata.to_netcdf(save_path=output_dir)
+    with TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir + output_dir)
+        print("converting", filepath)
+        echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
+        echodata.to_netcdf(save_path=output_dir)
 
 
-def test_convert_raw(filepath_raw, output_dir):
-    print("converting raw", filepath_raw)
-    echodata = open_raw(raw_file=str(filepath_raw), sonar_model="AD2CP")
-    echodata.to_netcdf(save_path=output_dir)
+def test_convert_raw(
+    filepath_raw,
+    output_dir,
+    ocean_contour_export_090_dir,
+    ocean_contour_export_076_dir,
+    absolute_tolerance,
+):
+    with TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir + output_dir)
+
+        print("converting raw", filepath_raw)
+        echodata = open_raw(raw_file=str(filepath_raw), sonar_model="AD2CP")
+        echodata.to_netcdf(save_path=output_dir)
+
+        _check_raw_output(
+            filepath_raw,
+            output_dir,
+            ocean_contour_export_090_dir,
+            ocean_contour_export_076_dir,
+            absolute_tolerance,
+        )
 
 
-def test_raw_output(
+def _check_raw_output(
     filepath_raw,
     output_dir,
     ocean_contour_export_090_dir,
