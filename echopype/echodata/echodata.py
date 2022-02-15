@@ -1,7 +1,6 @@
 import datetime
 import uuid
 import warnings
-from collections import OrderedDict
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
@@ -14,12 +13,11 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from .convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
-from .convention import _get_convention
-from .convention.attrs import DEFAULT_PLATFORM_COORD_ATTRS
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -31,13 +29,16 @@ TVG_CORRECTION_FACTOR = {
     "EK80": 0,
 }
 
+_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
+DEFAULT_PLATFORM_COORD_ATTRS = _varattrs["platform_coord_default"]
+
 
 class EchoData:
     """Echo data model class for handling raw converted data,
     including multiple files associated with the same data set.
     """
 
-    group_map = OrderedDict(_get_convention()["groups"])
+    group_map = sonarnetcdf_1.conv.yaml_dict["groups"]
 
     def __init__(
         self,

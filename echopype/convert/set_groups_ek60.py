@@ -6,17 +6,18 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from ..echodata.convention.attrs import (
-    DEFAULT_BEAM_COORD_ATTRS,
-    DEFAULT_PLATFORM_COORD_ATTRS,
-    DEFAULT_PLATFORM_VAR_ATTRS,
-)
+from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 
 # fmt: on
+
+_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
+DEFAULT_BEAM_COORD_ATTRS = _varattrs["beam_coord_default"]
+DEFAULT_PLATFORM_COORD_ATTRS = _varattrs["platform_coord_default"]
+DEFAULT_PLATFORM_VAR_ATTRS = _varattrs["platform_var_default"]
 
 
 class SetGroupsEK60(SetGroupsBase):

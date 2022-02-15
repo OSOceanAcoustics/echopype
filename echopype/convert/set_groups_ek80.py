@@ -4,9 +4,12 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..echodata.convention.attrs import DEFAULT_BEAM_COORD_ATTRS
+from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
+
+_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
+DEFAULT_BEAM_COORD_ATTRS = _varattrs["beam_coord_default"]
 
 
 class SetGroupsEK80(SetGroupsBase):
