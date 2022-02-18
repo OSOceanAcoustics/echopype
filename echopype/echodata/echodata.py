@@ -14,11 +14,11 @@ if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
 from ..calibrate.calibrate_base import EnvParams
-from .convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
+from .convention import sonarnetcdf_1
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
