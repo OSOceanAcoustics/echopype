@@ -22,7 +22,7 @@ class SetGroupsEK60(SetGroupsBase):
         super().__init__(*args, **kwargs)
 
         self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
-        
+
         self.old_ping_time = None
         # correct duplicate ping_time
         for ch in self.parser_obj.config_datagram["transceivers"].keys():
