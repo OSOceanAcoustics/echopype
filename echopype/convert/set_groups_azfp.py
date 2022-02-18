@@ -8,12 +8,14 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
-_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
-DEFAULT_BEAM_COORD_ATTRS = _varattrs["beam_coord_default"]
-
 
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -165,17 +167,17 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
                 "ping_time": (
                     ["ping_time"],
                     ping_time,
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
                 "range_bin": (
                     ["range_bin"],
                     range_bin,
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_bin"],
                 ),
             },
             attrs={

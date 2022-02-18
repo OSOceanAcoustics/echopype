@@ -30,9 +30,6 @@ TVG_CORRECTION_FACTOR = {
     "EK80": 0,
 }
 
-_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
-DEFAULT_PLATFORM_COORD_ATTRS = _varattrs["platform_coord_default"]
-
 
 class EchoData:
     """Echo data model class for handling raw converted data,
@@ -67,6 +64,8 @@ class EchoData:
 
         self.__setup_groups()
         self.__read_converted(converted_raw_path)
+
+        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
@@ -492,7 +491,7 @@ class EchoData:
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
         location_time_attrs = {
-            **DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+            **self._varattrs["platform_coord_default"]["location_time"],
             **{"history": history_attr},
         }
         platform["location_time"] = platform["location_time"].assign_attrs(

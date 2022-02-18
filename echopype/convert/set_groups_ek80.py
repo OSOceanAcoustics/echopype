@@ -8,12 +8,14 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
-_varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
-DEFAULT_BEAM_COORD_ATTRS = _varattrs["beam_coord_default"]
-
 
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group."""
@@ -355,7 +357,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -398,12 +400,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
                 "range_bin": (
                     ["range_bin"],
                     np.arange(data_shape[1]),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_bin"],
                 ),
                 "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
             },
@@ -473,12 +475,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
                 "range_bin": (
                     ["range_bin"],
                     np.arange(data_shape[1]),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_bin"],
                 ),
             },
         )
@@ -552,12 +554,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
                 "range_bin": (
                     ["range_bin"],
                     np.arange(range_bin_size),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_bin"],
                 ),
             },
         )
@@ -634,7 +636,7 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
             ds_data["frequency"] = ds_data["frequency"].assign_attrs(
-                **DEFAULT_BEAM_COORD_ATTRS["frequency"]
+                **self._varattrs["beam_coord_default"]["frequency"]
             )
             if ch in self.parser_obj.ch_ids["complex"]:
                 ds_complex.append(ds_data)
@@ -700,7 +702,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     param_dict["transducer_frequency"],
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
