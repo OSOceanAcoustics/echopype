@@ -65,7 +65,7 @@ class EchoData:
         self.__setup_groups()
         self.__read_converted(converted_raw_path)
 
-        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
