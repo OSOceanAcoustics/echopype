@@ -36,7 +36,7 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
-    group_map = sonarnetcdf_1.conv.yaml_dict["groups"]
+    group_map = sonarnetcdf_1.yaml_dict["groups"]
 
     def __init__(
         self,

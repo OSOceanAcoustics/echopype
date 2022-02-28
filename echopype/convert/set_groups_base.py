@@ -44,7 +44,7 @@ class SetGroupsBase(abc.ABC):
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
-        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     # TODO: change the set_XXX methods to return a dataset to be saved
     #  in the overarching save method
