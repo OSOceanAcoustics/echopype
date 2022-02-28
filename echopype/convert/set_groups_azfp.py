@@ -4,7 +4,6 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 import numpy as np
 import xarray as xr
 
-from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
@@ -14,8 +13,6 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""

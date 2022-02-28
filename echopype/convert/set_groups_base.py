@@ -6,6 +6,7 @@ import pynmea2
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
+from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
@@ -42,6 +43,8 @@ class SetGroupsBase(abc.ABC):
             self.compression_settings = None
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
+
+        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
     # TODO: change the set_XXX methods to return a dataset to be saved
     #  in the overarching save method

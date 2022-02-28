@@ -23,8 +23,6 @@ class _Convention:
         ) as fid:
             convention_yaml = yaml.load(fid, Loader=yaml.SafeLoader)
 
-        # print(f"yaml keys: {convention_yaml.keys()}")
-
         self._yaml_dict = convention_yaml
 
         return self._yaml_dict

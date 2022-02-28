@@ -6,7 +6,6 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import set_encodings
 
 # fmt: off
@@ -20,8 +19,6 @@ class SetGroupsEK60(SetGroupsBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._varattrs = sonarnetcdf_1.conv.yaml_dict["variable_and_varattributes"]
 
         self.old_ping_time = None
         # correct duplicate ping_time
