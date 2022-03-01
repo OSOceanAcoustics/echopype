@@ -63,6 +63,7 @@ class SetGroupsEK80(SetGroupsBase):
             "transducer_name",
             "application_name",
             "application_version",
+            "channel_id_short",
         ]
         var = defaultdict(list)
         for ch_id, data in self.parser_obj.config_datagram["configuration"].items():
@@ -74,6 +75,7 @@ class SetGroupsEK80(SetGroupsBase):
             {
                 "serial_number": (["frequency"], var["serial_number"]),
                 "sonar_model": (["frequency"], var["transducer_name"]),
+                "sonar_serial_number": (["frequency"], var["channel_id_short"]),
                 "sonar_software_name": (
                     ["frequency"],
                     var["application_name"],
