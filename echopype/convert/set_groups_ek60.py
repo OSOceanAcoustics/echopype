@@ -6,11 +6,6 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from ..echodata.convention.attrs import (
-    DEFAULT_BEAM_COORD_ATTRS,
-    DEFAULT_PLATFORM_COORD_ATTRS,
-    DEFAULT_PLATFORM_VAR_ATTRS,
-)
 from ..utils.coding import set_encodings
 
 # fmt: off
@@ -188,12 +183,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "latitude": (
                     ["location_time"],
                     lat,
-                    DEFAULT_PLATFORM_VAR_ATTRS["latitude"],
+                    self._varattrs["platform_var_default"]["latitude"],
                 ),
                 "longitude": (
                     ["location_time"],
                     lon,
-                    DEFAULT_PLATFORM_VAR_ATTRS["longitude"],
+                    self._varattrs["platform_var_default"]["longitude"],
                 ),
                 "sentence_type": (["location_time"], msg_type),
             },
@@ -201,7 +196,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "location_time": (
                     ["location_time"],
                     location_time,
-                    DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+                    self._varattrs["platform_coord_default"]["location_time"],
                 )
             },
         )
@@ -226,22 +221,22 @@ class SetGroupsEK60(SetGroupsBase):
                         "pitch": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["pitch"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["pitch"],
+                            self._varattrs["platform_var_default"]["pitch"],
                         ),
                         "roll": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["roll"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["roll"],
+                            self._varattrs["platform_var_default"]["roll"],
                         ),
                         "heave": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["heave"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["heave"],
+                            self._varattrs["platform_var_default"]["heave"],
                         ),
                         "water_level": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["water_level"],
+                            self._varattrs["platform_var_default"]["water_level"],
                         ),
                     },
                     coords={
@@ -491,7 +486,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 )
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -573,12 +568,12 @@ class SetGroupsEK60(SetGroupsBase):
                     "ping_time": (
                         ["ping_time"],
                         self.parser_obj.ping_time[ch],
-                        DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                        self._varattrs["beam_coord_default"]["ping_time"],
                     ),
                     "range_bin": (
                         ["range_bin"],
                         np.arange(data_shape[1]),
-                        DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                        self._varattrs["beam_coord_default"]["range_bin"],
                     ),
                 },
             )

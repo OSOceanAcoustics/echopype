@@ -4,13 +4,15 @@ Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 import numpy as np
 import xarray as xr
 
-from ..echodata.convention.attrs import DEFAULT_BEAM_COORD_ATTRS
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -162,17 +164,17 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
                 "ping_time": (
                     ["ping_time"],
                     ping_time,
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
                 "range_bin": (
                     ["range_bin"],
                     range_bin,
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_bin"],
                 ),
             },
             attrs={
