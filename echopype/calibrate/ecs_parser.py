@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import Optional
 
 import numpy as np
 
@@ -41,8 +42,8 @@ class ECSParser:
         self.input_file = input_file
         self.data_type = None
         self.version = None
-        self.file_creation_time: datetime = None
-        self.parsed_params: dict() = None
+        self.file_creation_time: Optional[datetime] = None
+        self.parsed_params: Optional[dict] = None
 
     def _parse_header(self, fid) -> bool:
         """
