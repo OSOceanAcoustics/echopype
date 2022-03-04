@@ -15,7 +15,7 @@ from .echodata import EchoData
 def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
     """
     Merges attrs from a list of datasets.
-    Prioritizes keys from later datsets.
+    Prioritizes keys from later datasets.
     """
 
     total_attrs = dict()
@@ -246,7 +246,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
         if combined_group is not None:
-            # xarray inserts this dimension when concating along multiple dimensions
+            # xarray inserts this dimension when concatenating along multiple dimensions
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
 
         combined_group = set_encodings(combined_group)

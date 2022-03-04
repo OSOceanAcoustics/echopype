@@ -1,22 +1,19 @@
 import numpy as np
 
 from ..utils import uwa
-from .calibrate_base import CAL_PARAMS, ENV_PARAMS
+from .calibrate_base import CAL_PARAMS
 from .calibrate_ek import CalibrateBase
 
 
 class CalibrateAZFP(CalibrateBase):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
-        super().__init__(echodata)
+        super().__init__(echodata, env_params)
 
-        # initialize env and cal params
-        self.env_params = dict.fromkeys(ENV_PARAMS)
+        # initialize cal params
         self.cal_params = dict.fromkeys(CAL_PARAMS["AZFP"])
 
         # load env and cal parameters
-        if env_params is None:
-            env_params = {}
-        self.get_env_params(env_params)
+        self.get_env_params()
         if cal_params is None:
             cal_params = {}
         self.get_cal_params(cal_params)
@@ -38,7 +35,7 @@ class CalibrateAZFP(CalibrateBase):
                 cal_params[p] if p in cal_params else self.echodata.beam[p]
             )
 
-    def get_env_params(self, env_params):
+    def get_env_params(self):
         """Get env params using user inputs or values from data file.
 
         Parameters
@@ -47,19 +44,19 @@ class CalibrateAZFP(CalibrateBase):
         """
         # Temperature comes from either user input or data file
         self.env_params["temperature"] = (
-            env_params["temperature"]
-            if "temperature" in env_params
+            self.env_params["temperature"]
+            if "temperature" in self.env_params
             else self.echodata.environment["temperature"]
         )
 
         # Salinity and pressure always come from user input
-        if ("salinity" not in env_params) or ("pressure" not in env_params):
+        if ("salinity" not in self.env_params) or ("pressure" not in self.env_params):
             raise ReferenceError(
                 "Please supply both salinity and pressure in env_params."
             )
         else:
-            self.env_params["salinity"] = env_params["salinity"]
-            self.env_params["pressure"] = env_params["pressure"]
+            self.env_params["salinity"] = self.env_params["salinity"]
+            self.env_params["pressure"] = self.env_params["pressure"]
 
         # Always calculate sound speed and absorption
         self.env_params["sound_speed"] = uwa.calc_sound_speed(

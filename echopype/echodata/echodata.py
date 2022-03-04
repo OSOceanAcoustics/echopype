@@ -1,7 +1,6 @@
 import datetime
 import uuid
 import warnings
-from collections import OrderedDict
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
@@ -14,12 +13,12 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
-from .convention import _get_convention
-from .convention.attrs import DEFAULT_PLATFORM_COORD_ATTRS
+from .convention import sonarnetcdf_1
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -37,7 +36,7 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
-    group_map = OrderedDict(_get_convention()["groups"])
+    group_map = sonarnetcdf_1.yaml_dict["groups"]
 
     def __init__(
         self,
@@ -65,6 +64,8 @@ class EchoData:
 
         self.__setup_groups()
         self.__read_converted(converted_raw_path)
+
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
@@ -223,6 +224,9 @@ class EchoData:
         file the range is held constant.
         """
 
+        if isinstance(env_params, EnvParams):
+            env_params = env_params._apply(self)
+
         def squeeze_non_scalar(n):
             if not np.isscalar(n):
                 n = n.squeeze()
@@ -339,16 +343,15 @@ class EchoData:
                     beam.range_bin - tvg_correction_factor
                 ) * sample_thickness  # [frequency x range_bin]
             elif waveform_mode == "BB":
+                beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
-                shift = self.beam[
+                shift = beam[
                     "transmit_duration_nominal"
                 ]  # based on Lar Anderson's Matlab code
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (self.beam.range_bin * self.beam["sample_interval"] - shift)
-                    * sound_speed
-                    / 2
+                    (beam.range_bin * beam["sample_interval"] - shift) * sound_speed / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -360,7 +363,18 @@ class EchoData:
             range_meter = range_meter.where(
                 range_meter > 0, 0
             )  # set negative ranges to 0
-            range_meter.name = "range"  # add name to facilitate xr.merge
+
+            # set entries with NaN backscatter data to NaN
+            if "quadrant" in beam["backscatter_r"].dims:
+                valid_idx = (
+                    ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+                )
+            else:
+                valid_idx = ~beam["backscatter_r"].isnull()
+            range_meter = range_meter.where(valid_idx)
+
+            # add name to facilitate xr.merge
+            range_meter.name = "range"
 
             return range_meter
 
@@ -477,7 +491,7 @@ class EchoData:
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
         location_time_attrs = {
-            **DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+            **self._varattrs["platform_coord_default"]["location_time"],
             **{"history": history_attr},
         }
         platform["location_time"] = platform["location_time"].assign_attrs(
