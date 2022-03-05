@@ -15,7 +15,7 @@ import numpy as np
 @pytest.fixture(scope="module")
 def single_ek60_zarr(test_path):
     return (
-        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"
+        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214__NEW.zarr"
     )
 
 
@@ -23,8 +23,7 @@ def single_ek60_zarr(test_path):
     params=[
         single_ek60_zarr,
         (str, "ncei-wcsd", "Summer2017-D20170615-T190214.zarr"),
-        # (None, "ncei-wcsd", "Summer2017-D20170615-T190214.nc"),
-        (None, "ncei-wcsd", "Summer2017-D20170615-T190214-beamassubgroup.nc"),
+        (None, "ncei-wcsd", "Summer2017-D20170615-T190214__NEW.nc"),
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.nc",
         "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
