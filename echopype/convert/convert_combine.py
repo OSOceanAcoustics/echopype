@@ -60,7 +60,7 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
     # TODO: there should be compression option for the combined file too...
 
     def coerce_type(ds, group):
-        if group == "/Sonar/Beam":
+        if group == "Sonar/Beam_group1":
             if sonar_model == "EK80":
                 ds["transceiver_software_version"] = ds[
                     "transceiver_software_version"
@@ -91,15 +91,15 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
     #  with nicely monotonically varying ping_time/location_time/mru_time.
     #  However we know there are lots of problems with pings going backward in time for EK60/EK80 files,
     #  and we will need to clean up data before calling merge.
-    # Combine /Sonar/Beam
+    # Combine /Sonar/Beam_group1
     with xr.open_mfdataset(
         input_paths,
-        group="/Sonar/Beam",
+        group="Sonar/Beam_group1",
         concat_dim="ping_time",
         data_vars="minimal",
         engine=engine,
     ) as ds_beam:
-        coerce_type(ds_beam, "/Sonar/Beam")
+        coerce_type(ds_beam, "Sonar/Beam_group1")
         io.save_file(
             ds_beam.chunk(
                 {
@@ -110,7 +110,7 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
             path=output_path,
             mode="a",
             engine=engine,
-            group="/Sonar/Beam",
+            group="Sonar/Beam_group1",
         )
 
     # Combine Environment group

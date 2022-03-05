@@ -1,9 +1,15 @@
-def update_platform(self, files=None, extra_platform_data=None):
+def update_platform(
+        self,
+        files=None,
+        beam_group_name="Beam_group1",
+        extra_platform_data=None):
     """
     Parameters
     ----------
     files : str / list
         path of converted .nc/.zarr files
+    beam_group_name: str
+        name of beam group
     extra_platform_data : xarray dataset
         dataset containing platform information along a 'time' dimension
     """
@@ -31,7 +37,7 @@ def update_platform(self, files=None, extra_platform_data=None):
         raise ValueError("Time dimension not found")
 
     for f in files:
-        ds_beam = xr.open_dataset(f, group="/Sonar/Beam", engine=engine)
+        ds_beam = xr.open_dataset(f, group=f"Sonar/{beam_group_name}", engine=engine)
         ds_platform = xr.open_dataset(f, group="Platform", engine=engine)
 
         # only take data during ping times
@@ -181,7 +187,8 @@ def update_platform(self, files=None, extra_platform_data=None):
             # Copy groups over to temporary file
             # TODO: Add in documentation: recommended to use Zarr if using add_platform
             new_dataset_filename = f + ".temp"
-            groups = ["Provenance", "Environment", "/Sonar/Beam", "Sonar", "Vendor"]
+            # TODO: pass the group path to Beam group rather than the group name?
+            groups = ["Provenance", "Environment", "Sonar", "Vendor", f"Sonar/{beam_group_name}"]
             with xr.open_dataset(f) as ds_top:
                 ds_top.to_netcdf(new_dataset_filename, mode="w")
             for group in groups:

@@ -288,7 +288,7 @@ class SetGroupsEK60(SetGroupsBase):
         return set_encodings(ds)
 
     def set_beam(self) -> xr.Dataset:
-        """Set the /Sonar/Beam group."""
+        """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
         freq = np.array(

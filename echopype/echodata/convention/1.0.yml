@@ -33,13 +33,13 @@ groups:
     description: contains specific metadata for the sonar system.
     ep_group: Sonar
   beam:
-    name: Sonar/Beam
+    name: Sonar/Beam_group1
     description: contains backscatter data and other beam or channel-specific data.
-    ep_group: Sonar/Beam
+    ep_group: Sonar/Beam_group1
   beam_power:
-    name: Beam Power
+    name: Sonar/Beam Power
     description: contains backscatter data (power-only) and other beam or channel-specific data.
-    ep_group: Beam_power
+    ep_group: Sonar/Beam_power
   vendor:
     name: Vendor specific
     description: contains vendor-specific information about the sonar and the data.
