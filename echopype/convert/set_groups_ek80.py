@@ -650,7 +650,9 @@ class SetGroupsEK80(SetGroupsBase):
         if len(ds_complex) > 0:
             ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_power")
+                ds_beam_power = merge_save(
+                    ds_power, "power", group_name="/Sonar/Beam_power"
+                )
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
 
