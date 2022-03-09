@@ -208,15 +208,15 @@ class SetGroupsBase(abc.ABC):
         """Stage beam_group_name and beam_group_descr variables sharing a common dimension
         to be inserted in the Sonar group"""
         beam_groups_vars = {
-            'beam_group_name': (
-                ['beam'],
-                [di['name'] for di in self._beamgroups],
-                {'long_name': 'Beam group name'}
+            "beam_group_name": (
+                ["beam"],
+                [di["name"] for di in self._beamgroups],
+                {"long_name": "Beam group name"},
             ),
-            'beam_group_descr': (
-                ['beam'],
-                [di['descr'] for di in self._beamgroups],
-                {'long_name': 'Beam group description'}
+            "beam_group_descr": (
+                ["beam"],
+                [di["descr"] for di in self._beamgroups],
+                {"long_name": "Beam group description"},
             ),
         }
 

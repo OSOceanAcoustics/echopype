@@ -23,7 +23,7 @@ class SetGroupsEK60(SetGroupsBase):
         self._beamgroups = [
             {
                 "name": "Beam_group1",
-                "descr": "contains complex backscatter data and other beam or channel-specific data."
+                "descr": "contains complex backscatter data and other beam or channel-specific data.",
             }
         ]
 

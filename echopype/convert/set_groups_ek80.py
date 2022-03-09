@@ -17,12 +17,12 @@ class SetGroupsEK80(SetGroupsBase):
         self._beamgroups = [
             {
                 "name": "Beam_group1",
-                "descr": "contains complex backscatter data and other beam or channel-specific data."
+                "descr": "contains complex backscatter data and other beam or channel-specific data.",
             },
             {
                 "name": "Beam_power",
-                "descr": "contains backscatter data (power-only) and other beam or channel-specific data."
-            }
+                "descr": "contains backscatter data (power-only) and other beam or channel-specific data.",
+            },
         ]
 
     def set_env(self, env_only=False) -> xr.Dataset:
