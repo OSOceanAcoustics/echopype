@@ -265,7 +265,9 @@ def check_file_permissions(FILE_DIR):
             TEST_FILE = os.path.join(base_dir, ".permission_test").replace("\\", "/")
             with FILE_DIR.fs.open(TEST_FILE, "w") as f:
                 f.write("testing\n")
-            FILE_DIR.fs.delete(TEST_FILE)
+
+            if FILE_DIR.fs.exists(TEST_FILE):
+                FILE_DIR.fs.delete(TEST_FILE)
         elif isinstance(FILE_DIR, (Path, str)):
             if isinstance(FILE_DIR, str):
                 FILE_DIR = Path(FILE_DIR)
@@ -282,6 +284,7 @@ def check_file_permissions(FILE_DIR):
             if sys.version_info >= (3, 9):
                 TEST_FILE.unlink(missing_ok=True)
             else:
-                TEST_FILE.unlink()
+                if TEST_FILE.exists():
+                    TEST_FILE.unlink()
     except Exception:
         raise PermissionError("Writing to specified path is not permitted.")
