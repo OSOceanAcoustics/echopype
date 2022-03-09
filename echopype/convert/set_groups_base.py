@@ -45,6 +45,9 @@ class SetGroupsBase(abc.ABC):
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+        # self._beamgroups must be a list of dicts, eg:
+        # [{"name":"Beam_group1", "descr":"contains complex backscatter data and other beam or channel-specific data."}]
+        self._beamgroups = []
 
     # TODO: change the set_XXX methods to return a dataset to be saved
     #  in the overarching save method
@@ -200,3 +203,21 @@ class SetGroupsBase(abc.ABC):
         )
 
         return location_time, msg_type, lat, lon
+
+    def _beam_groups_vars(self):
+        """Stage beam_group_name and beam_group_descr variables sharing a common dimension
+        to be inserted in the Sonar group"""
+        beam_groups_vars = {
+            'beam_group_name': (
+                ['beam'],
+                [di['name'] for di in self._beamgroups],
+                {'long_name': 'Beam group name'}
+            ),
+            'beam_group_descr': (
+                ['beam'],
+                [di['descr'] for di in self._beamgroups],
+                {'long_name': 'Beam group description'}
+            ),
+        }
+
+        return beam_groups_vars

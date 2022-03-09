@@ -14,6 +14,17 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": "contains complex backscatter data and other beam or channel-specific data."
+            },
+            {
+                "name": "Beam_power",
+                "descr": "contains backscatter data (power-only) and other beam or channel-specific data."
+            }
+        ]
+
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group."""
         # If only saving environment group,
@@ -73,23 +84,28 @@ class SetGroupsEK80(SetGroupsBase):
                 var[param].append(data[param])
 
         # Create dataset
+        # beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        beam_groups_vars = self._beam_groups_vars()
+        sonar_vars = {
+            "serial_number": (["frequency"], var["serial_number"]),
+            "sonar_model": (["frequency"], var["transducer_name"]),
+            "sonar_serial_number": (["frequency"], var["channel_id_short"]),
+            "sonar_software_name": (
+                ["frequency"],
+                var["application_name"],
+            ),  # identical for all channels
+            "sonar_software_version": (
+                ["frequency"],
+                var["application_version"],
+            ),  # identical for all channels
+        }
         ds = xr.Dataset(
-            {
-                "serial_number": (["frequency"], var["serial_number"]),
-                "sonar_model": (["frequency"], var["transducer_name"]),
-                "sonar_serial_number": (["frequency"], var["channel_id_short"]),
-                "sonar_software_name": (
-                    ["frequency"],
-                    var["application_name"],
-                ),  # identical for all channels
-                "sonar_software_version": (
-                    ["frequency"],
-                    var["application_version"],
-                ),  # identical for all channels
-            },
+            {**sonar_vars, **beam_groups_vars},
             coords={"frequency": var["transducer_frequency"]},
             attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
+
         return ds
 
     def set_platform(self) -> xr.Dataset:
