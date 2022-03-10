@@ -16,6 +16,7 @@ def _compute_cal(
     cal_params=None,
     waveform_mode=None,
     encode_mode=None,
+    include_range_offset=False
 ):
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
@@ -53,7 +54,16 @@ def _compute_cal(
     )
     # Perform calibration
     if cal_type == "Sv":
-        return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+        if include_range_offset and ('range_offset' in echodata.platform.data_vars.keys()):
+
+            # add range_offset to the created xr.Dataset
+            sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+            sv_dataset['range_offset'] = echodata.platform.range_offset
+            return sv_dataset
+
+        else:
+            return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
     else:
         return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
@@ -117,6 +127,12 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    include_range_offset : bool, optional
+        If True, the returned xr.Dataset (describing the calibrated
+        Sv dataset) will contain the variable range_offset from the
+        EchoData object provided (if it exists). By default, this
+        value is set to False.
 
     Returns
     -------

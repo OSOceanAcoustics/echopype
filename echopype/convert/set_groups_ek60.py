@@ -210,12 +210,12 @@ class SetGroupsEK60(SetGroupsBase):
         if not NMEA_only:
             ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
 
-            # TODO: consider allow users to set water_level like in EK80?
-            # if self.ui_param['water_level'] is not None:
-            #     water_level = self.ui_param['water_level']
+            # TODO: consider allow users to set range_offset like in EK80?
+            # if self.ui_param['range_offset'] is not None:
+            #     range_offset = self.ui_param['range_offset']
             # else:
-            #     water_level = np.nan
-            #     print('WARNING: The water_level_draft was not in the file. Value '
+            #     range_offset = np.nan
+            #     print('WARNING: The range_offset_draft was not in the file. Value '
             #           'set to None.')
 
             # Loop over channels and merge all
@@ -238,10 +238,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_data_dict["heave"][ch],
                             DEFAULT_PLATFORM_VAR_ATTRS["heave"],
                         ),
-                        "water_level": (
+                        "range_offset": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["water_level"],
+                            DEFAULT_PLATFORM_VAR_ATTRS["range_offset"],
                         ),
                     },
                     coords={

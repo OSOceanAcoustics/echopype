@@ -57,7 +57,7 @@ DEFAULT_PLATFORM_VAR_ATTRS = {
         "units": "arc_degree",
         "valid_range": (-90.0, 90.0),
     },
-    "water_level": {
+    "range_offset": {
         "long_name": "z-axis distance from the platform coordinate system "
         "origin to the sonar transducer",
         "units": "m",

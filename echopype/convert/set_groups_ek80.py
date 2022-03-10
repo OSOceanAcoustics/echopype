@@ -93,11 +93,11 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Collect variables
         if self.ui_param["water_level"] is not None:
-            water_level = self.ui_param["water_level"]
+            range_offset = self.ui_param["water_level"]
         elif "water_level_draft" in self.parser_obj.environment:
-            water_level = self.parser_obj.environment["water_level_draft"]
+            range_offset = self.parser_obj.environment["water_level_draft"]
         else:
-            water_level = np.nan
+            range_offset = np.nan
             print(
                 "WARNING: The water_level_draft was not in the file. "
                 "Value set to NaN."
@@ -161,9 +161,9 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "sentence_type": (["location_time"], msg_type),
-                "water_level": (
+                "range_offset": (
                     [],
-                    water_level,
+                    range_offset,
                     {
                         "long_name": "z-axis distance from the platform coordinate system "
                         "origin to the sonar transducer",

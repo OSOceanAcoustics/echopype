@@ -405,7 +405,7 @@ def test_update_platform(update_platform_samples):
 
     ed = echopype.open_raw(raw_file, "EK80")
 
-    updated = ["pitch", "roll", "latitude", "longitude", "water_level"]
+    updated = ["pitch", "roll", "latitude", "longitude", "range_offset"]
     for variable in updated:
         assert np.isnan(ed.platform[variable].values).all()
 

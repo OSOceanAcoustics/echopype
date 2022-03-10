@@ -15,7 +15,7 @@ CONVERT_PARAMS = [
     "platform_name",
     "platform_code_ICES",
     "platform_type",
-    "water_level",
+    "range_offset",
     "nmea_gps_sentence",
 ]
 

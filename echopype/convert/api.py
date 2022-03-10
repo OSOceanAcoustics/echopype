@@ -223,7 +223,7 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     """Set parameters (metadata) that may not exist in the raw files.
 
     The default set of parameters include:
-    - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
+    - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``range_offset``
     - Platform/NMEA: ``nmea_gps_sentence``,
                      for selecting specific NMEA sentences,
                      with default values ['GGA', 'GLL', 'RMC'].
@@ -248,7 +248,7 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     out_params["platform_name"] = param_dict.get("platform_name", "")
     out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
     out_params["platform_type"] = param_dict.get("platform_type", "")
-    out_params["water_level"] = param_dict.get("water_level", None)
+    out_params["range_offset"] = param_dict.get("range_offset", None)
     out_params["nmea_gps_sentence"] = param_dict.get(
         "nmea_gps_sentence", NMEA_SENTENCE_DEFAULT
     )
