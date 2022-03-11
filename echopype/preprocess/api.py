@@ -67,14 +67,17 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         _freq_MVBS, args=(range_interval, ping_time_bin)
     )
 
+    # TODO: Add attributes to ping_time and range coordinates
+
     # Attach attributes
     MVBS.attrs = {
+        "long_name": "Mean Volume Backscattering Strength (MVBS)",
         "binning_mode": "physical units",
         "range_meter_interval": str(range_meter_bin) + "m",
         "ping_time_interval": ping_time_bin,
     }
 
-    return MVBS.to_dataset(promote_attrs=True)
+    return MVBS.to_dataset()
 
 
 def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
