@@ -99,11 +99,11 @@ def update_platform(self, files=None, extra_platform_data=None):
                             default=np.full(num_obs, np.nan),
                         ),
                     ),
-                    "water_level": (
+                    "range_offset": (
                         "location_time",
                         mapping_get_multiple(
                             extra_platform_data,
-                            ["water_level", "WATER_LEVEL"],
+                            ["range_offset", "RANGE_OFFSET"],
                             np.ones(num_obs),
                         ),
                     ),
@@ -160,11 +160,11 @@ def update_platform(self, files=None, extra_platform_data=None):
                             default=np.full(num_obs, np.nan),
                         ),
                     ),
-                    "water_level": (
+                    "range_offset": (
                         "location_time",
                         mapping_get_multiple(
                             extra_platform_data,
-                            ["water_level", "WATER_LEVEL"],
+                            ["range_offset", "RANGE_OFFSET"],
                             np.ones(num_obs),
                         ),
                     ),

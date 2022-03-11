@@ -12,7 +12,7 @@ def create_echogram(
     frequency: Union[int, float, List[T], None] = None,
     get_range: Optional[bool] = None,
     range_kwargs: dict = {},
-    water_level: Union[int, float, xr.DataArray, bool, None] = None,
+    range_offset: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
 ) -> List[Union[FacetGrid, QuadMesh]]:
     """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
@@ -33,13 +33,13 @@ def create_echogram(
     range_kwargs : dict
         Keyword arguments dictionary for computing range.
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
-    water_level : int, float, xr.DataArray, or bool, optional
-        Water level data array for platform water level correction.
-        Note that auto addition of water level can be performed
+    range_offset : int, float, xr.DataArray, or bool, optional
+        Range offset data array for platform range offset correction.
+        Note that auto addition of range offset can be performed
         when data is an EchoData object by setting this argument
-        to `True`. Currently because the water level information
+        to `True`. Currently because the range offset information
         is not available as part of the Sv dataset, a warning is issued
-        when `water_level=True` in this case and no correction is
+        when `range_offset=True` in this case and no correction is
         performed. This behavior will change in the future when the
         default content of Sv dataset is updated to include this information.
     **kwargs: optional
@@ -129,10 +129,10 @@ def create_echogram(
                 ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
             )
             range_in_meter.attrs = range_attrs
-            if water_level is not None:
-                range_in_meter = _add_water_level(
+            if range_offset is not None:
+                range_in_meter = _add_range_offset(
                     range_in_meter=range_in_meter,
-                    water_level=water_level,
+                    range_offset=range_offset,
                     data_type=EchoData,
                     platform_data=data.platform,
                 )
@@ -151,10 +151,10 @@ def create_echogram(
 
         # If depth is available in ds, use it.
         ds = ds.set_coords('range')
-        if water_level is not None:
-            ds['range'] = _add_water_level(
+        if range_offset is not None:
+            ds['range'] = _add_range_offset(
                 range_in_meter=ds.range,
-                water_level=water_level,
+                range_offset=range_offset,
                 data_type=xr.Dataset,
             )
         ds.range.attrs = range_attrs
@@ -171,41 +171,41 @@ def create_echogram(
     )
 
 
-def _add_water_level(
+def _add_range_offset(
     range_in_meter: xr.DataArray,
-    water_level: Union[int, float, xr.DataArray, bool],
+    range_offset: Union[int, float, xr.DataArray, bool],
     data_type: str,
     platform_data: Optional[xr.Dataset] = None,
 ) -> xr.DataArray:
-    if isinstance(water_level, bool):
-        if water_level is True:
+    if isinstance(range_offset, bool):
+        if range_offset is True:
             if data_type == xr.Dataset:
                 warnings.warn(
-                    "Boolean type found for water level. Ignored since data is an xarray dataset."
+                    "Boolean type found for range offset. Ignored since data is an xarray dataset."
                 )
                 return range_in_meter
             elif data_type == EchoData:
                 if (
                     isinstance(platform_data, xr.Dataset)
-                    and 'water_level' in platform_data
+                    and 'range_offset' in platform_data
                 ):
-                    return range_in_meter + platform_data.water_level
+                    return range_in_meter + platform_data.range_offset
                 else:
                     warnings.warn(
-                        "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
+                        "Boolean type found for range offset. Please provide platform data with range offset in it or provide separate range offset data."  # noqa
                     )
                     return range_in_meter
-        warnings.warn(f"Water level value of {water_level} is ignored.")
+        warnings.warn(f"Range offset value of {range_offset} is ignored.")
         return range_in_meter
-    if isinstance(water_level, xr.DataArray):
+    if isinstance(range_offset, xr.DataArray):
         check_dims = range_in_meter.dims
         if not any(
-            True if d in water_level.dims else False for d in check_dims
+            True if d in range_offset.dims else False for d in check_dims
         ):
             raise ValueError(
-                f"Water level must have any of these dimensions: {', '.join(check_dims)}"
+                f"Range offset must have any of these dimensions: {', '.join(check_dims)}"
             )
         # Adds water level to range if it exists
-        return range_in_meter + water_level
-    elif isinstance(water_level, (int, float)):
-        return range_in_meter + water_level
+        return range_in_meter + range_offset
+    elif isinstance(range_offset, (int, float)):
+        return range_in_meter + range_offset

@@ -202,7 +202,7 @@ data attributes that are not recorded in the raw data files but need to be
 specified according to the SONAR-netCDF4 convention.
 These attributes are metadata and include
 ``platform_name``, ``platform_type``, ``platform_code_ICES``,
-and sometimes ``water_level``, depending on the sonar model.
+and sometimes ``range_offset``, depending on the sonar model.
 These attributes can be set using the following:
 
 .. code-block:: python

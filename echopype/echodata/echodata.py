@@ -403,7 +403,7 @@ class EchoData:
             - `"heave"`
             - `"latitude"`
             - `"longitude"`
-            - `"water_level"`
+            - `"range_offset"`
         The data inserted into the Platform group will be indexed by a dimension named
         `"location_time"`.
 
@@ -504,7 +504,7 @@ class EchoData:
             "heave",
             "latitude",
             "longitude",
-            "water_level",
+            "range_offset",
         ]
         dropped_vars = []
         for var in dropped_vars_target:
@@ -569,12 +569,12 @@ class EchoData:
                         default=platform.get("longitude", np.full(num_obs, np.nan)),
                     ),
                 ),
-                "water_level": (
+                "range_offset": (
                     "location_time",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["water_level", "WATER_LEVEL"],
-                        default=platform.get("water_level", np.zeros(num_obs)),
+                        ["range_offset", "RANGE_OFFSET"],
+                        default=platform.get("range_offset", np.zeros(num_obs)),
                     ),
                 ),
             }
