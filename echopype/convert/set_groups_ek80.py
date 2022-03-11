@@ -96,8 +96,8 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Platform group."""
 
         # Collect variables
-        if self.ui_param["water_level"] is not None:
-            range_offset = self.ui_param["water_level"]
+        if self.ui_param["range_offset"] is not None:
+            range_offset = self.ui_param["range_offset"]
         elif "water_level_draft" in self.parser_obj.environment:
             range_offset = self.parser_obj.environment["water_level_draft"]
         else:

@@ -206,8 +206,8 @@ class SetGroupsEK60(SetGroupsBase):
             ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
 
             # TODO: consider allow users to set range_offset like in EK80?
-            # if self.ui_param['water_level'] is not None:
-            #     range_offset = self.ui_param['water_level']
+            # if self.ui_param['range_offset'] is not None:
+            #     range_offset = self.ui_param['range_offset']
             # else:
             #     range_offset = np.nan
             #     print('WARNING: The water_level_draft was not in the file. Value '
