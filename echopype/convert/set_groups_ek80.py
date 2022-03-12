@@ -20,8 +20,11 @@ class SetGroupsEK80(SetGroupsBase):
                 "descr": "contains complex backscatter data and other beam or channel-specific data.",
             },
             {
-                "name": "Beam_power",
-                "descr": "contains backscatter data (power-only) and other beam or channel-specific data.",
+                "name": "Beam_group2",
+                "descr": (
+                    "contains backscatter power (uncalibrated) and other beam or channel-specific data,"
+                    " including split-beam angle data when they exist."
+                ),
             },
         ]
 
@@ -660,14 +663,14 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Merge and save group:
         #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
-        #   and power data in /Sonar/Beam_power
+        #   and power data in /Sonar/Beam_group2
         #  if only one type of data exist: data in /Sonar/Beam_group1 group
         ds_beam_power = None
         if len(ds_complex) > 0:
             ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
             if len(ds_power) > 0:
                 ds_beam_power = merge_save(
-                    ds_power, "power", group_name="/Sonar/Beam_power"
+                    ds_power, "power", group_name="/Sonar/Beam_group2"
                 )
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")

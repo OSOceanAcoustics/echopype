@@ -173,7 +173,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Sonar/Beam_power",
+            group="Sonar/Beam_group2",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
@@ -448,7 +448,7 @@ def open_raw(
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
-    # Beam_power group only exist if EK80 has both complex and power/angle data
+    # Beam_group2 group only exist if EK80 has both complex and power/angle data
     if sonar_model in ["EK80", "ES80", "EA640"]:
         echodata.beam, echodata.beam_power = setgrouper.set_beam()
     else:
