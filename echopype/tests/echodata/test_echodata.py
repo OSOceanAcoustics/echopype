@@ -15,7 +15,7 @@ import numpy as np
 @pytest.fixture(scope="module")
 def single_ek60_zarr(test_path):
     return (
-        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"
+        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214__NEW.zarr"
     )
 
 
@@ -23,7 +23,7 @@ def single_ek60_zarr(test_path):
     params=[
         single_ek60_zarr,
         (str, "ncei-wcsd", "Summer2017-D20170615-T190214.zarr"),
-        (None, "ncei-wcsd", "Summer2017-D20170615-T190214.nc"),
+        (None, "ncei-wcsd", "Summer2017-D20170615-T190214__NEW.nc"),
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.nc",
         "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
@@ -248,7 +248,8 @@ class TestEchoData:
               > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
               > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
               > sonar: (Sonar) contains specific metadata for the sonar system.
-              > beam: (Beam) contains backscatter data and other beam or channel-specific data.
+              > beam: (Sonar/Beam_group1) contains backscatter data (either complex samples or uncalibrated power samples)\
+ and other beam or channel-specific data, including split-beam angle data when they exist.
               > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData(converted_raw_path=converted_zarr)

@@ -14,6 +14,13 @@ class SetGroupsAZFP(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",
+            }
+        ]
+
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         # TODO Look at why this cannot be encoded without the modifications
@@ -44,6 +51,11 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
+
+        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        ds = xr.Dataset(self._beam_groups_vars())
+
         # Assemble sonar group dictionary
         sonar_dict = {
             "sonar_manufacturer": "ASL Environmental Sciences",
@@ -53,9 +65,8 @@ class SetGroupsAZFP(SetGroupsBase):
             "sonar_software_version": "1.4",
             "sonar_type": "echosounder",
         }
-        # Save
-        ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
+
         return ds
 
     def set_platform(self) -> xr.Dataset:

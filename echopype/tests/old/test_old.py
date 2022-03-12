@@ -24,7 +24,7 @@ def test_calibrate_ek80_bb():
                              header=None, skiprows=[0])
     bb_test_df_r = bb_test_df.iloc[::2, 14:]
     bb_test_df_i = bb_test_df.iloc[1::2, 14:]
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.nc_path, group='Sonar/Beam_group1') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
         backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean('quadrant')
         backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean('quadrant')

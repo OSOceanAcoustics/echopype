@@ -25,6 +25,8 @@ DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
+BEAM_SUBGROUP_DEFAULT = "Beam_group1"
+
 
 def to_file(
     echodata: EchoData,
@@ -132,7 +134,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
     )
 
-    # Beam group
+    # /Sonar/Beam_groupX group
     if echodata.sonar_model == "AD2CP":
         io.save_file(
             echodata.beam.chunk(
@@ -143,7 +145,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam",
+            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
@@ -157,7 +159,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam",
+            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     if echodata.beam_power is not None:
@@ -171,7 +173,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam_power",
+            group="Sonar/Beam_group2",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
@@ -446,7 +448,7 @@ def open_raw(
         echodata.nmea = setgrouper.set_nmea()
     echodata.provenance = setgrouper.set_provenance()
     echodata.sonar = setgrouper.set_sonar()
-    # Beam_power group only exist if EK80 has both complex and power/angle data
+    # Beam_group2 group only exist if EK80 has both complex and power/angle data
     if sonar_model in ["EK80", "ES80", "EA640"]:
         echodata.beam, echodata.beam_power = setgrouper.set_beam()
     else:

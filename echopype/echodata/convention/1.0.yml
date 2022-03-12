@@ -33,13 +33,18 @@ groups:
     description: contains specific metadata for the sonar system.
     ep_group: Sonar
   beam:
-    name: Beam
-    description: contains backscatter data and other beam or channel-specific data.
-    ep_group: Beam
+    name: Sonar/Beam_group1
+    description: >-
+      contains backscatter data (either complex samples or uncalibrated power samples)
+      and other beam or channel-specific data, including split-beam angle data when they exist.
+    ep_group: Sonar/Beam_group1
   beam_power:
-    name: Beam Power
-    description: contains backscatter data (power-only) and other beam or channel-specific data.
-    ep_group: Beam_power
+    name: Sonar/Beam_group2
+    description: >-
+      contains backscatter power (uncalibrated) and other beam or channel-specific data,
+      including split-beam angle data when they exist.
+      Only exists if complex backscatter data they already in Sonar/Beam_group1
+    ep_group: Sonar/Beam_group2
   vendor:
     name: Vendor specific
     description: contains vendor-specific information about the sonar and the data.
