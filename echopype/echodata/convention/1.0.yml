@@ -41,7 +41,7 @@ groups:
   beam_power:
     name: Sonar/Beam_group2
     description: >-
-      contains backscatter power (uncalibrated) and other beam or channel-specific data, 
+      contains backscatter power (uncalibrated) and other beam or channel-specific data,
       including split-beam angle data when they exist.
       Only exists if complex backscatter data they already in Sonar/Beam_group1
     ep_group: Sonar/Beam_group2
