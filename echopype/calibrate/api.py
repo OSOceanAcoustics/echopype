@@ -54,7 +54,9 @@ def _compute_cal(
     # Perform calibration
     if cal_type == "Sv":
 
-        sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        sv_dataset = cal_obj.compute_Sv(
+            waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
 
         if "water_level" in echodata.platform.data_vars.keys():
             # add water_level to the created xr.Dataset
