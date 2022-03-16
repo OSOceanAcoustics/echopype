@@ -149,9 +149,9 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     uses band-integrated Sv with the gain computed at the center frequency
     of the transmit signal.
 
-    The returned xr.Dataset will contain the variable water_level from the
-    EchoData object provided, if it exists. If water_level is not returned,
-    it must be set using EchoData.update_platform().
+    The returned xr.Dataset will contain the variable `water_level` from the
+    EchoData object provided, if it exists. If `water_level` is not returned,
+    it must be set using `EchoData.update_platform()`.
     """
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
