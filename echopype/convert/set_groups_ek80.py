@@ -17,12 +17,12 @@ class SetGroupsEK80(SetGroupsBase):
         self._beamgroups = [
             {
                 "name": "Beam_group1",
-                "descr": "contains complex backscatter data and other beam or channel-specific data.",
+                "descr": "contains complex backscatter data and other beam or channel-specific data.",  # noqa
             },
             {
                 "name": "Beam_group2",
                 "descr": (
-                    "contains backscatter power (uncalibrated) and other beam or channel-specific data,"
+                    "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
                     " including split-beam angle data when they exist."
                 ),
             },
