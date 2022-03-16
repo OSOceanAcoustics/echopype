@@ -53,7 +53,16 @@ def _compute_cal(
     )
     # Perform calibration
     if cal_type == "Sv":
-        return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+        sv_dataset = cal_obj.compute_Sv(
+            waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+
+        if "water_level" in echodata.platform.data_vars.keys():
+            # add water_level to the created xr.Dataset
+            sv_dataset["water_level"] = echodata.platform.water_level
+
+        return sv_dataset
     else:
         return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
@@ -139,6 +148,10 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     The current calibration implemented for EK80 broadband complex data
     uses band-integrated Sv with the gain computed at the center frequency
     of the transmit signal.
+
+    The returned xr.Dataset will contain the variable `water_level` from the
+    EchoData object provided, if it exists. If `water_level` is not returned,
+    it must be set using `EchoData.update_platform()`.
     """
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
