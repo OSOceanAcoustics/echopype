@@ -37,8 +37,8 @@ def test_compute_Sv_returns_water_level(ek60_path):
     # make sure the returned Dataset has water_level and throw an assertion error if the
     # EchoData object does not have water_level (just in case we remove it from the file
     # used in the future)
-   assert 'water_level' in ed.platform.data_vars.keys()
-   assert 'water_level' in ds_Sv.data_vars
+    assert 'water_level' in ed.platform.data_vars.keys()
+    assert 'water_level' in ds_Sv.data_vars
 
 
 def test_compute_Sv_ek60_echoview(ek60_path):
