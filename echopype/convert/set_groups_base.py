@@ -46,7 +46,8 @@ class SetGroupsBase(abc.ABC):
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
         # self._beamgroups must be a list of dicts, eg:
-        # [{"name":"Beam_group1", "descr":"contains complex backscatter data and other beam or channel-specific data."}]
+        # [{"name":"Beam_group1", "descr":"contains complex backscatter data
+        # and other beam or channel-specific data."}]
         self._beamgroups = []
 
     # TODO: change the set_XXX methods to return a dataset to be saved
