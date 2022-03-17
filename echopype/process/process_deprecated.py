@@ -310,8 +310,8 @@ class Process():
         ping_size = MVBS_ping_size if MVBS_ping_size is not None else self.MVBS_ping_size
 
         # Range must have ping_time or it will error. Range does not have ping time for AZFP when temps are averaged
-        if proc_data['range'].ndim == 2:
-            proc_data = proc_data.assign(range=self.range)
+        if proc_data['echo_range'].ndim == 2:
+            proc_data = proc_data.assign(echo_range=self.range)
 
         self.MVBS = preprocess.compute_MVBS_index_binning(
             proc_data,

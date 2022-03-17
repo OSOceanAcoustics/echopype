@@ -8,11 +8,11 @@ class NoiseEst:
     Attributes
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing Sv and `echo_range` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
-        number of samples along range to obtain noise estimates
+        number of samples along `echo_range` to obtain noise estimates
     """
 
     def __init__(self, ds_Sv, ping_num, range_bin_num):
@@ -40,9 +40,9 @@ class NoiseEst:
 
         # Transmission loss
         self.spreading_loss = 20 * np.log10(
-            self.ds_Sv["range"].where(self.ds_Sv["range"] >= 1, other=1)
+            self.ds_Sv["echo_range"].where(self.ds_Sv["echo_range"] >= 1, other=1)
         )
-        self.absorption_loss = 2 * sound_absorption * self.ds_Sv["range"]
+        self.absorption_loss = 2 * sound_absorption * self.ds_Sv["echo_range"]
 
     def _compute_power_cal(self):
         """Compute calibrated power without TVG, linear domain"""

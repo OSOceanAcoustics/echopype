@@ -296,8 +296,8 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
         sonar_model=sonar_model, raw_file=filepath, xml_path=None
     )
     Sv = echopype.calibrate.compute_Sv(echodata, **range_kwargs)
-    ds = Sv.set_coords('range')
-    range_in_meter = ds.range
+    ds = Sv.set_coords('echo_range')
+    range_in_meter = ds.echo_range
     single_array = range_in_meter.isel(frequency=0, ping_time=0).values
 
     if isinstance(water_level, xr.DataArray):

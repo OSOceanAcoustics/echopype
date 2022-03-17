@@ -8,26 +8,26 @@ from .noise_est import NoiseEst
 
 
 def _check_range_uniqueness(ds):
-    """Check if range changes across ping in a given frequency channel."""
+    """Check if `echo_range` changes across ping in a given frequency channel."""
     return (
-        ds["range"].isel(ping_time=0).dropna(dim="range_bin")
-        == ds["range"].dropna(dim="range_bin")
+        ds["echo_range"].isel(ping_time=0).dropna(dim="range_bin")
+        == ds["echo_range"].dropna(dim="range_bin")
     ).all()
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of range and ping_time specified in physical units.
+    based on intervals of `echo_range` and ping_time specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
-    bin-averaged Sv according to intervals of range and ping_time specified as index number.
+    bin-averaged Sv according to intervals of `echo_range` and ping_time specified as index number.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing Sv and `echo_range` [m]
     range_meter_bin : Union[int, float]
-        bin size along ``range`` in meters, default to ``20``
+        bin size along ``echo_range`` in meters, default to ``20``
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
 
@@ -38,14 +38,14 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
     if not ds_Sv.groupby("frequency").apply(_check_range_uniqueness).all():
         raise ValueError(
-            "`range` variable changes across pings in at least one of the frequency channel."
+            "`echo_range` variable changes across pings in at least one of the frequency channel."
         )
 
     def _freq_MVBS(ds, rint, pbin):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
         sv.coords["range_meter"] = (
             ["range_bin"],
-            ds_Sv["range"].isel(frequency=0, ping_time=0).data,
+            ds_Sv["echo_range"].isel(frequency=0, ping_time=0).data,
         )
         sv = sv.swap_dims({"range_bin": "range_meter"})
         sv_groupby_bins = (
@@ -54,14 +54,14 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             .resample(ping_time=pbin, skipna=True)
             .mean()
         )
-        sv_groupby_bins.coords["range"] = (["range_meter_bins"], rint[:-1])
-        sv_groupby_bins = sv_groupby_bins.swap_dims({"range_meter_bins": "range"})
+        sv_groupby_bins.coords["echo_range"] = (["range_meter_bins"], rint[:-1])
+        sv_groupby_bins = sv_groupby_bins.swap_dims({"range_meter_bins": "echo_range"})
         sv_groupby_bins = sv_groupby_bins.drop_vars("range_meter_bins")
         return 10 * np.log10(sv_groupby_bins)
 
-    # Groupby freq in case of different range (from different sampling intervals)
+    # Groupby freq in case of different echo_range (from different sampling intervals)
     range_interval = np.arange(
-        0, ds_Sv["range"].max() + range_meter_bin, range_meter_bin
+        0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin
     )
     MVBS = ds_Sv.groupby("frequency").apply(
         _freq_MVBS, args=(range_interval, ping_time_bin)
@@ -82,12 +82,13 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     based on intervals of range_bin and ping number specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
-    bin-averaged Sv according to intervals of range and ping_time specified in physical units.
+    bin-averaged Sv according to intervals of `echo_range` and ping_time specified
+    in physical units.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing Sv and `echo_range` [m]
     range_bin_num : int
         number of samples to average along the ``range_bin`` dimension, default to 100
     ping_num : int
@@ -104,12 +105,12 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
         .mean(skipna=True)
     )
 
-    # Attach coarsened range
+    # Attach coarsened echo_range
     da.name = "Sv"
     ds_out = da.to_dataset()
-    ds_out["range"] = (
-        ds_Sv["range"]
-        .coarsen(  # binned range (use first value in each bin)
+    ds_out["echo_range"] = (
+        ds_Sv["echo_range"]
+        .coarsen(  # binned echo_range (use first value in each bin)
             ping_time=ping_num, range_bin=range_bin_num, boundary="pad"
         )
         .min(skipna=True)
@@ -139,7 +140,7 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing Sv and `echo_range` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
@@ -171,7 +172,7 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing Sv and `echo_range` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
