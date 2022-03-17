@@ -13,14 +13,14 @@ import numpy as np
 import xarray as xr
 
 
-def delta_z(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def delta_z(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Helper function to calculate widths between range bins (dz) for discretized integral.
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing `echo_range` information.
 
     Returns
     -------
@@ -48,16 +48,16 @@ def convert_to_linear(ds: xr.Dataset, Sv_label="Sv") -> xr.DataArray:
     return 10 ** (ds[Sv_label] / 10)
 
 
-def abundance(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def abundance(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the area-backscattering strength (Sa) [unit: dB re 1 m^2 m^-2].
 
-    This quantity is the integral of volumetric backscatter over range.
+    This quantity is the integral of volumetric backscatter over `echo_range`.
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing `echo_range` information.
 
     Returns
     -------
@@ -68,16 +68,16 @@ def abundance(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     return 10 * np.log10((sv * dz).sum(dim="range_bin"))
 
 
-def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def center_of_mass(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the mean backscatter location [unit: m].
 
-    This quantity is the weighted average of backscatter along range.
+    This quantity is the weighted average of backscatter along `echo_range`.
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing echo_range information.
 
     Returns
     -------
@@ -90,7 +90,7 @@ def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     )
 
 
-def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def dispersion(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the inertia (I) [unit: m^-2].
 
     This quantity measures dispersion or spread of backscatter from the center of mass.
@@ -99,7 +99,7 @@ def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing `echo_range` information.
 
     Returns
     -------
@@ -113,7 +113,7 @@ def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     )
 
 
-def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def evenness(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the equivalent area (EA) [unit: m].
 
     This quantity represents the area that would be occupied if all datacells
@@ -123,7 +123,7 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing `echo_range` information.
 
     Returns
     -------
@@ -134,7 +134,7 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     return ((sv * dz).sum(dim="range_bin")) ** 2 / (sv ** 2 * dz).sum(dim="range_bin")
 
 
-def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def aggregation(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculated the index of aggregation (IA) [unit: m^-1].
 
     This quantity is reciprocal of the equivalent area.
@@ -144,7 +144,7 @@ def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in `ds` containing `echo_range` information.
 
     Returns
     -------
