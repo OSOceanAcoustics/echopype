@@ -42,7 +42,7 @@ def test_compute_Sv_returns_water_level(ek60_path):
 
 
 def test_compute_Sv_ek60_echoview(ek60_path):
-    # constant range_bin
+    # constant range_sample
     ek60_raw_path = str(
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
     )
@@ -70,7 +70,7 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     # Echoview data is shifted by 1 sample along range (missing the first sample)
     assert np.allclose(
         test_Sv[:, :, 7:],
-        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)),
+        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None)),
         atol=1e-8,
     )
 
@@ -190,7 +190,7 @@ def test_compute_Sv_ek80_matlab(ek80_path):
 
     # TODO: resolve discrepancy in range between echopype and Matlab code
     ds_matlab = loadmat(ek80_matlab_path)
-    Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_bin').values
+    Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_sample').values
 
 
 def test_compute_Sv_ek80_pc_echoview(ek80_path):
@@ -228,7 +228,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     pc_mean = (
         pc.pulse_compressed_output.isel(frequency=0)
         .mean(dim='quadrant')
-        .dropna('range_bin')
+        .dropna('range_sample')
     )
 
     # Read EchoView pc raw power output

@@ -594,7 +594,7 @@ class CalibrateEK80(CalibrateEK):
         for freq in freq_BB:
             backscatter_freq = (
                 backscatter.sel(frequency=freq)
-                .dropna(dim="range_bin", how="all")
+                .dropna(dim="range_sample", how="all")
                 .dropna(dim="quadrant", how="all")
                 .dropna(dim="ping_time")
             )
@@ -604,7 +604,7 @@ class CalibrateEK80(CalibrateEK):
             replica = xr.DataArray(np.conj(chirp[channel_id]), dims="window")
             # Pulse compression via rolling
             pc = (
-                backscatter_freq.rolling(range_bin=replica.size)
+                backscatter_freq.rolling(range_sample=replica.size)
                 .construct("window")
                 .dot(replica)
                 / np.linalg.norm(chirp[channel_id]) ** 2

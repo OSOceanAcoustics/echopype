@@ -60,9 +60,9 @@ class Process():
         self.TS_path = None
 
         # Deprecated proc attributes
-        self.noise_est_range_bin_size = 5  # meters per tile for noise estimation
+        self.noise_est_range_sample_size = 5  # meters per tile for noise estimation
         self.noise_est_ping_size = 30  # number of pings per tile for noise estimation
-        self.MVBS_range_bin_size = 5  # meters per tile for MVBS
+        self.MVBS_range_sample_size = 5  # meters per tile for MVBS
         self.MVBS_ping_size = 30  # number of pings per tile for MVBS
 
         if self.file_path .upper().endswith('.NC'):
@@ -234,7 +234,7 @@ class Process():
         return self.Sv
 
     def noise_estimates(self, source_postfix='_Sv', source_path=None,
-                        noise_est_range_bin_size=None, noise_est_ping_size=None):
+                        noise_est_range_sample_size=None, noise_est_ping_size=None):
 
         if source_path is None:
             if self.Sv is None:
@@ -247,14 +247,14 @@ class Process():
             source = source_path
         print('%s  Sv source used to estimate noise: %s' % (dt.datetime.now().strftime('%H:%M:%S'), source))
 
-        range_bin_size = noise_est_range_bin_size if \
-            noise_est_range_bin_size is not None else self.noise_est_range_bin_size
+        range_sample_size = noise_est_range_sample_size if \
+            noise_est_range_sample_size is not None else self.noise_est_range_sample_size
         ping_size = noise_est_ping_size if noise_est_ping_size is not None else self.noise_est_ping_size
 
-        return preprocess.estimate_noise(proc_data, ping_size, range_bin_size)
+        return preprocess.estimate_noise(proc_data, ping_size, range_sample_size)
 
     def remove_noise(self, source_postfix='_Sv', source_path=None,
-                     noise_est_range_bin_size=None, noise_est_ping_size=None,
+                     noise_est_range_sample_size=None, noise_est_ping_size=None,
                      SNR=0, Sv_threshold=None,
                      save=False, save_postfix='_Sv_clean', save_path=None):
 
@@ -269,14 +269,14 @@ class Process():
             source = source_path
         print('%s  Sv source used to remove noise: %s' % (dt.datetime.now().strftime('%H:%M:%S'), source))
 
-        range_bin_size = noise_est_range_bin_size if \
-            noise_est_range_bin_size is not None else self.noise_est_range_bin_size
+        range_sample_size = noise_est_range_sample_size if \
+            noise_est_range_sample_size is not None else self.noise_est_range_sample_size
         ping_size = noise_est_ping_size if noise_est_ping_size is not None else self.noise_est_ping_size
 
         self.Sv_clean = preprocess.remove_noise(
             proc_data,
             ping_num=ping_size,
-            range_bin_num=range_bin_size,
+            range_sample_num=range_sample_size,
             noise_max=Sv_threshold,
             SNR_threshold=SNR
         )
@@ -288,7 +288,7 @@ class Process():
             self._save_dataset(self.Sv_clean, self.Sv_clean_path)
 
     def get_MVBS(self, source_postfix='_Sv', source_path=None,
-                 MVBS_range_bin_size=None, MVBS_ping_size=None,
+                 MVBS_range_sample_size=None, MVBS_ping_size=None,
                  save=False, save_postfix='_MVBS', save_path=None):
 
         if source_path is not None:
@@ -306,7 +306,7 @@ class Process():
             source = "memory"
         print('%s  Sv source used to calculate MVBS: %s' % (dt.datetime.now().strftime('%H:%M:%S'), source))
 
-        range_bin_size = MVBS_range_bin_size if MVBS_range_bin_size is not None else self.MVBS_range_bin_size
+        range_sample_size = MVBS_range_sample_size if MVBS_range_sample_size is not None else self.MVBS_range_sample_size
         ping_size = MVBS_ping_size if MVBS_ping_size is not None else self.MVBS_ping_size
 
         # Range must have ping_time or it will error. Range does not have ping time for AZFP when temps are averaged
@@ -315,7 +315,7 @@ class Process():
 
         self.MVBS = preprocess.compute_MVBS_index_binning(
             proc_data,
-            range_bin_num=range_bin_size,
+            range_sample_num=range_sample_size,
             ping_num=ping_size
         ).rename({'Sv': 'MVBS'})
         # Save results in object and as a netCDF file

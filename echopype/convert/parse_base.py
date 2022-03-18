@@ -40,7 +40,7 @@ class ParseEK(ParseBase):
         self.config_datagram = None
         self.ping_data_dict = defaultdict(lambda: defaultdict(list))
         self.ping_time = defaultdict(list)  # store ping time according to channel
-        self.num_range_bin_groups = None  # number of range_bin groups
+        self.num_range_sample_groups = None  # number of range_sample groups
         self.ch_ids = defaultdict(
             list
         )  # Stores the channel ids for each data type (power, angle, complex)

@@ -23,8 +23,8 @@ def create_test_ds(Sv, range):
 
     testDS = xr.Dataset(
         data_vars=dict(
-            Sv=(["frequency", "ping_time", "range_bin"], Sv),
-            range=(["frequency", "ping_time", "range_bin"], range),
+            Sv=(["frequency", "ping_time", "range_sample"], Sv),
+            range=(["frequency", "ping_time", "range_sample"], range),
         ),
         coords={
             'frequency': xr.DataArray(
@@ -38,10 +38,10 @@ def create_test_ds(Sv, range):
                 name='ping_time',
                 dims=['ping_time'],
             ),
-            'range_bin': xr.DataArray(
+            'range_sample': xr.DataArray(
                 r_b,
-                name='range_bin',
-                dims=['range_bin'],
+                name='range_sample',
+                dims=['range_sample'],
             ),
         },
     )

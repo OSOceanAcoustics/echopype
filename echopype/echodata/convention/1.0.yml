@@ -61,8 +61,8 @@ variable_and_varattributes:
       long_name: Timestamp of each ping
       standard_name: time
       axis: T
-    range_bin:
-      long_name: Along-range bin (sample) number, base 0
+    range_sample:
+      long_name: Along-range sample number, base 0
   platform_coord_default:
     location_time:
       axis: T

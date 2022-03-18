@@ -26,8 +26,8 @@ def test_calibrate_ek80_bb():
     bb_test_df_i = bb_test_df.iloc[1::2, 14:]
     with xr.open_dataset(tmp.nc_path, group='Sonar/Beam_group1') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
-        backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean('quadrant')
-        backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean('quadrant')
+        backscatter_r = ds_beam.backscatter_r[0].dropna('range_sample').mean('quadrant')
+        backscatter_i = ds_beam.backscatter_i[0].dropna('range_sample').mean('quadrant')
         assert np.allclose(backscatter_r, bb_test_df_r)
         assert np.allclose(backscatter_i, bb_test_df_i)
 
@@ -54,7 +54,7 @@ def test_calibrate_ek80_cw():
 
 
 def test_calibration_ek60_echoview():
-    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  # constant range_bin
+    ek60_raw_path = str(ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw'))  # constant range_sample
     ek60_echoview_path = ek60_path.joinpath('from_echoview')
 
     tmp = Convert(ek60_raw_path)

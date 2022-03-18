@@ -514,7 +514,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp = xr.Dataset(
                 {
                     "backscatter_r": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["power"][ch],
                         {"long_name": "Backscatter power", "units": "dB"},
                     ),
@@ -585,10 +585,10 @@ class SetGroupsEK60(SetGroupsBase):
                         self.parser_obj.ping_time[ch],
                         self._varattrs["beam_coord_default"]["ping_time"],
                     ),
-                    "range_bin": (
-                        ["range_bin"],
+                    "range_sample": (
+                        ["range_sample"],
                         np.arange(data_shape[1]),
-                        self._varattrs["beam_coord_default"]["range_bin"],
+                        self._varattrs["beam_coord_default"]["range_sample"],
                     ),
                 },
             )
@@ -602,12 +602,12 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp = ds_tmp.assign(
                     {
                         "angle_athwartship": (
-                            ["ping_time", "range_bin"],
+                            ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
                             {"long_name": "electrical athwartship angle"},
                         ),
                         "angle_alongship": (
-                            ["ping_time", "range_bin"],
+                            ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
                             {"long_name": "electrical alongship angle"},
                         ),

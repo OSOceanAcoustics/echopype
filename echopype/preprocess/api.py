@@ -10,8 +10,8 @@ from .noise_est import NoiseEst
 def _check_range_uniqueness(ds):
     """Check if range changes across ping in a given frequency channel."""
     return (
-        ds["range"].isel(ping_time=0).dropna(dim="range_bin")
-        == ds["range"].dropna(dim="range_bin")
+        ds["range"].isel(ping_time=0).dropna(dim="range_sample")
+        == ds["range"].dropna(dim="range_sample")
     ).all()
 
 
@@ -44,10 +44,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     def _freq_MVBS(ds, rint, pbin):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
         sv.coords["range_meter"] = (
-            ["range_bin"],
+            ["range_sample"],
             ds_Sv["range"].isel(frequency=0, ping_time=0).data,
         )
-        sv = sv.swap_dims({"range_bin": "range_meter"})
+        sv = sv.swap_dims({"range_sample": "range_meter"})
         sv_groupby_bins = (
             sv.groupby_bins("range_meter", bins=rint, right=False, include_lowest=True)
             .mean()
@@ -77,9 +77,9 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     return MVBS.to_dataset(promote_attrs=True)
 
 
-def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
+def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of range_bin and ping number specified in index number.
+    based on intervals of `range_sample` and ping number specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
     bin-averaged Sv according to intervals of range and ping_time specified in physical units.
@@ -88,8 +88,8 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and range [m]
-    range_bin_num : int
-        number of samples to average along the ``range_bin`` dimension, default to 100
+    range_sample_num : int
+        number of samples to average along the ``range_sample`` dimension, default to 100
     ping_num : int
         number of pings to average, default to 100
 
@@ -100,7 +100,7 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     ds_Sv["sv"] = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
     da = 10 * np.log10(
         ds_Sv["sv"]
-        .coarsen(ping_time=ping_num, range_bin=range_bin_num, boundary="pad")
+        .coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad")
         .mean(skipna=True)
     )
 
@@ -109,27 +109,27 @@ def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     ds_out = da.to_dataset()
     ds_out["range"] = (
         ds_Sv["range"]
-        .coarsen(  # binned range (use first value in each bin)
-            ping_time=ping_num, range_bin=range_bin_num, boundary="pad"
+        .coarsen(  # binned range (use first value in each sample)
+            ping_time=ping_num, range_sample=range_sample_num, boundary="pad"
         )
         .min(skipna=True)
     )
-    ds_out.coords["range_bin"] = (
-        "range_bin",
-        np.arange(ds_out["range_bin"].size),
-    )  # reset range_bin to start from 0
+    ds_out.coords["range_sample"] = (
+        "range_sample",
+        np.arange(ds_out["range_sample"].size),
+    )  # reset range_sample to start from 0
 
     # Attach attributes
     ds_out.attrs = {
         "binning_mode": "index",
-        "range_bin_num": range_bin_num,
+        "range_sample_num": range_sample_num,
         "ping_num": ping_num,
     }
 
     return ds_out
 
 
-def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
+def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
     """
     Remove noise by using estimates of background noise
     from mean calibrated power of a collection of pings.
@@ -142,8 +142,8 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
         dataset containing Sv and range [m]
     ping_num : int
         number of pings to obtain noise estimates
-    range_bin_num : int
-        number of samples along the ``range_bin`` dimension to obtain noise estimates
+    range_sample_num : int
+        number of samples along the ``range_sample`` dimension to obtain noise estimates
     noise_max : float
         the upper limit for background noise expected under the operating conditions
 
@@ -152,13 +152,13 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
     A DataArray containing noise estimated from the input ``ds_Sv``
     """
     noise_obj = NoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_bin_num=range_bin_num
+        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
     )
     noise_obj.estimate_noise(noise_max=noise_max)
     return noise_obj.Sv_noise
 
 
-def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3):
+def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshold=3):
     """
     Remove noise by using estimates of background noise
     from mean calibrated power of a collection of pings.
@@ -174,8 +174,8 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
         dataset containing Sv and range [m]
     ping_num : int
         number of pings to obtain noise estimates
-    range_bin_num : int
-        number of samples along the ``range_bin`` dimension to obtain noise estimates
+    range_sample_num : int
+        number of samples along the ``range_sample`` dimension to obtain noise estimates
     noise_max : float
         the upper limit for background noise expected under the operating conditions
     SNR_threshold : float
@@ -187,7 +187,7 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
     the corrected Sv (``Sv_corrected``) and the noise estimates (``Sv_noise``)
     """
     noise_obj = NoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_bin_num=range_bin_num
+        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
     )
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
     return noise_obj.ds_Sv

@@ -285,7 +285,7 @@ class EchoData:
                 sound_speed * L / (2 * f)
                 + (sound_speed / 4)
                 * (
-                    ((2 * (self.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                    ((2 * (self.beam.range_sample + 1) - 1) * N * bins_to_avg - 1) / f
                     + self.beam["transmit_duration_nominal"]
                 )
                 - range_offset
@@ -340,8 +340,8 @@ class EchoData:
                 sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
-                    beam.range_bin - tvg_correction_factor
-                ) * sample_thickness  # [frequency x range_bin]
+                    beam.range_sample - tvg_correction_factor
+                ) * sample_thickness  # [frequency x range_sample]
             elif waveform_mode == "BB":
                 beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
@@ -351,7 +351,7 @@ class EchoData:
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (beam.range_bin * beam["sample_interval"] - shift) * sound_speed / 2
+                    (beam.range_sample * beam["sample_interval"] - shift) * sound_speed / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -359,7 +359,7 @@ class EchoData:
                 raise ValueError("Input waveform_mode not recognized!")
 
             # make order of dims conform with the order of backscatter data
-            range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
+            range_meter = range_meter.transpose("frequency", "ping_time", "range_sample")
             range_meter = range_meter.where(
                 range_meter > 0, 0
             )  # set negative ranges to 0

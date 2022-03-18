@@ -110,12 +110,12 @@ class SetGroupsAZFP(SetGroupsBase):
             )
 
         # Largest number of counts along the range dimension among the different channels
-        longest_range_bin = np.max(unpacked_data["num_bins"])
-        range_bin = np.arange(longest_range_bin)
+        longest_range_sample = np.max(unpacked_data["num_bins"])
+        range_sample = np.arange(longest_range_sample)
 
         # Pad power data
-        if any(unpacked_data["num_bins"] != longest_range_bin):
-            N_tmp = np.full((len(N), len(ping_time), longest_range_bin), np.nan)
+        if any(unpacked_data["num_bins"] != longest_range_sample):
+            N_tmp = np.full((len(N), len(ping_time), longest_range_sample), np.nan)
             for i, n in enumerate(N):
                 N_tmp[i, :, : n.shape[1]] = n
             N = N_tmp
@@ -138,7 +138,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                "backscatter_r": (["frequency", "ping_time", "range_bin"], N),
+                "backscatter_r": (["frequency", "ping_time", "range_sample"], N),
                 "equivalent_beam_angle": (["frequency"], parameters["BP"]),
                 "gain_correction": (["frequency"], unpacked_data["gain"]),
                 "sample_interval": (["frequency"], sample_int, {"units": "s"}),
@@ -182,10 +182,10 @@ class SetGroupsAZFP(SetGroupsBase):
                     ping_time,
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
-                    range_bin,
-                    self._varattrs["beam_coord_default"]["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
+                    range_sample,
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
             attrs={

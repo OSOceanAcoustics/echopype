@@ -26,7 +26,7 @@ def create_echogram(
         Otherwise all frequency will be plotted.
     get_range : bool, optional
         Flag as to whether range should be computed or not,
-        by default it will just plot range_bin as the yaxis.
+        by default it will just plot `range_sample` as the yaxis.
 
         Note that for data that is "Sv" xarray dataset, `get_range` defaults
         to `True`.
@@ -71,7 +71,7 @@ def create_echogram(
             raise ValueError(
                 "Visualization for AD2CP sonar model is currently unsupported."
             )
-        yaxis = 'range_bin'
+        yaxis = 'range_sample'
         variable = 'backscatter_r'
         ds = data.beam
         if get_range is True:
@@ -147,7 +147,7 @@ def create_echogram(
         yaxis = 'range'
         if 'range' not in data.dims and get_range is False:
             # Range in dims indicates that data is MVBS.
-            yaxis = 'range_bin'
+            yaxis = 'range_sample'
 
         # If depth is available in ds, use it.
         ds = ds.set_coords('range')

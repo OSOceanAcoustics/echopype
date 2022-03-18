@@ -103,7 +103,7 @@ def perform_combination(sonar_model, input_paths, output_path, engine):
         io.save_file(
             ds_beam.chunk(
                 {
-                    "range_bin": DEFAULT_CHUNK_SIZE["range_bin"],
+                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                 }
             ),  # these chunk sizes are ad-hoc
