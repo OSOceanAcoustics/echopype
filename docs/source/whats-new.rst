@@ -317,4 +317,4 @@ New features
 Bug fixes
 ~~~~~~~~~
 
-Fix bugs in slicing NMEA group data based on the same time base when `range_sample` is changed
+Fix bugs in slicing NMEA group data based on the same time base when `range_bin` is changed

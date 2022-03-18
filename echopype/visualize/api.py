@@ -26,7 +26,7 @@ def create_echogram(
         Otherwise all frequency will be plotted.
     get_range : bool, optional
         Flag as to whether range should be computed or not,
-        by default it will just plot `range_sample` as the yaxis.
+        by default it will just plot ``range_sample`` as the yaxis.
 
         Note that for data that is "Sv" xarray dataset, `get_range` defaults
         to `True`.

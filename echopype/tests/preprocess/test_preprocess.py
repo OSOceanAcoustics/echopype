@@ -161,9 +161,9 @@ def test_remove_noise():
 def _construct_MVBS_toy_data(
     nfreq, npings, nrange_samples, ping_size, range_sample_size
 ):
-    """Construct data with values that increase every ping_num and `range_sample_num`
+    """Construct data with values that increase every ping_num and ``range_sample_num``
     so that the result of computing MVBS is a smaller array
-    that increases regularly for each resampled ping_time and `range_sample`
+    that increases regularly for each resampled ``ping_time`` and ``range_sample``
 
     Parameters
     ----------
@@ -172,16 +172,16 @@ def _construct_MVBS_toy_data(
     npings : int
         number of pings
     nrange_samples : int
-        number of range_samples
+        number of range samples
     ping_size : int
         number of pings with the same value
     range_sample_size : int
-        number of range_samples with the same value
+        number of range samples with the same value
 
     Returns
     -------
     np.ndarray
-        Array with blocks of ping_times and range_samples with the same value,
+        Array with blocks of ``ping_times`` and range samples with the same value,
         so that computing the MVBS will result in regularly increasing values
         every row and column
     """
@@ -210,13 +210,13 @@ def _construct_MVBS_test_data(nfreq, npings, nrange_samples):
     npings : int
         number of pings
     nrange_samples : int
-        number of range_samples
+        number of range samples
 
     Returns
     -------
     np.ndarray
         Array with values that increases regularly
-        every ping and range_sample
+        every ping and range sample
     """
 
     # Construct test array
