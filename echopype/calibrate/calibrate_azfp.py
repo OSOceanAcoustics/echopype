@@ -74,7 +74,7 @@ class CalibrateAZFP(CalibrateBase):
         )
 
     def compute_range_meter(self, cal_type):
-        """Calculate range in meter using AZFP formula.
+        """Calculate range (``echo_range``) in meter using AZFP formula.
 
         Note the range calculation differs for Sv and Sp per AZFP matlab code.
 

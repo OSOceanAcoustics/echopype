@@ -245,7 +245,7 @@ class CalibrateBase(abc.ABC):
 
     @abc.abstractmethod
     def compute_range_meter(self, **kwargs):
-        """Calculate range in units meter.
+        """Calculate range (``echo_range``) in units meter.
 
         Returns
         -------
