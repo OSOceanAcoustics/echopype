@@ -143,7 +143,7 @@ class EchoData:
         ek_encode_mode="complex",
     ):
         """
-        Computes the echo range of the data contained in this `EchoData` object, in meters.
+        Computes the range (``echo_range``) of the data contained in this `EchoData` object, in meters.
 
         Currently this operation is supported for the following ``sonar_model``:
         EK60, AZFP, EK80 (see Notes below for detail).
@@ -151,7 +151,7 @@ class EchoData:
         Parameters
         ----------
         env_params : dict
-            Environmental parameters needed for computing echo range.
+            Environmental parameters needed for computing range (``echo_range``).
             Users can supply `"sound speed"` directly,
             or specify other variables that can be used to compute them,
             including `"temperature"`, `"salinity"`, and `"pressure"`.
@@ -169,7 +169,7 @@ class EchoData:
             - `"Sp"` for calculating point backscattering strength.
 
             This parameter needs to be specified for data from the AZFP echosounder,
-            due to a difference in computing echo range for Sv and Sp.
+            due to a difference in computing range (``echo_range``) for Sv and Sp.
 
         ek_waveform_mode : {"CW", "BB"}, optional
             Type of transmit waveform.
@@ -191,7 +191,7 @@ class EchoData:
         Returns
         -------
         xr.DataArray
-            The echo range of the data in meters.
+            The range (``echo_range``) of the data in meters.
 
         Raises
         ------
@@ -219,9 +219,9 @@ class EchoData:
         or as power/angle combinations (``encode_mode="power"``) in a format
         similar to those recorded by EK60 echosounders.
 
-        For AZFP echosounder, the returned echo range is duplicated along `ping_time`
+        For AZFP echosounder, the returned ``echo_range`` is duplicated along ``ping_time``
         to conform with outputs from other echosounders, even though within each data
-        file the echo range is held constant.
+        file the range is held constant.
         """
 
         if isinstance(env_params, EnvParams):

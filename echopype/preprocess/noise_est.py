@@ -8,11 +8,11 @@ class NoiseEst:
     Attributes
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and `echo_range` [m]
+        dataset containing ``Sv`` and ``echo_range`` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
-        number of samples along `echo_range` to obtain noise estimates
+        number of samples along ``echo_range`` to obtain noise estimates
     """
 
     def __init__(self, ds_Sv, ping_num, range_bin_num):

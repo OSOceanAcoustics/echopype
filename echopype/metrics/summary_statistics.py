@@ -20,7 +20,7 @@ def delta_z(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing `echo_range` information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -51,13 +51,13 @@ def convert_to_linear(ds: xr.Dataset, Sv_label="Sv") -> xr.DataArray:
 def abundance(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the area-backscattering strength (Sa) [unit: dB re 1 m^2 m^-2].
 
-    This quantity is the integral of volumetric backscatter over `echo_range`.
+    This quantity is the integral of volumetric backscatter over range (``echo_range``).
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing `echo_range` information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -71,13 +71,13 @@ def abundance(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
 def center_of_mass(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the mean backscatter location [unit: m].
 
-    This quantity is the weighted average of backscatter along `echo_range`.
+    This quantity is the weighted average of backscatter along range (``echo_range``).
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing echo_range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -99,7 +99,7 @@ def dispersion(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing `echo_range` information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -123,7 +123,7 @@ def evenness(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing `echo_range` information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -144,7 +144,7 @@ def aggregation(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing `echo_range` information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------

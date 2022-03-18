@@ -374,12 +374,12 @@ def test_compute_range(compute_range_samples):
         else:
             raise AssertionError
     else:
-        range = ed.compute_range(
+        echo_range = ed.compute_range(
             env_params,
             azfp_cal_type,
             ek_waveform_mode,
         )
-        assert isinstance(range, xr.DataArray)
+        assert isinstance(echo_range, xr.DataArray)
 
 
 def test_nan_range_entries(range_check_files):

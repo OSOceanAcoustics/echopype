@@ -152,7 +152,7 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()``:
 
 These values will be used in calculating sound speed,
 sound absorption, and the thickness of each sonar sample,
-which is used in calculating the echo_range.
+which is used in calculating the range (``echo_range``).
 The updated values can be retrieved with:
 
 .. code-block:: python

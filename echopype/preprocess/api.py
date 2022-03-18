@@ -8,7 +8,7 @@ from .noise_est import NoiseEst
 
 
 def _check_range_uniqueness(ds):
-    """Check if `echo_range` changes across ping in a given frequency channel."""
+    """Check if range (``echo_range``) changes across ping in a given frequency channel."""
     return (
         ds["echo_range"].isel(ping_time=0).dropna(dim="range_bin")
         == ds["echo_range"].dropna(dim="range_bin")
@@ -17,15 +17,15 @@ def _check_range_uniqueness(ds):
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of `echo_range` and ping_time specified in physical units.
+    based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
-    bin-averaged Sv according to intervals of `echo_range` and ping_time specified as index number.
+    bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as index number.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and `echo_range` [m]
+        dataset containing Sv and ``echo_range`` [m]
     range_meter_bin : Union[int, float]
         bin size along ``echo_range`` in meters, default to ``20``
     ping_time_bin : str
@@ -38,7 +38,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
     if not ds_Sv.groupby("frequency").apply(_check_range_uniqueness).all():
         raise ValueError(
-            "`echo_range` variable changes across pings in at least one of the frequency channel."
+            "echo_range variable changes across pings in at least one of the frequency channel."
         )
 
     def _freq_MVBS(ds, rint, pbin):
@@ -79,16 +79,16 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
 def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of range_bin and ping number specified in index number.
+    based on intervals of ``range_bin`` and ping number specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
-    bin-averaged Sv according to intervals of `echo_range` and ping_time specified
+    bin-averaged Sv according to intervals of range (``echo_range``) and ``ping_time`` specified
     in physical units.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and `echo_range` [m]
+        dataset containing ``Sv`` and ``echo_range`` [m]
     range_bin_num : int
         number of samples to average along the ``range_bin`` dimension, default to 100
     ping_num : int
@@ -140,7 +140,7 @@ def estimate_noise(ds_Sv, ping_num, range_bin_num, noise_max=None):
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and `echo_range` [m]
+        dataset containing ``Sv`` and ``echo_range`` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int
@@ -172,7 +172,7 @@ def remove_noise(ds_Sv, ping_num, range_bin_num, noise_max=None, SNR_threshold=3
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and `echo_range` [m]
+        dataset containing ``Sv`` and ``echo_range`` [m]
     ping_num : int
         number of pings to obtain noise estimates
     range_bin_num : int

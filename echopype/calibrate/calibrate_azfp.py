@@ -74,9 +74,9 @@ class CalibrateAZFP(CalibrateBase):
         )
 
     def compute_range_meter(self, cal_type):
-        """Calculate echo_range in meter using AZFP formula.
+        """Calculate range (``echo_range``) in meter using AZFP formula.
 
-        Note the echo_range calculation differs for Sv and Sp per AZFP matlab code.
+        Note the range calculation differs for Sv and Sp per AZFP matlab code.
 
         Parameters
         ----------
@@ -97,10 +97,10 @@ class CalibrateAZFP(CalibrateBase):
         in the calibration as documented on p.90.
         See calc_Sv_offset() in convert/azfp.py
         """
-        # Compute echo_range in meters
+        # Compute range in meters
         self.compute_range_meter(
             cal_type=cal_type
-        )  # echo_range computation different for Sv and Sp per AZFP matlab code
+        )  # range computation different for Sv and Sp per AZFP matlab code
 
         # Compute various params
 
