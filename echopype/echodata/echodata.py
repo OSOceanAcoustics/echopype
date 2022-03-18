@@ -143,7 +143,8 @@ class EchoData:
         ek_encode_mode="complex",
     ):
         """
-        Computes the range (``echo_range``) of the data contained in this `EchoData` object, in meters.
+        Computes the range (``echo_range``) of the data contained in this ``EchoData``
+        object, in meters.
 
         Currently this operation is supported for the following ``sonar_model``:
         EK60, AZFP, EK80 (see Notes below for detail).

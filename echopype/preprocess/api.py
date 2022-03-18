@@ -20,7 +20,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
-    bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as index number.
+    bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as
+    index number.
 
     Parameters
     ----------
