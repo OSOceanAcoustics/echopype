@@ -62,16 +62,13 @@ def _compute_cal(
             "units": "dB re 1 m-1",
             "actual_range": [
                 round(float(sv_dataset["Sv"].min().values), 2),
-                round(float(sv_dataset["Sv"].max().values), 2)
-            ]
+                round(float(sv_dataset["Sv"].max().values), 2),
+            ],
         }
         sv_dataset["range_bin"].attrs = {
             "long_name": "Along-range bin (sample) number, base 0"
         }
-        sv_dataset["echo_range"].attrs = {
-            "long_name": "Range distance",
-            "units": "m"
-        }
+        sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
 
         if "water_level" in echodata.platform.data_vars.keys():
             # add water_level to the created xr.Dataset
