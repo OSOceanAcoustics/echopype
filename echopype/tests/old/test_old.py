@@ -24,7 +24,7 @@ def test_calibrate_ek80_bb():
                              header=None, skiprows=[0])
     bb_test_df_r = bb_test_df.iloc[::2, 14:]
     bb_test_df_i = bb_test_df.iloc[1::2, 14:]
-    with xr.open_dataset(tmp.nc_path, group='Beam') as ds_beam:
+    with xr.open_dataset(tmp.nc_path, group='Sonar/Beam_group1') as ds_beam:
         # Select 70 kHz channel and averaged across the quadrants
         backscatter_r = ds_beam.backscatter_r[0].dropna('range_bin').mean('quadrant')
         backscatter_i = ds_beam.backscatter_i[0].dropna('range_bin').mean('quadrant')
@@ -94,7 +94,7 @@ def test_process_AZFP_matlab():
     def check_output(ds_base, ds_cmp, cal_type):
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
+                ds_cmp.echo_range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
                 ds_cmp[cal_type].isel(frequency=fidx).values,

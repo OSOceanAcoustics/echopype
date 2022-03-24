@@ -15,7 +15,7 @@ import numpy as np
 @pytest.fixture(scope="module")
 def single_ek60_zarr(test_path):
     return (
-        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214.zarr"
+        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214__NEW.zarr"
     )
 
 
@@ -23,7 +23,7 @@ def single_ek60_zarr(test_path):
     params=[
         single_ek60_zarr,
         (str, "ncei-wcsd", "Summer2017-D20170615-T190214.zarr"),
-        (None, "ncei-wcsd", "Summer2017-D20170615-T190214.nc"),
+        (None, "ncei-wcsd", "Summer2017-D20170615-T190214__NEW.nc"),
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.nc",
         "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
@@ -248,7 +248,8 @@ class TestEchoData:
               > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
               > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
               > sonar: (Sonar) contains specific metadata for the sonar system.
-              > beam: (Beam) contains backscatter data and other beam or channel-specific data.
+              > beam: (Sonar/Beam_group1) contains backscatter data (either complex samples or uncalibrated power samples)\
+ and other beam or channel-specific data, including split-beam angle data when they exist.
               > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData(converted_raw_path=converted_zarr)
@@ -373,12 +374,12 @@ def test_compute_range(compute_range_samples):
         else:
             raise AssertionError
     else:
-        range = ed.compute_range(
+        echo_range = ed.compute_range(
             env_params,
             azfp_cal_type,
             ek_waveform_mode,
         )
-        assert isinstance(range, xr.DataArray)
+        assert isinstance(echo_range, xr.DataArray)
 
 
 def test_nan_range_entries(range_check_files):
@@ -393,7 +394,7 @@ def test_nan_range_entries(range_check_files):
         range_output = echodata.compute_range(env_params=[])
         nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isnull()
 
-    nan_locs_Sv_range = ~ds_Sv.range.isnull()
+    nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_range)
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_Sv_range)

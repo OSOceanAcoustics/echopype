@@ -992,7 +992,7 @@ class CalibrateEK80(CalibrateEK):
         -------
         Sv : xr.DataSet
             A DataSet containing volume backscattering strength (``Sv``)
-            and the corresponding range (``range``) in units meter.
+            and the corresponding range (``echo_range``) in units meter.
         """
         return self._compute_cal(
             cal_type="Sv", waveform_mode=waveform_mode, encode_mode=encode_mode
@@ -1022,7 +1022,7 @@ class CalibrateEK80(CalibrateEK):
         -------
         Sp : xr.DataSet
             A DataSet containing point backscattering strength (``Sp``)
-            and the corresponding range (``range``) in units meter.
+            and the corresponding range (``echo_range``) in units meter.
         """
         return self._compute_cal(
             cal_type="Sp", waveform_mode=waveform_mode, encode_mode=encode_mode

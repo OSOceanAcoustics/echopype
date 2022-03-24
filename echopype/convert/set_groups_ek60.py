@@ -20,6 +20,16 @@ class SetGroupsEK60(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": (
+                    "contains backscatter power (uncalibrated) and other beam or"
+                    " channel-specific data, including split-beam angle data when they exist."
+                ),
+            }
+        ]
+
         self.old_ping_time = None
         # correct duplicate ping_time
         for ch in self.parser_obj.config_datagram["transceivers"].keys():
@@ -157,6 +167,11 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
+
+        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        ds = xr.Dataset(self._beam_groups_vars())
+
         # Assemble sonar group dictionary
         sonar_dict = {
             "sonar_manufacturer": "Simrad",
@@ -166,8 +181,8 @@ class SetGroupsEK60(SetGroupsBase):
             "sonar_software_version": self.parser_obj.config_datagram["version"],
             "sonar_type": "echosounder",
         }
-        ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
+
         return ds
 
     def set_platform(self, NMEA_only=False) -> xr.Dataset:
@@ -288,7 +303,7 @@ class SetGroupsEK60(SetGroupsBase):
         return set_encodings(ds)
 
     def set_beam(self) -> xr.Dataset:
-        """Set the Beam group."""
+        """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
         freq = np.array(

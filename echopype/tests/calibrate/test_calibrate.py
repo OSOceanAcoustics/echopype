@@ -28,6 +28,19 @@ def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
 
 
+def test_compute_Sv_returns_water_level(ek60_path):
+
+    # get EchoData object that has the water_level variable under platform and compute Sv of it
+    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # make sure the returned Dataset has water_level and throw an assertion error if the
+    # EchoData object does not have water_level (just in case we remove it from the file
+    # used in the future)
+    assert 'water_level' in ed.platform.data_vars.keys()
+    assert 'water_level' in ds_Sv.data_vars
+
+
 def test_compute_Sv_ek60_echoview(ek60_path):
     # constant range_bin
     ek60_raw_path = str(
@@ -141,7 +154,7 @@ def test_compute_Sv_azfp(azfp_path):
         }
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.range.isel(frequency=fidx).values
+                ds_cmp.echo_range.isel(frequency=fidx).values
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(

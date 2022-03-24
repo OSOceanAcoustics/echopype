@@ -103,7 +103,7 @@ def test_remove_noise():
     ds_Sv = Sv.to_dataset()
 
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(
+        echo_range=xr.DataArray(
             np.array([[np.linspace(0, 10, nrange_bins)] * npings]),
             coords=Sv.coords,
         )
@@ -138,9 +138,9 @@ def test_remove_noise():
     )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
-    # Attach required range and sound_absorption values
+    # Attach required echo_range and sound_absorption values
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(
+        echo_range=xr.DataArray(
             np.array([[np.linspace(0, 3, nrange_bins)] * npings]),
             coords=Sv.coords,
         )
@@ -256,7 +256,7 @@ def test_compute_MVBS_index_binning():
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(
+        echo_range=xr.DataArray(
             np.array([[np.linspace(0, 10, nrange_bins)] * npings] * nfreq),
             coords=Sv.coords,
         )
@@ -331,7 +331,7 @@ def test_compute_MVBS():
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
-        range=xr.DataArray(
+        echo_range=xr.DataArray(
             np.array(
                 [[np.linspace(0, total_range, nrange_bins)] * npings] * nfreq
             ),
@@ -365,7 +365,7 @@ def test_compute_MVBS():
 
     # Test to see if range was resampled correctly
     test_range = np.arange(0, total_range, range_meter_bin)
-    assert np.array_equal(data_test.range, test_range)
+    assert np.array_equal(data_test.echo_range, test_range)
 
 
 def test_preprocess_mvbs(test_data_samples):

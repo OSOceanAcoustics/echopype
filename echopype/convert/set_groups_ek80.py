@@ -14,6 +14,20 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": "contains complex backscatter data and other beam or channel-specific data.",  # noqa
+            },
+            {
+                "name": "Beam_group2",
+                "descr": (
+                    "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
+                    " including split-beam angle data when they exist."
+                ),
+            },
+        ]
+
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group."""
         # If only saving environment group,
@@ -73,23 +87,28 @@ class SetGroupsEK80(SetGroupsBase):
                 var[param].append(data[param])
 
         # Create dataset
+        # beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        beam_groups_vars = self._beam_groups_vars()
+        sonar_vars = {
+            "serial_number": (["frequency"], var["serial_number"]),
+            "sonar_model": (["frequency"], var["transducer_name"]),
+            "sonar_serial_number": (["frequency"], var["channel_id_short"]),
+            "sonar_software_name": (
+                ["frequency"],
+                var["application_name"],
+            ),  # identical for all channels
+            "sonar_software_version": (
+                ["frequency"],
+                var["application_version"],
+            ),  # identical for all channels
+        }
         ds = xr.Dataset(
-            {
-                "serial_number": (["frequency"], var["serial_number"]),
-                "sonar_model": (["frequency"], var["transducer_name"]),
-                "sonar_serial_number": (["frequency"], var["channel_id_short"]),
-                "sonar_software_name": (
-                    ["frequency"],
-                    var["application_name"],
-                ),  # identical for all channels
-                "sonar_software_version": (
-                    ["frequency"],
-                    var["application_version"],
-                ),  # identical for all channels
-            },
+            {**sonar_vars, **beam_groups_vars},
             coords={"frequency": var["transducer_frequency"]},
             attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
+
         return ds
 
     def set_platform(self) -> xr.Dataset:
@@ -210,7 +229,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
-        """Assemble dataset for ping-invariant params in the Beam group.
+        """Assemble dataset for ping-invariant params in the /Sonar/Beam_group1 group.
 
         Parameters
         ----------
@@ -565,7 +584,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds_common)
 
     def set_beam(self) -> List[xr.Dataset]:
-        """Set the Beam group."""
+        """Set the /Sonar/Beam_group1 group."""
 
         def merge_save(ds_combine, ds_type, group_name):
             """Merge data from all complex or all power/angle channels"""
@@ -643,16 +662,18 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_power.append(ds_data)
 
         # Merge and save group:
-        #  if both complex and power data exist: complex data in Beam group
-        #   and power data in Beam_power
-        #  if only one type of data exist: data in Beam group
+        #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
+        #   and power data in /Sonar/Beam_group2
+        #  if only one type of data exist: data in /Sonar/Beam_group1 group
         ds_beam_power = None
         if len(ds_complex) > 0:
-            ds_beam = merge_save(ds_complex, "complex", group_name="Beam")
+            ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(ds_power, "power", group_name="Beam_power")
+                ds_beam_power = merge_save(
+                    ds_power, "power", group_name="/Sonar/Beam_group2"
+                )
         else:
-            ds_beam = merge_save(ds_power, "power", group_name="Beam")
+            ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
 
         return [ds_beam, ds_beam_power]
 
