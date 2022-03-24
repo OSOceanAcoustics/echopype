@@ -352,7 +352,9 @@ class EchoData:
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (beam.range_sample * beam["sample_interval"] - shift) * sound_speed / 2
+                    (beam.range_sample * beam["sample_interval"] - shift)
+                    * sound_speed
+                    / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -360,7 +362,9 @@ class EchoData:
                 raise ValueError("Input waveform_mode not recognized!")
 
             # make order of dims conform with the order of backscatter data
-            range_meter = range_meter.transpose("frequency", "ping_time", "range_sample")
+            range_meter = range_meter.transpose(
+                "frequency", "ping_time", "range_sample"
+            )
             range_meter = range_meter.where(
                 range_meter > 0, 0
             )  # set negative ranges to 0

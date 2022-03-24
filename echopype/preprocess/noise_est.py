@@ -60,7 +60,9 @@ class NoiseEst:
         """
         power_cal_binned_avg = 10 * np.log10(  # binned averages of calibrated power
             self.power_cal.coarsen(
-                ping_time=self.ping_num, range_sample=self.range_sample_num, boundary="pad"
+                ping_time=self.ping_num,
+                range_sample=self.range_sample_num,
+                boundary="pad",
             ).mean()
         )
         noise = power_cal_binned_avg.min(dim="range_sample", skipna=True)
