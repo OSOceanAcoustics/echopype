@@ -154,7 +154,7 @@ def test_compute_Sv_azfp(azfp_path):
         }
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.range.isel(frequency=fidx).values
+                ds_cmp.echo_range.isel(frequency=fidx).values
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(

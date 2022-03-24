@@ -121,7 +121,7 @@ def _plot_echogram(
     frequency: Union[int, float, List[T], None] = None,
     variable: str = 'backscatter_r',
     xaxis: str = 'ping_time',
-    yaxis: str = 'range',
+    yaxis: str = 'echo_range',
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
     kwargs = _set_plot_defaults(kwargs)
@@ -173,14 +173,14 @@ def _plot_echogram(
     if not filtered_ds.frequency.shape:
         if (
             np.any(filtered_ds.isnull()).values == np.array(True)
-            and 'range' in filtered_ds.coords
+            and 'echo_range' in filtered_ds.coords
             and 'range_sample' in filtered_ds.dims
             and variable in ['backscatter_r', 'Sv']
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
                 range_sample=filtered_ds.range_sample.where(
-                    ~filtered_ds.range.isel(ping_time=0).isnull()
+                    ~filtered_ds.echo_range.isel(ping_time=0).isnull()
                 )
                 .dropna(dim='range_sample')
                 .data
@@ -213,14 +213,14 @@ def _plot_echogram(
             d = filtered_ds[filtered_ds.frequency == f.values]
             if (
                 np.any(d.isnull()).values == np.array(True)
-                and 'range' in d.coords
+                and 'echo_range' in d.coords
                 and 'range_sample' in d.dims
                 and variable in ['backscatter_r', 'Sv']
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
                     range_sample=d.range_sample.where(
-                        ~d.range.sel(frequency=f.values)
+                        ~d.echo_range.sel(frequency=f.values)
                         .isel(ping_time=0)
                         .isnull()
                     )

@@ -94,7 +94,7 @@ def test_process_AZFP_matlab():
     def check_output(ds_base, ds_cmp, cal_type):
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
+                ds_cmp.echo_range.isel(frequency=fidx).values == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
                 ds_cmp[cal_type].isel(frequency=fidx).values,

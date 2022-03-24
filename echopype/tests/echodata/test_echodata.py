@@ -374,12 +374,12 @@ def test_compute_range(compute_range_samples):
         else:
             raise AssertionError
     else:
-        range = ed.compute_range(
+        echo_range = ed.compute_range(
             env_params,
             azfp_cal_type,
             ek_waveform_mode,
         )
-        assert isinstance(range, xr.DataArray)
+        assert isinstance(echo_range, xr.DataArray)
 
 
 def test_nan_range_entries(range_check_files):
@@ -394,7 +394,7 @@ def test_nan_range_entries(range_check_files):
         range_output = echodata.compute_range(env_params=[])
         nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isnull()
 
-    nan_locs_Sv_range = ~ds_Sv.range.isnull()
+    nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_range)
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_Sv_range)
