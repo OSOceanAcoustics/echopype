@@ -64,21 +64,33 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     range_interval = np.arange(
         0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin
     )
-    MVBS = ds_Sv.groupby("frequency").apply(
+    ds_MVBS = ds_Sv.groupby("frequency").apply(
         _freq_MVBS, args=(range_interval, ping_time_bin)
-    )
-
-    # TODO: Add attributes to ping_time and range coordinates
-
+    ).to_dataset()
     # Attach attributes
-    MVBS.attrs = {
-        "long_name": "Mean Volume Backscattering Strength (MVBS)",
+    ds_MVBS["ping_time"].attrs = {
+        "long_name": "Timestamp of each ping",
+        "standard_name": "time",
+        "axis": "T"
+    }
+    ds_MVBS["echo_range"].attrs = {
+        "long_name": "Range distance",
+        "units": "m"
+    }
+    MVBS = ds_MVBS["Sv"]
+    ds_MVBS["Sv"].attrs = {
+        "long_name": "Mean volume backscattering strength (MVBS, mean Sv)",
+        "units": "dB re 1 m-1",
+        "actual_range": [
+            round(float(MVBS.min().values), 2),
+            round(float(MVBS.max().values), 2)
+        ],
         "binning_mode": "physical units",
         "range_meter_interval": str(range_meter_bin) + "m",
         "ping_time_interval": ping_time_bin,
     }
 
-    return MVBS.to_dataset()
+    return ds_MVBS
 
 
 def compute_MVBS_index_binning(ds_Sv, range_bin_num=100, ping_num=100):
