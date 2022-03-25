@@ -111,7 +111,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     ds_out = da.to_dataset()
     ds_out["echo_range"] = (
         ds_Sv["echo_range"]
-        .coarsen(  # binned echo_range (use first value in each sample)
+        .coarsen(  # binned echo_range (use first value in each average bin)
             ping_time=ping_num, range_sample=range_sample_num, boundary="pad"
         )
         .min(skipna=True)
