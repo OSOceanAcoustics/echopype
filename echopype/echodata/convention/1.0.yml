@@ -12,10 +12,6 @@ groups:
     name: Top-level
     description: contains metadata about the SONAR-netCDF4 file format.
     ep_group:
-    coords_ek60: []
-    coords_ek80: []
-    coords_azfp: []
-    coords_ad2cp: []
   environment:
     name: Environment
     description: contains information relevant to acoustic propagation through water.
