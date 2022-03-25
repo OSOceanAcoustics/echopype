@@ -181,7 +181,7 @@ def _construct_MVBS_toy_data(
     Returns
     -------
     np.ndarray
-        Array with blocks of ``ping_times`` and range samples with the same value,
+        Array with blocks of ``ping_time`` and ``range_sample`` with the same value,
         so that computing the MVBS will result in regularly increasing values
         every row and column
     """
