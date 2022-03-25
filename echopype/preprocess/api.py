@@ -80,7 +80,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of ``range_sample`` and ping number specified in index number.
+    based on intervals of ``range_sample`` and ping number (`ping_num`) specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
     bin-averaged Sv according to intervals of range (``echo_range``) and ``ping_time`` specified
