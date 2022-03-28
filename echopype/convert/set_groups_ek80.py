@@ -404,12 +404,12 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_bin", "quadrant"],
+                    ["ping_time", "range_sample", "quadrant"],
                     np.real(data),
                     {"long_name": "Real part of backscatter power", "units": "V"},
                 ),
                 "backscatter_i": (
-                    ["ping_time", "range_bin", "quadrant"],
+                    ["ping_time", "range_sample", "quadrant"],
                     np.imag(data),
                     {"long_name": "Imaginary part of backscatter power", "units": "V"},
                 ),
@@ -420,10 +420,10 @@ class SetGroupsEK80(SetGroupsBase):
                     self.parser_obj.ping_time[ch],
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
                     np.arange(data_shape[1]),
-                    self._varattrs["beam_coord_default"]["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
                 "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
             },
@@ -484,7 +484,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_bin"],
+                    ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
                     {"long_name": "Backscattering power", "units": "dB"},
                 ),
@@ -495,10 +495,10 @@ class SetGroupsEK80(SetGroupsBase):
                     self.parser_obj.ping_time[ch],
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
                     np.arange(data_shape[1]),
-                    self._varattrs["beam_coord_default"]["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
@@ -508,12 +508,12 @@ class SetGroupsEK80(SetGroupsBase):
             ds_tmp = ds_tmp.assign(
                 {
                     "angle_athwartship": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
                         {"long_name": "electrical athwartship angle"},
                     ),
                     "angle_alongship": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
                         {"long_name": "electrical alongship angle"},
                     ),
@@ -522,7 +522,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         return set_encodings(ds_tmp)
 
-    def _assemble_ds_common(self, ch, range_bin_size):
+    def _assemble_ds_common(self, ch, range_sample_size):
         """Variables common to complex and power/angle data."""
         # pulse duration may have different names
         if "pulse_length" in self.parser_obj.ping_data_dict:
@@ -574,10 +574,10 @@ class SetGroupsEK80(SetGroupsBase):
                     self.parser_obj.ping_time[ch],
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
-                    np.arange(range_bin_size),
-                    self._varattrs["beam_coord_default"]["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
+                    np.arange(range_sample_size),
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
@@ -599,7 +599,7 @@ class SetGroupsEK80(SetGroupsBase):
                 )  # override keeps the Dataset attributes
             return set_encodings(ds_combine)
             # # Save to file
-            # io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+            # io.save_file(ds_combine.chunk({'range_sample': DEFAULT_CHUNK_SIZE['range_sample'],
             #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
             #              path=self.output_path, mode='a', engine=self.engine,
             #              group=group_name, compression_settings=self.compression_settings)
@@ -639,7 +639,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_data = self._assemble_ds_power(ch)
             else:  # skip for channels containing no data
                 continue
-            ds_common = self._assemble_ds_common(ch, ds_data.range_bin.size)
+            ds_common = self._assemble_ds_common(ch, ds_data.range_sample.size)
             ds_data = xr.merge(
                 [ds_data, ds_common], combine_attrs="override"
             )  # override keeps the Dataset attributes

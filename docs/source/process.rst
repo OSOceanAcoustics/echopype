@@ -22,7 +22,7 @@ Functionality
     from the calibrated data.
   - Compute mean volume backscattering strength (MVBS) based
     on either the number of pings and sample intervals
-    (the ``range_bin`` dimension in the dataset) or a
+    (the ``range_sample`` dimension in the dataset) or a
     specified ping time interval and range interval in
     physics units (seconds and meters, respectively).
 
@@ -70,7 +70,7 @@ The steps for performing these analyses are summarized below:
       # Reduce data based on sample number
       ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
            ds_Sv,             # calibrated Sv dataset
-           range_bin_num=30,  # number of sample bins to average along the range_bin dimensionm
+           range_sample_num=30,  # number of sample bins to average along the range_sample dimensionm
            ping_num=5         # number of pings to average
        )
 
@@ -81,7 +81,7 @@ The steps for performing these analyses are summarized below:
       # Remove noise
       ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
          ds_Sv,             # calibrated Sv dataset
-         range_bin_num=30,  # number of samples along the range_bin dimension for estimating noise
+         range_sample_num=30,  # number of samples along the range_sample dimension for estimating noise
          ping_num=5,        # number of pings for estimating noise
       )
 

@@ -58,7 +58,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
         echodata.beam.backscatter_r.isel(frequency=0, ping_time=0)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .values[1:, :],
         np.real(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
@@ -66,7 +66,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
     )
     assert np.array_equal(
         echodata.beam.backscatter_i.isel(frequency=0, ping_time=0)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .values[1:, :],
         np.imag(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
@@ -104,7 +104,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         assert np.allclose(
             test_power,
             echodata.beam.backscatter_r.sel(frequency=freq * 1e3).dropna(
-                'range_bin'
+                'range_sample'
             ),
             rtol=0,
             atol=1.1e-5,
@@ -133,7 +133,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
                 major.sel(frequency=freq * 1e3)
                 .isel(ping_time=ping_idx)
-                .dropna('range_bin'),
+                .dropna('range_sample'),
                 rtol=0,
                 atol=5e-5,
             )
@@ -141,7 +141,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
                 minor.sel(frequency=freq * 1e3)
                 .isel(ping_time=ping_idx)
-                .dropna('range_bin'),
+                .dropna('range_sample'),
                 rtol=0,
                 atol=5e-5,
             )
@@ -163,7 +163,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
     )  # averaged across quadrants
     assert np.allclose(
         echodata.beam.backscatter_r.sel(frequency=70e3)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .mean(dim='quadrant'),
         df_bb.iloc[::2, 14:],  # real rows
         rtol=0,
@@ -171,7 +171,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
     )
     assert np.allclose(
         echodata.beam.backscatter_i.sel(frequency=70e3)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .mean(dim='quadrant'),
         df_bb.iloc[1::2, 14:],  # imag rows
         rtol=0,

@@ -9,7 +9,7 @@ from _echopype_version import version as ECHOPYPE_VERSION
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
-DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
+DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 
 class SetGroupsBase(abc.ABC):

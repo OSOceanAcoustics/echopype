@@ -122,10 +122,10 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
     assert echodata.beam.backscatter_r.isel(frequency=0).dropna(
-        'range_bin'
+        'range_sample'
     ).shape == (360, 438)
     assert echodata.beam.backscatter_r.isel(frequency=3).dropna(
-        'range_bin'
+        'range_sample'
     ).shape == (360, 135)
 
 

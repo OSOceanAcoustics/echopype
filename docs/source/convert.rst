@@ -285,7 +285,7 @@ currently not supported.
 .. note::
 
    Zarr datasets will be automatically chunked with default chunk sizes of
-   25000 for ``range_bin`` and 2500 for ``ping_time`` dimensions.
+   25000 for ``range_sample`` and 2500 for ``ping_time`` dimensions.
 
 
 Non-uniform data
@@ -301,7 +301,7 @@ change in the middle of the file. For example:
 - Data from different frequency channels can also be collected with
   different sampling intervals.
 
-These changes produce different number of samples along range (the ``range_bin``
+These changes produce different number of samples along range (the ``range_sample``
 dimension in the converted ``.nc`` file), which are incompatible with the goal
 to save the data as a multi-dimensional array that can be easily indexed using xarray.
 

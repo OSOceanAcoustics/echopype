@@ -177,9 +177,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "ping_time_average": self.ds.get("ping_time_average"),
                 "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
                 "beam": self.ds.get("beam"),
-                "range_bin_burst": self.ds.get("range_bin_burst"),
-                "range_bin_average": self.ds.get("range_bin_average"),
-                "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
+                "range_sample_burst": self.ds.get("range_sample_burst"),
+                "range_sample_average": self.ds.get("range_sample_average"),
+                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
             },
             attrs={
                 "platform_name": self.ui_param["platform_name"],
@@ -191,8 +191,8 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def set_beam(self) -> xr.Dataset:
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
-        # like was done for range_bin (we have range_bin_burst, range_bin_average,
-        # and range_bin_echosounder)?
+        # like was done for range_sample (we have range_sample_burst, range_sample_average,
+        # and range_sample_echosounder)?
         data_vars = {
             "number_of_beams": self.ds.get("num_beams"),
             "coordinate_system": self.ds.get("coordinate_system"),
@@ -241,9 +241,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "ping_time_average": self.ds.get("ping_time_average"),
                 "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
                 "beam": self.ds.get("beam"),
-                "range_bin_burst": self.ds.get("range_bin_burst"),
-                "range_bin_average": self.ds.get("range_bin_average"),
-                "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
+                "range_sample_burst": self.ds.get("range_sample_burst"),
+                "range_sample_average": self.ds.get("range_sample_average"),
+                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
                 "altimeter_sample_bin": self.ds.get("altimeter_sample_bin"),
             },
             attrs={"pulse_compressed": self.pulse_compressed},
@@ -350,9 +350,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "sample": self.ds.get("sample"),
                 "sample_transmit": self.ds.get("sample_transmit"),
                 "beam": self.ds.get("beam"),
-                "range_bin_average": self.ds.get("range_bin_average"),
-                "range_bin_burst": self.ds.get("range_bin_burst"),
-                "range_bin_echosounder": self.ds.get("range_bin_echosounder"),
+                "range_sample_average": self.ds.get("range_sample_average"),
+                "range_sample_burst": self.ds.get("range_sample_burst"),
+                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
             },
             attrs={**attrs, "pulse_compressed": self.pulse_compressed},
         )

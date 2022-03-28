@@ -21,7 +21,7 @@ COMPRESSION_SETTINGS = {
     "zarr": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
 }
 
-DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
+DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
@@ -152,7 +152,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         io.save_file(
             echodata.beam.chunk(
                 {
-                    "range_bin": DEFAULT_CHUNK_SIZE["range_bin"],
+                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                 }
             ),
@@ -166,7 +166,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         io.save_file(
             echodata.beam_power.chunk(
                 {
-                    "range_bin": DEFAULT_CHUNK_SIZE["range_bin"],
+                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                 }
             ),
