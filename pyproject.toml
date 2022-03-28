@@ -17,17 +17,11 @@ write_to_template = 'version = "{version}"  # noqa'
 [tool.black]
 line-length = 100
 
-[tool.flake8]
-max-line-length = 100
-output-file = flake8_log.txt
-tee = True
-ignore = E722,E203,W503,T001
-
 [tool.isort]
-known_first_party = echopype
-known_third_party = _echopype_version,setuptools
+known_first_party = "echopype"
+known_third_party = ["_echopype_version", "setuptools"]
 multi_line_output = 3
-include_trailing_comma = True
+include_trailing_comma = true
 force_grid_wrap = 0
-combine_as_imports = True
+combine_as_imports = true
 line_length = 100
