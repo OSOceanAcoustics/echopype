@@ -100,6 +100,8 @@ if __name__ == "__main__":
                 f"echopype/{module}/*",
                 f"echopype/tests/{module}/*",
             ]
+        if "extra_globs" in mod_extras:
+            file_globs = file_globs + mod_extras["extra_globs"]
         for f in file_list:
             file_path = Path(f)
             file_name, file_ext = os.path.splitext(os.path.basename(f))
