@@ -45,9 +45,7 @@ if __name__ == "__main__":
         default="",
         help="Comma separated list of changed files.",
     )
-    parser.add_argument(
-        "--pytest-args", type=str, help="Optional pytest args", default=""
-    )
+    parser.add_argument("--pytest-args", type=str, help="Optional pytest args", default="")
     parser.add_argument(
         "--local",
         action="store_true",

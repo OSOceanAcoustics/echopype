@@ -121,10 +121,7 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
-            print(
-                "WARNING: The water_level_draft was not in the file. "
-                "Value set to NaN."
-            )
+            print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
 
         location_time, msg_type, lat, lon = self._parse_NMEA()
         mru_time = self.parser_obj.mru.get("timestamp", None)
@@ -241,9 +238,7 @@ class SetGroupsEK80(SetGroupsBase):
         ch_ids = self.parser_obj.ch_ids[data_type]
         freq = np.array(
             [
-                self.parser_obj.config_datagram["configuration"][ch][
-                    "transducer_frequency"
-                ]
+                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
                 for ch in ch_ids
             ]
         )
@@ -388,9 +383,7 @@ class SetGroupsEK80(SetGroupsBase):
             np.array(self.parser_obj.ping_data_dict["n_complex"][ch])
         )
         if num_transducer_sectors.size > 1:  # this is not supposed to happen
-            raise ValueError(
-                "Transducer sector number changes in the middle of the file!"
-            )
+            raise ValueError("Transducer sector number changes in the middle of the file!")
         else:
             num_transducer_sectors = num_transducer_sectors[0]
         data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
@@ -647,9 +640,7 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = ds_data.expand_dims(
                 {
                     "frequency": [
-                        self.parser_obj.config_datagram["configuration"][ch][
-                            "transducer_frequency"
-                        ]
+                        self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
                     ]
                 }
             )
@@ -669,9 +660,7 @@ class SetGroupsEK80(SetGroupsBase):
         if len(ds_complex) > 0:
             ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(
-                    ds_power, "power", group_name="/Sonar/Beam_group2"
-                )
+                ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
 

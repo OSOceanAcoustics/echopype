@@ -31,9 +31,7 @@ class CalibrateAZFP(CalibrateBase):
         # Params from the Beam group
         for p in ["EL", "DS", "TVR", "VTX", "Sv_offset", "equivalent_beam_angle"]:
             # substitute if None in user input
-            self.cal_params[p] = (
-                cal_params[p] if p in cal_params else self.echodata.beam[p]
-            )
+            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.beam[p]
 
     def get_env_params(self):
         """Get env params using user inputs or values from data file.
@@ -51,9 +49,7 @@ class CalibrateAZFP(CalibrateBase):
 
         # Salinity and pressure always come from user input
         if ("salinity" not in self.env_params) or ("pressure" not in self.env_params):
-            raise ReferenceError(
-                "Please supply both salinity and pressure in env_params."
-            )
+            raise ReferenceError("Please supply both salinity and pressure in env_params.")
         else:
             self.env_params["salinity"] = self.env_params["salinity"]
             self.env_params["pressure"] = self.env_params["pressure"]
@@ -84,9 +80,7 @@ class CalibrateAZFP(CalibrateBase):
             'Sv' for calculating volume backscattering strength, or
             'Sp' for calculating point backscattering strength
         """
-        self.range_meter = self.echodata.compute_range(
-            self.env_params, azfp_cal_type=cal_type
-        )
+        self.range_meter = self.echodata.compute_range(self.env_params, azfp_cal_type=cal_type)
 
     def _cal_power(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
@@ -112,9 +106,7 @@ class CalibrateAZFP(CalibrateBase):
         # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
         a = self.cal_params["DS"]
         EL = (
-            self.cal_params["EL"]
-            - 2.5 / a
-            + self.echodata.beam.backscatter_r / (26214 * a)
+            self.cal_params["EL"] - 2.5 / a + self.echodata.beam.backscatter_r / (26214 * a)
         )  # eq.(5)
 
         if cal_type == "Sv":
