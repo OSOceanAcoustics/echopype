@@ -2,10 +2,7 @@ exclude: |
   (?x)^(
     echopype/tests/|
     echopype/test_data/|
-    echopype/process/|
     echopype/visualize/|
-    echopype/convert/add_ancillary.py|
-    echopype/convert/convert_combine.py|
     docs/source/conf.py
   )
 repos:
