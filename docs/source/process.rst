@@ -2,7 +2,7 @@ Data processing
 ===============
 
 .. attention::
-   The previous data processing interface ``Process`` was deprecated 
+   The previous data processing interface ``Process`` was deprecated
    starting from version 0.5.0.
    See `version 0.4.1 documentation <https://echopype.readthedocs.io/en/v0.4.1/>`_
    if you're working with that echopype release.
