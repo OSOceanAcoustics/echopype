@@ -76,12 +76,12 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
 
 .. code-block:: bash
 
-    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt
+    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements-dev.txt
     conda activate echopype
     # ipykernel is recommended, in order to use with JupyterLab and IPython
     # to aid with development. We recommend you install JupyterLab separately
     conda install -c conda-forge ipykernel
-    pip install -e .
+    pip install -e .[all]
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
