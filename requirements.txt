@@ -11,4 +11,4 @@ fsspec
 s3fs==2021.11.0
 requests
 aiohttp
-typing-extensions>=4.1,==4.*
+typing-extensions
