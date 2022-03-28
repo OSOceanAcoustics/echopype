@@ -63,8 +63,7 @@ netCDF file named ``FILENAME.nc`` saved to the directory path
 
    - Prior to version 0.5.0, conversion was carried out through the
      `"Convert" interface <https://echopype.readthedocs.io/en/v0.4.1/usage.html#conversion-operation>`_.
-     This interface is still available but will be deprecated in
-     a future version.
+     This interface is deprecated in version 0.6.0.
    - Versions of echopype prior to 0.5.0 used ``raw2nc`` and ``raw2zarr``
      in order to convert to netCDF4 or Zarr files respectively.
      These methods have been renamed to ``to_netcdf`` and ``to_zarr``
