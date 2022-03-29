@@ -206,16 +206,16 @@ class SetGroupsBase(abc.ABC):
         return location_time, msg_type, lat, lon
 
     def _beam_groups_vars(self):
-        """Stage beam_group_name and beam_group_descr variables sharing a common dimension
-        to be inserted in the Sonar group"""
+        """Stage beam_group_name and beam_group_descr variables sharing a common dimension,
+        beam_group, to be inserted in the Sonar group"""
         beam_groups_vars = {
             "beam_group_name": (
-                ["beam"],
+                ["beam_group"],
                 [di["name"] for di in self._beamgroups],
                 {"long_name": "Beam group name"},
             ),
             "beam_group_descr": (
-                ["beam"],
+                ["beam_group"],
                 [di["descr"] for di in self._beamgroups],
                 {"long_name": "Beam group description"},
             ),
