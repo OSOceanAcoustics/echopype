@@ -31,8 +31,6 @@ Echopype also supports converting raw data files
 into the `zarr <https://zarr.readthedocs.io/en/stable/>`_ format
 for cloud-optimized data storage and access,
 following the same structure as in the netCDF files.
-However, computing based on the zarr format via ``Process`` is still being
-developed.
 
 .. _ICES SONAR-netCDF4 convention:
    http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf

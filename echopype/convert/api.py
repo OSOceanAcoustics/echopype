@@ -242,8 +242,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
         'platform_type': 'mooring'
     })
     """
-    # TODO: revise docstring, give examples.
-    # TODO: need to check and return valid/invalid params as done for Process
     out_params = dict()
 
     # Parameters for the Platform group

@@ -31,7 +31,6 @@ MODULES_TO_TEST = {
     "preprocess": {},
     "utils": {},
     "visualize": {},
-    "old": {"extra_globs": ["echopype/convert/convert.py", "echopype/process/*"]},
     "metrics": {},
 }
 
@@ -124,13 +123,7 @@ if __name__ == "__main__":
             file_glob_str = f"echopype/tests/{k}/*.py"
             cov_mod_arg = [f"--cov=echopype/{k}"]
         if args.include_cov:
-            if k == "old":
-                pytest_args = original_pytest_args + [
-                    "--cov=echopype/convert",
-                    "--cov=echopype/process",
-                ]
-            else:
-                pytest_args = original_pytest_args + cov_mod_arg
+            pytest_args = original_pytest_args + cov_mod_arg
         test_files = glob.glob(file_glob_str)
         final_args = pytest_args + test_files
         print(f"Pytest args: {final_args}")

@@ -200,34 +200,3 @@ def test_convert_ek80_freq_subset(ek80_path):
 
     # Check if converted output has only 2 frequency channels
     assert echodata.beam.frequency.size == 2
-
-
-# def test_xml():
-#     # Tests the exporting of the configuration xml as well as the environment xml
-#     tmp = Convert(raw_file=raw_path_bb_cw, sonar_model='EK80')
-#     tmp.to_xml(data_type='CONFIG')
-#     assert os.path.exists(tmp.converted_raw_path)
-#     os.remove(tmp.converted_raw_path)
-#
-#     tmp.to_xml(save_path='env.xml', data_type='ENV')
-#     assert os.path.exists(tmp.converted_raw_path)
-#     os.remove(tmp.converted_raw_path)
-#
-#
-# def test_add_platform():
-#     # Construct lat/lon dataset with fake data using a date range that includes
-#     # the ping_time ranges of the raw EK80 file. 7 pings over 28.166 seconds.
-#     # (2019-08-22T16:12:21.398000128 to 2019-08-22T16:12:49.564000256)
-#     location_time = pd.date_range(start='2019-08-22T16:00:00.0',
-#                                   end='2019-08-22T16:15:00.0', periods=100)
-#     lat = np.random.rand(100)
-#     lon = np.random.rand(100)
-#     testing_ds = xr.Dataset({'lat': (['location_time'], lat),
-#                              'lon': (['location_time'], lon)},
-#                             coords={'location_time': (['location_time'], location_time)})
-#     tmp = Convert(raw_file=raw_path_cw, sonar_model='EK80')
-#     tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
-#     with xr.open_dataset(tmp.converted_raw_path, group='Platform') as ds_plat:
-#         # Test if the slicing the location_time with the ping_time worked
-#         assert len(ds_plat.location_time) == 3
-#     os.remove(tmp.converted_raw_path)

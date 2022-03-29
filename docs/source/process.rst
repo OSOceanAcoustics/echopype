@@ -1,13 +1,6 @@
 Data processing
 ===============
 
-.. attention::
-   Starting with version 0.5.0, the data processing interface ``Process``
-   is deprecated. Attempts to use ``Process`` will still
-   work at the moment but will no longer be available in the future.
-   See `version 0.4.1 documentation <https://echopype.readthedocs.io/en/v0.4.1/>`_
-   if you're working with that echopype release.
-
 
 Functionality
 -------------
