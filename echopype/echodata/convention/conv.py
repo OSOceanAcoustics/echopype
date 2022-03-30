@@ -21,9 +21,7 @@ class _Convention:
         if self._yaml_dict:  # Data has already been read, return it directly
             return self._yaml_dict
 
-        with resources.open_text(
-            package=convention, resource=f"{self.version}.yml"
-        ) as fid:
+        with resources.open_text(package=convention, resource=f"{self.version}.yml") as fid:
             convention_yaml = yaml.load(fid, Loader=yaml.SafeLoader)
 
         self._yaml_dict = convention_yaml

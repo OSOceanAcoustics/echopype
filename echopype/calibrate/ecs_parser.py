@@ -17,9 +17,7 @@ ECS_VERSION = re.compile(r"Version (?P<version>\d+\.\d+)\s*\n")  # noqa
 PARAM_MATCHER = re.compile(
     r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+))|\w+)?)?\s*#?(.*)\n"  # noqa
 )
-CAL = re.compile(
-    r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I  # ignore case  # noqa
-)
+CAL = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
 
 
 class ECSParser:
@@ -112,9 +110,7 @@ class ECSParser:
             for k, v in input_dict.items():
                 if k == "TvgRangeCorrection":
                     if v not in self.TvgRangeCorrection_allowed_str:
-                        raise ValueError(
-                            "TvgRangeCorrection contains unexpected setting!"
-                        )
+                        raise ValueError("TvgRangeCorrection contains unexpected setting!")
                 else:
                     input_dict[k] = np.float(v)
 
@@ -144,9 +140,7 @@ class ECSParser:
                     status_str = STATUS_CRUDE.match(line)["status"].lower()
                     if "ecs" in status_str:
                         status = "ecs"
-                        self.data_type = ECS_HEADER.match(line)[
-                            "data_type"
-                        ]  # get data type
+                        self.data_type = ECS_HEADER.match(line)["data_type"]  # get data type
                         self._parse_header(fid)
                     elif (
                         "fileset" in status_str
@@ -156,9 +150,7 @@ class ECSParser:
                         status = STATUS_FINE.match(line)["status"].lower()
                         parsed_params[status] = self._parse_block(fid, status)
                     else:
-                        raise ValueError(
-                            "Expecting a new block but got something else!"
-                        )
+                        raise ValueError("Expecting a new block but got something else!")
             line = fid.readline()  # read next line
 
         # Make FileSet settings dict less awkward

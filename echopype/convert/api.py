@@ -251,9 +251,7 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
     out_params["platform_type"] = param_dict.get("platform_type", "")
     out_params["water_level"] = param_dict.get("water_level", None)
-    out_params["nmea_gps_sentence"] = param_dict.get(
-        "nmea_gps_sentence", NMEA_SENTENCE_DEFAULT
-    )
+    out_params["nmea_gps_sentence"] = param_dict.get("nmea_gps_sentence", NMEA_SENTENCE_DEFAULT)
 
     # Parameters for the Top-level group
     out_params["survey_name"] = param_dict.get("survey_name", "")

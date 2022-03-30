@@ -69,9 +69,7 @@ class _SimradDatagramParser(object):
             raise ValueError("Expected data of type %s, not %s" % (self._id, type_))
 
         if version not in self._versions:
-            raise ValueError(
-                "No parser available for type %s version %d" % (self._id, version)
-            )
+            raise ValueError("No parser available for type %s version %d" % (self._id, version))
 
         return type_, version
 
@@ -99,9 +97,7 @@ class _SimradDatagramParser(object):
     def finalize_datagram(cls, datagram_content_str):
         datagram_size = len(datagram_content_str)
         final_fmt = "=l%dsl" % (datagram_size)
-        return struct.pack(
-            final_fmt, datagram_size, datagram_content_str, datagram_size
-        )
+        return struct.pack(final_fmt, datagram_size, datagram_content_str, datagram_size)
 
 
 class SimradDepthParser(_SimradDatagramParser):
@@ -193,9 +189,7 @@ class SimradDepthParser(_SimradDatagramParser):
 
             if len(set(lengths)) != 1:
                 min_indx = min(lengths)
-                log.warning(
-                    "Data lengths mismatched:  d:%d, r:%d, u:%d, t:%d", *lengths
-                )
+                log.warning("Data lengths mismatched:  d:%d, r:%d, u:%d, t:%d", *lengths)
                 log.warning("  Using minimum value:  %d", min_indx)
                 data["transceiver_count"] = min_indx
 
@@ -272,9 +266,7 @@ class SimradBottomParser(_SimradDatagramParser):
             depth_size = struct.calcsize(depth_fmt)
             buf_indx = self.header_size(version)
             data["depth"] = np.fromiter(
-                struct.unpack(
-                    depth_fmt, raw_string[buf_indx : buf_indx + depth_size]
-                ),  # noqa
+                struct.unpack(depth_fmt, raw_string[buf_indx : buf_indx + depth_size]),  # noqa
                 "float",
             )
 
@@ -859,9 +851,7 @@ class SimradXMLParser(_SimradDatagramParser):
 
                         #  check if there are >1 transducer under a single transceiver channel
                         if len(list(tcvr_ch)) > 1:
-                            ValueError(
-                                "Found >1 transducer under a single transceiver channel!"
-                            )
+                            ValueError("Found >1 transducer under a single transceiver channel!")
                         else:  # should only have 1 transducer
                             tcvr_ch_xducer = tcvr_ch.find(
                                 "Transducer"
@@ -873,43 +863,25 @@ class SimradXMLParser(_SimradDatagramParser):
                                     "frequency": np.array(
                                         [int(f.attrib["Frequency"]) for f in f_par]
                                     ),
-                                    "gain": np.array(
-                                        [float(f.attrib["Gain"]) for f in f_par]
-                                    ),
+                                    "gain": np.array([float(f.attrib["Gain"]) for f in f_par]),
                                     "impedance": np.array(
                                         [int(f.attrib["Impedance"]) for f in f_par]
                                     ),
-                                    "phase": np.array(
-                                        [float(f.attrib["Phase"]) for f in f_par]
-                                    ),
+                                    "phase": np.array([float(f.attrib["Phase"]) for f in f_par]),
                                     "beamwidth_alongship": np.array(
-                                        [
-                                            float(f.attrib["BeamWidthAlongship"])
-                                            for f in f_par
-                                        ]
+                                        [float(f.attrib["BeamWidthAlongship"]) for f in f_par]
                                     ),
                                     "beamwidth_athwartship": np.array(
-                                        [
-                                            float(f.attrib["BeamWidthAthwartship"])
-                                            for f in f_par
-                                        ]
+                                        [float(f.attrib["BeamWidthAthwartship"]) for f in f_par]
                                     ),
                                     "angle_offset_alongship": np.array(
-                                        [
-                                            float(f.attrib["AngleOffsetAlongship"])
-                                            for f in f_par
-                                        ]
+                                        [float(f.attrib["AngleOffsetAlongship"]) for f in f_par]
                                     ),
                                     "angle_offset_athwartship": np.array(
-                                        [
-                                            float(f.attrib["AngleOffsetAthwartship"])
-                                            for f in f_par
-                                        ]
+                                        [float(f.attrib["AngleOffsetAthwartship"]) for f in f_par]
                                     ),
                                 }
-                                data["configuration"][channel_id][
-                                    "calibration"
-                                ] = cal_par
+                                data["configuration"][channel_id]["calibration"] = cal_par
                             #  add the transducer data to the config dict
                             dict_to_dict(
                                 tcvr_ch_xducer.attrib,
@@ -927,9 +899,7 @@ class SimradXMLParser(_SimradDatagramParser):
                             # built occurrence lookup table for transducer name
                             xducer_name_list = []
                             for xducer_ch in xducer.iter("Transducer"):
-                                xducer_name_list.append(
-                                    xducer_ch.attrib["TransducerName"]
-                                )
+                                xducer_name_list.append(xducer_ch.attrib["TransducerName"])
 
                             # find matching transducer for this channel_id
                             match_found = False
@@ -948,8 +918,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                             == tcvr_ch_xducer.attrib["SerialNumber"]
                                         )
                                     match_tcvr = (
-                                        tcvr_ch_num
-                                        in xducer_ch.attrib["TransducerCustomName"]
+                                        tcvr_ch_num in xducer_ch.attrib["TransducerCustomName"]
                                     )
 
                                     # if find match add the transducer mounting details
@@ -963,9 +932,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                         # only check sn and transceiver unique number
                                         match_found = match_sn or match_tcvr
                                     else:
-                                        match_found = (
-                                            match_name or match_sn or match_tcvr
-                                        )
+                                        match_found = match_name or match_sn or match_tcvr
 
                                     # add transducer mounting details
                                     if match_found:
@@ -989,9 +956,7 @@ class SimradXMLParser(_SimradDatagramParser):
                 for h in root.iter("Channel"):
                     parm_xml = h.attrib
                     #  add the data to the environment dict
-                    dict_to_dict(
-                        parm_xml, data["parameter"], self.parameter_parsing_options
-                    )
+                    dict_to_dict(parm_xml, data["parameter"], self.parameter_parsing_options)
 
             elif data["subtype"] == "environment":
 
@@ -999,9 +964,7 @@ class SimradXMLParser(_SimradDatagramParser):
                 for h in root.iter("Environment"):
                     env_xml = h.attrib
                     #  add the data to the environment dict
-                    dict_to_dict(
-                        env_xml, data["environment"], self.environment_parsing_options
-                    )
+                    dict_to_dict(env_xml, data["environment"], self.environment_parsing_options)
 
                 for h in root.iter("Transducer"):
                     transducer_xml = h.attrib
@@ -1422,9 +1385,7 @@ class SimradConfigParser(_SimradDatagramParser):
                 txcvr["spare2"] = txcvr["spare2"].strip("\x00")
                 txcvr["spare3"] = txcvr["spare3"].strip("\x00")
                 txcvr["spare4"] = txcvr["spare4"].strip("\x00")
-                txcvr["gpt_software_version"] = txcvr["gpt_software_version"].strip(
-                    "\x00"
-                )
+                txcvr["gpt_software_version"] = txcvr["gpt_software_version"].strip("\x00")
 
                 buf_indx += txcvr_header_size
 
@@ -1442,9 +1403,7 @@ class SimradConfigParser(_SimradDatagramParser):
         if version == 0:
 
             if data["transceiver_count"] != len(data["transceivers"]):
-                log.warning(
-                    "Mismatch between 'transceiver_count' and actual # of transceivers"
-                )
+                log.warning("Mismatch between 'transceiver_count' and actual # of transceivers")
                 data["transceiver_count"] = len(data["transceivers"])
 
             sounder_name = data["sounder_name"]
@@ -1495,9 +1454,7 @@ class SimradConfigParser(_SimradDatagramParser):
                     txcvr_contents.extend(txcvr["sa_correction_table"])
                     txcvr_contents.append(txcvr["spare3"])
 
-                    txcvr_contents.extend(
-                        [txcvr["gpt_software_version"], txcvr["spare4"]]
-                    )
+                    txcvr_contents.extend([txcvr["gpt_software_version"], txcvr["spare4"]])
 
                     txcvr_contents_str = struct.pack(txcvr_header_fmt, *txcvr_contents)
 
@@ -1716,17 +1673,13 @@ class SimradRawParser(_SimradDatagramParser):
         if version == 0:
 
             if data["count"] > 0:
-                if (int(data["mode"]) & 0x1) and (
-                    len(data.get("power", [])) != data["count"]
-                ):
+                if (int(data["mode"]) & 0x1) and (len(data.get("power", [])) != data["count"]):
                     log.warning(
                         "Data 'count' = %d, but contains %d power samples.  Ignoring power."
                     )
                     data["mode"] &= ~(1 << 0)
 
-                if (int(data["mode"]) & 0x2) and (
-                    len(data.get("angle", [])) != data["count"]
-                ):
+                if (int(data["mode"]) & 0x2) and (len(data.get("angle", [])) != data["count"]):
                     log.warning(
                         "Data 'count' = %d, but contains %d angle samples.  Ignoring angle."
                     )

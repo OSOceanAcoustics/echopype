@@ -61,12 +61,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         return 10 * np.log10(sv_groupby_bins)
 
     # Groupby freq in case of different echo_range (from different sampling intervals)
-    range_interval = np.arange(
-        0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin
-    )
-    MVBS = ds_Sv.groupby("frequency").apply(
-        _freq_MVBS, args=(range_interval, ping_time_bin)
-    )
+    range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
+    MVBS = ds_Sv.groupby("frequency").apply(_freq_MVBS, args=(range_interval, ping_time_bin))
 
     # Attach attributes
     MVBS.attrs = {
@@ -153,9 +149,7 @@ def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
     -------
     A DataArray containing noise estimated from the input ``ds_Sv``
     """
-    noise_obj = NoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
-    )
+    noise_obj = NoiseEst(ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num)
     noise_obj.estimate_noise(noise_max=noise_max)
     return noise_obj.Sv_noise
 
@@ -188,9 +182,7 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     The input dataset with additional variables, including
     the corrected Sv (``Sv_corrected``) and the noise estimates (``Sv_noise``)
     """
-    noise_obj = NoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
-    )
+    noise_obj = NoiseEst(ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num)
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
     return noise_obj.ds_Sv
 

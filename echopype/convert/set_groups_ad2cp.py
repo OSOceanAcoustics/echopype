@@ -37,9 +37,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         max_samples = 0
         for packet in self.parser_obj.echosounder_raw_packets:
             # both _r and _i have same dimensions
-            max_samples = max(
-                max_samples, packet.data["echosounder_raw_samples_i"].shape[0]
-            )
+            max_samples = max(max_samples, packet.data["echosounder_raw_samples_i"].shape[0])
         for packet in self.parser_obj.echosounder_raw_packets:
             packet.data["echosounder_raw_samples_i"] = np.pad(
                 packet.data["echosounder_raw_samples_i"],
@@ -100,9 +98,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             else:
                 return None
 
-        burst_ds = make_dataset(
-            self.parser_obj.burst_packets, ping_time_dim="ping_time_burst"
-        )
+        burst_ds = make_dataset(self.parser_obj.burst_packets, ping_time_dim="ping_time_burst")
         average_ds = make_dataset(
             self.parser_obj.average_packets, ping_time_dim="ping_time_average"
         )
@@ -224,12 +220,8 @@ class SetGroupsAd2cp(SetGroupsBase):
             "ast_offset_100us": self.ds.get("ast_offset_100us"),
             "ast_pressure": self.ds.get("ast_pressure"),
             "altimeter_spare": self.ds.get("altimeter_spare"),
-            "altimeter_raw_data_num_samples": self.ds.get(
-                "altimeter_raw_data_num_samples"
-            ),
-            "altimeter_raw_data_sample_distance": self.ds.get(
-                "altimeter_raw_data_sample_distance"
-            ),
+            "altimeter_raw_data_num_samples": self.ds.get("altimeter_raw_data_num_samples"),
+            "altimeter_raw_data_sample_distance": self.ds.get("altimeter_raw_data_sample_distance"),
             "altimeter_raw_data_samples": self.ds.get("altimeter_raw_data_samples"),
         }
 
@@ -278,19 +270,13 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "status0": self.ds.get("status0"),
                 "battery_voltage": self.ds.get("battery_voltage"),
                 "power_level": self.ds.get("power_level"),
-                "temperature_of_pressure_sensor": self.ds.get(
-                    "temperature_from_pressure_sensor"
-                ),
+                "temperature_of_pressure_sensor": self.ds.get("temperature_from_pressure_sensor"),
                 "nominal_correlation": self.ds.get("nominal_correlation"),
                 "magnetometer_temperature": self.ds.get("magnetometer_temperature"),
-                "real_ping_time_clock_temperature": self.ds.get(
-                    "real_ping_time_clock_temperature"
-                ),
+                "real_ping_time_clock_temperature": self.ds.get("real_ping_time_clock_temperature"),
                 "ensemble_counter": self.ds.get("ensemble_counter"),
                 "ahrs_rotation_matrix_mij": (
-                    ("mij", "ping_time")
-                    if "ahrs_rotation_matrix_m11" in self.ds
-                    else "mij",
+                    ("mij", "ping_time") if "ahrs_rotation_matrix_m11" in self.ds else "mij",
                     [
                         self.ds.get("ahrs_rotation_matrix_m11"),
                         self.ds.get("ahrs_rotation_matrix_m12"),
@@ -304,9 +290,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                     ],
                 ),
                 "ahrs_quaternions_wxyz": (
-                    ("wxyz", "ping_time")
-                    if "ahrs_quaternions_w" in self.ds
-                    else "wxyz",
+                    ("wxyz", "ping_time") if "ahrs_quaternions_w" in self.ds else "wxyz",
                     [
                         self.ds.get("ahrs_quaternions_w"),
                         self.ds.get("ahrs_quaternions_x"),
