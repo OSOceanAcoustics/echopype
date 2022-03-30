@@ -81,7 +81,9 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # ipykernel is recommended, in order to use with JupyterLab and IPython
     # to aid with development. We recommend you install JupyterLab separately
     conda install -c conda-forge ipykernel
-    pip install -e .[all]
+    # plot is an extra set of requirements that can be used for plotting.
+    # the command will install all the dependencies along with plotting dependencies.
+    pip install -e .[plot]
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
