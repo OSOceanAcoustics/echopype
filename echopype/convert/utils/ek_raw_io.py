@@ -318,9 +318,7 @@ class RawSimradFile(BufferedReader):
             dgram_size_check = self._read_dgram_size()
         except DatagramReadError as e:
             self._seek_bytes(old_file_pos, SEEK_SET)
-            e.message = (
-                "Short read while getting trailing raw file datagram size for check"
-            )
+            e.message = "Short read while getting trailing raw file datagram size for check"
             raise e
 
         #  make sure they match
@@ -649,9 +647,7 @@ class RawSimradFile(BufferedReader):
                 self._current_dgram_offset = 0
         elif whence == SEEK_END:
             if offset > 0:
-                raise ValueError(
-                    "Use negative offsets when seeking backward from end of file"
-                )
+                raise ValueError("Use negative offsets when seeking backward from end of file")
 
             # Do we need to generate the total number of datagrams w/in the file?
             try:

@@ -16,9 +16,7 @@ class ParseBase:
 
     def __init__(self, file, storage_options):
         self.source_file = file
-        self.timestamp_pattern = (
-            None  # regex pattern used to grab datetime embedded in filename
-        )
+        self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
 
@@ -46,23 +44,15 @@ class ParseEK(ParseBase):
         )  # Stores the channel ids for each data type (power, angle, complex)
         self.data_type = self._select_datagrams(params)
 
-        self.nmea = defaultdict(
-            list
-        )  # Dictionary to store NMEA data(timestamp and string)
-        self.mru = defaultdict(
-            list
-        )  # Dictionary to store MRU data (heading, pitch, roll, heave)
-        self.fil_coeffs = defaultdict(
-            dict
-        )  # Dictionary to store PC and WBT coefficients
+        self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
+        self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
+        self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
     def _print_status(self):
-        time = (
-            self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
-        )
+        time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
         print(
             f"{dt.now().strftime('%H:%M:%S')}  parsing file {os.path.basename(self.source_file)}, "
             f"time of first ping: {time}"
@@ -70,9 +60,7 @@ class ParseEK(ParseBase):
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
-        with RawSimradFile(
-            self.source_file, "r", storage_options=self.storage_options
-        ) as fid:
+        with RawSimradFile(self.source_file, "r", storage_options=self.storage_options) as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram["timestamp"] = np.datetime64(
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ms]"
@@ -82,9 +70,7 @@ class ParseEK(ParseBase):
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"
                         # and in the form of floats separated by semicolons
-                        v["pulse_duration"] = [
-                            float(x) for x in v["pulse_length"].split(";")
-                        ]
+                        v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
 
             # If exporting to XML file (EK80/EA640 only), print a message
             if "print_export_msg" in self.data_type:
@@ -135,8 +121,7 @@ class ParseEK(ParseBase):
                         self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
                         if data_type == "power":
                             self.ping_data_dict[data_type][k] = (
-                                self.ping_data_dict[data_type][k].astype("float32")
-                                * INDEX2POWER
+                                self.ping_data_dict[data_type][k].astype("float32") * INDEX2POWER
                             )
 
     def _read_datagrams(self, fid):
@@ -232,9 +217,7 @@ class ParseEK(ParseBase):
             # Skip any datagram that the user does not want to save
 
             if (
-                not any(
-                    new_datagram["type"].startswith(dgram) for dgram in self.data_type
-                )
+                not any(new_datagram["type"].startswith(dgram) for dgram in self.data_type)
                 and "ALL" not in self.data_type
             ):
                 continue
@@ -249,17 +232,13 @@ class ParseEK(ParseBase):
                     # Don't parse anything else if only the environment xml is required.
                     if "ENV" in self.data_type:
                         break
-                elif new_datagram["subtype"] == "parameter" and (
-                    "ALL" in self.data_type
-                ):
+                elif new_datagram["subtype"] == "parameter" and ("ALL" in self.data_type):
                     current_parameters = new_datagram["parameter"]
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram["type"].startswith("RAW0"):
                 # Save channel-specific ping time. The channels are stored as 1-based indices
-                self.ping_time[new_datagram["channel"]].append(
-                    new_datagram["timestamp"]
-                )
+                self.ping_time[new_datagram["channel"]].append(new_datagram["timestamp"])
 
                 # Append ping by ping data
                 self._append_channel_ping_data(new_datagram)
@@ -294,12 +273,12 @@ class ParseEK(ParseBase):
 
             # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):
-                self.fil_coeffs[new_datagram["channel_id"]][
-                    new_datagram["stage"]
-                ] = new_datagram["coefficients"]
-                self.fil_df[new_datagram["channel_id"]][
-                    new_datagram["stage"]
-                ] = new_datagram["decimation_factor"]
+                self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
+                    "coefficients"
+                ]
+                self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
+                    "decimation_factor"
+                ]
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
@@ -321,9 +300,7 @@ class ParseEK(ParseBase):
         # TODO: do a thorough check with the convention and processing
         # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
-        ch_id = (
-            datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
-        )
+        ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
         for k, v in datagram.items():
             # if k not in unsaved:
             self.ping_data_dict[k][ch_id].append(v)
@@ -346,9 +323,7 @@ class ParseEK(ParseBase):
             The array is NaN-padded if some pings are of different lengths.
         """
         lens = np.array([len(item) for item in data_list])
-        if (
-            np.unique(lens).size != 1
-        ):  # if some pings have different lengths along range
+        if np.unique(lens).size != 1:  # if some pings have different lengths along range
 
             if data_list[0].ndim == 2:
                 # Angle data have an extra dimension for alongship and athwartship samples
@@ -362,9 +337,7 @@ class ParseEK(ParseBase):
                 out_array = np.full(mask.shape, np.nan)
 
             # Fill in values
-            out_array[mask] = np.concatenate(data_list).reshape(
-                -1
-            )  # reshape in case data > 1D
+            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
         else:
             out_array = np.array(data_list)
         return out_array

@@ -20,9 +20,7 @@ def _compute_cal(
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
-            raise ValueError(
-                "waveform_mode and encode_mode must be specified for EK80 calibration"
-            )
+            raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
         elif waveform_mode not in ("BB", "CW"):
             raise ValueError("Input waveform_mode not recognized!")
         elif encode_mode not in ("complex", "power"):
@@ -54,9 +52,7 @@ def _compute_cal(
     # Perform calibration
     if cal_type == "Sv":
 
-        sv_dataset = cal_obj.compute_Sv(
-            waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
         if "water_level" in echodata.platform.data_vars.keys():
             # add water_level to the created xr.Dataset

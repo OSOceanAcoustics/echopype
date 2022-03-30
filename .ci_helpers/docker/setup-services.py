@@ -17,9 +17,7 @@ TEST_DATA_PATH = HERE / "echopype" / "test_data"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Setup services for testing")
-    parser.add_argument(
-        "--deploy", action="store_true", help="Flag to setup docker services"
-    )
+    parser.add_argument("--deploy", action="store_true", help="Flag to setup docker services")
     parser.add_argument(
         "--tear-down",
         action="store_true",
@@ -36,9 +34,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if not any([args.deploy, args.tear_down]):
-        print(
-            "Please provide either --deploy or --tear-down flags. For more help use --help flag."
-        )
+        print("Please provide either --deploy or --tear-down flags. For more help use --help flag.")
         sys.exit(0)
 
     if args.deploy:
@@ -48,9 +44,7 @@ if __name__ == "__main__":
         os.system(f"docker-compose -f {COMPOSE_FILE} pull")
 
         print("3) Bringing up services.")
-        os.system(
-            f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate"
-        )
+        os.system(f"docker-compose -f {COMPOSE_FILE} up -d --remove-orphans --force-recreate")
 
         print(f"4) Deleting old test folder at {TEST_DATA_PATH}")
         if TEST_DATA_PATH.exists():

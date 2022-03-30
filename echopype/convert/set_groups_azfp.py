@@ -85,9 +85,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        anc = np.array(
-            unpacked_data["ancillary"]
-        )  # convert to np array for easy slicing
+        anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
         dig_rate = unpacked_data["dig_rate"]  # dim: freq
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
@@ -102,10 +100,7 @@ class SetGroupsAZFP(SetGroupsBase):
             )
             N.append(
                 np.array(
-                    [
-                        unpacked_data["counts"][p][ich]
-                        for p in range(len(unpacked_data["year"]))
-                    ]
+                    [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
                 )
             )
 
@@ -123,9 +118,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         tdn = unpacked_data["pulse_length"] / 1e6  # Convert microseconds to seconds
         range_samples_xml = np.array(parameters["range_samples"])  # from xml file
-        range_samples_per_bin = unpacked_data[
-            "range_samples_per_bin"
-        ]  # from data header
+        range_samples_per_bin = unpacked_data["range_samples_per_bin"]  # from data header
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
