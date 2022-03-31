@@ -130,9 +130,7 @@ def unix_to_datetime(unix_timestamp):
             unix_datetime = pytz_utc.normalize(unix_timestamp.astimezone(pytz_utc))
 
     elif isinstance(unix_timestamp, float):
-        unix_datetime = pytz_utc.localize(
-            datetime.datetime.fromtimestamp(unix_timestamp)
-        )
+        unix_datetime = pytz_utc.localize(datetime.datetime.fromtimestamp(unix_timestamp))
 
     else:
         errstr = "Looking for a timestamp of type datetime.datetime or # of sec past unix epoch.\n"

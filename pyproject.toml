@@ -1,0 +1,27 @@
+
+[build-system]
+requires = [
+    "setuptools >= 48",
+    "setuptools_scm[toml] >= 4, <6",
+    "setuptools_scm_git_archive",
+    "wheel >= 0.29.0",
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools_scm]
+fallback_version = "unknown"
+local_scheme = "node-and-date"
+write_to = "_echopype_version.py"
+write_to_template = 'version = "{version}"  # noqa'
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+known_first_party = "echopype"
+known_third_party = ["_echopype_version", "setuptools"]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+line_length = 100

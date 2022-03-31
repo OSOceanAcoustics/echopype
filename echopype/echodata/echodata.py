@@ -54,9 +54,7 @@ class EchoData:
         self.storage_options: Dict[str, str] = (
             storage_options if storage_options is not None else {}
         )
-        self.open_kwargs: Dict[str, str] = (
-            open_kwargs if open_kwargs is not None else {}
-        )
+        self.open_kwargs: Dict[str, str] = open_kwargs if open_kwargs is not None else {}
         self.source_file: Optional["PathHint"] = source_file
         self.xml_path: Optional["PathHint"] = xml_path
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
@@ -235,19 +233,14 @@ class EchoData:
 
         if "sound_speed" in env_params:
             sound_speed = squeeze_non_scalar(env_params["sound_speed"])
-        elif all(
-            [param in env_params for param in ("temperature", "salinity", "pressure")]
-        ):
+        elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
                 squeeze_non_scalar(env_params["temperature"]),
                 squeeze_non_scalar(env_params["salinity"]),
                 squeeze_non_scalar(env_params["pressure"]),
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
-        elif (
-            self.sonar_model in ("EK60", "EK80")
-            and "sound_speed_indicative" in self.environment
-        ):
+        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
             sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
         else:
             raise ValueError(
@@ -260,9 +253,7 @@ class EchoData:
         if self.sonar_model == "AZFP":
             cal_type = azfp_cal_type
             if cal_type is None:
-                raise ValueError(
-                    "azfp_cal_type must be specified when sonar_model is AZFP"
-                )
+                raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
 
             # Notation below follows p.86 of user manual
             N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
@@ -286,7 +277,7 @@ class EchoData:
                 sound_speed * L / (2 * f)
                 + (sound_speed / 4)
                 * (
-                    ((2 * (self.beam.range_bin + 1) - 1) * N * bins_to_avg - 1) / f
+                    ((2 * (self.beam.range_sample + 1) - 1) * N * bins_to_avg - 1) / f
                     + self.beam["transmit_duration_nominal"]
                 )
                 - range_offset
@@ -297,9 +288,7 @@ class EchoData:
             # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
             #   because it expects the range included in the Sv/Sp dataset
             #   to be indexed by ping_time
-            range_meter = range_meter.expand_dims(
-                {"ping_time": self.beam["ping_time"]}, axis=1
-            )
+            range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]}, axis=1)
 
             return range_meter
 
@@ -317,9 +306,7 @@ class EchoData:
 
             # EK80 needs waveform_mode specification
             if self.sonar_model == "EK80" and waveform_mode is None:
-                raise ValueError(
-                    "ek_waveform_mode must be specified when sonar_model is EK80"
-                )
+                raise ValueError("ek_waveform_mode must be specified when sonar_model is EK80")
 
             # TVG correction factor changes depending when the echo recording starts
             # wrt when the transmit signal is sent out.
@@ -341,18 +328,16 @@ class EchoData:
                 sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
-                    beam.range_bin - tvg_correction_factor
-                ) * sample_thickness  # [frequency x range_bin]
+                    beam.range_sample - tvg_correction_factor
+                ) * sample_thickness  # [frequency x range_sample]
             elif waveform_mode == "BB":
                 beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
-                shift = beam[
-                    "transmit_duration_nominal"
-                ]  # based on Lar Anderson's Matlab code
+                shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
-                    (beam.range_bin * beam["sample_interval"] - shift) * sound_speed / 2
+                    (beam.range_sample * beam["sample_interval"] - shift) * sound_speed / 2
                 )
                 # TODO: Lar Anderson's code include a slicing by minRange with a default of 0.02 m,
                 #  need to ask why and see if necessary here
@@ -360,16 +345,12 @@ class EchoData:
                 raise ValueError("Input waveform_mode not recognized!")
 
             # make order of dims conform with the order of backscatter data
-            range_meter = range_meter.transpose("frequency", "ping_time", "range_bin")
-            range_meter = range_meter.where(
-                range_meter > 0, 0
-            )  # set negative ranges to 0
+            range_meter = range_meter.transpose("frequency", "ping_time", "range_sample")
+            range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
             # set entries with NaN backscatter data to NaN
             if "quadrant" in beam["backscatter_r"].dims:
-                valid_idx = (
-                    ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
-                )
+                valid_idx = ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)
@@ -437,8 +418,7 @@ class EchoData:
             for coordvar in extra_platform_data.coords:
                 if (
                     "cf_role" in extra_platform_data[coordvar].attrs
-                    and extra_platform_data[coordvar].attrs["cf_role"]
-                    == "trajectory_id"
+                    and extra_platform_data[coordvar].attrs["cf_role"] == "trajectory_id"
                 ):
                     trajectory_var = coordvar
 
@@ -465,9 +445,7 @@ class EchoData:
         )
         # fmt: on
         max_index = min(
-            np.searchsorted(
-                sorted_external_time, self.beam["ping_time"].max(), side="right"
-            ),
+            np.searchsorted(sorted_external_time, self.beam["ping_time"].max(), side="right"),
             len(sorted_external_time) - 1,
         )
         extra_platform_data = extra_platform_data.sel(
@@ -483,21 +461,15 @@ class EchoData:
         platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
         platform = platform.drop_dims(["location_time"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
-        platform = platform.assign_coords(
-            location_time=extra_platform_data[time_dim].values
-        )
-        history_attr = (
-            f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
-        )
+        platform = platform.assign_coords(location_time=extra_platform_data[time_dim].values)
+        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
         location_time_attrs = {
             **self._varattrs["platform_coord_default"]["location_time"],
             **{"history": history_attr},
         }
-        platform["location_time"] = platform["location_time"].assign_attrs(
-            **location_time_attrs
-        )
+        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
 
         dropped_vars_target = [
             "pitch",
@@ -715,41 +687,3 @@ class EchoData:
         else:
             path = Path(self.converted_raw_path)
             return str(path.parent / (path.stem + ".zarr"))
-
-    def raw2nc(
-        self,
-        save_path: "PathHint" = None,
-        combine_opt: bool = False,
-        overwrite: bool = False,
-        compress: bool = True,
-    ):
-        warnings.warn(
-            "`raw2nc` is deprecated, use `to_netcdf` instead.",
-            DeprecationWarning,
-            2,
-        )
-        return self.to_netcdf(
-            save_path=save_path,
-            compress=compress,
-            combine=combine_opt,
-            overwrite=overwrite,
-        )
-
-    def raw2zarr(
-        self,
-        save_path: "PathHint" = None,
-        combine_opt: bool = False,
-        overwrite: bool = False,
-        compress: bool = True,
-    ):
-        warnings.warn(
-            "`raw2zarr` is deprecated, use `to_zarr` instead.",
-            DeprecationWarning,
-            2,
-        )
-        return self.to_zarr(
-            save_path=save_path,
-            compress=compress,
-            combine=combine_opt,
-            overwrite=overwrite,
-        )

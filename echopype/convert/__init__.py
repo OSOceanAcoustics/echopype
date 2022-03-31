@@ -8,7 +8,6 @@ The current version supports:
 - ASL Environmental Sciences AZFP echosounder ``.01A`` data
 """
 # flake8: noqa
-from .convert import Convert, ConvertEK80  # TODO remove ConvertEK80 in later version
 from .parse_ad2cp import ParseAd2cp
 from .parse_azfp import ParseAZFP
 from .parse_base import ParseBase

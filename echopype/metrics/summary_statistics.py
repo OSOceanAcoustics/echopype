@@ -14,7 +14,7 @@ import xarray as xr
 
 
 def delta_z(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
-    """Helper function to calculate widths between range bins (dz) for discretized integral.
+    """Helper function to calculate widths between range samples (dz) for discretized integral.
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def delta_z(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """
     if range_label not in ds:
         raise ValueError(f"{range_label} not in the input Dataset!")
-    dz = ds[range_label].diff(dim="range_bin")
+    dz = ds[range_label].diff(dim="range_sample")
     return dz.where(dz != 0, other=np.nan)
 
 
@@ -65,7 +65,7 @@ def abundance(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return 10 * np.log10((sv * dz).sum(dim="range_bin"))
+    return 10 * np.log10((sv * dz).sum(dim="range_sample"))
 
 
 def center_of_mass(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
@@ -85,9 +85,7 @@ def center_of_mass(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return (ds[range_label] * sv * dz).sum(dim="range_bin") / (sv * dz).sum(
-        dim="range_bin"
-    )
+    return (ds[range_label] * sv * dz).sum(dim="range_sample") / (sv * dz).sum(dim="range_sample")
 
 
 def dispersion(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
@@ -108,8 +106,8 @@ def dispersion(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
     cm = center_of_mass(ds)
-    return ((ds[range_label] - cm) ** 2 * sv * dz).sum(dim="range_bin") / (sv * dz).sum(
-        dim="range_bin"
+    return ((ds[range_label] - cm) ** 2 * sv * dz).sum(dim="range_sample") / (sv * dz).sum(
+        dim="range_sample"
     )
 
 
@@ -131,7 +129,7 @@ def evenness(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return ((sv * dz).sum(dim="range_bin")) ** 2 / (sv ** 2 * dz).sum(dim="range_bin")
+    return ((sv * dz).sum(dim="range_sample")) ** 2 / (sv ** 2 * dz).sum(dim="range_sample")
 
 
 def aggregation(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:

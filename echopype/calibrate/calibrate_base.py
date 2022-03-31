@@ -83,9 +83,7 @@ class EnvParams:
         >>> echopype.calibrate.compute_Sv(echodata, env_params=env_params)
         """  # noqa
         if interp_method not in VALID_INTERP_METHODS[data_kind]:
-            raise ValueError(
-                f"invalid interp_method {interp_method} for data_kind {data_kind}"
-            )
+            raise ValueError(f"invalid interp_method {interp_method} for data_kind {data_kind}")
 
         self.env_params = env_params
         self.data_kind = data_kind
@@ -112,13 +110,9 @@ class EnvParams:
 
         if self.data_kind == "mobile":
             if np.isnan(echodata.platform["location_time"]).all():
-                raise ValueError(
-                    "cannot perform mobile interpolation without location_time"
-                )
+                raise ValueError("cannot perform mobile interpolation without location_time")
             # compute_range needs indexing by ping_time
-            interp_plat = echodata.platform.interp(
-                {"location_time": echodata.beam["ping_time"]}
-            )
+            interp_plat = echodata.platform.interp({"location_time": echodata.beam["ping_time"]})
 
             result = {}
             for var, values in env_params.data_vars.items():
@@ -132,9 +126,7 @@ class EnvParams:
                         interp_plat["longitude"].data,
                     )
                 )
-                interp = scipy.interpolate.griddata(
-                    points, values, xi, method=self.interp_method
-                )
+                interp = scipy.interpolate.griddata(points, values, xi, method=self.interp_method)
                 result[var] = ("ping_time", interp)
             env_params = xr.Dataset(
                 data_vars=result, coords={"ping_time": interp_plat["ping_time"]}
@@ -142,8 +134,7 @@ class EnvParams:
         else:
             # TODO: organized case
             min_max = {
-                dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
-                for dim in dims
+                dim: {"min": env_params[dim].min(), "max": env_params[dim].max()} for dim in dims
             }
 
             extrap = env_params.interp(
@@ -153,25 +144,18 @@ class EnvParams:
                 kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
             )
             # only keep unique indexes; xarray requires that indexes be unique
-            extrap_unique_idx = {
-                dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims
-            }
+            extrap_unique_idx = {dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims}
             extrap = extrap.isel(**extrap_unique_idx)
             interp = env_params.interp(
                 {dim: echodata.platform[dim].data for dim in dims},
                 method=self.interp_method,
             )
-            interp_unique_idx = {
-                dim: np.unique(interp[dim], return_index=True)[1] for dim in dims
-            }
+            interp_unique_idx = {dim: np.unique(interp[dim], return_index=True)[1] for dim in dims}
             interp = interp.isel(**interp_unique_idx)
 
             if self.extrap_method is not None:
                 less = extrap.sel(
-                    {
-                        dim: extrap[dim][extrap[dim] < min_max[dim]["min"]]
-                        for dim in dims
-                    }
+                    {dim: extrap[dim][extrap[dim] < min_max[dim]["min"]] for dim in dims}
                 )
                 middle = interp.sel(
                     {
@@ -185,10 +169,7 @@ class EnvParams:
                     }
                 )
                 greater = extrap.sel(
-                    {
-                        dim: extrap[dim][extrap[dim] > min_max[dim]["max"]]
-                        for dim in dims
-                    }
+                    {dim: extrap[dim][extrap[dim] > min_max[dim]["max"]] for dim in dims}
                 )
 
                 # remove empty datasets (xarray does not allow any dims from any datasets
