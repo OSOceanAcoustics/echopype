@@ -181,10 +181,10 @@ class EchoData:
             # EK80 data may have a Beam_power group if both complex and power data exist.
             ds = None
             try:
-                if value["ep_group"] is None:
+                if value["name"] == "Top-level":
                     ds = self._tree.ds
                 else:
-                    ds = self._tree[value["ep_group"]].ds
+                    ds = self._tree[value["name"]].ds
             except ChildResolverError:
                 # Skips group not found errors for EK80 and ADCP
                 ...
@@ -211,13 +211,10 @@ class EchoData:
         group_map = sonarnetcdf_1.yaml_dict["groups"]
         if __name in group_map:
             group = group_map.get(__name)
-            group_path = group["ep_group"]
-            if __name == "top":
-                group_path = "Top-level"
             msg = " ".join(
                 [
                     "This access pattern will be deprecated in future releases.",
-                    f"Access the group directly by doing echodata['{group_path}']",
+                    f"Access the group directly by doing echodata['{group['name']}']",
                 ]
             )
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
