@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import fsspec
 import numpy as np
 import xarray as xr
-from datatree import DataTree
+from anytree.resolver import ChildResolverError
+from datatree import DataTree, open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class EchoData:
         self._tree: DataTree = None
 
         self.__setup_groups()
-        self.__read_converted(converted_raw_path)
+        # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
@@ -144,15 +145,78 @@ class EchoData:
     def _set_tree(self, tree: DataTree):
         self._tree = tree
 
+    @classmethod
+    def from_file(cls, converted_raw_path, storage_options, open_kwargs={}):
+        echodata = cls(
+            converted_raw_path=converted_raw_path,
+            storage_options=storage_options,
+            open_kwargs=open_kwargs,
+        )
+        echodata._check_path(converted_raw_path)
+        converted_raw_path = echodata._sanitize_path(converted_raw_path)
+        suffix = echodata._check_suffix(converted_raw_path)
+        tree = open_datatree(
+            converted_raw_path,
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **echodata.open_kwargs,
+        )
+        # Change root name to top
+        tree.name = "Top-level"
+
+        echodata._set_tree(tree)
+
+        if isinstance(converted_raw_path, fsspec.FSMap):
+            # Convert fsmap to Path so it can be used
+            # for retrieving the path strings
+            converted_raw_path = Path(converted_raw_path.root)
+        echodata.converted_raw_path = converted_raw_path
+        echodata._load_tree()
+        return echodata
+
+    def _load_tree(self):
+        if self._tree is None:
+            raise ValueError("Datatree not found!")
+
+        for group, value in self.group_map.items():
+            # EK80 data may have a Beam_power group if both complex and power data exist.
+            ds = None
+            try:
+                if value["ep_group"] is None:
+                    ds = self._tree.ds
+                else:
+                    ds = self._tree[value["ep_group"]].ds
+            except ChildResolverError:
+                # Skips group not found errors for EK80 and ADCP
+                ...
+            if group == "top" and hasattr(ds, "keywords"):
+                self.sonar_model = ds.keywords.upper()  # type: ignore
+
+            if isinstance(ds, xr.Dataset):
+                setattr(self, group, ds)
+
     @property
     def tree(self):
         return self._tree
 
-    def __getitem__(self, key):
+    def __getitem__(self, __key: str) -> Any:
         if self._tree:
-            return self._tree[key]
+            if __key == "Top-level":
+                return self._tree.ds
+            return self._tree[__key].ds
         else:
             raise ValueError("Datatree not found!")
+
+    # NOTE: Temporary for now until the attribute access pattern is deprecated
+    def __getattribute__(self, __name: str) -> Any:
+        if __name in sonarnetcdf_1.yaml_dict["groups"]:
+            msg = " ".join(
+                [
+                    "This access pattern will be deprecated in future releases.",
+                    "Access the group directly by doing echodata['/path/to/group']",
+                ]
+            )
+            warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
+        return super().__getattribute__(__name)
 
     def compute_range(
         self,
@@ -466,7 +530,11 @@ class EchoData:
         )
         # fmt: on
         max_index = min(
-            np.searchsorted(sorted_external_time, self.beam["ping_time"].max(), side="right"),
+            np.searchsorted(
+                sorted_external_time,
+                self.beam["ping_time"].max(),
+                side="right",
+            ),
             len(sorted_external_time) - 1,
         )
         extra_platform_data = extra_platform_data.sel(
@@ -635,7 +703,10 @@ class EchoData:
         """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
         return xr.open_dataset(
-            filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix], **self.open_kwargs
+            filepath,
+            group=group,
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **self.open_kwargs,
         )
 
     def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):
