@@ -146,7 +146,7 @@ class EchoData:
         self._tree = tree
 
     @classmethod
-    def from_file(cls, converted_raw_path, storage_options, open_kwargs={}):
+    def from_file(cls, converted_raw_path, storage_options=None, open_kwargs={}):
         echodata = cls(
             converted_raw_path=converted_raw_path,
             storage_options=storage_options,

@@ -220,7 +220,7 @@ class TestEchoData:
         return single_ek60_zarr
 
     def test_constructor(self, converted_zarr):
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         expected_groups = [
             'top',
             'environment',
@@ -252,13 +252,13 @@ class TestEchoData:
  and other beam or channel-specific data, including split-beam angle data when they exist.
               > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
         )
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
         assert expected_repr == actual
 
     def test_repr_html(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         assert hasattr(ed, "_repr_html_")
         html_repr = ed._repr_html_().strip()
         assert (
