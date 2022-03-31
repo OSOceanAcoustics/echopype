@@ -3,6 +3,7 @@ Functions for enhancing the spatial and temporal coherence of data.
 """
 
 import numpy as np
+import pandas as pd
 
 from .noise_est import NoiseEst
 
@@ -67,11 +68,43 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ds_MVBS = ds_Sv.groupby("frequency").apply(
         _freq_MVBS, args=(range_interval, ping_time_bin)
     ).to_dataset()
+
+    # ping_time_bin parsing and conversions
+    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
+    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
+    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
+    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
+    timedelta_units = {
+        'd': {'nptd64': 'D', 'unitstr': 'day'},
+        'h': {'nptd64': 'h', 'unitstr': 'hour'},
+        't': {'nptd64': 'm', 'unitstr': 'minute'},
+        'min': {'nptd64': 'm', 'unitstr': 'minute'},
+        's': {'nptd64': 's', 'unitstr': 'second'},
+        'l': {'nptd64': 'ms', 'unitstr': 'millisecond'},
+        'ms': {'nptd64': 'ms', 'unitstr': 'millisecond'},
+        'u': {'nptd64': 'us', 'unitstr': 'microsecond'},
+        'us': {'nptd64': 'ms', 'unitstr': 'millisecond'},
+        'n': {'nptd64': 'ns', 'unitstr': 'nanosecond'},
+        'ns': {'nptd64': 'ms', 'unitstr': 'millisecond'},
+    }
+    ping_time_bin_td = pd.Timedelta(ping_time_bin)
+    # res = resolution (most granular time unit)
+    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
+    ping_time_bin_resvalue = int(
+            ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]['nptd64'])
+    )
+    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]['unitstr']
+
     # Attach attributes
-    ds_MVBS["ping_time"].attrs = {
-        "long_name": "Timestamp of each ping",
+    ds_MVBS = ds_MVBS.rename({'ping_time': 'time'})
+    ds_MVBS["time"].attrs = {
+        "long_name": "Time",
         "standard_name": "time",
-        "axis": "T"
+        "axis": "T",
+        "comment": "From ping_time",
     }
     ds_MVBS["echo_range"].attrs = {
         "long_name": "Range distance",
@@ -85,6 +118,12 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             round(float(MVBS.min().values), 2),
             round(float(MVBS.max().values), 2)
         ],
+        "cell_methods": (
+            f"time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label}"
+            " comment: time is the interval start)"
+            f" echo_range: mean (interval: {range_meter_bin} meter"
+            " comment: echo_range is the interval start)"
+        ),
         "binning_mode": "physical units",
         "range_meter_interval": str(range_meter_bin) + "m",
         "ping_time_interval": ping_time_bin,
