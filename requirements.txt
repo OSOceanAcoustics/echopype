@@ -8,5 +8,4 @@ xarray
 zarr
 fsspec
 s3fs
-# https://github.com/xarray-contrib/datatree/pull/70
-xarray-datatree@git+https://github.com/lsetiawan/datatree.git@update_repr#egg=xarray-datatree
+xarray-datatree==0.0.4
