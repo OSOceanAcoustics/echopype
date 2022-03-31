@@ -428,55 +428,40 @@ def open_raw(
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
     )
-    # Set up echodata object
-    # TODO: clean up direct assignment as tree capability expands
-    # TODO: make the creation of tree dynamically generated from yaml
-    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
-    top_level = {"Top-level": None}
+
+    # Setup tree dictionary
+    tree_dict = {}
     # Top-level date_created varies depending on sonar model
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        top_level["Top-level"] = setgrouper.set_toplevel(
+        tree_dict["Top-level"] = setgrouper.set_toplevel(
             sonar_model=sonar_model,
             date_created=parser.config_datagram["timestamp"],
         )
     else:
-        top_level["Top-level"] = setgrouper.set_toplevel(
+        tree_dict["Top-level"] = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
-    tree = DataTree.from_dict(top_level, name="Top-level")
-    echodata.top = tree.ds
-
-    tree["Environment"] = setgrouper.set_env()
-    echodata.environment = tree["Environment"].ds
-
-    tree["Platform"] = setgrouper.set_platform()
-    echodata.platform = tree["Platform"].ds
-
+    tree_dict["Environment"] = setgrouper.set_env()
+    tree_dict["Platform"] = setgrouper.set_platform()
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        tree["Platform/NMEA"] = setgrouper.set_nmea()
-        echodata.nmea = tree["Platform/NMEA"].ds
-
-    tree["Provenance"] = setgrouper.set_provenance()
-    echodata.provenance = tree["Provenance"].ds
-
-    tree["Sonar"] = setgrouper.set_sonar()
-    echodata.sonar = tree["Sonar"].ds
-
+        tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
+    tree_dict["Provenance"] = setgrouper.set_provenance()
+    tree_dict["Sonar"] = setgrouper.set_sonar()
     # Beam_group2 group only exist if EK80 has both complex and power/angle data
     if sonar_model in ["EK80", "ES80", "EA640"]:
         (
-            tree["Sonar/Beam_group1"],
-            tree["Sonar/Beam_group2"],
+            tree_dict["Sonar/Beam_group1"],
+            tree_dict["Sonar/Beam_group2"],
         ) = setgrouper.set_beam()
-        echodata.beam, echodata.beam_power = (
-            tree["Sonar/Beam_group1"].ds,
-            tree["Sonar/Beam_group2"].ds,
-        )
     else:
-        tree["Sonar/Beam_group1"] = setgrouper.set_beam()
-        echodata.beam = tree["Sonar/Beam_group1"].ds
-    tree["Vendor"] = setgrouper.set_vendor()
-    echodata.vendor = tree["Vendor"].ds
+        tree_dict["Sonar/Beam_group1"] = setgrouper.set_beam()
+    tree_dict["Vendor"] = setgrouper.set_vendor()
+
+    # Create tree and echodata
+    # TODO: make the creation of tree dynamically generated from yaml
+    tree = DataTree.from_dict(tree_dict, name="Top-level")
+    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
+    echodata._load_tree()
 
     return echodata
