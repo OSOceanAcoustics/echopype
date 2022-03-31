@@ -208,11 +208,16 @@ class EchoData:
 
     # NOTE: Temporary for now until the attribute access pattern is deprecated
     def __getattribute__(self, __name: str) -> Any:
-        if __name in sonarnetcdf_1.yaml_dict["groups"]:
+        group_map = sonarnetcdf_1.yaml_dict["groups"]
+        if __name in group_map:
+            group = group_map.get(__name)
+            group_path = group["ep_group"]
+            if __name == "top":
+                group_path = "Top-level"
             msg = " ".join(
                 [
                     "This access pattern will be deprecated in future releases.",
-                    "Access the group directly by doing echodata['/path/to/group']",
+                    f"Access the group directly by doing echodata['{group_path}']",
                 ]
             )
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
