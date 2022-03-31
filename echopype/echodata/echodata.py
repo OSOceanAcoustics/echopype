@@ -3,11 +3,12 @@ import uuid
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import fsspec
 import numpy as np
 import xarray as xr
+from datatree import DataTree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
-    group_map = sonarnetcdf_1.yaml_dict["groups"]
+    group_map: Dict[str, Any] = sonarnetcdf_1.yaml_dict["groups"]
 
     def __init__(
         self,
@@ -59,11 +60,18 @@ class EchoData:
         self.xml_path: Optional["PathHint"] = xml_path
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
         self.converted_raw_path: Optional["PathHint"] = None
+        self._tree: DataTree = None
 
         self.__setup_groups()
         self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+
+    def __str__(self) -> str:
+        fpath = "Internal Memory"
+        if self.converted_raw_path:
+            fpath = self.converted_raw_path
+        return f"EchoData: standardized raw data from {fpath}\n{str(self._tree)}"
 
     def __repr__(self) -> str:
         """Make string representation of InferenceData object."""
@@ -132,6 +140,19 @@ class EchoData:
                 converted_raw_path = Path(converted_raw_path.root)
 
         self.converted_raw_path = converted_raw_path
+
+    def _set_tree(self, tree: DataTree):
+        self._tree = tree
+
+    @property
+    def tree(self):
+        return self._tree
+
+    def __getitem__(self, key):
+        if self._tree:
+            return self._tree[key]
+        else:
+            raise ValueError("Datatree not found!")
 
     def compute_range(
         self,

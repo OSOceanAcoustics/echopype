@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
 import zarr
+from datatree import DataTree
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
@@ -428,27 +429,54 @@ def open_raw(
         params=_set_convert_params(convert_params),
     )
     # Set up echodata object
+    # TODO: clean up direct assignment as tree capability expands
+    # TODO: make the creation of tree dynamically generated from yaml
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
+    top_level = {"Top-level": None}
     # Top-level date_created varies depending on sonar model
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        echodata.top = setgrouper.set_toplevel(
-            sonar_model=sonar_model, date_created=parser.config_datagram["timestamp"]
+        top_level["Top-level"] = setgrouper.set_toplevel(
+            sonar_model=sonar_model,
+            date_created=parser.config_datagram["timestamp"],
         )
     else:
-        echodata.top = setgrouper.set_toplevel(
+        top_level["Top-level"] = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
-    echodata.environment = setgrouper.set_env()
-    echodata.platform = setgrouper.set_platform()
+    tree = DataTree.from_dict(top_level, name="Top-level")
+    echodata.top = tree.ds
+
+    tree["Environment"] = setgrouper.set_env()
+    echodata.environment = tree["Environment"].ds
+
+    tree["Platform"] = setgrouper.set_platform()
+    echodata.platform = tree["Platform"].ds
+
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        echodata.nmea = setgrouper.set_nmea()
-    echodata.provenance = setgrouper.set_provenance()
-    echodata.sonar = setgrouper.set_sonar()
+        tree["Platform/NMEA"] = setgrouper.set_nmea()
+        echodata.nmea = tree["Platform/NMEA"].ds
+
+    tree["Provenance"] = setgrouper.set_provenance()
+    echodata.provenance = tree["Provenance"].ds
+
+    tree["Sonar"] = setgrouper.set_sonar()
+    echodata.sonar = tree["Sonar"].ds
+
     # Beam_group2 group only exist if EK80 has both complex and power/angle data
     if sonar_model in ["EK80", "ES80", "EA640"]:
-        echodata.beam, echodata.beam_power = setgrouper.set_beam()
+        (
+            tree["Sonar/Beam_group1"],
+            tree["Sonar/Beam_group2"],
+        ) = setgrouper.set_beam()
+        echodata.beam, echodata.beam_power = (
+            tree["Sonar/Beam_group1"].ds,
+            tree["Sonar/Beam_group2"].ds,
+        )
     else:
-        echodata.beam = setgrouper.set_beam()
-    echodata.vendor = setgrouper.set_vendor()
+        tree["Sonar/Beam_group1"] = setgrouper.set_beam()
+        echodata.beam = tree["Sonar/Beam_group1"].ds
+    tree["Vendor"] = setgrouper.set_vendor()
+    echodata.vendor = tree["Vendor"].ds
+    echodata._set_tree(tree)
 
     return echodata
