@@ -110,13 +110,14 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         "long_name": "Range distance",
         "units": "m"
     }
+    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
     MVBS = ds_MVBS["Sv"]
     ds_MVBS["Sv"].attrs = {
         "long_name": "Mean volume backscattering strength (MVBS, mean Sv)",
         "units": "dB re 1 m-1",
         "actual_range": [
             round(float(MVBS.min().values), 2),
-            round(float(MVBS.max().values), 2)
+            round(float(MVBS.max().values), 2),
         ],
         "cell_methods": (
             f"time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label}"
