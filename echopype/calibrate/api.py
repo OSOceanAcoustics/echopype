@@ -51,9 +51,7 @@ def _compute_cal(
     )
     # Perform calibration
     if cal_type == "Sv":
-        sv_dataset = cal_obj.compute_Sv(
-            waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
         # Add attributes
         sv_dataset["Sv"].attrs = {
             "long_name": "Volume backscattering strength (Sv)",
@@ -63,9 +61,7 @@ def _compute_cal(
                 round(float(sv_dataset["Sv"].max().values), 2),
             ],
         }
-        sv_dataset["range_bin"].attrs = {
-            "long_name": "Along-range bin (sample) number, base 0"
-        }
+        sv_dataset["range_bin"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
         sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
 
         if "water_level" in echodata.platform.data_vars.keys():
@@ -74,9 +70,7 @@ def _compute_cal(
 
         return sv_dataset
     else:
-        sp_dataset = cal_obj.compute_Sp(
-            waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        sp_dataset = cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
         return sp_dataset
 

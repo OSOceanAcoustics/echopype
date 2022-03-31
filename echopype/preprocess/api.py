@@ -62,12 +62,12 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         return 10 * np.log10(sv_groupby_bins)
 
     # Groupby freq in case of different echo_range (from different sampling intervals)
-    range_interval = np.arange(
-        0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin
+    range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
+    ds_MVBS = (
+        ds_Sv.groupby("frequency")
+        .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
+        .to_dataset()
     )
-    ds_MVBS = ds_Sv.groupby("frequency").apply(
-        _freq_MVBS, args=(range_interval, ping_time_bin)
-    ).to_dataset()
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
@@ -78,38 +78,35 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
     # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
     timedelta_units = {
-        'd': {'nptd64': 'D', 'unitstr': 'day'},
-        'h': {'nptd64': 'h', 'unitstr': 'hour'},
-        't': {'nptd64': 'm', 'unitstr': 'minute'},
-        'min': {'nptd64': 'm', 'unitstr': 'minute'},
-        's': {'nptd64': 's', 'unitstr': 'second'},
-        'l': {'nptd64': 'ms', 'unitstr': 'millisecond'},
-        'ms': {'nptd64': 'ms', 'unitstr': 'millisecond'},
-        'u': {'nptd64': 'us', 'unitstr': 'microsecond'},
-        'us': {'nptd64': 'ms', 'unitstr': 'millisecond'},
-        'n': {'nptd64': 'ns', 'unitstr': 'nanosecond'},
-        'ns': {'nptd64': 'ms', 'unitstr': 'millisecond'},
+        "d": {"nptd64": "D", "unitstr": "day"},
+        "h": {"nptd64": "h", "unitstr": "hour"},
+        "t": {"nptd64": "m", "unitstr": "minute"},
+        "min": {"nptd64": "m", "unitstr": "minute"},
+        "s": {"nptd64": "s", "unitstr": "second"},
+        "l": {"nptd64": "ms", "unitstr": "millisecond"},
+        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
+        "u": {"nptd64": "us", "unitstr": "microsecond"},
+        "us": {"nptd64": "ms", "unitstr": "millisecond"},
+        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
+        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
     }
     ping_time_bin_td = pd.Timedelta(ping_time_bin)
     # res = resolution (most granular time unit)
     ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
     ping_time_bin_resvalue = int(
-            ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]['nptd64'])
+        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
     )
-    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]['unitstr']
+    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
 
     # Attach attributes
-    ds_MVBS = ds_MVBS.rename({'ping_time': 'time'})
+    ds_MVBS = ds_MVBS.rename({"ping_time": "time"})
     ds_MVBS["time"].attrs = {
         "long_name": "Time",
         "standard_name": "time",
         "axis": "T",
         "comment": "From ping_time",
     }
-    ds_MVBS["echo_range"].attrs = {
-        "long_name": "Range distance",
-        "units": "m"
-    }
+    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
     ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
     MVBS = ds_MVBS["Sv"]
     ds_MVBS["Sv"].attrs = {
