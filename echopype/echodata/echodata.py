@@ -3,7 +3,7 @@ import uuid
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 
 import fsspec
 import numpy as np
@@ -199,6 +199,25 @@ class EchoData:
     @property
     def tree(self):
         return self._tree
+
+    @property
+    def version_info(self) -> Tuple[int]:
+        if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
+            version_str = self["Provenance"].attrs.get("conversion_software_version", None)
+            if version_str is not None:
+                version_num = version_str.split(".")[:3]
+                return tuple([int(i) for i in version_num])
+        return None
+
+    @property
+    def group_paths(self) -> Set[str]:
+        paths = set()
+        root_path = self._tree.pathstr
+        paths.add(root_path)
+        for desc in self._tree.descendants:
+            child_path = desc.pathstr.replace(root_path + "/", "")
+            paths.add(child_path)
+        return paths
 
     def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
