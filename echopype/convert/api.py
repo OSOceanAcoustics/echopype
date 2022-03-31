@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
+import xarray as xr
 import zarr
 from datatree import DataTree
 
@@ -447,14 +448,17 @@ def open_raw(
         tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
     tree_dict["Provenance"] = setgrouper.set_provenance()
     tree_dict["Sonar"] = setgrouper.set_sonar()
-    # Beam_group2 group only exist if EK80 has both complex and power/angle data
-    if sonar_model in ["EK80", "ES80", "EA640"]:
-        (
-            tree_dict["Sonar/Beam_group1"],
-            tree_dict["Sonar/Beam_group2"],
-        ) = setgrouper.set_beam()
-    else:
-        tree_dict["Sonar/Beam_group1"] = setgrouper.set_beam()
+
+    # Set multi beam groups
+    beam_groups = setgrouper.set_beam()
+    if isinstance(beam_groups, xr.Dataset):
+        # if it's a single dataset like the ek60,
+        # make into list
+        beam_groups = [beam_groups]
+
+    for idx, beam_group in enumerate(beam_groups, start=1):
+        tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
+
     tree_dict["Vendor"] = setgrouper.set_vendor()
 
     # Create tree and echodata
