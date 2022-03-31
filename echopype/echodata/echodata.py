@@ -200,17 +200,21 @@ class EchoData:
     def tree(self):
         return self._tree
 
-    def __get_dataset(self, node):
+    def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             return node.ds
+        return None
 
-    def __getitem__(self, __key: str) -> Any:
+    def __getitem__(self, __key: str) -> Optional[xr.Dataset]:
         if self._tree:
-            if __key == "Top-level":
-                node = self._tree
-            else:
-                node = self._tree[__key]
-            return self.__get_dataset(node)
+            try:
+                if __key == "Top-level":
+                    node = self._tree
+                else:
+                    node = self._tree[__key]
+                return self.__get_dataset(node)
+            except ChildResolverError:
+                raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
 
