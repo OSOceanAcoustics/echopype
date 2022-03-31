@@ -451,6 +451,7 @@ def open_raw(
 
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
+    print(beam_groups)
     if isinstance(beam_groups, xr.Dataset):
         # if it's a single dataset like the ek60,
         # make into list

@@ -182,9 +182,11 @@ class EchoData:
             ds = None
             try:
                 if value["ep_group"] is None:
-                    ds = self._tree.ds
+                    node = self._tree
                 else:
-                    ds = self._tree[value["ep_group"]].ds
+                    node = self._tree[value["ep_group"]]
+
+                ds = self.__get_dataset(node)
             except ChildResolverError:
                 # Skips group not found errors for EK80 and ADCP
                 ...
@@ -198,11 +200,17 @@ class EchoData:
     def tree(self):
         return self._tree
 
+    def __get_dataset(self, node):
+        if node.has_data or node.has_attrs:
+            return node.ds
+
     def __getitem__(self, __key: str) -> Any:
         if self._tree:
             if __key == "Top-level":
-                return self._tree.ds
-            return self._tree[__key].ds
+                node = self._tree
+            else:
+                node = self._tree[__key]
+            return self.__get_dataset(node)
         else:
             raise ValueError("Datatree not found!")
 
