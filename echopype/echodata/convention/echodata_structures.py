@@ -22,7 +22,7 @@ None to any coords that do not have that coordinate (in that sensor). For exampp
 5. If the group does not apply to the sensor, you should replace the dict with None
 """
 
-SONAR_STRUCTURES = {
+SENSOR_EP_VERSION_MAPPINGS = {
     "AD2CP": {
         "v0.5.x": {
             "top": {
