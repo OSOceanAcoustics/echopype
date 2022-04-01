@@ -1,5 +1,5 @@
 
-#######################################################################################################################
+#############################################################################################
 # PLEASE CAREFULLY REVIEW THE RULES BEFORE APPLYING CHANGES.
 #
 # Rules of the structure:
@@ -14,7 +14,7 @@
 # None to any coords that do not have that coordinate (in that sensor). For exampple,
 # "coords": ['frequency', 'ping_time', 'range_bin', None]
 # 5. If the group does not apply to the sensor, you should replace the dict with None
-#######################################################################################################################
+#############################################################################################
 
 SONAR_STRUCTURES = {
     'AD2CP': {
