@@ -1,9 +1,10 @@
 """
 The purpose of this dictionary is to define the structure of each sensor
-across echopype versions. The dictionary was originally intended to ease
+across echopype versions. The dictionary was developed to ease
 the transition from echopype version 0.5.x to version 0.6.x. This dict
 primarily focuses on names each EchoData group and their coordinates.
-The structure is currently based on the convention file 1.0.yml.
+The structure is currently based on the SONAR-netCDF4 convention
+file 1.0.yml.
 
 PLEASE CAREFULLY REVIEW THE RULES BEFORE APPLYING CHANGES.
 
@@ -160,6 +161,8 @@ SONAR_STRUCTURES = {
                     "range_sample_echosounder",
                     "altimeter_sample_bin",
                 ],
+                "group_descr": "contains velocity, correlation, and backscatter power " +
+                               "(uncalibrated) data and other data derived from acoustic data",
             },
             "beam_power": None,
             "nmea": {
@@ -328,7 +331,7 @@ SONAR_STRUCTURES = {
             },
             "platform": {
                 "ep_group": "Platform",
-                "coords": [None, None],
+                "coords": ["mru_time", "location_time"],
             },
             "provenance": {
                 "ep_group": "Provenance",
@@ -347,8 +350,8 @@ SONAR_STRUCTURES = {
                 "coords": ["frequency", "ping_time", "range_bin", "quadrant"],
             },
             "beam_power": {
-                "ep_group": None,
-                "coords": [],
+                "ep_group": 'Beam_power',
+                "coords": ["frequency", "ping_time", "range_bin"],
             },
             "nmea": {
                 "ep_group": "Platform/NMEA",

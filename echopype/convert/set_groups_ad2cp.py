@@ -28,6 +28,16 @@ class SetGroupsAd2cp(SetGroupsBase):
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self.combine_packets()
 
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": (
+                    "contains velocity, correlation, and backscatter power (uncalibrated)"
+                    " data and other data derived from acoustic data."
+                ),
+            }
+        ]
+
     def combine_packets(self):
         self.ds = None
 
