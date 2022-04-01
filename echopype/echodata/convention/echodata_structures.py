@@ -161,8 +161,8 @@ SONAR_STRUCTURES = {
                     "range_sample_echosounder",
                     "altimeter_sample_bin",
                 ],
-                "group_descr": "contains velocity, correlation, and backscatter power " +
-                               "(uncalibrated) data and other data derived from acoustic data",
+                "group_descr": "contains velocity, correlation, and backscatter power "
+                + "(uncalibrated) data and other data derived from acoustic data",
             },
             "beam_power": None,
             "nmea": {
@@ -350,7 +350,7 @@ SONAR_STRUCTURES = {
                 "coords": ["frequency", "ping_time", "range_bin", "quadrant"],
             },
             "beam_power": {
-                "ep_group": 'Beam_power',
+                "ep_group": "Beam_power",
                 "coords": ["frequency", "ping_time", "range_bin"],
             },
             "nmea": {
