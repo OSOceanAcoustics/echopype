@@ -183,10 +183,10 @@ class CalibrateEK(CalibrateBase):
                 + self.cal_params["equivalent_beam_angle"]
                 + 10
                 * np.log10(
-                    wavelength ** 2
+                    wavelength**2
                     * beam["transmit_duration_nominal"]
                     * self.env_params["sound_speed"]
-                    / (32 * np.pi ** 2)
+                    / (32 * np.pi**2)
                 )
             )
 
@@ -205,7 +205,7 @@ class CalibrateEK(CalibrateBase):
             CSp = (
                 10 * np.log10(beam["transmit_power"])
                 + 2 * self.cal_params["gain_correction"]
-                + 10 * np.log10(wavelength ** 2 / (16 * np.pi ** 2))
+                + 10 * np.log10(wavelength**2 / (16 * np.pi**2))
             )
 
             # Calibration and echo integration
@@ -778,7 +778,7 @@ class CalibrateEK80(CalibrateEK):
                 10 * np.log10(prx)
                 + spreading_loss
                 + absorption_loss
-                - 10 * np.log10(wavelength ** 2 * transmit_power * sound_speed / (32 * np.pi ** 2))
+                - 10 * np.log10(wavelength**2 * transmit_power * sound_speed / (32 * np.pi**2))
                 - 2 * gain
                 - 10 * np.log10(tau_effective)
                 - psifc
@@ -792,7 +792,7 @@ class CalibrateEK80(CalibrateEK):
                 10 * np.log10(prx)
                 + 2 * spreading_loss
                 + absorption_loss
-                - 10 * np.log10(wavelength ** 2 * transmit_power / (16 * np.pi ** 2))
+                - 10 * np.log10(wavelength**2 * transmit_power / (16 * np.pi**2))
                 - 2 * gain
             )
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sp"})
