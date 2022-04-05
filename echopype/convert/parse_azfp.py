@@ -122,7 +122,7 @@ class ParseAZFP(ParseBase):
             return T
 
         def compute_tilt(N, a, b, c, d):
-            return a + b * N + c * N ** 2 + d * N ** 3
+            return a + b * N + c * N**2 + d * N**3
 
         def compute_battery(N):
             USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6

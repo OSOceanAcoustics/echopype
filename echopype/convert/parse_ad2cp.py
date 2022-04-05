@@ -836,10 +836,10 @@ class Ad2cpDataPacket:
         checksum = 0xB58C
         for i in range(0, len(data), 2):
             checksum += int.from_bytes(data[i : i + 2], byteorder="little")
-            checksum %= 2 ** 16
+            checksum %= 2**16
         if len(data) % 2 == 1:
             checksum += data[-1] << 8
-            checksum %= 2 ** 16
+            checksum %= 2**16
         return checksum
 
 
