@@ -61,7 +61,7 @@ def _compute_cal(
                 round(float(sv_dataset["Sv"].max().values), 2),
             ],
         }
-        sv_dataset["range_bin"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
+        sv_dataset["range_sample"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
         sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
 
         if "water_level" in echodata.platform.data_vars.keys():
