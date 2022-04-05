@@ -11,8 +11,7 @@ def _load_static_files():
     Clone from xarray.core.formatted_html_template.
     """
     return [
-        pkg_resources.resource_string("echopype", fname).decode("utf8")
-        for fname in STATIC_FILES
+        pkg_resources.resource_string("echopype", fname).decode("utf8") for fname in STATIC_FILES
     ]
 
 

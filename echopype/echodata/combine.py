@@ -115,15 +115,11 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     sonar_model = None
     for echodata in echodatas:
         if echodata.sonar_model is None:
-            raise ValueError(
-                "all EchoData objects must have non-None sonar_model values"
-            )
+            raise ValueError("all EchoData objects must have non-None sonar_model values")
         elif sonar_model is None:
             sonar_model = echodata.sonar_model
         elif echodata.sonar_model != sonar_model:
-            raise ValueError(
-                "all EchoData objects must have the same sonar_model value"
-            )
+            raise ValueError("all EchoData objects must have the same sonar_model value")
 
     # ping time before reversal correction
     old_ping_time = None
@@ -175,9 +171,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                 [concat_dim],
                 data_vars=concat_data_vars,
                 coords="minimal",
-                combine_attrs="drop"
-                if combine_attrs == "overwrite_conflicts"
-                else combine_attrs,
+                combine_attrs="drop" if combine_attrs == "overwrite_conflicts" else combine_attrs,
             )
             if combine_attrs == "overwrite_conflicts":
                 combined_group.attrs.update(union_attrs(group_datasets))
@@ -187,16 +181,12 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["transceiver_software_version"] = combined_group[
                         "transceiver_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype(
-                        "<U50"
-                    )
+                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
                 elif sonar_model == "EK60":
                     combined_group["gpt_software_version"] = combined_group[
                         "gpt_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype(
-                        "<U50"
-                    )
+                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
 
             if sonar_model in ("EK60", "EK80"):
                 if "ping_time" in combined_group and exist_reversed_time(
@@ -222,16 +212,12 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                                 " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                             )
                             old_location_time = combined_group["location_time"]
-                            coerce_increasing_time(
-                                combined_group, time_name="location_time"
-                            )
+                            coerce_increasing_time(combined_group, time_name="location_time")
                             new_location_time = combined_group["location_time"]
                         else:
                             combined_group["location_time"] = new_location_time
             if sonar_model == "EK80":
-                if "mru_time" in combined_group and exist_reversed_time(
-                    combined_group, "mru_time"
-                ):
+                if "mru_time" in combined_group and exist_reversed_time(combined_group, "mru_time"):
                     if old_mru_time is None:
                         warnings.warn(
                             f"{sonar_model} mru_time reversal detected; the mru times will be corrected"  # noqa

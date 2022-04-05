@@ -85,9 +85,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        anc = np.array(
-            unpacked_data["ancillary"]
-        )  # convert to np array for easy slicing
+        anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
         dig_rate = unpacked_data["dig_rate"]  # dim: freq
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
@@ -102,20 +100,17 @@ class SetGroupsAZFP(SetGroupsBase):
             )
             N.append(
                 np.array(
-                    [
-                        unpacked_data["counts"][p][ich]
-                        for p in range(len(unpacked_data["year"]))
-                    ]
+                    [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
                 )
             )
 
         # Largest number of counts along the range dimension among the different channels
-        longest_range_bin = np.max(unpacked_data["num_bins"])
-        range_bin = np.arange(longest_range_bin)
+        longest_range_sample = np.max(unpacked_data["num_bins"])
+        range_sample = np.arange(longest_range_sample)
 
         # Pad power data
-        if any(unpacked_data["num_bins"] != longest_range_bin):
-            N_tmp = np.full((len(N), len(ping_time), longest_range_bin), np.nan)
+        if any(unpacked_data["num_bins"] != longest_range_sample):
+            N_tmp = np.full((len(N), len(ping_time), longest_range_sample), np.nan)
             for i, n in enumerate(N):
                 N_tmp[i, :, : n.shape[1]] = n
             N = N_tmp
@@ -123,9 +118,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         tdn = unpacked_data["pulse_length"] / 1e6  # Convert microseconds to seconds
         range_samples_xml = np.array(parameters["range_samples"])  # from xml file
-        range_samples_per_bin = unpacked_data[
-            "range_samples_per_bin"
-        ]  # from data header
+        range_samples_per_bin = unpacked_data["range_samples_per_bin"]  # from data header
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
@@ -138,7 +131,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                "backscatter_r": (["frequency", "ping_time", "range_bin"], N),
+                "backscatter_r": (["frequency", "ping_time", "range_sample"], N),
                 "equivalent_beam_angle": (["frequency"], parameters["BP"]),
                 "gain_correction": (["frequency"], unpacked_data["gain"]),
                 "sample_interval": (["frequency"], sample_int, {"units": "s"}),
@@ -182,10 +175,10 @@ class SetGroupsAZFP(SetGroupsBase):
                     ping_time,
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
-                    range_bin,
-                    self._varattrs["beam_coord_default"]["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
+                    range_sample,
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
             attrs={

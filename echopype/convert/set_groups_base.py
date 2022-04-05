@@ -9,7 +9,7 @@ from _echopype_version import version as ECHOPYPE_VERSION
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
-DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
+DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 
 class SetGroupsBase(abc.ABC):
@@ -77,8 +77,7 @@ class SetGroupsBase(abc.ABC):
         prov_dict = {
             "conversion_software_name": "echopype",
             "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": dt.utcnow().isoformat(timespec="seconds")
-            + "Z",  # use UTC time
+            "conversion_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
             "src_filenames": self.input_file,
         }
         # Save
@@ -153,9 +152,7 @@ class SetGroupsBase(abc.ABC):
     def _parse_NMEA(self):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
-        idx_loc = np.argwhere(
-            np.isin(messages, self.ui_param["nmea_gps_sentence"])
-        ).squeeze()
+        idx_loc = np.argwhere(np.isin(messages, self.ui_param["nmea_gps_sentence"])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
@@ -170,26 +167,17 @@ class SetGroupsBase(abc.ABC):
             ):
                 nmea_msg.append(None)
         lat = (
-            np.array(
-                [x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg]
-            )
+            np.array([x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
         lon = (
-            np.array(
-                [x.longitude if hasattr(x, "longitude") else np.nan for x in nmea_msg]
-            )
+            np.array([x.longitude if hasattr(x, "longitude") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
         msg_type = (
-            np.array(
-                [
-                    x.sentence_type if hasattr(x, "sentence_type") else np.nan
-                    for x in nmea_msg
-                ]
-            )
+            np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
@@ -206,16 +194,16 @@ class SetGroupsBase(abc.ABC):
         return location_time, msg_type, lat, lon
 
     def _beam_groups_vars(self):
-        """Stage beam_group_name and beam_group_descr variables sharing a common dimension
-        to be inserted in the Sonar group"""
+        """Stage beam_group_name and beam_group_descr variables sharing a common dimension,
+        beam_group, to be inserted in the Sonar group"""
         beam_groups_vars = {
             "beam_group_name": (
-                ["beam"],
+                ["beam_group"],
                 [di["name"] for di in self._beamgroups],
                 {"long_name": "Beam group name"},
             ),
             "beam_group_descr": (
-                ["beam"],
+                ["beam_group"],
                 [di["descr"] for di in self._beamgroups],
                 {"long_name": "Beam group description"},
             ),

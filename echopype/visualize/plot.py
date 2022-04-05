@@ -174,15 +174,15 @@ def _plot_echogram(
         if (
             np.any(filtered_ds.isnull()).values == np.array(True)
             and 'echo_range' in filtered_ds.coords
-            and 'range_bin' in filtered_ds.dims
+            and 'range_sample' in filtered_ds.dims
             and variable in ['backscatter_r', 'Sv']
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
-                range_bin=filtered_ds.range_bin.where(
+                range_sample=filtered_ds.range_sample.where(
                     ~filtered_ds.echo_range.isel(ping_time=0).isnull()
                 )
-                .dropna(dim='range_bin')
+                .dropna(dim='range_sample')
                 .data
             )
         plot = filtered_ds.plot.pcolormesh(
@@ -214,17 +214,17 @@ def _plot_echogram(
             if (
                 np.any(d.isnull()).values == np.array(True)
                 and 'echo_range' in d.coords
-                and 'range_bin' in d.dims
+                and 'range_sample' in d.dims
                 and variable in ['backscatter_r', 'Sv']
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
-                    range_bin=d.range_bin.where(
+                    range_sample=d.range_sample.where(
                         ~d.echo_range.sel(frequency=f.values)
                         .isel(ping_time=0)
                         .isnull()
                     )
-                    .dropna(dim='range_bin')
+                    .dropna(dim='range_sample')
                     .data
                 )
             plot = d.plot.pcolormesh(
