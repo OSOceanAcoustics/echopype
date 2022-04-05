@@ -99,12 +99,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]['unitstr']
 
     # Attach attributes
-    ds_MVBS = ds_MVBS.rename({'ping_time': 'time'})
-    ds_MVBS["time"].attrs = {
+    ds_MVBS["ping_time"].attrs = {
         "long_name": "Time",
-        "standard_name": "time",
+        "standard_name": "Ping time",
         "axis": "T",
-        "comment": "From ping_time",
     }
     ds_MVBS["echo_range"].attrs = {
         "long_name": "Range distance",
@@ -120,10 +118,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             round(float(MVBS.max().values), 2),
         ],
         "cell_methods": (
-            f"time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label}"
-            " comment: time is the interval start)"
-            f" echo_range: mean (interval: {range_meter_bin} meter"
-            " comment: echo_range is the interval start)"
+            f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "
+            "comment: ping_time is the interval start) "
+            f"echo_range: mean (interval: {range_meter_bin} meter "
+            "comment: echo_range is the interval start)"
         ),
         "binning_mode": "physical units",
         "range_meter_interval": str(range_meter_bin) + "m",
