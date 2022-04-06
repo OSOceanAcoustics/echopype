@@ -17,7 +17,7 @@ def _check_range_uniqueness(ds):
 
 
 def _set_MVVBS_attrs(ds):
-    """ Attach common attributes
+    """Attach common attributes
 
     Parameters
     ----------
@@ -176,7 +176,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     ds_MVBS.coords["range_sample"] = (
         "range_sample",
         np.arange(ds_MVBS["range_sample"].size),
-        {"long_name": "Along-range sample number, base 0"}
+        {"long_name": "Along-range sample number, base 0"},
     )  # reset range_sample to start from 0
     ds_MVBS["echo_range"] = (
         ds_Sv["echo_range"]

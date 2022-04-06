@@ -51,7 +51,7 @@ def _compute_cal(
     )
 
     def add_attrs(cal_type, ds):
-        """ Add attributes to backscattering strength dataset.
+        """Add attributes to backscattering strength dataset.
         cal_type: Sv or Sp
         """
         ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
