@@ -49,29 +49,34 @@ def _compute_cal(
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
     )
+
+    def add_attrs(cal_type, ds):
+        """ Add attributes to backscattering strength dataset.
+        cal_type: Sv or Sp
+        """
+        ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
+        ds["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+        long_name_cal_type = {"Sv": "Volume", "Sp": "Point"}
+        ds[cal_type].attrs = {
+            "long_name": f"{long_name_cal_type[cal_type]} backscattering strength ({cal_type})",
+            "units": "dB re 1 m-1",
+            "actual_range": [
+                round(float(ds[cal_type].min().values), 2),
+                round(float(ds[cal_type].max().values), 2),
+            ],
+        }
+
     # Perform calibration
     if cal_type == "Sv":
         sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
-        # Add attributes
-        sv_dataset["Sv"].attrs = {
-            "long_name": "Volume backscattering strength (Sv)",
-            "units": "dB re 1 m-1",
-            "actual_range": [
-                round(float(sv_dataset["Sv"].min().values), 2),
-                round(float(sv_dataset["Sv"].max().values), 2),
-            ],
-        }
-        sv_dataset["range_sample"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
-        sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
-
+        add_attrs("Sv", sv_dataset)
         if "water_level" in echodata.platform.data_vars.keys():
             # add water_level to the created xr.Dataset
             sv_dataset["water_level"] = echodata.platform.water_level
-
         return sv_dataset
     else:
         sp_dataset = cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
-
+        add_attrs("Sp", sp_dataset)
         return sp_dataset
 
 
