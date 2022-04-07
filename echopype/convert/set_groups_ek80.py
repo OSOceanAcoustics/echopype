@@ -39,6 +39,18 @@ class SetGroupsEK80(SetGroupsBase):
             if k in dict_env:
                 dict_env["absorption_indicative"] = dict_env.pop(k)
 
+        if "sound_velocity_profile" in self.parser_obj.environment:
+            dict_env["sound_velocity_profile"] = (
+                ["ping_time", "profile"],
+                [self.parser_obj.environment["sound_velocity_profile"]],
+            )
+
+        if "sound_velocity_source" in self.parser_obj.environment:
+            dict_env["sound_velocity_source"] = (
+                ["ping_time"],
+                [self.parser_obj.environment["sound_velocity_source"]],
+            )
+
         ds = xr.Dataset(
             dict_env,
             coords={
@@ -50,7 +62,13 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
                     },
-                )
+                ),
+                "profile": (
+                    ["profile"],
+                    np.arange(
+                        len(self.parser_obj.environment["sound_velocity_profile"])
+                    ),
+                ),
             },
         )
         return set_encodings(ds)
@@ -84,7 +102,15 @@ class SetGroupsEK80(SetGroupsBase):
                 ),  # identical for all channels
             },
             coords={"frequency": var["transducer_frequency"]},
-            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
+            attrs={
+                "sonar_manufacturer": "Simrad",
+                "sonar_type": "echosounder",
+                "sonar_sound_speed": (
+                    self.parser_obj.environment["transducer_sound_speed"]
+                    if "transducer_sound_speed" in self.parser_obj.environment
+                    else np.nan
+                ),
+            },
         )
         return ds
 
@@ -199,6 +225,16 @@ class SetGroupsEK80(SetGroupsBase):
                 "drop_keel_offset": (
                     self.parser_obj.environment["drop_keel_offset"]
                     if hasattr(self.parser_obj.environment, "drop_keel_offset")
+                    else np.nan
+                ),
+                "drop_keel_offset_is_manual": (
+                    self.parser_obj.environment["drop_keel_offset_is_manual"]
+                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
+                    else np.nan
+                ),
+                "water_level_draft_is_manual": (
+                    self.parser_obj.environment["water_level_draft_is_manual"]
+                    if "water_level_draft_is_manual" in self.parser_obj.environment
                     else np.nan
                 ),
             },
