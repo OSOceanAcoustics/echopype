@@ -65,7 +65,11 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "profile": (
                     ["profile"],
-                    np.arange(len(self.parser_obj.environment["sound_velocity_profile"])),
+                    np.arange(
+                        len(self.parser_obj.environment["sound_velocity_profile"])
+                    )
+                    if "sound_velocity_profile" in self.parser_obj.environment
+                    else [],
                 ),
             },
         )
