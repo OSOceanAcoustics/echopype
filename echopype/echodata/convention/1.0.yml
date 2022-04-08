@@ -21,7 +21,7 @@ groups:
     description: contains information about the platform on which the sonar is installed.
     ep_group: Platform
   nmea:
-    name: Platform/NMEA
+    name: NMEA
     description: contains information specific to the NMEA protocol.
     ep_group: Platform/NMEA
   provenance:
@@ -33,13 +33,13 @@ groups:
     description: contains specific metadata for the sonar system.
     ep_group: Sonar
   beam:
-    name: Sonar/Beam_group1
+    name: Beam_group1
     description: >-
       contains backscatter data (either complex samples or uncalibrated power samples)
       and other beam or channel-specific data, including split-beam angle data when they exist.
     ep_group: Sonar/Beam_group1
   beam_power:
-    name: Sonar/Beam_group2
+    name: Beam_group2
     description: >-
       contains backscatter power (uncalibrated) and other beam or channel-specific data,
       including split-beam angle data when they exist.

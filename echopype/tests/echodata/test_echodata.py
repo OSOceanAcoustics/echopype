@@ -242,15 +242,14 @@ class TestEchoData:
         expected_repr = dedent(
             f"""\
             EchoData: standardized raw data from {zarr_path_string}
-              > top: (Top-level) contains metadata about the SONAR-netCDF4 file format.
-              > environment: (Environment) contains information relevant to acoustic propagation through water.
-              > platform: (Platform) contains information about the platform on which the sonar is installed.
-              > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
-              > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
-              > sonar: (Sonar) contains specific metadata for the sonar system.
-              > beam: (Sonar/Beam_group1) contains backscatter data (either complex samples or uncalibrated power samples)\
- and other beam or channel-specific data, including split-beam angle data when they exist.
-              > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
+            Top-level: contains metadata about the SONAR-netCDF4 file format.
+            ├── Environment: contains information relevant to acoustic propagation through water.
+            ├── Platform: contains information about the platform on which the sonar is installed.
+            │   └── NMEA: contains information specific to the NMEA protocol.
+            ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
+            ├── Sonar: contains specific metadata for the sonar system.
+            │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+            └── Vendor specific: contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))

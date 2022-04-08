@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
-from ..utils.repr import HtmlTemplate
+from ..utils.repr import HtmlTemplate, tree_repr
 from ..utils.uwa import calc_sound_speed
 from .convention import sonarnetcdf_1
 
@@ -72,23 +72,10 @@ class EchoData:
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
-        return f"EchoData: standardized raw data from {fpath}\n{str(self._tree)}"
+        return f"EchoData: standardized raw data from {fpath}\n{tree_repr(self._tree)}"
 
     def __repr__(self) -> str:
-        """Make string representation of InferenceData object."""
-        existing_groups = [
-            f"{group}: ({self.group_map[group]['name']}) {self.group_map[group]['description']}"  # noqa
-            for group in self.group_map.keys()
-            if isinstance(getattr(self, group), xr.Dataset)
-        ]
-        fpath = "Internal Memory"
-        if self.converted_raw_path:
-            fpath = self.converted_raw_path
-        msg = "EchoData: standardized raw data from {file_path}\n  > {options}".format(
-            options="\n  > ".join(existing_groups),
-            file_path=fpath,
-        )
-        return msg
+        return str(self)
 
     def _repr_html_(self) -> str:
         """Make html representation of InferenceData object."""
