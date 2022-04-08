@@ -43,25 +43,25 @@ class EchoData:
     def __init__(
         self,
         converted_raw_path: Optional["PathHint"] = None,
-        storage_options: Dict[str, str] = None,
+        storage_options: Optional[Dict[str, Any]] = None,
         source_file: Optional["PathHint"] = None,
-        xml_path: "PathHint" = None,
-        sonar_model: "SonarModelsHint" = None,
-        open_kwargs: Dict[str, str] = None,
+        xml_path: Optional["PathHint"] = None,
+        sonar_model: Optional["SonarModelsHint"] = None,
+        open_kwargs: Optional[Dict[str, Any]] = None,
     ):
 
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
-        self.storage_options: Dict[str, str] = (
+        self.storage_options: Dict[str, Any] = (
             storage_options if storage_options is not None else {}
         )
-        self.open_kwargs: Dict[str, str] = open_kwargs if open_kwargs is not None else {}
+        self.open_kwargs: Dict[str, Any] = open_kwargs if open_kwargs is not None else {}
         self.source_file: Optional["PathHint"] = source_file
         self.xml_path: Optional["PathHint"] = xml_path
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
-        self.converted_raw_path: Optional["PathHint"] = None
-        self._tree: DataTree = None
+        self.converted_raw_path: Optional["PathHint"] = converted_raw_path
+        self._tree: Optional["DataTree"] = None
 
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
@@ -146,7 +146,12 @@ class EchoData:
         self._tree = tree
 
     @classmethod
-    def from_file(cls, converted_raw_path, storage_options=None, open_kwargs={}):
+    def from_file(
+        cls,
+        converted_raw_path: str,
+        storage_options: Optional[Dict[str, Any]] = None,
+        open_kwargs: Dict[str, Any] = {},
+    ) -> "EchoData":
         echodata = cls(
             converted_raw_path=converted_raw_path,
             storage_options=storage_options,
@@ -160,8 +165,6 @@ class EchoData:
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        # Change root name to top
-        tree.name = "Top-level"
 
         echodata._set_tree(tree)
 
@@ -173,7 +176,7 @@ class EchoData:
         echodata._load_tree()
         return echodata
 
-    def _load_tree(self):
+    def _load_tree(self) -> None:
         if self._tree is None:
             raise ValueError("Datatree not found!")
 
@@ -197,10 +200,6 @@ class EchoData:
                 setattr(self, group, ds)
 
     @property
-    def tree(self):
-        return self._tree
-
-    @property
     def version_info(self) -> Tuple[int]:
         if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
             version_str = self["Provenance"].attrs.get("conversion_software_version", None)
@@ -211,23 +210,22 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        paths = set()
         root_path = self._tree.pathstr
-        paths.add(root_path)
-        for desc in self._tree.descendants:
-            child_path = desc.pathstr.replace(root_path + "/", "")
-            paths.add(child_path)
-        return paths
+        return {
+            i.replace(root_path + "/", "") if i != "root" else "Top-level"
+            for i in self._tree.groups
+        }
 
     def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             return node.ds
         return None
 
-    def __getitem__(self, __key: str) -> Optional[xr.Dataset]:
+    def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                if __key == "Top-level":
+                if __key in ["Top-level", "/"]:
+                    # Access to root
                     node = self._tree
                 else:
                     node = self._tree[__key]
