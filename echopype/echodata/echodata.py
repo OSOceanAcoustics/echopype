@@ -349,8 +349,8 @@ class EchoData:
             range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
             # set entries with NaN backscatter data to NaN
-            if "quadrant" in beam["backscatter_r"].dims:
-                valid_idx = ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+            if "beam" in beam["backscatter_r"].dims:
+                valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)

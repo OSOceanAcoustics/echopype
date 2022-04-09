@@ -25,7 +25,7 @@ def _set_label(
     if isinstance(fg, FacetGrid):
         text_pos = [0.02, 0.06]
         fontsize = 14
-        if col == 'quadrant':
+        if col == 'beam':
             if isinstance(frequency, list) or frequency is None:
                 for rl in fg.row_labels:
                     if rl is not None:
@@ -33,7 +33,7 @@ def _set_label(
 
                 for idx, cl in enumerate(fg.col_labels):
                     if cl is not None:
-                        cl.set_text(f'Quadrant {fg.col_names[idx]}')
+                        cl.set_text(f'Beam {fg.col_names[idx]}')
 
             text_pos = [0.04, 0.06]
             fontsize = 13
@@ -46,7 +46,7 @@ def _set_label(
                     ax.set_title('')
             else:
                 freq = frequency
-                ax.set_title(f'Quadrant {fg.col_names[idx]}')
+                ax.set_title(f'Beam {fg.col_names[idx]}')
             ax.text(
                 *text_pos,
                 f"{int(freq / 1000)} kHz",
@@ -129,8 +129,8 @@ def _plot_echogram(
     row = None
     col = None
 
-    if 'quadrant' in ds[variable].dims:
-        col = 'quadrant'
+    if 'beam' in ds[variable].dims:
+        col = 'beam'
         kwargs.update(
             {
                 'figsize': (15, 5),
