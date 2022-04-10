@@ -16,7 +16,7 @@ def _check_range_uniqueness(ds):
     ).all()
 
 
-def _set_MVVBS_attrs(ds):
+def _set_MVBS_attrs(ds):
     """Attach common attributes
 
     Parameters
@@ -123,7 +123,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
 
     # Attach attributes
-    _set_MVVBS_attrs(ds_MVBS)
+    _set_MVBS_attrs(ds_MVBS)
     ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
@@ -185,7 +185,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
         )
         .min(skipna=True)
     )
-    _set_MVVBS_attrs(ds_MVBS)
+    _set_MVBS_attrs(ds_MVBS)
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
             "comment": "MVBS binned on the basis of range_sample and ping number specified as index numbers",
