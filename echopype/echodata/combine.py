@@ -1,11 +1,9 @@
 import warnings
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
 import xarray as xr
-from _echopype_version import version as ECHOPYPE_VERSION
-
+    
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
