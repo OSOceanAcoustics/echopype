@@ -10,7 +10,7 @@ ProcessType = Literal["conversion", "processing"]
 
 def echopype_prov_attrs(
         process_type: ProcessType,
-        source_files: str
+        source_files: str = None
 ) -> Dict[str, str]:
     """
     Standard echopype software attributes for provenance
@@ -26,8 +26,10 @@ def echopype_prov_attrs(
         f"{process_type}_software_name": "echopype",
         f"{process_type}_software_version": ECHOPYPE_VERSION,
         f"{process_type}_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
+    }
+    if source_files:
         # TODO: src_filenames will be replaced with a new variable, source_filenames
         #   Also, come to think of it, source files is not "echopype provenance" info per se
-        "src_filenames": source_files,
-    }
+        prov_dict["src_filenames"] = source_files
+
     return prov_dict

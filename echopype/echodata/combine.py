@@ -9,6 +9,7 @@ from _echopype_version import version as ECHOPYPE_VERSION
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
+from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
 
 
@@ -30,12 +31,7 @@ def assemble_combined_provenance(input_paths):
         data_vars={
             "src_filenames": ("file", input_paths),
         },
-        attrs={
-            "conversion_software_name": "echopype",
-            "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": datetime.utcnow().isoformat(timespec="seconds")
-            + "Z",  # use UTC time
-        },
+        attrs=echopype_prov_attrs(process_type="conversion"),
     )
 
 

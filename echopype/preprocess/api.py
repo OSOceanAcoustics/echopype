@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .noise_est import NoiseEst
+from ..utils.prov import echopype_prov_attrs
 
 
 def _check_range_uniqueness(ds):
@@ -124,6 +125,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         "range_meter_interval": str(range_meter_bin) + "m",
         "ping_time_interval": ping_time_bin,
     }
+
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.compute_MVBS"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
     return ds_MVBS
 

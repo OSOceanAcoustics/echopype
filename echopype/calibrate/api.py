@@ -5,6 +5,7 @@ import xarray as xr
 from ..echodata import EchoData
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
+from ..utils.prov import echopype_prov_attrs
 
 CALIBRATOR = {"EK60": CalibrateEK60, "EK80": CalibrateEK80, "AZFP": CalibrateAZFP}
 
@@ -63,6 +64,18 @@ def _compute_cal(
         }
         sv_dataset["range_sample"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
         sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+
+        # Provenance source files may originate from raw files (echodata.source_files)
+        # or converted files (echodata.converted_raw_path)
+        if echodata.source_file is not None:
+            source_file = echodata.source_file
+        elif echodata.converted_raw_path is not None:
+            source_file = echodata.converted_raw_path
+        else:
+            source_file = "SOURCE FILE NOT IDENTIFIED"
+        prov_dict = echopype_prov_attrs(process_type="processing", source_files=source_file)
+        prov_dict["processing_function"] = "calibrate.compute_Sv"
+        sv_dataset = sv_dataset.assign_attrs(prov_dict)
 
         if "water_level" in echodata.platform.data_vars.keys():
             # add water_level to the created xr.Dataset
