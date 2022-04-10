@@ -1,13 +1,12 @@
 import abc
-from datetime import datetime as dt
 
 import numpy as np
 import pynmea2
 import xarray as xr
-from _echopype_version import version as ECHOPYPE_VERSION
 
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
+from ..utils.prov import echopype_prov_attrs
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -73,14 +72,7 @@ class SetGroupsBase(abc.ABC):
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
-        # Collect variables
-        prov_dict = {
-            "conversion_software_name": "echopype",
-            "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
-            "src_filenames": self.input_file,
-        }
-        # Save
+        prov_dict = echopype_prov_attrs(process_type="conversion", source_files=self.input_file)
         ds = xr.Dataset()
         ds = ds.assign_attrs(prov_dict)
         return ds

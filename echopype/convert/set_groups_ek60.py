@@ -1,12 +1,11 @@
 import warnings
 from collections import defaultdict
-from datetime import datetime as dt
 
 import numpy as np
 import xarray as xr
-from _echopype_version import version as ECHOPYPE_VERSION
 
 from ..utils.coding import set_encodings
+from ..utils.prov import echopype_prov_attrs
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
@@ -81,15 +80,8 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
-        # Collect variables
-        prov_dict = {
-            "conversion_software_name": "echopype",
-            "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
-            "src_filenames": self.input_file,
-            "duplicate_ping_times": 1 if self.old_ping_time is not None else 0,
-        }
-        # Save
+        prov_dict = echopype_prov_attrs(process_type="conversion", source_files=self.input_file)
+        prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
         if self.old_ping_time is not None:
             ds = xr.Dataset(data_vars={"old_ping_time": self.old_ping_time})
         else:
