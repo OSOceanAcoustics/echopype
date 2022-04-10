@@ -3,9 +3,9 @@ import warnings
 import xarray as xr
 
 from ..echodata import EchoData
+from ..utils.prov import echopype_prov_attrs
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
-from ..utils.prov import echopype_prov_attrs
 
 CALIBRATOR = {"EK60": CalibrateEK60, "EK80": CalibrateEK80, "AZFP": CalibrateAZFP}
 

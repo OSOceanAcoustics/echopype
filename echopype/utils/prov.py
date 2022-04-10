@@ -1,17 +1,13 @@
 from datetime import datetime as dt
 from typing import Dict
-from typing_extensions import Literal
 
 from _echopype_version import version as ECHOPYPE_VERSION
-
+from typing_extensions import Literal
 
 ProcessType = Literal["conversion", "processing"]
 
 
-def echopype_prov_attrs(
-        process_type: ProcessType,
-        source_files: str = None
-) -> Dict[str, str]:
+def echopype_prov_attrs(process_type: ProcessType, source_files: str = None) -> Dict[str, str]:
     """
     Standard echopype software attributes for provenance
 

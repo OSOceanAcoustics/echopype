@@ -5,8 +5,8 @@ Functions for enhancing the spatial and temporal coherence of data.
 import numpy as np
 import pandas as pd
 
-from .noise_est import NoiseEst
 from ..utils.prov import echopype_prov_attrs
+from .noise_est import NoiseEst
 
 
 def _check_range_uniqueness(ds):
