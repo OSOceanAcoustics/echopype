@@ -241,7 +241,7 @@ class TestEchoData:
         zarr_path_string = str(converted_zarr.absolute())
         expected_repr = dedent(
             f"""\
-            EchoData: standardized raw data from {zarr_path_string}
+            <EchoData: standardized raw data from {zarr_path_string}>
             Top-level: contains metadata about the SONAR-netCDF4 file format.
             ├── Environment: contains information relevant to acoustic propagation through water.
             ├── Platform: contains information about the platform on which the sonar is installed.
@@ -269,7 +269,7 @@ class TestEchoData:
             html_fallback = ed._repr_html_().strip()
 
         assert html_fallback.startswith(
-            "<pre>EchoData"
+            "<pre>&lt;EchoData"
         ) and html_fallback.endswith("</pre>")
 
 

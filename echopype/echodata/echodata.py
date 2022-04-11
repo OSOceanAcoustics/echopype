@@ -1,5 +1,4 @@
 import datetime
-import uuid
 import warnings
 from html import escape
 from pathlib import Path
@@ -18,9 +17,10 @@ if TYPE_CHECKING:
 from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
-from ..utils.repr import HtmlTemplate, tree_repr
 from ..utils.uwa import calc_sound_speed
 from .convention import sonarnetcdf_1
+from .widgets.utils import tree_repr
+from .widgets.widgets import _load_static_files, get_template
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -72,13 +72,14 @@ class EchoData:
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
-        return f"EchoData: standardized raw data from {fpath}\n{tree_repr(self._tree)}"
+        return f"<EchoData: standardized raw data from {fpath}>\n{tree_repr(self._tree)}"
 
     def __repr__(self) -> str:
         return str(self)
 
     def _repr_html_(self) -> str:
         """Make html representation of InferenceData object."""
+        _, css_style = _load_static_files()
         try:
             from xarray.core.options import OPTIONS
 
@@ -86,28 +87,7 @@ class EchoData:
             if display_style == "text":
                 html_repr = f"<pre>{escape(repr(self))}</pre>"
             else:
-                xr_collections = []
-                for group in self.group_map.keys():
-                    if isinstance(getattr(self, group), xr.Dataset):
-                        xr_data = getattr(self, group)._repr_html_()
-                        xr_collections.append(
-                            HtmlTemplate.element_template.format(  # noqa
-                                group_id=group + str(uuid.uuid4()),
-                                group=group,
-                                group_name=self.group_map[group]["name"],
-                                group_description=self.group_map[group]["description"],
-                                xr_data=xr_data,
-                            )
-                        )
-                elements = "".join(xr_collections)
-                fpath = "Internal Memory"
-                if self.converted_raw_path:
-                    fpath = self.converted_raw_path
-                formatted_html_template = HtmlTemplate.html_template.format(
-                    elements, file_path=str(fpath)
-                )  # noqa
-                css_template = HtmlTemplate.css_template  # noqa
-                html_repr = "%(formatted_html_template)s%(css_template)s" % locals()
+                return get_template("echodata.html.j2").render(echodata=self, css_style=css_style)
         except:  # noqa
             html_repr = f"<pre>{escape(repr(self))}</pre>"
         return html_repr
