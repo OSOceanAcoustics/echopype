@@ -7,7 +7,7 @@ import pkg_resources
 from jinja2 import Environment, FileSystemLoader, Template
 from jinja2.exceptions import TemplateNotFound
 
-from .utils import _single_node_repr, html_repr
+from .utils import _single_node_repr, hash_value, html_repr, make_key
 
 FILTERS = {
     "datetime_from_timestamp": datetime.datetime.fromtimestamp,
@@ -15,6 +15,8 @@ FILTERS = {
     "type": type,
     "repr": repr,
     "html_repr": html_repr,
+    "hash_value": hash_value,
+    "make_key": make_key,
     "node_repr": _single_node_repr,
 }
 

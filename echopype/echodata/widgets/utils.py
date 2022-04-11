@@ -1,3 +1,6 @@
+import uuid
+from hashlib import md5
+
 import anytree
 from datatree import DataTree
 
@@ -8,6 +11,16 @@ SONAR_GROUPS = _get_sonar_groups()
 
 def html_repr(value) -> str:
     return value._repr_html_()
+
+
+def hash_value(value: str) -> str:
+    byte_string = value.encode("utf-8")
+    hashed = md5(byte_string)
+    return hashed.hexdigest()
+
+
+def make_key(value: str) -> str:
+    return value + str(uuid.uuid4())
 
 
 def _single_node_repr(node):
@@ -24,8 +37,9 @@ def tree_repr(tree: DataTree) -> str:
     renderer = anytree.RenderTree(tree)
     lines = []
     for pre, _, node in renderer:
-        node_repr = _single_node_repr(node)
+        if node.has_data or node.has_attrs:
+            node_repr = _single_node_repr(node)
 
-        node_line = f"{pre}{node_repr.splitlines()[0]}"
-        lines.append(node_line)
+            node_line = f"{pre}{node_repr.splitlines()[0]}"
+            lines.append(node_line)
     return "\n".join(lines)

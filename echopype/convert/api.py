@@ -459,7 +459,8 @@ def open_raw(
         beam_groups = [beam_groups]
 
     for idx, beam_group in enumerate(beam_groups, start=1):
-        tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
+        if beam_group is not None:
+            tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
     tree_dict["Vendor"] = setgrouper.set_vendor()
 

@@ -204,20 +204,21 @@ class EchoData:
 
     # NOTE: Temporary for now until the attribute access pattern is deprecated
     def __getattribute__(self, __name: str) -> Any:
+        attr_value = super().__getattribute__(__name)
         group_map = sonarnetcdf_1.yaml_dict["groups"]
         if __name in group_map:
             group = group_map.get(__name)
             group_path = group["ep_group"]
             if __name == "top":
                 group_path = "Top-level"
-            msg = " ".join(
-                [
-                    "This access pattern will be deprecated in future releases.",
-                    f"Access the group directly by doing echodata['{group_path}']",
-                ]
-            )
+            msg_list = ["This access pattern will be deprecated in future releases."]
+            if attr_value is not None:
+                msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
+            else:
+                msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
+            msg = " ".join(msg_list)
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
-        return super().__getattribute__(__name)
+        return attr_value
 
     def compute_range(
         self,

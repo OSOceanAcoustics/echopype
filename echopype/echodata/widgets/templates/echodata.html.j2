@@ -9,8 +9,9 @@
     </div>
     <ul class="xr-sections group-sections">
         <li class="xr-section-list">
-            <input id="idata_root" class="xr-section-summary-in" type="checkbox">
-            <label for="idata_root" class="xr-section-summary">{{ echodata._tree|node_repr }}</label>
+            {%-set node_key = 'root'|make_key -%}
+            <input id="idata_{{node_key|hash_value}}" class="xr-section-summary-in" type="checkbox">
+            <label for="idata_{{node_key|hash_value}}" class="xr-section-summary">{{ echodata._tree|node_repr }}</label>
             <div class="xr-section-inline-details"></div>
             <div class="xr-section-details">
                 <ul id="xr-dataset-coord-list" class="xr-var-list">
@@ -20,18 +21,22 @@
         </li>
         <ul>
             {%- for node in echodata._tree.children recursive -%}
+                {%- if node.has_data or node.has_attrs -%}
                 <li class="xr-section-list">
-                    <input id="idata_{{node.name}}" class="xr-section-summary-in" type="checkbox">
-                    <label for="idata_{{node.name}}" class="xr-section-summary">{{ node|node_repr }}</label>
+                    {%-set node_key = node.name|make_key -%}
+                    <input id="idata_{{node_key|hash_value}}" class="xr-section-summary-in" type="checkbox">
+                    <label for="idata_{{node_key|hash_value}}" class="xr-section-summary">{{ node|node_repr }}</label>
                     <div class="xr-section-inline-details"></div>
                     <div class="xr-section-details">
                         <ul id="xr-dataset-coord-list" class="xr-var-list">
                             <div style="padding-left:2rem;">{{node.ds|html_repr}}<br></div>
                         </ul>
                     </div>
+                </li>
+                {%- endif -%}
                 {%- if node.children -%}
                     <ul>{{ loop(node.children) }}</ul>
-                {%- endif %}</li>
+                {%- endif %}
             {%- endfor -%}
         </ul>
     </ul>
