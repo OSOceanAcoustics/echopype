@@ -52,14 +52,16 @@ def _compute_cal(
 
     def add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
-        cal_type: Sv or Sp
+        cal_type: Sv or TS
         """
         ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
         ds["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
-        long_name_cal_type = {"Sv": "Volume", "Sp": "Point"}
         ds[cal_type].attrs = {
-            "long_name": f"{long_name_cal_type[cal_type]} backscattering strength ({cal_type})",
-            "units": "dB re 1 m-1",
+            "long_name": {
+                "Sv": "Volume backscattering strength (Sv re 1 m-1)",
+                "TS": "Target strength (TS re 1 m^2)",
+            }[cal_type],
+            "units": "dB",
             "actual_range": [
                 round(float(ds[cal_type].min().values), 2),
                 round(float(ds[cal_type].max().values), 2),
