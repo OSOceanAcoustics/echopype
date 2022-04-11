@@ -26,8 +26,8 @@ STATIC_DIR = HERE / "static"
 TEMPLATE_PATHS = [HERE / "templates"]
 
 STATIC_FILES = (
-    "echodata/widgets/static/html/icons-svg-inline.html",
-    "echodata/widgets/static/css/style.css",
+    "static/html/icons-svg-inline.html",
+    "static/css/style.css",
 )
 
 
@@ -37,7 +37,7 @@ def _load_static_files():
     Clone from xarray.core.formatted_html_template.
     """
     return [
-        pkg_resources.resource_string("echopype", fname).decode("utf8") for fname in STATIC_FILES
+        pkg_resources.resource_string(__name__, fname).decode("utf8") for fname in STATIC_FILES
     ]
 
 
