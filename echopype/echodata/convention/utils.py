@@ -1,4 +1,4 @@
-from echopype.echodata.convention import sonarnetcdf_1
+from ..convention import sonarnetcdf_1
 
 
 def _get_sonar_groups():
