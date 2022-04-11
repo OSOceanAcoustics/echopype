@@ -36,9 +36,7 @@ def _load_static_files():
     """Lazily load the resource files into memory the first time they are needed.
     Clone from xarray.core.formatted_html_template.
     """
-    return [
-        pkg_resources.resource_string(__name__, fname).decode("utf8") for fname in STATIC_FILES
-    ]
+    return [pkg_resources.resource_string(__name__, fname).decode("utf8") for fname in STATIC_FILES]
 
 
 def get_environment() -> Environment:
