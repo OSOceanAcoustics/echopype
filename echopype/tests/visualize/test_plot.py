@@ -119,7 +119,7 @@ def test_plot_multi_get_range(
     assert isinstance(plots, list) is True
     assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
-    # Quadrant shape check
+    # Beam shape check
     if (
         sonar_model.lower() == 'ek80'
         and range_kwargs['encode_mode'] == 'complex'

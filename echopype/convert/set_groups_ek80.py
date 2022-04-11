@@ -397,12 +397,12 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_sample", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.real(data),
                     {"long_name": "Real part of backscatter power", "units": "V"},
                 ),
                 "backscatter_i": (
-                    ["ping_time", "range_sample", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.imag(data),
                     {"long_name": "Imaginary part of backscatter power", "units": "V"},
                 ),
@@ -418,7 +418,7 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
+                "beam": (["beam"], np.arange(num_transducer_sectors)),
             },
         )
 

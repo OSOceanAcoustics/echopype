@@ -160,11 +160,11 @@ def test_convert_ek80_complex_echoview(ek80_path):
     # Test complex parsed data
     df_bb = pd.read_csv(
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
-    )  # averaged across quadrants
+    )  # averaged across beams
     assert np.allclose(
         echodata.beam.backscatter_r.sel(frequency=70e3)
         .dropna('range_sample')
-        .mean(dim='quadrant'),
+        .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
         rtol=0,
         atol=8e-6,
@@ -172,7 +172,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
     assert np.allclose(
         echodata.beam.backscatter_i.sel(frequency=70e3)
         .dropna('range_sample')
-        .mean(dim='quadrant'),
+        .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
         rtol=0,
         atol=4e-6,

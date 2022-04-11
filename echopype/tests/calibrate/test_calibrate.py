@@ -227,7 +227,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     pc = cal_obj.compress_pulse(chirp, freq_BB=freq_center.frequency)
     pc_mean = (
         pc.pulse_compressed_output.isel(frequency=0)
-        .mean(dim='quadrant')
+        .mean(dim='beam')
         .dropna('range_sample')
     )
 

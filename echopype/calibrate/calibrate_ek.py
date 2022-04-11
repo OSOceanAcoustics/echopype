@@ -125,7 +125,7 @@ class CalibrateEK(CalibrateBase):
         # Params from the Vendor group
         # only execute this if cw and power
         if waveform_mode == "CW" and (
-            self.echodata.beam_power is not None or "quadrant" not in self.echodata.beam
+            self.echodata.beam_power is not None or "beam" not in self.echodata.beam
         ):
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
@@ -577,7 +577,7 @@ class CalibrateEK80(CalibrateEK):
             backscatter_freq = (
                 backscatter.sel(frequency=freq)
                 .dropna(dim="range_sample", how="all")
-                .dropna(dim="quadrant", how="all")
+                .dropna(dim="beam", how="all")
                 .dropna(dim="ping_time")
             )
             channel_id = str(self.echodata.beam.sel(frequency=freq)["channel_id"].values)
@@ -702,8 +702,8 @@ class CalibrateEK80(CalibrateEK):
             # backscatter data
             pc = self.compress_pulse(chirp, freq_BB=freq_sel.frequency)
             prx = (
-                self.echodata.beam.quadrant.size
-                * np.abs(pc.mean(dim="quadrant")) ** 2
+                self.echodata.beam.beam.size
+                * np.abs(pc.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
                 * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
                 / self.z_et
@@ -722,8 +722,8 @@ class CalibrateEK80(CalibrateEK):
                 self.echodata.beam["backscatter_r"] + 1j * self.echodata.beam["backscatter_i"]
             )
             prx = (
-                self.echodata.beam.quadrant.size
-                * np.abs(backscatter_cw.mean(dim="quadrant")) ** 2
+                self.echodata.beam.beam.size
+                * np.abs(backscatter_cw.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
                 * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
                 / self.z_et
@@ -895,7 +895,7 @@ class CalibrateEK80(CalibrateEK):
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
-            if "quadrant" in self.echodata.beam.dims:  # data contain only complex samples
+            if "beam" in self.echodata.beam.dims:  # data contain only complex samples
                 if encode_mode == "power":
                     raise TypeError(
                         "File does not contain power samples! Use encode_mode='complex'"
