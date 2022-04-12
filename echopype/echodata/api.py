@@ -26,7 +26,7 @@ def open_converted(
     EchoData object
     """
     # TODO: combine multiple files when opening
-    return EchoData(
+    return EchoData.from_file(
         converted_raw_path=converted_raw_path,
         storage_options=storage_options,
         open_kwargs=kwargs,
