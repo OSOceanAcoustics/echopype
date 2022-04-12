@@ -41,8 +41,15 @@ class SetGroupsEK80(SetGroupsBase):
 
         if "sound_velocity_profile" in self.parser_obj.environment:
             dict_env["sound_velocity_profile"] = (
-                ["ping_time", "profile"],
-                [self.parser_obj.environment["sound_velocity_profile"]],
+                ["ping_time", "sound_velocity_profile_depth"],
+                [self.parser_obj.environment["sound_velocity_profile"][1::2]],
+                {
+                    "long_name": "sound velocity profile",
+                    "standard_name": "speed_of_sound_in_sea_water",
+                    "units": "m/s",
+                    "valid_min": 0.0,
+                    "comment": "parsed from raw data files as (depth, sound_speed) value pairs",
+                },
             )
 
         if "sound_velocity_source" in self.parser_obj.environment:
@@ -63,11 +70,18 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                     },
                 ),
-                "profile": (
-                    ["profile"],
-                    np.arange(len(self.parser_obj.environment["sound_velocity_profile"]))
+                "sound_velocity_profile_depth": (
+                    ["sound_velocity_profile_depth"],
+                    self.parser_obj.environment["sound_velocity_profile"][::2]
                     if "sound_velocity_profile" in self.parser_obj.environment
                     else [],
+                    {
+                        "standard_name": "depth",
+                        "units": "m",
+                        "axis": "Z",
+                        "positive": "down",
+                        "valid_min": 0.0,
+                    },
                 ),
             },
         )
