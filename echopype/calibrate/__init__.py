@@ -1,3 +1,3 @@
-from .api import compute_Sp, compute_Sv
+from .api import compute_TS, compute_Sv
 
-__all__ = ["compute_Sv", "compute_Sp"]
+__all__ = ["compute_Sv", "compute_TS"]

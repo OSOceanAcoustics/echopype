@@ -77,8 +77,8 @@ def _compute_cal(
             sv_dataset["water_level"] = echodata.platform.water_level
         return sv_dataset
     else:
-        sp_dataset = cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
-        add_attrs("Sp", sp_dataset)
+        sp_dataset = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        add_attrs("TS", sp_dataset)
         return sp_dataset
 
 
@@ -171,9 +171,9 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
 
-def compute_Sp(echodata: EchoData, **kwargs):
+def compute_TS(echodata: EchoData, **kwargs):
     """
-    Compute point backscattering strength (Sp) from raw data.
+    Compute target strength (TS) from raw data.
 
     The calibration routine varies depending on the sonar type.
     Currently this operation is supported for the following ``sonar_model``:
@@ -234,7 +234,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
     Returns
     -------
     xr.Dataset
-        The calibrated Sp dataset, including calibration parameters
+        The calibrated TS dataset, including calibration parameters
         and environmental variables used in the calibration operations.
 
     Notes
@@ -250,7 +250,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
     similar to those recorded by EK60 echosounders.
 
     The current calibration implemented for EK80 broadband complex data
-    uses band-integrated Sp with the gain computed at the center frequency
+    uses band-integrated TS with the gain computed at the center frequency
     of the transmit signal.
     """
-    return _compute_cal(cal_type="Sp", echodata=echodata, **kwargs)
+    return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)

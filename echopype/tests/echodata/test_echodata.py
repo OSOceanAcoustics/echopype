@@ -111,7 +111,7 @@ def ek60_converted_zarr(request, test_path):
             ("AZFP", "ooi", "17032923.01A"),
             "AZFP",
             ("AZFP", "ooi", "17032922.XML"),
-            "Sp",
+            "TS",
             None,
             None,
         ),

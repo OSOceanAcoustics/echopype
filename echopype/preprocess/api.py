@@ -31,8 +31,8 @@ def _set_MVBS_attrs(ds):
     }
 
     ds["Sv"].attrs = {
-        "long_name": "Mean volume backscattering strength (MVBS, mean Sv)",
-        "units": "dB re 1 m-1",
+        "long_name": "Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
+        "units": "dB",
         "actual_range": [
             round(float(ds["Sv"].min().values), 2),
             round(float(ds["Sv"].max().values), 2),
@@ -188,10 +188,16 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     _set_MVBS_attrs(ds_MVBS)
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_num} pings "
+                "comment: ping_time is the interval start) "
+                f"range_sample: mean (interval: {range_sample_num} samples along range "
+                "comment: range_sample is the interval start)"
+            ),
             "comment": "MVBS binned on the basis of range_sample and ping number specified as index numbers",
-            "binning_mode": "index",
-            "range_sample_num": range_sample_num,
-            "ping_num": ping_num,
+            "binning_mode": "sample number",
+            "range_sample_interval": f"{range_sample_num} samples along range",
+            "ping_interval": f"{ping_num} pings",
         }
     )
 
