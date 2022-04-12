@@ -153,10 +153,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "vertical_offset": (
                     ["mru_time"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
-                    {
-                        "long_name": "Platform vertical offset from nominal",
-                        "units": "m",
-                    },
+                    self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "latitude": (
                     ["location_time"],
