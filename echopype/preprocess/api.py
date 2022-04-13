@@ -128,7 +128,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
             "cell_methods": (
-                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "
+                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqua
                 "comment: ping_time is the interval start) "
                 f"echo_range: mean (interval: {range_meter_bin} meter "
                 "comment: echo_range is the interval start)"
@@ -194,7 +194,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
                 f"range_sample: mean (interval: {range_sample_num} samples along range "
                 "comment: range_sample is the interval start)"
             ),
-            "comment": "MVBS binned on the basis of range_sample and ping number specified as index numbers",
+            "comment": "MVBS binned on the basis of range_sample and ping number specified as index numbers",  # noqua
             "binning_mode": "sample number",
             "range_sample_interval": f"{range_sample_num} samples along range",
             "ping_interval": f"{ping_num} pings",
