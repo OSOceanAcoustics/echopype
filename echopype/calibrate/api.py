@@ -70,16 +70,16 @@ def _compute_cal(
 
     # Perform calibration
     if cal_type == "Sv":
-        sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
-        add_attrs("Sv", sv_dataset)
-        if "water_level" in echodata.platform.data_vars.keys():
-            # add water_level to the created xr.Dataset
-            sv_dataset["water_level"] = echodata.platform.water_level
-        return sv_dataset
+        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
     else:
-        sp_dataset = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
-        add_attrs("TS", sp_dataset)
-        return sp_dataset
+        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+    add_attrs(cal_type, cal_ds)
+    if "water_level" in echodata.platform.data_vars.keys():
+        # add water_level to the created xr.Dataset
+        cal_ds["water_level"] = echodata.platform.water_level
+
+    return cal_ds
 
 
 def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
