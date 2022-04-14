@@ -164,6 +164,8 @@ class SetGroupsEK60(SetGroupsBase):
         sonar_dict = {
             "sonar_manufacturer": "Simrad",
             "sonar_model": self.parser_obj.config_datagram["sounder_name"],
+            # transducer (sonar) serial number is not stored in the EK60 raw data file,
+            # so sonar_serial_number can't be populated from the raw datagrams
             "sonar_serial_number": "",
             "sonar_software_name": "",
             "sonar_software_version": self.parser_obj.config_datagram["version"],
