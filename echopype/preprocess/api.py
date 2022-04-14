@@ -16,6 +16,30 @@ def _check_range_uniqueness(ds):
     ).all()
 
 
+def _set_MVBS_attrs(ds):
+    """Attach common attributes
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        dataset containing MVBS
+    """
+    ds["ping_time"].attrs = {
+        "long_name": "Ping time",
+        "standard_name": "time",
+        "axis": "T",
+    }
+
+    ds["Sv"].attrs = {
+        "long_name": "Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
+        "units": "dB",
+        "actual_range": [
+            round(float(ds["Sv"].min().values), 2),
+            round(float(ds["Sv"].max().values), 2),
+        ],
+    }
+
+
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     """Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
@@ -99,38 +123,28 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
 
     # Attach attributes
-    ds_MVBS["ping_time"].attrs = {
-        "long_name": "Time",
-        "standard_name": "Ping time",
-        "axis": "T",
-    }
+    _set_MVBS_attrs(ds_MVBS)
     ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
-    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
-    MVBS = ds_MVBS["Sv"]
-    ds_MVBS["Sv"].attrs = {
-        "long_name": "Mean volume backscattering strength (MVBS, mean Sv)",
-        "units": "dB re 1 m-1",
-        "actual_range": [
-            round(float(MVBS.min().values), 2),
-            round(float(MVBS.max().values), 2),
-        ],
-        "cell_methods": (
-            f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "
-            "comment: ping_time is the interval start) "
-            f"echo_range: mean (interval: {range_meter_bin} meter "
-            "comment: echo_range is the interval start)"
-        ),
-        "binning_mode": "physical units",
-        "range_meter_interval": str(range_meter_bin) + "m",
-        "ping_time_interval": ping_time_bin,
-    }
+    ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
+        {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
+                "comment: ping_time is the interval start) "
+                f"echo_range: mean (interval: {range_meter_bin} meter "
+                "comment: echo_range is the interval start)"
+            ),
+            "binning_mode": "physical units",
+            "range_meter_interval": str(range_meter_bin) + "m",
+            "ping_time_interval": ping_time_bin,
+        }
+    )
 
     return ds_MVBS
 
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of ``range_sample`` and ping number (`ping_num`) specified in index number.
+    based on intervals of ``range_sample`` and ping number (``ping_num``) specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
     bin-averaged Sv according to intervals of range (``echo_range``) and ``ping_time`` specified
@@ -156,29 +170,38 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
         .mean(skipna=True)
     )
 
-    # Attach coarsened echo_range
+    # Attach attributes and coarsened echo_range
     da.name = "Sv"
-    ds_out = da.to_dataset()
-    ds_out["echo_range"] = (
+    ds_MVBS = da.to_dataset()
+    ds_MVBS.coords["range_sample"] = (
+        "range_sample",
+        np.arange(ds_MVBS["range_sample"].size),
+        {"long_name": "Along-range sample number, base 0"},
+    )  # reset range_sample to start from 0
+    ds_MVBS["echo_range"] = (
         ds_Sv["echo_range"]
         .coarsen(  # binned echo_range (use first value in each average bin)
             ping_time=ping_num, range_sample=range_sample_num, boundary="pad"
         )
         .min(skipna=True)
     )
-    ds_out.coords["range_sample"] = (
-        "range_sample",
-        np.arange(ds_out["range_sample"].size),
-    )  # reset range_sample to start from 0
+    _set_MVBS_attrs(ds_MVBS)
+    ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
+        {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_num} pings "
+                "comment: ping_time is the interval start) "
+                f"range_sample: mean (interval: {range_sample_num} samples along range "
+                "comment: range_sample is the interval start)"
+            ),
+            "comment": "MVBS binned on the basis of range_sample and ping number specified as index numbers",  # noqa
+            "binning_mode": "sample number",
+            "range_sample_interval": f"{range_sample_num} samples along range",
+            "ping_interval": f"{ping_num} pings",
+        }
+    )
 
-    # Attach attributes
-    ds_out.attrs = {
-        "binning_mode": "index",
-        "range_sample_num": range_sample_num,
-        "ping_num": ping_num,
-    }
-
-    return ds_out
+    return ds_MVBS
 
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
