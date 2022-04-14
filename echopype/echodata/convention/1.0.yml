@@ -89,11 +89,9 @@ variable_and_varattributes:
       standard_name: platform_roll_angle
       units: arc_degree
       valid_range: (-90.0, 90.0)
-    heave:
-      long_name: Platform heave
-      standard_name: platform_heave_angle
-      units: arc_degree
-      valid_range: (-90.0, 90.0)
+    vertical_offset:
+      long_name: Platform vertical offset from nominal
+      units: m
     water_level:
       long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
       units: m

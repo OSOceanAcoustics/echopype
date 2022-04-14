@@ -469,7 +469,7 @@ class EchoData:
         in `extra_platform_data` with the following variable names will be used:
             - `"pitch"`
             - `"roll"`
-            - `"heave"`
+            - `"vertical_offset"`
             - `"latitude"`
             - `"longitude"`
             - `"water_level"`
@@ -565,7 +565,7 @@ class EchoData:
         dropped_vars_target = [
             "pitch",
             "roll",
-            "heave",
+            "vertical_offset",
             "latitude",
             "longitude",
             "water_level",
@@ -609,12 +609,12 @@ class EchoData:
                         platform.get("roll", np.full(num_obs, np.nan)),
                     ),
                 ),
-                "heave": (
+                "vertical_offset": (
                     "location_time",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE"],
-                        platform.get("heave", np.full(num_obs, np.nan)),
+                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "latitude": (

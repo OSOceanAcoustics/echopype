@@ -231,10 +231,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_data_dict["roll"][ch],
                             self._varattrs["platform_var_default"]["roll"],
                         ),
-                        "heave": (
+                        "vertical_offset": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["heave"][ch],
-                            self._varattrs["platform_var_default"]["heave"],
+                            self._varattrs["platform_var_default"]["vertical_offset"],
                         ),
                         "water_level": (
                             ["ping_time"],
