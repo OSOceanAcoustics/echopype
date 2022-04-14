@@ -252,5 +252,15 @@ def compute_TS(echodata: EchoData, **kwargs):
     The current calibration implemented for EK80 broadband complex data
     uses band-integrated TS with the gain computed at the center frequency
     of the transmit signal.
+
+    Note that in the fisheries acoustics context, it is customary to
+    associate TS to a single scatterer.
+    TS is defined as: TS = 10 * np.log10 (sigma_bs), where sigma_bs
+    is the backscattering cross-section.
+
+    For details, see:
+    MacLennan et al. 2002. A consistent approach to definitions and
+    symbols in fisheries acoustics. ICES J. Mar. Sci. 59: 365-369.
+    https://doi.org/10.1006/jmsc.2001.1158
     """
     return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)
