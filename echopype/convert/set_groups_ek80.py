@@ -230,10 +230,10 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "water_level_draft_is_manual": (
-                    [],
-                    self.parser_obj.environment["water_level_draft_is_manual"]
+                    ["time3"],
+                    [self.parser_obj.environment["water_level_draft_is_manual"]]
                     if "water_level_draft_is_manual" in self.parser_obj.environment
-                    else np.nan,
+                    else [np.nan],
                 ),
             },
             coords={
