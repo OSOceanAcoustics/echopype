@@ -52,11 +52,17 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-        if "sound_velocity_source" in self.parser_obj.environment:
-            dict_env["sound_velocity_source"] = (
-                ["ping_time"],
-                [self.parser_obj.environment["sound_velocity_source"]],
-            )
+        vars = {
+            "sound_velocity_source": "sound_velocity_source",
+            "transducer_name": "sonar_name",
+            "transducer_sound_speed": "sonar_sound_speed",
+        }
+        for raw_name, converted_name in vars.items():
+            if raw_name in self.parser_obj.environment:
+                dict_env[converted_name] = (
+                    ["ping_time"],
+                    [self.parser_obj.environment[raw_name]],
+                )
 
         ds = xr.Dataset(
             dict_env,
@@ -119,11 +125,6 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={
                 "sonar_manufacturer": "Simrad",
                 "sonar_type": "echosounder",
-                "sonar_sound_speed": (
-                    self.parser_obj.environment["transducer_sound_speed"]
-                    if "transducer_sound_speed" in self.parser_obj.environment
-                    else np.nan
-                ),
             },
         )
         return ds
@@ -201,6 +202,18 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "sentence_type": (["location_time"], msg_type),
+                "drop_keel_offset": (
+                    [],
+                    self.parser_obj.environment["drop_keel_offset"]
+                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
+                    else np.nan,
+                ),
+                "drop_keel_offset_is_manual": (
+                    [],
+                    self.parser_obj.environment["drop_keel_offset_is_manual"]
+                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
+                    else np.nan,
+                ),
                 "water_level": (
                     [],
                     water_level,
@@ -209,6 +222,12 @@ class SetGroupsEK80(SetGroupsBase):
                         "origin to the sonar transducer",
                         "units": "m",
                     },
+                ),
+                "water_level_draft_is_manual": (
+                    [],
+                    self.parser_obj.environment["water_level_draft_is_manual"]
+                    if "water_level_draft_is_manual" in self.parser_obj.environment
+                    else np.nan,
                 ),
             },
             coords={
@@ -236,21 +255,6 @@ class SetGroupsEK80(SetGroupsBase):
                 "platform_name": self.ui_param["platform_name"],
                 "platform_type": self.ui_param["platform_type"],
                 # TODO: check what this 'drop_keel_offset' is
-                "drop_keel_offset": (
-                    self.parser_obj.environment["drop_keel_offset"]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else np.nan
-                ),
-                "drop_keel_offset_is_manual": (
-                    self.parser_obj.environment["drop_keel_offset_is_manual"]
-                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
-                    else np.nan
-                ),
-                "water_level_draft_is_manual": (
-                    self.parser_obj.environment["water_level_draft_is_manual"]
-                    if "water_level_draft_is_manual" in self.parser_obj.environment
-                    else np.nan
-                ),
             },
         )
         return set_encodings(ds)
