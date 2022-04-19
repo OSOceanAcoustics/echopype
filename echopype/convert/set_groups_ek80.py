@@ -41,7 +41,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         if "sound_velocity_profile" in self.parser_obj.environment:
             dict_env["sound_velocity_profile"] = (
-                ["ping_time", "sound_velocity_profile_depth"],
+                ["time3", "sound_velocity_profile_depth"],
                 [self.parser_obj.environment["sound_velocity_profile"][1::2]],
                 {
                     "long_name": "sound velocity profile",
@@ -60,7 +60,7 @@ class SetGroupsEK80(SetGroupsBase):
         for raw_name, converted_name in vars.items():
             if raw_name in self.parser_obj.environment:
                 dict_env[converted_name] = (
-                    ["ping_time"],
+                    ["time3"],
                     [self.parser_obj.environment[raw_name]],
                 )
 
@@ -75,6 +75,12 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
                     },
+                ),
+                "time3": (
+                    ["time3"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
                 ),
                 "sound_velocity_profile_depth": (
                     ["sound_velocity_profile_depth"],
@@ -203,20 +209,20 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "sentence_type": (["location_time"], msg_type),
                 "drop_keel_offset": (
-                    [],
-                    self.parser_obj.environment["drop_keel_offset"]
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset"]]
                     if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else np.nan,
+                    else [np.nan],
                 ),
                 "drop_keel_offset_is_manual": (
-                    [],
-                    self.parser_obj.environment["drop_keel_offset_is_manual"]
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
                     if "drop_keel_offset_is_manual" in self.parser_obj.environment
-                    else np.nan,
+                    else [np.nan],
                 ),
                 "water_level": (
-                    [],
-                    water_level,
+                    ["time3"],
+                    [water_level],
                     {
                         "long_name": "z-axis distance from the platform coordinate system "
                         "origin to the sonar transducer",
@@ -239,6 +245,12 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamps for MRU datagrams",
                         "standard_name": "time",
                     },
+                ),
+                "time3": (
+                    ["time3"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
                 ),
                 "location_time": (
                     ["location_time"],
