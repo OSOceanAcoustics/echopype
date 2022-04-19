@@ -114,6 +114,8 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
+        ch_ids = self.parser_obj.config_datagram["configuration"].keys()
+
         # Collect variables
         if self.ui_param["water_level"] is not None:
             water_level = self.ui_param["water_level"]
@@ -176,6 +178,36 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "sentence_type": (["location_time"], msg_type),
+                "transducer_offset_x": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_x", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_x"],
+                ),
+                "transducer_offset_y": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_y", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_y"],
+                ),
+                "transducer_offset_z": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_z", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_z"],
+                ),
                 "water_level": (
                     [],
                     water_level,
@@ -341,33 +373,6 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Equivalent beam angle",
                         "units": "sr",
                         "valid_range": (0.0, 4 * np.pi),
-                    },
-                ),
-                "transducer_offset_x": (
-                    ["frequency"],
-                    beam_params["transducer_offset_x"],
-                    {
-                        "long_name": "x-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_y": (
-                    ["frequency"],
-                    beam_params["transducer_offset_y"],
-                    {
-                        "long_name": "y-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_z": (
-                    ["frequency"],
-                    beam_params["transducer_offset_z"],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
                     },
                 ),
                 "transceiver_software_version": (
