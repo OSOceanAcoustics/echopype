@@ -243,6 +243,27 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
                             self._varattrs["platform_var_default"]["water_level"],
                         ),
+                        "transducer_offset_x": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_x", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_x"],
+                        ),
+                        "transducer_offset_y": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_y", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_y"],
+                        ),
+                        "transducer_offset_z": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_z", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_z"],
+                        ),
                         **{
                             var: ([], np.nan, self._varattrs["platform_var_default"][var])
                             for var in [
@@ -255,9 +276,6 @@ class SetGroupsEK60(SetGroupsBase):
                                 "position_offset_x",
                                 "position_offset_y",
                                 "position_offset_z",
-                                "transducer_offset_x",
-                                "transducer_offset_y",
-                                "transducer_offset_z",
                             ]
                         },
                     },
@@ -458,33 +476,6 @@ class SetGroupsEK60(SetGroupsBase):
                         "long_name": "Equivalent beam angle",
                         "units": "sr",
                         "valid_range": (0.0, 4 * np.pi),
-                    },
-                ),
-                "transducer_offset_x": (
-                    ["frequency"],
-                    beam_params["pos_x"],
-                    {
-                        "long_name": "x-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_y": (
-                    ["frequency"],
-                    beam_params["pos_y"],
-                    {
-                        "long_name": "y-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_z": (
-                    ["frequency"],
-                    beam_params["pos_z"],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
                     },
                 ),
                 "gain_correction": (
