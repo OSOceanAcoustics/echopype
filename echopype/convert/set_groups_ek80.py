@@ -185,6 +185,20 @@ class SetGroupsEK80(SetGroupsBase):
                         "units": "m",
                     },
                 ),
+                **{
+                    var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                    for var in [
+                        "MRU_offset_x",
+                        "MRU_offset_y",
+                        "MRU_offset_z",
+                        "MRU_rotation_x",
+                        "MRU_rotation_y",
+                        "MRU_rotation_z",
+                        "position_offset_x",
+                        "position_offset_y",
+                        "position_offset_z",
+                    ]
+                },
             },
             coords={
                 "mru_time": (
