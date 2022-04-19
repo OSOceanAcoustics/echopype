@@ -54,6 +54,9 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert echodata["Platform"]["water_level"] == 0
+
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
@@ -95,6 +98,9 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
 
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
+
+    # check water_level
+    assert echodata["Platform"]["water_level"] == 0
 
     # Test power
     # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
@@ -157,6 +163,9 @@ def test_convert_ek80_complex_echoview(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert echodata["Platform"]["water_level"] == 0
+
     # Test complex parsed data
     df_bb = pd.read_csv(
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
@@ -190,6 +199,8 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     assert echodata.beam_power is not None
     assert echodata.beam is not None
 
+    # check water_level
+    assert echodata["Platform"]["water_level"] == 0
 
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure can convert EK80 file with multiple frequency channels off."""
@@ -200,3 +211,6 @@ def test_convert_ek80_freq_subset(ek80_path):
 
     # Check if converted output has only 2 frequency channels
     assert echodata.beam.frequency.size == 2
+
+    # check water_level
+    assert echodata["Platform"]["water_level"] == 0
