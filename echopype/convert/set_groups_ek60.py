@@ -243,6 +243,23 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
                             self._varattrs["platform_var_default"]["water_level"],
                         ),
+                        **{
+                            var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                            for var in [
+                                "MRU_offset_x",
+                                "MRU_offset_y",
+                                "MRU_offset_z",
+                                "MRU_rotation_x",
+                                "MRU_rotation_y",
+                                "MRU_rotation_z",
+                                "position_offset_x",
+                                "position_offset_y",
+                                "position_offset_z",
+                                "transducer_offset_x",
+                                "transducer_offset_y",
+                                "transducer_offset_z",
+                            ]
+                        },
                     },
                     coords={
                         "ping_time": (
