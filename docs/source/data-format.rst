@@ -119,6 +119,15 @@ Storing echo data with irregular length along range
 - explain the ``range_sample`` dimension
 
 
+Changes in converted data from v0.5.x to v0.6.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- detail changes made in variable names and group structures in v0.6.0
+- explain that we support using ``open_converted`` on v0.5.x data
+
+
+
+
 
 
 Processed data
