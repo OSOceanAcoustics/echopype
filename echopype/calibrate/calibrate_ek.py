@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import xarray as xr
 from dask.array.core import Array
@@ -123,10 +125,11 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # Params from the Vendor group
+
         # only execute this if cw and power
-        if waveform_mode == "CW" and (
-            self.echodata.beam_power is not None or "beam" not in self.echodata.beam
-        ):
+        if waveform_mode == "CW" and beam is not None:  # (
+            # self.echodata.beam_power is not None or "beam" not in self.echodata.beam
+         # ):
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
                 # substitute if None in user input

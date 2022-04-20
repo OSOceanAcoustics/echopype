@@ -386,6 +386,7 @@ class SetGroupsEK80(SetGroupsBase):
             raise ValueError("Transducer sector number changes in the middle of the file!")
         else:
             num_transducer_sectors = num_transducer_sectors[0]
+
         data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
         data_shape = (
             data_shape[0],
@@ -418,7 +419,8 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "beam": (["beam"], np.arange(num_transducer_sectors)),
+                "beam": (["beam"], np.arange(start=1,
+                                             stop=num_transducer_sectors + 1).astype(str)),
             },
         )
 
@@ -663,6 +665,11 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+
+        # manipulate Datasets to adhere to convention
+        if isinstance(ds_beam_power, xr.Dataset):
+            self.beam_to_convention(ds_beam_power, self.sonar_model)
+        self.beam_to_convention(ds_beam, self.sonar_model)
 
         return [ds_beam, ds_beam_power]
 
