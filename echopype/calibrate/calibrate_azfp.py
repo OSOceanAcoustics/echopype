@@ -19,7 +19,7 @@ class CalibrateAZFP(CalibrateBase):
         self.get_cal_params(cal_params)
 
         # self.range_meter computed under self._cal_power()
-        # because the implementation is different for Sv and Sp
+        # because the implementation is different for Sv and TS
 
     def get_cal_params(self, cal_params):
         """Get cal params using user inputs or values from data file.
@@ -72,13 +72,13 @@ class CalibrateAZFP(CalibrateBase):
     def compute_range_meter(self, cal_type):
         """Calculate range (``echo_range``) in meter using AZFP formula.
 
-        Note the range calculation differs for Sv and Sp per AZFP matlab code.
+        Note the range calculation differs for Sv and TS per AZFP matlab code.
 
         Parameters
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
         """
         self.range_meter = self.echodata.compute_range(self.env_params, azfp_cal_type=cal_type)
 
@@ -94,7 +94,7 @@ class CalibrateAZFP(CalibrateBase):
         # Compute range in meters
         self.compute_range_meter(
             cal_type=cal_type
-        )  # range computation different for Sv and Sp per AZFP matlab code
+        )  # range computation different for Sv and TS per AZFP matlab code
 
         # Compute various params
 
@@ -127,10 +127,10 @@ class CalibrateAZFP(CalibrateBase):
             )  # see p.90-91 for this correction to Sv
             out.name = "Sv"
 
-        elif cal_type == "Sp":
+        elif cal_type == "TS":
             # eq.(10)
             out = EL - SL + 2 * spreading_loss + absorption_loss
-            out.name = "Sp"
+            out.name = "TS"
         else:
             raise ValueError("cal_type not recognized!")
 
@@ -146,5 +146,5 @@ class CalibrateAZFP(CalibrateBase):
     def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type="Sv")
 
-    def compute_Sp(self, **kwargs):
-        return self._cal_power(cal_type="Sp")
+    def compute_TS(self, **kwargs):
+        return self._cal_power(cal_type="TS")

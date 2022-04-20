@@ -150,15 +150,10 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (-90.0, 90.0),
                     },
                 ),
-                "heave": (
+                "vertical_offset": (
                     ["mru_time"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
-                    {
-                        "long_name": "Platform heave",
-                        "standard_name": "platform_heave_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "latitude": (
                     ["location_time"],

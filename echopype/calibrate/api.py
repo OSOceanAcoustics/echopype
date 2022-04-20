@@ -49,30 +49,37 @@ def _compute_cal(
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
     )
-    # Perform calibration
-    if cal_type == "Sv":
-        sv_dataset = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
-        # Add attributes
-        sv_dataset["Sv"].attrs = {
-            "long_name": "Volume backscattering strength (Sv)",
-            "units": "dB re 1 m-1",
+
+    def add_attrs(cal_type, ds):
+        """Add attributes to backscattering strength dataset.
+        cal_type: Sv or TS
+        """
+        ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
+        ds["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+        ds[cal_type].attrs = {
+            "long_name": {
+                "Sv": "Volume backscattering strength (Sv re 1 m-1)",
+                "TS": "Target strength (TS re 1 m^2)",
+            }[cal_type],
+            "units": "dB",
             "actual_range": [
-                round(float(sv_dataset["Sv"].min().values), 2),
-                round(float(sv_dataset["Sv"].max().values), 2),
+                round(float(ds[cal_type].min().values), 2),
+                round(float(ds[cal_type].max().values), 2),
             ],
         }
-        sv_dataset["range_sample"].attrs = {"long_name": "Along-range bin (sample) number, base 0"}
-        sv_dataset["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
 
-        if "water_level" in echodata.platform.data_vars.keys():
-            # add water_level to the created xr.Dataset
-            sv_dataset["water_level"] = echodata.platform.water_level
-
-        return sv_dataset
+    # Perform calibration
+    if cal_type == "Sv":
+        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
     else:
-        sp_dataset = cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
-        return sp_dataset
+    add_attrs(cal_type, cal_ds)
+    if "water_level" in echodata.platform.data_vars.keys():
+        # add water_level to the created xr.Dataset
+        cal_ds["water_level"] = echodata.platform.water_level
+
+    return cal_ds
 
 
 def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
@@ -164,9 +171,9 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
 
-def compute_Sp(echodata: EchoData, **kwargs):
+def compute_TS(echodata: EchoData, **kwargs):
     """
-    Compute point backscattering strength (Sp) from raw data.
+    Compute target strength (TS) from raw data.
 
     The calibration routine varies depending on the sonar type.
     Currently this operation is supported for the following ``sonar_model``:
@@ -227,7 +234,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
     Returns
     -------
     xr.Dataset
-        The calibrated Sp dataset, including calibration parameters
+        The calibrated TS dataset, including calibration parameters
         and environmental variables used in the calibration operations.
 
     Notes
@@ -243,7 +250,17 @@ def compute_Sp(echodata: EchoData, **kwargs):
     similar to those recorded by EK60 echosounders.
 
     The current calibration implemented for EK80 broadband complex data
-    uses band-integrated Sp with the gain computed at the center frequency
+    uses band-integrated TS with the gain computed at the center frequency
     of the transmit signal.
+
+    Note that in the fisheries acoustics context, it is customary to
+    associate TS to a single scatterer.
+    TS is defined as: TS = 10 * np.log10 (sigma_bs), where sigma_bs
+    is the backscattering cross-section.
+
+    For details, see:
+    MacLennan et al. 2002. A consistent approach to definitions and
+    symbols in fisheries acoustics. ICES J. Mar. Sci. 59: 365-369.
+    https://doi.org/10.1006/jmsc.2001.1158
     """
-    return _compute_cal(cal_type="Sp", echodata=echodata, **kwargs)
+    return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)

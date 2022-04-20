@@ -249,13 +249,13 @@ class EchoData:
             sensor, and some are equipped with a pressure sensor, but automatically
             using these pressure data is not currently supported.
 
-        azfp_cal_type : {"Sv", "Sp"}, optional
+        azfp_cal_type : {"Sv", "TS"}, optional
 
             - `"Sv"` for calculating volume backscattering strength
-            - `"Sp"` for calculating point backscattering strength.
+            - `"TS"` for calculating target strength.
 
             This parameter needs to be specified for data from the AZFP echosounder,
-            due to a difference in computing range (``echo_range``) for Sv and Sp.
+            due to a difference in computing range (``echo_range``) for Sv and TS.
 
         ek_waveform_mode : {"CW", "BB"}, optional
             Type of transmit waveform.
@@ -373,7 +373,7 @@ class EchoData:
 
             # duplicate range for all ping_times for consistency with EK case
             # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
-            #   because it expects the range included in the Sv/Sp dataset
+            #   because it expects the range included in the Sv/TS dataset
             #   to be indexed by ping_time
             range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]}, axis=1)
 
@@ -469,7 +469,7 @@ class EchoData:
         in `extra_platform_data` with the following variable names will be used:
             - `"pitch"`
             - `"roll"`
-            - `"heave"`
+            - `"vertical_offset"`
             - `"latitude"`
             - `"longitude"`
             - `"water_level"`
@@ -565,7 +565,7 @@ class EchoData:
         dropped_vars_target = [
             "pitch",
             "roll",
-            "heave",
+            "vertical_offset",
             "latitude",
             "longitude",
             "water_level",
@@ -609,12 +609,12 @@ class EchoData:
                         platform.get("roll", np.full(num_obs, np.nan)),
                     ),
                 ),
-                "heave": (
+                "vertical_offset": (
                     "location_time",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE"],
-                        platform.get("heave", np.full(num_obs, np.nan)),
+                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "latitude": (
