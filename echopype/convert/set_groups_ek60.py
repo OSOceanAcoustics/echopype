@@ -288,55 +288,6 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_encodings(ds)
 
-    # @staticmethod
-    # def _add_beam_dim(ds: xr.Dataset, add_ping_time_names: list):
-    #     """
-    #     Adds ``beam`` as the last dimension to the appropriate
-    #     variables in ``Sonar/Beam_group1``.
-    #     """
-    #
-    #     # variables to add beam to
-    #     add_beam_names = ["backscatter_r", "angle_athwartship", "angle_alongship"] \
-    #                      + add_ping_time_names
-    #
-    #     for var_name in add_beam_names:
-    #         ds[var_name] = ds[var_name].expand_dims(dim={'beam': np.array(['1'], dtype=str)},
-    #                                                 axis=ds[var_name].ndim)
-    #
-    # @staticmethod
-    # def _add_ping_time_dim(ds: xr.Dataset):
-    #
-    #     # variables to add ping_time to
-    #     add_ping_time_names = ["beam_direction_x", "beam_direction_y", "beam_direction_z",
-    #                            "beamwidth_receive_alongship", "beamwidth_receive_athwartship",
-    #                            "beamwidth_transmit_alongship", "beamwidth_transmit_athwartship",
-    #                            "angle_offset_alongship", "angle_offset_athwartship",
-    #                            "angle_sensitivity_alongship", "angle_sensitivity_athwartship",
-    #                            "equivalent_beam_angle", "gain_correction"]
-    #
-    #     ping_time = ds.ping_time.values
-    #
-    #     for var_name in add_ping_time_names:
-    #         ds[var_name] = ds[var_name].expand_dims(dim={'ping_time': ping_time}, axis=ds[var_name].ndim)
-    #
-    #     return add_ping_time_names
-
-    # def _beam_to_convention(self, ds: xr.Dataset):
-    #     """
-    #     Manipulates the variables in ``Sonar/Beam_group1``
-    #     so that they adhere to convention.
-    #
-    #     This does several things:
-    #     1. Adds ``beam`` dimension to ``backscatter_r``,
-    #     ``angle_athwartship``, and ``angle_alongship``
-    #     2.
-    #     """
-    #
-    #     add_ping_time_names = self._add_ping_time_dim(ds)
-    #
-    #     # add beam dimension to certain variables
-    #     self._add_beam_dim(ds, add_ping_time_names)
-
     def set_beam(self) -> xr.Dataset:
         """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
@@ -659,7 +610,7 @@ class SetGroupsEK60(SetGroupsBase):
         )  # override keeps the Dataset attributes
 
         # manipulate Dataset to adhere to convention
-        self.beam_to_convention(ds, self.sonar_model)
+        self.beamgroups_to_convention(ds, self.sonar_model)
 
         return set_encodings(ds)
 

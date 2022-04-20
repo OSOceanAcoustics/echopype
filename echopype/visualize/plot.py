@@ -130,7 +130,7 @@ def _plot_echogram(
     row = None
     col = None
 
-    if 'backscatter_i' in ds.variables.keys():  # 'beam' in ds[variable].dims:
+    if 'backscatter_i' in ds.variables:
         col = 'beam'
         kwargs.update(
             {

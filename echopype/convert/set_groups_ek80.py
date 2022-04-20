@@ -419,8 +419,7 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "beam": (["beam"], np.arange(start=1,
-                                             stop=num_transducer_sectors + 1).astype(str)),
+                "beam": (["beam"], np.arange(start=1, stop=num_transducer_sectors + 1).astype(str)),
             },
         )
 
@@ -668,8 +667,8 @@ class SetGroupsEK80(SetGroupsBase):
 
         # manipulate Datasets to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
-            self.beam_to_convention(ds_beam_power, self.sonar_model)
-        self.beam_to_convention(ds_beam, self.sonar_model)
+            self.beamgroups_to_convention(ds_beam_power, self.sonar_model)
+        self.beamgroups_to_convention(ds_beam, self.sonar_model)
 
         return [ds_beam, ds_beam_power]
 
