@@ -64,4 +64,3 @@ Companion developments
 - echoshader: visualization
 - echopydantic: convention check
 - echoregions: parsing labels for ML developments
-
