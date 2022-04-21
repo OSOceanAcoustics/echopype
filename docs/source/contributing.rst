@@ -35,7 +35,8 @@ This diagram depicts the complete workflow we use in the source GitHub repositor
         rel --> main
 
 - ``doc patch``: Updates to the documentation that refer to the current ``echopype``
-  release can be pushed out immediately to the `echopype documentation site <https://echopype.readthedocs.io>`_
+  release can be pushed out immediately to the
+  `echopype documentation site <https://echopype.readthedocs.io>`_
   by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_
   below for more details.
 - ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
@@ -76,11 +77,18 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
 
 .. code-block:: bash
 
-    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements-dev.txt
+    # create conda environment using the supplied requirements files
+    # note the last one docs/requirements.txt is only required for building docs
+    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
+
+    # switch to the newly built environment
     conda activate echopype
+
     # ipykernel is recommended, in order to use with JupyterLab and IPython
     # to aid with development. We recommend you install JupyterLab separately
     conda install -c conda-forge ipykernel
+
+    # install echopype in editable mode (setuptools "develop mode")
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
     pip install -e .[plot]
@@ -133,7 +141,6 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-
 will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
 or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``,
 ``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
@@ -144,7 +151,6 @@ as an argument a comma-separated list of the modules that have changed. For exam
     python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
 
 will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
-
 For ``run-test.py`` usage information, use the ``-h`` argument:
 ``python .ci_helpers/run-test.py -h``
 
@@ -226,12 +232,13 @@ Documentation versions
 `<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version,
 `<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch
 on the ``echopype`` GitHub repository. In addition, the ``latest`` version
-(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``main`` branch,
-while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built
-from the ``dev`` branch. Finally, each new echopype release is built as a new release version
-on ReadTheDocs. Merging pull requests into any of these three branches or issuing a
-new tagged release will automatically result in a new ReadTheDocs build for the
+(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``dev`` branch and
+therefore it reflects the bleeding edge development code (which may occasionally break
+the documentation build). Finally, each new echopype release is built as a new release version
+on ReadTheDocs. Merging pull requests into ``stable`` or ``dev`` or issuing a new
+tagged release will automatically result in a new ReadTheDocs build for the
 corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
 for viewing and debugging larger, more experimental changes, typically from a separate fork.
+This version is used to test one-off, major breaking changes.
