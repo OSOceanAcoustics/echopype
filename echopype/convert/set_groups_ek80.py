@@ -414,7 +414,11 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "beam": (["beam"], np.arange(start=1, stop=num_transducer_sectors + 1).astype(str)),
+                "beam": (
+                    ["beam"],
+                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    self._varattrs["beam_coord_default"]["beam"],
+                ),
             },
         )
 

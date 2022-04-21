@@ -263,8 +263,7 @@ class SetGroupsBase(abc.ABC):
 
         return beam_groups_vars
 
-    @staticmethod
-    def _add_beam_dim(ds: xr.Dataset, sonar_model: str):
+    def _add_beam_dim(self, ds: xr.Dataset, sonar_model: str):
         """
         Adds ``beam`` as the last dimension to the appropriate
         variables in ``Sonar/Beam_groupX`` groups when necessary.
@@ -296,14 +295,13 @@ class SetGroupsBase(abc.ABC):
                         .copy()
                     )
             else:
-                # TODO: right now there is no attr or encoding for the beam dimension
-                #  if this changes in the future, we need to add them here.
-                # Add a single-value beam dimension
+                # Add a single-value beam dimension and its attributes
                 ds[var_name] = (
                     ds[var_name]
                     .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
                     .copy()
                 )
+                ds[var_name].beam.attrs = self._varattrs["beam_coord_default"]["beam"]
 
     @staticmethod
     def _add_ping_time_dim(ds: xr.Dataset, sonar_model: str):
