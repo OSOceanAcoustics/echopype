@@ -348,6 +348,13 @@ class SetGroupsBase(abc.ABC):
         This does several things:
         1. Adds ``beam`` dimension to several variables
         2. Adds ``ping_time`` dimension to several variables
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset corresponding to ``Beam_groupX``.
+        sonar_model : str
+            Specifies the sensor that ds comes from.
         """
 
         # account for sensors that are not EK60, EK80, AD2CP, AZFP
