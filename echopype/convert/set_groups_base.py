@@ -12,7 +12,7 @@ from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 # Variables that need only the beam dimension added to them.
-# These lists include all Sonar beam groups.
+# These lists are applied to all Sonar/Beam_groupX groups.
 beam_only_names = {
     "EK60": {"backscatter_r", "angle_athwartship", "angle_alongship"},
     "EK80": {
@@ -27,11 +27,11 @@ beam_only_names = {
 }
 
 # Variables that need only the ping_time dimension added to them.
-# These lists include all Sonar beam groups.
+# These lists are applied to all Sonar/Beam_groupX groups.
 ping_time_only_names = {"EK60": {"beam_type"}, "EK80": {"beam_type"}, "AZFP": {}}
 
 # Variables that need beam and ping_time dimensions added to them.
-# These lists include all Sonar beam groups.
+# These lists are applied to all Sonar/Beam_groupX groups.
 beam_ping_time_names = {
     "EK60": {
         "beam_direction_x",
@@ -267,8 +267,7 @@ class SetGroupsBase(abc.ABC):
     def _add_beam_dim(ds: xr.Dataset, sonar_model: str):
         """
         Adds ``beam`` as the last dimension to the appropriate
-        variables in ``Sonar/Beam_group1`` and ``Sonar/Beam_group2``
-        (when necessary).
+        variables in ``Sonar/Beam_groupX`` groups when necessary.
 
         Notes
         -----
@@ -299,6 +298,7 @@ class SetGroupsBase(abc.ABC):
             else:
                 # TODO: right now there is no attr or encoding for the beam dimension
                 #  if this changes in the future, we need to add them here.
+                # Add a single-value beam dimension
                 ds[var_name] = (
                     ds[var_name]
                     .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
@@ -341,13 +341,17 @@ class SetGroupsBase(abc.ABC):
 
     def beamgroups_to_convention(self, ds: xr.Dataset, sonar_model: str):
         """
-        Manipulates the variables in ``Sonar/Beam_group1``
-        and ``Sonar/Beam_group2`` (when necessary) so that
-        they adhere to convention.
+        Manipulates variables in ``Sonar/Beam_groupX``
+        to adhere to SONAR-netCDF4 vers. 1 with respect
+        to the use of ``ping_time`` and ``beam`` dimensions.
 
         This does several things:
-        1. Adds ``beam`` dimension to several variables
-        2. Adds ``ping_time`` dimension to several variables
+        1. Creates ``beam`` dimension and coordinate variable
+        when not present
+        2. Adds ``beam`` dimension to several variables
+        when missing
+        3. Adds ``ping_time`` dimension to several variables
+        when missing
 
         Parameters
         ----------

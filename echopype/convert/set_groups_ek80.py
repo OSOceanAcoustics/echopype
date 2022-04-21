@@ -660,7 +660,7 @@ class SetGroupsEK80(SetGroupsBase):
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
 
-        # manipulate Datasets to adhere to convention
+        # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
             self.beamgroups_to_convention(ds_beam_power, self.sonar_model)
         self.beamgroups_to_convention(ds_beam, self.sonar_model)

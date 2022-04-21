@@ -611,7 +611,7 @@ class SetGroupsEK60(SetGroupsBase):
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
 
-        # manipulate Dataset to adhere to convention
+        # Manipulate some Dataset dimensions to adhere to convention
         self.beamgroups_to_convention(ds, self.sonar_model)
 
         return set_encodings(ds)
