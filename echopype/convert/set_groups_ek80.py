@@ -52,16 +52,12 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-        vars = {
-            "sound_velocity_source": "sound_velocity_source",
-            "transducer_name": "sonar_name",
-            "transducer_sound_speed": "sonar_sound_speed",
-        }
-        for raw_name, converted_name in vars.items():
-            if raw_name in self.parser_obj.environment:
-                dict_env[converted_name] = (
+        vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        for var_name in vars:
+            if var_name in self.parser_obj.environment:
+                dict_env[var_name] = (
                     ["time3"],
-                    [self.parser_obj.environment[raw_name]],
+                    [self.parser_obj.environment[var_name]],
                 )
 
         ds = xr.Dataset(
