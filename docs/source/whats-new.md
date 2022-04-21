@@ -20,8 +20,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Rename the data variable `Sp` to `TS` since "point backscattering strength" is a Simrad terminology and target strength (TS) is clearly defined and widely used. (#615)
 - Rename time dimensions in the `Platform` group (`location_time`, `mru_time` --> `time1`, `time2`, etc) (#518, ADD WHEN KNOWN; MAKE MAPPING SPECIFIC TO COORDINATE)
 - Rename the coordinate `frequency` to `channel` for all groups, to be more flexible (can accommodate channels with identical frequencies #490) and reasonable (since for broadband data the channel frequency is only nominal #566) (ADD WHEN KNOWN)
-- **ADD Imran's PRs**
-- **ADD/CHANGE source_filename**
+- Change `src_filenames` string attribute to `source_filenames` list-of-strings variable (#620, #621)
 
 
 ## Changes of `EchoData` group access pattern
@@ -35,7 +34,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add missing coordinate and variable attributes in the processed datasets Sv, MVBS, TS(#594)
 - Add `water_level` to processed datasets (Sv, MVBS, TS) for convenient downstream conversion to depth (#259, #583, #615)
 - Add additional environment variables for EK80 data (#616)
-- Add missing platform data variables (#592, ADD WHEN KNOWN)
+- Add missing platform data variables (#592, #631)
 
 ## New features and other enhancements
 
