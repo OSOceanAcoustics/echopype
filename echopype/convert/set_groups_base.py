@@ -325,16 +325,17 @@ class SetGroupsBase(abc.ABC):
         """
 
         # variables to add ping_time to
-        add_ping_time_names = set(ds.variables).intersection(beam_ping_time_names[sonar_model])
-        add_ping_time_names = add_ping_time_names.union(ping_time_only_names[sonar_model])
-
-        ping_time = ds.ping_time.values
+        add_ping_time_names = (
+            set(ds.variables)
+            .intersection(beam_ping_time_names[sonar_model])
+            .union(ping_time_only_names[sonar_model])
+        )
 
         for var_name in add_ping_time_names:
 
             ds[var_name] = (
                 ds[var_name]
-                .expand_dims(dim={"ping_time": ping_time}, axis=ds[var_name].ndim)
+                .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
                 .assign_coords(ping_time=ds.ping_time)
                 .copy()
             )
