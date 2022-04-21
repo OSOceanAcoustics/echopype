@@ -23,12 +23,16 @@ beam_only_names = {
         "frequency_start",
         "frequency_end",
     },
-    "AZFP": {},  # {"backscatter_r"}
+    "AZFP": {"backscatter_r"},
 }
 
 # Variables that need only the ping_time dimension added to them.
 # These lists include all Sonar beam groups.
-ping_time_only_names = {"EK60": {"beam_type"}, "EK80": {"beam_type"}, "AZFP": {}}
+ping_time_only_names = {
+    "EK60": {"beam_type"},
+    "EK80": {"beam_type"},
+    "AZFP": {"sample_interval", "transmit_duration_nominal"},
+}
 
 # Variables that need beam and ping_time dimensions added to them.
 # These lists include all Sonar beam groups.
@@ -60,7 +64,7 @@ beam_ping_time_names = {
         "beamwidth_twoway_alongship",
         "beamwidth_twoway_athwartship",
     },
-    "AZFP": {},  # {"equivalent_beam_angle", "gain_correction"}
+    "AZFP": {"equivalent_beam_angle", "gain_correction"},
 }
 
 

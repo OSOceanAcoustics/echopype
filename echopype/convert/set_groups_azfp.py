@@ -205,6 +205,10 @@ class SetGroupsAZFP(SetGroupsBase):
                 "tilt_Y_d": parameters["Y_d"],
             },
         )
+
+        # manipulate Dataset to adhere to convention
+        self.beamgroups_to_convention(ds, self.sonar_model)
+
         return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:

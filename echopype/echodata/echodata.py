@@ -371,12 +371,6 @@ class EchoData:
             )
             range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
-            # duplicate range for all ping_times for consistency with EK case
-            # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
-            #   because it expects the range included in the Sv/TS dataset
-            #   to be indexed by ping_time
-            range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]}, axis=1)
-
             return range_meter
 
         # EK
