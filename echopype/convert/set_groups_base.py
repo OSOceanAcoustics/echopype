@@ -1,5 +1,6 @@
 import abc
 from datetime import datetime as dt
+from typing import Set
 
 import numpy as np
 import pynmea2
@@ -10,62 +11,6 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
-
-# Variables that need only the beam dimension added to them.
-# These lists include all Sonar beam groups.
-beam_only_names = {
-    "EK60": {"backscatter_r", "angle_athwartship", "angle_alongship"},
-    "EK80": {
-        "backscatter_r",
-        "backscatter_i",
-        "angle_athwartship",
-        "angle_alongship",
-        "frequency_start",
-        "frequency_end",
-    },
-    "AZFP": {"backscatter_r"},
-}
-
-# Variables that need only the ping_time dimension added to them.
-# These lists include all Sonar beam groups.
-ping_time_only_names = {
-    "EK60": {"beam_type"},
-    "EK80": {"beam_type"},
-    "AZFP": {"sample_interval", "transmit_duration_nominal"},
-}
-
-# Variables that need beam and ping_time dimensions added to them.
-# These lists include all Sonar beam groups.
-beam_ping_time_names = {
-    "EK60": {
-        "beam_direction_x",
-        "beam_direction_y",
-        "beam_direction_z",
-        "beamwidth_receive_alongship",
-        "beamwidth_receive_athwartship",
-        "beamwidth_transmit_alongship",
-        "beamwidth_transmit_athwartship",
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "angle_sensitivity_alongship",
-        "angle_sensitivity_athwartship",
-        "equivalent_beam_angle",
-        "gain_correction",
-    },
-    "EK80": {
-        "beam_direction_x",
-        "beam_direction_y",
-        "beam_direction_z",
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "angle_sensitivity_alongship",
-        "angle_sensitivity_athwartship",
-        "equivalent_beam_angle",
-        "beamwidth_twoway_alongship",
-        "beamwidth_twoway_athwartship",
-    },
-    "AZFP": {"equivalent_beam_angle", "gain_correction"},
-}
 
 
 class SetGroupsBase(abc.ABC):
@@ -267,12 +212,12 @@ class SetGroupsBase(abc.ABC):
 
         return beam_groups_vars
 
-    @staticmethod
-    def _add_beam_dim(ds: xr.Dataset, sonar_model: str):
+    def _add_beam_dim(
+        self, ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]
+    ):
         """
         Adds ``beam`` as the last dimension to the appropriate
-        variables in ``Sonar/Beam_group1`` and ``Sonar/Beam_group2``
-        (when necessary).
+        variables in ``Sonar/Beam_groupX`` groups when necessary.
 
         Notes
         -----
@@ -287,9 +232,7 @@ class SetGroupsBase(abc.ABC):
         """
 
         # variables to add beam to
-        add_beam_names = set(ds.variables).intersection(
-            beam_only_names[sonar_model].union(beam_ping_time_names[sonar_model])
-        )
+        add_beam_names = set(ds.variables).intersection(beam_only_names.union(beam_ping_time_names))
 
         for var_name in add_beam_names:
             if "beam" in ds.dims:
@@ -301,16 +244,18 @@ class SetGroupsBase(abc.ABC):
                         .copy()
                     )
             else:
-                # TODO: right now there is no attr or encoding for the beam dimension
-                #  if this changes in the future, we need to add them here.
+                # Add a single-value beam dimension and its attributes
                 ds[var_name] = (
                     ds[var_name]
                     .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
                     .copy()
                 )
+                ds[var_name].beam.attrs = self._varattrs["beam_coord_default"]["beam"]
 
     @staticmethod
-    def _add_ping_time_dim(ds: xr.Dataset, sonar_model: str):
+    def _add_ping_time_dim(
+        ds: xr.Dataset, beam_ping_time_names: Set[str], ping_time_only_names: Set[str]
+    ):
         """
         Adds ``ping_time`` as the last dimension to the appropriate
         variables in ``Sonar/Beam_group1`` and ``Sonar/Beam_group2``
@@ -329,38 +274,50 @@ class SetGroupsBase(abc.ABC):
         """
 
         # variables to add ping_time to
-        add_ping_time_names = set(ds.variables).intersection(beam_ping_time_names[sonar_model])
-        add_ping_time_names = add_ping_time_names.union(ping_time_only_names[sonar_model])
-
-        ping_time = ds.ping_time.values
+        add_ping_time_names = (
+            set(ds.variables).intersection(beam_ping_time_names).union(ping_time_only_names)
+        )
 
         for var_name in add_ping_time_names:
 
             ds[var_name] = (
                 ds[var_name]
-                .expand_dims(dim={"ping_time": ping_time}, axis=ds[var_name].ndim)
+                .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
                 .assign_coords(ping_time=ds.ping_time)
                 .copy()
             )
 
-    def beamgroups_to_convention(self, ds: xr.Dataset, sonar_model: str):
+    def beamgroups_to_convention(
+        self,
+        ds: xr.Dataset,
+        beam_only_names: Set[str],
+        beam_ping_time_names: Set[str],
+        ping_time_only_names: Set[str],
+    ):
         """
-        Manipulates the variables in ``Sonar/Beam_group1``
-        and ``Sonar/Beam_group2`` (when necessary) so that
-        they adhere to convention.
+        Manipulates variables in ``Sonar/Beam_groupX``
+        to adhere to SONAR-netCDF4 vers. 1 with respect
+        to the use of ``ping_time`` and ``beam`` dimensions.
 
         This does several things:
-        1. Adds ``beam`` dimension to several variables
-        2. Adds ``ping_time`` dimension to several variables
+        1. Creates ``beam`` dimension and coordinate variable
+        when not present.
+        2. Adds ``beam`` dimension to several variables
+        when missing.
+        3. Adds ``ping_time`` dimension to several variables
+        when missing.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset corresponding to ``Beam_groupX``.
+        beam_only_names : Set[str]
+            Variables that need only the beam dimension added to them.
+        beam_ping_time_names : Set[str]
+            Variables that need beam and ping_time dimensions added to them.
+        ping_time_only_names : Set[str]
+            Variables that need only the ping_time dimension added to them.
         """
 
-        # account for sensors that are not EK60, EK80, AD2CP, AZFP
-        if sonar_model in ["EK60", "ES70"]:
-            sensor = "EK60"
-        elif sonar_model in ["EK80", "ES80", "EA640"]:
-            sensor = "EK80"
-        else:
-            sensor = sonar_model
-
-        self._add_ping_time_dim(ds, sensor)
-        self._add_beam_dim(ds, sensor)
+        self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
+        self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
