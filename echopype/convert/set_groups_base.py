@@ -12,58 +12,6 @@ from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
-# # Variables that need only the beam dimension added to them.
-# # These lists are applied to all Sonar/Beam_groupX groups.
-# beam_only_names = {
-#     "EK60": {"backscatter_r", "angle_athwartship", "angle_alongship"},
-#     "EK80": {
-#         "backscatter_r",
-#         "backscatter_i",
-#         "angle_athwartship",
-#         "angle_alongship",
-#         "frequency_start",
-#         "frequency_end",
-#     },
-#     "AZFP": {},  # {"backscatter_r"}
-# }
-#
-# # Variables that need only the ping_time dimension added to them.
-# # These lists are applied to all Sonar/Beam_groupX groups.
-# ping_time_only_names = {"EK60": {"beam_type"}, "EK80": {"beam_type"}, "AZFP": {}}
-#
-# # Variables that need beam and ping_time dimensions added to them.
-# # These lists are applied to all Sonar/Beam_groupX groups.
-# beam_ping_time_names = {
-#     "EK60": {
-#         "beam_direction_x",
-#         "beam_direction_y",
-#         "beam_direction_z",
-#         "beamwidth_receive_alongship",
-#         "beamwidth_receive_athwartship",
-#         "beamwidth_transmit_alongship",
-#         "beamwidth_transmit_athwartship",
-#         "angle_offset_alongship",
-#         "angle_offset_athwartship",
-#         "angle_sensitivity_alongship",
-#         "angle_sensitivity_athwartship",
-#         "equivalent_beam_angle",
-#         "gain_correction",
-#     },
-#     "EK80": {
-#         "beam_direction_x",
-#         "beam_direction_y",
-#         "beam_direction_z",
-#         "angle_offset_alongship",
-#         "angle_offset_athwartship",
-#         "angle_sensitivity_alongship",
-#         "angle_sensitivity_athwartship",
-#         "equivalent_beam_angle",
-#         "beamwidth_twoway_alongship",
-#         "beamwidth_twoway_athwartship",
-#     },
-#     "AZFP": {},  # {"equivalent_beam_angle", "gain_correction"}
-# }
-
 
 class SetGroupsBase(abc.ABC):
     """Base class for saving groups to netcdf or zarr from echosounder data files."""
