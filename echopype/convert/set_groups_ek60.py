@@ -17,6 +17,34 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files."""
 
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {"backscatter_r", "angle_athwartship", "angle_alongship"}
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "beamwidth_receive_alongship",
+        "beamwidth_receive_athwartship",
+        "beamwidth_transmit_alongship",
+        "beamwidth_transmit_athwartship",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "gain_correction",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -610,6 +638,11 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge(
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        self.beamgroups_to_convention(
+            ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return set_encodings(ds)
 

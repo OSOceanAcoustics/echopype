@@ -46,7 +46,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata.beam.backscatter_r.transpose(
+        echodata.beam.backscatter_r.isel(beam=0).transpose(
             'frequency', 'range_sample', 'ping_time'
         ),
         rtol=0,
@@ -59,7 +59,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata.beam['angle_' + angle].transpose(
+            echodata.beam['angle_' + angle].isel(beam=0).transpose(
                 'frequency', 'range_sample', 'ping_time'
             ),
         )
@@ -94,6 +94,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
                 frequency=fidx,
                 ping_time=slice(None, 10),
                 range_sample=slice(1, None),
+                beam=0
             ),
             atol=9e-6,
             rtol=atol,

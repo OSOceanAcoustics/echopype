@@ -123,10 +123,9 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # Params from the Vendor group
+
         # only execute this if cw and power
-        if waveform_mode == "CW" and (
-            self.echodata.beam_power is not None or "beam" not in self.echodata.beam
-        ):
+        if waveform_mode == "CW" and beam is not None:
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
                 # substitute if None in user input
@@ -895,7 +894,7 @@ class CalibrateEK80(CalibrateEK):
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
-            if "beam" in self.echodata.beam.dims:  # data contain only complex samples
+            if "backscatter_i" in self.echodata.beam.variables:  # data contain only complex samples
                 if encode_mode == "power":
                     raise TypeError(
                         "File does not contain power samples! Use encode_mode='complex'"

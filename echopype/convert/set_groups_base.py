@@ -1,5 +1,6 @@
 import abc
 from datetime import datetime as dt
+from typing import Set
 
 import numpy as np
 import pynmea2
@@ -210,3 +211,113 @@ class SetGroupsBase(abc.ABC):
         }
 
         return beam_groups_vars
+
+    def _add_beam_dim(
+        self, ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]
+    ):
+        """
+        Adds ``beam`` as the last dimension to the appropriate
+        variables in ``Sonar/Beam_groupX`` groups when necessary.
+
+        Notes
+        -----
+        When expanding the dimension of a Dataarray, it is necessary
+        to copy the array (hence the .copy()). This allows the array
+        to be writable downstream (i.e. we can assign values to
+        certain indices).
+
+        To retain the attributes and encoding of ``beam``
+        it is necessary to use .assign_coords() with ``beam``
+        from ds.
+        """
+
+        # variables to add beam to
+        add_beam_names = set(ds.variables).intersection(beam_only_names.union(beam_ping_time_names))
+
+        for var_name in add_beam_names:
+            if "beam" in ds.dims:
+                if "beam" not in ds[var_name].dims:
+                    ds[var_name] = (
+                        ds[var_name]
+                        .expand_dims(dim={"beam": ds.beam}, axis=ds[var_name].ndim)
+                        .assign_coords(beam=ds.beam)
+                        .copy()
+                    )
+            else:
+                # Add a single-value beam dimension and its attributes
+                ds[var_name] = (
+                    ds[var_name]
+                    .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
+                    .copy()
+                )
+                ds[var_name].beam.attrs = self._varattrs["beam_coord_default"]["beam"]
+
+    @staticmethod
+    def _add_ping_time_dim(
+        ds: xr.Dataset, beam_ping_time_names: Set[str], ping_time_only_names: Set[str]
+    ):
+        """
+        Adds ``ping_time`` as the last dimension to the appropriate
+        variables in ``Sonar/Beam_group1`` and ``Sonar/Beam_group2``
+        (when necessary).
+
+        Notes
+        -----
+        When expanding the dimension of a Dataarray, it is necessary
+        to copy the array (hence the .copy()). This allows the array
+        to be writable downstream (i.e. we can assign values to
+        certain indices).
+
+        To retain the attributes and encoding of ``ping_time``
+        it is necessary to use .assign_coords() with ``ping_time``
+        from ds.
+        """
+
+        # variables to add ping_time to
+        add_ping_time_names = (
+            set(ds.variables).intersection(beam_ping_time_names).union(ping_time_only_names)
+        )
+
+        for var_name in add_ping_time_names:
+
+            ds[var_name] = (
+                ds[var_name]
+                .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
+                .assign_coords(ping_time=ds.ping_time)
+                .copy()
+            )
+
+    def beamgroups_to_convention(
+        self,
+        ds: xr.Dataset,
+        beam_only_names: Set[str],
+        beam_ping_time_names: Set[str],
+        ping_time_only_names: Set[str],
+    ):
+        """
+        Manipulates variables in ``Sonar/Beam_groupX``
+        to adhere to SONAR-netCDF4 vers. 1 with respect
+        to the use of ``ping_time`` and ``beam`` dimensions.
+
+        This does several things:
+        1. Creates ``beam`` dimension and coordinate variable
+        when not present.
+        2. Adds ``beam`` dimension to several variables
+        when missing.
+        3. Adds ``ping_time`` dimension to several variables
+        when missing.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset corresponding to ``Beam_groupX``.
+        beam_only_names : Set[str]
+            Variables that need only the beam dimension added to them.
+        beam_ping_time_names : Set[str]
+            Variables that need beam and ping_time dimensions added to them.
+        ping_time_only_names : Set[str]
+            Variables that need only the ping_time dimension added to them.
+        """
+
+        self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
+        self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)

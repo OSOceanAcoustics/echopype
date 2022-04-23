@@ -56,13 +56,15 @@ variable_and_varattributes:
       long_name: Transducer frequency
       standard_name: sound_frequency
       units: Hz
-    valid_min: 0.0
+      valid_min: 0.0
     ping_time:
       long_name: Timestamp of each ping
       standard_name: time
       axis: T
     range_sample:
       long_name: Along-range sample number, base 0
+    beam:
+      long_name: Beam name
   platform_coord_default:
     location_time:
       axis: T

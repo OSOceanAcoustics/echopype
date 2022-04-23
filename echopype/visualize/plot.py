@@ -1,3 +1,4 @@
+import sys
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
@@ -129,7 +130,7 @@ def _plot_echogram(
     row = None
     col = None
 
-    if 'beam' in ds[variable].dims:
+    if 'backscatter_i' in ds.variables:
         col = 'beam'
         kwargs.update(
             {
@@ -140,6 +141,8 @@ def _plot_echogram(
         filtered_ds = np.abs(ds.backscatter_r + 1j * ds.backscatter_i)
     else:
         filtered_ds = ds[variable]
+        if 'beam' in filtered_ds.dims:
+            filtered_ds = filtered_ds.isel(beam=0).drop('beam')
 
     # perform frequency filtering
     if frequency:
@@ -227,6 +230,7 @@ def _plot_echogram(
                     .dropna(dim='range_sample')
                     .data
                 )
+
             plot = d.plot.pcolormesh(
                 x=xaxis,
                 y=yaxis,
