@@ -37,6 +37,9 @@ def test_convert_ek60_matlab_raw(ek60_path):
     # Compare with matlab outputs
     ds_matlab = loadmat(ek60_matlab_path)
 
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
+
     # power
     assert np.allclose(
         [
@@ -97,6 +100,8 @@ def test_convert_ek60_echoview_raw(ek60_path):
             rtol=atol,
         )
 
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 def test_convert_ek60_duplicate_ping_times(ek60_path):
     """Convert a file with duplicate ping times"""
