@@ -765,10 +765,9 @@ class CalibrateEK80(CalibrateEK):
             # other params
             transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel)
             if waveform_mode == "BB":
-                psifc = (
-                    self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel)
-                    + 10 * np.log10(freq_sel / freq_center)
-                )
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
+                    frequency=freq_sel
+                ) + 10 * np.log10(freq_sel / freq_center)
             elif waveform_mode == "CW":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel)
 
