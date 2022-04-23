@@ -11,21 +11,19 @@ from .set_groups_base import SetGroupsBase
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files."""
 
-    """
-    The sets beam_only_names, ping_time_only_names, and
-    beam_ping_time_names are used in set_groups_base and
-    in converting from v0.5.x to v0.6.0. The values within
-    these sets are applied to all Sonar/Beam_groupX groups.
-    """
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
 
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {}
+    beam_only_names = {"backscatter_r"}
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {}
+    ping_time_only_names = {"sample_interval", "transmit_duration_nominal"}
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {}
+    beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -222,8 +220,10 @@ class SetGroupsAZFP(SetGroupsBase):
             },
         )
 
-        # manipulate Dataset to adhere to convention
-        self.beamgroups_to_convention(ds, self.sonar_model)
+        # Manipulate some Dataset dimensions to adhere to convention
+        self.beamgroups_to_convention(
+            ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return set_encodings(ds)
 
