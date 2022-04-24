@@ -81,7 +81,8 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
-                        "comment": "Platform.time3 and Environment.environment_time are identical time coordinates from the same datagrams",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
                     },
                 ),
                 "sound_velocity_profile_depth": (
@@ -257,7 +258,8 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
-                        "comment": "Platform.time3 and Environment.environment_time are identical time coordinates from the same datagrams",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
                     },
                 ),
                 "location_time": (
