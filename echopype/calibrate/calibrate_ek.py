@@ -123,10 +123,9 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # Params from the Vendor group
+
         # only execute this if cw and power
-        if waveform_mode == "CW" and (
-            self.echodata.beam_power is not None or "beam" not in self.echodata.beam
-        ):
+        if waveform_mode == "CW" and beam is not None:
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
                 # substitute if None in user input
@@ -697,10 +696,10 @@ class CalibrateEK80(CalibrateEK):
                 )
             # if CW and BB complex samples co-exist
             # drop those that contain CW samples (nan in freq start/end)
-            freq_sel = freq_center.dropna(dim="frequency")
+            freq_sel = freq_center.dropna(dim="frequency").frequency
 
             # backscatter data
-            pc = self.compress_pulse(chirp, freq_BB=freq_sel.frequency)
+            pc = self.compress_pulse(chirp, freq_BB=freq_sel)
             prx = (
                 self.echodata.beam.beam.size
                 * np.abs(pc.mean(dim="beam")) ** 2
@@ -733,8 +732,8 @@ class CalibrateEK80(CalibrateEK):
 
         # derived params
         sound_speed = self.env_params["sound_speed"].squeeze()
-        absorption = self.env_params["sound_absorption"].sel(frequency=freq_sel.frequency).squeeze()
-        range_meter = self.range_meter.sel(frequency=freq_sel.frequency).squeeze()
+        absorption = self.env_params["sound_absorption"].sel(frequency=freq_sel).squeeze()
+        range_meter = self.range_meter.sel(frequency=freq_sel).squeeze()
         if waveform_mode == "BB":
             # use true center frequency for BB pulse
             wavelength = sound_speed / freq_sel
@@ -761,18 +760,16 @@ class CalibrateEK80(CalibrateEK):
                 data=list(tau_effective.values()),
                 coords=[self.echodata.beam.frequency, self.echodata.beam.ping_time],
                 dims=["frequency", "ping_time"],
-            ).sel(frequency=freq_sel.frequency)
+            ).sel(frequency=freq_sel)
 
             # other params
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel)
             if waveform_mode == "BB":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(
-                    frequency=freq_sel.frequency
-                ) + 10 * np.log10(freq_sel.frequency / freq_center)
+                    frequency=freq_sel
+                ) + 10 * np.log10(freq_sel / freq_center)
             elif waveform_mode == "CW":
-                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
-                    frequency=freq_sel.frequency
-                )
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel)
 
             out = (
                 10 * np.log10(prx)
@@ -786,7 +783,7 @@ class CalibrateEK80(CalibrateEK):
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
         elif cal_type == "TS":
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel)
 
             out = (
                 10 * np.log10(prx)
@@ -895,7 +892,7 @@ class CalibrateEK80(CalibrateEK):
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
-            if "beam" in self.echodata.beam.dims:  # data contain only complex samples
+            if "backscatter_i" in self.echodata.beam.variables:  # data contain only complex samples
                 if encode_mode == "power":
                     raise TypeError(
                         "File does not contain power samples! Use encode_mode='complex'"

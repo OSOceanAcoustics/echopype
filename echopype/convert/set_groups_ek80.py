@@ -11,6 +11,38 @@ from .set_groups_base import SetGroupsBase
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files."""
 
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {
+        "backscatter_r",
+        "backscatter_i",
+        "angle_athwartship",
+        "angle_alongship",
+        "frequency_start",
+        "frequency_end",
+    }
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "beamwidth_twoway_alongship",
+        "beamwidth_twoway_athwartship",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -400,6 +432,7 @@ class SetGroupsEK80(SetGroupsBase):
             raise ValueError("Transducer sector number changes in the middle of the file!")
         else:
             num_transducer_sectors = num_transducer_sectors[0]
+
         data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
         data_shape = (
             data_shape[0],
@@ -432,7 +465,11 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "beam": (["beam"], np.arange(num_transducer_sectors)),
+                "beam": (
+                    ["beam"],
+                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    self._varattrs["beam_coord_default"]["beam"],
+                ),
             },
         )
 
@@ -677,6 +714,19 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        if isinstance(ds_beam_power, xr.Dataset):
+            self.beamgroups_to_convention(
+                ds_beam_power,
+                self.beam_only_names,
+                self.beam_ping_time_names,
+                self.ping_time_only_names,
+            )
+
+        self.beamgroups_to_convention(
+            ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return [ds_beam, ds_beam_power]
 
