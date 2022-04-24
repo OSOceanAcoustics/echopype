@@ -41,7 +41,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         if "sound_velocity_profile" in self.parser_obj.environment:
             dict_env["sound_velocity_profile"] = (
-                ["time3", "sound_velocity_profile_depth"],
+                ["environment_time", "sound_velocity_profile_depth"],
                 [self.parser_obj.environment["sound_velocity_profile"][1::2]],
                 {
                     "long_name": "sound velocity profile",
@@ -56,7 +56,7 @@ class SetGroupsEK80(SetGroupsBase):
         for var_name in vars:
             if var_name in self.parser_obj.environment:
                 dict_env[var_name] = (
-                    ["time3"],
+                    ["environment_time"],
                     [self.parser_obj.environment[var_name]],
                 )
 
@@ -72,11 +72,17 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                     },
                 ),
-                "time3": (
-                    ["time3"],
+                "environment_time": (
+                    ["environment_time"],
                     [self.parser_obj.environment["timestamp"]]
                     if "timestamp" in self.parser_obj.environment
                     else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are identical time coordinates from the same datagrams",
+                    },
                 ),
                 "sound_velocity_profile_depth": (
                     ["sound_velocity_profile_depth"],
@@ -247,6 +253,12 @@ class SetGroupsEK80(SetGroupsBase):
                     [self.parser_obj.environment["timestamp"]]
                     if "timestamp" in self.parser_obj.environment
                     else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are identical time coordinates from the same datagrams",
+                    },
                 ),
                 "location_time": (
                     ["location_time"],
