@@ -81,16 +81,55 @@ variable_and_varattributes:
       standard_name: longitude
       units: degrees_east
       valid_range: (-180.0, 180.0)
+    MRU_offset_x:
+      long_name: Distance along the x-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_offset_y:
+      long_name: Distance along the y-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_offset_z:
+      long_name: Distance along the z-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_rotation_x:
+      long_name: Extrinsic rotation about the x-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
+    MRU_rotation_y:
+      long_name: Extrinsic rotation about the y-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
+    MRU_rotation_z:
+      long_name: Extrinsic rotation about the z-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
     pitch:
       long_name: Platform pitch
       standard_name: platform_pitch_angle
       units: arc_degree
       valid_range: (-90.0, 90.0)
+    position_offset_x:
+      long_name: Distance along the x-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
+    position_offset_y:
+      long_name: Distance along the y-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
+    position_offset_z:
+      long_name: Distance along the z-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
     roll:
       long_name: Platform roll
       standard_name: platform_roll_angle
       units: arc_degree
       valid_range: (-90.0, 90.0)
+    transducer_offset_x:
+      long_name: x-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
+    transducer_offset_y:
+      long_name: y-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
+    transducer_offset_z:
+      long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
     vertical_offset:
       long_name: Platform vertical offset from nominal
       units: m

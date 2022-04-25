@@ -111,6 +111,29 @@ def test_convert_ek80_complex_matlab(ek80_path):
         assert echodata["Platform"][plat_var].dims == ("time3",)
     for plat_dim in plat_dims:
         assert plat_dim in echodata["Platform"]
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
 
 
 def test_convert_ek80_cw_power_angle_echoview(ek80_path):
@@ -204,6 +227,30 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         assert echodata["Platform"][plat_var].dims == ("time3",)
     for plat_dim in plat_dims:
         assert plat_dim in echodata["Platform"]
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+    assert "transducer_offset_z" in echodata["Platform"]
+    assert (echodata["Platform"]["transducer_offset_z"] == 9.15).all()
 
 
 def test_convert_ek80_complex_echoview(ek80_path):
@@ -257,6 +304,29 @@ def test_convert_ek80_complex_echoview(ek80_path):
         assert echodata["Platform"][plat_var].dims == ("time3",)
     for plat_dim in plat_dims:
         assert plat_dim in echodata["Platform"]
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
 
 
 def test_convert_ek80_cw_bb_in_single_file(ek80_path):
@@ -269,6 +339,30 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     # Check there are both Sonar/Beam_group1 and /Sonar/Beam_power groups in the converted file
     assert echodata.beam_power is not None
     assert echodata.beam is not None
+
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
 
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
@@ -301,6 +395,29 @@ def test_convert_ek80_freq_subset(ek80_path):
     # Check if converted output has only 2 frequency channels
     assert echodata.beam.frequency.size == 2
 
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
