@@ -1,3 +1,4 @@
+import sys
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
@@ -25,7 +26,7 @@ def _set_label(
     if isinstance(fg, FacetGrid):
         text_pos = [0.02, 0.06]
         fontsize = 14
-        if col == 'quadrant':
+        if col == 'beam':
             if isinstance(frequency, list) or frequency is None:
                 for rl in fg.row_labels:
                     if rl is not None:
@@ -33,7 +34,7 @@ def _set_label(
 
                 for idx, cl in enumerate(fg.col_labels):
                     if cl is not None:
-                        cl.set_text(f'Quadrant {fg.col_names[idx]}')
+                        cl.set_text(f'Beam {fg.col_names[idx]}')
 
             text_pos = [0.04, 0.06]
             fontsize = 13
@@ -46,7 +47,7 @@ def _set_label(
                     ax.set_title('')
             else:
                 freq = frequency
-                ax.set_title(f'Quadrant {fg.col_names[idx]}')
+                ax.set_title(f'Beam {fg.col_names[idx]}')
             ax.text(
                 *text_pos,
                 f"{int(freq / 1000)} kHz",
@@ -121,7 +122,7 @@ def _plot_echogram(
     frequency: Union[int, float, List[T], None] = None,
     variable: str = 'backscatter_r',
     xaxis: str = 'ping_time',
-    yaxis: str = 'range',
+    yaxis: str = 'echo_range',
     **kwargs,
 ) -> Union[FacetGrid, QuadMesh]:
     kwargs = _set_plot_defaults(kwargs)
@@ -129,8 +130,8 @@ def _plot_echogram(
     row = None
     col = None
 
-    if 'quadrant' in ds[variable].dims:
-        col = 'quadrant'
+    if 'backscatter_i' in ds.variables:
+        col = 'beam'
         kwargs.update(
             {
                 'figsize': (15, 5),
@@ -140,6 +141,8 @@ def _plot_echogram(
         filtered_ds = np.abs(ds.backscatter_r + 1j * ds.backscatter_i)
     else:
         filtered_ds = ds[variable]
+        if 'beam' in filtered_ds.dims:
+            filtered_ds = filtered_ds.isel(beam=0).drop('beam')
 
     # perform frequency filtering
     if frequency:
@@ -173,16 +176,16 @@ def _plot_echogram(
     if not filtered_ds.frequency.shape:
         if (
             np.any(filtered_ds.isnull()).values == np.array(True)
-            and 'range' in filtered_ds.coords
-            and 'range_bin' in filtered_ds.dims
+            and 'echo_range' in filtered_ds.coords
+            and 'range_sample' in filtered_ds.dims
             and variable in ['backscatter_r', 'Sv']
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
-                range_bin=filtered_ds.range_bin.where(
-                    ~filtered_ds.range.isel(ping_time=0).isnull()
+                range_sample=filtered_ds.range_sample.where(
+                    ~filtered_ds.echo_range.isel(ping_time=0).isnull()
                 )
-                .dropna(dim='range_bin')
+                .dropna(dim='range_sample')
                 .data
             )
         plot = filtered_ds.plot.pcolormesh(
@@ -213,20 +216,21 @@ def _plot_echogram(
             d = filtered_ds[filtered_ds.frequency == f.values]
             if (
                 np.any(d.isnull()).values == np.array(True)
-                and 'range' in d.coords
-                and 'range_bin' in d.dims
+                and 'echo_range' in d.coords
+                and 'range_sample' in d.dims
                 and variable in ['backscatter_r', 'Sv']
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
-                    range_bin=d.range_bin.where(
-                        ~d.range.sel(frequency=f.values)
+                    range_sample=d.range_sample.where(
+                        ~d.echo_range.sel(frequency=f.values)
                         .isel(ping_time=0)
                         .isnull()
                     )
-                    .dropna(dim='range_bin')
+                    .dropna(dim='range_sample')
                     .data
                 )
+
             plot = d.plot.pcolormesh(
                 x=xaxis,
                 y=yaxis,

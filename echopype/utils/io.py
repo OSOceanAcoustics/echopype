@@ -171,9 +171,7 @@ def validate_output_path(
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
-        warnings.warn(
-            f"Resulting converted file(s) will be available at {str(out_dir)}"
-        )
+        warnings.warn(f"Resulting converted file(s) will be available at {str(out_dir)}")
         out_path = str(out_dir / (Path(source_file).stem + file_ext))
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
@@ -201,13 +199,9 @@ def validate_output_path(
             if isinstance(sanitized_path, Path):
                 check_file_permissions(sanitized_path.parent)
                 final_path = sanitized_path
-                out_path = str(
-                    final_path.parent.joinpath(final_path.stem + file_ext).absolute()
-                )
+                out_path = str(final_path.parent.joinpath(final_path.stem + file_ext).absolute())
             else:
-                path_dir = fsspec.get_mapper(
-                    os.path.dirname(save_path), **output_storage_options
-                )
+                path_dir = fsspec.get_mapper(os.path.dirname(save_path), **output_storage_options)
                 check_file_permissions(path_dir)
                 final_path = Path(save_path)
                 out_path = save_path
@@ -218,9 +212,7 @@ def validate_output_path(
     return out_path
 
 
-def check_file_existence(
-    file_path: "PathHint", storage_options: Dict[str, str] = {}
-) -> bool:
+def check_file_existence(file_path: "PathHint", storage_options: Dict[str, str] = {}) -> bool:
     """
     Checks if file exists in the specified path
 
@@ -271,9 +263,7 @@ def check_file_permissions(FILE_DIR):
                 FILE_DIR = Path(FILE_DIR)
 
             if not FILE_DIR.exists():
-                warnings.warn(
-                    f"{str(FILE_DIR)} does not exist. Attempting to create it."
-                )
+                warnings.warn(f"{str(FILE_DIR)} does not exist. Attempting to create it.")
                 FILE_DIR.mkdir(exist_ok=True, parents=True)
             TEST_FILE = FILE_DIR.joinpath(Path(".permission_test"))
             TEST_FILE.write_text("testing\n")

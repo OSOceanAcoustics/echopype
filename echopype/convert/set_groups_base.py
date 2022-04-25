@@ -1,14 +1,16 @@
 import abc
 from datetime import datetime as dt
+from typing import Set
 
 import numpy as np
 import pynmea2
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
+from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 
-DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
+DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 
 class SetGroupsBase(abc.ABC):
@@ -43,6 +45,12 @@ class SetGroupsBase(abc.ABC):
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+        # self._beamgroups must be a list of dicts, eg:
+        # [{"name":"Beam_group1", "descr":"contains complex backscatter data
+        # and other beam or channel-specific data."}]
+        self._beamgroups = []
+
     # TODO: change the set_XXX methods to return a dataset to be saved
     #  in the overarching save method
     def set_toplevel(self, sonar_model, date_created=None) -> xr.Dataset:
@@ -70,8 +78,7 @@ class SetGroupsBase(abc.ABC):
         prov_dict = {
             "conversion_software_name": "echopype",
             "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": dt.utcnow().isoformat(timespec="seconds")
-            + "Z",  # use UTC time
+            "conversion_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
             "src_filenames": self.input_file,
         }
         # Save
@@ -91,7 +98,7 @@ class SetGroupsBase(abc.ABC):
 
     @abc.abstractmethod
     def set_beam(self) -> xr.Dataset:
-        """Set the Beam group."""
+        """Set the /Sonar/Beam group."""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -146,9 +153,7 @@ class SetGroupsBase(abc.ABC):
     def _parse_NMEA(self):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
-        idx_loc = np.argwhere(
-            np.isin(messages, self.ui_param["nmea_gps_sentence"])
-        ).squeeze()
+        idx_loc = np.argwhere(np.isin(messages, self.ui_param["nmea_gps_sentence"])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
@@ -163,26 +168,17 @@ class SetGroupsBase(abc.ABC):
             ):
                 nmea_msg.append(None)
         lat = (
-            np.array(
-                [x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg]
-            )
+            np.array([x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
         lon = (
-            np.array(
-                [x.longitude if hasattr(x, "longitude") else np.nan for x in nmea_msg]
-            )
+            np.array([x.longitude if hasattr(x, "longitude") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
         msg_type = (
-            np.array(
-                [
-                    x.sentence_type if hasattr(x, "sentence_type") else np.nan
-                    for x in nmea_msg
-                ]
-            )
+            np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
             if nmea_msg
             else [np.nan]
         )
@@ -197,3 +193,131 @@ class SetGroupsBase(abc.ABC):
         )
 
         return location_time, msg_type, lat, lon
+
+    def _beam_groups_vars(self):
+        """Stage beam_group_name and beam_group_descr variables sharing a common dimension,
+        beam_group, to be inserted in the Sonar group"""
+        beam_groups_vars = {
+            "beam_group_name": (
+                ["beam_group"],
+                [di["name"] for di in self._beamgroups],
+                {"long_name": "Beam group name"},
+            ),
+            "beam_group_descr": (
+                ["beam_group"],
+                [di["descr"] for di in self._beamgroups],
+                {"long_name": "Beam group description"},
+            ),
+        }
+
+        return beam_groups_vars
+
+    def _add_beam_dim(
+        self, ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]
+    ):
+        """
+        Adds ``beam`` as the last dimension to the appropriate
+        variables in ``Sonar/Beam_groupX`` groups when necessary.
+
+        Notes
+        -----
+        When expanding the dimension of a Dataarray, it is necessary
+        to copy the array (hence the .copy()). This allows the array
+        to be writable downstream (i.e. we can assign values to
+        certain indices).
+
+        To retain the attributes and encoding of ``beam``
+        it is necessary to use .assign_coords() with ``beam``
+        from ds.
+        """
+
+        # variables to add beam to
+        add_beam_names = set(ds.variables).intersection(beam_only_names.union(beam_ping_time_names))
+
+        for var_name in add_beam_names:
+            if "beam" in ds.dims:
+                if "beam" not in ds[var_name].dims:
+                    ds[var_name] = (
+                        ds[var_name]
+                        .expand_dims(dim={"beam": ds.beam}, axis=ds[var_name].ndim)
+                        .assign_coords(beam=ds.beam)
+                        .copy()
+                    )
+            else:
+                # Add a single-value beam dimension and its attributes
+                ds[var_name] = (
+                    ds[var_name]
+                    .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
+                    .copy()
+                )
+                ds[var_name].beam.attrs = self._varattrs["beam_coord_default"]["beam"]
+
+    @staticmethod
+    def _add_ping_time_dim(
+        ds: xr.Dataset, beam_ping_time_names: Set[str], ping_time_only_names: Set[str]
+    ):
+        """
+        Adds ``ping_time`` as the last dimension to the appropriate
+        variables in ``Sonar/Beam_group1`` and ``Sonar/Beam_group2``
+        (when necessary).
+
+        Notes
+        -----
+        When expanding the dimension of a Dataarray, it is necessary
+        to copy the array (hence the .copy()). This allows the array
+        to be writable downstream (i.e. we can assign values to
+        certain indices).
+
+        To retain the attributes and encoding of ``ping_time``
+        it is necessary to use .assign_coords() with ``ping_time``
+        from ds.
+        """
+
+        # variables to add ping_time to
+        add_ping_time_names = (
+            set(ds.variables).intersection(beam_ping_time_names).union(ping_time_only_names)
+        )
+
+        for var_name in add_ping_time_names:
+
+            ds[var_name] = (
+                ds[var_name]
+                .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
+                .assign_coords(ping_time=ds.ping_time)
+                .copy()
+            )
+
+    def beamgroups_to_convention(
+        self,
+        ds: xr.Dataset,
+        beam_only_names: Set[str],
+        beam_ping_time_names: Set[str],
+        ping_time_only_names: Set[str],
+    ):
+        """
+        Manipulates variables in ``Sonar/Beam_groupX``
+        to adhere to SONAR-netCDF4 vers. 1 with respect
+        to the use of ``ping_time`` and ``beam`` dimensions.
+
+        This does several things:
+        1. Creates ``beam`` dimension and coordinate variable
+        when not present.
+        2. Adds ``beam`` dimension to several variables
+        when missing.
+        3. Adds ``ping_time`` dimension to several variables
+        when missing.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset corresponding to ``Beam_groupX``.
+        beam_only_names : Set[str]
+            Variables that need only the beam dimension added to them.
+        beam_ping_time_names : Set[str]
+            Variables that need beam and ping_time dimensions added to them.
+        ping_time_only_names : Set[str]
+            Variables that need only the ping_time dimension added to them.
+        """
+
+        self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
+        self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)

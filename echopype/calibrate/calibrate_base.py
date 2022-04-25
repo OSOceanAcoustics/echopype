@@ -33,7 +33,7 @@ class EnvParams:
         Class to hold and interpolate external environmental data for calibration purposes.
 
         This class can be used as the `env_params` parameter in `echopype.calibrate.compute_Sv`
-        or `echopype.calibrate.compute_Sp`. It is intended to be used with environmental parameters
+        or `echopype.calibrate.compute_TS`. It is intended to be used with environmental parameters
         indexed by time. Environmental parameters will be interpolated onto dimensions within
         the Platform group of the `EchoData` object being used for calibration.
 
@@ -83,9 +83,7 @@ class EnvParams:
         >>> echopype.calibrate.compute_Sv(echodata, env_params=env_params)
         """  # noqa
         if interp_method not in VALID_INTERP_METHODS[data_kind]:
-            raise ValueError(
-                f"invalid interp_method {interp_method} for data_kind {data_kind}"
-            )
+            raise ValueError(f"invalid interp_method {interp_method} for data_kind {data_kind}")
 
         self.env_params = env_params
         self.data_kind = data_kind
@@ -112,13 +110,9 @@ class EnvParams:
 
         if self.data_kind == "mobile":
             if np.isnan(echodata.platform["location_time"]).all():
-                raise ValueError(
-                    "cannot perform mobile interpolation without location_time"
-                )
+                raise ValueError("cannot perform mobile interpolation without location_time")
             # compute_range needs indexing by ping_time
-            interp_plat = echodata.platform.interp(
-                {"location_time": echodata.beam["ping_time"]}
-            )
+            interp_plat = echodata.platform.interp({"location_time": echodata.beam["ping_time"]})
 
             result = {}
             for var, values in env_params.data_vars.items():
@@ -132,9 +126,7 @@ class EnvParams:
                         interp_plat["longitude"].data,
                     )
                 )
-                interp = scipy.interpolate.griddata(
-                    points, values, xi, method=self.interp_method
-                )
+                interp = scipy.interpolate.griddata(points, values, xi, method=self.interp_method)
                 result[var] = ("ping_time", interp)
             env_params = xr.Dataset(
                 data_vars=result, coords={"ping_time": interp_plat["ping_time"]}
@@ -142,8 +134,7 @@ class EnvParams:
         else:
             # TODO: organized case
             min_max = {
-                dim: {"min": env_params[dim].min(), "max": env_params[dim].max()}
-                for dim in dims
+                dim: {"min": env_params[dim].min(), "max": env_params[dim].max()} for dim in dims
             }
 
             extrap = env_params.interp(
@@ -153,25 +144,18 @@ class EnvParams:
                 kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
             )
             # only keep unique indexes; xarray requires that indexes be unique
-            extrap_unique_idx = {
-                dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims
-            }
+            extrap_unique_idx = {dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims}
             extrap = extrap.isel(**extrap_unique_idx)
             interp = env_params.interp(
                 {dim: echodata.platform[dim].data for dim in dims},
                 method=self.interp_method,
             )
-            interp_unique_idx = {
-                dim: np.unique(interp[dim], return_index=True)[1] for dim in dims
-            }
+            interp_unique_idx = {dim: np.unique(interp[dim], return_index=True)[1] for dim in dims}
             interp = interp.isel(**interp_unique_idx)
 
             if self.extrap_method is not None:
                 less = extrap.sel(
-                    {
-                        dim: extrap[dim][extrap[dim] < min_max[dim]["min"]]
-                        for dim in dims
-                    }
+                    {dim: extrap[dim][extrap[dim] < min_max[dim]["min"]] for dim in dims}
                 )
                 middle = interp.sel(
                     {
@@ -185,10 +169,7 @@ class EnvParams:
                     }
                 )
                 greater = extrap.sel(
-                    {
-                        dim: extrap[dim][extrap[dim] > min_max[dim]["max"]]
-                        for dim in dims
-                    }
+                    {dim: extrap[dim][extrap[dim] > min_max[dim]["max"]] for dim in dims}
                 )
 
                 # remove empty datasets (xarray does not allow any dims from any datasets
@@ -232,7 +213,7 @@ class CalibrateBase(abc.ABC):
         self.env_params = env_params  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
 
-        # range_meter is computed in compute_Sv/Sp in child class
+        # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
 
     @abc.abstractmethod
@@ -245,7 +226,7 @@ class CalibrateBase(abc.ABC):
 
     @abc.abstractmethod
     def compute_range_meter(self, **kwargs):
-        """Calculate range in units meter.
+        """Calculate range (``echo_range``) in units meter.
 
         Returns
         -------
@@ -262,7 +243,7 @@ class CalibrateBase(abc.ABC):
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
         """
         pass
 
@@ -271,7 +252,7 @@ class CalibrateBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compute_Sp(self, **kwargs):
+    def compute_TS(self, **kwargs):
         pass
 
     def _add_params_to_output(self, ds_out):

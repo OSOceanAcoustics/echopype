@@ -2,15 +2,12 @@ exclude: |
   (?x)^(
     echopype/tests/|
     echopype/test_data/|
-    echopype/process/|
     echopype/visualize/|
-    echopype/convert/add_ancillary.py|
-    echopype/convert/convert_combine.py|
     docs/source/conf.py
   )
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.1.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -27,7 +24,7 @@ repos:
         args: ["--profile", "black", "--filter-files"]
 
   - repo: https://github.com/psf/black
-    rev: 21.12b0
+    rev: 22.3.0
     hooks:
       - id: black
 
@@ -37,7 +34,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/executablebooks/jupyter-book
-    rev: v0.12.1
+    rev: v0.12.3
     hooks:
     - id: jb-to-sphinx
       args: ["docs/source"]

@@ -61,14 +61,6 @@ netCDF file named ``FILENAME.nc`` saved to the directory path
 
 .. attention::
 
-   - Prior to version 0.5.0, conversion was carried out through the
-     `"Convert" interface <https://echopype.readthedocs.io/en/v0.4.1/usage.html#conversion-operation>`_.
-     This interface is still available but will be deprecated in
-     a future version.
-   - Versions of echopype prior to 0.5.0 used ``raw2nc`` and ``raw2zarr``
-     in order to convert to netCDF4 or Zarr files respectively.
-     These methods have been renamed to ``to_netcdf`` and ``to_zarr``
-     and the old names will be deprecated in a future version.
    - The ``EchoData`` class has been overhauled in 0.5.0, and the new ``open_raw`` function
      returns a fully parsed ``EchoData`` object that can be operated in memory or
      exported to a converted file. For more details see :doc:`open-converted`.
@@ -285,7 +277,7 @@ currently not supported.
 .. note::
 
    Zarr datasets will be automatically chunked with default chunk sizes of
-   25000 for ``range_bin`` and 2500 for ``ping_time`` dimensions.
+   25000 for ``range_sample`` and 2500 for ``ping_time`` dimensions.
 
 
 Non-uniform data
@@ -301,7 +293,7 @@ change in the middle of the file. For example:
 - Data from different frequency channels can also be collected with
   different sampling intervals.
 
-These changes produce different number of samples along range (the ``range_bin``
+These changes produce different number of samples along range (the ``range_sample``
 dimension in the converted ``.nc`` file), which are incompatible with the goal
 to save the data as a multi-dimensional array that can be easily indexed using xarray.
 

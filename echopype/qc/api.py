@@ -17,9 +17,7 @@ def _clean_ping_time(ping_time_old, local_win_len=100):
             (
                 ping_time_old[: ni + 1],
                 ping_time_old[ni]
-                + np.cumsum(
-                    np.hstack((local_pt_median, ping_time_old_diff[(ni + 1) :]))
-                ),
+                + np.cumsum(np.hstack((local_pt_median, ping_time_old_diff[(ni + 1) :]))),
             )
         )
         return _clean_ping_time(ping_time_new, local_win_len=local_win_len)

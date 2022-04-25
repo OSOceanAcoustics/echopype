@@ -25,13 +25,13 @@ def create_echogram(
         The frequency to be plotted.
         Otherwise all frequency will be plotted.
     get_range : bool, optional
-        Flag as to whether range should be computed or not,
-        by default it will just plot range_bin as the yaxis.
+        Flag as to whether range (``echo_range``) should be computed or not,
+        by default it will just plot `range_sample`` as the yaxis.
 
         Note that for data that is "Sv" xarray dataset, `get_range` defaults
         to `True`.
     range_kwargs : dict
-        Keyword arguments dictionary for computing range.
+        Keyword arguments dictionary for computing range (``echo_range``).
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
     water_level : int, float, xr.DataArray, or bool, optional
         Water level data array for platform water level correction.
@@ -71,11 +71,11 @@ def create_echogram(
             raise ValueError(
                 "Visualization for AD2CP sonar model is currently unsupported."
             )
-        yaxis = 'range_bin'
+        yaxis = 'range_sample'
         variable = 'backscatter_r'
         ds = data.beam
         if get_range is True:
-            yaxis = 'range'
+            yaxis = 'echo_range'
 
             if data.sonar_model.lower() == 'azfp':
                 if 'azfp_cal_type' not in range_kwargs:
@@ -136,28 +136,28 @@ def create_echogram(
                     data_type=EchoData,
                     platform_data=data.platform,
                 )
-            ds = ds.assign_coords({'range': range_in_meter})
-            ds.range.attrs = range_attrs
+            ds = ds.assign_coords({'echo_range': range_in_meter})
+            ds.echo_range.attrs = range_attrs
 
     elif isinstance(data, xr.Dataset):
         if 'ping_time' in data and data.ping_time.shape[0] < 2:
             raise ValueError("Ping time must be greater or equal to 2 data points.")
         variable = 'Sv'
         ds = data
-        yaxis = 'range'
-        if 'range' not in data.dims and get_range is False:
+        yaxis = 'echo_range'
+        if 'echo_range' not in data.dims and get_range is False:
             # Range in dims indicates that data is MVBS.
-            yaxis = 'range_bin'
+            yaxis = 'range_sample'
 
         # If depth is available in ds, use it.
-        ds = ds.set_coords('range')
+        ds = ds.set_coords('echo_range')
         if water_level is not None:
-            ds['range'] = _add_water_level(
-                range_in_meter=ds.range,
+            ds['echo_range'] = _add_water_level(
+                range_in_meter=ds.echo_range,
                 water_level=water_level,
                 data_type=xr.Dataset,
             )
-        ds.range.attrs = range_attrs
+        ds.echo_range.attrs = range_attrs
     else:
         raise ValueError(f"Unsupported data type: {type(data)}")
 

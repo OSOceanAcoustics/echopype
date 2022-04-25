@@ -122,25 +122,8 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
     assert echodata.beam.backscatter_r.isel(frequency=0).dropna(
-        'range_bin'
+        'range_sample'
     ).shape == (360, 438)
     assert echodata.beam.backscatter_r.isel(frequency=3).dropna(
-        'range_bin'
+        'range_sample'
     ).shape == (360, 135)
-
-
-# def test_combine():
-# raw_paths = ['./echopype/test_data/azfp/set1/' + file
-#              for file in os.listdir('./echopype/test_data/azfp/set1')]   # Multiple files (first is xml file)
-#
-#     """Test combining multiple raw files"""
-#     export_folder = './echopype/test_data/azfp/export/'
-#
-#     # Test combining while converting
-#     tmp = Convert(file=raw_paths[1:5], model='AZFP', xml_path=raw_paths[0])
-#     tmp.to_netcdf(save_path=export_folder, overwrite=True, combine=True)
-#
-#     with xr.open_dataset(tmp.output_file, group='Beam') as ds_beam:
-#         # Test if the concatenation along ping time worked
-#         assert len(ds_beam.ping_time) == 960
-#     shutil.rmtree(export_folder)

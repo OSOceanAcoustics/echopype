@@ -28,8 +28,21 @@ def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
 
 
+def test_compute_Sv_returns_water_level(ek60_path):
+
+    # get EchoData object that has the water_level variable under platform and compute Sv of it
+    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # make sure the returned Dataset has water_level and throw an assertion error if the
+    # EchoData object does not have water_level (just in case we remove it from the file
+    # used in the future)
+    assert 'water_level' in ed.platform.data_vars.keys()
+    assert 'water_level' in ds_Sv.data_vars
+
+
 def test_compute_Sv_ek60_echoview(ek60_path):
-    # constant range_bin
+    # constant range_sample
     ek60_raw_path = str(
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
     )
@@ -57,8 +70,8 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     # Echoview data is shifted by 1 sample along range (missing the first sample)
     assert np.allclose(
         test_Sv[:, :, 7:],
-        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_bin=slice(8, None)),
-        atol=1e-8,
+        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None), beam=0),
+        atol=1e-8
     )
 
 
@@ -75,7 +88,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
 
     # Calibrate to get Sv
     ds_Sv = ep.calibrate.compute_Sv(echodata)
-    ds_Sp = ep.calibrate.compute_Sp(echodata)
+    ds_TS = ep.calibrate.compute_TS(echodata)
 
     # Load matlab outputs and test
 
@@ -83,20 +96,20 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     #   save('from_matlab/DY1801_EK60-D20180211-T164025.mat', 'data')
     ds_base = loadmat(ek60_matlab_path)
 
-    def check_output(ds_cmp, cal_type):
+    def check_output(da_cmp, cal_type):
         for fidx in range(5):  # loop through all freq
             assert np.allclose(
-                ds_cmp[cal_type].isel(frequency=0).T.values,
+                da_cmp.isel(frequency=0).T.values,
                 ds_base['data']['pings'][0][0][cal_type][0, 0],
                 atol=4e-5,
                 rtol=0,
             )  # difference due to use of Single in matlab code
 
     # Check Sv
-    check_output(ds_Sv, 'Sv')
+    check_output(ds_Sv['Sv'], 'Sv')
 
-    # Check Sp
-    check_output(ds_Sp, 'Sp')
+    # Check TS
+    check_output(ds_TS['TS'], 'Sp')
 
 
 def test_compute_Sv_azfp(azfp_path):
@@ -105,7 +118,7 @@ def test_compute_Sv_azfp(azfp_path):
     azfp_matlab_Sv_path = str(
         azfp_path.joinpath('from_matlab/17082117_matlab_Output_Sv.mat')
     )
-    azfp_matlab_Sp_path = str(
+    azfp_matlab_TS_path = str(
         azfp_path.joinpath('from_matlab/17082117_matlab_Output_TS.mat')
     )
 
@@ -126,7 +139,7 @@ def test_compute_Sv_azfp(azfp_path):
     }
 
     ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
-    ds_Sp = ep.calibrate.compute_Sp(echodata=echodata, env_params=env_params)
+    ds_TS = ep.calibrate.compute_TS(echodata=echodata, env_params=env_params)
 
     # Load matlab outputs and test
     # matlab outputs were saved using
@@ -137,11 +150,11 @@ def test_compute_Sv_azfp(azfp_path):
         ds_base = loadmat(base_path)
         cal_type_in_ds_cmp = {
             'Sv': 'Sv',
-            'TS': 'Sp',  # Sp here is TS in matlab outputs
+            'TS': 'TS',  # TS here is TS in matlab outputs
         }
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.range.isel(frequency=fidx).values
+                ds_cmp.echo_range.isel(frequency=fidx).values
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
@@ -156,8 +169,8 @@ def test_compute_Sv_azfp(azfp_path):
     # Check Sv
     check_output(base_path=azfp_matlab_Sv_path, ds_cmp=ds_Sv, cal_type='Sv')
 
-    # Check Sp
-    check_output(base_path=azfp_matlab_Sp_path, ds_cmp=ds_Sp, cal_type='TS')
+    # Check TS
+    check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
 
 
 def test_compute_Sv_ek80_matlab(ek80_path):
@@ -177,7 +190,7 @@ def test_compute_Sv_ek80_matlab(ek80_path):
 
     # TODO: resolve discrepancy in range between echopype and Matlab code
     ds_matlab = loadmat(ek80_matlab_path)
-    Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_bin').values
+    Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_sample').values
 
 
 def test_compute_Sv_ek80_pc_echoview(ek80_path):
@@ -214,8 +227,8 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     pc = cal_obj.compress_pulse(chirp, freq_BB=freq_center.frequency)
     pc_mean = (
         pc.pulse_compressed_output.isel(frequency=0)
-        .mean(dim='quadrant')
-        .dropna('range_bin')
+        .mean(dim='beam')
+        .dropna('range_sample')
     )
 
     # Read EchoView pc raw power output
@@ -252,10 +265,10 @@ def test_compute_Sv_ek80_CW_complex(ek80_path):
         echodata, waveform_mode='CW', encode_mode='complex'
     )
     assert isinstance(ds_Sv, xr.Dataset) is True
-    ds_Sp = ep.calibrate.compute_Sp(
+    ds_TS = ep.calibrate.compute_TS(
         echodata, waveform_mode='CW', encode_mode='complex'
     )
-    assert isinstance(ds_Sp, xr.Dataset) is True
+    assert isinstance(ds_TS, xr.Dataset) is True
 
 
 def test_compute_Sv_ek80_BB_complex(ek80_path):
@@ -268,10 +281,10 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
         echodata, waveform_mode='BB', encode_mode='complex'
     )
     assert isinstance(ds_Sv, xr.Dataset) is True
-    ds_Sp = ep.calibrate.compute_Sp(
+    ds_TS = ep.calibrate.compute_TS(
         echodata, waveform_mode='BB', encode_mode='complex'
     )
-    assert isinstance(ds_Sp, xr.Dataset) is True
+    assert isinstance(ds_TS, xr.Dataset) is True
 
 
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):

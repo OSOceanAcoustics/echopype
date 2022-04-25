@@ -4,9 +4,7 @@ Utilities for calculating seawater acoustic properties.
 import numpy as np
 
 
-def calc_sound_speed(
-    temperature=27, salinity=35, pressure=10, formula_source="Mackenzie"
-):
+def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="Mackenzie"):
     """
     Calculate sound speed in [m/s].
 
@@ -41,14 +39,11 @@ def calc_sound_speed(
         ss = (
             1448.96
             + 4.591 * temperature
-            - 5.304e-2 * temperature ** 2
-            + 2.374e-4 * temperature ** 3
+            - 5.304e-2 * temperature**2
+            + 2.374e-4 * temperature**3
         )
         ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure**2
-        ss += (
-            -1.025e-2 * temperature * (salinity - 35)
-            - 7.139e-13 * temperature * pressure**3
-        )
+        ss += -1.025e-2 * temperature * (salinity - 35) - 7.139e-13 * temperature * pressure**3
     elif formula_source == "AZFP":
         z = temperature / 10
         ss = (
@@ -121,11 +116,7 @@ def calc_absorption(
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))
         A2 = 21.44 * salinity / c * (1 + 0.025 * temperature)
         P2 = 1.0 - 1.37e-4 * pressure + 6.2e-9 * pressure**2
-        f2 = (
-            8.17
-            * 10 ** (8 - 1990 / (temperature + 273))
-            / (1 + 0.0018 * (salinity - 35))
-        )
+        f2 = 8.17 * 10 ** (8 - 1990 / (temperature + 273)) / (1 + 0.0018 * (salinity - 35))
         P3 = 1.0 - 3.83e-5 * pressure + 4.9e-10 * pressure**2
         if temperature < 20:
             A3 = (
@@ -153,12 +144,7 @@ def calc_absorption(
         D = pressure / 1000
         f1 = 0.78 * np.sqrt(salinity / 35) * np.exp(temperature / 26)
         f2 = 42 * np.exp(temperature / 17)
-        a1 = (
-            0.106
-            * (f1 * (freq**2))
-            / ((f1**2) + (freq**2))
-            * np.exp((pH - 8) / 0.56)
-        )
+        a1 = 0.106 * (f1 * (freq**2)) / ((f1**2) + (freq**2)) * np.exp((pH - 8) / 0.56)
         a2 = (
             0.52
             * (1 + temperature / 43)
@@ -186,11 +172,7 @@ def calc_absorption(
         )
         c = (
             4.86e-13
-            * (
-                1
-                + temperature
-                * (-0.042 + temperature * (8.53e-4 - temperature * 6.23e-6))
-            )
+            * (1 + temperature * (-0.042 + temperature * (8.53e-4 - temperature * 6.23e-6)))
             * (1 + k * (-3.84e-4 + k * 7.57e-8))
         )
         if salinity == 0:

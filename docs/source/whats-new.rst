@@ -3,6 +3,56 @@ What's new
 
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
+v0.5.6 (2022 Feb 10)
+--------------------
+
+Overview
+~~~~~~~~
+
+This is a minor release that contains an experimental new feature and a number of enhancements, clean-up and bug fixes, which pave the way for the next major release.
+
+New feature
+~~~~~~~~~~~
+
+- (beta) Allow interpolating CTD data in calibration (#464)
+
+  - Interpolation currently allowed along the ``ping_time`` dimension (the ``"stationary"`` case) and across ``latitude`` and ``longitude`` (the ``"mobile"`` case).
+  - This mechanism is enabled via a new ``EnvParams`` class at input of calibration functions.
+
+Enhancements
+~~~~~~~~~~~~
+
+- Make visualize module fully optional with ``matplotlib``, ``cmocean`` being optional dependency (#526, #559)
+- Set range entries with no backscatter data to NaN in output of ``echodata.compute_range()`` (#547) and still allows quick visualization (#555)
+- Add ``codespell`` GitHub action to ensure correct spellings of words (#557)
+- Allow ``sonar_model="EA640"`` for ``open_raw`` (before it had to be "EK80") (#539)
+
+Bug fixes
+~~~~~~~~~
+
+- Allow using ``sonar_model="EA640"`` (#538, #539)
+- Allow flexible and empty environment variables in EA640/EK80 files (#537)
+- Docstring overhaul and fix bugs in ``utils.uwa`` (#525)
+
+Documentation
+~~~~~~~~~~~~~
+
+- Upgrade echopype docs to use jupyter book (#543)
+- Change the RTD ``latest`` to point to the ``dev`` branch (#467)
+
+Testing
+~~~~~~~
+
+- Update convert tests to enable parallel testing (#556)
+- Overhaul tests (#523, #498)
+
+  - use ``pytest.fixture`` for testing
+  - add ES70/ES80/EA640 test files
+  - add new EK80 small test files with parameter combinations
+  - reduce size for a subset of large EK80 test data files
+
+- Add packaging testing for the ``dev`` branch (#554)
+
 
 v0.5.5 (2021 Dec 10)
 --------------------

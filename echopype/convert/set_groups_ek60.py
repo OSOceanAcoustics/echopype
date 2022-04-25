@@ -6,11 +6,6 @@ import numpy as np
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
 
-from ..echodata.convention.attrs import (
-    DEFAULT_BEAM_COORD_ATTRS,
-    DEFAULT_PLATFORM_COORD_ATTRS,
-    DEFAULT_PLATFORM_VAR_ATTRS,
-)
 from ..utils.coding import set_encodings
 
 # fmt: off
@@ -22,8 +17,46 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files."""
 
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {"backscatter_r", "angle_athwartship", "angle_alongship"}
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "beamwidth_receive_alongship",
+        "beamwidth_receive_athwartship",
+        "beamwidth_transmit_alongship",
+        "beamwidth_transmit_athwartship",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "gain_correction",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": (
+                    "contains backscatter power (uncalibrated) and other beam or"
+                    " channel-specific data, including split-beam angle data when they exist."
+                ),
+            }
+        ]
 
         self.old_ping_time = None
         # correct duplicate ping_time
@@ -34,11 +67,8 @@ class SetGroupsEK60(SetGroupsBase):
             if duplicates.any():
                 if self.old_ping_time is None:
                     if (
-                        len({arr.shape for arr in self.parser_obj.ping_time.values()})
-                        == 1
-                        and np.unique(
-                            np.stack(self.parser_obj.ping_time.values()), axis=0
-                        ).shape[0]
+                        len({arr.shape for arr in self.parser_obj.ping_time.values()}) == 1
+                        and np.unique(np.stack(self.parser_obj.ping_time.values()), axis=0).shape[0]
                         == 1
                     ):
                         self.old_ping_time = self.parser_obj.ping_time[ch]
@@ -52,9 +82,7 @@ class SetGroupsEK60(SetGroupsBase):
                 backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
                 # indexes of duplicates including the originals
                 # (if there are 2 times that are the same, both will be included)
-                (all_duplicates_idx,) = np.where(
-                    np.isin(ping_time, ping_time[duplicates][0])
-                )
+                (all_duplicates_idx,) = np.where(np.isin(ping_time, ping_time[duplicates][0]))
                 if np.array_equal(
                     backscatter_r[all_duplicates_idx[0]],
                     backscatter_r[all_duplicates_idx[1]],
@@ -69,9 +97,7 @@ class SetGroupsEK60(SetGroupsBase):
                             v[ch] = v[ch][unique_idx]
                         else:
                             v[ch] = [v[ch][i] for i in unique_idx]
-                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][
-                        unique_idx
-                    ]
+                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
                 else:
                     warnings.warn(
                         "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
@@ -87,8 +113,7 @@ class SetGroupsEK60(SetGroupsBase):
         prov_dict = {
             "conversion_software_name": "echopype",
             "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": dt.utcnow().isoformat(timespec="seconds")
-            + "Z",  # use UTC time
+            "conversion_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
             "src_filenames": self.input_file,
             "duplicate_ping_times": 1 if self.old_ping_time is not None else 0,
         }
@@ -142,11 +167,7 @@ class SetGroupsEK60(SetGroupsBase):
             )
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
-                {
-                    "frequency": [
-                        self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-                    ]
-                }
+                {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
             )
             ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
                 units="Hz",
@@ -162,17 +183,24 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
+
+        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        ds = xr.Dataset(self._beam_groups_vars())
+
         # Assemble sonar group dictionary
         sonar_dict = {
             "sonar_manufacturer": "Simrad",
             "sonar_model": self.parser_obj.config_datagram["sounder_name"],
+            # transducer (sonar) serial number is not stored in the EK60 raw data file,
+            # so sonar_serial_number can't be populated from the raw datagrams
             "sonar_serial_number": "",
             "sonar_software_name": "",
             "sonar_software_version": self.parser_obj.config_datagram["version"],
             "sonar_type": "echosounder",
         }
-        ds = xr.Dataset()
         ds = ds.assign_attrs(sonar_dict)
+
         return ds
 
     def set_platform(self, NMEA_only=False) -> xr.Dataset:
@@ -188,12 +216,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "latitude": (
                     ["location_time"],
                     lat,
-                    DEFAULT_PLATFORM_VAR_ATTRS["latitude"],
+                    self._varattrs["platform_var_default"]["latitude"],
                 ),
                 "longitude": (
                     ["location_time"],
                     lon,
-                    DEFAULT_PLATFORM_VAR_ATTRS["longitude"],
+                    self._varattrs["platform_var_default"]["longitude"],
                 ),
                 "sentence_type": (["location_time"], msg_type),
             },
@@ -201,7 +229,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "location_time": (
                     ["location_time"],
                     location_time,
-                    DEFAULT_PLATFORM_COORD_ATTRS["location_time"],
+                    self._varattrs["platform_coord_default"]["location_time"],
                 )
             },
         )
@@ -226,22 +254,22 @@ class SetGroupsEK60(SetGroupsBase):
                         "pitch": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["pitch"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["pitch"],
+                            self._varattrs["platform_var_default"]["pitch"],
                         ),
                         "roll": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["roll"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["roll"],
+                            self._varattrs["platform_var_default"]["roll"],
                         ),
-                        "heave": (
+                        "vertical_offset": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["heave"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["heave"],
+                            self._varattrs["platform_var_default"]["vertical_offset"],
                         ),
                         "water_level": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            DEFAULT_PLATFORM_VAR_ATTRS["water_level"],
+                            self._varattrs["platform_var_default"]["water_level"],
                         ),
                     },
                     coords={
@@ -266,9 +294,7 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp = ds_tmp.expand_dims(
                     {
                         "frequency": [
-                            self.parser_obj.config_datagram["transceivers"][ch][
-                                "frequency"
-                            ]
+                            self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
                         ]
                     }
                 )
@@ -293,14 +319,11 @@ class SetGroupsEK60(SetGroupsBase):
         return set_encodings(ds)
 
     def set_beam(self) -> xr.Dataset:
-        """Set the Beam group."""
+        """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
         freq = np.array(
-            [
-                v["frequency"]
-                for v in self.parser_obj.config_datagram["transceivers"].values()
-            ]
+            [v["frequency"] for v in self.parser_obj.config_datagram["transceivers"].values()]
         )
 
         # Channel-specific variables
@@ -326,9 +349,7 @@ class SetGroupsEK60(SetGroupsBase):
         beam_params = defaultdict()
         for param in params:
             beam_params[param] = [
-                self.parser_obj.config_datagram["transceivers"][ch_seq].get(
-                    param, np.nan
-                )
+                self.parser_obj.config_datagram["transceivers"][ch_seq].get(param, np.nan)
                 for ch_seq in ch_ids
             ]
 
@@ -491,7 +512,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 )
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -504,7 +525,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp = xr.Dataset(
                 {
                     "backscatter_r": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["power"][ch],
                         {"long_name": "Backscatter power", "units": "dB"},
                     ),
@@ -564,21 +585,19 @@ class SetGroupsEK60(SetGroupsBase):
                     "transmit_mode": (
                         ["ping_time"],
                         self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                        {
-                            "long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"
-                        },
+                        {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
                     ),
                 },
                 coords={
                     "ping_time": (
                         ["ping_time"],
                         self.parser_obj.ping_time[ch],
-                        DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                        self._varattrs["beam_coord_default"]["ping_time"],
                     ),
-                    "range_bin": (
-                        ["range_bin"],
+                    "range_sample": (
+                        ["range_sample"],
                         np.arange(data_shape[1]),
-                        DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                        self._varattrs["beam_coord_default"]["range_sample"],
                     ),
                 },
             )
@@ -592,12 +611,12 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp = ds_tmp.assign(
                     {
                         "angle_athwartship": (
-                            ["ping_time", "range_bin"],
+                            ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
                             {"long_name": "electrical athwartship angle"},
                         ),
                         "angle_alongship": (
-                            ["ping_time", "range_bin"],
+                            ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
                             {"long_name": "electrical alongship angle"},
                         ),
@@ -606,11 +625,7 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
-                {
-                    "frequency": [
-                        self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-                    ]
-                }
+                {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
             )
             ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
                 units="Hz",
@@ -623,6 +638,11 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge(
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        self.beamgroups_to_convention(
+            ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return set_encodings(ds)
 

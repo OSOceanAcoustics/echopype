@@ -21,7 +21,7 @@ other climate and oceanographic data sets, facilitating the integration of
 ocean sonar data in interdisciplinary oceanographic research.
 
 .. _netCDF:
-   https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html
+   https://www.unidata.ucar.edu/software/netcdf/
 .. _xarray: http://xarray.pydata.org/
 .. _dask: http://dask.pydata.org/
 .. _pandas: https://pandas.pydata.org/

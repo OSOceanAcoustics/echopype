@@ -37,14 +37,17 @@ def test_convert_ek60_matlab_raw(ek60_path):
     # Compare with matlab outputs
     ds_matlab = loadmat(ek60_matlab_path)
 
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
+
     # power
     assert np.allclose(
         [
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata.beam.backscatter_r.transpose(
-            'frequency', 'range_bin', 'ping_time'
+        echodata.beam.backscatter_r.isel(beam=0).transpose(
+            'frequency', 'range_sample', 'ping_time'
         ),
         rtol=0,
         atol=1.6e-5,
@@ -56,8 +59,8 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata.beam['angle_' + angle].transpose(
-                'frequency', 'range_bin', 'ping_time'
+            echodata.beam['angle_' + angle].isel(beam=0).transpose(
+                'frequency', 'range_sample', 'ping_time'
             ),
         )
 
@@ -90,12 +93,15 @@ def test_convert_ek60_echoview_raw(ek60_path):
             echodata.beam.backscatter_r.isel(
                 frequency=fidx,
                 ping_time=slice(None, 10),
-                range_bin=slice(1, None),
+                range_sample=slice(1, None),
+                beam=0
             ),
             atol=9e-6,
             rtol=atol,
         )
 
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 def test_convert_ek60_duplicate_ping_times(ek60_path):
     """Convert a file with duplicate ping times"""

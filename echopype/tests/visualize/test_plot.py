@@ -119,7 +119,7 @@ def test_plot_multi_get_range(
     assert isinstance(plots, list) is True
     assert all(isinstance(plot, FacetGrid) for plot in plots) is True
 
-    # Quadrant shape check
+    # Beam shape check
     if (
         sonar_model.lower() == 'ek80'
         and range_kwargs['encode_mode'] == 'complex'
@@ -266,7 +266,7 @@ def test_water_level_echodata(water_level, expect_warning):
             )
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_bin'  # noqa
+        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
         final_array = results.isel(frequency=0, ping_time=0).values
@@ -296,8 +296,8 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
         sonar_model=sonar_model, raw_file=filepath, xml_path=None
     )
     Sv = echopype.calibrate.compute_Sv(echodata, **range_kwargs)
-    ds = Sv.set_coords('range')
-    range_in_meter = ds.range
+    ds = Sv.set_coords('echo_range')
+    range_in_meter = ds.echo_range
     single_array = range_in_meter.isel(frequency=0, ping_time=0).values
 
     if isinstance(water_level, xr.DataArray):
@@ -325,7 +325,7 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
             )
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_bin'  # noqa
+        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
         final_array = results.isel(frequency=0, ping_time=0).values

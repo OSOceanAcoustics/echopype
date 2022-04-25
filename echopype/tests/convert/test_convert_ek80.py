@@ -54,11 +54,14 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
         echodata.beam.backscatter_r.isel(frequency=0, ping_time=0)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .values[1:, :],
         np.real(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
@@ -66,7 +69,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
     )
     assert np.array_equal(
         echodata.beam.backscatter_i.isel(frequency=0, ping_time=0)
-        .dropna('range_bin')
+        .dropna('range_sample')
         .values[1:, :],
         np.imag(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
@@ -96,6 +99,9 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test power
     # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
     echodata.beam.backscatter_r[3, 4, 13174] = -999
@@ -103,9 +109,8 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata.beam.backscatter_r.sel(frequency=freq * 1e3).dropna(
-                'range_bin'
-            ),
+            echodata.beam.backscatter_r.sel(frequency=freq * 1e3,
+                                            beam='1').dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
         )
@@ -131,17 +136,17 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         for ping_idx in df_angle['Ping_index'].value_counts().index:
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                major.sel(frequency=freq * 1e3)
+                major.sel(frequency=freq * 1e3, beam='1')
                 .isel(ping_time=ping_idx)
-                .dropna('range_bin'),
+                .dropna('range_sample'),
                 rtol=0,
                 atol=5e-5,
             )
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                minor.sel(frequency=freq * 1e3)
+                minor.sel(frequency=freq * 1e3, beam='1')
                 .isel(ping_time=ping_idx)
-                .dropna('range_bin'),
+                .dropna('range_sample'),
                 rtol=0,
                 atol=5e-5,
             )
@@ -157,22 +162,25 @@ def test_convert_ek80_complex_echoview(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test complex parsed data
     df_bb = pd.read_csv(
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
-    )  # averaged across quadrants
+    )  # averaged across beams
     assert np.allclose(
         echodata.beam.backscatter_r.sel(frequency=70e3)
-        .dropna('range_bin')
-        .mean(dim='quadrant'),
+        .dropna('range_sample')
+        .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
         rtol=0,
         atol=8e-6,
     )
     assert np.allclose(
         echodata.beam.backscatter_i.sel(frequency=70e3)
-        .dropna('range_bin')
-        .mean(dim='quadrant'),
+        .dropna('range_sample')
+        .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
         rtol=0,
         atol=4e-6,
@@ -186,10 +194,12 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     )
     echodata = open_raw(raw_file=ek80_raw_path_bb_cw, sonar_model='EK80')
 
-    # Check there are both Beam and Beam_power groups in the converted file
+    # Check there are both Sonar/Beam_group1 and /Sonar/Beam_power groups in the converted file
     assert echodata.beam_power is not None
     assert echodata.beam is not None
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
 
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure can convert EK80 file with multiple frequency channels off."""
@@ -201,33 +211,5 @@ def test_convert_ek80_freq_subset(ek80_path):
     # Check if converted output has only 2 frequency channels
     assert echodata.beam.frequency.size == 2
 
-
-# def test_xml():
-#     # Tests the exporting of the configuration xml as well as the environment xml
-#     tmp = Convert(raw_file=raw_path_bb_cw, sonar_model='EK80')
-#     tmp.to_xml(data_type='CONFIG')
-#     assert os.path.exists(tmp.converted_raw_path)
-#     os.remove(tmp.converted_raw_path)
-#
-#     tmp.to_xml(save_path='env.xml', data_type='ENV')
-#     assert os.path.exists(tmp.converted_raw_path)
-#     os.remove(tmp.converted_raw_path)
-#
-#
-# def test_add_platform():
-#     # Construct lat/lon dataset with fake data using a date range that includes
-#     # the ping_time ranges of the raw EK80 file. 7 pings over 28.166 seconds.
-#     # (2019-08-22T16:12:21.398000128 to 2019-08-22T16:12:49.564000256)
-#     location_time = pd.date_range(start='2019-08-22T16:00:00.0',
-#                                   end='2019-08-22T16:15:00.0', periods=100)
-#     lat = np.random.rand(100)
-#     lon = np.random.rand(100)
-#     testing_ds = xr.Dataset({'lat': (['location_time'], lat),
-#                              'lon': (['location_time'], lon)},
-#                             coords={'location_time': (['location_time'], location_time)})
-#     tmp = Convert(raw_file=raw_path_cw, sonar_model='EK80')
-#     tmp.to_netcdf(overwrite=True, extra_platform_data=testing_ds)
-#     with xr.open_dataset(tmp.converted_raw_path, group='Platform') as ds_plat:
-#         # Test if the slicing the location_time with the ping_time worked
-#         assert len(ds_plat.location_time) == 3
-#     os.remove(tmp.converted_raw_path)
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()

@@ -4,13 +4,61 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..echodata.convention.attrs import DEFAULT_BEAM_COORD_ATTRS
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
 
 
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files."""
+
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {
+        "backscatter_r",
+        "backscatter_i",
+        "angle_athwartship",
+        "angle_alongship",
+        "frequency_start",
+        "frequency_end",
+    }
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "beamwidth_twoway_alongship",
+        "beamwidth_twoway_athwartship",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._beamgroups = [
+            {
+                "name": "Beam_group1",
+                "descr": "contains complex backscatter data and other beam or channel-specific data.",  # noqa
+            },
+            {
+                "name": "Beam_group2",
+                "descr": (
+                    "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
+                    " including split-beam angle data when they exist."
+                ),
+            },
+        ]
 
     def set_env(self, env_only=False) -> xr.Dataset:
         """Set the Environment group."""
@@ -110,6 +158,7 @@ class SetGroupsEK80(SetGroupsBase):
             "transducer_name",
             "application_name",
             "application_version",
+            "channel_id_short",
         ]
         var = defaultdict(list)
         for ch_id, data in self.parser_obj.config_datagram["configuration"].items():
@@ -117,25 +166,31 @@ class SetGroupsEK80(SetGroupsBase):
                 var[param].append(data[param])
 
         # Create dataset
+        # beam_group_name and beam_group_descr variables sharing a common dimension (beam),
+        # using the information from self._beamgroups
+        beam_groups_vars = self._beam_groups_vars()
+        sonar_vars = {
+            "serial_number": (["frequency"], var["serial_number"]),
+            "sonar_model": (["frequency"], var["transducer_name"]),
+            "sonar_serial_number": (["frequency"], var["channel_id_short"]),
+            "sonar_software_name": (
+                ["frequency"],
+                var["application_name"],
+            ),  # identical for all channels
+            "sonar_software_version": (
+                ["frequency"],
+                var["application_version"],
+            ),  # identical for all channels
+        }
         ds = xr.Dataset(
-            {
-                "serial_number": (["frequency"], var["serial_number"]),
-                "sonar_model": (["frequency"], var["transducer_name"]),
-                "sonar_software_name": (
-                    ["frequency"],
-                    var["application_name"],
-                ),  # identical for all channels
-                "sonar_software_version": (
-                    ["frequency"],
-                    var["application_version"],
-                ),  # identical for all channels
-            },
+            {**sonar_vars, **beam_groups_vars},
             coords={"frequency": var["transducer_frequency"]},
             attrs={
                 "sonar_manufacturer": "Simrad",
                 "sonar_type": "echosounder",
             },
         )
+
         return ds
 
     def set_platform(self) -> xr.Dataset:
@@ -148,10 +203,7 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
-            print(
-                "WARNING: The water_level_draft was not in the file. "
-                "Value set to NaN."
-            )
+            print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
 
         location_time, msg_type, lat, lon = self._parse_NMEA()
         mru_time = self.parser_obj.mru.get("timestamp", None)
@@ -180,15 +232,10 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (-90.0, 90.0),
                     },
                 ),
-                "heave": (
+                "vertical_offset": (
                     ["mru_time"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
-                    {
-                        "long_name": "Platform heave",
-                        "standard_name": "platform_heave_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "latitude": (
                     ["location_time"],
@@ -282,7 +329,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
-        """Assemble dataset for ping-invariant params in the Beam group.
+        """Assemble dataset for ping-invariant params in the /Sonar/Beam_group1 group.
 
         Parameters
         ----------
@@ -294,9 +341,7 @@ class SetGroupsEK80(SetGroupsBase):
         ch_ids = self.parser_obj.ch_ids[data_type]
         freq = np.array(
             [
-                self.parser_obj.config_datagram["configuration"][ch][
-                    "transducer_frequency"
-                ]
+                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
                 for ch in ch_ids
             ]
         )
@@ -428,7 +473,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     freq,
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
@@ -441,11 +486,10 @@ class SetGroupsEK80(SetGroupsBase):
             np.array(self.parser_obj.ping_data_dict["n_complex"][ch])
         )
         if num_transducer_sectors.size > 1:  # this is not supposed to happen
-            raise ValueError(
-                "Transducer sector number changes in the middle of the file!"
-            )
+            raise ValueError("Transducer sector number changes in the middle of the file!")
         else:
             num_transducer_sectors = num_transducer_sectors[0]
+
         data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
         data_shape = (
             data_shape[0],
@@ -457,12 +501,12 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_bin", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.real(data),
                     {"long_name": "Real part of backscatter power", "units": "V"},
                 ),
                 "backscatter_i": (
-                    ["ping_time", "range_bin", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.imag(data),
                     {"long_name": "Imaginary part of backscatter power", "units": "V"},
                 ),
@@ -471,14 +515,18 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
                     np.arange(data_shape[1]),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
+                "beam": (
+                    ["beam"],
+                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    self._varattrs["beam_coord_default"]["beam"],
+                ),
             },
         )
 
@@ -537,7 +585,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_bin"],
+                    ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
                     {"long_name": "Backscattering power", "units": "dB"},
                 ),
@@ -546,12 +594,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
                     np.arange(data_shape[1]),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
@@ -561,12 +609,12 @@ class SetGroupsEK80(SetGroupsBase):
             ds_tmp = ds_tmp.assign(
                 {
                     "angle_athwartship": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
                         {"long_name": "electrical athwartship angle"},
                     ),
                     "angle_alongship": (
-                        ["ping_time", "range_bin"],
+                        ["ping_time", "range_sample"],
                         self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
                         {"long_name": "electrical alongship angle"},
                     ),
@@ -575,7 +623,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         return set_encodings(ds_tmp)
 
-    def _assemble_ds_common(self, ch, range_bin_size):
+    def _assemble_ds_common(self, ch, range_sample_size):
         """Variables common to complex and power/angle data."""
         # pulse duration may have different names
         if "pulse_length" in self.parser_obj.ping_data_dict:
@@ -625,19 +673,19 @@ class SetGroupsEK80(SetGroupsBase):
                 "ping_time": (
                     ["ping_time"],
                     self.parser_obj.ping_time[ch],
-                    DEFAULT_BEAM_COORD_ATTRS["ping_time"],
+                    self._varattrs["beam_coord_default"]["ping_time"],
                 ),
-                "range_bin": (
-                    ["range_bin"],
-                    np.arange(range_bin_size),
-                    DEFAULT_BEAM_COORD_ATTRS["range_bin"],
+                "range_sample": (
+                    ["range_sample"],
+                    np.arange(range_sample_size),
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
         return set_encodings(ds_common)
 
     def set_beam(self) -> List[xr.Dataset]:
-        """Set the Beam group."""
+        """Set the /Sonar/Beam_group1 group."""
 
         def merge_save(ds_combine, ds_type, group_name):
             """Merge data from all complex or all power/angle channels"""
@@ -652,7 +700,7 @@ class SetGroupsEK80(SetGroupsBase):
                 )  # override keeps the Dataset attributes
             return set_encodings(ds_combine)
             # # Save to file
-            # io.save_file(ds_combine.chunk({'range_bin': DEFAULT_CHUNK_SIZE['range_bin'],
+            # io.save_file(ds_combine.chunk({'range_sample': DEFAULT_CHUNK_SIZE['range_sample'],
             #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
             #              path=self.output_path, mode='a', engine=self.engine,
             #              group=group_name, compression_settings=self.compression_settings)
@@ -692,7 +740,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_data = self._assemble_ds_power(ch)
             else:  # skip for channels containing no data
                 continue
-            ds_common = self._assemble_ds_common(ch, ds_data.range_bin.size)
+            ds_common = self._assemble_ds_common(ch, ds_data.range_sample.size)
             ds_data = xr.merge(
                 [ds_data, ds_common], combine_attrs="override"
             )  # override keeps the Dataset attributes
@@ -700,14 +748,12 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = ds_data.expand_dims(
                 {
                     "frequency": [
-                        self.parser_obj.config_datagram["configuration"][ch][
-                            "transducer_frequency"
-                        ]
+                        self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
                     ]
                 }
             )
             ds_data["frequency"] = ds_data["frequency"].assign_attrs(
-                **DEFAULT_BEAM_COORD_ATTRS["frequency"]
+                **self._varattrs["beam_coord_default"]["frequency"]
             )
             if ch in self.parser_obj.ch_ids["complex"]:
                 ds_complex.append(ds_data)
@@ -715,16 +761,29 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_power.append(ds_data)
 
         # Merge and save group:
-        #  if both complex and power data exist: complex data in Beam group
-        #   and power data in Beam_power
-        #  if only one type of data exist: data in Beam group
+        #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
+        #   and power data in /Sonar/Beam_group2
+        #  if only one type of data exist: data in /Sonar/Beam_group1 group
         ds_beam_power = None
         if len(ds_complex) > 0:
-            ds_beam = merge_save(ds_complex, "complex", group_name="Beam")
+            ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(ds_power, "power", group_name="Beam_power")
+                ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
         else:
-            ds_beam = merge_save(ds_power, "power", group_name="Beam")
+            ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        if isinstance(ds_beam_power, xr.Dataset):
+            self.beamgroups_to_convention(
+                ds_beam_power,
+                self.beam_only_names,
+                self.beam_ping_time_names,
+                self.ping_time_only_names,
+            )
+
+        self.beamgroups_to_convention(
+            ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return [ds_beam, ds_beam_power]
 
@@ -773,7 +832,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency": (
                     ["frequency"],
                     param_dict["transducer_frequency"],
-                    DEFAULT_BEAM_COORD_ATTRS["frequency"],
+                    self._varattrs["beam_coord_default"]["frequency"],
                 ),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
