@@ -17,13 +17,13 @@ class SetGroupsAZFP(SetGroupsBase):
     # these sets are applied to all Sonar/Beam_groupX groups.
 
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {}
+    beam_only_names = {"backscatter_r"}
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {}
+    ping_time_only_names = {"sample_interval", "transmit_duration_nominal"}
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {}
+    beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -219,6 +219,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "tilt_Y_d": parameters["Y_d"],
             },
         )
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        self.beamgroups_to_convention(
+            ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
+
         return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:
