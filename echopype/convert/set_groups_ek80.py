@@ -271,6 +271,7 @@ class SetGroupsEK80(SetGroupsBase):
                     [self.parser_obj.environment["drop_keel_offset_is_manual"]]
                     if "drop_keel_offset_is_manual" in self.parser_obj.environment
                     else [np.nan],
+                ),
                 "transducer_offset_x": (
                     ["frequency"],
                     [
