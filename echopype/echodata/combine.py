@@ -202,9 +202,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                         new_ping_time = combined_group["ping_time"]
                     else:
                         combined_group["ping_time"] = new_ping_time
-                if "time1" in combined_group and exist_reversed_time(
-                    combined_group, "time1"
-                ):
+                if "time1" in combined_group and exist_reversed_time(combined_group, "time1"):
                     if group != "nmea":
                         if old_time1 is None:
                             warnings.warn(
