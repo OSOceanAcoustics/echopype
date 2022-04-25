@@ -43,6 +43,24 @@ def test_convert(ek80_new_file, dump_output_dir):
 
     nc_file.unlink()
 
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
+
 
 def test_convert_ek80_complex_matlab(ek80_path):
     """Compare parsed EK80 CW power/angle data with Matlab parsed data."""
@@ -75,6 +93,24 @@ def test_convert_ek80_complex_matlab(ek80_path):
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # imag part
     )
+
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
 
 
 def test_convert_ek80_cw_power_angle_echoview(ek80_path):
@@ -151,6 +187,24 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
                 atol=5e-5,
             )
 
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
+
 
 def test_convert_ek80_complex_echoview(ek80_path):
     """Compare parsed EK80 BB data with csv exported by EchoView."""
@@ -186,6 +240,24 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=4e-6,
     )
 
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
+
 
 def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     """Make sure can convert a single EK80 file containing both CW and BB mode data."""
@@ -201,6 +273,24 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
+
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure can convert EK80 file with multiple frequency channels off."""
     ek80_raw_path_freq_subset = str(
@@ -213,3 +303,21 @@ def test_convert_ek80_freq_subset(ek80_path):
 
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
+
+    # check environment xml datagram
+    env_vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+    env_dims = ["environment_time", "sound_velocity_profile_depth"]
+    for env_var in env_vars:
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    for env_dim in env_dims:
+        assert env_dim in echodata["Environment"]
+    plat_vars = ["drop_keel_offset", "drop_keel_offset_is_manual", "water_level", "water_level_draft_is_manual"]
+    plat_dims = ["time3"]
+    for plat_var in plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+    for plat_dim in plat_dims:
+        assert plat_dim in echodata["Platform"]
