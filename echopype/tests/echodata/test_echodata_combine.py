@@ -184,10 +184,10 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
                 assert not exist_reversed_time(combined_group, "location_time")
             if "old_location_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_location_time")
-            if "mru_time" in combined_group and group_name != "provenance":
-                assert not exist_reversed_time(combined_group, "mru_time")
-            if "old_mru_time" in combined_group:
-                assert exist_reversed_time(combined_group, "old_mru_time")
+            if "time2" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "time2")
+            if "old_time2" in combined_group:
+                assert exist_reversed_time(combined_group, "old_time2")
 
 
 def test_attr_storage(ek60_test_data):

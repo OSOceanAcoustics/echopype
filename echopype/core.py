@@ -91,7 +91,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
+            "platform": ["location_time", "time2"],
             "nmea": "location_time",
             "vendor": None,
             "default": "ping_time",
@@ -106,7 +106,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
+            "platform": ["location_time", "time2"],
             "nmea": "location_time",
             "vendor": None,
             "default": "ping_time",
@@ -121,7 +121,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
+            "platform": ["location_time", "time2"],
             "nmea": "location_time",
             "vendor": None,
             "default": "ping_time",

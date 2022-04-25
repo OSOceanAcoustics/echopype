@@ -24,7 +24,7 @@ DEFAULT_ENCODINGS = {
     "ping_time_echosounder_raw": DEFAULT_TIME_ENCODING,
     "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
     "location_time": DEFAULT_TIME_ENCODING,
-    "mru_time": DEFAULT_TIME_ENCODING,
+    "time2": DEFAULT_TIME_ENCODING,
 }
 
 
@@ -56,7 +56,7 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
     for var, encoding in DEFAULT_ENCODINGS.items():
         if var in new_ds:
             da = new_ds[var].copy()
-            if "_time" in var:
+            if "_time" in var or ("time" in var and len(var) == 5):
                 new_ds[var] = xr.apply_ufunc(
                     _encode_dataarray,
                     da,
