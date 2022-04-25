@@ -66,7 +66,7 @@ variable_and_varattributes:
     beam:
       long_name: Beam name
   platform_coord_default:
-    location_time:
+    time1:
       axis: T
       long_name: Timestamps for NMEA datagrams
       standard_name: time
