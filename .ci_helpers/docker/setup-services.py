@@ -61,6 +61,6 @@ if __name__ == "__main__":
 
     if args.tear_down:
         print("1) Stopping test services deployment.")
-        os.system(f"docker-compose -f {COMPOSE_FILE} down --remove-orphans")
+        os.system(f"docker-compose -f {COMPOSE_FILE} down --remove-orphans --volumes --rmi all")
         print("2) Done.")
         os.system("docker ps --last 2")
