@@ -4,7 +4,7 @@
 
 ## Scope and goals
 
-Echopype is a library aimed at enabling interoperability and scalability in processing ocean sonar data. The focus and scope right now are on scientific echosounders that are widely used in fishery and marine ecological surveys. We envision that echopype will provide ''building blocks'' that can be strung together to construct data processing pipelines to bring raw data files collected by these instruments to ''analysis-ready'' data products that can be used by a wider community of researchers in the ocean science domain. We also plan for echopype to be flexible in accommodating both local and cloud computing environments, such that data processing pipelines can be prototyped locally and scaled up for larger scale processing on the cloud.
+Echopype is a library aimed at enabling interoperability and scalability in processing ocean sonar data. The focus and scope right now are on scientific echosounders that are widely used in fishery and marine ecological surveys. We envision that echopype will provide "building blocks" that can be strung together to construct data processing pipelines to bring raw data files collected by these instruments to "analysis-ready" data products that can be used by a wider community of researchers in the ocean science domain. We also plan for echopype to be flexible in accommodating both local and cloud computing environments, such that data processing pipelines can be prototyped locally and scaled up for larger scale processing on the cloud.
 
 
 ## Data standardization
