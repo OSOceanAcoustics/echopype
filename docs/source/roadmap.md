@@ -44,23 +44,21 @@ Below is a draft of data processing levels for a representative sonar data proce
 [42] NEON, “Data Processing & Publication - Open Data to Understand our Ecosystems.” https://www.neonscience.org/data/about-data/data-processing-publication.
 [43] OOI, “Ocean Observatories Initiative: Glossary - Data Terminology,” Ocean Observatories Initiative, Sep. 29, 2015. https://oceanobservatories.org/glossary/#DATATERMS. -->
 
-## Computing scalability
+## Accessibility and scalability in computation
 
-- bring out that we want our computation to be scalable to handle the big data
-- mention cloud-native pipeline and configuration
+Computational accessibility and scalability are core goals of echopype development. We aim to provide data processing capability for researchers both on their own personal computers and in computing clusters, such as on the cloud. Our data conversion tools currently provide direct read/write interface with both local filesystems and cloud storage. The upcoming development focuses are:
+- Memory handling in data conversion and combination in memory-limited scenarios, either due to unreasonably large raw data files or limits in computational resources
+- Processing functions to carry raw converted data to higher data processing levels, with support for distributed computing
+- Example data processing pipelines and associated container-based configuration for convenient deployment by researchers
 
 
 ## Community engagement
 
-- goal is to provide something that current do not exist in the community in a
-  fully open-source form
-- repo can serve as a forum for discussion of computing details and questions
-  about data
+By providing data conversion and processing tools in a fully open-source form, we envision that the echopype code repository can also serve as a forum for community discussions of computing details and questions about data/data handling. To date most questions we encountered from echopype users (via [GitHub issues](https://github.com/OSOceanAcoustics/echopype/issues) or private emails) are about data conversion problems, which are due to flexibility of instrument configuration that produce diverse forms of raw data, particularly for the EK80 echosounder. As we develop further down the data processing chain, we aim to engage users in discussing computational needs and implementation details in a similar manner.
 
 
 ## Companion developments
 
-- echopype is only for processing pipeline
-- echoshader: visualization
-- echopydantic: convention check
-- echoregions: parsing labels for ML developments
+Echopype is a tool for data conversion and processing based on a standardized data model (see DATA FORMAT (NEED TO ADD LINK)). The developer team is taking a modularized approach to develop companion libraries to cover other needs in integrative analysis of ocean sonar data. Below are planned efforts:
+- [Echoshader](https://github.com/OSOceanAcoustics/echoshader): provide interactive visualization widgets, leveraging the [HoloViz](https://holoviz.org/) suite of tools
+- [Echopydantic](https://github.com/OSOceanAcoustics/echopydantic): provide convention-related functionalities, such as definitions and compliance check
