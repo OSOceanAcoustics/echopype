@@ -21,7 +21,7 @@ FIX THIS AND LINK: See :ref:`convert` and :ref:`data-format` for more detail.
 
 ## Data processing levels
 
-We plan to put together a set of clearly defined progression of data processing levels for active ocean sonar data, spanning the continuum from raw data records to acoustically derived  biological information. The development will leverage the accumulated experience from remote sensing and large-scale, long-term environmental observing communities (e.g., [NASA Data Processing Levels](https://earthdata.nasa.gov/collaborate/open-data-services-and-software/data-information-policy/data-levels/)). We will embed the processing provenance specifications in the echopype computational pipeline.
+We plan to put together a set of clearly defined progression of data processing levels for active ocean sonar data, spanning the continuum from raw data records to acoustically derived  biological information. The development will leverage the accumulated experience from satellite remote sensing community and large-scale, long-term environmental observing programs (see examples from [NASA](https://earthdata.nasa.gov/collaborate/open-data-services-and-software/data-information-policy/data-levels/), [IFREMER](http://en.data.ifremer.fr/All-about-data/Data-management/Processing-levels), and [NEON](https://www.neonscience.org/data/about-data/data-processing-publication)). We will embed the processing provenance specifications in the echopype computational pipeline.
 
 See PAGE X for our current draft of data processing levels. [WHERE SHOULD THIS GO?]
 
