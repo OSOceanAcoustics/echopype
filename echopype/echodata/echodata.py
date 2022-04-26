@@ -468,7 +468,7 @@ class EchoData:
             - `"longitude"`
             - `"water_level"`
         The data inserted into the Platform group will be indexed by a dimension named
-        `"location_time"`.
+        `"time1"`.
 
         Parameters
         ----------
@@ -544,17 +544,17 @@ class EchoData:
 
         platform = self.platform
         platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
-        platform = platform.drop_dims(["location_time"], errors="ignore")
+        platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
-        platform = platform.assign_coords(location_time=extra_platform_data[time_dim].values)
+        platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
-        location_time_attrs = {
-            **self._varattrs["platform_coord_default"]["location_time"],
+        time1_attrs = {
+            **self._varattrs["platform_coord_default"]["time1"],
             **{"history": history_attr},
         }
-        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
+        platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
         dropped_vars_target = [
             "pitch",
@@ -588,7 +588,7 @@ class EchoData:
         platform = platform.update(
             {
                 "pitch": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
@@ -596,7 +596,7 @@ class EchoData:
                     ),
                 ),
                 "roll": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
@@ -604,7 +604,7 @@ class EchoData:
                     ),
                 ),
                 "vertical_offset": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
@@ -612,7 +612,7 @@ class EchoData:
                     ),
                 ),
                 "latitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
@@ -620,7 +620,7 @@ class EchoData:
                     ),
                 ),
                 "longitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
@@ -628,7 +628,7 @@ class EchoData:
                     ),
                 ),
                 "water_level": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],

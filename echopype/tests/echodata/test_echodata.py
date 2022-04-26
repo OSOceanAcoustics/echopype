@@ -352,7 +352,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="mobile"
     )
-    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["location_time"]).all():
+    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["time1"]).all():
         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -421,25 +421,25 @@ def test_update_platform(update_platform_samples):
     # times have max interval of 2s
     # check times are > min(ed.beam["ping_time"]) - 2s
     assert (
-        ed.platform["location_time"]
+        ed.platform["time1"]
         > ed.beam["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["location_time"] < ed.beam["ping_time"].min()
+            ed.platform["time1"] < ed.beam["ping_time"].min()
         )
         == 1
     )
     # check times are < max(ed.beam["ping_time"]) + 2s
     assert (
-        ed.platform["location_time"]
+        ed.platform["time1"]
         < ed.beam["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["location_time"] > ed.beam["ping_time"].max()
+            ed.platform["time1"] > ed.beam["ping_time"].max()
         )
         == 1
     )

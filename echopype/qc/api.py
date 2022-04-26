@@ -29,7 +29,7 @@ def coerce_increasing_time(ds, time_name="ping_time", local_win_len=100):
     """Coerce a time coordinate to always flow forward.
 
     This is to correct for problems sometimes observed in EK60 data
-    where a time coordinate (``ping_time`` or ``location_time``)
+    where a time coordinate (``ping_time`` or ``time1``)
     would suddenly go backward for one ping but with the rest of the pinging interval undisturbed.
 
     Parameters

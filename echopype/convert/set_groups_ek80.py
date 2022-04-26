@@ -157,15 +157,15 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = np.nan
             print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
 
-        location_time, msg_type, lat, lon = self._parse_NMEA()
-        mru_time = self.parser_obj.mru.get("timestamp", None)
-        mru_time = np.array(mru_time) if mru_time is not None else [np.nan]
+        time1, msg_type, lat, lon = self._parse_NMEA()
+        time2 = self.parser_obj.mru.get("timestamp", None)
+        time2 = np.array(time2) if time2 is not None else [np.nan]
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
                 "pitch": (
-                    ["mru_time"],
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
                     {
                         "long_name": "Platform pitch",
@@ -175,7 +175,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "roll": (
-                    ["mru_time"],
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("roll", [np.nan])),
                     {
                         "long_name": "Platform roll",
@@ -185,12 +185,12 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "vertical_offset": (
-                    ["mru_time"],
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "latitude": (
-                    ["location_time"],
+                    ["time1"],
                     lat,
                     {
                         "long_name": "Platform latitude",
@@ -200,7 +200,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "longitude": (
-                    ["location_time"],
+                    ["time1"],
                     lon,
                     {
                         "long_name": "Platform longitude",
@@ -209,7 +209,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (-180.0, 180.0),
                     },
                 ),
-                "sentence_type": (["location_time"], msg_type),
+                "sentence_type": (["time1"], msg_type),
                 "transducer_offset_x": (
                     ["frequency"],
                     [
@@ -265,18 +265,18 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             },
             coords={
-                "mru_time": (
-                    ["mru_time"],
-                    mru_time,
+                "time2": (
+                    ["time2"],
+                    time2,
                     {
                         "axis": "T",
                         "long_name": "Timestamps for MRU datagrams",
                         "standard_name": "time",
                     },
                 ),
-                "location_time": (
-                    ["location_time"],
-                    location_time,
+                "time1": (
+                    ["time1"],
+                    time1,
                     {
                         "axis": "T",
                         "long_name": "Timestamps for NMEA datagrams",
