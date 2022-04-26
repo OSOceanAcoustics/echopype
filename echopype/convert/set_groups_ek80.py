@@ -87,6 +87,27 @@ class SetGroupsEK80(SetGroupsBase):
             if k in dict_env:
                 dict_env["absorption_indicative"] = dict_env.pop(k)
 
+        if "sound_velocity_profile" in self.parser_obj.environment:
+            dict_env["sound_velocity_profile"] = (
+                ["environment_time", "sound_velocity_profile_depth"],
+                [self.parser_obj.environment["sound_velocity_profile"][1::2]],
+                {
+                    "long_name": "sound velocity profile",
+                    "standard_name": "speed_of_sound_in_sea_water",
+                    "units": "m/s",
+                    "valid_min": 0.0,
+                    "comment": "parsed from raw data files as (depth, sound_speed) value pairs",
+                },
+            )
+
+        vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        for var_name in vars:
+            if var_name in self.parser_obj.environment:
+                dict_env[var_name] = (
+                    ["environment_time"],
+                    [self.parser_obj.environment[var_name]],
+                )
+
         ds = xr.Dataset(
             dict_env,
             coords={
@@ -98,7 +119,33 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
                     },
-                )
+                ),
+                "environment_time": (
+                    ["environment_time"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
+                    },
+                ),
+                "sound_velocity_profile_depth": (
+                    ["sound_velocity_profile_depth"],
+                    self.parser_obj.environment["sound_velocity_profile"][::2]
+                    if "sound_velocity_profile" in self.parser_obj.environment
+                    else [],
+                    {
+                        "standard_name": "depth",
+                        "units": "m",
+                        "axis": "Z",
+                        "positive": "down",
+                        "valid_min": 0.0,
+                    },
+                ),
             },
         )
         return set_encodings(ds)
@@ -138,7 +185,10 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
             coords={"frequency": var["transducer_frequency"]},
-            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
+            attrs={
+                "sonar_manufacturer": "Simrad",
+                "sonar_type": "echosounder",
+            },
         )
 
         return ds
@@ -210,6 +260,18 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "sentence_type": (["time1"], msg_type),
+                "drop_keel_offset": (
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset"]]
+                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
+                    else [np.nan],
+                ),
+                "drop_keel_offset_is_manual": (
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
+                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
+                    else [np.nan],
+                ),
                 "transducer_offset_x": (
                     ["frequency"],
                     [
@@ -241,13 +303,19 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["transducer_offset_z"],
                 ),
                 "water_level": (
-                    [],
-                    water_level,
+                    ["time3"],
+                    [water_level],
                     {
                         "long_name": "z-axis distance from the platform coordinate system "
                         "origin to the sonar transducer",
                         "units": "m",
                     },
+                ),
+                "water_level_draft_is_manual": (
+                    ["time3"],
+                    [self.parser_obj.environment["water_level_draft_is_manual"]]
+                    if "water_level_draft_is_manual" in self.parser_obj.environment
+                    else [np.nan],
                 ),
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
@@ -274,6 +342,19 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                     },
                 ),
+                "time3": (
+                    ["time3"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
+                    },
+                ),
                 "time1": (
                     ["time1"],
                     time1,
@@ -289,11 +370,6 @@ class SetGroupsEK80(SetGroupsBase):
                 "platform_name": self.ui_param["platform_name"],
                 "platform_type": self.ui_param["platform_type"],
                 # TODO: check what this 'drop_keel_offset' is
-                "drop_keel_offset": (
-                    self.parser_obj.environment["drop_keel_offset"]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else np.nan
-                ),
             },
         )
         return set_encodings(ds)
