@@ -1,10 +1,8 @@
 .. _roadmap:
 
-Development Roadmap
-===================
+# Development Roadmap
 
-Scope and goals
----------------
+## Scope and goals
 
 Echopype is a library aimed at enabling interoperability and scalability in processing
 ocean sonar data.
@@ -19,37 +17,33 @@ environments, such that data processing pipelines can be prototyped locally and 
 for larger scale processing on the cloud.
 
 
-Data standardization
---------------------
+## Data standardization
 
 At the core of echopype is a data conversion and standardization module that
-returns an ``EchoData`` object that allows easy and intuitive access and understanding
+returns an `EchoData` object that allows easy and intuitive access and understanding
 of ocean sonar data following the netCDF data model.
 This conversion step ensures that downstream processing can be developed and executed
 in an instrument-agnostic manner, which is critical for tackling the currently tedious
 and labor-intensive data wrangling operations associated with integrative analysis of
 data from heterogeneous instrument sources.
 
-See :ref:`convert` and :ref:`data-format` for more detail.
+FIX THIS: See :ref:`convert` and :ref:`data-format` for more detail.
 
 
-Data processing levels
-----------------------
+## Data processing levels
 
 - put forth the idea that we will define data processing levels for carrying data
   through the pipeline
 - a simple table giving a taste of how these data processing levels look like.
 
 
-Computing scalability
----------------------
+## Computing scalability
 
 - bring out that we want our computation to be scalable to handle the big data
 - mention cloud-native pipeline and configuration
 
 
-Community engagement
---------------------
+## Community engagement
 
 - goal is to provide something that current do not exist in the community in a
   fully open-source form
@@ -57,8 +51,7 @@ Community engagement
   about data
 
 
-Companion developments
-----------------------
+## Companion developments
 
 - echopype is only for processing pipeline
 - echoshader: visualization
