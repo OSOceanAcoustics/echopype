@@ -48,7 +48,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
         np.array(
             [ds_matlab_output['Output'][0]['N'][fidx] for fidx in range(4)]
         ),
-        echodata.beam.backscatter_r.values,
+        echodata.beam.backscatter_r.isel(beam=0).drop('beam').values,
     )
     # tilt x-y
     assert np.array_equal(
@@ -109,7 +109,7 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert np.array_equal(test_power, echodata.beam.backscatter_r)
+    assert np.array_equal(test_power, echodata.beam.backscatter_r.isel(beam=0).drop('beam'))
 
 
 def test_convert_azfp_01a_different_ranges(azfp_path):
@@ -123,7 +123,7 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     )
     assert echodata.beam.backscatter_r.isel(frequency=0).dropna(
         'range_sample'
-    ).shape == (360, 438)
+    ).shape == (360, 438, 1)
     assert echodata.beam.backscatter_r.isel(frequency=3).dropna(
         'range_sample'
-    ).shape == (360, 135)
+    ).shape == (360, 135, 1)

@@ -79,10 +79,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     -----
     UserWarning
         If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`, `location_time` or `mru_time` values,
+        have non-monotonically increasing `ping_time`, `time1` or `time2` values,
         the corresponding values in the output `EchoData` object will be increased starting at the
         timestamp where the reversal occurs such that all values in the output are monotonically
-        increasing. Additionally, the original `ping_time`, `location_time` or `mru_time` values
+        increasing. Additionally, the original `ping_time`, `time1` or `time2` values
         will be stored in the `Provenance` group, although this behavior may change in future
         versions.
 
@@ -126,13 +126,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # ping time after reversal correction
     new_ping_time = None
     # location time before reversal correction
-    old_location_time = None
+    old_time1 = None
     # location time after reversal correction
-    new_location_time = None
+    new_time1 = None
     # mru time before reversal correction
-    old_mru_time = None
+    old_time2 = None
     # mru time after reversal correction
-    new_mru_time = None
+    new_time2 = None
 
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
@@ -202,32 +202,30 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                         new_ping_time = combined_group["ping_time"]
                     else:
                         combined_group["ping_time"] = new_ping_time
-                if "location_time" in combined_group and exist_reversed_time(
-                    combined_group, "location_time"
-                ):
+                if "time1" in combined_group and exist_reversed_time(combined_group, "time1"):
                     if group != "nmea":
-                        if old_location_time is None:
+                        if old_time1 is None:
                             warnings.warn(
-                                f"{sonar_model} location_time reversal detected; the location times will be corrected"  # noqa
+                                f"{sonar_model} time1 reversal detected; the location times will be corrected"  # noqa
                                 " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                             )
-                            old_location_time = combined_group["location_time"]
-                            coerce_increasing_time(combined_group, time_name="location_time")
-                            new_location_time = combined_group["location_time"]
+                            old_time1 = combined_group["time1"]
+                            coerce_increasing_time(combined_group, time_name="time1")
+                            new_time1 = combined_group["time1"]
                         else:
-                            combined_group["location_time"] = new_location_time
+                            combined_group["time1"] = new_time1
             if sonar_model == "EK80":
-                if "mru_time" in combined_group and exist_reversed_time(combined_group, "mru_time"):
-                    if old_mru_time is None:
+                if "time2" in combined_group and exist_reversed_time(combined_group, "time2"):
+                    if old_time2 is None:
                         warnings.warn(
-                            f"{sonar_model} mru_time reversal detected; the mru times will be corrected"  # noqa
+                            f"{sonar_model} time2 reversal detected; the mru times will be corrected"  # noqa
                             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
                         )
-                        old_mru_time = combined_group["mru_time"]
-                        coerce_increasing_time(combined_group, time_name="mru_time")
-                        new_mru_time = combined_group["mru_time"]
+                        old_time2 = combined_group["time2"]
+                        coerce_increasing_time(combined_group, time_name="time2")
+                        new_time2 = combined_group["time2"]
                     else:
-                        combined_group["mru_time"] = new_mru_time
+                        combined_group["time2"] = new_time2
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
@@ -243,12 +241,12 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         result.provenance["old_ping_time"] = old_ping_time
         result.provenance.attrs["reversed_ping_times"] = 1
     # save location time before reversal correction
-    if old_location_time is not None:
-        result.provenance["old_location_time"] = old_location_time
+    if old_time1 is not None:
+        result.provenance["old_time1"] = old_time1
         result.provenance.attrs["reversed_ping_times"] = 1
     # save mru time before reversal correction
-    if old_mru_time is not None:
-        result.provenance["old_mru_time"] = old_mru_time
+    if old_time2 is not None:
+        result.provenance["old_time2"] = old_time2
         result.provenance.attrs["reversed_ping_times"] = 1
     # TODO: possible parameter to disable original attributes and original ping_time storage
     # in provenance group?

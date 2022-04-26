@@ -208,32 +208,32 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        location_time, msg_type, lat, lon = self._parse_NMEA()
+        time1, msg_type, lat, lon = self._parse_NMEA()
 
         # NMEA dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
                 "latitude": (
-                    ["location_time"],
+                    ["time1"],
                     lat,
                     self._varattrs["platform_var_default"]["latitude"],
                 ),
                 "longitude": (
-                    ["location_time"],
+                    ["time1"],
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
-                "sentence_type": (["location_time"], msg_type),
+                "sentence_type": (["time1"], msg_type),
             },
             coords={
-                "location_time": (
-                    ["location_time"],
-                    location_time,
-                    self._varattrs["platform_coord_default"]["location_time"],
+                "time1": (
+                    ["time1"],
+                    time1,
+                    self._varattrs["platform_coord_default"]["time1"],
                 )
             },
         )
-        ds = ds.chunk({"location_time": DEFAULT_CHUNK_SIZE["ping_time"]})
+        ds = ds.chunk({"time1": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         if not NMEA_only:
             ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())

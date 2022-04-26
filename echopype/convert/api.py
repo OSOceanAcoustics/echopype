@@ -181,7 +181,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
 
     # Platform group
     io.save_file(
-        echodata.platform,  # TODO: chunking necessary? location_time and mru_time (EK80) only
+        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
         path=output_path,
         mode="a",
         engine=engine,

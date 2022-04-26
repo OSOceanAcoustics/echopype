@@ -123,14 +123,14 @@ class SetGroupsBase(abc.ABC):
         ds = xr.Dataset(
             {
                 "NMEA_datagram": (
-                    ["location_time"],
+                    ["time1"],
                     raw_nmea,
                     {"long_name": "NMEA datagram"},
                 )
             },
             coords={
-                "location_time": (
-                    ["location_time"],
+                "time1": (
+                    ["time1"],
                     time,
                     {
                         "axis": "T",
@@ -182,7 +182,7 @@ class SetGroupsBase(abc.ABC):
             if nmea_msg
             else [np.nan]
         )
-        location_time = (
+        time1 = (
             (
                 np.array(self.parser_obj.nmea["timestamp"])[idx_loc]
                 - np.datetime64("1900-01-01T00:00:00")
@@ -192,7 +192,7 @@ class SetGroupsBase(abc.ABC):
             else [np.nan]
         )
 
-        return location_time, msg_type, lat, lon
+        return time1, msg_type, lat, lon
 
     def _beam_groups_vars(self):
         """Stage beam_group_name and beam_group_descr variables sharing a common dimension,
