@@ -58,6 +58,8 @@ def run_commands(commands: List[Dict]) -> None:
             subprocess.run(cmd)
         elif callable(cmd):
             cmd(args)
+        else:
+            raise ValueError(f"command of {type(cmd)} is invalid.")
 
 
 if __name__ == "__main__":
