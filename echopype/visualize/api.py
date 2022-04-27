@@ -74,6 +74,8 @@ def create_echogram(
         yaxis = 'range_sample'
         variable = 'backscatter_r'
         ds = data.beam
+        if 'ping_time' in ds:
+            _check_ping_time(ds.ping_time)
         if get_range is True:
             yaxis = 'echo_range'
 
@@ -140,8 +142,8 @@ def create_echogram(
             ds.echo_range.attrs = range_attrs
 
     elif isinstance(data, xr.Dataset):
-        if 'ping_time' in data and data.ping_time.shape[0] < 2:
-            raise ValueError("Ping time must be greater or equal to 2 data points.")
+        if 'ping_time' in data:
+            _check_ping_time(data.ping_time)
         variable = 'Sv'
         ds = data
         yaxis = 'echo_range'
@@ -169,6 +171,11 @@ def create_echogram(
         frequency=frequency,
         **kwargs,
     )
+
+
+def _check_ping_time(ping_time):
+    if ping_time.shape[0] < 2:
+        raise ValueError("Ping time must be greater or equal to 2 data points.")
 
 
 def _add_water_level(
