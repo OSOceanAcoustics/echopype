@@ -128,7 +128,30 @@ class SetGroupsEK60(SetGroupsBase):
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
+        channels = [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]for ch in ch_ids]   # TODO: added here
         ds_env = []
+
+        # TODO: added this too
+        ds_chan = xr.Dataset(
+            {
+                "frequency_nominal": (
+                    ["channel"],
+                    channels,
+                    {'units': "Hz",
+                     'long_name': "Transducer frequency",
+                     'valid_min': 0.0}
+                )
+            },
+            coords={
+                "channel": (
+                    ["channel"],
+                    channels,
+                    self._varattrs["beam_coord_default"]["channel"]
+                )
+            }
+        )
+        ds_env.append(ds_chan)
+
         # Loop over channels
         for ch in ch_ids:
             ds_tmp = xr.Dataset(
@@ -166,14 +189,19 @@ class SetGroupsEK60(SetGroupsBase):
                 },
             )
             # Attach frequency dimension/coordinate
+            # ds_tmp = ds_tmp.expand_dims(
+            #     {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
+            # )
+            # ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
+            #     units="Hz",
+            #     long_name="Transducer frequency",
+            #     valid_min=0.0,
+            # )
             ds_tmp = ds_tmp.expand_dims(
-                {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
+                {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
             )
-            ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-                units="Hz",
-                long_name="Transducer frequency",
-                valid_min=0.0,
-            )
+            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
+                self._varattrs["beam_coord_default"]["channel"])
             ds_env.append(ds_tmp)
 
         # Merge data from all channels
@@ -396,16 +424,21 @@ class SetGroupsEK60(SetGroupsBase):
         # Assemble variables into a dataset
         ds = xr.Dataset(
             {
-                "channel_id": (["frequency"], beam_params["channel_id"]),
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {'units': "Hz",
+                     'long_name': "Transducer frequency",
+                     'valid_min': 0.0}),
                 "beam_type": (
-                    "frequency",
+                    "channel",
                     beam_params["beam_type"],
                     {"long_name": "type of transducer (0-single, 1-split)"},
                 ),
                 # TODO: check EK60 data spec:
                 #  the beamwidths provided are most likely 2-way beamwidth so below needs to change
                 "beamwidth_receive_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beamwidth_alongship"],
                     {
                         "long_name": "Half power one-way receive beam width along "
@@ -415,7 +448,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beamwidth_receive_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beamwidth_athwartship"],
                     {
                         "long_name": "Half power one-way receive beam width along "
@@ -425,7 +458,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beamwidth_transmit_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beamwidth_alongship"],
                     {
                         "long_name": "Half power one-way transmit beam width along "
@@ -435,7 +468,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beamwidth_transmit_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beamwidth_athwartship"],
                     {
                         "long_name": "Half power one-way transmit beam width along "
@@ -445,7 +478,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beam_direction_x": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["dir_x"],
                     {
                         "long_name": "x-component of the vector that gives the pointing "
@@ -456,7 +489,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beam_direction_y": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["dir_y"],
                     {
                         "long_name": "y-component of the vector that gives the pointing "
@@ -467,7 +500,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "beam_direction_z": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["dir_z"],
                     {
                         "long_name": "z-component of the vector that gives the pointing "
@@ -478,27 +511,27 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "angle_offset_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_offset_alongship"],
                     {"long_name": "electrical alongship angle of the transducer"},
                 ),
                 "angle_offset_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_offset_athwartship"],
                     {"long_name": "electrical athwartship angle of the transducer"},
                 ),
                 "angle_sensitivity_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_sensitivity_alongship"],
                     {"long_name": "alongship sensitivity of the transducer"},
                 ),
                 "angle_sensitivity_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
                     {"long_name": "athwartship sensitivity of the transducer"},
                 ),
                 "equivalent_beam_angle": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["equivalent_beam_angle"],
                     {
                         "long_name": "Equivalent beam angle",
@@ -507,21 +540,19 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 ),
                 "gain_correction": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["gain"],
                     {"long_name": "Gain correction", "units": "dB"},
                 ),
                 "gpt_software_version": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["gpt_software_version"],
                 ),
             },
             coords={
-                "frequency": (
-                    ["frequency"],
-                    freq,
-                    self._varattrs["beam_coord_default"]["frequency"],
-                )
+                "channel": (["channel"],
+                            beam_params["channel_id"],
+                            self._varattrs["beam_coord_default"]["channel"]),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
@@ -633,13 +664,9 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
-                {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
+                {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
             )
-            ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-                units="Hz",
-                long_name="Transducer frequency",
-                valid_min=0.0,
-            )
+            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(self._varattrs["beam_coord_default"]["channel"])
             ds_backscatter.append(ds_tmp)
 
         # Merge data from all channels
@@ -658,19 +685,19 @@ class SetGroupsEK60(SetGroupsBase):
         # Retrieve pulse length and sa correction
         config = self.parser_obj.config_datagram["transceivers"]
         freq = [v["frequency"] for v in config.values()]
+        ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
+        channel = [
+            self.parser_obj.config_datagram["transceivers"][ch_seq].get("channel_id", np.nan)
+            for ch_seq in ch_ids
+        ]
         pulse_length = np.array([v["pulse_length_table"] for v in config.values()])
         gain = np.array([v["gain_table"] for v in config.values()])
         sa_correction = [v["sa_correction_table"] for v in config.values()]
         # Save pulse length and sa correction
         ds = xr.Dataset(
             {
-                "sa_correction": (["frequency", "pulse_length_bin"], sa_correction),
-                "gain_correction": (["frequency", "pulse_length_bin"], gain),
-                "pulse_length": (["frequency", "pulse_length_bin"], pulse_length),
-            },
-            coords={
-                "frequency": (
-                    ["frequency"],
+                "frequency_nominal": (
+                    ["channel"],
                     freq,
                     {
                         "units": "Hz",
@@ -678,6 +705,14 @@ class SetGroupsEK60(SetGroupsBase):
                         "valid_min": 0.0,
                     },
                 ),
+                "sa_correction": (["channel", "pulse_length_bin"], sa_correction),
+                "gain_correction": (["channel", "pulse_length_bin"], gain),
+                "pulse_length": (["channel", "pulse_length_bin"], pulse_length),
+            },
+            coords={
+                "channel": (["channel"],
+                            channel,
+                            self._varattrs["beam_coord_default"]["channel"]),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(pulse_length.shape[1]),

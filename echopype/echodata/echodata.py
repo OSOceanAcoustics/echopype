@@ -426,7 +426,7 @@ class EchoData:
                 raise ValueError("Input waveform_mode not recognized!")
 
             # make order of dims conform with the order of backscatter data
-            range_meter = range_meter.transpose("frequency", "ping_time", "range_sample")
+            range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
             range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
             # set entries with NaN backscatter data to NaN

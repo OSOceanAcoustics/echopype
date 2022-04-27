@@ -99,7 +99,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     def check_output(da_cmp, cal_type):
         for fidx in range(5):  # loop through all freq
             assert np.allclose(
-                da_cmp.isel(frequency=0).T.values,
+                da_cmp.isel(channel=0).T.values,
                 ds_base['data']['pings'][0][0][cal_type][0, 0],
                 atol=4e-5,
                 rtol=0,
