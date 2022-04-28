@@ -47,7 +47,7 @@ This is a major release that contains changes that enhances the compliance of ec
 
 - Upgrade python minimum to 3.8 and tidy up packaging (#604, #608, #609)
 - Upgrade echopype development status to Beta (#610)
-- Update setup-services.py to include images & volumes subtleties (#651)
+- Update `setup-services.py` to include images & volumes subtleties (#651)
 
 ## Other changes
 
