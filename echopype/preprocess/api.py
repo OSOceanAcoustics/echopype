@@ -62,7 +62,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     A dataset containing bin-averaged Sv
     """
 
-    if not ds_Sv.groupby("frequency").apply(_check_range_uniqueness).all():
+    if not ds_Sv.groupby("channel").apply(_check_range_uniqueness).all():
         raise ValueError(
             "echo_range variable changes across pings in at least one of the frequency channel."
         )

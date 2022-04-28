@@ -54,13 +54,17 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata.beam.backscatter_r.isel(frequency=0, ping_time=0)
+        echodata.beam.backscatter_r.isel(channel=sorted_freq_ind[0], ping_time=0)
         .dropna('range_sample')
         .values[1:, :],
         np.real(
@@ -68,7 +72,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ),  # real part
     )
     assert np.array_equal(
-        echodata.beam.backscatter_i.isel(frequency=0, ping_time=0)
+        echodata.beam.backscatter_i.isel(channel=sorted_freq_ind[0], ping_time=0)
         .dropna('range_sample')
         .values[1:, :],
         np.imag(
@@ -123,17 +127,24 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
 
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+
+    # get sorted channel list based on frequency_nominal values
+    channel_list = echodata.beam.channel[sorted_freq_ind.values]
+
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     # Test power
     # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
-    echodata.beam.backscatter_r[3, 4, 13174] = -999
-    for file, freq in zip(ek80_echoview_power_csv, freq_list):
+    echodata.beam.backscatter_r[sorted_freq_ind.values[3], 4, 13174] = -999
+    for file, chan in zip(ek80_echoview_power_csv, channel_list):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata.beam.backscatter_r.sel(frequency=freq * 1e3,
+            echodata.beam.backscatter_r.sel(channel=chan,
                                             beam='1').dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
@@ -152,7 +163,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         / echodata.beam['angle_sensitivity_alongship']
         - echodata.beam['angle_offset_alongship']
     )
-    for freq, file in zip(freq_list, ek80_echoview_angle_csv):
+    for chan, file in zip(channel_list, ek80_echoview_angle_csv):
         df_angle = pd.read_csv(file)
         # NB: EchoView exported data only has 6 pings, but raw data actually has 7 pings.
         #     The first raw ping (ping 0) was removed in EchoView for some reason.
@@ -160,7 +171,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         for ping_idx in df_angle['Ping_index'].value_counts().index:
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                major.sel(frequency=freq * 1e3, beam='1')
+                major.sel(channel=chan, beam='1')
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -168,7 +179,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
             )
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                minor.sel(frequency=freq * 1e3, beam='1')
+                minor.sel(channel=chan, beam='1')
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -219,7 +230,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
     )  # averaged across beams
     assert np.allclose(
-        echodata.beam.backscatter_r.sel(frequency=70e3)
+        echodata.beam.backscatter_r.isel(channel=1)
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
@@ -227,7 +238,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=8e-6,
     )
     assert np.allclose(
-        echodata.beam.backscatter_i.sel(frequency=70e3)
+        echodata.beam.backscatter_i.isel(channel=1)
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
@@ -298,15 +309,16 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
+
 def test_convert_ek80_freq_subset(ek80_path):
-    """Make sure can convert EK80 file with multiple frequency channels off."""
+    """Make sure we can convert EK80 file with multiple frequency channels off."""
     ek80_raw_path_freq_subset = str(
         ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw')
     )
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
     # Check if converted output has only 2 frequency channels
-    assert echodata.beam.frequency.size == 2
+    assert echodata.beam.channel.size == 2
 
     # check platform
     nan_plat_vars = [

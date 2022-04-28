@@ -86,8 +86,9 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # indexes of frequencies that are for power, not complex
-        relevant_indexes = np.where(np.isin(ds_vend["frequency_nominal"],
-                                            beam["frequency_nominal"]))[0]
+        relevant_indexes = np.where(
+            np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"])
+        )[0]
 
         unique_pulse_length = np.unique(beam["transmit_duration_nominal"], axis=1)
 
@@ -607,8 +608,8 @@ class CalibrateEK80(CalibrateEK):
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
         freq_center : xr.DataArray
-            Nominal channel frequency for CW mode samples
-            and an xr.DataArray with coorindate ``frequency`` and ``ping_time`` for BB mode samples
+            Nominal channel for CW mode samples
+            and an xr.DataArray with coorindate ``channel`` for BB mode samples
 
         Returns
         -------
@@ -623,16 +624,16 @@ class CalibrateEK80(CalibrateEK):
                 # index using channel_id as order of frequency across channel can be arbitrary
                 # reference to freq_center in case some channels are CW complex samples
                 # (already dropped when computing freq_center in the calling function)
-                # for fn in freq_center.frequency:
                 for ch_id in freq_center.channel:
-                    # if freq-dependent gain exists in data
+                    # if channel gain exists in data
                     if ch_id in self.echodata.vendor.cal_channel_id:
-                        print(f"freq_center = {freq_center}")
                         gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
                         gain_temp = (
-                            gain_vec.interp(cal_frequency=freq_center.sel(channel=ch_id)).drop(
-                                ["cal_channel_id", "cal_frequency"]
-                            )
+                            gain_vec.interp(
+                                cal_frequency=self.echodata.vendor.frequency_nominal.sel(
+                                    channel=ch_id
+                                )
+                            ).drop(["cal_channel_id", "cal_frequency"])
                         ).expand_dims("channel")
                     # if no freq-dependent gain use CW gain
                     else:
@@ -743,7 +744,7 @@ class CalibrateEK80(CalibrateEK):
 
         else:
             # use nominal channel frequency for CW pulse
-            wavelength = sound_speed / self.echodata.beam.frequency_nominal(channel=chan_sel)
+            wavelength = sound_speed / self.echodata.beam.frequency_nominal.sel(channel=chan_sel)
 
             # use nominal channel frequency to select gain factor
             gain = self._get_gain_for_complex(waveform_mode=waveform_mode, freq_center=chan_sel)
@@ -767,7 +768,9 @@ class CalibrateEK80(CalibrateEK):
             if waveform_mode == "BB":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(
                     channel=chan_sel
-                ) + 10 * np.log10(self.echodata.vendor.frequency_nominal.sel(channel=chan_sel)/freq_center)
+                ) + 10 * np.log10(
+                    self.echodata.vendor.frequency_nominal.sel(channel=chan_sel) / freq_center
+                )
             elif waveform_mode == "CW":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(channel=chan_sel)
 

@@ -104,6 +104,22 @@ class SetGroupsAZFP(SetGroupsBase):
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
 
+        # creates unique channel name
+        if unpacked_data["serial_number"].size == 1:
+            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
+
+            # TODO: replace str(i+1) with Frequency Number from XML
+            channel_id = [
+                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
+                for i in range(len(freq_as_str))
+            ]
+        else:
+            channel_id = None
+            raise NotImplementedError(
+                "Creating a channel name for more than"
+                + " one serial number has not been implemented."
+            )
+
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
         Sv_offset = np.zeros(freq.shape)
@@ -145,12 +161,17 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                "backscatter_r": (["frequency", "ping_time", "range_sample"], N),
-                "equivalent_beam_angle": (["frequency"], parameters["BP"]),
-                "gain_correction": (["frequency"], unpacked_data["gain"]),
-                "sample_interval": (["frequency"], sample_int, {"units": "s"}),
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
+                "backscatter_r": (["channel", "ping_time", "range_sample"], N),
+                "equivalent_beam_angle": (["channel"], parameters["BP"]),
+                "gain_correction": (["channel"], unpacked_data["gain"]),
+                "sample_interval": (["channel"], sample_int, {"units": "s"}),
                 "transmit_duration_nominal": (
-                    ["frequency"],
+                    ["channel"],
                     tdn,
                     {
                         "long_name": "Nominal bandwidth of transmitted pulse",
@@ -164,25 +185,25 @@ class SetGroupsAZFP(SetGroupsBase):
                 "tilt_x": (["ping_time"], unpacked_data["tilt_x"]),
                 "tilt_y": (["ping_time"], unpacked_data["tilt_y"]),
                 "cos_tilt_mag": (["ping_time"], unpacked_data["cos_tilt_mag"]),
-                "DS": (["frequency"], parameters["DS"]),
-                "EL": (["frequency"], parameters["EL"]),
-                "TVR": (["frequency"], parameters["TVR"]),
-                "VTX": (["frequency"], parameters["VTX"]),
-                "Sv_offset": (["frequency"], Sv_offset),
+                "DS": (["channel"], parameters["DS"]),
+                "EL": (["channel"], parameters["EL"]),
+                "TVR": (["channel"], parameters["TVR"]),
+                "VTX": (["channel"], parameters["VTX"]),
+                "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
-                    ["frequency"],
+                    ["channel"],
                     range_samples_xml,
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
-                    ["frequency"],
+                    ["channel"],
                     parameters["range_averaging_samples"],
                 ),
             },
             coords={
-                "frequency": (
-                    ["frequency"],
-                    freq,
-                    self._varattrs["beam_coord_default"]["frequency"],
+                "channel": (
+                    ["channel"],
+                    channel_id,
+                    self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
                     ["ping_time"],
@@ -235,24 +256,45 @@ class SetGroupsAZFP(SetGroupsBase):
         ping_time = self.parser_obj.ping_time
         tdn = np.array(parameters["pulse_length"]) / 1e6
 
+        # creates unique channel name
+        if unpacked_data["serial_number"].size == 1:
+            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
+
+            # TODO: replace str(i+1) with Frequency Number from XML
+            channel_id = [
+                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
+                for i in range(len(freq_as_str))
+            ]
+        else:
+            channel_id = None
+            raise NotImplementedError(
+                "Creating a channel name for more than"
+                + " one serial number has not been implemented."
+            )
+
         ds = xr.Dataset(
             {
-                "XML_transmit_duration_nominal": (["frequency"], tdn),
-                "XML_gain_correction": (["frequency"], parameters["gain"]),
-                "XML_digitization_rate": (["frequency"], parameters["dig_rate"]),
-                "XML_lockout_index": (["frequency"], parameters["lockout_index"]),
-                "digitization_rate": (["frequency"], unpacked_data["dig_rate"]),
-                "lockout_index": (["frequency"], unpacked_data["lockout_index"]),
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
+                "XML_transmit_duration_nominal": (["channel"], tdn),
+                "XML_gain_correction": (["channel"], parameters["gain"]),
+                "XML_digitization_rate": (["channel"], parameters["dig_rate"]),
+                "XML_lockout_index": (["channel"], parameters["lockout_index"]),
+                "digitization_rate": (["channel"], unpacked_data["dig_rate"]),
+                "lockout_index": (["channel"], unpacked_data["lockout_index"]),
                 "number_of_bins_per_channel": (
-                    ["frequency"],
+                    ["channel"],
                     unpacked_data["num_bins"],
                 ),
                 "number_of_samples_per_average_bin": (
-                    ["frequency"],
+                    ["channel"],
                     unpacked_data["range_samples_per_bin"],
                 ),
-                "board_number": (["frequency"], unpacked_data["board_num"]),
-                "data_type": (["frequency"], unpacked_data["data_type"]),
+                "board_number": (["channel"], unpacked_data["board_num"]),
+                "data_type": (["channel"], unpacked_data["data_type"]),
                 "ping_status": (["ping_time"], unpacked_data["ping_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
@@ -272,7 +314,11 @@ class SetGroupsAZFP(SetGroupsBase):
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
             },
             coords={
-                "frequency": (["frequency"], freq, {"units": "Hz", "valid_min": 0.0}),
+                "channel": (
+                    ["channel"],
+                    channel_id,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
                 "ping_time": (
                     ["ping_time"],
                     ping_time,

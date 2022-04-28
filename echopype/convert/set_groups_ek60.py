@@ -128,27 +128,22 @@ class SetGroupsEK60(SetGroupsBase):
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        channels = [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]for ch in ch_ids]   # TODO: added here
+        channels = [
+            self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in ch_ids
+        ]
         ds_env = []
 
-        # TODO: added this too
         ds_chan = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
                     channels,
-                    {'units': "Hz",
-                     'long_name': "Transducer frequency",
-                     'valid_min': 0.0}
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
                 )
             },
             coords={
-                "channel": (
-                    ["channel"],
-                    channels,
-                    self._varattrs["beam_coord_default"]["channel"]
-                )
-            }
+                "channel": (["channel"], channels, self._varattrs["beam_coord_default"]["channel"])
+            },
         )
         ds_env.append(ds_chan)
 
@@ -188,20 +183,13 @@ class SetGroupsEK60(SetGroupsBase):
                     )
                 },
             )
-            # Attach frequency dimension/coordinate
-            # ds_tmp = ds_tmp.expand_dims(
-            #     {"frequency": [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]]}
-            # )
-            # ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-            #     units="Hz",
-            #     long_name="Transducer frequency",
-            #     valid_min=0.0,
-            # )
+            # Attach channel dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
                 {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
             )
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
-                self._varattrs["beam_coord_default"]["channel"])
+                self._varattrs["beam_coord_default"]["channel"]
+            )
             ds_env.append(ds_tmp)
 
         # Merge data from all channels
@@ -427,9 +415,8 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {'units': "Hz",
-                     'long_name': "Transducer frequency",
-                     'valid_min': 0.0}),
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
                 "beam_type": (
                     "channel",
                     beam_params["beam_type"],
@@ -550,9 +537,11 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
             },
             coords={
-                "channel": (["channel"],
-                            beam_params["channel_id"],
-                            self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (
+                    ["channel"],
+                    beam_params["channel_id"],
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
@@ -666,7 +655,9 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp = ds_tmp.expand_dims(
                 {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
             )
-            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(self._varattrs["beam_coord_default"]["channel"])
+            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
+                self._varattrs["beam_coord_default"]["channel"]
+            )
             ds_backscatter.append(ds_tmp)
 
         # Merge data from all channels
@@ -710,9 +701,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "pulse_length": (["channel", "pulse_length_bin"], pulse_length),
             },
             coords={
-                "channel": (["channel"],
-                            channel,
-                            self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (["channel"], channel, self._varattrs["beam_coord_default"]["channel"]),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(pulse_length.shape[1]),

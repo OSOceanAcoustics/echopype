@@ -326,9 +326,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {'units': "Hz",
-                     'long_name': "Transducer frequency",
-                     'valid_min': 0.0}
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
                 ),
                 "beam_type": (["channel"], beam_params["transducer_beam_type"]),
                 "beamwidth_twoway_alongship": (
@@ -419,10 +417,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
             coords={
-                "channel": (["channel"],
-                            ch_ids,
-                            self._varattrs["beam_coord_default"]["channel"]
-                            ),
+                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
@@ -694,11 +689,7 @@ class SetGroupsEK80(SetGroupsBase):
             )  # override keeps the Dataset attributes
             # Attach channel dimension/coordinate
             ds_data = ds_data.expand_dims(
-                {
-                    "channel": [
-                        self.parser_obj.config_datagram["configuration"][ch]["channel_id"]
-                    ]
-                }
+                {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
             )
             ds_data["channel"] = ds_data["channel"].assign_attrs(
                 **self._varattrs["beam_coord_default"]["channel"]
@@ -738,7 +729,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group."""
         config = self.parser_obj.config_datagram["configuration"]
-        channels = self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]
+        channels = list(self.parser_obj.config_datagram["configuration"].keys())
 
         # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
         table_params = [
@@ -767,9 +758,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     param_dict["transducer_frequency"],
-                    {"units": "Hz",
-                     "long_name": "Transducer frequency",
-                      "valid_min": 0.0},
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],
@@ -785,9 +774,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
             coords={
-                "channel": (["channel"],
-                            channels,
-                            self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (["channel"], channels, self._varattrs["beam_coord_default"]["channel"]),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(param_dict["pulse_duration"].shape[1]),

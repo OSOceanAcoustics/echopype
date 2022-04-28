@@ -70,7 +70,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
             for fidx in range(5)
         ],
         echodata.beam.backscatter_r.isel(beam=0).transpose(
-            'frequency', 'range_sample', 'ping_time'
+            'channel', 'range_sample', 'ping_time'
         ),
         rtol=0,
         atol=1.6e-5,
@@ -83,7 +83,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 for fidx in range(5)
             ],
             echodata.beam['angle_' + angle].isel(beam=0).transpose(
-                'frequency', 'range_sample', 'ping_time'
+                'channel', 'range_sample', 'ping_time'
             ),
         )
 
@@ -110,11 +110,16 @@ def test_convert_ek60_echoview_raw(ek60_path):
 
     # Convert to netCDF and check
     echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
+
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+
     for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
         assert np.allclose(
             test_power[fidx, :, :],
             echodata.beam.backscatter_r.isel(
-                frequency=fidx,
+                channel=sorted_freq_ind[fidx],
                 ping_time=slice(None, 10),
                 range_sample=slice(1, None),
                 beam=0
