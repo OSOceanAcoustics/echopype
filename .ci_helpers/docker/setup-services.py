@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument(
         "--no-pull",
         action="store_true",
-        help="Optional flag to pull the latest images",
+        help="Optional flag to skip pulling the latest images from dockerhub",
     )
     parser.add_argument(
         "--tear-down",
