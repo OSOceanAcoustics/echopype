@@ -217,6 +217,9 @@ class CalibrateEK(CalibrateBase):
         out = out.to_dataset()
         out = out.merge(range_meter)
 
+        # Add frequency_nominal to data set
+        out["frequency_nominal"] = beam["frequency_nominal"]
+
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
@@ -799,6 +802,9 @@ class CalibrateEK80(CalibrateEK):
 
         # Attach calculated range (with units meter) into data set
         out = out.merge(range_meter)
+
+        # Add frequency_nominal to data set
+        out["frequency_nominal"] = self.echodata.beam["frequency_nominal"]
 
         # Add env and cal parameters
         out = self._add_params_to_output(out)

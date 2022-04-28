@@ -64,7 +64,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
     if not ds_Sv.groupby("channel").apply(_check_range_uniqueness).all():
         raise ValueError(
-            "echo_range variable changes across pings in at least one of the frequency channel."
+            "echo_range variable changes across pings in at least one of the frequency channels."
         )
 
     def _freq_MVBS(ds, rint, pbin):
