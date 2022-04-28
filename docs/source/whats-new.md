@@ -43,6 +43,12 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add provenance to raw-converted and processed datasets (#621)
 - Consolidate convention specs into a single yml file for pre-loading when creating `EchoData` objects (#565)
 
+## CI improvements
+
+- Upgrade python minimum to 3.8 and tidy up packaging (#604, #608, #609)
+- Upgrade echopype development status to Beta (#610)
+- Update setup-services.py to include images & volumes subtleties (#651)
+
 ## Other changes
 
 - Remove the deprecated old (<0.5.0) API (#506, #601)
