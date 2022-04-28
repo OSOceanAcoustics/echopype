@@ -229,7 +229,7 @@ The `table of contents <https://jupyterbook.org/en/stable/structure/toc.html>`_ 
 
 When ready to commit your changes, please pull request your changes to the `stable` branch. Once the PR is submitted, the `pre-commit` CI will run for basic spelling and formatting check (See the `pre-commit hooks section <contributing.html#pre-commit-hooks>`_ for more details). Any changes from the `pre-commit` check have to be pulled to your branch (via `git pull`) before your push further commits. You will also be able to view the new built doc in the PR via the "docs/readthedocs.org:echopype" entry shown below.
 
-![Screen Shot 2022-04-27 at 4 16 41 PM](https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png)
+.. image:: https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png
 
 Updates to the documentation that are based on the current echopype release (that is,
 not involving echopype API changes) should be merged into the GitHub ``stable`` branch.
