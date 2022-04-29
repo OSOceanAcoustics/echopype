@@ -33,6 +33,49 @@ def ek80_new_file(request):
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
+def check_env_xml(echodata):
+    # check environment xml datagram
+
+    # check env vars
+    env_vars = {
+        "sound_velocity_source": ["Manual", "Calculated"],
+        "transducer_name": ["Unknown"],
+    }
+    for env_var, expected_env_var_values in env_vars.items():
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("environment_time",)
+        assert all([env_var_value in expected_env_var_values for env_var_value in echodata["Environment"][env_var]])
+    assert "transducer_sound_speed" in echodata["Environment"]
+    assert echodata["Environment"]["transducer_sound_speed"].dims == ("environment_time",)
+    assert (1480 <= echodata["Environment"]["transducer_sound_speed"]).all() and (echodata["Environment"]["transducer_sound_speed"] <= 1500).all()
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    assert (1470 <= echodata["Environment"]["sound_velocity_profile"]).all() and (echodata["Environment"]["sound_velocity_profile"] <= 1500).all()
+
+    # check env dims
+    assert "environment_time" in echodata["Environment"]
+    assert "sound_velocity_profile_depth"
+    assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
+
+    # check plat vars
+    plat_vars = {
+        "drop_keel_offset": [np.nan],
+        "drop_keel_offset_is_manual": [0, 1],
+        "water_level": [0],
+        "water_level_draft_is_manual": [0, 1]
+    }
+    for plat_var, expected_plat_var_values in plat_vars.items():
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+        if np.isnan(expected_plat_var_values).all():
+            assert np.isnan(echodata["Platform"][plat_var]).all()
+        else:
+            assert all([env_var_value in expected_plat_var_values for env_var_value in echodata["Platform"][plat_var]])
+
+    # check plat dims
+    assert "time3" in echodata["Platform"]
+
+
 def test_convert(ek80_new_file, dump_output_dir):
     print("converting", ek80_new_file)
     echodata = open_raw(raw_file=str(ek80_new_file), sonar_model="EK80")
@@ -42,6 +85,8 @@ def test_convert(ek80_new_file, dump_output_dir):
     assert nc_file.is_file() is True
 
     nc_file.unlink()
+
+    check_env_xml(echodata)
 
 
 def test_convert_ek80_complex_matlab(ek80_path):
@@ -80,6 +125,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ),  # imag part
     )
 
+    check_env_xml(echodata)
     # check platform
     nan_plat_vars = [
         "MRU_offset_x",
@@ -186,6 +232,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
                 atol=5e-5,
             )
 
+    check_env_xml(echodata)
     # check platform
     nan_plat_vars = [
         "MRU_offset_x",
@@ -246,6 +293,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=4e-6,
     )
 
+    check_env_xml(echodata)
     # check platform
     nan_plat_vars = [
         "MRU_offset_x",
@@ -309,6 +357,8 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
+    check_env_xml(echodata)
+
 
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure we can convert EK80 file with multiple frequency channels off."""
@@ -345,3 +395,5 @@ def test_convert_ek80_freq_subset(ek80_path):
         assert (echodata["Platform"][plat_var] == 0).all()
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
+
+    check_env_xml(echodata)

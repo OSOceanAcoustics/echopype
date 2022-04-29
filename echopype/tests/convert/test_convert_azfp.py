@@ -16,6 +16,27 @@ import pytest
 def azfp_path(test_path):
     return test_path["AZFP"]
 
+def check_platform_required_vars(echodata):
+    # check convention-required variables in the Platform group
+    for var in [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z",
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+        "vertical_offset",
+        "water_level",
+    ]:
+        assert var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][var])
+
 
 def test_convert_azfp_01a_matlab_raw(azfp_path):
     """Compare parsed raw data with Matlab outputs."""
@@ -77,6 +98,9 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
         echodata.vendor.battery_main,
     )
 
+    # check convention-required variables in the Platform group
+    check_platform_required_vars(echodata)
+
 
 def test_convert_azfp_01a_matlab_derived():
     """Compare variables derived from raw parsed data with Matlab outputs."""
@@ -84,6 +108,9 @@ def test_convert_azfp_01a_matlab_derived():
     #  - ds_beam.ping_time from 01A raw data records
     #  - investigate why ds_beam.tilt_x/y are different from ds_matlab['Data']['Tx']/['Ty']
     #  - derived temperature
+
+    # # check convention-required variables in the Platform group
+    # check_platform_required_vars(echodata)
 
     pytest.xfail("Tests for converting AZFP and comparing it"
                  + " against Matlab derived data have not implemented yet.")
@@ -112,6 +139,9 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
     )
     assert np.array_equal(test_power, echodata.beam.backscatter_r.isel(beam=0).drop('beam'))
 
+    # check convention-required variables in the Platform group
+    check_platform_required_vars(echodata)
+
 
 def test_convert_azfp_01a_different_ranges(azfp_path):
     """Test converting files with different range settings across frequency."""
@@ -128,3 +158,6 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     assert echodata.beam.backscatter_r.isel(channel=3).dropna(
         'range_sample'
     ).shape == (360, 135, 1)
+
+    # check convention-required variables in the Platform group
+    check_platform_required_vars(echodata)

@@ -91,7 +91,27 @@ class SetGroupsAZFP(SetGroupsBase):
             "platform_code_ICES": self.ui_param["platform_code_ICES"],
         }
         # Save
-        ds = xr.Dataset()
+        ds = xr.Dataset(
+            {
+                var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                for var in [
+                    "MRU_offset_x",
+                    "MRU_offset_y",
+                    "MRU_offset_z",
+                    "MRU_rotation_x",
+                    "MRU_rotation_y",
+                    "MRU_rotation_z",
+                    "position_offset_x",
+                    "position_offset_y",
+                    "position_offset_z",
+                    "transducer_offset_x",
+                    "transducer_offset_y",
+                    "transducer_offset_z",
+                    "vertical_offset",
+                    "water_level",
+                ]
+            }
+        )
         ds = ds.assign_attrs(platform_dict)
         return ds
 
