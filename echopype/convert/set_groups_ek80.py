@@ -123,21 +123,22 @@ class SetGroupsEK80(SetGroupsBase):
         # using the information from self._beamgroups
         beam_groups_vars = self._beam_groups_vars()
         sonar_vars = {
-            "serial_number": (["frequency"], var["serial_number"]),
-            "sonar_model": (["frequency"], var["transducer_name"]),
-            "sonar_serial_number": (["frequency"], var["channel_id_short"]),
+            "frequency_nominal": (["channel"], var["transducer_frequency"]),
+            "serial_number": (["channel"], var["serial_number"]),
+            "sonar_model": (["channel"], var["transducer_name"]),
+            "sonar_serial_number": (["channel"], var["channel_id_short"]),
             "sonar_software_name": (
-                ["frequency"],
+                ["channel"],
                 var["application_name"],
             ),  # identical for all channels
             "sonar_software_version": (
-                ["frequency"],
+                ["channel"],
                 var["application_version"],
             ),  # identical for all channels
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
-            coords={"frequency": var["transducer_frequency"]},
+            coords={"channel": list(self.parser_obj.config_datagram["configuration"].keys())},
             attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
 
@@ -146,7 +147,13 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
-        ch_ids = self.parser_obj.config_datagram["configuration"].keys()
+        ch_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+        freq = np.array(
+            [
+                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+                for ch in ch_ids
+            ]
+        )
 
         # Collect variables
         if self.ui_param["water_level"] is not None:
@@ -164,6 +171,11 @@ class SetGroupsEK80(SetGroupsBase):
         # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
                 "pitch": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
@@ -211,7 +223,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "sentence_type": (["time1"], msg_type),
                 "transducer_offset_x": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_x", np.nan
@@ -221,7 +233,7 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["transducer_offset_x"],
                 ),
                 "transducer_offset_y": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_y", np.nan
@@ -231,7 +243,7 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["transducer_offset_y"],
                 ),
                 "transducer_offset_z": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_z", np.nan
@@ -265,6 +277,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             },
             coords={
+                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
                 "time2": (
                     ["time2"],
                     time2,

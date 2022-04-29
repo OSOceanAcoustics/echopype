@@ -128,24 +128,7 @@ class SetGroupsEK60(SetGroupsBase):
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        channels = [
-            self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in ch_ids
-        ]
         ds_env = []
-
-        ds_chan = xr.Dataset(
-            {
-                "frequency_nominal": (
-                    ["channel"],
-                    channels,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
-                )
-            },
-            coords={
-                "channel": (["channel"], channels, self._varattrs["beam_coord_default"]["channel"])
-            },
-        )
-        ds_env.append(ds_chan)
 
         # Loop over channels
         for ch in ch_ids:
@@ -190,6 +173,13 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                 self._varattrs["beam_coord_default"]["channel"]
             )
+
+            ds_tmp["frequency_nominal"] = (
+                ["channel"],
+                [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
+                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+            )
+
             ds_env.append(ds_tmp)
 
         # Merge data from all channels
@@ -341,19 +331,20 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 )
 
-                # Attach frequency dimension/coordinate
+                # Attach channel dimension/coordinate
                 ds_tmp = ds_tmp.expand_dims(
-                    {
-                        "frequency": [
-                            self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
-                        ]
-                    }
+                    {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
                 )
-                ds_tmp["frequency"] = ds_tmp["frequency"].assign_attrs(
-                    units="Hz",
-                    long_name="Transducer frequency",
-                    valid_min=0.0,
+                ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
+                    self._varattrs["beam_coord_default"]["channel"]
                 )
+
+                ds_tmp["frequency_nominal"] = (
+                    ["channel"],
+                    [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                )
+
                 ds_plat.append(ds_tmp)
 
             # Merge data from all channels

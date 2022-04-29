@@ -369,6 +369,7 @@ class EchoData:
                 )
                 - range_offset
             )
+
             range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
             return range_meter
