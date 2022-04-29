@@ -67,11 +67,15 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "echo_range variable changes across pings in at least one of the frequency channels."
         )
 
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(ds_Sv.frequency_nominal)
+
     def _freq_MVBS(ds, rint, pbin):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
         sv.coords["range_meter"] = (
             ["range_sample"],
-            ds_Sv["echo_range"].isel(frequency=0, ping_time=0).data,
+            ds_Sv["echo_range"].isel(channel=sorted_freq_ind[0], ping_time=0).data,
         )
         sv = sv.swap_dims({"range_sample": "range_meter"})
         sv_groupby_bins = (
@@ -88,7 +92,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     # Groupby freq in case of different echo_range (from different sampling intervals)
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
     ds_MVBS = (
-        ds_Sv.groupby("frequency")
+        ds_Sv.groupby("channel")
         .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
         .to_dataset()
     )

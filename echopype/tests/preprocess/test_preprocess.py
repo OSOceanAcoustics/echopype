@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -79,8 +81,8 @@ def test_remove_noise():
     """Test remove_noise on toy data"""
 
     # Parameters for fake data
-    nfreq, npings, nrange_samples = 1, 10, 100
-    freq = np.arange(nfreq)
+    nchan, npings, nrange_samples = 1, 10, 100
+    chan = np.arange(nchan).astype(str)
     ping_index = np.arange(npings)
     range_sample = np.arange(nrange_samples)
     data = np.ones(nrange_samples)
@@ -94,7 +96,7 @@ def test_remove_noise():
     Sv = xr.DataArray(
         [data],
         coords=[
-            ('frequency', freq),
+            ('channel', chan),
             ('ping_time', ping_index),
             ('range_sample', range_sample),
         ],
@@ -116,22 +118,22 @@ def test_remove_noise():
 
     # Test if noise points are are nan
     assert np.isnan(
-        ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_sample=30)
+        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=30)
     )
     assert np.isnan(
-        ds_Sv.Sv_corrected.isel(frequency=0, ping_time=0, range_sample=60)
+        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=60)
     )
 
     # Test remove noise on a normal distribution
     np.random.seed(1)
     data = np.random.normal(
-        loc=-100, scale=2, size=(nfreq, npings, nrange_samples)
+        loc=-100, scale=2, size=(nchan, npings, nrange_samples)
     )
     # Make Dataset to pass into remove_noise
     Sv = xr.DataArray(
         data,
         coords=[
-            ('frequency', freq),
+            ('channel', chan),
             ('ping_time', ping_index),
             ('range_sample', range_sample),
         ],
@@ -153,13 +155,23 @@ def test_remove_noise():
     null = ds_Sv.Sv_corrected.isnull()
     # Test to see if the right number of points are removed before the range gets too large
     assert (
-        np.count_nonzero(null.isel(frequency=0, range_sample=slice(None, 50)))
+        np.count_nonzero(null.isel(channel=0, range_sample=slice(None, 50)))
         == 6
     )
 
 
+def test_remove_noise_no_sound_absorption():
+    """
+    Tests remove_noise on toy data that does
+    not have sound absorption as a variable.
+    """
+
+    pytest.xfail(f"Tests for remove_noise have not been implemented" +
+                 " when no sound absorption is provided!")
+
+
 def _construct_MVBS_toy_data(
-    nfreq, npings, nrange_samples, ping_size, range_sample_size
+    nchan, npings, nrange_samples, ping_size, range_sample_size
 ):
     """Construct data with values that increase every ping_num and ``range_sample_num``
     so that the result of computing MVBS is a smaller array
@@ -167,8 +179,8 @@ def _construct_MVBS_toy_data(
 
     Parameters
     ----------
-    nfreq : int
-        number of frequencies
+    nchan : int
+        number of channels
     npings : int
         number of pings
     nrange_samples : int
@@ -185,28 +197,28 @@ def _construct_MVBS_toy_data(
         so that computing the MVBS will result in regularly increasing values
         every row and column
     """
-    data = np.ones((nfreq, npings, nrange_samples))
+    data = np.ones((nchan, npings, nrange_samples))
     for p_i, ping in enumerate(range(0, npings, ping_size)):
         for r_i, rb in enumerate(range(0, nrange_samples, range_sample_size)):
             data[0, ping : ping + ping_size, rb : rb + range_sample_size] += (
                 r_i + p_i
             )
-    # First frequency increases by 1 each row and column, second increases by 2, third by 3, etc.
-    for f in range(nfreq):
+    # First channel increases by 1 each row and column, second increases by 2, third by 3, etc.
+    for f in range(nchan):
         data[f] = data[0] * (f + 1)
 
     return data
 
 
-def _construct_MVBS_test_data(nfreq, npings, nrange_samples):
+def _construct_MVBS_test_data(nchan, npings, nrange_samples):
     """Construct data for testing the toy data from
     `_construct_MVBS_toy_data` after it has gone through the
     MVBS calculation.
 
     Parameters
     ----------
-    nfreq : int
-        number of frequencies
+    nchan : int
+        number of channels
     npings : int
         number of pings
     nrange_samples : int
@@ -221,20 +233,20 @@ def _construct_MVBS_test_data(nfreq, npings, nrange_samples):
 
     # Construct test array
     test_array = np.add(*np.indices((npings, nrange_samples)))
-    return np.array([(test_array + 1) * (f + 1) for f in range(nfreq)])
+    return np.array([(test_array + 1) * (f + 1) for f in range(nchan)])
 
 
 def test_compute_MVBS_index_binning():
     """Test compute_MVBS_index_binning on toy data"""
 
     # Parameters for toy data
-    nfreq, npings, nrange_samples = 4, 40, 400
+    nchan, npings, nrange_samples = 4, 40, 400
     ping_num = 3  # number of pings to average over
     range_sample_num = 7  # number of range_samples to average over
 
     # Construct toy data that increases regularly every ping_num and range_sample_num
     data = _construct_MVBS_toy_data(
-        nfreq=nfreq,
+        nchan=nchan,
         npings=npings,
         nrange_samples=nrange_samples,
         ping_size=ping_num,
@@ -242,13 +254,13 @@ def test_compute_MVBS_index_binning():
     )
 
     data_log = 10 * np.log10(data)  # Convert to log domain
-    freq_index = np.arange(nfreq)
+    chan_index = np.arange(nchan).astype(str)
     ping_index = np.arange(npings)
     range_sample = np.arange(nrange_samples)
     Sv = xr.DataArray(
         data_log,
         coords=[
-            ('frequency', freq_index),
+            ('channel', chan_index),
             ('ping_time', ping_index),
             ('range_sample', range_sample),
         ],
@@ -257,7 +269,7 @@ def test_compute_MVBS_index_binning():
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
         echo_range=xr.DataArray(
-            np.array([[np.linspace(0, 10, nrange_samples)] * npings] * nfreq),
+            np.array([[np.linspace(0, 10, nrange_samples)] * npings] * nchan),
             coords=Sv.coords,
         )
     )
@@ -270,13 +282,13 @@ def test_compute_MVBS_index_binning():
 
     # Shape test
     data_binned_shape = np.ceil(
-        (nfreq, npings / ping_num, nrange_samples / range_sample_num)
+        (nchan, npings / ping_num, nrange_samples / range_sample_num)
     ).astype(int)
     assert np.all(data_test.shape == data_binned_shape)
 
     # Construct test array that increases by 1 for each range_sample and ping_time
     test_array = _construct_MVBS_test_data(
-        nfreq, data_binned_shape[1], data_binned_shape[2]
+        nchan, data_binned_shape[1], data_binned_shape[2]
     )
 
     # Test all values in MVBS
@@ -287,7 +299,7 @@ def test_compute_MVBS():
     """Test compute_MVBS on toy data"""
 
     # Parameters for fake data
-    nfreq, npings, nrange_samples = 4, 100, 4000
+    nchan, npings, nrange_samples = 4, 100, 4000
     range_meter_bin = 7  # range in meters to average over
     ping_time_bin = 3  # number of seconds to average over
     ping_rate = 2  # Number of pings per second
@@ -306,7 +318,7 @@ def test_compute_MVBS():
     # so that when compute_MVBS is performed, the result is a smaller array
     # that increases by a constant for each meter_bin and time_bin
     data = _construct_MVBS_toy_data(
-        nfreq=nfreq,
+        nchan=nchan,
         npings=npings,
         nrange_samples=nrange_samples,
         ping_size=ping_rate * ping_time_bin,
@@ -314,7 +326,8 @@ def test_compute_MVBS():
     )
 
     data_log = 10 * np.log10(data)  # Convert to log domain
-    freq_index = np.arange(nfreq)
+    chan_index = np.arange(nchan).astype(str)
+    freq_nom = np.arange(nchan)
     # Generate a date range with `npings` number of pings with the frequency of the ping_rate
     ping_time = pd.date_range(
         '1/1/2020', periods=npings, freq=f'{1/ping_rate}S'
@@ -323,7 +336,7 @@ def test_compute_MVBS():
     Sv = xr.DataArray(
         data_log,
         coords=[
-            ('frequency', freq_index),
+            ('channel', chan_index),
             ('ping_time', ping_time),
             ('range_sample', range_sample),
         ],
@@ -331,9 +344,10 @@ def test_compute_MVBS():
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
     ds_Sv = ds_Sv.assign(
+        frequency_nominal=xr.DataArray(freq_nom, coords={'channel': chan_index}),
         echo_range=xr.DataArray(
             np.array(
-                [[np.linspace(0, total_range, nrange_samples)] * npings] * nfreq
+                [[np.linspace(0, total_range, nrange_samples)] * npings] * nchan
             ),
             coords=Sv.coords,
         )
@@ -346,12 +360,12 @@ def test_compute_MVBS():
     data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
 
     # Shape test
-    data_binned_shape = np.ceil((nfreq, ping_num, range_sample_num)).astype(int)
+    data_binned_shape = np.ceil((nchan, ping_num, range_sample_num)).astype(int)
     assert np.all(data_test.shape == data_binned_shape)
 
     # Construct test array that increases by 1 for each range_sample and ping_time
     test_array = _construct_MVBS_test_data(
-        nfreq, data_binned_shape[1], data_binned_shape[2]
+        nchan, data_binned_shape[1], data_binned_shape[2]
     )
 
     # Test all values in MVBS
