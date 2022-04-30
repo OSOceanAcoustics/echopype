@@ -137,6 +137,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "binning_mode": "physical units",
             "range_meter_interval": str(range_meter_bin) + "m",
             "ping_time_interval": ping_time_bin,
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
 
@@ -203,6 +207,10 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
             "binning_mode": "sample number",
             "range_sample_interval": f"{range_sample_num} samples along range",
             "ping_interval": f"{ping_num} pings",
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
 
