@@ -154,9 +154,9 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     -------
     A dataset containing bin-averaged Sv
     """
-    ds_Sv["sv"] = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
+    da_sv = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
     da = 10 * np.log10(
-        ds_Sv["sv"]
+        da_sv
         .coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad")
         .mean(skipna=True)
     )
