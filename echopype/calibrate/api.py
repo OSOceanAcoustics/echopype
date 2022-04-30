@@ -68,6 +68,10 @@ def _compute_cal(
                 round(float(ds[cal_type].max().values), 2),
             ],
         }
+        if echodata.sonar_model == "EK80":
+            ds[cal_type] = ds[cal_type].assign_attrs(
+                {"waveform_mode": waveform_mode, "encode_mode": encode_mode,}
+            )
 
     # Perform calibration
     if cal_type == "Sv":
