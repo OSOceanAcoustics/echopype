@@ -123,10 +123,9 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # Params from the Vendor group
+
         # only execute this if cw and power
-        if waveform_mode == "CW" and (
-            self.echodata.beam_power is not None or "quadrant" not in self.echodata.beam
-        ):
+        if waveform_mode == "CW" and beam is not None:
             params_from_vend = ["sa_correction", "gain_correction"]
             for p in params_from_vend:
                 # substitute if None in user input
@@ -150,7 +149,7 @@ class CalibrateEK(CalibrateBase):
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
         use_beam_power : bool
             whether to use beam_power.
             If ``True`` use ``echodata.beam_power``; if ``False`` use ``echodata.beam``.
@@ -159,7 +158,7 @@ class CalibrateEK(CalibrateBase):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset containing Sv or Sp
+            The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
         if use_beam_power:
@@ -200,7 +199,7 @@ class CalibrateEK(CalibrateBase):
             )
             out.name = "Sv"
 
-        elif cal_type == "Sp":
+        elif cal_type == "TS":
             # Calc gain
             CSp = (
                 10 * np.log10(beam["transmit_power"])
@@ -210,7 +209,7 @@ class CalibrateEK(CalibrateBase):
 
             # Calibration and echo integration
             out = beam["backscatter_r"] + spreading_loss * 2 + absorption_loss - CSp
-            out.name = "Sp"
+            out.name = "TS"
 
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
@@ -279,8 +278,8 @@ class CalibrateEK60(CalibrateEK):
     def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type="Sv")
 
-    def compute_Sp(self, **kwargs):
-        return self._cal_power(cal_type="Sp")
+    def compute_TS(self, **kwargs):
+        return self._cal_power(cal_type="TS")
 
 
 class CalibrateEK80(CalibrateEK):
@@ -577,7 +576,7 @@ class CalibrateEK80(CalibrateEK):
             backscatter_freq = (
                 backscatter.sel(frequency=freq)
                 .dropna(dim="range_sample", how="all")
-                .dropna(dim="quadrant", how="all")
+                .dropna(dim="beam", how="all")
                 .dropna(dim="ping_time")
             )
             channel_id = str(self.echodata.beam.sel(frequency=freq)["channel_id"].values)
@@ -663,7 +662,7 @@ class CalibrateEK80(CalibrateEK):
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
         waveform_mode : {"CW", "BB"}
             Type of transmit waveform.
 
@@ -675,7 +674,7 @@ class CalibrateEK80(CalibrateEK):
         Returns
         -------
         xr.Dataset
-            The calibrated dataset containing Sv or Sp
+            The calibrated dataset containing Sv or TS
         """
         # Transmit replica and effective pulse length
         chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
@@ -697,13 +696,13 @@ class CalibrateEK80(CalibrateEK):
                 )
             # if CW and BB complex samples co-exist
             # drop those that contain CW samples (nan in freq start/end)
-            freq_sel = freq_center.dropna(dim="frequency")
+            freq_sel = freq_center.dropna(dim="frequency").frequency
 
             # backscatter data
-            pc = self.compress_pulse(chirp, freq_BB=freq_sel.frequency)
+            pc = self.compress_pulse(chirp, freq_BB=freq_sel)
             prx = (
-                self.echodata.beam.quadrant.size
-                * np.abs(pc.mean(dim="quadrant")) ** 2
+                self.echodata.beam.beam.size
+                * np.abs(pc.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
                 * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
                 / self.z_et
@@ -722,8 +721,8 @@ class CalibrateEK80(CalibrateEK):
                 self.echodata.beam["backscatter_r"] + 1j * self.echodata.beam["backscatter_i"]
             )
             prx = (
-                self.echodata.beam.quadrant.size
-                * np.abs(backscatter_cw.mean(dim="quadrant")) ** 2
+                self.echodata.beam.beam.size
+                * np.abs(backscatter_cw.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
                 * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
                 / self.z_et
@@ -733,8 +732,8 @@ class CalibrateEK80(CalibrateEK):
 
         # derived params
         sound_speed = self.env_params["sound_speed"].squeeze()
-        absorption = self.env_params["sound_absorption"].sel(frequency=freq_sel.frequency).squeeze()
-        range_meter = self.range_meter.sel(frequency=freq_sel.frequency).squeeze()
+        absorption = self.env_params["sound_absorption"].sel(frequency=freq_sel).squeeze()
+        range_meter = self.range_meter.sel(frequency=freq_sel).squeeze()
         if waveform_mode == "BB":
             # use true center frequency for BB pulse
             wavelength = sound_speed / freq_sel
@@ -753,7 +752,7 @@ class CalibrateEK80(CalibrateEK):
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter
 
-        # TODO: both Sv and Sp are off by ~<0.5 dB from matlab outputs.
+        # TODO: both Sv and TS are off by ~<0.5 dB from matlab outputs.
         #  Is this due to the use of 'single' in matlab code?
         if cal_type == "Sv":
             # effective pulse length
@@ -761,18 +760,16 @@ class CalibrateEK80(CalibrateEK):
                 data=list(tau_effective.values()),
                 coords=[self.echodata.beam.frequency, self.echodata.beam.ping_time],
                 dims=["frequency", "ping_time"],
-            ).sel(frequency=freq_sel.frequency)
+            ).sel(frequency=freq_sel)
 
             # other params
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel)
             if waveform_mode == "BB":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(
-                    frequency=freq_sel.frequency
-                ) + 10 * np.log10(freq_sel.frequency / freq_center)
+                    frequency=freq_sel
+                ) + 10 * np.log10(freq_sel / freq_center)
             elif waveform_mode == "CW":
-                psifc = self.echodata.beam["equivalent_beam_angle"].sel(
-                    frequency=freq_sel.frequency
-                )
+                psifc = self.echodata.beam["equivalent_beam_angle"].sel(frequency=freq_sel)
 
             out = (
                 10 * np.log10(prx)
@@ -785,8 +782,8 @@ class CalibrateEK80(CalibrateEK):
             )
             out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
-        elif cal_type == "Sp":
-            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel.frequency)
+        elif cal_type == "TS":
+            transmit_power = self.echodata.beam["transmit_power"].sel(frequency=freq_sel)
 
             out = (
                 10 * np.log10(prx)
@@ -795,7 +792,7 @@ class CalibrateEK80(CalibrateEK):
                 - 10 * np.log10(wavelength**2 * transmit_power / (16 * np.pi**2))
                 - 2 * gain
             )
-            out = out.rename_vars({list(out.data_vars.keys())[0]: "Sp"})
+            out = out.rename_vars({list(out.data_vars.keys())[0]: "TS"})
 
         # Attach calculated range (with units meter) into data set
         out = out.merge(range_meter)
@@ -807,13 +804,13 @@ class CalibrateEK80(CalibrateEK):
 
     def _compute_cal(self, cal_type, waveform_mode, encode_mode) -> xr.Dataset:
         """
-        Private method to compute Sv or Sp from EK80 data, called by compute_Sv or compute_Sp.
+        Private method to compute Sv or TS from EK80 data, called by compute_Sv or compute_TS.
 
         Parameters
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
 
         waveform_mode : {"CW", "BB"}
             Type of transmit waveform.
@@ -833,7 +830,7 @@ class CalibrateEK80(CalibrateEK):
         Returns
         -------
         xr.Dataset
-            An xarray Dataset containing either Sv or Sp.
+            An xarray Dataset containing either Sv or TS.
         """
         # Raise error for wrong inputs
         if waveform_mode not in ("BB", "CW"):
@@ -895,7 +892,7 @@ class CalibrateEK80(CalibrateEK):
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
-            if "quadrant" in self.echodata.beam.dims:  # data contain only complex samples
+            if "backscatter_i" in self.echodata.beam.variables:  # data contain only complex samples
                 if encode_mode == "power":
                     raise TypeError(
                         "File does not contain power samples! Use encode_mode='complex'"
@@ -948,8 +945,8 @@ class CalibrateEK80(CalibrateEK):
             cal_type="Sv", waveform_mode=waveform_mode, encode_mode=encode_mode
         )
 
-    def compute_Sp(self, waveform_mode="BB", encode_mode="complex"):
-        """Compute point backscattering strength (Sp).
+    def compute_TS(self, waveform_mode="BB", encode_mode="complex"):
+        """Compute target strength (TS).
 
         Parameters
         ----------
@@ -970,10 +967,10 @@ class CalibrateEK80(CalibrateEK):
 
         Returns
         -------
-        Sp : xr.DataSet
-            A DataSet containing point backscattering strength (``Sp``)
+        TS : xr.DataSet
+            A DataSet containing target strength (``TS``)
             and the corresponding range (``echo_range``) in units meter.
         """
         return self._compute_cal(
-            cal_type="Sp", waveform_mode=waveform_mode, encode_mode=encode_mode
+            cal_type="TS", waveform_mode=waveform_mode, encode_mode=encode_mode
         )

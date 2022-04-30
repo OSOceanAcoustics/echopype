@@ -142,8 +142,8 @@ def test_combine_echodata(raw_datasets):
                 "concat_dim",
                 "old_ping_time",
                 "ping_time",
-                "old_location_time",
-                "location_time",
+                "old_time1",
+                "time1",
             ],
             errors="ignore",
         ).drop_dims(
@@ -154,8 +154,8 @@ def test_combine_echodata(raw_datasets):
                 [
                     "old_ping_time",
                     "ping_time",
-                    "old_location_time",
-                    "location_time",
+                    "old_time1",
+                    "time1",
                 ],
                 errors="ignore",
             )
@@ -177,17 +177,17 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            if "location_time" in combined_group and group_name not in (
+            if "time1" in combined_group and group_name not in (
                 "provenance",
                 "nmea",
             ):
-                assert not exist_reversed_time(combined_group, "location_time")
-            if "old_location_time" in combined_group:
-                assert exist_reversed_time(combined_group, "old_location_time")
-            if "mru_time" in combined_group and group_name != "provenance":
-                assert not exist_reversed_time(combined_group, "mru_time")
-            if "old_mru_time" in combined_group:
-                assert exist_reversed_time(combined_group, "old_mru_time")
+                assert not exist_reversed_time(combined_group, "time1")
+            if "old_time1" in combined_group:
+                assert exist_reversed_time(combined_group, "old_time1")
+            if "time2" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "time2")
+            if "old_time2" in combined_group:
+                assert exist_reversed_time(combined_group, "old_time2")
 
 
 def test_attr_storage(ek60_test_data):

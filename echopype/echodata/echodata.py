@@ -1,13 +1,14 @@
 import datetime
-import uuid
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 
 import fsspec
 import numpy as np
 import xarray as xr
+from anytree.resolver import ChildResolverError
+from datatree import DataTree, open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -16,9 +17,10 @@ if TYPE_CHECKING:
 from ..calibrate.calibrate_base import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
-from ..utils.repr import HtmlTemplate
 from ..utils.uwa import calc_sound_speed
 from .convention import sonarnetcdf_1
+from .widgets.utils import tree_repr
+from .widgets.widgets import _load_static_files, get_template
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -36,53 +38,48 @@ class EchoData:
     including multiple files associated with the same data set.
     """
 
-    group_map = sonarnetcdf_1.yaml_dict["groups"]
+    group_map: Dict[str, Any] = sonarnetcdf_1.yaml_dict["groups"]
 
     def __init__(
         self,
         converted_raw_path: Optional["PathHint"] = None,
-        storage_options: Dict[str, str] = None,
+        storage_options: Optional[Dict[str, Any]] = None,
         source_file: Optional["PathHint"] = None,
-        xml_path: "PathHint" = None,
-        sonar_model: "SonarModelsHint" = None,
-        open_kwargs: Dict[str, str] = None,
+        xml_path: Optional["PathHint"] = None,
+        sonar_model: Optional["SonarModelsHint"] = None,
+        open_kwargs: Optional[Dict[str, Any]] = None,
     ):
 
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
-        self.storage_options: Dict[str, str] = (
+        self.storage_options: Dict[str, Any] = (
             storage_options if storage_options is not None else {}
         )
-        self.open_kwargs: Dict[str, str] = open_kwargs if open_kwargs is not None else {}
+        self.open_kwargs: Dict[str, Any] = open_kwargs if open_kwargs is not None else {}
         self.source_file: Optional["PathHint"] = source_file
         self.xml_path: Optional["PathHint"] = xml_path
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
-        self.converted_raw_path: Optional["PathHint"] = None
+        self.converted_raw_path: Optional["PathHint"] = converted_raw_path
+        self._tree: Optional["DataTree"] = None
 
         self.__setup_groups()
-        self.__read_converted(converted_raw_path)
+        # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
-    def __repr__(self) -> str:
-        """Make string representation of InferenceData object."""
-        existing_groups = [
-            f"{group}: ({self.group_map[group]['name']}) {self.group_map[group]['description']}"  # noqa
-            for group in self.group_map.keys()
-            if isinstance(getattr(self, group), xr.Dataset)
-        ]
+    def __str__(self) -> str:
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
-        msg = "EchoData: standardized raw data from {file_path}\n  > {options}".format(
-            options="\n  > ".join(existing_groups),
-            file_path=fpath,
-        )
-        return msg
+        return f"<EchoData: standardized raw data from {fpath}>\n{tree_repr(self._tree)}"
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def _repr_html_(self) -> str:
         """Make html representation of InferenceData object."""
+        _, css_style = _load_static_files()
         try:
             from xarray.core.options import OPTIONS
 
@@ -90,28 +87,7 @@ class EchoData:
             if display_style == "text":
                 html_repr = f"<pre>{escape(repr(self))}</pre>"
             else:
-                xr_collections = []
-                for group in self.group_map.keys():
-                    if isinstance(getattr(self, group), xr.Dataset):
-                        xr_data = getattr(self, group)._repr_html_()
-                        xr_collections.append(
-                            HtmlTemplate.element_template.format(  # noqa
-                                group_id=group + str(uuid.uuid4()),
-                                group=group,
-                                group_name=self.group_map[group]["name"],
-                                group_description=self.group_map[group]["description"],
-                                xr_data=xr_data,
-                            )
-                        )
-                elements = "".join(xr_collections)
-                fpath = "Internal Memory"
-                if self.converted_raw_path:
-                    fpath = self.converted_raw_path
-                formatted_html_template = HtmlTemplate.html_template.format(
-                    elements, file_path=str(fpath)
-                )  # noqa
-                css_template = HtmlTemplate.css_template  # noqa
-                html_repr = "%(formatted_html_template)s%(css_template)s" % locals()
+                return get_template("echodata.html.j2").render(echodata=self, css_style=css_style)
         except:  # noqa
             html_repr = f"<pre>{escape(repr(self))}</pre>"
         return html_repr
@@ -132,6 +108,117 @@ class EchoData:
                 converted_raw_path = Path(converted_raw_path.root)
 
         self.converted_raw_path = converted_raw_path
+
+    def _set_tree(self, tree: DataTree):
+        self._tree = tree
+
+    @classmethod
+    def from_file(
+        cls,
+        converted_raw_path: str,
+        storage_options: Optional[Dict[str, Any]] = None,
+        open_kwargs: Dict[str, Any] = {},
+    ) -> "EchoData":
+        echodata = cls(
+            converted_raw_path=converted_raw_path,
+            storage_options=storage_options,
+            open_kwargs=open_kwargs,
+        )
+        echodata._check_path(converted_raw_path)
+        converted_raw_path = echodata._sanitize_path(converted_raw_path)
+        suffix = echodata._check_suffix(converted_raw_path)
+        tree = open_datatree(
+            converted_raw_path,
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **echodata.open_kwargs,
+        )
+
+        echodata._set_tree(tree)
+
+        if isinstance(converted_raw_path, fsspec.FSMap):
+            # Convert fsmap to Path so it can be used
+            # for retrieving the path strings
+            converted_raw_path = Path(converted_raw_path.root)
+        echodata.converted_raw_path = converted_raw_path
+        echodata._load_tree()
+        return echodata
+
+    def _load_tree(self) -> None:
+        if self._tree is None:
+            raise ValueError("Datatree not found!")
+
+        for group, value in self.group_map.items():
+            # EK80 data may have a Beam_power group if both complex and power data exist.
+            ds = None
+            try:
+                if value["ep_group"] is None:
+                    node = self._tree
+                else:
+                    node = self._tree[value["ep_group"]]
+
+                ds = self.__get_dataset(node)
+            except ChildResolverError:
+                # Skips group not found errors for EK80 and ADCP
+                ...
+            if group == "top" and hasattr(ds, "keywords"):
+                self.sonar_model = ds.keywords.upper()  # type: ignore
+
+            if isinstance(ds, xr.Dataset):
+                setattr(self, group, ds)
+
+    @property
+    def version_info(self) -> Tuple[int]:
+        if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
+            version_str = self["Provenance"].attrs.get("conversion_software_version", None)
+            if version_str is not None:
+                version_num = version_str.split(".")[:3]
+                return tuple([int(i) for i in version_num])
+        return None
+
+    @property
+    def group_paths(self) -> Set[str]:
+        root_path = self._tree.pathstr
+        return {
+            i.replace(root_path + "/", "") if i != "root" else "Top-level"
+            for i in self._tree.groups
+        }
+
+    def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
+        if node.has_data or node.has_attrs:
+            return node.ds
+        return None
+
+    def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
+        if self._tree:
+            try:
+                if __key in ["Top-level", "/"]:
+                    # Access to root
+                    node = self._tree
+                else:
+                    node = self._tree[__key]
+                return self.__get_dataset(node)
+            except ChildResolverError:
+                raise GroupNotFoundError(__key)
+        else:
+            raise ValueError("Datatree not found!")
+
+    # NOTE: Temporary for now until the attribute access pattern is deprecated
+    def __getattribute__(self, __name: str) -> Any:
+        attr_value = super().__getattribute__(__name)
+        group_map = sonarnetcdf_1.yaml_dict["groups"]
+        if __name in group_map:
+            group = group_map.get(__name)
+            group_path = group["ep_group"]
+            if __name == "top":
+                group_path = "Top-level"
+            msg_list = ["This access pattern will be deprecated in future releases."]
+            if attr_value is not None:
+                msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
+            else:
+                msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
+            msg = " ".join(msg_list)
+            warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
+        return attr_value
 
     def compute_range(
         self,
@@ -162,13 +249,13 @@ class EchoData:
             sensor, and some are equipped with a pressure sensor, but automatically
             using these pressure data is not currently supported.
 
-        azfp_cal_type : {"Sv", "Sp"}, optional
+        azfp_cal_type : {"Sv", "TS"}, optional
 
             - `"Sv"` for calculating volume backscattering strength
-            - `"Sp"` for calculating point backscattering strength.
+            - `"TS"` for calculating target strength.
 
             This parameter needs to be specified for data from the AZFP echosounder,
-            due to a difference in computing range (``echo_range``) for Sv and Sp.
+            due to a difference in computing range (``echo_range``) for Sv and TS.
 
         ek_waveform_mode : {"CW", "BB"}, optional
             Type of transmit waveform.
@@ -284,12 +371,6 @@ class EchoData:
             )
             range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
-            # duplicate range for all ping_times for consistency with EK case
-            # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
-            #   because it expects the range included in the Sv/Sp dataset
-            #   to be indexed by ping_time
-            range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]}, axis=1)
-
             return range_meter
 
         # EK
@@ -349,8 +430,8 @@ class EchoData:
             range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
             # set entries with NaN backscatter data to NaN
-            if "quadrant" in beam["backscatter_r"].dims:
-                valid_idx = ~beam["backscatter_r"].isel(quadrant=0).drop("quadrant").isnull()
+            if "beam" in beam["backscatter_r"].dims:
+                valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)
@@ -382,12 +463,12 @@ class EchoData:
         in `extra_platform_data` with the following variable names will be used:
             - `"pitch"`
             - `"roll"`
-            - `"heave"`
+            - `"vertical_offset"`
             - `"latitude"`
             - `"longitude"`
             - `"water_level"`
         The data inserted into the Platform group will be indexed by a dimension named
-        `"location_time"`.
+        `"time1"`.
 
         Parameters
         ----------
@@ -445,7 +526,11 @@ class EchoData:
         )
         # fmt: on
         max_index = min(
-            np.searchsorted(sorted_external_time, self.beam["ping_time"].max(), side="right"),
+            np.searchsorted(
+                sorted_external_time,
+                self.beam["ping_time"].max(),
+                side="right",
+            ),
             len(sorted_external_time) - 1,
         )
         extra_platform_data = extra_platform_data.sel(
@@ -459,22 +544,22 @@ class EchoData:
 
         platform = self.platform
         platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
-        platform = platform.drop_dims(["location_time"], errors="ignore")
+        platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
-        platform = platform.assign_coords(location_time=extra_platform_data[time_dim].values)
+        platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
-        location_time_attrs = {
-            **self._varattrs["platform_coord_default"]["location_time"],
+        time1_attrs = {
+            **self._varattrs["platform_coord_default"]["time1"],
             **{"history": history_attr},
         }
-        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
+        platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
         dropped_vars_target = [
             "pitch",
             "roll",
-            "heave",
+            "vertical_offset",
             "latitude",
             "longitude",
             "water_level",
@@ -503,7 +588,7 @@ class EchoData:
         platform = platform.update(
             {
                 "pitch": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
@@ -511,23 +596,23 @@ class EchoData:
                     ),
                 ),
                 "roll": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
                         platform.get("roll", np.full(num_obs, np.nan)),
                     ),
                 ),
-                "heave": (
-                    "location_time",
+                "vertical_offset": (
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE"],
-                        platform.get("heave", np.full(num_obs, np.nan)),
+                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "latitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
@@ -535,7 +620,7 @@ class EchoData:
                     ),
                 ),
                 "longitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
@@ -543,7 +628,7 @@ class EchoData:
                     ),
                 ),
                 "water_level": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],
@@ -614,7 +699,10 @@ class EchoData:
         """Loads each echodata group"""
         suffix = self._check_suffix(filepath)
         return xr.open_dataset(
-            filepath, group=group, engine=XARRAY_ENGINE_MAP[suffix], **self.open_kwargs
+            filepath,
+            group=group,
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **self.open_kwargs,
         )
 
     def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):

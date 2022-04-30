@@ -11,6 +11,38 @@ from .set_groups_base import SetGroupsBase
 class SetGroupsEK80(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK80 data files."""
 
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {
+        "backscatter_r",
+        "backscatter_i",
+        "angle_athwartship",
+        "angle_alongship",
+        "frequency_start",
+        "frequency_end",
+    }
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "beamwidth_twoway_alongship",
+        "beamwidth_twoway_athwartship",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -55,6 +87,27 @@ class SetGroupsEK80(SetGroupsBase):
             if k in dict_env:
                 dict_env["absorption_indicative"] = dict_env.pop(k)
 
+        if "sound_velocity_profile" in self.parser_obj.environment:
+            dict_env["sound_velocity_profile"] = (
+                ["environment_time", "sound_velocity_profile_depth"],
+                [self.parser_obj.environment["sound_velocity_profile"][1::2]],
+                {
+                    "long_name": "sound velocity profile",
+                    "standard_name": "speed_of_sound_in_sea_water",
+                    "units": "m/s",
+                    "valid_min": 0.0,
+                    "comment": "parsed from raw data files as (depth, sound_speed) value pairs",
+                },
+            )
+
+        vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        for var_name in vars:
+            if var_name in self.parser_obj.environment:
+                dict_env[var_name] = (
+                    ["environment_time"],
+                    [self.parser_obj.environment[var_name]],
+                )
+
         ds = xr.Dataset(
             dict_env,
             coords={
@@ -66,7 +119,33 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
                     },
-                )
+                ),
+                "environment_time": (
+                    ["environment_time"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
+                    },
+                ),
+                "sound_velocity_profile_depth": (
+                    ["sound_velocity_profile_depth"],
+                    self.parser_obj.environment["sound_velocity_profile"][::2]
+                    if "sound_velocity_profile" in self.parser_obj.environment
+                    else [],
+                    {
+                        "standard_name": "depth",
+                        "units": "m",
+                        "axis": "Z",
+                        "positive": "down",
+                        "valid_min": 0.0,
+                    },
+                ),
             },
         )
         return set_encodings(ds)
@@ -106,13 +185,18 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
             coords={"frequency": var["transducer_frequency"]},
-            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
+            attrs={
+                "sonar_manufacturer": "Simrad",
+                "sonar_type": "echosounder",
+            },
         )
 
         return ds
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
+
+        ch_ids = self.parser_obj.config_datagram["configuration"].keys()
 
         # Collect variables
         if self.ui_param["water_level"] is not None:
@@ -123,15 +207,15 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = np.nan
             print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
 
-        location_time, msg_type, lat, lon = self._parse_NMEA()
-        mru_time = self.parser_obj.mru.get("timestamp", None)
-        mru_time = np.array(mru_time) if mru_time is not None else [np.nan]
+        time1, msg_type, lat, lon = self._parse_NMEA()
+        time2 = self.parser_obj.mru.get("timestamp", None)
+        time2 = np.array(time2) if time2 is not None else [np.nan]
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
                 "pitch": (
-                    ["mru_time"],
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
                     {
                         "long_name": "Platform pitch",
@@ -141,7 +225,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "roll": (
-                    ["mru_time"],
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("roll", [np.nan])),
                     {
                         "long_name": "Platform roll",
@@ -150,18 +234,13 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (-90.0, 90.0),
                     },
                 ),
-                "heave": (
-                    ["mru_time"],
+                "vertical_offset": (
+                    ["time2"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
-                    {
-                        "long_name": "Platform heave",
-                        "standard_name": "platform_heave_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "latitude": (
-                    ["location_time"],
+                    ["time1"],
                     lat,
                     {
                         "long_name": "Platform latitude",
@@ -171,7 +250,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "longitude": (
-                    ["location_time"],
+                    ["time1"],
                     lon,
                     {
                         "long_name": "Platform longitude",
@@ -180,30 +259,105 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (-180.0, 180.0),
                     },
                 ),
-                "sentence_type": (["location_time"], msg_type),
+                "sentence_type": (["time1"], msg_type),
+                "drop_keel_offset": (
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset"]]
+                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
+                    else [np.nan],
+                ),
+                "drop_keel_offset_is_manual": (
+                    ["time3"],
+                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
+                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
+                    else [np.nan],
+                ),
+                "transducer_offset_x": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_x", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_x"],
+                ),
+                "transducer_offset_y": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_y", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_y"],
+                ),
+                "transducer_offset_z": (
+                    ["frequency"],
+                    [
+                        self.parser_obj.config_datagram["configuration"][ch].get(
+                            "transducer_offset_z", np.nan
+                        )
+                        for ch in ch_ids
+                    ],
+                    self._varattrs["platform_var_default"]["transducer_offset_z"],
+                ),
                 "water_level": (
-                    [],
-                    water_level,
+                    ["time3"],
+                    [water_level],
                     {
                         "long_name": "z-axis distance from the platform coordinate system "
                         "origin to the sonar transducer",
                         "units": "m",
                     },
                 ),
+                "water_level_draft_is_manual": (
+                    ["time3"],
+                    [self.parser_obj.environment["water_level_draft_is_manual"]]
+                    if "water_level_draft_is_manual" in self.parser_obj.environment
+                    else [np.nan],
+                ),
+                **{
+                    var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                    for var in [
+                        "MRU_offset_x",
+                        "MRU_offset_y",
+                        "MRU_offset_z",
+                        "MRU_rotation_x",
+                        "MRU_rotation_y",
+                        "MRU_rotation_z",
+                        "position_offset_x",
+                        "position_offset_y",
+                        "position_offset_z",
+                    ]
+                },
             },
             coords={
-                "mru_time": (
-                    ["mru_time"],
-                    mru_time,
+                "time2": (
+                    ["time2"],
+                    time2,
                     {
                         "axis": "T",
                         "long_name": "Timestamps for MRU datagrams",
                         "standard_name": "time",
                     },
                 ),
-                "location_time": (
-                    ["location_time"],
-                    location_time,
+                "time3": (
+                    ["time3"],
+                    [self.parser_obj.environment["timestamp"]]
+                    if "timestamp" in self.parser_obj.environment
+                    else np.datetime64("NaT"),
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                        "comment": "Platform.time3 and Environment.environment_time are "
+                        "identical time coordinates from the same datagrams",
+                    },
+                ),
+                "time1": (
+                    ["time1"],
+                    time1,
                     {
                         "axis": "T",
                         "long_name": "Timestamps for NMEA datagrams",
@@ -216,11 +370,6 @@ class SetGroupsEK80(SetGroupsBase):
                 "platform_name": self.ui_param["platform_name"],
                 "platform_type": self.ui_param["platform_type"],
                 # TODO: check what this 'drop_keel_offset' is
-                "drop_keel_offset": (
-                    self.parser_obj.environment["drop_keel_offset"]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else np.nan
-                ),
             },
         )
         return set_encodings(ds)
@@ -334,33 +483,6 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_range": (0.0, 4 * np.pi),
                     },
                 ),
-                "transducer_offset_x": (
-                    ["frequency"],
-                    beam_params["transducer_offset_x"],
-                    {
-                        "long_name": "x-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_y": (
-                    ["frequency"],
-                    beam_params["transducer_offset_y"],
-                    {
-                        "long_name": "y-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_z": (
-                    ["frequency"],
-                    beam_params["transducer_offset_z"],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
                 "transceiver_software_version": (
                     ["frequency"],
                     beam_params["transceiver_software_version"],
@@ -386,6 +508,7 @@ class SetGroupsEK80(SetGroupsBase):
             raise ValueError("Transducer sector number changes in the middle of the file!")
         else:
             num_transducer_sectors = num_transducer_sectors[0]
+
         data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
         data_shape = (
             data_shape[0],
@@ -397,12 +520,12 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
-                    ["ping_time", "range_sample", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.real(data),
                     {"long_name": "Real part of backscatter power", "units": "V"},
                 ),
                 "backscatter_i": (
-                    ["ping_time", "range_sample", "quadrant"],
+                    ["ping_time", "range_sample", "beam"],
                     np.imag(data),
                     {"long_name": "Imaginary part of backscatter power", "units": "V"},
                 ),
@@ -418,7 +541,11 @@ class SetGroupsEK80(SetGroupsBase):
                     np.arange(data_shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
-                "quadrant": (["quadrant"], np.arange(num_transducer_sectors)),
+                "beam": (
+                    ["beam"],
+                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    self._varattrs["beam_coord_default"]["beam"],
+                ),
             },
         )
 
@@ -663,6 +790,19 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
         else:
             ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        if isinstance(ds_beam_power, xr.Dataset):
+            self.beamgroups_to_convention(
+                ds_beam_power,
+                self.beam_only_names,
+                self.beam_ping_time_names,
+                self.ping_time_only_names,
+            )
+
+        self.beamgroups_to_convention(
+            ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return [ds_beam, ds_beam_power]
 

@@ -33,7 +33,7 @@ class EnvParams:
         Class to hold and interpolate external environmental data for calibration purposes.
 
         This class can be used as the `env_params` parameter in `echopype.calibrate.compute_Sv`
-        or `echopype.calibrate.compute_Sp`. It is intended to be used with environmental parameters
+        or `echopype.calibrate.compute_TS`. It is intended to be used with environmental parameters
         indexed by time. Environmental parameters will be interpolated onto dimensions within
         the Platform group of the `EchoData` object being used for calibration.
 
@@ -109,10 +109,10 @@ class EnvParams:
         env_params = self.env_params
 
         if self.data_kind == "mobile":
-            if np.isnan(echodata.platform["location_time"]).all():
-                raise ValueError("cannot perform mobile interpolation without location_time")
+            if np.isnan(echodata.platform["time1"]).all():
+                raise ValueError("cannot perform mobile interpolation without time1")
             # compute_range needs indexing by ping_time
-            interp_plat = echodata.platform.interp({"location_time": echodata.beam["ping_time"]})
+            interp_plat = echodata.platform.interp({"time1": echodata.beam["ping_time"]})
 
             result = {}
             for var, values in env_params.data_vars.items():
@@ -213,7 +213,7 @@ class CalibrateBase(abc.ABC):
         self.env_params = env_params  # env_params are set in child class
         self.cal_params = None  # cal_params are set in child class
 
-        # range_meter is computed in compute_Sv/Sp in child class
+        # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
 
     @abc.abstractmethod
@@ -243,7 +243,7 @@ class CalibrateBase(abc.ABC):
         ----------
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
-            'Sp' for calculating point backscattering strength
+            'TS' for calculating target strength
         """
         pass
 
@@ -252,7 +252,7 @@ class CalibrateBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compute_Sp(self, **kwargs):
+    def compute_TS(self, **kwargs):
         pass
 
     def _add_params_to_output(self, ds_out):

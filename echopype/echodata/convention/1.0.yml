@@ -21,7 +21,7 @@ groups:
     description: contains information about the platform on which the sonar is installed.
     ep_group: Platform
   nmea:
-    name: Platform/NMEA
+    name: NMEA
     description: contains information specific to the NMEA protocol.
     ep_group: Platform/NMEA
   provenance:
@@ -33,13 +33,13 @@ groups:
     description: contains specific metadata for the sonar system.
     ep_group: Sonar
   beam:
-    name: Sonar/Beam_group1
+    name: Beam_group1
     description: >-
       contains backscatter data (either complex samples or uncalibrated power samples)
       and other beam or channel-specific data, including split-beam angle data when they exist.
     ep_group: Sonar/Beam_group1
   beam_power:
-    name: Sonar/Beam_group2
+    name: Beam_group2
     description: >-
       contains backscatter power (uncalibrated) and other beam or channel-specific data,
       including split-beam angle data when they exist.
@@ -56,15 +56,17 @@ variable_and_varattributes:
       long_name: Transducer frequency
       standard_name: sound_frequency
       units: Hz
-    valid_min: 0.0
+      valid_min: 0.0
     ping_time:
       long_name: Timestamp of each ping
       standard_name: time
       axis: T
     range_sample:
       long_name: Along-range sample number, base 0
+    beam:
+      long_name: Beam name
   platform_coord_default:
-    location_time:
+    time1:
       axis: T
       long_name: Timestamps for NMEA datagrams
       standard_name: time
@@ -79,21 +81,58 @@ variable_and_varattributes:
       standard_name: longitude
       units: degrees_east
       valid_range: (-180.0, 180.0)
+    MRU_offset_x:
+      long_name: Distance along the x-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_offset_y:
+      long_name: Distance along the y-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_offset_z:
+      long_name: Distance along the z-axis from the platform coordinate system origin to the motion reference unit sensor origin
+      units: m
+    MRU_rotation_x:
+      long_name: Extrinsic rotation about the x-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
+    MRU_rotation_y:
+      long_name: Extrinsic rotation about the y-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
+    MRU_rotation_z:
+      long_name: Extrinsic rotation about the z-axis from the platform to MRU coordinate systems
+      units: arc_degree
+      valid_range: (–180.0, 180.0)
     pitch:
       long_name: Platform pitch
       standard_name: platform_pitch_angle
       units: arc_degree
       valid_range: (-90.0, 90.0)
+    position_offset_x:
+      long_name: Distance along the x-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
+    position_offset_y:
+      long_name: Distance along the y-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
+    position_offset_z:
+      long_name: Distance along the z-axis from the platform coordinate system origin to the latitude/longitude sensor origin
+      units: m
     roll:
       long_name: Platform roll
       standard_name: platform_roll_angle
       units: arc_degree
       valid_range: (-90.0, 90.0)
-    heave:
-      long_name: Platform heave
-      standard_name: platform_heave_angle
-      units: arc_degree
-      valid_range: (-90.0, 90.0)
+    transducer_offset_x:
+      long_name: x-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
+    transducer_offset_y:
+      long_name: y-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
+    transducer_offset_z:
+      long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
+      units: m
+    vertical_offset:
+      long_name: Platform vertical offset from nominal
+      units: m
     water_level:
       long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
       units: m

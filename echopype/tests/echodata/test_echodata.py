@@ -111,7 +111,7 @@ def ek60_converted_zarr(request, test_path):
             ("AZFP", "ooi", "17032923.01A"),
             "AZFP",
             ("AZFP", "ooi", "17032922.XML"),
-            "Sp",
+            "TS",
             None,
             None,
         ),
@@ -220,7 +220,7 @@ class TestEchoData:
         return single_ek60_zarr
 
     def test_constructor(self, converted_zarr):
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         expected_groups = [
             'top',
             'environment',
@@ -241,24 +241,23 @@ class TestEchoData:
         zarr_path_string = str(converted_zarr.absolute())
         expected_repr = dedent(
             f"""\
-            EchoData: standardized raw data from {zarr_path_string}
-              > top: (Top-level) contains metadata about the SONAR-netCDF4 file format.
-              > environment: (Environment) contains information relevant to acoustic propagation through water.
-              > platform: (Platform) contains information about the platform on which the sonar is installed.
-              > nmea: (Platform/NMEA) contains information specific to the NMEA protocol.
-              > provenance: (Provenance) contains metadata about how the SONAR-netCDF4 version of the data were obtained.
-              > sonar: (Sonar) contains specific metadata for the sonar system.
-              > beam: (Sonar/Beam_group1) contains backscatter data (either complex samples or uncalibrated power samples)\
- and other beam or channel-specific data, including split-beam angle data when they exist.
-              > vendor: (Vendor specific) contains vendor-specific information about the sonar and the data."""
+            <EchoData: standardized raw data from {zarr_path_string}>
+            Top-level: contains metadata about the SONAR-netCDF4 file format.
+            ├── Environment: contains information relevant to acoustic propagation through water.
+            ├── Platform: contains information about the platform on which the sonar is installed.
+            │   └── NMEA: contains information specific to the NMEA protocol.
+            ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
+            ├── Sonar: contains specific metadata for the sonar system.
+            │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+            └── Vendor specific: contains vendor-specific information about the sonar and the data."""
         )
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
         assert expected_repr == actual
 
     def test_repr_html(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
-        ed = EchoData(converted_raw_path=converted_zarr)
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
         assert hasattr(ed, "_repr_html_")
         html_repr = ed._repr_html_().strip()
         assert (
@@ -270,7 +269,7 @@ class TestEchoData:
             html_fallback = ed._repr_html_().strip()
 
         assert html_fallback.startswith(
-            "<pre>EchoData"
+            "<pre>&lt;EchoData"
         ) and html_fallback.endswith("</pre>")
 
 
@@ -353,7 +352,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="mobile"
     )
-    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["location_time"]).all():
+    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["time1"]).all():
         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -388,11 +387,11 @@ def test_nan_range_entries(range_check_files):
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
         range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(quadrant=0).drop("quadrant").isnull()
+        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
         range_output = echodata.compute_range(env_params=[])
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isnull()
+        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
@@ -422,25 +421,25 @@ def test_update_platform(update_platform_samples):
     # times have max interval of 2s
     # check times are > min(ed.beam["ping_time"]) - 2s
     assert (
-        ed.platform["location_time"]
+        ed.platform["time1"]
         > ed.beam["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["location_time"] < ed.beam["ping_time"].min()
+            ed.platform["time1"] < ed.beam["ping_time"].min()
         )
         == 1
     )
     # check times are < max(ed.beam["ping_time"]) + 2s
     assert (
-        ed.platform["location_time"]
+        ed.platform["time1"]
         < ed.beam["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["location_time"] > ed.beam["ping_time"].max()
+            ed.platform["time1"] > ed.beam["ping_time"].max()
         )
         == 1
     )

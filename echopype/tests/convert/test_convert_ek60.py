@@ -37,13 +37,39 @@ def test_convert_ek60_matlab_raw(ek60_path):
     # Compare with matlab outputs
     ds_matlab = loadmat(ek60_matlab_path)
 
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
+
     # power
     assert np.allclose(
         [
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata.beam.backscatter_r.transpose(
+        echodata.beam.backscatter_r.isel(beam=0).transpose(
             'frequency', 'range_sample', 'ping_time'
         ),
         rtol=0,
@@ -56,7 +82,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata.beam['angle_' + angle].transpose(
+            echodata.beam['angle_' + angle].isel(beam=0).transpose(
                 'frequency', 'range_sample', 'ping_time'
             ),
         )
@@ -91,11 +117,38 @@ def test_convert_ek60_echoview_raw(ek60_path):
                 frequency=fidx,
                 ping_time=slice(None, 10),
                 range_sample=slice(1, None),
+                beam=0
             ),
             atol=9e-6,
             rtol=atol,
         )
 
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 def test_convert_ek60_duplicate_ping_times(ek60_path):
     """Convert a file with duplicate ping times"""

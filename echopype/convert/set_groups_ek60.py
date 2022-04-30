@@ -16,6 +16,34 @@ from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 class SetGroupsEK60(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from EK60 data files."""
 
+    # The sets beam_only_names, ping_time_only_names, and
+    # beam_ping_time_names are used in set_groups_base and
+    # in converting from v0.5.x to v0.6.0. The values within
+    # these sets are applied to all Sonar/Beam_groupX groups.
+
+    # Variables that need only the beam dimension added to them.
+    beam_only_names = {"backscatter_r", "angle_athwartship", "angle_alongship"}
+
+    # Variables that need only the ping_time dimension added to them.
+    ping_time_only_names = {"beam_type"}
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = {
+        "beam_direction_x",
+        "beam_direction_y",
+        "beam_direction_z",
+        "beamwidth_receive_alongship",
+        "beamwidth_receive_athwartship",
+        "beamwidth_transmit_alongship",
+        "beamwidth_transmit_athwartship",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "equivalent_beam_angle",
+        "gain_correction",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -156,6 +184,8 @@ class SetGroupsEK60(SetGroupsBase):
         sonar_dict = {
             "sonar_manufacturer": "Simrad",
             "sonar_model": self.parser_obj.config_datagram["sounder_name"],
+            # transducer (sonar) serial number is not stored in the EK60 raw data file,
+            # so sonar_serial_number can't be populated from the raw datagrams
             "sonar_serial_number": "",
             "sonar_software_name": "",
             "sonar_software_version": self.parser_obj.config_datagram["version"],
@@ -170,32 +200,32 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        location_time, msg_type, lat, lon = self._parse_NMEA()
+        time1, msg_type, lat, lon = self._parse_NMEA()
 
         # NMEA dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
                 "latitude": (
-                    ["location_time"],
+                    ["time1"],
                     lat,
                     self._varattrs["platform_var_default"]["latitude"],
                 ),
                 "longitude": (
-                    ["location_time"],
+                    ["time1"],
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
-                "sentence_type": (["location_time"], msg_type),
+                "sentence_type": (["time1"], msg_type),
             },
             coords={
-                "location_time": (
-                    ["location_time"],
-                    location_time,
-                    self._varattrs["platform_coord_default"]["location_time"],
+                "time1": (
+                    ["time1"],
+                    time1,
+                    self._varattrs["platform_coord_default"]["time1"],
                 )
             },
         )
-        ds = ds.chunk({"location_time": DEFAULT_CHUNK_SIZE["ping_time"]})
+        ds = ds.chunk({"time1": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         if not NMEA_only:
             ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -223,16 +253,51 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_data_dict["roll"][ch],
                             self._varattrs["platform_var_default"]["roll"],
                         ),
-                        "heave": (
+                        "vertical_offset": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["heave"][ch],
-                            self._varattrs["platform_var_default"]["heave"],
+                            self._varattrs["platform_var_default"]["vertical_offset"],
                         ),
                         "water_level": (
                             ["ping_time"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
                             self._varattrs["platform_var_default"]["water_level"],
                         ),
+                        "transducer_offset_x": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_x", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_x"],
+                        ),
+                        "transducer_offset_y": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_y", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_y"],
+                        ),
+                        "transducer_offset_z": (
+                            [],
+                            self.parser_obj.config_datagram["transceivers"][ch].get(
+                                "pos_z", np.nan
+                            ),
+                            self._varattrs["platform_var_default"]["transducer_offset_z"],
+                        ),
+                        **{
+                            var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                            for var in [
+                                "MRU_offset_x",
+                                "MRU_offset_y",
+                                "MRU_offset_z",
+                                "MRU_rotation_x",
+                                "MRU_rotation_y",
+                                "MRU_rotation_z",
+                                "position_offset_x",
+                                "position_offset_y",
+                                "position_offset_z",
+                            ]
+                        },
                     },
                     coords={
                         "ping_time": (
@@ -433,33 +498,6 @@ class SetGroupsEK60(SetGroupsBase):
                         "valid_range": (0.0, 4 * np.pi),
                     },
                 ),
-                "transducer_offset_x": (
-                    ["frequency"],
-                    beam_params["pos_x"],
-                    {
-                        "long_name": "x-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_y": (
-                    ["frequency"],
-                    beam_params["pos_y"],
-                    {
-                        "long_name": "y-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "transducer_offset_z": (
-                    ["frequency"],
-                    beam_params["pos_z"],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
                 "gain_correction": (
                     ["frequency"],
                     beam_params["gain"],
@@ -600,6 +638,11 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge(
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
+
+        # Manipulate some Dataset dimensions to adhere to convention
+        self.beamgroups_to_convention(
+            ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        )
 
         return set_encodings(ds)
 
