@@ -163,27 +163,31 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
     # Attach coarsened echo_range
     da.name = "Sv"
-    ds_out = da.to_dataset()
-    ds_out["echo_range"] = (
+    ds_MVBS = da.to_dataset()
+    ds_MVBS["echo_range"] = (
         ds_Sv["echo_range"]
         .coarsen(  # binned echo_range (use first value in each average bin)
             ping_time=ping_num, range_sample=range_sample_num, boundary="pad"
         )
         .min(skipna=True)
     )
-    ds_out.coords["range_sample"] = (
+    ds_MVBS.coords["range_sample"] = (
         "range_sample",
-        np.arange(ds_out["range_sample"].size),
+        np.arange(ds_MVBS["range_sample"].size),
     )  # reset range_sample to start from 0
 
     # Attach attributes
-    ds_out.attrs = {
+    ds_MVBS.attrs = {
         "binning_mode": "index",
         "range_sample_num": range_sample_num,
         "ping_num": ping_num,
     }
 
-    return ds_out
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
+
+    return ds_MVBS
 
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
@@ -243,7 +247,13 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     """
     noise_obj = NoiseEst(ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num)
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
-    return noise_obj.ds_Sv
+    ds_Sv = noise_obj.ds_Sv
+
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.remove_noise"
+    ds_Sv = ds_Sv.assign_attrs(prov_dict)
+
+    return ds_Sv
 
 
 def regrid():
