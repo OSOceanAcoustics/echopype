@@ -70,7 +70,10 @@ def _compute_cal(
         }
         if echodata.sonar_model == "EK80":
             ds[cal_type] = ds[cal_type].assign_attrs(
-                {"waveform_mode": waveform_mode, "encode_mode": encode_mode,}
+                {
+                    "waveform_mode": waveform_mode,
+                    "encode_mode": encode_mode,
+                }
             )
 
     # Perform calibration
