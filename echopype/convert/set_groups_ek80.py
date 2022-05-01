@@ -54,7 +54,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
                 " including split-beam angle data when they exist."
             ),
-        }
+        },
     ]
 
     def __init__(self, *args, **kwargs):
@@ -186,10 +186,7 @@ class SetGroupsEK80(SetGroupsBase):
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
-            coords={
-                "frequency": (var["transducer_frequency"]),
-                **beam_groups_coord
-            },
+            coords={"frequency": (var["transducer_frequency"]), **beam_groups_coord},
             attrs={
                 "sonar_manufacturer": "Simrad",
                 "sonar_type": "echosounder",
