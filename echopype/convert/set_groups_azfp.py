@@ -66,9 +66,10 @@ class SetGroupsAZFP(SetGroupsBase):
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
 
-        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
-        # using the information from self._beamgroups
-        ds = xr.Dataset(self._beam_groups_vars())
+        # Add beam_group and beam_group_descr variables sharing a common dimension
+        # (beam_group), using the information from self._beamgroups
+        beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
+        ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
         # Assemble sonar group dictionary
         sonar_dict = {

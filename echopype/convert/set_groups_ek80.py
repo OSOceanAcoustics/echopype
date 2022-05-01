@@ -166,10 +166,11 @@ class SetGroupsEK80(SetGroupsBase):
                 var[param].append(data[param])
 
         # Create dataset
-        # beam_group_name and beam_group_descr variables sharing a common dimension (beam),
-        # using the information from self._beamgroups
+        # Add beam_group and beam_group_descr variables sharing a common dimension
+        # (beam_group), using the information from self._beamgroups
         self._beamgroups = self.beamgroups_possible[:beam_group_count]
-        beam_groups_vars = self._beam_groups_vars()
+        beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
+
         sonar_vars = {
             "serial_number": (["frequency"], var["serial_number"]),
             "sonar_model": (["frequency"], var["transducer_name"]),
@@ -185,7 +186,10 @@ class SetGroupsEK80(SetGroupsBase):
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
-            coords={"frequency": var["transducer_frequency"]},
+            coords={
+                "frequency": (var["transducer_frequency"]),
+                **beam_groups_coord
+            },
             attrs={
                 "sonar_manufacturer": "Simrad",
                 "sonar_type": "echosounder",
