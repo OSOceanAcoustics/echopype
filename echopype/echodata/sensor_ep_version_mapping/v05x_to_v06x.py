@@ -1,7 +1,8 @@
-# TODO: turn this into an absolute import!
 import xarray as xr
 
+# TODO: turn this into an absolute import!
 from ...core import SONAR_MODELS
+from ..convention import sonarnetcdf_1
 
 
 def _range_bin_to_range_sample(ed_obj):
@@ -18,12 +19,14 @@ def _range_bin_to_range_sample(ed_obj):
     The function directly modifies the input EchoData object.
     """
 
-    for i in ed_obj.group_paths:
+    for grp_path in ed_obj.group_paths:
 
-        if "range_bin" in list(ed_obj[i].coords):
+        if "range_bin" in list(ed_obj[grp_path].coords):
 
             # renames range_bin in the dataset
-            ed_obj._tree[i].ds = ed_obj._tree[i].ds.rename(name_dict={"range_bin": "range_sample"})
+            ed_obj._tree[grp_path].ds = ed_obj._tree[grp_path].ds.rename(
+                name_dict={"range_bin": "range_sample"}
+            )
 
 
 def _reorganize_beam_groups(ed_obj):
@@ -142,12 +145,10 @@ def get_channel_id(ed_obj, sensor):
 
         # create unique channel_id for AZFP
         freq_as_str = (freq_nom / 1000.0).astype(int).astype(str).values
-
         channel_id_str = [
             str(ed_obj["Sonar"].sonar_serial_number) + "-" + freq_as_str[i] + "-" + str(i + 1)
             for i in range(len(freq_as_str))
         ]
-
         channel_id = xr.DataArray(
             data=channel_id_str, dims=["frequency"], coords={"frequency": freq_nom}
         )
@@ -183,28 +184,31 @@ def _frequency_to_channel(ed_obj, sensor):
     The function directly modifies the input EchoData object.
     """
 
-    channel_id = get_channel_id(ed_obj, sensor)
-
-    print(channel_id)
+    channel_id = get_channel_id(ed_obj, sensor)  # all channel ids
+    varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     for grp_path in ed_obj.group_paths:
 
-        print(grp_path)
-
         if "frequency" in ed_obj[grp_path]:
 
-            # add frequency_nominal as a variable
-            # TODO: carefully set freq_nominal with correct corresponding channels for
+            # add frequency_nominal and rename frequency to channel
+            ed_obj[grp_path]["frequency_nominal"] = ed_obj[grp_path].frequency
+            ed_obj._tree[grp_path].ds = ed_obj[grp_path].rename({"frequency": "channel"})
 
-            # TODO: add attributes for channel
+            # set values for channel
+            if "channel_id" in ed_obj[grp_path]:
+                ed_obj[grp_path]["channel"] = ed_obj[grp_path].channel_id.values
+                ed_obj._tree[grp_path].ds = ed_obj._tree[grp_path].ds.drop("channel_id")
 
-            print("freq in here!")
+            else:
+                ed_obj[grp_path]["channel"] = channel_id.sel(
+                    frequency=ed_obj[grp_path].frequency_nominal
+                ).values
 
-            # beam_group.ds = beam_group.ds.rename({'quadrant': 'beam'})
-            # beam_group.ds['beam'] = (beam_group.ds.beam + 1).astype(str)
-            # beam_group.ds.beam.attrs["long_name"] = "Beam name"
-
-            # TODO: sonar, get channel_id from beam groups
+            # set attributes for channel
+            ed_obj[grp_path]["channel"] = ed_obj[grp_path]["channel"].assign_attrs(
+                varattrs["beam_coord_default"]["channel"]
+            )
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -260,11 +264,3 @@ def convert_v05x_to_v06x(echodata_obj):
         _modify_sonar_group(echodata_obj, sensor)
 
         _frequency_to_channel(echodata_obj, sensor)
-
-        # change frequency to channel in beam groups
-
-        # change some freq to channel in Vendor
-
-        # change freq to channel in Environment
-
-        # change freq to channel in Platform
