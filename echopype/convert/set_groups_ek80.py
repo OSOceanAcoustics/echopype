@@ -170,7 +170,11 @@ class SetGroupsEK80(SetGroupsBase):
         # using the information from self._beamgroups
         beam_groups_vars = self._beam_groups_vars()
         sonar_vars = {
-            "frequency_nominal": (["channel"], var["transducer_frequency"]),
+            "frequency_nominal": (
+                ["channel"],
+                var["transducer_frequency"],
+                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+            ),
             "serial_number": (["channel"], var["serial_number"]),
             "sonar_model": (["channel"], var["transducer_name"]),
             "sonar_serial_number": (["channel"], var["channel_id_short"]),
@@ -185,7 +189,13 @@ class SetGroupsEK80(SetGroupsBase):
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
-            coords={"channel": list(self.parser_obj.config_datagram["configuration"].keys())},
+            coords={
+                "channel": (
+                    ["channel"],
+                    list(self.parser_obj.config_datagram["configuration"].keys()),
+                    self._varattrs["beam_coord_default"]["channel"],
+                )
+            },
             attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
 
