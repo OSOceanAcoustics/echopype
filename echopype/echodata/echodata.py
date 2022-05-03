@@ -197,7 +197,7 @@ class EchoData:
     def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                node = self.__get_node(self, __key)
+                node = self.__get_node(__key)
                 return self.__get_dataset(node)
             except ChildResolverError:
                 raise GroupNotFoundError(__key)
@@ -207,7 +207,7 @@ class EchoData:
     def __setitem__(self, __key: Optional[str], __newvalue: Any) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                node = self.__get_node(self, __key)
+                node = self.__get_node(__key)
                 node.ds = __newvalue
                 return self.__get_dataset(node)
             except ChildResolverError:
