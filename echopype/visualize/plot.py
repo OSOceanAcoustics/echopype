@@ -125,6 +125,9 @@ def _plot_echogram(
 
     row = None
     col = None
+    # perform frequency filtering
+    # if (frequency is not None) and ('channel' in ds.dims):
+    #     ds = ds.where(ds.frequency_nominal.isin(frequency), drop=True)
 
     if 'backscatter_i' in ds.variables:
         col = 'beam'
