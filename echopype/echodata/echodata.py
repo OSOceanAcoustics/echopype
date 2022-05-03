@@ -188,14 +188,27 @@ class EchoData:
             return node.ds
         return None
 
+    def __get_node(self, key: Optional[str]) -> DataTree:
+        if key in ["Top-level", "/"]:
+            # Access to root
+            return self._tree
+        return self._tree[key]
+
     def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                if __key in ["Top-level", "/"]:
-                    # Access to root
-                    node = self._tree
-                else:
-                    node = self._tree[__key]
+                node = self.__get_node(__key)
+                return self.__get_dataset(node)
+            except ChildResolverError:
+                raise GroupNotFoundError(__key)
+        else:
+            raise ValueError("Datatree not found!")
+
+    def __setitem__(self, __key: Optional[str], __newvalue: Any) -> Optional[xr.Dataset]:
+        if self._tree:
+            try:
+                node = self.__get_node(__key)
+                node.ds = __newvalue
                 return self.__get_dataset(node)
             except ChildResolverError:
                 raise GroupNotFoundError(__key)
@@ -607,7 +620,12 @@ class EchoData:
                     "time1",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        [
+                            "heave",
+                            "HEAVE",
+                            "vertical_offset",
+                            "VERTICAL_OFFSET",
+                        ],
                         platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
