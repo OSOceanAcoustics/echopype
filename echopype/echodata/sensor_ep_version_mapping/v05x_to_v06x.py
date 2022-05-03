@@ -264,3 +264,12 @@ def convert_v05x_to_v06x(echodata_obj):
         _modify_sonar_group(echodata_obj, sensor)
 
         _frequency_to_channel(echodata_obj, sensor)
+
+        # Rename time dimensions in the Platform group
+        # (location_time: time1, mru_time: time2) (#518, #631, #647)
+
+        # Change src_filenames string attribute to source_filenames
+        # list-of-strings variable in Platform (#620, #621)
+
+        # addition of missing required variables in Platform
+        # groups (#592, #649)
