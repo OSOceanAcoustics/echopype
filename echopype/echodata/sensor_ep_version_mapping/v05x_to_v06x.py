@@ -211,6 +211,41 @@ def _frequency_to_channel(ed_obj, sensor):
             )
 
 
+def _move_transducer_offset_vars(ed_obj):
+    """
+    Moves transducer_offset_x/y/z from beam groups to Platform
+    group. If more than one beam group exists, then the
+    variables are first collected and then moved to Platform.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    full_transducer_vars = {"x": [], "y": [], "z": []}
+
+    # collect transducser_offset_x/y/z from the beam groups
+    for beam_group in ed_obj._tree["Sonar"].children:
+        for spatial in full_transducer_vars.keys():
+            full_transducer_vars[spatial].append(beam_group.ds["transducer_offset_" + spatial])
+
+            # remove transducer_offset_x/y/z from the beam group
+            beam_group.ds = beam_group.ds.drop("transducer_offset_" + spatial)
+
+    # transfer transducser_offset_x/y/z to Platform
+    for spatial in full_transducer_vars.keys():
+        ed_obj._tree["Platform"].ds["transducer_offset_" + spatial] = xr.concat(
+            full_transducer_vars[spatial], dim="channel"
+        )
+
+    # TODO: account for AZFP. These vars don't exist here, but need to be created.
+
+
 def convert_v05x_to_v06x(echodata_obj):
     """
     This function converts the EchoData structure created in echopype
@@ -264,6 +299,9 @@ def convert_v05x_to_v06x(echodata_obj):
         _modify_sonar_group(echodata_obj, sensor)
 
         _frequency_to_channel(echodata_obj, sensor)
+
+        # move transducer_offset_x/y/z from Beam groups to Platform
+        _move_transducer_offset_vars(echodata_obj)
 
         # Rename time dimensions in the Platform group
         # (location_time: time1, mru_time: time2) (#518, #631, #647)
