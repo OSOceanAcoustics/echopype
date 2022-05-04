@@ -225,13 +225,6 @@ def test_water_level_echodata(water_level, expect_warning):
         ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
     )
 
-    # get sorted indices of all frequency_nominal values. This is necessary
-    # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(echodata.vendor.frequency_nominal)
-
-    # choose those sorted_freq_ind that correspond to the channels in range_in_meter
-    sorted_freq_ind = sorted_freq_ind.sel(channel=range_in_meter.channel)
-
     single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                       ping_time='2017-07-19T21:13:47.984999936').values
     no_input_water_level = False
