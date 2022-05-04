@@ -99,17 +99,14 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
-    # get indices of sorted frequency_nominal values. This is necessary
-    # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
-
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata.beam.backscatter_r.isel(channel=sorted_freq_ind[0], ping_time=0)
+        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C',
+                                        ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
         np.real(
@@ -117,7 +114,8 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ),  # real part
     )
     assert np.array_equal(
-        echodata.beam.backscatter_i.isel(channel=sorted_freq_ind[0], ping_time=0)
+        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C',
+                                        ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
         np.imag(
@@ -277,7 +275,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
     )  # averaged across beams
     assert np.allclose(
-        echodata.beam.backscatter_r.isel(channel=1)
+        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
@@ -285,7 +283,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=8e-6,
     )
     assert np.allclose(
-        echodata.beam.backscatter_i.isel(channel=1)
+        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
