@@ -48,7 +48,7 @@ def _set_label(
                 ax.set_title(f'Beam {fg.col_names[idx]}')
             ax.text(
                 *text_pos,
-                f"{chan} kHz",
+                f"{chan}",
                 transform=ax.transAxes,
                 fontsize=fontsize,
                 verticalalignment='bottom',
