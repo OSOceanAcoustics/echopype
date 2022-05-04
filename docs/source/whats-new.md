@@ -20,6 +20,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Rename the data variable `Sp` to `TS` since "point backscattering strength" is a Simrad terminology and target strength (TS) is clearly defined and widely used. (#615)
 - Rename time dimensions in the `Platform` group (`location_time`: `time1`, `mru_time`: `time2`) (#518, #631, #647)
 - Rename the coordinate `frequency` to `channel` for all groups, to be more flexible (can accommodate channels with identical frequencies #490) and reasonable (since for broadband data the channel frequency is only nominal #566) (ADD WHEN KNOWN)
+- Rename the data variable `heave` to `vertical_offset` in the Platform group (#592, #623)
 - Change `src_filenames` string attribute to `source_filenames` list-of-strings variable (#620, #621)
 - Note: the data structure of sonar model AD2CP remains unchanged in this release and will be re-organized in later releases.
 
