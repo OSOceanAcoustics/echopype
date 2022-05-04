@@ -232,7 +232,8 @@ def test_water_level_echodata(water_level, expect_warning):
     # choose those sorted_freq_ind that correspond to the channels in range_in_meter
     sorted_freq_ind = sorted_freq_ind.sel(channel=range_in_meter.channel)
 
-    single_array = range_in_meter.isel(channel=sorted_freq_ind[0], ping_time=0).values
+    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                      ping_time='2017-07-19T21:13:47.984999936').values
     no_input_water_level = False
 
     if isinstance(water_level, list):
@@ -242,12 +243,13 @@ def test_water_level_echodata(water_level, expect_warning):
 
     if isinstance(water_level, xr.DataArray):
         if 'channel' in water_level.dims:
-            original_array = single_array + water_level.isel(channel=sorted_freq_ind[0]).values
+            original_array = single_array + water_level.isel(channel=0).values
     elif isinstance(water_level, bool) and water_level is True:
         if no_input_water_level is False:
             original_array = (
                 single_array
-                + echodata.platform.water_level.isel(channel=sorted_freq_ind[0], ping_time=0).values
+                + echodata.platform.water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                                    ping_time='2017-07-19T21:13:47.984999936').values
             )
         else:
             original_array = single_array
@@ -278,7 +280,8 @@ def test_water_level_echodata(water_level, expect_warning):
         assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
-        final_array = results.isel(channel=sorted_freq_ind[0], ping_time=0).values
+        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                  ping_time='2017-07-19T21:13:47.984999936').values
 
         assert np.array_equal(original_array, final_array)
 
