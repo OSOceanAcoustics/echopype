@@ -36,7 +36,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add missing coordinate and variable attributes in the processed datasets Sv, MVBS, TS(#594)
 - Add `water_level` to processed datasets (Sv, MVBS, TS) for convenient downstream conversion to depth (#259, #583, #615)
 - Add additional environment variables for EK80 data (#616)
-- Add missing platform data variables (#592, #631)
+- Add missing platform data variables (#592, #631, #649, #654)
 
 ## New features and other enhancements
 
