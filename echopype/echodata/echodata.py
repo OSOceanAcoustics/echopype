@@ -227,6 +227,8 @@ class EchoData:
                 group_path = "Top-level"
             msg_list = ["This access pattern will be deprecated in future releases."]
             if attr_value is not None:
+                if self._tree is None:
+                    raise ValueError("Datatree not found!")
                 msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
                 if group_path == "Top-level":
                     node = self._tree
