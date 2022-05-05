@@ -2,6 +2,8 @@ from textwrap import dedent
 
 import fsspec
 
+from zarr.errors import GroupNotFoundError
+
 import echopype
 from echopype.calibrate.calibrate_base import EnvParams
 from echopype.echodata import EchoData
@@ -272,6 +274,52 @@ class TestEchoData:
             "<pre>&lt;EchoData"
         ) and html_fallback.endswith("</pre>")
 
+    def test_setattr(self, converted_zarr):
+        sample_data = xr.Dataset({"x": [0, 0, 0]})
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        current_ed_beam = ed.beam
+        ed.beam = sample_data
+
+        assert ed.beam.equals(sample_data) is True
+        assert ed.beam.equals(ed['Sonar/Beam_group1']) is True
+        assert ed.beam.equals(current_ed_beam) is False
+
+    def test_getitem(self, converted_zarr):
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        beam = ed['Sonar/Beam_group1']
+        assert isinstance(beam, xr.Dataset)
+        try:
+            ed['MyGroup']
+        except Exception as e:
+            assert isinstance(e, GroupNotFoundError)
+
+        ed._tree = None
+        try:
+            ed['Sonar']
+        except Exception as e:
+            assert isinstance(e, ValueError)
+
+    def test_getattr(self, converted_zarr):
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        expected_groups = {
+            'top': 'Top-level',
+            'environment': 'Environment',
+            'platform': 'Platform',
+            'nmea': 'Platform/NMEA',
+            'provenance': 'Provenance',
+            'sonar': 'Sonar',
+            'beam': 'Sonar/Beam_group1',
+            'vendor': 'Vendor',
+        }
+        for group, path in expected_groups.items():
+            ds = getattr(ed, group)
+            assert ds.equals(ed[path])
+
+    def test_setitem(self, converted_zarr):
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'frequency': 'channel'})
+
+        assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['channel', 'ping_time', 'range_bin']
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
