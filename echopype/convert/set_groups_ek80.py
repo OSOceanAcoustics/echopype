@@ -172,25 +172,33 @@ class SetGroupsEK80(SetGroupsBase):
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
 
         sonar_vars = {
-            "serial_number": (["frequency"], var["serial_number"]),
-            "sonar_model": (["frequency"], var["transducer_name"]),
-            "sonar_serial_number": (["frequency"], var["channel_id_short"]),
+            "frequency_nominal": (
+                ["channel"],
+                var["transducer_frequency"],
+                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+            ),
+            "serial_number": (["channel"], var["serial_number"]),
+            "sonar_model": (["channel"], var["transducer_name"]),
+            "sonar_serial_number": (["channel"], var["channel_id_short"]),
             "sonar_software_name": (
-                ["frequency"],
+                ["channel"],
                 var["application_name"],
             ),  # identical for all channels
             "sonar_software_version": (
-                ["frequency"],
+                ["channel"],
                 var["application_version"],
             ),  # identical for all channels
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
-            coords={"frequency": (var["transducer_frequency"]), **beam_groups_coord},
-            attrs={
-                "sonar_manufacturer": "Simrad",
-                "sonar_type": "echosounder",
+            coords={
+                "channel": (
+                    ["channel"],
+                    list(self.parser_obj.config_datagram["configuration"].keys()),
+                    self._varattrs["beam_coord_default"]["channel"],
+                )
             },
+            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
 
         return ds
@@ -198,7 +206,13 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
-        ch_ids = self.parser_obj.config_datagram["configuration"].keys()
+        ch_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+        freq = np.array(
+            [
+                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+                for ch in ch_ids
+            ]
+        )
 
         # Collect variables
         if self.ui_param["water_level"] is not None:
@@ -216,6 +230,11 @@ class SetGroupsEK80(SetGroupsBase):
         # Assemble variables into a dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
             {
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
                 "pitch": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
@@ -275,7 +294,7 @@ class SetGroupsEK80(SetGroupsBase):
                     else [np.nan],
                 ),
                 "transducer_offset_x": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_x", np.nan
@@ -285,7 +304,7 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["transducer_offset_x"],
                 ),
                 "transducer_offset_y": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_y", np.nan
@@ -295,7 +314,7 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["transducer_offset_y"],
                 ),
                 "transducer_offset_z": (
-                    ["frequency"],
+                    ["channel"],
                     [
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_z", np.nan
@@ -335,6 +354,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             },
             coords={
+                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
                 "time2": (
                     ["time2"],
                     time2,
@@ -401,10 +421,14 @@ class SetGroupsEK80(SetGroupsBase):
             ]
         ds = xr.Dataset(
             {
-                "channel_id": (["frequency"], ch_ids),
-                "beam_type": (["frequency"], beam_params["transducer_beam_type"]),
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
+                "beam_type": (["channel"], beam_params["transducer_beam_type"]),
                 "beamwidth_twoway_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beam_width_alongship"],
                     {
                         "long_name": "Half power two-way beam width along "
@@ -414,7 +438,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "beamwidth_twoway_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["beam_width_athwartship"],
                     {
                         "long_name": "Half power two-way beam width along "
@@ -424,7 +448,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "beam_direction_x": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["transducer_alpha_x"],
                     {
                         "long_name": "x-component of the vector that gives the pointing "
@@ -435,7 +459,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "beam_direction_y": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["transducer_alpha_y"],
                     {
                         "long_name": "y-component of the vector that gives the pointing "
@@ -446,7 +470,7 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "beam_direction_z": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["transducer_alpha_z"],
                     {
                         "long_name": "z-component of the vector that gives the pointing "
@@ -457,27 +481,27 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "angle_offset_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_offset_alongship"],
                     {"long_name": "electrical alongship angle of the transducer"},
                 ),
                 "angle_offset_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_offset_athwartship"],
                     {"long_name": "electrical athwartship angle of the transducer"},
                 ),
                 "angle_sensitivity_alongship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_sensitivity_alongship"],
                     {"long_name": "alongship sensitivity of the transducer"},
                 ),
                 "angle_sensitivity_athwartship": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
                     {"long_name": "athwartship sensitivity of the transducer"},
                 ),
                 "equivalent_beam_angle": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["equivalent_beam_angle"],
                     {
                         "long_name": "Equivalent beam angle",
@@ -486,16 +510,12 @@ class SetGroupsEK80(SetGroupsBase):
                     },
                 ),
                 "transceiver_software_version": (
-                    ["frequency"],
+                    ["channel"],
                     beam_params["transceiver_software_version"],
                 ),
             },
             coords={
-                "frequency": (
-                    ["frequency"],
-                    freq,
-                    self._varattrs["beam_coord_default"]["frequency"],
-                ),
+                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
@@ -765,16 +785,12 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = xr.merge(
                 [ds_data, ds_common], combine_attrs="override"
             )  # override keeps the Dataset attributes
-            # Attach frequency dimension/coordinate
+            # Attach channel dimension/coordinate
             ds_data = ds_data.expand_dims(
-                {
-                    "frequency": [
-                        self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-                    ]
-                }
+                {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
             )
-            ds_data["frequency"] = ds_data["frequency"].assign_attrs(
-                **self._varattrs["beam_coord_default"]["frequency"]
+            ds_data["channel"] = ds_data["channel"].assign_attrs(
+                **self._varattrs["beam_coord_default"]["channel"]
             )
             if ch in self.parser_obj.ch_ids["complex"]:
                 ds_complex.append(ds_data)
@@ -811,6 +827,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor-specific group."""
         config = self.parser_obj.config_datagram["configuration"]
+        channels = list(self.parser_obj.config_datagram["configuration"].keys())
 
         # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
         table_params = [
@@ -836,25 +853,26 @@ class SetGroupsEK80(SetGroupsBase):
 
         ds_table = xr.Dataset(
             {
+                "frequency_nominal": (
+                    ["channel"],
+                    param_dict["transducer_frequency"],
+                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                ),
                 "sa_correction": (
-                    ["frequency", "pulse_length_bin"],
+                    ["channel", "pulse_length_bin"],
                     np.array(param_dict["sa_correction"]),
                 ),
                 "gain_correction": (
-                    ["frequency", "pulse_length_bin"],
+                    ["channel", "pulse_length_bin"],
                     np.array(param_dict["gain"]),
                 ),
                 "pulse_length": (
-                    ["frequency", "pulse_length_bin"],
+                    ["channel", "pulse_length_bin"],
                     np.array(param_dict["pulse_duration"]),
                 ),
             },
             coords={
-                "frequency": (
-                    ["frequency"],
-                    param_dict["transducer_frequency"],
-                    self._varattrs["beam_coord_default"]["frequency"],
-                ),
+                "channel": (["channel"], channels, self._varattrs["beam_coord_default"]["channel"]),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(param_dict["pulse_duration"].shape[1]),
@@ -908,7 +926,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  Save decimation factors and filter coefficients
         coeffs = dict()
         decimation_factors = dict()
-        for ch in self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]:
+        for ch in channels:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
             coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
             decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]

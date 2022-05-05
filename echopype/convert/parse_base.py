@@ -66,6 +66,7 @@ class ParseEK(ParseBase):
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ms]"
             )
             if "configuration" in self.config_datagram:
+
                 for v in self.config_datagram["configuration"].values():
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"

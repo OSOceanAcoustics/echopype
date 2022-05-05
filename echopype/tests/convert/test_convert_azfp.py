@@ -62,7 +62,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     # frequency
     assert np.array_equal(
         ds_matlab['Data']['Freq'][0][0].squeeze(),
-        echodata.beam.frequency / 1000,
+        echodata.beam.frequency_nominal / 1000,
     )  # matlab file in kHz
     # backscatter count
     assert np.array_equal(
@@ -112,7 +112,8 @@ def test_convert_azfp_01a_matlab_derived():
     # # check convention-required variables in the Platform group
     # check_platform_required_vars(echodata)
 
-    pass
+    pytest.xfail("Tests for converting AZFP and comparing it"
+                 + " against Matlab derived data have not been implemented yet.")
 
 
 def test_convert_azfp_01a_raw_echoview(azfp_path):
@@ -151,10 +152,10 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert echodata.beam.backscatter_r.isel(frequency=0).dropna(
+    assert echodata.beam.backscatter_r.sel(channel='55030-125-1').dropna(
         'range_sample'
     ).shape == (360, 438, 1)
-    assert echodata.beam.backscatter_r.isel(frequency=3).dropna(
+    assert echodata.beam.backscatter_r.sel(channel='55030-769-4').dropna(
         'range_sample'
     ).shape == (360, 135, 1)
 
