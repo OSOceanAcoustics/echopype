@@ -5,6 +5,7 @@ Functions for enhancing the spatial and temporal coherence of data.
 import numpy as np
 import pandas as pd
 
+from ..utils.prov import echopype_prov_attrs
 from .noise_est import NoiseEst
 
 
@@ -136,8 +137,16 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "binning_mode": "physical units",
             "range_meter_interval": str(range_meter_bin) + "m",
             "ping_time_interval": ping_time_bin,
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
+
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.compute_MVBS"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
     return ds_MVBS
 
@@ -163,11 +172,11 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     -------
     A dataset containing bin-averaged Sv
     """
-    ds_Sv["sv"] = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
+    da_sv = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
     da = 10 * np.log10(
-        ds_Sv["sv"]
-        .coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad")
-        .mean(skipna=True)
+        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean(
+            skipna=True
+        )
     )
 
     # Attach attributes and coarsened echo_range
@@ -198,8 +207,16 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
             "binning_mode": "sample number",
             "range_sample_interval": f"{range_sample_num} samples along range",
             "ping_interval": f"{ping_num} pings",
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
+
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
     return ds_MVBS
 
@@ -261,7 +278,13 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     """
     noise_obj = NoiseEst(ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num)
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
-    return noise_obj.ds_Sv
+    ds_Sv = noise_obj.ds_Sv
+
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict["processing_function"] = "preprocess.remove_noise"
+    ds_Sv = ds_Sv.assign_attrs(prov_dict)
+
+    return ds_Sv
 
 
 def regrid():
