@@ -8,6 +8,7 @@ parts:
   chapters:
   - file: why
   - file: installation
+  - file: roadmap
 - caption: User guide
   chapters:
   - file: convert
