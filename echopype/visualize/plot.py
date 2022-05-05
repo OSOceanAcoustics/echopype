@@ -1,8 +1,6 @@
-import sys
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
-import math
 import xarray as xr
 import numpy as np
 from xarray.plot.facetgrid import FacetGrid
@@ -180,11 +178,7 @@ def _plot_echogram(
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
-                range_sample=filtered_ds.range_sample.where(
-                    ~filtered_ds.echo_range.isel(ping_time=0).isnull()
-                )
-                .dropna(dim='range_sample')
-                .data
+                range_sample=filtered_ds.echo_range.dropna(dim='range_sample').range_sample
             )
         plot = filtered_ds.plot.pcolormesh(
             x=xaxis,
@@ -220,13 +214,7 @@ def _plot_echogram(
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
-                    range_sample=d.range_sample.where(
-                        ~d.echo_range.sel(channel=f.values)
-                        .isel(ping_time=0)
-                        .isnull()
-                    )
-                    .dropna(dim='range_sample')
-                    .data
+                    range_sample=d.echo_range.dropna(dim='range_sample').range_sample
                 )
 
             plot = d.plot.pcolormesh(

@@ -188,7 +188,7 @@ def test_plot_mvbs(
         plots = echopype.visualize.create_echogram(mvbs)
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == "Ping time must be greater or equal to 2 data points."  # noqa
+        assert str(e) == "Ping time must have a length that is greater or equal to 2"  # noqa
 
     if len(plots) > 0:
         assert all(isinstance(plot, FacetGrid) for plot in plots) is True
