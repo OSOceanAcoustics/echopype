@@ -113,7 +113,7 @@ def test_convert_azfp_01a_matlab_derived():
     # check_platform_required_vars(echodata)
 
     pytest.xfail("Tests for converting AZFP and comparing it"
-                 + " against Matlab derived data have not implemented yet.")
+                 + " against Matlab derived data have not been implemented yet.")
 
 
 def test_convert_azfp_01a_raw_echoview(azfp_path):
