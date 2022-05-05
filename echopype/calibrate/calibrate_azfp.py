@@ -62,7 +62,7 @@ class CalibrateAZFP(CalibrateBase):
             formula_source="AZFP",
         )
         self.env_params["sound_absorption"] = uwa.calc_absorption(
-            frequency=self.echodata.beam["frequency"],
+            frequency=self.echodata.beam["frequency_nominal"],
             temperature=self.env_params["temperature"],
             salinity=self.env_params["salinity"],
             pressure=self.env_params["pressure"],
@@ -137,6 +137,9 @@ class CalibrateAZFP(CalibrateBase):
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
         out = out.merge(self.range_meter)
+
+        # Add frequency_nominal to data set
+        out["frequency_nominal"] = self.echodata.beam["frequency_nominal"]
 
         # Add env and cal parameters
         out = self._add_params_to_output(out)

@@ -175,12 +175,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["transceiver_software_version"] = combined_group[
                         "transceiver_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
+                    combined_group["channel"] = combined_group["channel"].astype("<U50")
                 elif sonar_model == "EK60":
                     combined_group["gpt_software_version"] = combined_group[
                         "gpt_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
+                    # TODO: investigate further why we need to do .astype("<U50")
+                    combined_group["channel"] = combined_group["channel"].astype("<U50")
 
             if sonar_model in ("EK60", "EK80"):
                 if "ping_time" in combined_group and exist_reversed_time(

@@ -52,11 +52,8 @@ groups:
 variable_and_varattributes:
   # Convention-based global, coordinate and variable attributes
   beam_coord_default:
-    frequency:
-      long_name: Transducer frequency
-      standard_name: sound_frequency
-      units: Hz
-      valid_min: 0.0
+    channel:
+      long_name: Vendor channel ID
     ping_time:
       long_name: Timestamp of each ping
       standard_name: time
