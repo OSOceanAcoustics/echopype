@@ -23,20 +23,22 @@ def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
 
 
 class SetGroupsAd2cp(SetGroupsBase):
+    """Class for saving groups to netcdf or zarr from Ad2cp data files."""
+
+    beamgroups_possible = [
+        {
+            "name": "Beam_group1",
+            "descr": (
+                "contains velocity, correlation, and backscatter power (uncalibrated)"
+                " data and other data derived from acoustic data."
+            ),
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self.combine_packets()
-
-        self._beamgroups = [
-            {
-                "name": "Beam_group1",
-                "descr": (
-                    "contains velocity, correlation, and backscatter power (uncalibrated)"
-                    " data and other data derived from acoustic data."
-                ),
-            }
-        ]
 
     def combine_packets(self):
         self.ds = None
@@ -372,6 +374,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
+        self._beamgroups = self.beamgroups_possible
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 

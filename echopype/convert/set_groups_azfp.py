@@ -25,15 +25,15 @@ class SetGroupsAZFP(SetGroupsBase):
     # Variables that need beam and ping_time dimensions added to them.
     beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
 
+    beamgroups_possible = [
+        {
+            "name": "Beam_group1",
+            "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",  # noqa
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._beamgroups = [
-            {
-                "name": "Beam_group1",
-                "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",  # noqa
-            }
-        ]
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -68,6 +68,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
+        self._beamgroups = self.beamgroups_possible
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
