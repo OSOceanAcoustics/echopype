@@ -175,7 +175,7 @@ def create_echogram(
 
 def _check_ping_time(ping_time):
     if ping_time.shape[0] < 2:
-        raise ValueError("Ping time must be greater or equal to 2 data points.")
+        raise ValueError("Ping time must have a length that is greater or equal to 2")
 
 
 def _add_water_level(
