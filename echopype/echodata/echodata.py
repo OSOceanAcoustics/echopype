@@ -250,9 +250,10 @@ class EchoData:
                 group = group_map.get(__name)
                 group_path = group["ep_group"]
                 if self._tree:
-                    self._tree[group_path].ds = __value
                     if __name == "top":
                         self._tree.ds = __value
+                    else:
+                        self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
     def compute_range(

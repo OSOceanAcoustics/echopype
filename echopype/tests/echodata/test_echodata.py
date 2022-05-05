@@ -2,6 +2,7 @@ from textwrap import dedent
 
 import fsspec
 
+from datatree import DataTree
 from zarr.errors import GroupNotFoundError
 
 import echopype
@@ -276,13 +277,20 @@ class TestEchoData:
 
     def test_setattr(self, converted_zarr):
         sample_data = xr.Dataset({"x": [0, 0, 0]})
+        sample_data2 = xr.Dataset({"y": [0, 0, 0]})
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         current_ed_beam = ed.beam
+        current_ed_top = ed.top
         ed.beam = sample_data
+        ed.top = sample_data2
 
         assert ed.beam.equals(sample_data) is True
         assert ed.beam.equals(ed['Sonar/Beam_group1']) is True
         assert ed.beam.equals(current_ed_beam) is False
+
+        assert ed.top.equals(sample_data2) is True
+        assert ed.top.equals(ed['Top-level']) is True
+        assert ed.top.equals(current_ed_top) is False
 
     def test_getitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
@@ -320,6 +328,17 @@ class TestEchoData:
         ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'frequency': 'channel'})
 
         assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['channel', 'ping_time', 'range_bin']
+
+    def test_get_dataset(self, converted_zarr):
+        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        node = DataTree()
+        result = ed._EchoData__get_dataset(node)
+
+        ed_node = ed._tree['Sonar']
+        ed_result = ed._EchoData__get_dataset(ed_node)
+
+        assert result is None
+        assert isinstance(ed_result, xr.Dataset)
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
