@@ -3,13 +3,13 @@ from typing import Optional, Union, List
 
 import xarray as xr
 
-from .plot import _plot_echogram, FacetGrid, QuadMesh, T
+from .plot import _plot_echogram, FacetGrid, QuadMesh
 from ..echodata import EchoData
 
 
 def create_echogram(
     data: Union[EchoData, xr.Dataset],
-    frequency: Union[int, float, List[T], None] = None,
+    channel: Union[str, List[str], None] = None,
     get_range: Optional[bool] = None,
     range_kwargs: dict = {},
     water_level: Union[int, float, xr.DataArray, bool, None] = None,
@@ -21,9 +21,9 @@ def create_echogram(
     ----------
     data : EchoData or xr.Dataset
         Echodata or Xarray Dataset to be plotted
-    frequency : int, float, or list of float or ints, optional
-        The frequency to be plotted.
-        Otherwise all frequency will be plotted.
+    channel : str or list of str, optional
+        The channel to be plotted.
+        Otherwise all channels will be plotted.
     get_range : bool, optional
         Flag as to whether range (``echo_range``) should be computed or not,
         by default it will just plot `range_sample`` as the yaxis.
@@ -63,8 +63,8 @@ def create_echogram(
         'units': 'm',
     }
 
-    if isinstance(frequency, list) and len(frequency) == 1:
-        frequency = frequency[0]
+    if isinstance(channel, list) and len(channel) == 1:
+        channel = channel[0]
 
     if isinstance(data, EchoData):
         if data.sonar_model.lower() == 'ad2cp':
@@ -168,7 +168,7 @@ def create_echogram(
         xaxis='ping_time',
         yaxis=yaxis,
         variable=variable,
-        frequency=frequency,
+        channel=channel,
         **kwargs,
     )
 

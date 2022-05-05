@@ -47,7 +47,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "concat_dims": {
             "platform": None,
             "nmea": "time1",
-            "vendor": ["ping_time", "frequency"],
+            "vendor": ["ping_time", "channel"],
             "default": "ping_time",
         },
         "concat_data_vars": {

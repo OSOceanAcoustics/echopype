@@ -82,7 +82,7 @@ def test_plot_single(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     plots = echopype.visualize.create_echogram(
-        ed, frequency=ed.beam.frequency[0].values
+        ed, channel=ed.beam.channel[0].values
     )
     assert isinstance(plots, list) is True
     if (
@@ -128,8 +128,8 @@ def test_plot_multi_get_range(
     else:
         assert plots[0].axes.shape[-1] == 1
 
-    # Frequency shape check
-    assert ed.beam.frequency.shape[0] == len(plots)
+    # Channel shape check
+    assert ed.beam.channel.shape[0] == len(plots)
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -200,7 +200,7 @@ def test_plot_mvbs(
         (True, False),
         ([True], True),
         (False, True),
-        (xr.DataArray(np.array(50.0)).expand_dims({'frequency': 3}), False),
+        (xr.DataArray(np.array(50.0)).expand_dims({'channel': 3}), False),
         (xr.DataArray(np.array(50.0)), False),
         (10, False),
         (30.5, False),
@@ -224,21 +224,25 @@ def test_water_level_echodata(water_level, expect_warning):
         ek_waveform_mode=range_kwargs.get('waveform_mode', 'CW'),
         ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
     )
-    single_array = range_in_meter.isel(frequency=0, ping_time=0).values
+
+    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                      ping_time='2017-07-19T21:13:47.984999936').values
     no_input_water_level = False
+
     if isinstance(water_level, list):
         water_level = water_level[0]
         echodata.platform = echodata.platform.drop_vars('water_level')
         no_input_water_level = True
 
     if isinstance(water_level, xr.DataArray):
-        if 'frequency' in water_level.dims:
-            original_array = single_array + water_level.isel(frequency=0).values
+        if 'channel' in water_level.dims:
+            original_array = single_array + water_level.isel(channel=0).values
     elif isinstance(water_level, bool) and water_level is True:
         if no_input_water_level is False:
             original_array = (
                 single_array
-                + echodata.platform.water_level.isel(frequency=0, ping_time=0).values
+                + echodata.platform.water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                                    ping_time='2017-07-19T21:13:47.984999936').values
             )
         else:
             original_array = single_array
@@ -266,10 +270,11 @@ def test_water_level_echodata(water_level, expect_warning):
             )
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_sample'  # noqa
+        assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
-        final_array = results.isel(frequency=0, ping_time=0).values
+        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                  ping_time='2017-07-19T21:13:47.984999936').values
 
         assert np.array_equal(original_array, final_array)
 
@@ -279,7 +284,7 @@ def test_water_level_echodata(water_level, expect_warning):
     [
         (True, True),
         (False, True),
-        (xr.DataArray(np.array(50.0)).expand_dims({'frequency': 3}), False),
+        (xr.DataArray(np.array(50.0)).expand_dims({'channel': 3}), False),
         (xr.DataArray(np.array(50.0)), False),
         (10, False),
         (30.5, False),
@@ -298,11 +303,13 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
     Sv = echopype.calibrate.compute_Sv(echodata, **range_kwargs)
     ds = Sv.set_coords('echo_range')
     range_in_meter = ds.echo_range
-    single_array = range_in_meter.isel(frequency=0, ping_time=0).values
+
+    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                      ping_time='2017-07-19T21:13:47.984999936').values
 
     if isinstance(water_level, xr.DataArray):
-        if 'frequency' in water_level.dims:
-            original_array = single_array + water_level.isel(frequency=0).values
+        if 'channel' in water_level.dims:
+            original_array = single_array + water_level.isel(channel=0).values
     elif not isinstance(water_level, bool) and isinstance(water_level, (int, float)):
         original_array = single_array + water_level
     else:
@@ -325,9 +332,10 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
             )
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: frequency, ping_time, range_sample'  # noqa
+        assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
-        final_array = results.isel(frequency=0, ping_time=0).values
+        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                                  ping_time='2017-07-19T21:13:47.984999936').values
 
         assert np.array_equal(original_array, final_array)

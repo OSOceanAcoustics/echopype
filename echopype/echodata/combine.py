@@ -1,14 +1,13 @@
 import warnings
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
 import xarray as xr
-from _echopype_version import version as ECHOPYPE_VERSION
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
+from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
 
 
@@ -30,12 +29,7 @@ def assemble_combined_provenance(input_paths):
         data_vars={
             "src_filenames": ("file", input_paths),
         },
-        attrs={
-            "conversion_software_name": "echopype",
-            "conversion_software_version": ECHOPYPE_VERSION,
-            "conversion_time": datetime.utcnow().isoformat(timespec="seconds")
-            + "Z",  # use UTC time
-        },
+        attrs=echopype_prov_attrs(process_type="conversion"),
     )
 
 
@@ -181,12 +175,13 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["transceiver_software_version"] = combined_group[
                         "transceiver_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
+                    combined_group["channel"] = combined_group["channel"].astype("<U50")
                 elif sonar_model == "EK60":
                     combined_group["gpt_software_version"] = combined_group[
                         "gpt_software_version"
                     ].astype("<U10")
-                    combined_group["channel_id"] = combined_group["channel_id"].astype("<U50")
+                    # TODO: investigate further why we need to do .astype("<U50")
+                    combined_group["channel"] = combined_group["channel"].astype("<U50")
 
             if sonar_model in ("EK60", "EK80"):
                 if "ping_time" in combined_group and exist_reversed_time(

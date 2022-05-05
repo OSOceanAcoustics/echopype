@@ -3,6 +3,7 @@ import warnings
 import xarray as xr
 
 from ..echodata import EchoData
+from ..utils.prov import echopype_prov_attrs
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 
@@ -67,6 +68,13 @@ def _compute_cal(
                 round(float(ds[cal_type].max().values), 2),
             ],
         }
+        if echodata.sonar_model == "EK80":
+            ds[cal_type] = ds[cal_type].assign_attrs(
+                {
+                    "waveform_mode": waveform_mode,
+                    "encode_mode": encode_mode,
+                }
+            )
 
     # Perform calibration
     if cal_type == "Sv":
@@ -75,6 +83,18 @@ def _compute_cal(
         cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
     add_attrs(cal_type, cal_ds)
+    # Provenance source files may originate from raw files (echodata.source_files)
+    # or converted files (echodata.converted_raw_path)
+    if echodata.source_file is not None:
+        source_file = echodata.source_file
+    elif echodata.converted_raw_path is not None:
+        source_file = echodata.converted_raw_path
+    else:
+        source_file = "SOURCE FILE NOT IDENTIFIED"
+    prov_dict = echopype_prov_attrs(process_type="processing", source_files=source_file)
+    prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
+    cal_ds = cal_ds.assign_attrs(prov_dict)
+
     if "water_level" in echodata.platform.data_vars.keys():
         # add water_level to the created xr.Dataset
         cal_ds["water_level"] = echodata.platform.water_level
