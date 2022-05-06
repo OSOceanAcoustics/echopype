@@ -197,7 +197,7 @@ class SetGroupsEK80(SetGroupsBase):
                     list(self.parser_obj.config_datagram["configuration"].keys()),
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
-                "beam_group": beam_groups_coord["beam_group"],
+                **beam_groups_coord,
             },
             attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
