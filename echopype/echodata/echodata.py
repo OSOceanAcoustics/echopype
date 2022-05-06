@@ -164,7 +164,7 @@ class EchoData:
                 self.sonar_model = ds.keywords.upper()  # type: ignore
 
             if isinstance(ds, xr.Dataset):
-                setattr(self, group, ds)
+                setattr(self, group, node)
 
     @property
     def version_info(self) -> Tuple[int]:
@@ -183,7 +183,8 @@ class EchoData:
             for i in self._tree.groups
         }
 
-    def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
+    @staticmethod
+    def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             return node.ds
         return None
@@ -227,11 +228,33 @@ class EchoData:
             msg_list = ["This access pattern will be deprecated in future releases."]
             if attr_value is not None:
                 msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
+                if self._tree:
+                    if group_path == "Top-level":
+                        node = self._tree
+                    else:
+                        node = self._tree[group_path]
+                    attr_value = self.__get_dataset(node)
             else:
                 msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
             msg = " ".join(msg_list)
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
         return attr_value
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        attr_value = __value
+        if isinstance(__value, DataTree) and __name != "_tree":
+            attr_value = self.__get_dataset(__value)
+        elif isinstance(__value, xr.Dataset):
+            group_map = sonarnetcdf_1.yaml_dict["groups"]
+            if __name in group_map:
+                group = group_map.get(__name)
+                group_path = group["ep_group"]
+                if self._tree:
+                    if __name == "top":
+                        self._tree.ds = __value
+                    else:
+                        self._tree[group_path].ds = __value
+        super().__setattr__(__name, attr_value)
 
     def compute_range(
         self,
