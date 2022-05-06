@@ -434,10 +434,10 @@ class SetGroupsEK80(SetGroupsBase):
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. " # noqa
-                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. " # noqa
-                            + "The convention defines one-way transmit or receive beamwidth, but Simrad echosounders record two-way beamwidth in the data." # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
+                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                            + "The convention defines one-way transmit or receive beamwidth, but Simrad echosounders record two-way beamwidth in the data."  # noqa
+                        ),
                     },
                 ),
                 "beamwidth_twoway_athwartship": (
@@ -449,10 +449,10 @@ class SetGroupsEK80(SetGroupsBase):
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. " # noqa
-                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. " # noqa
-                            + "The convention defines one-way transmit or receive beamwidth, but Simrad echosounders record two-way beamwidth in the data." # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
+                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                            + "The convention defines one-way transmit or receive beamwidth, but Simrad echosounders record two-way beamwidth in the data."  # noqa
+                        ),
                     },
                 ),
                 "beam_direction_x": (
@@ -494,9 +494,9 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "electrical alongship angle of the transducer",
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders. " # noqa
-                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. " # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
                     },
                 ),
                 "angle_offset_athwartship": (
@@ -505,9 +505,9 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "electrical athwartship angle of the transducer",
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders. " # noqa
-                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. " # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
                     },
                 ),
                 "angle_sensitivity_alongship": (
@@ -516,9 +516,9 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "alongship sensitivity of the transducer",
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders. " # noqa
-                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. " # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
                     },
                 ),
                 "angle_sensitivity_athwartship": (
@@ -527,9 +527,9 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "athwartship sensitivity of the transducer",
                         "comment": (
-                            "Introduced in echopype for Simrad echosounders. " # noqa
-                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. " # noqa
-                        )
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
                     },
                 ),
                 "equivalent_beam_angle": (
@@ -687,9 +687,9 @@ class SetGroupsEK80(SetGroupsBase):
                         {
                             "long_name": "electrical athwartship angle",
                             "comment": (
-                                "Introduced in echopype for Simrad echosounders. " # noqa
-                                + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. " # noqa
-                            )
+                                "Introduced in echopype for Simrad echosounders. "  # noqa
+                                + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                            ),
                         },
                     ),
                     "angle_alongship": (
@@ -698,9 +698,9 @@ class SetGroupsEK80(SetGroupsBase):
                         {
                             "long_name": "electrical alongship angle",
                             "comment": (
-                                "Introduced in echopype for Simrad echosounders. " # noqa
-                                + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. " # noqa
-                            )
+                                "Introduced in echopype for Simrad echosounders. "  # noqa
+                                + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                            ),
                         },
                     ),
                 }
