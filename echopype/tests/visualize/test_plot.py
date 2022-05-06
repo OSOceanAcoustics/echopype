@@ -22,6 +22,12 @@ param_testdata = [
         {},
     ),
     (
+        ek60_path / "DY1002_EK60-D20100318-T023008_rep_freq.raw",
+        "EK60",
+        None,
+        {}
+    ),
+    (
         ek80_path / "echopype-test-D20211004-T235930.raw",
         "EK80",
         None,

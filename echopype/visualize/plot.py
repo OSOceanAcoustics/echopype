@@ -15,7 +15,8 @@ def _format_axis_label(axis_variable):
 
 def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
-    channel: Union[str, None] = None,
+    filter_var: str = 'channel',
+    filter_val: Union[str, int, float, None] = None,
     col: Optional[str] = None,
 ):
     props = {'boxstyle': 'square', 'facecolor': 'white', 'alpha': 0.7}
@@ -23,7 +24,7 @@ def _set_label(
         text_pos = [0.02, 0.06]
         fontsize = 14
         if col == 'beam':
-            if isinstance(channel, list) or channel is None:
+            if isinstance(filter_val, list) or filter_val is None:
                 for rl in fg.row_labels:
                     if rl is not None:
                         rl.set_text('')
@@ -33,37 +34,43 @@ def _set_label(
                         cl.set_text(f'Beam {fg.col_names[idx]}')
 
             text_pos = [0.04, 0.06]
-            fontsize = 13
+            fontsize = 10
 
         for idx, ax in enumerate(fg.axes.flat):
             name_dicts = fg.name_dicts.flatten()
-            if 'channel' in name_dicts[idx]:
-                chan = name_dicts[idx]['channel']
-                if col == 'channel':
+            if filter_var in name_dicts[idx]:
+                chan = name_dicts[idx][filter_var]
+                if col == filter_var:
                     ax.set_title('')
             else:
-                chan = channel
+                chan = filter_val
                 ax.set_title(f'Beam {fg.col_names[idx]}')
+            axtext = chan
+            if filter_var == 'frequency':
+                axtext = f"{int(chan / 1000)} kHz"
             ax.text(
                 *text_pos,
-                chan,
+                axtext,
                 transform=ax.transAxes,
                 fontsize=fontsize,
                 verticalalignment='bottom',
                 bbox=props,
             )
     else:
-        if channel is None:
+        if filter_val is None:
             raise ValueError(
-                'Channel value is missing for single echogram plotting.'
+                f'{filter_var.title()} value is missing for single echogram plotting.'
             )
+        axtext = filter_val
+        if filter_var == 'frequency':
+            axtext = f"{int(axtext / 1000)} kHz"
         ax = fg.axes
         ax.text(
             0.02,
             0.04,
-            f"{channel} kHz",
+            axtext,
             transform=ax.transAxes,
-            fontsize=16,
+            fontsize=13,
             verticalalignment='bottom',
             bbox=props,
         )
@@ -116,6 +123,7 @@ def _set_plot_defaults(kwargs):
 def _plot_echogram(
     ds: xr.Dataset,
     channel: Union[str, List[str], None] = None,
+    frequency: Union[str, List[str], None] = None,
     variable: str = 'backscatter_r',
     xaxis: str = 'ping_time',
     yaxis: str = 'echo_range',
@@ -125,9 +133,29 @@ def _plot_echogram(
 
     row = None
     col = None
+    filter_var = 'channel'
+    filter_val = None
     # perform frequency filtering
-    # if (frequency is not None) and ('channel' in ds.dims):
-    #     ds = ds.where(ds.frequency_nominal.isin(frequency), drop=True)
+    if channel is not None:
+        if 'channel' not in ds.dims:
+            raise ValueError("Channel filtering is not available for your dataset!")
+        ds = ds.sel(channel=channel)
+        filter_val = channel
+    elif frequency is not None:
+        duplicates = False
+        if 'channel' in ds.dims:
+            if len(np.unique(ds.frequency_nominal)) != len(ds.frequency_nominal):
+                duplicates = True
+            ds = ds.where(ds.frequency_nominal.isin(frequency), drop=True)
+        else:
+            if len(np.unique(ds.frequency)) != len(ds.frequency):
+                duplicates = True
+            ds = ds.sel(frequency=frequency)
+
+        if duplicates:
+            raise ValueError("Duplicate frequency found, please use channels for filtering.")
+        filter_val = frequency
+        filter_var = 'frequency'
 
     if 'backscatter_i' in ds.variables:
         col = 'beam'
@@ -143,20 +171,19 @@ def _plot_echogram(
         if 'beam' in filtered_ds.dims:
             filtered_ds = filtered_ds.isel(beam=0).drop('beam')
 
-    # perform frequency filtering
-    if channel:
-        filtered_ds = filtered_ds.sel(channel=channel)
-    else:
-        # if channel not provided, use all
-        filtered_ds = filtered_ds.sel(channel=slice(None))
+    if 'channel' in filtered_ds.dims and frequency is not None:
+        filtered_ds = filtered_ds.assign_coords({'frequency': ds.frequency_nominal})
+        filtered_ds = filtered_ds.swap_dims({'channel': 'frequency'})
+        if filtered_ds.frequency.size == 1:
+            filtered_ds = filtered_ds.isel(frequency=0)
 
-    # figure out channel size
+    # figure out channel/frequency size
     # to determine plotting method
-    if filtered_ds.channel.size > 1:
+    if filtered_ds[filter_var].size > 1:
         if col is None:
-            col = 'channel'
+            col = filter_var
         else:
-            row = 'channel'
+            row = filter_var
 
     filtered_ds[xaxis].attrs = {
         'long_name': filtered_ds[xaxis].attrs.get(
@@ -172,7 +199,7 @@ def _plot_echogram(
     }
 
     plots = []
-    if not filtered_ds.channel.shape:
+    if not filtered_ds[filter_var].shape:
         if (
             np.any(filtered_ds.isnull()).values == np.array(True)
             and 'echo_range' in filtered_ds.coords
@@ -190,11 +217,11 @@ def _plot_echogram(
             row=row,
             **kwargs,
         )
-        _set_label(plot, channel=channel, col=col)
+        _set_label(plot, filter_var=filter_var, filter_val=filter_val, col=col)
         plots.append(plot)
     else:
         # Scale plots
-        num_chan = len(filtered_ds.channel)
+        num_chan = len(filtered_ds[filter_var])
         chan_scaling = (-0.06, -0.16)
         figsize_scale = tuple(
             [1 + (scale * num_chan) for scale in chan_scaling]
@@ -207,8 +234,8 @@ def _plot_echogram(
         )
         kwargs.update({'figsize': new_size})
 
-        for f in filtered_ds.channel:
-            d = filtered_ds[filtered_ds.channel == f.values]
+        for f in filtered_ds[filter_var]:
+            d = filtered_ds[filtered_ds[filter_var] == f.values]
             if (
                 np.any(d.isnull()).values == np.array(True)
                 and 'echo_range' in d.coords
@@ -227,6 +254,6 @@ def _plot_echogram(
                 row=row,
                 **kwargs,
             )
-            _set_label(plot, channel=channel, col=col)
+            _set_label(plot, filter_var=filter_var, filter_val=filter_val, col=col)
             plots.append(plot)
     return plots
