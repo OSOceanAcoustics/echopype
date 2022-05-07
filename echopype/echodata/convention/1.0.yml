@@ -30,7 +30,7 @@ groups:
     ep_group: Provenance
   sonar:
     name: Sonar
-    description: contains specific metadata for the sonar system.
+    description: contains sonar system metadata and sonar beam groups.
     ep_group: Sonar
   beam:
     name: Beam_group1
