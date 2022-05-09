@@ -429,13 +429,13 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["beam_width_alongship"],
                     {
-                        "long_name": "Half power two-way beam width along alongship axis of beam", # noqa
+                        "long_name": "Half power two-way beam width along alongship axis of beam",  # noqa
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
                         "comment": (
                             "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
                             "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
-                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_minor and beamwidth_transmit_minor), but Simrad echosounders record two-way beamwidth in the data." # noqa
+                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_minor and beamwidth_transmit_minor), but Simrad echosounders record two-way beamwidth in the data."  # noqa
                         ),
                     },
                 ),
@@ -443,13 +443,13 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["beam_width_athwartship"],
                     {
-                        "long_name": "Half power two-way beam width along athwartship axis of beam", # noqa
+                        "long_name": "Half power two-way beam width along athwartship axis of beam",  # noqa
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
                         "comment": (
                             "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
                             "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
-                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_major and beamwidth_transmit_major), but Simrad echosounders record two-way beamwidth in the data." # noqa
+                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_major and beamwidth_transmit_major), but Simrad echosounders record two-way beamwidth in the data."  # noqa
                         ),
                     },
                 ),
