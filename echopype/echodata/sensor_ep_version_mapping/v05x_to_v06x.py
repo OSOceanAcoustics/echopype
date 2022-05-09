@@ -1,8 +1,11 @@
+import numpy as np
 import xarray as xr
 
 # TODO: turn this into an absolute import!
 from ...core import SONAR_MODELS
 from ..convention import sonarnetcdf_1
+
+_varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
 
 def _range_bin_to_range_sample(ed_obj):
@@ -185,7 +188,6 @@ def _frequency_to_channel(ed_obj, sensor):
     """
 
     channel_id = get_channel_id(ed_obj, sensor)  # all channel ids
-    varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     for grp_path in ed_obj.group_paths:
 
@@ -207,44 +209,128 @@ def _frequency_to_channel(ed_obj, sensor):
 
             # set attributes for channel
             ed_obj[grp_path]["channel"] = ed_obj[grp_path]["channel"].assign_attrs(
-                varattrs["beam_coord_default"]["channel"]
+                _varattrs["beam_coord_default"]["channel"]
             )
 
 
-def _move_transducer_offset_vars(ed_obj):
+def _move_transducer_offset_vars(ed_obj, sensor):
     """
     Moves transducer_offset_x/y/z from beam groups to Platform
-    group. If more than one beam group exists, then the
-    variables are first collected and then moved to Platform.
+    group for EK60 and EK80. If more than one beam group exists,
+    then the variables are first collected and then moved to
+    Platform. Additionally, adds ``frequency_nominal`` to
+    Platform for the EK80 sensor.
 
     Parameters
     ----------
     ed_obj : EchoData
         EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
 
     Notes
     -----
     The function directly modifies the input EchoData object.
     """
 
-    full_transducer_vars = {"x": [], "y": [], "z": []}
+    if sensor in ["EK60", "EK80"]:
+        full_transducer_vars = {"x": [], "y": [], "z": []}
 
-    # collect transducser_offset_x/y/z from the beam groups
-    for beam_group in ed_obj._tree["Sonar"].children:
+        # collect transducser_offset_x/y/z from the beam groups
+        for beam_group in ed_obj._tree["Sonar"].children:
+            for spatial in full_transducer_vars.keys():
+                full_transducer_vars[spatial].append(beam_group.ds["transducer_offset_" + spatial])
+
+                # remove transducer_offset_x/y/z from the beam group
+                beam_group.ds = beam_group.ds.drop("transducer_offset_" + spatial)
+
+        # transfer transducser_offset_x/y/z to Platform
         for spatial in full_transducer_vars.keys():
-            full_transducer_vars[spatial].append(beam_group.ds["transducer_offset_" + spatial])
+            ed_obj._tree["Platform"].ds["transducer_offset_" + spatial] = xr.concat(
+                full_transducer_vars[spatial], dim="channel"
+            )
 
-            # remove transducer_offset_x/y/z from the beam group
-            beam_group.ds = beam_group.ds.drop("transducer_offset_" + spatial)
+    if sensor == "EK80":
+        ed_obj._tree["Platform"].ds["frequency_nominal"] = ed_obj._tree[
+            "Vendor"
+        ].ds.frequency_nominal.sel(channel=ed_obj._tree["Platform"].ds.channel)
 
-    # transfer transducser_offset_x/y/z to Platform
-    for spatial in full_transducer_vars.keys():
-        ed_obj._tree["Platform"].ds["transducer_offset_" + spatial] = xr.concat(
-            full_transducer_vars[spatial], dim="channel"
+
+def _add_vars_to_platform(ed_obj, sensor):
+    """
+    Adds ``MRU_offset_x/y/z``, ``MRU_rotation_x/y/z``, and
+    ``position_offset_x/y/z`` to the ``Platform`` group
+    for the EK60/EK80/AZFP sensors. Additionally, renames
+    ``heave`` to ``vertical_offset`` for the EK60 and EK80.
+    Adds ``transducer_offset_x/y/z``, ``vertical_offset``,
+    ``water_level`` to the ``Platform`` group for the AZFP
+    sensor only.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    ds_tmp = xr.Dataset(
+        {
+            var: ([], np.nan, _varattrs["platform_var_default"][var])
+            for var in [
+                "MRU_offset_x",
+                "MRU_offset_y",
+                "MRU_offset_z",
+                "MRU_rotation_x",
+                "MRU_rotation_y",
+                "MRU_rotation_z",
+                "position_offset_x",
+                "position_offset_y",
+                "position_offset_z",
+            ]
+        }
+    )
+
+    if sensor == "EK60":
+        ds_tmp = ds_tmp.expand_dims({"channel": ed_obj["Platform"].channel})
+        ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
+            _varattrs["beam_coord_default"]["channel"]
         )
 
-    # TODO: account for AZFP. These vars don't exist here, but need to be created.
-    print("Adding transducer_offset vars to AZFP Platform")
+    ed_obj["Platform"] = xr.merge([ed_obj["Platform"], ds_tmp])
+
+    if sensor != "AZFP":
+        ed_obj["Platform"] = ed_obj["Platform"].rename({"heave": "vertical_offset"})
+
+    if sensor == "EK80":
+        # TODO: add drop_keel_offset(time3) (currently in attribute),
+        #  drop_keel_offset_is_manual(time3),
+        #  water_level(time3), water_level_draft_is_manual(time3)
+        print(
+            "add drop_keel_offset(time3) (currently in attribute), "
+            + "drop_keel_offset_is_manual(time3), water_level(time3), "
+            + "water_level_draft_is_manual(time3)"
+        )
+
+    if sensor == "AZFP":
+        ds_tmp = xr.Dataset(
+            {
+                var: ([], np.nan, _varattrs["platform_var_default"][var])
+                for var in [
+                    "transducer_offset_x",
+                    "transducer_offset_y",
+                    "transducer_offset_z",
+                    "vertical_offset",
+                    "water_level",
+                ]
+            }
+        )
+
+        ed_obj["Platform"] = xr.merge([ed_obj["Platform"], ds_tmp])
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -267,8 +353,13 @@ def convert_v05x_to_v06x(echodata_obj):
     8. Renames ``frequency`` to ``channel`` and adds the
     variable ``frequency_nominal`` to every group that
     needs it.
-    9. Moves ``transducer_offset_x/y/z`` from beam groups
-    to the ``Platform`` group.
+    9. Move ``transducer_offset_x/y/z`` from beam groups
+    to the ``Platform`` group (for EK60 and EK80 only).
+    10. Add variables to the `Platform` group and rename
+    ``heave`` to ``vertical_offset`` (if necessary).
+    11. Move AZFP attributes and variables from ``Beam_group1``
+    to the ``Vendor`` and ``Platform`` groups. Additionally,
+    remove the variable ``cos_tilt_mag``, if it exists.
 
     Parameters
     ----------
@@ -303,8 +394,10 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _frequency_to_channel(echodata_obj, sensor)
 
-        # move transducer_offset_x/y/z from Beam groups to Platform
-        _move_transducer_offset_vars(echodata_obj)
+        # only applies to EK60 and EK80
+        _move_transducer_offset_vars(echodata_obj, sensor)
+
+        _add_vars_to_platform(echodata_obj, sensor)
 
         # rearrange AZFP attributes and variables (#642, PR #669)
 
