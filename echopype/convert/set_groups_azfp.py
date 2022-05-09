@@ -115,6 +115,30 @@ class SetGroupsAZFP(SetGroupsBase):
         ds = ds.assign_attrs(platform_dict)
         return ds
 
+    @staticmethod
+    def _create_unique_channel_name(unpacked_data):
+        """
+        Creates a unique channel name for AZFP sensor
+        using the variable unpacked_data created by
+        the AZFP parser
+        """
+
+        if unpacked_data["serial_number"].size == 1:
+            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
+
+            # TODO: replace str(i+1) with Frequency Number from XML
+            channel_id = [
+                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
+                for i in range(len(freq_as_str))
+            ]
+
+            return channel_id
+        else:
+            raise NotImplementedError(
+                "Creating a channel name for more than"
+                + " one serial number has not been implemented."
+            )
+
     def set_beam(self) -> xr.Dataset:
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
@@ -123,6 +147,7 @@ class SetGroupsAZFP(SetGroupsBase):
         dig_rate = unpacked_data["dig_rate"]  # dim: freq
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
+        channel_id = self._create_unique_channel_name(unpacked_data)
 
         # creates unique channel name
         if unpacked_data["serial_number"].size == 1:
@@ -275,6 +300,7 @@ class SetGroupsAZFP(SetGroupsBase):
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
         tdn = np.array(parameters["pulse_length"]) / 1e6
+        channel_id = self._create_unique_channel_name(unpacked_data)
 
         # creates unique channel name
         if unpacked_data["serial_number"].size == 1:

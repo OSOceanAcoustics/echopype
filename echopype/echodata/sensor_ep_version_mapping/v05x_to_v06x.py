@@ -244,6 +244,7 @@ def _move_transducer_offset_vars(ed_obj):
         )
 
     # TODO: account for AZFP. These vars don't exist here, but need to be created.
+    print("Adding transducer_offset vars to AZFP Platform")
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -266,6 +267,8 @@ def convert_v05x_to_v06x(echodata_obj):
     8. Renames ``frequency`` to ``channel`` and adds the
     variable ``frequency_nominal`` to every group that
     needs it.
+    9. Moves ``transducer_offset_x/y/z`` from beam groups
+    to the ``Platform`` group.
 
     Parameters
     ----------
@@ -303,6 +306,8 @@ def convert_v05x_to_v06x(echodata_obj):
         # move transducer_offset_x/y/z from Beam groups to Platform
         _move_transducer_offset_vars(echodata_obj)
 
+        # rearrange AZFP attributes and variables (#642, PR #669)
+
         # Rename time dimensions in the Platform group
         # (location_time: time1, mru_time: time2) (#518, #631, #647)
 
@@ -311,3 +316,6 @@ def convert_v05x_to_v06x(echodata_obj):
 
         # addition of missing required variables in Platform
         # groups (#592, #649)
+
+        # Add comment attribute to all _alongship/_athwartship variables
+        # and use two-way beamwidth variables (PR #668)

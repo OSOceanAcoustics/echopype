@@ -245,7 +245,8 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
 
     # Compare only values for range > 0: difference is surprisingly large
-    range_meter = cal_obj.range_meter.isel(channel=1, ping_time=0).values
+    range_meter = cal_obj.range_meter.sel(channel='WBT 549762-15 ES70-7C',
+                                          ping_time='2017-09-12T23:49:10.722999808').values
     first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
     assert np.allclose(
         df_real.values[:, first_nonzero_range : pc_mean.values.shape[1]],

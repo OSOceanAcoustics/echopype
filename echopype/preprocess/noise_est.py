@@ -113,13 +113,22 @@ class NoiseEst:
         )  # other=-999 (from paper)
 
         # Assemble output dataset
-        self.ds_Sv["Sv_corrected"] = Sv_corr
-        self.ds_Sv["Sv_noise"] = self.Sv_noise
-        self.ds_Sv = self.ds_Sv.assign_attrs(
-            {
+        def add_attrs(sv_type, da):
+            da.attrs = {
+                "long_name": f"Volume backscattering strength, {sv_type} (Sv re 1 m-1)",
+                "units": "dB",
+                "actual_range": [
+                    round(float(da.min().values), 2),
+                    round(float(da.max().values), 2),
+                ],
                 "noise_ping_num": self.ping_num,
                 "noise_range_sample_num": self.range_sample_num,
                 "SNR_threshold": SNR_threshold,
                 "noise_max": noise_max,
             }
-        )
+
+        self.ds_Sv["Sv_noise"] = self.Sv_noise
+        add_attrs("noise", self.ds_Sv["Sv_noise"])
+
+        self.ds_Sv["Sv_corrected"] = Sv_corr
+        add_attrs("corrected", self.ds_Sv["Sv_corrected"])

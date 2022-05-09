@@ -598,7 +598,7 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
-    def _get_gain_for_complex(self, waveform_mode, freq_center) -> xr.DataArray:
+    def _get_gain_for_complex(self, waveform_mode, chan_sel) -> xr.DataArray:
         """Get gain factor for calibrating complex samples.
 
         Use values from ``gain_correction`` in the Vendor group for CW mode samples,
@@ -610,9 +610,9 @@ class CalibrateEK80(CalibrateEK):
         waveform_mode : str
             ``CW`` for CW-mode samples, either recorded as complex or power samples
             ``BB`` for BB-mode samples, recorded as complex samples
-        freq_center : xr.DataArray
+        chan_sel : xr.DataArray
             Nominal channel for CW mode samples
-            and an xr.DataArray with coorindate ``channel`` for BB mode samples
+            and a xr.DataArray of selected channels for BB mode samples
 
         Returns
         -------
@@ -627,7 +627,7 @@ class CalibrateEK80(CalibrateEK):
                 # index using channel_id as order of frequency across channel can be arbitrary
                 # reference to freq_center in case some channels are CW complex samples
                 # (already dropped when computing freq_center in the calling function)
-                for ch_id in freq_center.channel:
+                for ch_id in chan_sel:
                     # if channel gain exists in data
                     if ch_id in self.echodata.vendor.cal_channel_id:
                         gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
@@ -655,7 +655,7 @@ class CalibrateEK80(CalibrateEK):
         elif waveform_mode == "CW":
             gain = self._get_vend_cal_params_power(
                 "gain_correction", waveform_mode=waveform_mode
-            ).sel(channel=freq_center.channel)
+            ).sel(channel=chan_sel)
 
         return gain
 
@@ -743,14 +743,14 @@ class CalibrateEK80(CalibrateEK):
             wavelength = sound_speed / self.echodata.beam.frequency_nominal.sel(channel=chan_sel)
 
             # use true center frequency to interpolate for gain factor
-            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, freq_center=chan_sel)
+            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, chan_sel=chan_sel)
 
         else:
             # use nominal channel frequency for CW pulse
             wavelength = sound_speed / self.echodata.beam.frequency_nominal.sel(channel=chan_sel)
 
             # use nominal channel frequency to select gain factor
-            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, freq_center=chan_sel)
+            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, chan_sel=chan_sel)
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))

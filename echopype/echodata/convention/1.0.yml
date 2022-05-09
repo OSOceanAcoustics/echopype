@@ -30,7 +30,7 @@ groups:
     ep_group: Provenance
   sonar:
     name: Sonar
-    description: contains specific metadata for the sonar system.
+    description: contains sonar system metadata and sonar beam groups.
     ep_group: Sonar
   beam:
     name: Beam_group1
@@ -52,11 +52,6 @@ groups:
 variable_and_varattributes:
   # Convention-based global, coordinate and variable attributes
   beam_coord_default:
-    frequency:
-      long_name: Transducer frequency
-      standard_name: sound_frequency
-      units: Hz
-      valid_min: 0.0
     channel:
       long_name: Vendor channel ID
     ping_time:

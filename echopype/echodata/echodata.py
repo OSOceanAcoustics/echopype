@@ -168,7 +168,7 @@ class EchoData:
                 self.sonar_model = ds.keywords.upper()  # type: ignore
 
             if isinstance(ds, xr.Dataset):
-                setattr(self, group, ds)
+                setattr(self, group, node)
 
     @property
     def version_info(self) -> Tuple[int]:
@@ -187,19 +187,33 @@ class EchoData:
             for i in self._tree.groups
         }
 
-    def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
+    @staticmethod
+    def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             return node.ds
         return None
 
+    def __get_node(self, key: Optional[str]) -> DataTree:
+        if key in ["Top-level", "/"]:
+            # Access to root
+            return self._tree
+        return self._tree[key]
+
     def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                if __key in ["Top-level", "/"]:
-                    # Access to root
-                    node = self._tree
-                else:
-                    node = self._tree[__key]
+                node = self.__get_node(__key)
+                return self.__get_dataset(node)
+            except ChildResolverError:
+                raise GroupNotFoundError(__key)
+        else:
+            raise ValueError("Datatree not found!")
+
+    def __setitem__(self, __key: Optional[str], __newvalue: Any) -> Optional[xr.Dataset]:
+        if self._tree:
+            try:
+                node = self.__get_node(__key)
+                node.ds = __newvalue
                 return self.__get_dataset(node)
             except ChildResolverError:
                 raise GroupNotFoundError(__key)
@@ -218,11 +232,33 @@ class EchoData:
             msg_list = ["This access pattern will be deprecated in future releases."]
             if attr_value is not None:
                 msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
+                if self._tree:
+                    if group_path == "Top-level":
+                        node = self._tree
+                    else:
+                        node = self._tree[group_path]
+                    attr_value = self.__get_dataset(node)
             else:
                 msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
             msg = " ".join(msg_list)
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
         return attr_value
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        attr_value = __value
+        if isinstance(__value, DataTree) and __name != "_tree":
+            attr_value = self.__get_dataset(__value)
+        elif isinstance(__value, xr.Dataset):
+            group_map = sonarnetcdf_1.yaml_dict["groups"]
+            if __name in group_map:
+                group = group_map.get(__name)
+                group_path = group["ep_group"]
+                if self._tree:
+                    if __name == "top":
+                        self._tree.ds = __value
+                    else:
+                        self._tree[group_path].ds = __value
+        super().__setattr__(__name, attr_value)
 
     def compute_range(
         self,
@@ -612,7 +648,12 @@ class EchoData:
                     "time1",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        [
+                            "heave",
+                            "HEAVE",
+                            "vertical_offset",
+                            "VERTICAL_OFFSET",
+                        ],
                         platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
