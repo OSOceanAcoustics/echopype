@@ -28,13 +28,15 @@ class CalibrateAZFP(CalibrateBase):
         ----------
         cal_params : dict
         """
-        # Params from the Beam group
+
+        # Get params from Beam_group1
         self.cal_params["equivalent_beam_angle"] = (
             cal_params["equivalent_beam_angle"]
             if "equivalent_beam_angle" in cal_params
             else self.echodata.beam["equivalent_beam_angle"]
         )
 
+        # Get params from the Vendor group
         for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
             # substitute if None in user input
             self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.vendor[p]
