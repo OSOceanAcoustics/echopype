@@ -254,7 +254,6 @@ class SetGroupsAZFP(SetGroupsBase):
         tdn = np.array(parameters["pulse_length"]) / 1e6
         channel_id = self._create_unique_channel_name(unpacked_data)
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
-        range_samples_xml = np.array(parameters["range_samples"])  # from xml file
 
         # Build variables in the output xarray Dataset
         Sv_offset = np.zeros(freq.shape)
@@ -314,7 +313,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],
-                    range_samples_xml,
+                    np.array(parameters["range_samples"]),
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
                     ["channel"],
