@@ -43,18 +43,19 @@ class SetGroupsAZFP(SetGroupsBase):
         ds = xr.Dataset(
             {
                 "temperature": (
-                    ["ping_time"],
+                    ["time1"],
                     self.parser_obj.unpacked_data["temperature"],
                 )
             },
             coords={
-                "ping_time": (
-                    ["ping_time"],
+                "time1": (
+                    ["time1"],
                     ping_time,
                     {
                         "axis": "T",
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to environmental variables.",
                     },
                 )
             },

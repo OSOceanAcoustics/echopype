@@ -360,6 +360,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for MRU datagrams",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform sensors.",
                     },
                 ),
                 "time3": (
@@ -371,8 +372,8 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
-                        "comment": "Platform.time3 and Environment.environment_time are "
-                        "identical time coordinates from the same datagrams",
+                        "comment": "Time coordinate corresponding to environmental variables. "
+                        "Note that Platform.time3 is the same as Environment.time1",
                     },
                 ),
                 "time1": (
@@ -382,6 +383,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for NMEA datagrams",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to GPS location.",
                     },
                 ),
             },
