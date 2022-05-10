@@ -187,22 +187,24 @@ class SetGroupsBase(abc.ABC):
         return time1, msg_type, lat, lon
 
     def _beam_groups_vars(self):
-        """Stage beam_group_name and beam_group_descr variables sharing a common dimension,
-        beam_group, to be inserted in the Sonar group"""
+        """Stage beam_group coordinate and beam_group_descr variables sharing
+        a common dimension, beam_group, to be inserted in the Sonar group"""
         beam_groups_vars = {
-            "beam_group_name": (
-                ["beam_group"],
-                [di["name"] for di in self._beamgroups],
-                {"long_name": "Beam group name"},
-            ),
             "beam_group_descr": (
                 ["beam_group"],
                 [di["descr"] for di in self._beamgroups],
                 {"long_name": "Beam group description"},
             ),
         }
+        beam_groups_coord = {
+            "beam_group": (
+                ["beam_group"],
+                [di["name"] for di in self._beamgroups],
+                {"long_name": "Beam group name"},
+            ),
+        }
 
-        return beam_groups_vars
+        return beam_groups_vars, beam_groups_coord
 
     def _add_beam_dim(
         self, ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]

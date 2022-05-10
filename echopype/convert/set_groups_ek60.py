@@ -44,18 +44,18 @@ class SetGroupsEK60(SetGroupsBase):
         "gain_correction",
     }
 
+    beamgroups_possible = [
+        {
+            "name": "Beam_group1",
+            "descr": (
+                "contains backscatter power (uncalibrated) and other beam or"
+                " channel-specific data, including split-beam angle data when they exist."
+            ),
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._beamgroups = [
-            {
-                "name": "Beam_group1",
-                "descr": (
-                    "contains backscatter power (uncalibrated) and other beam or"
-                    " channel-specific data, including split-beam angle data when they exist."
-                ),
-            }
-        ]
 
         self.old_ping_time = None
         # correct duplicate ping_time
@@ -182,9 +182,11 @@ class SetGroupsEK60(SetGroupsBase):
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
 
-        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
-        # using the information from self._beamgroups
-        ds = xr.Dataset(self._beam_groups_vars())
+        # Add beam_group and beam_group_descr variables sharing a common dimension
+        # (beam_group), using the information from self._beamgroups
+        self._beamgroups = self.beamgroups_possible
+        beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
+        ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
         # Assemble sonar group dictionary
         sonar_dict = {

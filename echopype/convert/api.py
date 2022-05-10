@@ -449,18 +449,25 @@ def open_raw(
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
     tree_dict["Provenance"] = setgrouper.set_provenance()
-    tree_dict["Sonar"] = setgrouper.set_sonar()
+    # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
+    tree_dict["Sonar"] = None
 
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
     if isinstance(beam_groups, xr.Dataset):
-        # if it's a single dataset like the ek60,
-        # make into list
+        # if it's a single dataset like the ek60, make into list
         beam_groups = [beam_groups]
 
+    valid_beam_groups_count = 0
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
+            valid_beam_groups_count += 1
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
+
+    if sonar_model in ["EK80", "ES80", "EA640"]:
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+    else:
+        tree_dict["Sonar"] = setgrouper.set_sonar()
 
     tree_dict["Vendor"] = setgrouper.set_vendor()
 
