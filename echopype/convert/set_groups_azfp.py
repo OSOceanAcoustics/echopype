@@ -25,15 +25,15 @@ class SetGroupsAZFP(SetGroupsBase):
     # Variables that need beam and ping_time dimensions added to them.
     beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
 
+    beamgroups_possible = [
+        {
+            "name": "Beam_group1",
+            "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",  # noqa
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._beamgroups = [
-            {
-                "name": "Beam_group1",
-                "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",  # noqa
-            }
-        ]
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -67,9 +67,11 @@ class SetGroupsAZFP(SetGroupsBase):
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
 
-        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
-        # using the information from self._beamgroups
-        ds = xr.Dataset(self._beam_groups_vars())
+        # Add beam_group and beam_group_descr variables sharing a common dimension
+        # (beam_group), using the information from self._beamgroups
+        self._beamgroups = self.beamgroups_possible
+        beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
+        ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
         # Assemble sonar group dictionary
         sonar_dict = {
@@ -91,30 +93,43 @@ class SetGroupsAZFP(SetGroupsBase):
             "platform_type": self.ui_param["platform_type"],
             "platform_code_ICES": self.ui_param["platform_code_ICES"],
         }
-        # Save
+        unpacked_data = self.parser_obj.unpacked_data
+        ping_time = self.parser_obj.ping_time
+
         ds = xr.Dataset(
             {
-                var: ([], np.nan, self._varattrs["platform_var_default"][var])
-                for var in [
-                    "MRU_offset_x",
-                    "MRU_offset_y",
-                    "MRU_offset_z",
-                    "MRU_rotation_x",
-                    "MRU_rotation_y",
-                    "MRU_rotation_z",
-                    "position_offset_x",
-                    "position_offset_y",
-                    "position_offset_z",
-                    "transducer_offset_x",
-                    "transducer_offset_y",
-                    "transducer_offset_z",
-                    "vertical_offset",
-                    "water_level",
-                ]
-            }
+                "tilt_x": (["ping_time"], unpacked_data["tilt_x"]),
+                "tilt_y": (["ping_time"], unpacked_data["tilt_y"]),
+                **{
+                    var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                    for var in [
+                        "MRU_offset_x",
+                        "MRU_offset_y",
+                        "MRU_offset_z",
+                        "MRU_rotation_x",
+                        "MRU_rotation_y",
+                        "MRU_rotation_z",
+                        "position_offset_x",
+                        "position_offset_y",
+                        "position_offset_z",
+                        "transducer_offset_x",
+                        "transducer_offset_y",
+                        "transducer_offset_z",
+                        "vertical_offset",
+                        "water_level",
+                    ]
+                },
+            },
+            coords={
+                "ping_time": (
+                    ["ping_time"],
+                    ping_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+            },
         )
         ds = ds.assign_attrs(platform_dict)
-        return ds
+        return set_encodings(ds)
 
     @staticmethod
     def _create_unique_channel_name(unpacked_data):
@@ -144,7 +159,6 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
         dig_rate = unpacked_data["dig_rate"]  # dim: freq
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
@@ -152,12 +166,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
-        Sv_offset = np.zeros(freq.shape)
         for ich in range(len(freq)):
-            # TODO: should not access the private function, better to compute Sv_offset in parser
-            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(
-                freq[ich], unpacked_data["pulse_length"][ich]
-            )
             N.append(
                 np.array(
                     [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
@@ -177,7 +186,6 @@ class SetGroupsAZFP(SetGroupsBase):
             del N_tmp
 
         tdn = unpacked_data["pulse_length"] / 1e6  # Convert microseconds to seconds
-        range_samples_xml = np.array(parameters["range_samples"])  # from xml file
         range_samples_per_bin = unpacked_data["range_samples_per_bin"]  # from data header
 
         # Calculate sample interval in seconds
@@ -209,25 +217,6 @@ class SetGroupsAZFP(SetGroupsBase):
                         "valid_min": 0.0,
                     },
                 ),
-                "temperature_counts": (["ping_time"], anc[:, 4]),
-                "tilt_x_count": (["ping_time"], anc[:, 0]),
-                "tilt_y_count": (["ping_time"], anc[:, 1]),
-                "tilt_x": (["ping_time"], unpacked_data["tilt_x"]),
-                "tilt_y": (["ping_time"], unpacked_data["tilt_y"]),
-                "cos_tilt_mag": (["ping_time"], unpacked_data["cos_tilt_mag"]),
-                "DS": (["channel"], parameters["DS"]),
-                "EL": (["channel"], parameters["EL"]),
-                "TVR": (["channel"], parameters["TVR"]),
-                "VTX": (["channel"], parameters["VTX"]),
-                "Sv_offset": (["channel"], Sv_offset),
-                "number_of_samples_digitized_per_pings": (
-                    ["channel"],
-                    range_samples_xml,
-                ),
-                "number_of_digitized_samples_averaged_per_pings": (
-                    ["channel"],
-                    parameters["range_averaging_samples"],
-                ),
             },
             coords={
                 "channel": (
@@ -249,25 +238,6 @@ class SetGroupsAZFP(SetGroupsBase):
             attrs={
                 "beam_mode": "",
                 "conversion_equation_t": "type_4",
-                "number_of_frequency": parameters["num_freq"],
-                "number_of_pings_per_burst": parameters["pings_per_burst"],
-                "average_burst_pings_flag": parameters["average_burst_pings"],
-                # Temperature coefficients
-                "temperature_ka": parameters["ka"],
-                "temperature_kb": parameters["kb"],
-                "temperature_kc": parameters["kc"],
-                "temperature_A": parameters["A"],
-                "temperature_B": parameters["B"],
-                "temperature_C": parameters["C"],
-                # Tilt coefficients
-                "tilt_X_a": parameters["X_a"],
-                "tilt_X_b": parameters["X_b"],
-                "tilt_X_c": parameters["X_c"],
-                "tilt_X_d": parameters["X_d"],
-                "tilt_Y_a": parameters["Y_a"],
-                "tilt_Y_b": parameters["Y_b"],
-                "tilt_Y_c": parameters["Y_c"],
-                "tilt_Y_d": parameters["Y_d"],
             },
         )
 
@@ -286,6 +256,15 @@ class SetGroupsAZFP(SetGroupsBase):
         ping_time = self.parser_obj.ping_time
         tdn = np.array(parameters["pulse_length"]) / 1e6
         channel_id = self._create_unique_channel_name(unpacked_data)
+        anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
+
+        # Build variables in the output xarray Dataset
+        Sv_offset = np.zeros(freq.shape)
+        for ich in range(len(freq)):
+            # TODO: should not access the private function, better to compute Sv_offset in parser
+            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(
+                freq[ich], unpacked_data["pulse_length"][ich]
+            )
 
         ds = xr.Dataset(
             {
@@ -327,6 +306,22 @@ class SetGroupsAZFP(SetGroupsBase):
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
                 "battery_tx": (["ping_time"], unpacked_data["battery_tx"]),
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
+                "temperature_counts": (["ping_time"], anc[:, 4]),
+                "tilt_x_count": (["ping_time"], anc[:, 0]),
+                "tilt_y_count": (["ping_time"], anc[:, 1]),
+                "DS": (["channel"], parameters["DS"]),
+                "EL": (["channel"], parameters["EL"]),
+                "TVR": (["channel"], parameters["TVR"]),
+                "VTX": (["channel"], parameters["VTX"]),
+                "Sv_offset": (["channel"], Sv_offset),
+                "number_of_samples_digitized_per_pings": (
+                    ["channel"],
+                    np.array(parameters["range_samples"]),
+                ),
+                "number_of_digitized_samples_averaged_per_pings": (
+                    ["channel"],
+                    parameters["range_averaging_samples"],
+                ),
             },
             coords={
                 "channel": (
@@ -361,6 +356,25 @@ class SetGroupsAZFP(SetGroupsBase):
                 "ping_period": unpacked_data["ping_period"],
                 "phase": unpacked_data["phase"],
                 "number_of_channels": unpacked_data["num_chan"],
+                "number_of_frequency": parameters["num_freq"],
+                "number_of_pings_per_burst": parameters["pings_per_burst"],
+                "average_burst_pings_flag": parameters["average_burst_pings"],
+                # Temperature coefficients
+                "temperature_ka": parameters["ka"],
+                "temperature_kb": parameters["kb"],
+                "temperature_kc": parameters["kc"],
+                "temperature_A": parameters["A"],
+                "temperature_B": parameters["B"],
+                "temperature_C": parameters["C"],
+                # Tilt coefficients
+                "tilt_X_a": parameters["X_a"],
+                "tilt_X_b": parameters["X_b"],
+                "tilt_X_c": parameters["X_c"],
+                "tilt_X_d": parameters["X_d"],
+                "tilt_Y_a": parameters["Y_a"],
+                "tilt_Y_b": parameters["Y_b"],
+                "tilt_Y_c": parameters["Y_c"],
+                "tilt_Y_d": parameters["Y_d"],
             },
         )
         return set_encodings(ds)
