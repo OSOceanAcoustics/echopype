@@ -46,7 +46,10 @@ class SetGroupsEK80(SetGroupsBase):
     beamgroups_possible = [
         {
             "name": "Beam_group1",
-            "descr": "contains complex backscatter data and other beam or channel-specific data.",  # noqa
+            "descr": (
+                "contains backscatter data (either complex samples or uncalibrated power samples)"  # noqa
+                " and other beam or channel-specific data"
+            )
         },
         {
             "name": "Beam_group2",
