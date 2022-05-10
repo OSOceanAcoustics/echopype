@@ -52,7 +52,9 @@ class CalibrateAZFP(CalibrateBase):
         self.env_params["temperature"] = (
             self.env_params["temperature"]
             if "temperature" in self.env_params
-            else self.echodata.environment["temperature"]
+            # renaming time1 to ping_time is necessary because we are performing
+            # calculations with the beam groups that use ping_time
+            else self.echodata.environment["temperature"].rename({"time1": "ping_time"})
         )
 
         # Salinity and pressure always come from user input

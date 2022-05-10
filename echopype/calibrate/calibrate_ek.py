@@ -272,12 +272,20 @@ class CalibrateEK60(CalibrateEK):
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"]
+                # renaming time1 to ping_time is necessary because we are performing
+                # calculations with the beam groups that use ping_time
+                else self.echodata.environment["sound_speed_indicative"].rename(
+                    {"time1": "ping_time"}
+                )
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]
                 if "sound_absorption" in self.env_params
-                else self.echodata.environment["absorption_indicative"]
+                # renaming time1 to ping_time is necessary because we are performing
+                # calculations with the beam groups that use ping_time
+                else self.echodata.environment["absorption_indicative"].rename(
+                    {"time1": "ping_time"}
+                )
             )
 
     def compute_Sv(self, **kwargs):
@@ -381,12 +389,20 @@ class CalibrateEK80(CalibrateEK):
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    self.env_params[p1] if p1 in self.env_params else self.echodata.environment[p2]
+                    # renaming time1 to ping_time is necessary because we are performing
+                    # calculations with the beam groups that use ping_time
+                    self.env_params[p1]
+                    if p1 in self.env_params
+                    else self.echodata.environment[p2].rename({"time1": "ping_time"})
                 )
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"]
+                # renaming time1 to ping_time is necessary because we are performing
+                # calculations with the beam groups that use ping_time
+                else self.echodata.environment["sound_speed_indicative"].rename(
+                    {"time1": "ping_time"}
+                )
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]

@@ -43,7 +43,7 @@ class EnvParams:
             The environmental parameters to use for calibration. This data will be interpolated with
             a provided `EchoData` object.
 
-            When `data_kind` is `"stationary"`, env_params must have a coordinate `"ping_time"`.
+            When `data_kind` is `"stationary"`, env_params must have a coordinate `"time2"`.
             When `data_kind` is `"mobile"`, env_params must have coordinates `"latitude"`
             and `"longitude"`.
             When `data_kind` is `"organized"`, env_params must have coordinates `"time"`,
@@ -92,7 +92,7 @@ class EnvParams:
 
     def _apply(self, echodata) -> Dict[str, xr.DataArray]:
         if self.data_kind == "stationary":
-            dims = ["ping_time"]
+            dims = ["time2"]
         elif self.data_kind == "mobile":
             dims = ["latitude", "longitude"]
         elif self.data_kind == "organized":
