@@ -71,15 +71,6 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
         ),
         echodata.beam.backscatter_r.isel(beam=0).drop('beam').values,
     )
-    # tilt x-y
-    assert np.array_equal(
-        np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.beam.tilt_x_count,
-    )
-    assert np.array_equal(
-        np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.beam.tilt_y_count,
-    )
 
     # Test vendor group
     # Test temperature
@@ -96,6 +87,15 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
             [d[0] for d in ds_matlab['Data']['BatteryMain'][0]]
         ).squeeze(),
         echodata.vendor.battery_main,
+    )
+    # tilt x-y
+    assert np.array_equal(
+        np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
+        echodata.vendor.tilt_x_count,
+    )
+    assert np.array_equal(
+        np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
+        echodata.vendor.tilt_y_count,
     )
 
     # check convention-required variables in the Platform group
