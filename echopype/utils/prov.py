@@ -1,5 +1,5 @@
 from datetime import datetime as dt
-from typing import Dict
+from typing import Dict, List, Any
 
 from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
@@ -29,3 +29,29 @@ def echopype_prov_attrs(process_type: ProcessType, source_files: str = None) -> 
         prov_dict["src_filenames"] = source_files
 
     return prov_dict
+
+
+def source_files_vars(source_paths: List[str]) -> Dict[str, Any]:
+    """
+    Create source_filenames provenance variable dict to be used for creating
+    xarray dataarray.
+
+    Parameters
+    ----------
+    source_paths: List[str]
+        (explain what this is)
+
+    Returns
+    -------
+    source_files_var
+        (explain what this is)
+    """
+    source_files_var = {
+        "source_filenames": (
+            "filenames",
+            [str(p) for p in source_paths],
+            {"long_name": "Source filenames"},
+        ),
+    }
+
+    return source_files_var
