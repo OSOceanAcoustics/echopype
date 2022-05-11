@@ -1,5 +1,5 @@
 from datetime import datetime as dt
-from typing import Dict, List, Tuple, Any, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
