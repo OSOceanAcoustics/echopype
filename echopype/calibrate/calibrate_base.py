@@ -194,7 +194,15 @@ class EnvParams:
         #         }
         #     )
 
-        return {var: env_params[var] for var in ("temperature", "salinity", "pressure")}
+        if self.data_kind == "stationary":
+            # renaming time2 to ping_time is necessary because we are performing
+            # calculations with the beam groups that use ping_time
+            return {
+                var: env_params[var].rename({"time2": "ping_time"})
+                for var in ("temperature", "salinity", "pressure")
+            }
+        else:
+            return {var: env_params[var] for var in ("temperature", "salinity", "pressure")}
 
 
 class CalibrateBase(abc.ABC):

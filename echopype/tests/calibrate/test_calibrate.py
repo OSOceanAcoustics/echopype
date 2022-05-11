@@ -391,7 +391,7 @@ def test_env_params(ek60_path):
     }
     for var, values in known_values.items():
         for time, value in values.items():
-            assert np.isclose(converted_env_params[var].sel(time2=time), value)
+            assert np.isclose(converted_env_params[var].sel(ping_time=time), value)
 
     # mobile
     rng = np.random.default_rng(0)

@@ -250,7 +250,7 @@ class TestEchoData:
             ├── Platform: contains information about the platform on which the sonar is installed.
             │   └── NMEA: contains information specific to the NMEA protocol.
             ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
-            ├── Sonar: contains specific metadata for the sonar system.
+            ├── Sonar: contains sonar system metadata and sonar beam groups.
             │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
             └── Vendor specific: contains vendor-specific information about the sonar and the data."""
         )
@@ -384,17 +384,17 @@ def test_compute_range(compute_range_samples):
     stationary_env_params = EnvParams(
         xr.Dataset(
             data_vars={
-                "pressure": ("ping_time", np.arange(50)),
-                "salinity": ("ping_time", np.arange(50)),
-                "temperature": ("ping_time", np.arange(50)),
+                "pressure": ("time2", np.arange(50)),
+                "salinity": ("time2", np.arange(50)),
+                "temperature": ("time2", np.arange(50)),
             },
             coords={
-                "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+                "time2": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
             }
         ),
         data_kind="stationary"
     )
-    if "ping_time" in ed.platform and sonar_model != "AD2CP":
+    if "time2" in ed.platform and sonar_model != "AD2CP":
         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
