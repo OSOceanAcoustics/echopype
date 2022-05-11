@@ -27,9 +27,7 @@ def _range_bin_to_range_sample(ed_obj):
         if "range_bin" in list(ed_obj[grp_path].coords):
 
             # renames range_bin in the dataset
-            ed_obj._tree[grp_path].ds = ed_obj._tree[grp_path].ds.rename(
-                name_dict={"range_bin": "range_sample"}
-            )
+            ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"range_bin": "range_sample"})
 
 
 def _reorganize_beam_groups(ed_obj):
@@ -195,12 +193,12 @@ def _frequency_to_channel(ed_obj, sensor):
 
             # add frequency_nominal and rename frequency to channel
             ed_obj[grp_path]["frequency_nominal"] = ed_obj[grp_path].frequency
-            ed_obj._tree[grp_path].ds = ed_obj[grp_path].rename({"frequency": "channel"})
+            ed_obj[grp_path] = ed_obj[grp_path].rename({"frequency": "channel"})
 
             # set values for channel
             if "channel_id" in ed_obj[grp_path]:
                 ed_obj[grp_path]["channel"] = ed_obj[grp_path].channel_id.values
-                ed_obj._tree[grp_path].ds = ed_obj._tree[grp_path].ds.drop("channel_id")
+                ed_obj[grp_path] = ed_obj._tree[grp_path].ds.drop("channel_id")
 
             else:
                 ed_obj[grp_path]["channel"] = channel_id.sel(
@@ -246,14 +244,14 @@ def _move_transducer_offset_vars(ed_obj, sensor):
 
         # transfer transducser_offset_x/y/z to Platform
         for spatial in full_transducer_vars.keys():
-            ed_obj._tree["Platform"].ds["transducer_offset_" + spatial] = xr.concat(
+            ed_obj["Platform"]["transducer_offset_" + spatial] = xr.concat(
                 full_transducer_vars[spatial], dim="channel"
             )
 
     if sensor == "EK80":
-        ed_obj._tree["Platform"].ds["frequency_nominal"] = ed_obj._tree[
-            "Vendor"
-        ].ds.frequency_nominal.sel(channel=ed_obj._tree["Platform"].ds.channel)
+        ed_obj["Platform"]["frequency_nominal"] = ed_obj["Vendor"].frequency_nominal.sel(
+            channel=ed_obj["Platform"].channel
+        )
 
 
 def _add_vars_to_platform(ed_obj, sensor):
@@ -333,6 +331,39 @@ def _add_vars_to_platform(ed_obj, sensor):
         ed_obj["Platform"] = xr.merge([ed_obj["Platform"], ds_tmp])
 
 
+def _make_time_coords_consistent(ed_obj, sensor):
+    """
+    1. Renames location_time to time1 and mru_time to
+    time2 wherever it occurs.
+
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    for grp_path in ed_obj.group_paths:
+
+        if "location_time" in list(ed_obj[grp_path].coords):
+
+            # renames location_time to time1
+            ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"location_time": "time1"})
+
+        if "mru_time" in list(ed_obj[grp_path].coords):
+
+            # renames mru_time to time2
+            ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"mru_time": "time2"})
+
+    # if sensor == "EK60":
+
+
 def convert_v05x_to_v06x(echodata_obj):
     """
     This function converts the EchoData structure created in echopype
@@ -360,6 +391,8 @@ def convert_v05x_to_v06x(echodata_obj):
     11. Move AZFP attributes and variables from ``Beam_group1``
     to the ``Vendor`` and ``Platform`` groups. Additionally,
     remove the variable ``cos_tilt_mag``, if it exists.
+    12. Make the names of the time coordinates in the `Platform`
+    and `Environment` group consistent
 
     Parameters
     ----------
@@ -398,6 +431,8 @@ def convert_v05x_to_v06x(echodata_obj):
         _move_transducer_offset_vars(echodata_obj, sensor)
 
         _add_vars_to_platform(echodata_obj, sensor)
+
+        _make_time_coords_consistent(echodata_obj, sensor)
 
         # rearrange AZFP attributes and variables (#642, PR #669)
 
