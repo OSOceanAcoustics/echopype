@@ -361,7 +361,25 @@ def _make_time_coords_consistent(ed_obj, sensor):
             # renames mru_time to time2
             ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"mru_time": "time2"})
 
-    # if sensor == "EK60":
+    if sensor == "EK60":
+        ed_obj["Platform"] = ed_obj["Platform"].assign_coords(
+            {
+                "time3": (
+                    ["time3"],
+                    ed_obj["Platform"].ping_time.values,
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for position datagrams",
+                        "standard_name": "time",
+                    },
+                )
+            }
+        )
+
+        ed_obj["Platform"]["water_level"] = ed_obj["Platform"]["water_level"].rename(
+            {"ping_time": "time3"}
+        )
+        ed_obj["Platform"] = ed_obj["Platform"].rename({"ping_time": "time2"})
 
 
 def convert_v05x_to_v06x(echodata_obj):
