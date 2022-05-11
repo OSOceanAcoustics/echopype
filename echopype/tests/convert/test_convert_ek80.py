@@ -43,17 +43,17 @@ def check_env_xml(echodata):
     }
     for env_var, expected_env_var_values in env_vars.items():
         assert env_var in echodata["Environment"]
-        assert echodata["Environment"][env_var].dims == ("environment_time",)
+        assert echodata["Environment"][env_var].dims == ("time1",)
         assert all([env_var_value in expected_env_var_values for env_var_value in echodata["Environment"][env_var]])
     assert "transducer_sound_speed" in echodata["Environment"]
-    assert echodata["Environment"]["transducer_sound_speed"].dims == ("environment_time",)
+    assert echodata["Environment"]["transducer_sound_speed"].dims == ("time1",)
     assert (1480 <= echodata["Environment"]["transducer_sound_speed"]).all() and (echodata["Environment"]["transducer_sound_speed"] <= 1500).all()
     assert "sound_velocity_profile" in echodata["Environment"]
-    assert echodata["Environment"]["sound_velocity_profile"].dims == ("environment_time", "sound_velocity_profile_depth")
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("time1", "sound_velocity_profile_depth")
     assert (1470 <= echodata["Environment"]["sound_velocity_profile"]).all() and (echodata["Environment"]["sound_velocity_profile"] <= 1500).all()
 
     # check env dims
-    assert "environment_time" in echodata["Environment"]
+    assert "time1" in echodata["Environment"]
     assert "sound_velocity_profile_depth"
     assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
 
