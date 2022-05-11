@@ -148,7 +148,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         }
     )
 
-    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "preprocess.compute_MVBS"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
@@ -218,7 +218,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
         }
     )
 
-    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
@@ -284,7 +284,7 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
     ds_Sv = noise_obj.ds_Sv
 
-    prov_dict = echopype_prov_attrs(process_type="processing", source_files=None)
+    prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "preprocess.remove_noise"
     ds_Sv = ds_Sv.assign_attrs(prov_dict)
 
