@@ -43,7 +43,7 @@ class EnvParams:
             The environmental parameters to use for calibration. This data will be interpolated with
             a provided `EchoData` object.
 
-            When `data_kind` is `"stationary"`, env_params must have a coordinate `"time2"`.
+            When `data_kind` is `"stationary"`, env_params must have a coordinate `"time3"`.
             When `data_kind` is `"mobile"`, env_params must have coordinates `"latitude"`
             and `"longitude"`.
             When `data_kind` is `"organized"`, env_params must have coordinates `"time"`,
@@ -92,7 +92,7 @@ class EnvParams:
 
     def _apply(self, echodata) -> Dict[str, xr.DataArray]:
         if self.data_kind == "stationary":
-            dims = ["time2"]
+            dims = ["time3"]
         elif self.data_kind == "mobile":
             dims = ["latitude", "longitude"]
         elif self.data_kind == "organized":
@@ -198,7 +198,7 @@ class EnvParams:
             # renaming time2 to ping_time is necessary because we are performing
             # calculations with the beam groups that use ping_time
             return {
-                var: env_params[var].rename({"time2": "ping_time"})
+                var: env_params[var].rename({"time3": "ping_time"})
                 for var in ("temperature", "salinity", "pressure")
             }
         else:

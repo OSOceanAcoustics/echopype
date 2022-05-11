@@ -335,12 +335,12 @@ def test_env_params(ek60_path):
     # values after 1:25 will be extrapolated
     env_params_data = xr.Dataset(
         data_vars={
-            "pressure": ("time2", np.arange(50)),
-            "salinity": ("time2", np.arange(50)),
-            "temperature": ("time2", np.arange(50)),
+            "pressure": ("time3", np.arange(50)),
+            "salinity": ("time3", np.arange(50)),
+            "temperature": ("time3", np.arange(50)),
         },
         coords={
-            "time2": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+            "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
         }
     )
     env_params = EnvParams(env_params_data, "stationary")

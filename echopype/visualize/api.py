@@ -196,7 +196,7 @@ def _add_water_level(
                     isinstance(platform_data, xr.Dataset)
                     and 'water_level' in platform_data
                 ):
-                    return range_in_meter + platform_data.water_level
+                    return range_in_meter + platform_data.water_level.rename({'time3': 'ping_time'})
                 else:
                     warnings.warn(
                         "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
@@ -206,6 +206,11 @@ def _add_water_level(
         return range_in_meter
     if isinstance(water_level, xr.DataArray):
         check_dims = range_in_meter.dims
+
+        # rename time3 to ping_time because range_in_meter is in ping_time
+        if 'time3' in water_level:
+            water_level = water_level.rename({'time3': 'ping_time'})
+
         if not any(
             True if d in water_level.dims else False for d in check_dims
         ):

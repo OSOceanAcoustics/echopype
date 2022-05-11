@@ -384,17 +384,17 @@ def test_compute_range(compute_range_samples):
     stationary_env_params = EnvParams(
         xr.Dataset(
             data_vars={
-                "pressure": ("time2", np.arange(50)),
-                "salinity": ("time2", np.arange(50)),
-                "temperature": ("time2", np.arange(50)),
+                "pressure": ("time3", np.arange(50)),
+                "salinity": ("time3", np.arange(50)),
+                "temperature": ("time3", np.arange(50)),
             },
             coords={
-                "time2": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+                "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
             }
         ),
         data_kind="stationary"
     )
-    if "time2" in ed.platform and sonar_model != "AD2CP":
+    if "time3" in ed.platform and sonar_model != "AD2CP":
         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
