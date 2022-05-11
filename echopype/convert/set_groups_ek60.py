@@ -44,18 +44,18 @@ class SetGroupsEK60(SetGroupsBase):
         "gain_correction",
     }
 
+    beamgroups_possible = [
+        {
+            "name": "Beam_group1",
+            "descr": (
+                "contains backscatter power (uncalibrated) and other beam or"
+                " channel-specific data, including split-beam angle data when they exist."
+            ),
+        }
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._beamgroups = [
-            {
-                "name": "Beam_group1",
-                "descr": (
-                    "contains backscatter power (uncalibrated) and other beam or"
-                    " channel-specific data, including split-beam angle data when they exist."
-                ),
-            }
-        ]
 
         self.old_ping_time = None
         # correct duplicate ping_time
@@ -182,9 +182,11 @@ class SetGroupsEK60(SetGroupsBase):
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
 
-        # Add beam_group_name and beam_group_descr variables sharing a common dimension (beam),
-        # using the information from self._beamgroups
-        ds = xr.Dataset(self._beam_groups_vars())
+        # Add beam_group and beam_group_descr variables sharing a common dimension
+        # (beam_group), using the information from self._beamgroups
+        self._beamgroups = self.beamgroups_possible
+        beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
+        ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
         # Assemble sonar group dictionary
         sonar_dict = {
@@ -405,46 +407,32 @@ class SetGroupsEK60(SetGroupsBase):
                     beam_params["beam_type"],
                     {"long_name": "type of transducer (0-single, 1-split)"},
                 ),
-                # TODO: check EK60 data spec:
-                #  the beamwidths provided are most likely 2-way beamwidth so below needs to change
-                "beamwidth_receive_alongship": (
+                "beamwidth_twoway_alongship": (
                     ["channel"],
                     beam_params["beamwidth_alongship"],
                     {
-                        "long_name": "Half power one-way receive beam width along "
-                        "alongship axis of beam",
+                        "long_name": "Half power two-way beam width along alongship axis of beam",  # noqa
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
+                            "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_minor and beamwidth_transmit_minor), but Simrad echosounders record two-way beamwidth in the data."  # noqa
+                        ),
                     },
                 ),
-                "beamwidth_receive_athwartship": (
+                "beamwidth_twoway_athwartship": (
                     ["channel"],
                     beam_params["beamwidth_athwartship"],
                     {
-                        "long_name": "Half power one-way receive beam width along "
-                        "athwartship axis of beam",
+                        "long_name": "Half power two-way beam width along athwartship axis of beam",  # noqa
                         "units": "arc_degree",
                         "valid_range": (0.0, 360.0),
-                    },
-                ),
-                "beamwidth_transmit_alongship": (
-                    ["channel"],
-                    beam_params["beamwidth_alongship"],
-                    {
-                        "long_name": "Half power one-way transmit beam width along "
-                        "alongship axis of beam",
-                        "units": "arc_degree",
-                        "valid_range": (0.0, 360.0),
-                    },
-                ),
-                "beamwidth_transmit_athwartship": (
-                    ["channel"],
-                    beam_params["beamwidth_athwartship"],
-                    {
-                        "long_name": "Half power one-way transmit beam width along "
-                        "athwartship axis of beam",
-                        "units": "arc_degree",
-                        "valid_range": (0.0, 360.0),
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders to avoid potential confusion with convention definitions. "  # noqa
+                            "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                            "The convention defines one-way transmit or receive beamwidth (beamwidth_receive_major and beamwidth_transmit_major), but Simrad echosounders record two-way beamwidth in the data."  # noqa
+                        ),
                     },
                 ),
                 "beam_direction_x": (
@@ -483,22 +471,46 @@ class SetGroupsEK60(SetGroupsBase):
                 "angle_offset_alongship": (
                     ["channel"],
                     beam_params["angle_offset_alongship"],
-                    {"long_name": "electrical alongship angle of the transducer"},
+                    {
+                        "long_name": "electrical alongship angle offset of the transducer",
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
+                    },
                 ),
                 "angle_offset_athwartship": (
                     ["channel"],
                     beam_params["angle_offset_athwartship"],
-                    {"long_name": "electrical athwartship angle of the transducer"},
+                    {
+                        "long_name": "electrical athwartship angle offset of the transducer",
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
+                    },
                 ),
                 "angle_sensitivity_alongship": (
                     ["channel"],
                     beam_params["angle_sensitivity_alongship"],
-                    {"long_name": "alongship sensitivity of the transducer"},
+                    {
+                        "long_name": "alongship angle sensitivity of the transducer",
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
+                    },
                 ),
                 "angle_sensitivity_athwartship": (
                     ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
-                    {"long_name": "athwartship sensitivity of the transducer"},
+                    {
+                        "long_name": "athwartship angle sensitivity of the transducer",
+                        "comment": (
+                            "Introduced in echopype for Simrad echosounders. "  # noqa
+                            "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                        ),
+                    },
                 ),
                 "equivalent_beam_angle": (
                     ["channel"],
@@ -624,12 +636,24 @@ class SetGroupsEK60(SetGroupsBase):
                         "angle_athwartship": (
                             ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
-                            {"long_name": "electrical athwartship angle"},
+                            {
+                                "long_name": "electrical athwartship angle",
+                                "comment": (
+                                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                                ),
+                            },
                         ),
                         "angle_alongship": (
                             ["ping_time", "range_sample"],
                             self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
-                            {"long_name": "electrical alongship angle"},
+                            {
+                                "long_name": "electrical alongship angle",
+                                "comment": (
+                                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                                ),
+                            },
                         ),
                     }
                 )
