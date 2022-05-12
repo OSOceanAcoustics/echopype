@@ -63,7 +63,7 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_env(self, env_only=False) -> xr.Dataset:
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
 
         # set time1 if it exists
