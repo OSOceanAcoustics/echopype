@@ -184,6 +184,7 @@ def _add_water_level(
     data_type: str,
     platform_data: Optional[xr.Dataset] = None,
 ) -> xr.DataArray:
+    # Below, we rename time3 to ping_time because range_in_meter is in ping_time
     if isinstance(water_level, bool):
         if water_level is True:
             if data_type == xr.Dataset:
@@ -206,8 +207,6 @@ def _add_water_level(
         return range_in_meter
     if isinstance(water_level, xr.DataArray):
         check_dims = range_in_meter.dims
-
-        # rename time3 to ping_time because range_in_meter is in ping_time
         if 'time3' in water_level:
             water_level = water_level.rename({'time3': 'ping_time'})
 

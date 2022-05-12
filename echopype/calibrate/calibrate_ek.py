@@ -269,11 +269,12 @@ class CalibrateEK60(CalibrateEK):
             )
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
+            # Below, renaming time1 to ping_time is necessary because
+            # we are performing calculations with the beam groups that use ping_time
+
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                # renaming time1 to ping_time is necessary because we are performing
-                # calculations with the beam groups that use ping_time
                 else self.echodata.environment["sound_speed_indicative"].rename(
                     {"time1": "ping_time"}
                 )
@@ -281,8 +282,6 @@ class CalibrateEK60(CalibrateEK):
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]
                 if "sound_absorption" in self.env_params
-                # renaming time1 to ping_time is necessary because we are performing
-                # calculations with the beam groups that use ping_time
                 else self.echodata.environment["absorption_indicative"].rename(
                     {"time1": "ping_time"}
                 )
@@ -383,14 +382,15 @@ class CalibrateEK80(CalibrateEK):
         #  get sound speed from user inputs or raw data file
         #  get absorption from user inputs or computing from env params stored in raw data file
         else:
+            # Below, renaming time1 to ping_time is necessary because
+            # we are performing calculations with the beam groups that use ping_time
+
             # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
             for p1, p2 in zip(
                 ["temperature", "salinity", "pressure"],
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    # renaming time1 to ping_time is necessary because we are performing
-                    # calculations with the beam groups that use ping_time
                     self.env_params[p1]
                     if p1 in self.env_params
                     else self.echodata.environment[p2].rename({"time1": "ping_time"})
@@ -398,8 +398,6 @@ class CalibrateEK80(CalibrateEK):
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                # renaming time1 to ping_time is necessary because we are performing
-                # calculations with the beam groups that use ping_time
                 else self.echodata.environment["sound_speed_indicative"].rename(
                     {"time1": "ping_time"}
                 )
