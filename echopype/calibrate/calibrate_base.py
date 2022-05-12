@@ -195,8 +195,8 @@ class EnvParams:
         #     )
 
         if self.data_kind == "stationary":
-            # renaming time2 to ping_time is necessary because we are performing
-            # calculations with the beam groups that use ping_time
+            # renaming time3 (from Platform group) to ping_time is necessary because 
+            # we are performing calculations with the beam groups that use ping_time
             return {
                 var: env_params[var].rename({"time3": "ping_time"})
                 for var in ("temperature", "salinity", "pressure")
