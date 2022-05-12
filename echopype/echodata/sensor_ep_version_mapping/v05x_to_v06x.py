@@ -29,6 +29,8 @@ def _range_bin_to_range_sample(ed_obj):
             # renames range_bin in the dataset
             ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"range_bin": "range_sample"})
 
+            ed_obj[grp_path].range_sample.attrs["long_name"] = "Along-range sample number, base 0"
+
 
 def _reorganize_beam_groups(ed_obj):
     """
@@ -191,8 +193,12 @@ def _frequency_to_channel(ed_obj, sensor):
 
         if "frequency" in ed_obj[grp_path]:
 
-            # add frequency_nominal and rename frequency to channel
+            # add frequency_nominal, remove standard_name attribute, and
+            # rename frequency to channel
             ed_obj[grp_path]["frequency_nominal"] = ed_obj[grp_path].frequency
+
+            if "standard_name" in ed_obj[grp_path].frequency_nominal.attrs:
+                del ed_obj[grp_path].frequency_nominal.attrs["standard_name"]
             ed_obj[grp_path] = ed_obj[grp_path].rename({"frequency": "channel"})
 
             # set values for channel
@@ -209,6 +215,154 @@ def _frequency_to_channel(ed_obj, sensor):
             ed_obj[grp_path]["channel"] = ed_obj[grp_path]["channel"].assign_attrs(
                 _varattrs["beam_coord_default"]["channel"]
             )
+
+
+def _change_beam_var_names(ed_obj, sensor):
+    """
+    For EK60 ``Beam_group1``
+    1. Rename ``beamwidth_receive_alongship`` to
+    ``beamwidth_twoway_alongship`` and change the attribute
+    ``long_name``
+    2. Rename ``beamwidth_transmit_athwartship`` to
+    ``beamwidth_twoway_athwartship`` and change the attribute
+    ``long_name``
+    3. Remove the variables ``beamwidth_receive_athwartship``
+    and ``beamwidth_transmit_alongship``
+    4. Change the attribute ``long_name`` in the variables
+    ``angle_offsetalongship/athwartship`` and
+    ``angle_sensitivity_alongship/athwartship``
+
+    For EK80 ``Beam_group1``
+    1. Change the attribute ``long_name`` in the variables
+    ``angle_offset_alongship/athwartship``
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    if sensor == "EK60":
+
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].rename(
+            {"beamwidth_receive_alongship": "beamwidth_twoway_alongship"}
+        )
+
+        ed_obj["Sonar/Beam_group1"].beamwidth_twoway_alongship.attrs[
+            "long_name"
+        ] = "Half power two-way beam width along alongship axis of beam"
+
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].rename(
+            {"beamwidth_transmit_athwartship": "beamwidth_twoway_athwartship"}
+        )
+
+        ed_obj["Sonar/Beam_group1"].beamwidth_twoway_athwartship.attrs[
+            "long_name"
+        ] = "Half power two-way beam width along athwartship axis of beam"
+
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop(
+            ["beamwidth_receive_athwartship", "beamwidth_transmit_alongship"]
+        )
+
+        ed_obj["Sonar/Beam_group1"].angle_sensitivity_alongship.attrs[
+            "long_name"
+        ] = "alongship angle sensitivity of the transducer"
+
+        ed_obj["Sonar/Beam_group1"].angle_sensitivity_athwartship.attrs[
+            "long_name"
+        ] = "athwartship angle sensitivity of the transducer"
+
+    if sensor in ["EK60", "EK80"]:
+
+        for beam_group in ed_obj._tree["Sonar"].children:
+
+            beam_group.ds.angle_offset_alongship.attrs[
+                "long_name"
+            ] = "electrical alongship angle offset of the transducer"
+
+            beam_group.ds.angle_offset_athwartship.attrs[
+                "long_name"
+            ] = "electrical athwartship angle offset of the transducer"
+
+
+def _add_comment_to_beam_vars(ed_obj, sensor):
+    """
+    For EK60 and EK80
+    Add the ``comment`` attribute to the variables
+    ``beamwidth_twoway_alongship/athwartship``,
+    ``angle_offset_alongship/athwartship``,
+    ``angle_sensitivity_alongship/athwartship``,
+    ``angle_athwartship/alongship``,
+    ``beamwidth_twoway_alongship/athwartship``,
+    ``angle_athwartship/alongship``
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+
+    """
+
+    if sensor in ["EK60", "EK80"]:
+
+        for beam_group in ed_obj._tree["Sonar"].children:
+            beam_group.ds.beamwidth_twoway_alongship.attrs["comment"] = (
+                "Introduced in echopype for Simrad echosounders to avoid "
+                "potential confusion with convention definitions. The alongship "
+                "angle corresponds to the minor angle in SONAR-netCDF4 vers 2. The "
+                "convention defines one-way transmit or receive beamwidth "
+                "(beamwidth_receive_minor and beamwidth_transmit_minor), but Simrad "
+                "echosounders record two-way beamwidth in the data."
+            )
+
+            beam_group.ds.beamwidth_twoway_athwartship.attrs["comment"] = (
+                "Introduced in echopype for Simrad echosounders to avoid "
+                "potential confusion with convention definitions. The athwartship "
+                "angle corresponds to the major angle in SONAR-netCDF4 vers 2. The "
+                "convention defines one-way transmit or receive beamwidth "
+                "(beamwidth_receive_major and beamwidth_transmit_major), but Simrad "
+                "echosounders record two-way beamwidth in the data."
+            )
+
+            beam_group.ds.angle_offset_alongship.attrs["comment"] = (
+                "Introduced in echopype for Simrad echosounders. The alongship "
+                "angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "
+            )
+
+            beam_group.ds.angle_offset_athwartship.attrs["comment"] = (
+                "Introduced in echopype for Simrad echosounders. The athwartship "
+                "angle corresponds to the major angle in SONAR-netCDF4 vers 2. "
+            )
+
+            beam_group.ds.angle_sensitivity_alongship.attrs[
+                "comment"
+            ] = beam_group.ds.angle_offset_alongship.attrs["comment"]
+
+            beam_group.ds.angle_sensitivity_athwartship.attrs[
+                "comment"
+            ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
+
+            if "angle_alongship" in beam_group.ds:
+                beam_group.ds.angle_alongship.attrs[
+                    "comment"
+                ] = beam_group.ds.angle_offset_alongship.attrs["comment"]
+
+            if "angle_athwartship" in beam_group.ds:
+                beam_group.ds.angle_athwartship.attrs[
+                    "comment"
+                ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
 
 
 def _move_transducer_offset_vars(ed_obj, sensor):
@@ -396,20 +550,22 @@ def convert_v05x_to_v06x(echodata_obj):
     5. Renames ``quadrant`` to ``beam``, sets the
     values to strings starting at 1, and sets
     attributes, if necessary.
-    6. Adds ``beam_group`` dimension to ``Sonar`` group
-    7. Adds ``sonar_serial_number``, ``beam_group_name``,
+    6. Add comment attribute to all _alongship/_athwartship
+    variables and use two-way beamwidth variables.
+    7. Adds ``beam_group`` dimension to ``Sonar`` group
+    8. Adds ``sonar_serial_number``, ``beam_group_name``,
     and ``beam_group_descr`` to ``Sonar`` group.
-    8. Renames ``frequency`` to ``channel`` and adds the
+    9. Renames ``frequency`` to ``channel`` and adds the
     variable ``frequency_nominal`` to every group that
     needs it.
-    9. Move ``transducer_offset_x/y/z`` from beam groups
+    10. Move ``transducer_offset_x/y/z`` from beam groups
     to the ``Platform`` group (for EK60 and EK80 only).
-    10. Add variables to the `Platform` group and rename
+    11. Add variables to the `Platform` group and rename
     ``heave`` to ``vertical_offset`` (if necessary).
-    11. Move AZFP attributes and variables from ``Beam_group1``
+    12. Move AZFP attributes and variables from ``Beam_group1``
     to the ``Vendor`` and ``Platform`` groups. Additionally,
     remove the variable ``cos_tilt_mag``, if it exists.
-    12. Make the names of the time coordinates in the `Platform`
+    13. Make the names of the time coordinates in the `Platform`
     and `Environment` group consistent
 
     Parameters
@@ -445,6 +601,10 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _frequency_to_channel(echodata_obj, sensor)
 
+        _change_beam_var_names(echodata_obj, sensor)
+
+        _add_comment_to_beam_vars(echodata_obj, sensor)
+
         # only applies to EK60 and EK80
         _move_transducer_offset_vars(echodata_obj, sensor)
 
@@ -465,3 +625,5 @@ def convert_v05x_to_v06x(echodata_obj):
 
         # Add comment attribute to all _alongship/_athwartship variables
         # and use two-way beamwidth variables (PR #668)
+
+        # Rename `Vendor` group to `Vendor_specific` (Issue #675)

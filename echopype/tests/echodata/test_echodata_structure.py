@@ -65,6 +65,9 @@ def test_v05x_v06x_conversion_structure():
     converted_raw_path_v05x = './ek60-Summer2017-D20170615-T190214-ep-v05x.nc'
     ed_v05x = open_converted(converted_raw_path_v05x)
 
+    print("tree_v06x['Sonar/Beam_group1'].ds.channel.identical(ed_v05x['Sonar/Beam_group1'].channel) = "
+          f"{tree_v06x['Sonar/Beam_group1'].ds.channel.identical(ed_v05x['Sonar/Beam_group1'].channel)}")
+
     for grp_path in ed_v05x.group_paths:
 
         print(f"grp_path = {grp_path}")
