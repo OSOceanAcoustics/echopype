@@ -57,75 +57,6 @@ def _reorganize_beam_groups(ed_obj):
         ed_obj._tree["Sonar/Beam_power"].name = "Beam_group2"
 
 
-def _beam_groups_to_convention(ed_obj, set_grp_cls):
-    """
-    Adds ``beam`` and ``ping_time`` dimensions to variables
-    in ``Beam_groupX`` so that they comply with the convention.
-    Additionally, it will change the ``quadrant`` dimension to
-    ``beam`` with string values starting at 1 and set its
-    attributes.
-
-    Parameters
-    ----------
-    ed_obj : EchoData
-        EchoData object that was created using echopype version 0.5.x
-    set_grp_cls : SetGroupsBase object
-        The set groups class of the sensor being considered
-
-    Notes
-    -----
-    The function directly modifies the input EchoData object.
-    """
-
-    for beam_group in ed_obj._tree["Sonar"].children:
-
-        if "quadrant" in beam_group.ds:
-
-            # change quadrant to beam, assign its values
-            # to a string starting at 1, and set attributes
-            beam_group.ds = beam_group.ds.rename({"quadrant": "beam"})
-            beam_group.ds["beam"] = (beam_group.ds.beam + 1).astype(str)
-            beam_group.ds.beam.attrs["long_name"] = "Beam name"
-
-        set_grp_cls.beamgroups_to_convention(
-            set_grp_cls,
-            beam_group.ds,
-            set_grp_cls.beam_only_names,
-            set_grp_cls.beam_ping_time_names,
-            set_grp_cls.ping_time_only_names,
-        )
-
-
-def _modify_sonar_group(ed_obj, sensor):
-    """
-    1. Renames ``quadrant`` to ``beam``, sets the
-    values to strings starting at 1, and sets
-    attributes, if necessary.
-    2. Adds ``beam_group`` dimension to ``Sonar`` group
-    3. Adds ``sonar_serial_number``, ``beam_group_name``,
-    and ``beam_group_descr`` to ``Sonar`` group.
-
-    Parameters
-    ----------
-    ed_obj : EchoData
-        EchoData object that was created using echopype version 0.5.x.
-    sensor : str
-        The sensor used to create the v0.5.x file.
-
-    Notes
-    -----
-    The function directly modifies the input EchoData object.
-    """
-
-    set_groups_cls = SONAR_MODELS[sensor]["set_groups"]
-
-    _beam_groups_to_convention(ed_obj, set_groups_cls)
-
-    # TODO: add beam_group dimension to Sonar group
-    #  add variables to sonar group
-    #  use set_groups_cls
-
-
 def get_channel_id(ed_obj, sensor):
     """
     Returns the channel_id for all non-unique frequencies.
@@ -365,6 +296,75 @@ def _add_comment_to_beam_vars(ed_obj, sensor):
                 ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
 
 
+def _modify_sonar_group(ed_obj, sensor):
+    """
+    1. Renames ``quadrant`` to ``beam``, sets the
+    values to strings starting at 1, and sets
+    attributes, if necessary.
+    2. Adds ``beam_group`` dimension to ``Sonar`` group
+    3. Adds ``sonar_serial_number``, ``beam_group_name``,
+    and ``beam_group_descr`` to ``Sonar`` group.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        The sensor used to create the v0.5.x file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    set_groups_cls = SONAR_MODELS[sensor]["set_groups"]
+
+    _beam_groups_to_convention(ed_obj, set_groups_cls)
+
+    # TODO: add beam_group dimension to Sonar group
+    #  add variables to sonar group
+    #  use set_groups_cls
+
+
+def _beam_groups_to_convention(ed_obj, set_grp_cls):
+    """
+    Adds ``beam`` and ``ping_time`` dimensions to variables
+    in ``Beam_groupX`` so that they comply with the convention.
+    Additionally, it will change the ``quadrant`` dimension to
+    ``beam`` with string values starting at 1 and set its
+    attributes.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x
+    set_grp_cls : SetGroupsBase object
+        The set groups class of the sensor being considered
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    for beam_group in ed_obj._tree["Sonar"].children:
+
+        if "quadrant" in beam_group.ds:
+
+            # change quadrant to beam, assign its values
+            # to a string starting at 1, and set attributes
+            beam_group.ds = beam_group.ds.rename({"quadrant": "beam"})
+            beam_group.ds["beam"] = (beam_group.ds.beam + 1).astype(str)
+            beam_group.ds.beam.attrs["long_name"] = "Beam name"
+
+        set_grp_cls.beamgroups_to_convention(
+            set_grp_cls,
+            beam_group.ds,
+            set_grp_cls.beam_only_names,
+            set_grp_cls.beam_ping_time_names,
+            set_grp_cls.ping_time_only_names,
+        )
+
+
 def _move_transducer_offset_vars(ed_obj, sensor):
     """
     Moves transducer_offset_x/y/z from beam groups to Platform
@@ -597,13 +597,13 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _reorganize_beam_groups(echodata_obj)
 
-        _modify_sonar_group(echodata_obj, sensor)
-
         _frequency_to_channel(echodata_obj, sensor)
 
         _change_beam_var_names(echodata_obj, sensor)
 
         _add_comment_to_beam_vars(echodata_obj, sensor)
+
+        _modify_sonar_group(echodata_obj, sensor)
 
         # only applies to EK60 and EK80
         _move_transducer_offset_vars(echodata_obj, sensor)
