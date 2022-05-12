@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
@@ -108,12 +108,18 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion", source_files=self.input_file)
+        prov_dict = echopype_prov_attrs(process_type="conversion")
         prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
+        source_files = source_files_vars(self.input_file)
         if self.old_ping_time is not None:
-            ds = xr.Dataset(data_vars={"old_ping_time": self.old_ping_time})
+            ds = xr.Dataset(
+                data_vars={
+                    "old_ping_time": self.old_ping_time,
+                    **source_files,
+                }
+            )
         else:
-            ds = xr.Dataset()
+            ds = xr.Dataset(data_vars=source_files)
         ds = ds.assign_attrs(prov_dict)
         return ds
 

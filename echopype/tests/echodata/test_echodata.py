@@ -250,7 +250,7 @@ class TestEchoData:
             ├── Platform: contains information about the platform on which the sonar is installed.
             │   └── NMEA: contains information specific to the NMEA protocol.
             ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
-            ├── Sonar: contains specific metadata for the sonar system.
+            ├── Sonar: contains sonar system metadata and sonar beam groups.
             │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
             └── Vendor specific: contains vendor-specific information about the sonar and the data."""
         )
