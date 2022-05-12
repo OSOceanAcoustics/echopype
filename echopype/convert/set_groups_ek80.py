@@ -374,9 +374,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["time1"],
                     time1,
                     {
-                        "axis": "T",
-                        "long_name": "Timestamps for NMEA datagrams",
-                        "standard_name": "time",
+                        **self._varattrs["platform_coord_default"]["time1"],
                         "comment": "Time coordinate corresponding to GPS location.",
                     },
                 ),
