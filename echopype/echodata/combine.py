@@ -7,7 +7,7 @@ import xarray as xr
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .echodata import EchoData
 
 
@@ -24,11 +24,8 @@ def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
 
 
 def assemble_combined_provenance(input_paths):
-    input_paths = [str(p) for p in input_paths]
     return xr.Dataset(
-        data_vars={
-            "src_filenames": ("file", input_paths),
-        },
+        data_vars=source_files_vars(input_paths),
         attrs=echopype_prov_attrs(process_type="conversion"),
     )
 

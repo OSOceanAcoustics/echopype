@@ -7,7 +7,7 @@ import xarray as xr
 
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -73,8 +73,8 @@ class SetGroupsBase(abc.ABC):
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion", source_files=self.input_file)
-        ds = xr.Dataset()
+        prov_dict = echopype_prov_attrs(process_type="conversion")
+        ds = xr.Dataset(source_files_vars(self.input_file))
         ds = ds.assign_attrs(prov_dict)
         return ds
 

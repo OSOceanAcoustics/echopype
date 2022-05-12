@@ -3,7 +3,7 @@ import warnings
 import xarray as xr
 
 from ..echodata import EchoData
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 
@@ -91,7 +91,9 @@ def _compute_cal(
         source_file = echodata.converted_raw_path
     else:
         source_file = "SOURCE FILE NOT IDENTIFIED"
-    prov_dict = echopype_prov_attrs(process_type="processing", source_files=source_file)
+
+    cal_ds["source_filenames"] = source_files_vars(source_file)["source_filenames"]
+    prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
     cal_ds = cal_ds.assign_attrs(prov_dict)
 
