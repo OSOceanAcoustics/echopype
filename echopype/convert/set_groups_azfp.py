@@ -43,18 +43,19 @@ class SetGroupsAZFP(SetGroupsBase):
         ds = xr.Dataset(
             {
                 "temperature": (
-                    ["ping_time"],
+                    ["time1"],
                     self.parser_obj.unpacked_data["temperature"],
                 )
             },
             coords={
-                "ping_time": (
-                    ["ping_time"],
+                "time1": (
+                    ["time1"],
                     ping_time,
                     {
                         "axis": "T",
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to environmental variables.",
                     },
                 )
             },
@@ -93,12 +94,12 @@ class SetGroupsAZFP(SetGroupsBase):
             "platform_code_ICES": self.ui_param["platform_code_ICES"],
         }
         unpacked_data = self.parser_obj.unpacked_data
-        ping_time = self.parser_obj.ping_time
+        time2 = self.parser_obj.ping_time
 
         ds = xr.Dataset(
             {
-                "tilt_x": (["ping_time"], unpacked_data["tilt_x"]),
-                "tilt_y": (["ping_time"], unpacked_data["tilt_y"]),
+                "tilt_x": (["time2"], unpacked_data["tilt_x"]),
+                "tilt_y": (["time2"], unpacked_data["tilt_y"]),
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -120,10 +121,13 @@ class SetGroupsAZFP(SetGroupsBase):
                 },
             },
             coords={
-                "ping_time": (
-                    ["ping_time"],
-                    ping_time,
-                    self._varattrs["beam_coord_default"]["ping_time"],
+                "time2": (
+                    ["time2"],
+                    time2,
+                    {
+                        **self._varattrs["beam_coord_default"]["ping_time"],
+                        "comment": "Time coordinate corresponding to platform sensors.",
+                    },
                 ),
             },
         )

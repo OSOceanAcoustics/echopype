@@ -128,6 +128,7 @@ class SetGroupsBase(abc.ABC):
                         "axis": "T",
                         "long_name": "Timestamps for NMEA datagrams",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to GPS location.",
                     },
                 )
             },

@@ -107,7 +107,7 @@ def test_plot_multi_get_range(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('ping_time').values
+            ed.environment['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -145,7 +145,7 @@ def test_plot_Sv(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('ping_time').values
+            ed.environment['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -172,7 +172,7 @@ def test_plot_mvbs(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('ping_time').values
+            ed.environment['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -244,7 +244,7 @@ def test_water_level_echodata(water_level, expect_warning):
             original_array = (
                 single_array
                 + echodata.platform.water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                                    ping_time='2017-07-19T21:13:47.984999936').values
+                                                    time3='2017-07-19T21:13:47.984999936').values
             )
         else:
             original_array = single_array
@@ -277,7 +277,8 @@ def test_water_level_echodata(water_level, expect_warning):
     if isinstance(results, xr.DataArray):
         final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                   ping_time='2017-07-19T21:13:47.984999936').values
-
+        print(f"original_array = {original_array}")
+        print(f"results = {results}")
         assert np.array_equal(original_array, final_array)
 
 

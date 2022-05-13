@@ -119,7 +119,11 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Environment group
     io.save_file(
         echodata.environment.chunk(
-            {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
+            # Making chunking w.r.t. ping_time for AD2CP
+            # and w.r.t. time1 for the rest of the sensors
+            {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            if echodata.top.attrs["keywords"] != "AD2CP"
+            else {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
         ),  # TODO: chunking necessary?
         path=output_path,
         mode="a",
