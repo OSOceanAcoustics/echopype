@@ -53,6 +53,18 @@ def _tree_from_file(converted_raw_path: str,
     return tree
 
 
+def _check_coords_and_drop_var(ed, tree, grp_path, var):
+
+    # make sure that at least the coordinates are identical
+    ed_var_coords = xr.Dataset(ed[grp_path][var].coords)
+    tree_var_coords = xr.Dataset(tree[grp_path].ds[var].coords)
+    print(f"--> {ed_var_coords.identical(tree_var_coords)}")
+
+    # drop variables so we can check that datasets are identical
+    ed[grp_path] = ed[grp_path].drop(var)
+    tree[grp_path].ds = tree[grp_path].ds.drop(var)
+
+
 def compare_ed_against_tree(ed, tree):
 
     for grp_path in ed.group_paths:
@@ -90,24 +102,14 @@ def test_v05x_v06x_conversion_structure():
 
         print(ed_v05x["Top-level"].attrs["keywords"])
 
-        # ignore direct comparison of the variable Sonar.sonar_serial_number for
-        # EK80, this data is not present in v0.5.x
+        # ignore direct comparison of the variables Sonar.sonar_serial_number,
+        # Platform.drop_keel_offset_is_manual, and Platform.water_level_draft_is_manual
+        # for EK80, this data is not present in v0.5.x
         if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
 
-            # make sure that at least the coordinates are identical
-            v05x_var_coords = xr.Dataset(ed_v05x['Sonar'].sonar_serial_number.coords)
-            v06x_var_coords = xr.Dataset(tree_v06x['Sonar'].ds.sonar_serial_number.coords)
-            print(f"--> {v05x_var_coords.identical(v06x_var_coords)}")
-
-            # drop sonar_serial_number
-            ed_v05x['Sonar'] = ed_v05x['Sonar'].drop("sonar_serial_number")
-            tree_v06x['Sonar'].ds = tree_v06x['Sonar'].ds.drop("sonar_serial_number")
-
-            # TODO:
-            #  drop_keel_offset_is_manual(time3),
-            #  water_level_draft_is_manual(time3)
-            #  account for some of these variables as the data is not present for v0.5.x
-
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Sonar", "sonar_serial_number")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "drop_keel_offset_is_manual")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "water_level_draft_is_manual")
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
         print("")
