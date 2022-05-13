@@ -32,6 +32,41 @@ def _range_bin_to_range_sample(ed_obj):
             ed_obj[grp_path].range_sample.attrs["long_name"] = "Along-range sample number, base 0"
 
 
+def _add_attrs_to_freq(ed_obj):
+    """
+    Makes the attributes of the ``frequency`` variable
+    consistent for all groups. This is necessary because
+    not all groups have the same attributes (some are
+    missing them too) for the ``frequency`` variable.
+    This variable is used to set the variable
+    ``frequency_nominal`` later on.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    for grp_path in ed_obj.group_paths:
+
+        if "frequency" in list(ed_obj[grp_path].coords):
+
+            # creates consistent frequency attributes
+            # NOTE: the attribute standard_name will be removed in `frequency_nominal`
+            ed_obj[grp_path]["frequency"] = ed_obj[grp_path].frequency.assign_attrs(
+                {
+                    "long_name": "Transducer frequency",
+                    "standard_name": "sound_frequency",
+                    "units": "Hz",
+                    "valid_min": 0.0,
+                }
+            )
+
+
 def _reorganize_beam_groups(ed_obj):
     """
     Maps Beam --> Sonar/Beam_group1 and Beam_power --> Sonar/Beam_group2.
@@ -296,36 +331,6 @@ def _add_comment_to_beam_vars(ed_obj, sensor):
                 ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
 
 
-def _modify_sonar_group(ed_obj, sensor):
-    """
-    1. Renames ``quadrant`` to ``beam``, sets the
-    values to strings starting at 1, and sets
-    attributes, if necessary.
-    2. Adds ``beam_group`` dimension to ``Sonar`` group
-    3. Adds ``sonar_serial_number``, ``beam_group_name``,
-    and ``beam_group_descr`` to ``Sonar`` group.
-
-    Parameters
-    ----------
-    ed_obj : EchoData
-        EchoData object that was created using echopype version 0.5.x.
-    sensor : str
-        The sensor used to create the v0.5.x file.
-
-    Notes
-    -----
-    The function directly modifies the input EchoData object.
-    """
-
-    set_groups_cls = SONAR_MODELS[sensor]["set_groups"]
-
-    _beam_groups_to_convention(ed_obj, set_groups_cls)
-
-    # TODO: add beam_group dimension to Sonar group
-    #  add variables to sonar group
-    #  use set_groups_cls
-
-
 def _beam_groups_to_convention(ed_obj, set_grp_cls):
     """
     Adds ``beam`` and ``ping_time`` dimensions to variables
@@ -363,6 +368,60 @@ def _beam_groups_to_convention(ed_obj, set_grp_cls):
             set_grp_cls.beam_ping_time_names,
             set_grp_cls.ping_time_only_names,
         )
+
+
+def _modify_sonar_group(ed_obj, sensor):
+    """
+    1. Renames ``quadrant`` to ``beam``, sets the
+    values to strings starting at 1, and sets
+    attributes, if necessary.
+    2. Adds ``beam_group`` coordinate to ``Sonar`` group
+    for all sensors
+    3. Adds the variable ``beam_group_descr`` to the
+    ``Sonar`` group for all sensors
+    4. Adds the variable ``sonar_serial_number`` to the
+    ``Sonar`` group and fills it with NaNs (it is missing
+    information) for the EK80 sensor only.
+
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        The sensor used to create the v0.5.x file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    set_groups_cls = SONAR_MODELS[sensor]["set_groups"]
+
+    _beam_groups_to_convention(ed_obj, set_groups_cls)
+
+    # add beam_group coordinate and beam_group_descr variable
+    num_beams = len(ed_obj._tree["Sonar"].children)
+    set_groups_cls._beamgroups = set_groups_cls.beamgroups_possible[:num_beams]
+    beam_groups_vars, beam_groups_coord = set_groups_cls._beam_groups_vars(set_groups_cls)
+
+    ed_obj["Sonar"] = ed_obj["Sonar"].assign_coords(beam_groups_coord)
+    ed_obj["Sonar"] = ed_obj["Sonar"].assign(**beam_groups_vars)
+
+    # add sonar_serial_number to EK80 Sonar group
+    if sensor == "EK80":
+
+        ed_obj["Sonar"] = ed_obj["Sonar"].assign(
+            {
+                "sonar_serial_number": (
+                    ["channel"],
+                    np.full_like(ed_obj["Sonar"].frequency_nominal.values, np.nan),
+                )
+            }
+        )
+
+    # TODO: Do we need to make attributes into variables
+    #  for EK60 and AZFP #681?
 
 
 def _move_transducer_offset_vars(ed_obj, sensor):
@@ -543,29 +602,31 @@ def convert_v05x_to_v06x(echodata_obj):
     0.6.x. Specifically, the following items are completed:
 
     1. Rename the coordinate ``range_bin`` to ``range_sample``
-    2. Map ``Beam`` to ``Sonar/Beam_group1``
-    3. Map ``Beam_power`` to ``Sonar/Beam_group2``
-    4. Adds ``beam`` and ``ping_time`` dimensions to
+    2. Add attributes to `frequency` dimension throughout
+    all sensors.
+    3. Map ``Beam`` to ``Sonar/Beam_group1``
+    4. Map ``Beam_power`` to ``Sonar/Beam_group2``
+    5. Adds ``beam`` and ``ping_time`` dimensions to
     certain variables within the beam groups.
-    5. Renames ``quadrant`` to ``beam``, sets the
+    6. Renames ``quadrant`` to ``beam``, sets the
     values to strings starting at 1, and sets
     attributes, if necessary.
-    6. Add comment attribute to all _alongship/_athwartship
+    7. Add comment attribute to all _alongship/_athwartship
     variables and use two-way beamwidth variables.
-    7. Adds ``beam_group`` dimension to ``Sonar`` group
-    8. Adds ``sonar_serial_number``, ``beam_group_name``,
+    8. Adds ``beam_group`` dimension to ``Sonar`` group
+    9. Adds ``sonar_serial_number``, ``beam_group_name``,
     and ``beam_group_descr`` to ``Sonar`` group.
-    9. Renames ``frequency`` to ``channel`` and adds the
+    10. Renames ``frequency`` to ``channel`` and adds the
     variable ``frequency_nominal`` to every group that
     needs it.
-    10. Move ``transducer_offset_x/y/z`` from beam groups
+    11. Move ``transducer_offset_x/y/z`` from beam groups
     to the ``Platform`` group (for EK60 and EK80 only).
-    11. Add variables to the `Platform` group and rename
+    12. Add variables to the `Platform` group and rename
     ``heave`` to ``vertical_offset`` (if necessary).
-    12. Move AZFP attributes and variables from ``Beam_group1``
+    13. Move AZFP attributes and variables from ``Beam_group1``
     to the ``Vendor`` and ``Platform`` groups. Additionally,
     remove the variable ``cos_tilt_mag``, if it exists.
-    13. Make the names of the time coordinates in the `Platform`
+    14. Make the names of the time coordinates in the `Platform`
     and `Environment` group consistent
 
     Parameters
@@ -595,6 +656,8 @@ def convert_v05x_to_v06x(echodata_obj):
     else:
         _range_bin_to_range_sample(echodata_obj)
 
+        _add_attrs_to_freq(echodata_obj)
+
         _reorganize_beam_groups(echodata_obj)
 
         _frequency_to_channel(echodata_obj, sensor)
@@ -605,7 +668,6 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _modify_sonar_group(echodata_obj, sensor)
 
-        # only applies to EK60 and EK80
         _move_transducer_offset_vars(echodata_obj, sensor)
 
         _add_vars_to_platform(echodata_obj, sensor)

@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 from datatree import open_datatree
+import xarray as xr
 import pytest
 
 # TODO: change the below imports to absolute imports
@@ -52,6 +53,17 @@ def _tree_from_file(converted_raw_path: str,
     return tree
 
 
+def compare_ed_against_tree(ed, tree):
+
+    for grp_path in ed.group_paths:
+
+        print(f"grp_path = {grp_path}")
+        if grp_path == "Top-level":
+            print(f"--> {tree.ds.identical(ed[grp_path])}")
+        else:
+            print(f"--> {tree[grp_path].ds.identical(ed[grp_path])}")
+
+
 def test_v05x_v06x_conversion_structure():
     """
     Tests that version 0.5.x echopype files
@@ -59,23 +71,40 @@ def test_v05x_v06x_conversion_structure():
     0.6.x structure.
     """
 
-    converted_raw_path_v06x = './ek60-Summer2017-D20170615-T190214-ep-v06x.nc'
-    tree_v06x = _tree_from_file(converted_raw_path=converted_raw_path_v06x)
+    ek60_path = "./"
+    ek80_path = "./"
+    azfp_path = "./"
 
-    converted_raw_path_v05x = './ek60-Summer2017-D20170615-T190214-ep-v05x.nc'
-    ed_v05x = open_converted(converted_raw_path_v05x)
+    converted_raw_paths_v06x = [ek60_path + "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
+                                ek80_path + "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
+                                azfp_path + "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
 
-    print("tree_v06x['Sonar/Beam_group1'].ds.channel.identical(ed_v05x['Sonar/Beam_group1'].channel) = "
-          f"{tree_v06x['Sonar/Beam_group1'].ds.channel.identical(ed_v05x['Sonar/Beam_group1'].channel)}")
+    converted_raw_paths_v05x = [ek60_path + "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
+                                ek80_path + "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
+                                azfp_path + "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
 
-    for grp_path in ed_v05x.group_paths:
+    for path_v05x, path_v06x in zip(converted_raw_paths_v05x, converted_raw_paths_v06x):
 
-        print(f"grp_path = {grp_path}")
-        if grp_path == "Top-level":
+        ed_v05x = open_converted(path_v05x)
+        tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
-            print(f"--> {tree_v06x.ds.identical(ed_v05x[grp_path])}")
-        else:
-            print(f"--> {tree_v06x[grp_path].ds.identical(ed_v05x[grp_path])}")
+        print(ed_v05x["Top-level"].attrs["keywords"])
+
+        # ignore direct comparison of the variable Sonar.sonar_serial_number for
+        # EK80, this data is not present in v0.5.x
+        if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
+
+            # make sure that at least the coordinates are identical
+            v05x_var_coords = xr.Dataset(ed_v05x['Sonar'].sonar_serial_number.coords)
+            v06x_var_coords = xr.Dataset(tree_v06x['Sonar'].ds.sonar_serial_number.coords)
+            print(f"--> {v05x_var_coords.identical(v06x_var_coords)}")
+
+            # drop sonar_serial_number
+            ed_v05x['Sonar'] = ed_v05x['Sonar'].drop("sonar_serial_number")
+            tree_v06x['Sonar'].ds = tree_v06x['Sonar'].ds.drop("sonar_serial_number")
+
+        compare_ed_against_tree(ed_v05x, tree_v06x)
+        print("")
 
 
 def test_echodata_structure():
@@ -83,5 +112,7 @@ def test_echodata_structure():
     Makes sure that all raw files opened
     create the expected EchoData structure.
     """
+
+    # compare_ed_against_tree(ed_v05x, tree_v06x)
 
     pytest.xfail("Full testing of the EchoData Structure has not been implemented yet.")
