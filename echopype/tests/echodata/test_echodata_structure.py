@@ -103,6 +103,12 @@ def test_v05x_v06x_conversion_structure():
             ed_v05x['Sonar'] = ed_v05x['Sonar'].drop("sonar_serial_number")
             tree_v06x['Sonar'].ds = tree_v06x['Sonar'].ds.drop("sonar_serial_number")
 
+            # TODO:
+            #  drop_keel_offset_is_manual(time3),
+            #  water_level_draft_is_manual(time3)
+            #  account for some of these variables as the data is not present for v0.5.x
+
+
         compare_ed_against_tree(ed_v05x, tree_v06x)
         print("")
 
