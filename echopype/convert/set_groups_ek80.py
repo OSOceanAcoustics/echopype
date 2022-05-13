@@ -63,22 +63,20 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_env(self, env_only=False) -> xr.Dataset:
+    def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
-        # If only saving environment group,
-        # there is no ping_time so use timestamp of environment datagram
-        if env_only:
-            ping_time = self.parser_obj.environment["timestamp"]
+
+        # set time1 if it exists
+        if "timestamp" in self.parser_obj.environment:
+            time1 = np.array([self.parser_obj.environment["timestamp"]])
         else:
-            ping_time = list(self.parser_obj.ping_time.values())[0][0]
-        # Select the first available ping_time
-        ping_time = np.array([ping_time.astype("datetime64[ns]")])
+            time1 = np.array([np.datetime64("NaT")])
 
         # Collect variables
         dict_env = dict()
         for k, v in self.parser_obj.environment.items():
             if k in ["temperature", "depth", "acidity", "salinity", "sound_speed"]:
-                dict_env[k] = (["ping_time"], [v])
+                dict_env[k] = (["time1"], [v])
 
         # Rename to conform with those defined in convention
         if "sound_speed" in dict_env:
@@ -92,7 +90,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         if "sound_velocity_profile" in self.parser_obj.environment:
             dict_env["sound_velocity_profile"] = (
-                ["environment_time", "sound_velocity_profile_depth"],
+                ["time1", "sound_velocity_profile_depth"],
                 [self.parser_obj.environment["sound_velocity_profile"][1::2]],
                 {
                     "long_name": "sound velocity profile",
@@ -107,33 +105,23 @@ class SetGroupsEK80(SetGroupsBase):
         for var_name in vars:
             if var_name in self.parser_obj.environment:
                 dict_env[var_name] = (
-                    ["environment_time"],
+                    ["time1"],
                     [self.parser_obj.environment[var_name]],
                 )
 
         ds = xr.Dataset(
             dict_env,
             coords={
-                "ping_time": (
-                    ["ping_time"],
-                    ping_time,
+                "time1": (
+                    ["time1"],
+                    time1,
                     {
                         "axis": "T",
                         "long_name": "Timestamp of each ping",
                         "standard_name": "time",
-                    },
-                ),
-                "environment_time": (
-                    ["environment_time"],
-                    [self.parser_obj.environment["timestamp"]]
-                    if "timestamp" in self.parser_obj.environment
-                    else np.datetime64("NaT"),
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for Environment XML datagrams",
-                        "standard_name": "time",
-                        "comment": "Platform.time3 and Environment.environment_time are "
-                        "identical time coordinates from the same datagrams",
+                        "comment": "Time coordinate corresponding to environmental "
+                        "variables. Note that Platform.time3 is the same "
+                        "as Environment.time1",
                     },
                 ),
                 "sound_velocity_profile_depth": (
@@ -366,6 +354,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for MRU datagrams",
                         "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform sensors.",
                     },
                 ),
                 "time3": (
@@ -377,17 +366,16 @@ class SetGroupsEK80(SetGroupsBase):
                         "axis": "T",
                         "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
-                        "comment": "Platform.time3 and Environment.environment_time are "
-                        "identical time coordinates from the same datagrams",
+                        "comment": "Time coordinate corresponding to environmental variables. "
+                        "Note that Platform.time3 is the same as Environment.time1",
                     },
                 ),
                 "time1": (
                     ["time1"],
                     time1,
                     {
-                        "axis": "T",
-                        "long_name": "Timestamps for NMEA datagrams",
-                        "standard_name": "time",
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to GPS location.",
                     },
                 ),
             },

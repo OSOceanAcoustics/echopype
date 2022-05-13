@@ -364,7 +364,9 @@ class EchoData:
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
+            sound_speed = squeeze_non_scalar(
+                self.environment["sound_speed_indicative"].rename({"time1": "ping_time"})
+            )
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "

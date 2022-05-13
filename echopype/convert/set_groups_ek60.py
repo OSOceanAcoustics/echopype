@@ -133,7 +133,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp = xr.Dataset(
                 {
                     "absorption_indicative": (
-                        ["ping_time"],
+                        ["time1"],
                         self.parser_obj.ping_data_dict["absorption_coefficient"][ch],
                         {
                             "long_name": "Indicative acoustic absorption",
@@ -142,7 +142,7 @@ class SetGroupsEK60(SetGroupsBase):
                         },
                     ),
                     "sound_speed_indicative": (
-                        ["ping_time"],
+                        ["time1"],
                         self.parser_obj.ping_data_dict["sound_velocity"][ch],
                         {
                             "long_name": "Indicative sound speed",
@@ -153,13 +153,14 @@ class SetGroupsEK60(SetGroupsBase):
                     ),
                 },
                 coords={
-                    "ping_time": (
-                        ["ping_time"],
+                    "time1": (
+                        ["time1"],
                         self.parser_obj.ping_time[ch],
                         {
                             "axis": "T",
                             "long_name": "Timestamps for NMEA position datagrams",
                             "standard_name": "time",
+                            "comment": "Time coordinate corresponding to environmental variables.",
                         },
                     )
                 },
@@ -235,7 +236,10 @@ class SetGroupsEK60(SetGroupsBase):
                 "time1": (
                     ["time1"],
                     time1,
-                    self._varattrs["platform_coord_default"]["time1"],
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to GPS location.",
+                    },
                 )
             },
         )
@@ -258,22 +262,22 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp = xr.Dataset(
                     {
                         "pitch": (
-                            ["ping_time"],
+                            ["time2"],
                             self.parser_obj.ping_data_dict["pitch"][ch],
                             self._varattrs["platform_var_default"]["pitch"],
                         ),
                         "roll": (
-                            ["ping_time"],
+                            ["time2"],
                             self.parser_obj.ping_data_dict["roll"][ch],
                             self._varattrs["platform_var_default"]["roll"],
                         ),
                         "vertical_offset": (
-                            ["ping_time"],
+                            ["time2"],
                             self.parser_obj.ping_data_dict["heave"][ch],
                             self._varattrs["platform_var_default"]["vertical_offset"],
                         ),
                         "water_level": (
-                            ["ping_time"],
+                            ["time3"],
                             self.parser_obj.ping_data_dict["transducer_depth"][ch],
                             self._varattrs["platform_var_default"]["water_level"],
                         ),
@@ -314,15 +318,27 @@ class SetGroupsEK60(SetGroupsBase):
                         },
                     },
                     coords={
-                        "ping_time": (
-                            ["ping_time"],
+                        "time2": (
+                            ["time2"],
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
                                 "long_name": "Timestamps for position datagrams",
                                 "standard_name": "time",
+                                "comment": "Time coordinate corresponding to platform sensors.",
                             },
-                        )
+                        ),
+                        "time3": (
+                            ["time3"],
+                            self.parser_obj.ping_time[ch],
+                            {
+                                "axis": "T",
+                                "long_name": "Timestamps for position datagrams",
+                                "standard_name": "time",
+                                "comment": "Time coordinate corresponding to "
+                                "environmental variables.",
+                            },
+                        ),
                     },
                     attrs={
                         "platform_code_ICES": self.ui_param["platform_code_ICES"],
@@ -356,7 +372,7 @@ class SetGroupsEK60(SetGroupsBase):
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs="override")
 
-            ds = ds.chunk({"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]})
+            ds = ds.chunk({"time2": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         return set_encodings(ds)
 

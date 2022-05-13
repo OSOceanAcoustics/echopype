@@ -27,6 +27,7 @@ DEFAULT_ENCODINGS = {
     "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
     "time1": DEFAULT_TIME_ENCODING,
     "time2": DEFAULT_TIME_ENCODING,
+    "time3": DEFAULT_TIME_ENCODING,
 }
 
 

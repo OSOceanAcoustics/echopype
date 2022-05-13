@@ -130,7 +130,7 @@ def test_compute_Sv_azfp(azfp_path):
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
     # AZFP Matlab code uses average temperature
     avg_temperature = (
-        echodata.environment['temperature'].mean('ping_time').values
+        echodata.environment['temperature'].mean('time1').values
     )
     env_params = {
         'temperature': avg_temperature,
@@ -335,12 +335,12 @@ def test_env_params(ek60_path):
     # values after 1:25 will be extrapolated
     env_params_data = xr.Dataset(
         data_vars={
-            "pressure": ("ping_time", np.arange(50)),
-            "salinity": ("ping_time", np.arange(50)),
-            "temperature": ("ping_time", np.arange(50)),
+            "pressure": ("time3", np.arange(50)),
+            "salinity": ("time3", np.arange(50)),
+            "temperature": ("time3", np.arange(50)),
         },
         coords={
-            "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+            "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
         }
     )
     env_params = EnvParams(env_params_data, "stationary")
