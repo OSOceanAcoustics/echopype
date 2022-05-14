@@ -111,6 +111,14 @@ def test_v05x_v06x_conversion_structure():
             _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "drop_keel_offset_is_manual")
             _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "water_level_draft_is_manual")
 
+            # TODO: Account for For EK80
+            #     1. Adds the empty coordinate ``sound_velocity_profile_depth``
+            #     to the ``Environment`` group (this data is missing in v0.5.x).
+            #     2. Adds the variables
+            #     ``sound_velocity_profile(time1, sound_velocity_profile_depth)``,
+            #     ``sound_velocity_source(time1)``, ``transducer_name(time1)``,
+            #     ``transducer_sound_speed(time1) to the ``Environment`` group.
+
         compare_ed_against_tree(ed_v05x, tree_v06x)
         print("")
 

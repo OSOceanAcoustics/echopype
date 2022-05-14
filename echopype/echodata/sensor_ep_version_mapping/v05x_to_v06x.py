@@ -528,20 +528,6 @@ def _add_vars_to_platform(ed_obj, sensor):
 
     if sensor == "EK80":
 
-        ed_obj["Platform"] = ed_obj["Platform"].assign_coords(
-            {
-                "time3": (
-                    ["time3"],
-                    ed_obj["Environment"].ping_time.values,
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for Environment XML datagrams",
-                        "standard_name": "time",
-                    },
-                )
-            }
-        )
-
         ed_obj["Platform"]["drop_keel_offset"] = xr.DataArray(
             data=[ed_obj["Platform"].attrs["drop_keel_offset"]], dims=["time3"]
         )
@@ -560,6 +546,20 @@ def _add_vars_to_platform(ed_obj, sensor):
             dim=["time3"]
         )
 
+        ed_obj["Platform"] = ed_obj["Platform"].assign_coords(
+            {
+                "time3": (
+                    ["time3"],
+                    ed_obj["Environment"].ping_time.values,
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for Environment XML datagrams",
+                        "standard_name": "time",
+                    },
+                )
+            }
+        )
+
     if sensor == "AZFP":
         ds_tmp = xr.Dataset(
             {
@@ -575,6 +575,64 @@ def _add_vars_to_platform(ed_obj, sensor):
         )
 
         ed_obj["Platform"] = xr.merge([ed_obj["Platform"], ds_tmp])
+
+
+def _add_vars_coords_to_environment(ed_obj, sensor):
+    """
+    For EK80
+    1. Adds the length one NaN coordinate ``sound_velocity_profile_depth``
+    to the ``Environment`` group (this data is missing in v0.5.x).
+    2. Adds the variables
+    ``sound_velocity_profile(time1, sound_velocity_profile_depth)``,
+    ``sound_velocity_source(time1)``, ``transducer_name(time1)``,
+    ``transducer_sound_speed(time1) to the ``Environment`` group.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    if sensor == "EK80":
+
+        ed_obj["Environment"]["sound_velocity_profile"] = xr.DataArray(
+            data=np.nan * np.ones((len(ed_obj["Environment"].ping_time), 1)),
+            dims=["ping_time", "sound_velocity_profile_depth"],
+            attrs={
+                "long_name": "sound velocity profile",
+                "standard_name": "speed_of_sound_in_sea_water",
+                "units": "m/s",
+                "valid_min": 0.0,
+                "comment": "parsed from raw data files as (depth, sound_speed) value pairs",
+            },
+        )
+
+        ed_obj["Environment"] = ed_obj["Environment"].assign_coords(
+            {
+                "sound_velocity_profile_depth": (
+                    ["sound_velocity_profile_depth"],
+                    [np.nan],
+                    {
+                        "standard_name": "depth",
+                        "units": "m",
+                        "axis": "Z",
+                        "positive": "down",
+                        "valid_min": 0.0,
+                    },
+                )
+            }
+        )
+
+        # TODO: Add the variables
+        #     ``sound_velocity_profile(time1, sound_velocity_profile_depth)``,
+        #     ``sound_velocity_source(time1)``, ``transducer_name(time1)``,
+        #     ``transducer_sound_speed(time1) to the ``Environment`` group.
 
 
 def _rename_mru_time_location_time(ed_obj):
@@ -624,11 +682,18 @@ def _rename_and_add_time_vars_ek60(ed_obj):
     The function directly modifies the input EchoData object.
     """
 
+    ed_obj["Platform"]["water_level"] = ed_obj["Platform"]["water_level"].rename(
+        {"ping_time": "time3"}
+    )
+    ed_obj["Platform"] = ed_obj["Platform"].rename({"ping_time": "time2"})
+
+    ed_obj["Environment"] = ed_obj["Environment"].rename({"ping_time": "time1"})
+
     ed_obj["Platform"] = ed_obj["Platform"].assign_coords(
         {
             "time3": (
                 ["time3"],
-                ed_obj["Platform"].ping_time.values,
+                ed_obj["Platform"].time3.values,
                 {
                     "axis": "T",
                     "long_name": "Timestamps for position datagrams",
@@ -637,13 +702,6 @@ def _rename_and_add_time_vars_ek60(ed_obj):
             )
         }
     )
-
-    ed_obj["Platform"]["water_level"] = ed_obj["Platform"]["water_level"].rename(
-        {"ping_time": "time3"}
-    )
-    ed_obj["Platform"] = ed_obj["Platform"].rename({"ping_time": "time2"})
-
-    ed_obj["Environment"] = ed_obj["Environment"].rename({"ping_time": "time1"})
 
 
 def _make_time_coords_consistent(ed_obj, sensor):
@@ -670,6 +728,20 @@ def _make_time_coords_consistent(ed_obj, sensor):
 
     if sensor == "EK60":
         _rename_and_add_time_vars_ek60(ed_obj)
+
+    if sensor == "EK80":
+        # TODO:
+        print(
+            "For EK80 defined time1 as self.parser_obj.environment['timestamp'], "
+            "if it exists and NaT, if it doesn’t. Then replaced ping_time "
+            "and environment_time with time1"
+        )
+
+    if sensor == "AZFP":
+        # TODO:
+        print("hello")
+
+    # TODO: add comments to all timeX coordinates
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -700,11 +772,14 @@ def convert_v05x_to_v06x(echodata_obj):
     to the ``Platform`` group (for EK60 and EK80 only).
     12. Add variables to the `Platform` group and rename
     ``heave`` to ``vertical_offset`` (if necessary).
-    13. Move AZFP attributes and variables from ``Beam_group1``
+    13. Add variables and coordinate to the ``Environment``
+    group for EK80 only.
+    14. Make the names of the time coordinates in the `Platform`
+    and `Environment` groups consistent and add new the attribute
+    comment to these time coordinates.
+    15. Move AZFP attributes and variables from ``Beam_group1``
     to the ``Vendor`` and ``Platform`` groups. Additionally,
     remove the variable ``cos_tilt_mag``, if it exists.
-    14. Make the names of the time coordinates in the `Platform`
-    and `Environment` groups consistent.
 
     Parameters
     ----------
@@ -748,6 +823,8 @@ def convert_v05x_to_v06x(echodata_obj):
         _move_transducer_offset_vars(echodata_obj, sensor)
 
         _add_vars_to_platform(echodata_obj, sensor)
+
+        _add_vars_coords_to_environment(echodata_obj, sensor)
 
         _make_time_coords_consistent(echodata_obj, sensor)
 
