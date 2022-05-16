@@ -47,7 +47,7 @@ class CalibrateEK(CalibrateBase):
         )
 
     def _get_vend_cal_params_power(self, param, waveform_mode):
-        """Get cal parameters stored in the Vendor group.
+        """Get cal parameters stored in the Vendor_specific group.
 
         Parameters
         ----------
@@ -124,7 +124,7 @@ class CalibrateEK(CalibrateBase):
         else:
             beam = self.echodata.beam
 
-        # Params from the Vendor group
+        # Params from the Vendor_specific group
 
         # only execute this if cw and power
         if waveform_mode == "CW" and beam is not None:
@@ -414,7 +414,7 @@ class CalibrateEK80(CalibrateEK):
             )
 
     def _get_vend_cal_params_complex(self, channel_id, filter_name, param_type):
-        """Get filter coefficients stored in the Vendor group attributes.
+        """Get filter coefficients stored in the Vendor_specific group attributes.
 
         Parameters
         ----------
@@ -615,7 +615,7 @@ class CalibrateEK80(CalibrateEK):
     def _get_gain_for_complex(self, waveform_mode, chan_sel) -> xr.DataArray:
         """Get gain factor for calibrating complex samples.
 
-        Use values from ``gain_correction`` in the Vendor group for CW mode samples,
+        Use values from ``gain_correction`` in the Vendor_specific group for CW mode samples,
         or interpolate ``gain`` to the center frequency of each ping for BB mode samples
         if nominal frequency is within the calibrated frequencies range
 

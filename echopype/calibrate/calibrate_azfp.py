@@ -36,7 +36,7 @@ class CalibrateAZFP(CalibrateBase):
             else self.echodata.beam["equivalent_beam_angle"]
         )
 
-        # Get params from the Vendor group
+        # Get params from the Vendor_specific group
         for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
             # substitute if None in user input
             self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.vendor[p]
