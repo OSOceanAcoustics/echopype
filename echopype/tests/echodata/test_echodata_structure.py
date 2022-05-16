@@ -53,7 +53,7 @@ def _tree_from_file(converted_raw_path: str,
     return tree
 
 
-def _check_coords_and_drop_var(ed, tree, grp_path, var):
+def _check_and_drop_var(ed, tree, grp_path, var):
 
     ed_var = ed[grp_path][var]
     tree_var = tree[grp_path].ds[var]
@@ -113,22 +113,23 @@ def test_v05x_v06x_conversion_structure():
         # for EK80, this data is not present in v0.5.x
         if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
 
-            # TODO: maybe make the below calls into a loop
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Sonar", "sonar_serial_number")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "drop_keel_offset_is_manual")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "water_level_draft_is_manual")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_profile")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_profile_depth")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_source")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "transducer_name")
-            print(" ")
-            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "transducer_sound_speed")
+            # dictionary of variables to drop where the group path is the
+            # key and the variables are the value
+            vars_to_drop = {"Sonar": ["sonar_serial_number"],
+                            "Platform": ["drop_keel_offset_is_manual",
+                                         "water_level_draft_is_manual"],
+                            "Environment": ["sound_velocity_profile",
+                                            "sound_velocity_profile_depth",
+                                            "sound_velocity_source",
+                                            "transducer_name",
+                                            "transducer_sound_speed"]}
+
+            # check and drop variables that cannot be directly compared
+            # because their values are not the same
+            for key, val in vars_to_drop.items():
+                for var in val:
+                    _check_and_drop_var(ed_v05x, tree_v06x, key, var)
+                    print(" ")
 
             # sort the beam groups for EK80 according to channel (this is necessary for comparison)
             ed_v05x['Sonar/Beam_group1'] = ed_v05x['Sonar/Beam_group1'].sortby("channel")
@@ -136,6 +137,8 @@ def test_v05x_v06x_conversion_structure():
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
         print("")
+
+    # TODO: do a comparison of a combined file, one of the groups creates an attribute key
 
 
 def test_echodata_structure():

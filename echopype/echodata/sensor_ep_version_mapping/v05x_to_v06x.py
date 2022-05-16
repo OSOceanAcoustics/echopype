@@ -169,7 +169,6 @@ def _frequency_to_channel(ed_obj, sensor):
 
             # set values for channel
             if "channel_id" in ed_obj[grp_path]:
-                print(f"here = {grp_path}")
                 ed_obj[grp_path]["channel"] = ed_obj[grp_path].channel_id.values
                 ed_obj[grp_path] = ed_obj._tree[grp_path].ds.drop("channel_id")
 
