@@ -169,6 +169,7 @@ def _frequency_to_channel(ed_obj, sensor):
 
             # set values for channel
             if "channel_id" in ed_obj[grp_path]:
+                print(f"here = {grp_path}")
                 ed_obj[grp_path]["channel"] = ed_obj[grp_path].channel_id.values
                 ed_obj[grp_path] = ed_obj._tree[grp_path].ds.drop("channel_id")
 
@@ -601,10 +602,25 @@ def _add_vars_coords_to_environment(ed_obj, sensor):
 
     if sensor == "EK80":
 
-        ed_obj["Environment"]["sound_velocity_profile"] = xr.DataArray(
-            data=np.nan * np.ones((len(ed_obj["Environment"].ping_time), 1)),
-            dims=["ping_time", "sound_velocity_profile_depth"],
-            attrs={
+        ed_obj["Environment"]["sound_velocity_source"] = (
+            ["ping_time"],
+            np.array(len(ed_obj["Environment"].ping_time) * ["None"]),
+        )
+
+        ed_obj["Environment"]["transducer_name"] = (
+            ["ping_time"],
+            np.array(len(ed_obj["Environment"].ping_time) * ["None"]),
+        )
+
+        ed_obj["Environment"]["transducer_sound_speed"] = (
+            ["ping_time"],
+            np.array(len(ed_obj["Environment"].ping_time) * [np.nan]),
+        )
+
+        ed_obj["Environment"]["sound_velocity_profile"] = (
+            ["ping_time", "sound_velocity_profile_depth"],
+            np.nan * np.ones((len(ed_obj["Environment"].ping_time), 1)),
+            {
                 "long_name": "sound velocity profile",
                 "standard_name": "speed_of_sound_in_sea_water",
                 "units": "m/s",
@@ -629,10 +645,71 @@ def _add_vars_coords_to_environment(ed_obj, sensor):
             }
         )
 
-        # TODO: Add the variables
-        #     ``sound_velocity_profile(time1, sound_velocity_profile_depth)``,
-        #     ``sound_velocity_source(time1)``, ``transducer_name(time1)``,
-        #     ``transducer_sound_speed(time1) to the ``Environment`` group.
+
+def _rearrange_azfp_attrs_vars(ed_obj, sensor):
+    """
+    Makes alterations to AZFP variables. Specifically,
+    variables in ``Beam_group1``.
+    1. Moves ``tilt_x/y(ping_time)`` to the `Platform` group.
+    2. Moves ``temperature_counts(ping_time)``,
+    ``tilt_x/y_count(ping_time)``, ``DS(channel)``, ``EL(channel)``,
+    ``TVR(channel)``, ``VTX(channel)``, ``Sv_offset(channel)``,
+    ``number_of_samples_digitized_per_pings(channel)``,
+    ``number_of_digitized_samples_averaged_per_pings(channel)``
+    to the `Vendor` group:
+    3. Removes the variable `cos_tilt_mag(ping_time)`
+    4. Moves the following attributes to the ``Vendor`` group:
+    ``tilt_X_a/b/c/d``, ``tilt_Y_a/b/c/d``,
+    ``temperature_ka/kb/kc/A/B/C``, ``number_of_frequency``,
+    ``number_of_pings_per_burst``, ``average_burst_pings_flag``
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    if sensor == "AZFP":
+
+        beam_to_plat_vars = ["tilt_x", "tilt_y"]
+
+        for var_name in beam_to_plat_vars:
+            ed_obj["Platform"][var_name] = ed_obj["Sonar/Beam_group1"][var_name]
+
+        beam_to_vendor_vars = [
+            "temperature_counts",
+            "tilt_x_count",
+            "tilt_y_count",
+            "DS",
+            "EL",
+            "TVR",
+            "VTX",
+            "Sv_offset",
+            "number_of_samples_digitized_per_pings",
+            "number_of_digitized_samples_averaged_per_pings",
+        ]
+
+        for var_name in beam_to_vendor_vars:
+            ed_obj["Vendor"][var_name] = ed_obj["Sonar/Beam_group1"][var_name]
+
+        beam_to_vendor_attrs = ed_obj["Sonar/Beam_group1"].attrs.copy()
+        del beam_to_vendor_attrs["beam_mode"]
+        del beam_to_vendor_attrs["conversion_equation_t"]
+
+        for key, val in beam_to_vendor_attrs.items():
+
+            ed_obj["Vendor"].attrs[key] = val
+            del ed_obj["Sonar/Beam_group1"].attrs[key]
+
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop(
+            ["cos_tilt_mag"] + beam_to_plat_vars + beam_to_vendor_vars
+        )
 
 
 def _rename_mru_time_location_time(ed_obj):
@@ -669,7 +746,7 @@ def _rename_and_add_time_vars_ek60(ed_obj):
     the variable time3, renames the variable ``water_level``
     time coordinate to time3, and changes ``ping_time`` to
     ``time2`` for the variables ``pitch/roll/vertical_offset``.
-    2. For EK60's ``Envrionment`` groups this function renames
+    2. For EK60's ``Envrionment`` group this function renames
     ``ping_time`` to ``time1``.
 
     Parameters
@@ -704,12 +781,84 @@ def _rename_and_add_time_vars_ek60(ed_obj):
     )
 
 
+def _add_time_comment_in_platform(ed_obj, sensor):
+    """
+    Adds comments to ``time1``, ``time2``, and
+    ``time3`` in the ``Platform`` group.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    if "time1" in ed_obj["Platform"]:
+        ed_obj["Platform"].time1.attrs["comment"] = "Time coordinate corresponding to GPS location."
+
+    ed_obj["Platform"].time2.attrs["comment"] = "Time coordinate corresponding to platform sensors."
+
+    if sensor == "EK80":
+        ed_obj["Platform"].time3.attrs["comment"] = (
+            "Time coordinate corresponding to "
+            "environmental variables. Note that "
+            "Platform.time3 is the same as Environment.time1."
+        )
+    else:
+        if "time3" in ed_obj["Platform"]:
+            ed_obj["Platform"].time3.attrs[
+                "comment"
+            ] = "Time coordinate corresponding to environmental variables."
+
+
+def _add_time_comment_in_environment(ed_obj, sensor):
+    """
+    Adds comments to ``time1`` in the ``Environment`` group.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+
+    """
+
+    if sensor == "EK80":
+        ed_obj["Environment"].time1.attrs["comment"] = (
+            "Time coordinate corresponding to "
+            "environmental variables. Note that "
+            "Platform.time3 is the same as Environment.time1"
+        )
+    else:
+        ed_obj["Environment"].time1.attrs[
+            "comment"
+        ] = "Time coordinate corresponding to environmental variables."
+
+
 def _make_time_coords_consistent(ed_obj, sensor):
     """
     1. Renames location_time to time1 and mru_time to
     time2 wherever it occurs.
     2. For EK60 adds and modifies the ``Platform`` group's
     time variables.
+    3. For EK80 renames ``ping_time`` to ``time1`` in the
+    ``Environment`` group.
+    4. For AZFP renames ``ping_time`` to ``time2`` in the
+    ``Platform`` group and ``ping_time`` to ``time1`` in the
+    ``Environment`` group.
+    5. Adds time comments to the ``Platform``, ``Platform/NMEA``,
+    and ``Environment`` groups.
+    6. TODO: add descr
 
 
     Parameters
@@ -730,18 +879,21 @@ def _make_time_coords_consistent(ed_obj, sensor):
         _rename_and_add_time_vars_ek60(ed_obj)
 
     if sensor == "EK80":
-        # TODO:
-        print(
-            "For EK80 defined time1 as self.parser_obj.environment['timestamp'], "
-            "if it exists and NaT, if it doesn’t. Then replaced ping_time "
-            "and environment_time with time1"
-        )
+        ed_obj["Environment"] = ed_obj["Environment"].rename({"ping_time": "time1"})
 
     if sensor == "AZFP":
-        # TODO:
-        print("hello")
+        ed_obj["Platform"] = ed_obj["Platform"].rename({"ping_time": "time2"})
+        ed_obj["Environment"] = ed_obj["Environment"].rename({"ping_time": "time1"})
 
-    # TODO: add comments to all timeX coordinates
+    _add_time_comment_in_platform(ed_obj, sensor)
+    _add_time_comment_in_environment(ed_obj, sensor)
+
+    if "Platform/NMEA" in ed_obj.group_paths:
+        ed_obj["Platform/NMEA"].time1.attrs[
+            "comment"
+        ] = "Time coordinate corresponding to GPS location."
+
+    # TODO: modify Platform/NMEA time coordinates
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -774,12 +926,12 @@ def convert_v05x_to_v06x(echodata_obj):
     ``heave`` to ``vertical_offset`` (if necessary).
     13. Add variables and coordinate to the ``Environment``
     group for EK80 only.
-    14. Make the names of the time coordinates in the `Platform`
-    and `Environment` groups consistent and add new the attribute
-    comment to these time coordinates.
-    15. Move AZFP attributes and variables from ``Beam_group1``
+    14. Move AZFP attributes and variables from ``Beam_group1``
     to the ``Vendor`` and ``Platform`` groups. Additionally,
     remove the variable ``cos_tilt_mag``, if it exists.
+    15. Make the names of the time coordinates in the `Platform`
+    and `Environment` groups consistent and add new the attribute
+    comment to these time coordinates.
 
     Parameters
     ----------
@@ -826,17 +978,14 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _add_vars_coords_to_environment(echodata_obj, sensor)
 
-        _make_time_coords_consistent(echodata_obj, sensor)
+        _rearrange_azfp_attrs_vars(echodata_obj, sensor)
 
-        # rearrange AZFP attributes and variables (#642, PR #669)
+        _make_time_coords_consistent(echodata_obj, sensor)
 
         # Change src_filenames string attribute to source_filenames
         # list-of-strings variable in Platform (#620, #621)
 
         # addition of missing required variables in Platform
         # groups (#592, #649)
-
-        # Add comment attribute to all _alongship/_athwartship variables
-        # and use two-way beamwidth variables (PR #668)
 
         # Rename `Vendor` group to `Vendor_specific` (Issue #675)

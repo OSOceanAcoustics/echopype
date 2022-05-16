@@ -55,10 +55,16 @@ def _tree_from_file(converted_raw_path: str,
 
 def _check_coords_and_drop_var(ed, tree, grp_path, var):
 
-    # make sure that at least the coordinates are identical
-    ed_var_coords = xr.Dataset(ed[grp_path][var].coords)
-    tree_var_coords = xr.Dataset(tree[grp_path].ds[var].coords)
-    print(f"--> {ed_var_coords.identical(tree_var_coords)}")
+    ed_var = ed[grp_path][var]
+    tree_var = tree[grp_path].ds[var]
+
+    # make sure that the dimensions and attributes
+    # are the same for the variable
+    print(f"--> {ed_var.dims == tree_var.dims}")
+    print(f"--> {ed_var.attrs == tree_var.attrs}")
+
+    # make sure that the data types are correct too
+    print(f"--> {isinstance(ed_var.values, type(tree_var.values))}")
 
     # drop variables so we can check that datasets are identical
     ed[grp_path] = ed[grp_path].drop(var)
@@ -107,17 +113,26 @@ def test_v05x_v06x_conversion_structure():
         # for EK80, this data is not present in v0.5.x
         if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
 
+            # TODO: maybe make the below calls into a loop
             _check_coords_and_drop_var(ed_v05x, tree_v06x, "Sonar", "sonar_serial_number")
+            print(" ")
             _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "drop_keel_offset_is_manual")
+            print(" ")
             _check_coords_and_drop_var(ed_v05x, tree_v06x, "Platform", "water_level_draft_is_manual")
+            print(" ")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_profile")
+            print(" ")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_profile_depth")
+            print(" ")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "sound_velocity_source")
+            print(" ")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "transducer_name")
+            print(" ")
+            _check_coords_and_drop_var(ed_v05x, tree_v06x, "Environment", "transducer_sound_speed")
 
-            # TODO: Account for For EK80
-            #     1. Adds the empty coordinate ``sound_velocity_profile_depth``
-            #     to the ``Environment`` group (this data is missing in v0.5.x).
-            #     2. Adds the variables
-            #     ``sound_velocity_profile(time1, sound_velocity_profile_depth)``,
-            #     ``sound_velocity_source(time1)``, ``transducer_name(time1)``,
-            #     ``transducer_sound_speed(time1) to the ``Environment`` group.
+            # sort the beam groups for EK80 according to channel (this is necessary for comparison)
+            ed_v05x['Sonar/Beam_group1'] = ed_v05x['Sonar/Beam_group1'].sortby("channel")
+            ed_v05x['Sonar/Beam_group2'] = ed_v05x['Sonar/Beam_group2'].sortby("channel")
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
         print("")
