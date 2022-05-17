@@ -46,8 +46,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "set_groups": SetGroupsAZFP,
         "concat_dims": {
             "platform": None,
-            "nmea": "location_time",
-            "vendor": ["ping_time", "frequency"],
+            "nmea": "time1",
+            "vendor": ["ping_time", "channel"],
             "default": "ping_time",
         },
         "concat_data_vars": {
@@ -61,8 +61,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
-            "platform": ["location_time", "ping_time"],
-            "nmea": "location_time",
+            "platform": ["time1", "ping_time"],
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },
@@ -76,8 +76,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
-            "platform": ["location_time", "ping_time"],
-            "nmea": "location_time",
+            "platform": ["time1", "ping_time"],
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },
@@ -91,8 +91,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
-            "nmea": "location_time",
+            "platform": ["time1", "time2"],
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },
@@ -106,8 +106,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
-            "nmea": "location_time",
+            "platform": ["time1", "time2"],
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },
@@ -121,8 +121,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["location_time", "mru_time"],
-            "nmea": "location_time",
+            "platform": ["time1", "time2"],
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },
@@ -137,7 +137,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "set_groups": SetGroupsAd2cp,
         "concat_dims": {
             "platform": "ping_time",
-            "nmea": "location_time",
+            "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
         },

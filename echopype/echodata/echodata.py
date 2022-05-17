@@ -164,7 +164,7 @@ class EchoData:
                 self.sonar_model = ds.keywords.upper()  # type: ignore
 
             if isinstance(ds, xr.Dataset):
-                setattr(self, group, ds)
+                setattr(self, group, node)
 
     @property
     def version_info(self) -> Tuple[int]:
@@ -183,19 +183,33 @@ class EchoData:
             for i in self._tree.groups
         }
 
-    def __get_dataset(self, node: DataTree) -> Optional[xr.Dataset]:
+    @staticmethod
+    def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             return node.ds
         return None
 
+    def __get_node(self, key: Optional[str]) -> DataTree:
+        if key in ["Top-level", "/"]:
+            # Access to root
+            return self._tree
+        return self._tree[key]
+
     def __getitem__(self, __key: Optional[str]) -> Optional[xr.Dataset]:
         if self._tree:
             try:
-                if __key in ["Top-level", "/"]:
-                    # Access to root
-                    node = self._tree
-                else:
-                    node = self._tree[__key]
+                node = self.__get_node(__key)
+                return self.__get_dataset(node)
+            except ChildResolverError:
+                raise GroupNotFoundError(__key)
+        else:
+            raise ValueError("Datatree not found!")
+
+    def __setitem__(self, __key: Optional[str], __newvalue: Any) -> Optional[xr.Dataset]:
+        if self._tree:
+            try:
+                node = self.__get_node(__key)
+                node.ds = __newvalue
                 return self.__get_dataset(node)
             except ChildResolverError:
                 raise GroupNotFoundError(__key)
@@ -214,11 +228,33 @@ class EchoData:
             msg_list = ["This access pattern will be deprecated in future releases."]
             if attr_value is not None:
                 msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
+                if self._tree:
+                    if group_path == "Top-level":
+                        node = self._tree
+                    else:
+                        node = self._tree[group_path]
+                    attr_value = self.__get_dataset(node)
             else:
                 msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
             msg = " ".join(msg_list)
             warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
         return attr_value
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        attr_value = __value
+        if isinstance(__value, DataTree) and __name != "_tree":
+            attr_value = self.__get_dataset(__value)
+        elif isinstance(__value, xr.Dataset):
+            group_map = sonarnetcdf_1.yaml_dict["groups"]
+            if __name in group_map:
+                group = group_map.get(__name)
+                group_path = group["ep_group"]
+                if self._tree:
+                    if __name == "top":
+                        self._tree.ds = __value
+                    else:
+                        self._tree[group_path].ds = __value
+        super().__setattr__(__name, attr_value)
 
     def compute_range(
         self,
@@ -328,7 +364,9 @@ class EchoData:
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
+            sound_speed = squeeze_non_scalar(
+                self.environment["sound_speed_indicative"].rename({"time1": "ping_time"})
+            )
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
@@ -369,13 +407,8 @@ class EchoData:
                 )
                 - range_offset
             )
-            range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
-            # duplicate range for all ping_times for consistency with EK case
-            # if it is not indexed by ping_time then echopype.preprocess.compute_MVBS will fail
-            #   because it expects the range included in the Sv/TS dataset
-            #   to be indexed by ping_time
-            range_meter = range_meter.expand_dims({"ping_time": self.beam["ping_time"]}, axis=1)
+            range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
             return range_meter
 
@@ -432,7 +465,7 @@ class EchoData:
                 raise ValueError("Input waveform_mode not recognized!")
 
             # make order of dims conform with the order of backscatter data
-            range_meter = range_meter.transpose("frequency", "ping_time", "range_sample")
+            range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
             range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
             # set entries with NaN backscatter data to NaN
@@ -474,7 +507,7 @@ class EchoData:
             - `"longitude"`
             - `"water_level"`
         The data inserted into the Platform group will be indexed by a dimension named
-        `"location_time"`.
+        `"time1"`.
 
         Parameters
         ----------
@@ -550,17 +583,17 @@ class EchoData:
 
         platform = self.platform
         platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
-        platform = platform.drop_dims(["location_time"], errors="ignore")
+        platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
-        platform = platform.assign_coords(location_time=extra_platform_data[time_dim].values)
+        platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
-        location_time_attrs = {
-            **self._varattrs["platform_coord_default"]["location_time"],
+        time1_attrs = {
+            **self._varattrs["platform_coord_default"]["time1"],
             **{"history": history_attr},
         }
-        platform["location_time"] = platform["location_time"].assign_attrs(**location_time_attrs)
+        platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
         dropped_vars_target = [
             "pitch",
@@ -594,7 +627,7 @@ class EchoData:
         platform = platform.update(
             {
                 "pitch": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["pitch", "PITCH"],
@@ -602,7 +635,7 @@ class EchoData:
                     ),
                 ),
                 "roll": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["roll", "ROLL"],
@@ -610,15 +643,20 @@ class EchoData:
                     ),
                 ),
                 "vertical_offset": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
-                        ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+                        [
+                            "heave",
+                            "HEAVE",
+                            "vertical_offset",
+                            "VERTICAL_OFFSET",
+                        ],
                         platform.get("vertical_offset", np.full(num_obs, np.nan)),
                     ),
                 ),
                 "latitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lat", "latitude", "LATITUDE"],
@@ -626,7 +664,7 @@ class EchoData:
                     ),
                 ),
                 "longitude": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["lon", "longitude", "LONGITUDE"],
@@ -634,7 +672,7 @@ class EchoData:
                     ),
                 ),
                 "water_level": (
-                    "location_time",
+                    "time1",
                     mapping_search_variable(
                         extra_platform_data,
                         ["water_level", "WATER_LEVEL"],

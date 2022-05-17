@@ -1,15 +1,12 @@
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
-import math
 import xarray as xr
 import numpy as np
 from xarray.plot.facetgrid import FacetGrid
 from matplotlib.collections import QuadMesh
-from typing import Optional, Union, List, TypeVar
+from typing import Optional, Union, List
 from .cm import cmap_d
-
-T = TypeVar('T', int, float)
 
 
 def _format_axis_label(axis_variable):
@@ -18,7 +15,7 @@ def _format_axis_label(axis_variable):
 
 def _set_label(
     fg: Union[FacetGrid, QuadMesh, None] = None,
-    frequency: Union[int, float, None] = None,
+    channel: Union[str, None] = None,
     col: Optional[str] = None,
 ):
     props = {'boxstyle': 'square', 'facecolor': 'white', 'alpha': 0.7}
@@ -26,7 +23,7 @@ def _set_label(
         text_pos = [0.02, 0.06]
         fontsize = 14
         if col == 'beam':
-            if isinstance(frequency, list) or frequency is None:
+            if isinstance(channel, list) or channel is None:
                 for rl in fg.row_labels:
                     if rl is not None:
                         rl.set_text('')
@@ -40,31 +37,31 @@ def _set_label(
 
         for idx, ax in enumerate(fg.axes.flat):
             name_dicts = fg.name_dicts.flatten()
-            if 'frequency' in name_dicts[idx]:
-                freq = name_dicts[idx]['frequency']
-                if col == 'frequency':
+            if 'channel' in name_dicts[idx]:
+                chan = name_dicts[idx]['channel']
+                if col == 'channel':
                     ax.set_title('')
             else:
-                freq = frequency
+                chan = channel
                 ax.set_title(f'Beam {fg.col_names[idx]}')
             ax.text(
                 *text_pos,
-                f"{int(freq / 1000)} kHz",
+                chan,
                 transform=ax.transAxes,
                 fontsize=fontsize,
                 verticalalignment='bottom',
                 bbox=props,
             )
     else:
-        if frequency is None:
+        if channel is None:
             raise ValueError(
-                'Frequency value is missing for single echogram plotting.'
+                'Channel value is missing for single echogram plotting.'
             )
         ax = fg.axes
         ax.text(
             0.02,
             0.04,
-            f"{int(frequency / 1000)} kHz",
+            f"{channel} kHz",
             transform=ax.transAxes,
             fontsize=16,
             verticalalignment='bottom',
@@ -118,7 +115,7 @@ def _set_plot_defaults(kwargs):
 
 def _plot_echogram(
     ds: xr.Dataset,
-    frequency: Union[int, float, List[T], None] = None,
+    channel: Union[str, List[str], None] = None,
     variable: str = 'backscatter_r',
     xaxis: str = 'ping_time',
     yaxis: str = 'echo_range',
@@ -129,7 +126,7 @@ def _plot_echogram(
     row = None
     col = None
 
-    if 'beam' in ds[variable].dims:
+    if 'backscatter_i' in ds.variables:
         col = 'beam'
         kwargs.update(
             {
@@ -140,21 +137,23 @@ def _plot_echogram(
         filtered_ds = np.abs(ds.backscatter_r + 1j * ds.backscatter_i)
     else:
         filtered_ds = ds[variable]
+        if 'beam' in filtered_ds.dims:
+            filtered_ds = filtered_ds.isel(beam=0).drop('beam')
 
     # perform frequency filtering
-    if frequency:
-        filtered_ds = filtered_ds.sel(frequency=frequency)
+    if channel:
+        filtered_ds = filtered_ds.sel(channel=channel)
     else:
-        # if frequency not provided, use all
-        filtered_ds = filtered_ds.sel(frequency=slice(None))
+        # if channel not provided, use all
+        filtered_ds = filtered_ds.sel(channel=slice(None))
 
-    # figure out frequency size
+    # figure out channel size
     # to determine plotting method
-    if filtered_ds.frequency.size > 1:
+    if filtered_ds.channel.size > 1:
         if col is None:
-            col = 'frequency'
+            col = 'channel'
         else:
-            row = 'frequency'
+            row = 'channel'
 
     filtered_ds[xaxis].attrs = {
         'long_name': filtered_ds[xaxis].attrs.get(
@@ -170,7 +169,7 @@ def _plot_echogram(
     }
 
     plots = []
-    if not filtered_ds.frequency.shape:
+    if not filtered_ds.channel.shape:
         if (
             np.any(filtered_ds.isnull()).values == np.array(True)
             and 'echo_range' in filtered_ds.coords
@@ -179,11 +178,7 @@ def _plot_echogram(
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
-                range_sample=filtered_ds.range_sample.where(
-                    ~filtered_ds.echo_range.isel(ping_time=0).isnull()
-                )
-                .dropna(dim='range_sample')
-                .data
+                range_sample=filtered_ds.echo_range.dropna(dim='range_sample').range_sample
             )
         plot = filtered_ds.plot.pcolormesh(
             x=xaxis,
@@ -192,14 +187,14 @@ def _plot_echogram(
             row=row,
             **kwargs,
         )
-        _set_label(plot, frequency=frequency, col=col)
+        _set_label(plot, channel=channel, col=col)
         plots.append(plot)
     else:
         # Scale plots
-        num_freq = len(filtered_ds.frequency)
-        freq_scaling = (-0.06, -0.16)
+        num_chan = len(filtered_ds.channel)
+        chan_scaling = (-0.06, -0.16)
         figsize_scale = tuple(
-            [1 + (scale * num_freq) for scale in freq_scaling]
+            [1 + (scale * num_chan) for scale in chan_scaling]
         )
         new_size = tuple(
             [
@@ -209,8 +204,8 @@ def _plot_echogram(
         )
         kwargs.update({'figsize': new_size})
 
-        for f in filtered_ds.frequency:
-            d = filtered_ds[filtered_ds.frequency == f.values]
+        for f in filtered_ds.channel:
+            d = filtered_ds[filtered_ds.channel == f.values]
             if (
                 np.any(d.isnull()).values == np.array(True)
                 and 'echo_range' in d.coords
@@ -219,14 +214,9 @@ def _plot_echogram(
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
-                    range_sample=d.range_sample.where(
-                        ~d.echo_range.sel(frequency=f.values)
-                        .isel(ping_time=0)
-                        .isnull()
-                    )
-                    .dropna(dim='range_sample')
-                    .data
+                    range_sample=d.echo_range.dropna(dim='range_sample').range_sample
                 )
+
             plot = d.plot.pcolormesh(
                 x=xaxis,
                 y=yaxis,
@@ -234,6 +224,6 @@ def _plot_echogram(
                 row=row,
                 **kwargs,
             )
-            _set_label(plot, frequency=frequency, col=col)
+            _set_label(plot, channel=channel, col=col)
             plots.append(plot)
     return plots

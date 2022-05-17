@@ -5,6 +5,7 @@ Functions for enhancing the spatial and temporal coherence of data.
 import numpy as np
 import pandas as pd
 
+from ..utils.prov import echopype_prov_attrs
 from .noise_est import NoiseEst
 
 
@@ -62,16 +63,20 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     A dataset containing bin-averaged Sv
     """
 
-    if not ds_Sv.groupby("frequency").apply(_check_range_uniqueness).all():
+    if not ds_Sv.groupby("channel").apply(_check_range_uniqueness).all():
         raise ValueError(
-            "echo_range variable changes across pings in at least one of the frequency channel."
+            "echo_range variable changes across pings in at least one of the frequency channels."
         )
+
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(ds_Sv.frequency_nominal)
 
     def _freq_MVBS(ds, rint, pbin):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
         sv.coords["range_meter"] = (
             ["range_sample"],
-            ds_Sv["echo_range"].isel(frequency=0, ping_time=0).data,
+            ds_Sv["echo_range"].isel(channel=sorted_freq_ind[0], ping_time=0).data,
         )
         sv = sv.swap_dims({"range_sample": "range_meter"})
         sv_groupby_bins = (
@@ -88,7 +93,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     # Groupby freq in case of different echo_range (from different sampling intervals)
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
     ds_MVBS = (
-        ds_Sv.groupby("frequency")
+        ds_Sv.groupby("channel")
         .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
         .to_dataset()
     )
@@ -136,8 +141,16 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "binning_mode": "physical units",
             "range_meter_interval": str(range_meter_bin) + "m",
             "ping_time_interval": ping_time_bin,
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
+
+    prov_dict = echopype_prov_attrs(process_type="processing")
+    prov_dict["processing_function"] = "preprocess.compute_MVBS"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
     return ds_MVBS
 
@@ -163,11 +176,11 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     -------
     A dataset containing bin-averaged Sv
     """
-    ds_Sv["sv"] = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
+    da_sv = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
     da = 10 * np.log10(
-        ds_Sv["sv"]
-        .coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad")
-        .mean(skipna=True)
+        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean(
+            skipna=True
+        )
     )
 
     # Attach attributes and coarsened echo_range
@@ -198,8 +211,16 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
             "binning_mode": "sample number",
             "range_sample_interval": f"{range_sample_num} samples along range",
             "ping_interval": f"{ping_num} pings",
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
         }
     )
+
+    prov_dict = echopype_prov_attrs(process_type="processing")
+    prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
     return ds_MVBS
 
@@ -261,7 +282,13 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     """
     noise_obj = NoiseEst(ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num)
     noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
-    return noise_obj.ds_Sv
+    ds_Sv = noise_obj.ds_Sv
+
+    prov_dict = echopype_prov_attrs(process_type="processing")
+    prov_dict["processing_function"] = "preprocess.remove_noise"
+    ds_Sv = ds_Sv.assign_attrs(prov_dict)
+
+    return ds_Sv
 
 
 def regrid():

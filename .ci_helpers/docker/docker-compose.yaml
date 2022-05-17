@@ -7,6 +7,8 @@ services:
       - 9000:9000
     networks:
       - echopypenetwork
+    volumes:
+      - echopype_miniodata:/data
   httpserver:
     # NOTE ====================================
     # For httpserver test data,
@@ -20,3 +22,6 @@ services:
       - echopypenetwork
 networks:
   echopypenetwork:
+
+volumes:
+  echopype_miniodata:

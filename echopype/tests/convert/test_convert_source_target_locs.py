@@ -30,7 +30,7 @@ def _check_output_files(engine, output_files, storage_options):
         "Environment",
         "Sonar/Beam_group1",
         "Sonar",
-        "Vendor",
+        "Vendor_specific",
         "Platform",
     ]
     if isinstance(output_files, list):
