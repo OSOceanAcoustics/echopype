@@ -857,7 +857,7 @@ def _make_time_coords_consistent(ed_obj, sensor):
     ``Environment`` group.
     5. Adds time comments to the ``Platform``, ``Platform/NMEA``,
     and ``Environment`` groups.
-    6. TODO: add descr
+    6. TODO: add descr, when we modify Platform/NMEA time coordinates
 
 
     Parameters
@@ -893,6 +893,31 @@ def _make_time_coords_consistent(ed_obj, sensor):
         ] = "Time coordinate corresponding to GPS location."
 
     # TODO: modify Platform/NMEA time coordinates
+
+
+def _add_source_filenames_var(ed_obj):
+    """
+    Make the attribute ``src_filenames`` into the
+    variable ``source_filenames`` in the
+    ``Provenance`` group.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    ed_obj["Provenance"]["source_filenames"] = (
+        ["filenames"],
+        [ed_obj["Provenance"].attrs["src_filenames"]],
+        {"long_name": "Source filenames"},
+    )
+
+    del ed_obj["Provenance"].attrs["src_filenames"]
 
 
 def convert_v05x_to_v06x(echodata_obj):
@@ -931,6 +956,8 @@ def convert_v05x_to_v06x(echodata_obj):
     15. Make the names of the time coordinates in the `Platform`
     and `Environment` groups consistent and add new the attribute
     comment to these time coordinates.
+    16. Make the attribute ``src_filenames`` into the
+    variable ``source_filenames`` in the ``Provenance`` group.
 
     Parameters
     ----------
@@ -981,8 +1008,11 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _make_time_coords_consistent(echodata_obj, sensor)
 
+        _add_source_filenames_var(echodata_obj)
+
         # Change src_filenames string attribute to source_filenames
         # list-of-strings variable in Platform (#620, #621)
+        # TODO: correct Platform to Provenance in docs for the above
 
         # addition of missing required variables in Platform
         # groups (#592, #649)

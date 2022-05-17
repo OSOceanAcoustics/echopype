@@ -106,7 +106,10 @@ def test_v05x_v06x_conversion_structure():
         ed_v05x = open_converted(path_v05x)
         tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
-        print(ed_v05x["Top-level"].attrs["keywords"])
+        # TODO: drop conversion_software_version and conversion_time
+        #  attribute in Provenance group, make sure name exists and val is a string
+
+        print(f"sensor = {ed_v05x['Top-level'].attrs['keywords']}")
 
         # ignore direct comparison of the variables Sonar.sonar_serial_number,
         # Platform.drop_keel_offset_is_manual, and Platform.water_level_draft_is_manual
