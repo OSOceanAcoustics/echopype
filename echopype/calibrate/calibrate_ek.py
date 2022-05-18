@@ -752,7 +752,12 @@ class CalibrateEK80(CalibrateEK):
 
         # Derived params
         # TODO: right now squeeze out the single ping_time dimension
-        #       need to properly align based on actual time
+        #  Need to properly align based on actual time
+        #  This ping_time is actually renamed from time1 in Environment group,
+        #  so that in the computation of range_meter it can be aligned with echo data easily.
+        #  This however makes this part of code less traceable,
+        #  since the ping_time here does not come from the "pings"
+        #  Will resolve later.
         sound_speed = self.env_params["sound_speed"].squeeze(drop=True)
         absorption = self.env_params["sound_absorption"].sel(channel=chan_sel).squeeze(drop=True)
         range_meter = self.range_meter.sel(channel=chan_sel)
