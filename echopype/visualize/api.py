@@ -3,13 +3,13 @@ from typing import Optional, Union, List
 
 import xarray as xr
 
-from .plot import _plot_echogram, FacetGrid, QuadMesh, T
+from .plot import _plot_echogram, FacetGrid, QuadMesh
 from ..echodata import EchoData
 
 
 def create_echogram(
     data: Union[EchoData, xr.Dataset],
-    frequency: Union[int, float, List[T], None] = None,
+    channel: Union[str, List[str], None] = None,
     get_range: Optional[bool] = None,
     range_kwargs: dict = {},
     water_level: Union[int, float, xr.DataArray, bool, None] = None,
@@ -21,9 +21,9 @@ def create_echogram(
     ----------
     data : EchoData or xr.Dataset
         Echodata or Xarray Dataset to be plotted
-    frequency : int, float, or list of float or ints, optional
-        The frequency to be plotted.
-        Otherwise all frequency will be plotted.
+    channel : str or list of str, optional
+        The channel to be plotted.
+        Otherwise all channels will be plotted.
     get_range : bool, optional
         Flag as to whether range (``echo_range``) should be computed or not,
         by default it will just plot `range_sample`` as the yaxis.
@@ -63,8 +63,8 @@ def create_echogram(
         'units': 'm',
     }
 
-    if isinstance(frequency, list) and len(frequency) == 1:
-        frequency = frequency[0]
+    if isinstance(channel, list) and len(channel) == 1:
+        channel = channel[0]
 
     if isinstance(data, EchoData):
         if data.sonar_model.lower() == 'ad2cp':
@@ -74,6 +74,8 @@ def create_echogram(
         yaxis = 'range_sample'
         variable = 'backscatter_r'
         ds = data.beam
+        if 'ping_time' in ds:
+            _check_ping_time(ds.ping_time)
         if get_range is True:
             yaxis = 'echo_range'
 
@@ -140,8 +142,8 @@ def create_echogram(
             ds.echo_range.attrs = range_attrs
 
     elif isinstance(data, xr.Dataset):
-        if 'ping_time' in data and data.ping_time.shape[0] < 2:
-            raise ValueError("Ping time must be greater or equal to 2 data points.")
+        if 'ping_time' in data:
+            _check_ping_time(data.ping_time)
         variable = 'Sv'
         ds = data
         yaxis = 'echo_range'
@@ -166,9 +168,14 @@ def create_echogram(
         xaxis='ping_time',
         yaxis=yaxis,
         variable=variable,
-        frequency=frequency,
+        channel=channel,
         **kwargs,
     )
+
+
+def _check_ping_time(ping_time):
+    if ping_time.shape[0] < 2:
+        raise ValueError("Ping time must have a length that is greater or equal to 2")
 
 
 def _add_water_level(
@@ -177,6 +184,7 @@ def _add_water_level(
     data_type: str,
     platform_data: Optional[xr.Dataset] = None,
 ) -> xr.DataArray:
+    # Below, we rename time3 to ping_time because range_in_meter is in ping_time
     if isinstance(water_level, bool):
         if water_level is True:
             if data_type == xr.Dataset:
@@ -189,7 +197,7 @@ def _add_water_level(
                     isinstance(platform_data, xr.Dataset)
                     and 'water_level' in platform_data
                 ):
-                    return range_in_meter + platform_data.water_level
+                    return range_in_meter + platform_data.water_level.rename({'time3': 'ping_time'})
                 else:
                     warnings.warn(
                         "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
@@ -199,6 +207,9 @@ def _add_water_level(
         return range_in_meter
     if isinstance(water_level, xr.DataArray):
         check_dims = range_in_meter.dims
+        if 'time3' in water_level:
+            water_level = water_level.rename({'time3': 'ping_time'})
+
         if not any(
             True if d in water_level.dims else False for d in check_dims
         ):

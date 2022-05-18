@@ -132,8 +132,8 @@ if __name__ == "__main__":
         print("No test(s) were run.")
         sys.exit(0)
     if all(True if e == 0 else False for e in total_exit_codes):
-        print("All test run successful")
+        print("All tests have been run successfully!")
         sys.exit(0)
     else:
-        print("Some run failed. Please see log.")
+        print("Some runs have failed. Please see the log.")
         sys.exit(1)
