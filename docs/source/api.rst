@@ -17,6 +17,7 @@ API components that most users will interact with.
 * `Combine EchoData objects`_
 * `Data processing subpackages`_
 * `Utilities`_
+* `Visualization subpackage`_
 
 
 EchoData class
@@ -76,3 +77,9 @@ Utilities
    :no-inheritance-diagram:
    :no-heading:
    :members: calc_absorption, calc_sound_speed
+
+Visualization subpackage
+------------------------
+
+.. automodule:: echopype.visualize
+   :members: create_echogram

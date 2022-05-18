@@ -204,7 +204,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
-    # Vendor-specific group
+    # Vendor_specific group
     if "ping_time" in echodata.vendor:
         io.save_file(
             echodata.vendor.chunk(
@@ -213,7 +213,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
@@ -222,7 +222,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
@@ -473,7 +473,7 @@ def open_raw(
     else:
         tree_dict["Sonar"] = setgrouper.set_sonar()
 
-    tree_dict["Vendor"] = setgrouper.set_vendor()
+    tree_dict["Vendor_specific"] = setgrouper.set_vendor()
 
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml

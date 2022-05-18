@@ -268,7 +268,7 @@ class SetGroupsAZFP(SetGroupsBase):
         return set_encodings(ds)
 
     def set_vendor(self) -> xr.Dataset:
-        """Set the Vendor-specific group."""
+        """Set the Vendor_specific group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz

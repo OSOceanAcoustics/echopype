@@ -139,7 +139,7 @@ class SetGroupsBase(abc.ABC):
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
-        """Set the Vendor group."""
+        """Set the Vendor_specific group."""
         raise NotImplementedError
 
     # TODO: move this to be part of parser as it is not a "set" operation

@@ -252,7 +252,7 @@ class TestEchoData:
             ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
             ├── Sonar: contains sonar system metadata and sonar beam groups.
             │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
-            └── Vendor specific: contains vendor-specific information about the sonar and the data."""
+            └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
         )
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
@@ -317,7 +317,7 @@ class TestEchoData:
             'provenance': 'Provenance',
             'sonar': 'Sonar',
             'beam': 'Sonar/Beam_group1',
-            'vendor': 'Vendor',
+            'vendor': 'Vendor_specific',
         }
         for group, path in expected_groups.items():
             ds = getattr(ed, group)
@@ -325,9 +325,9 @@ class TestEchoData:
 
     def test_setitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'frequency': 'channel'})
+        ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'beam': 'beam_newname'})
 
-        assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['channel', 'ping_time', 'range_bin']
+        assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['beam_newname', 'channel', 'ping_time', 'range_sample']
 
     def test_get_dataset(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
