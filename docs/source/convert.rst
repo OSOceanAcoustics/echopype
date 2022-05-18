@@ -280,26 +280,3 @@ currently not supported.
 
    Zarr datasets will be automatically chunked with default chunk sizes of
    25000 for ``range_sample`` and 2500 for ``ping_time`` dimensions.
-
-
-Non-uniform data
-----------------
-
-Due to flexibility in echosounder settings, some dimensional parameters can
-change in the middle of the file. For example:
-
-- The maximum depth range to which data are collected can change in the middle
-  of a data file in EK60. This happens often when the bottom depth changes.
-- The sampling interval, which translates to temporal resolution, and thus range
-  resolution, can also change in the middle of the file.
-- Data from different frequency channels can also be collected with
-  different sampling intervals.
-
-These changes produce different number of samples along range (the ``range_sample``
-dimension in the converted ``.nc`` file), which are incompatible with the goal
-to save the data as a multi-dimensional array that can be easily indexed using xarray.
-
-Echopype accommodates these cases by padding the "shorter" pings or channels with
-``NaN`` to form a multi-dimensional array. We use the data compression option
-in ``xarray.to_netcdf()`` and ``xarray.to_zarr()`` to avoid dramatically
-increasing the output file size due to padding.
