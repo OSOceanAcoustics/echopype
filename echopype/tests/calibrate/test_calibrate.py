@@ -160,8 +160,7 @@ def test_compute_Sv_azfp(azfp_path):
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
-                ds_cmp[cal_type_in_ds_cmp[cal_type]]
-                .isel(channel=fidx, beam=0).drop('beam').values,
+                ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(channel=fidx).values,
                 ds_base['Output'][0][cal_type][fidx],
                 atol=1e-13,
                 rtol=0,
