@@ -68,9 +68,10 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
+    # TODO: resolve: pydevd warning: Computing repr of channels (list) was slow (took 0.29s)
     assert np.allclose(
         test_Sv[:, :, 7:],
-        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None), beam=0),
+        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None)),
         atol=1e-8
     )
 

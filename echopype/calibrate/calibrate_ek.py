@@ -181,7 +181,7 @@ class CalibrateEK(CalibrateBase):
             CSv = (
                 10 * np.log10(beam["transmit_power"])
                 + 2 * self.cal_params["gain_correction"]
-                + self.cal_params["equivalent_beam_angle"]
+                + self.cal_params["equivalent_beam_angle"]  # has beam dim
                 + 10
                 * np.log10(
                     wavelength**2
@@ -193,10 +193,10 @@ class CalibrateEK(CalibrateBase):
 
             # Calibration and echo integration
             out = (
-                beam["backscatter_r"]
+                beam["backscatter_r"]  # has beam dim
                 + spreading_loss
                 + absorption_loss
-                - CSv
+                - CSv  # has beam dim
                 - 2 * self.cal_params["sa_correction"]
             )
             out.name = "Sv"
@@ -223,7 +223,9 @@ class CalibrateEK(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        return out
+        # Squeeze out the beam dim
+        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
+        return out.squeeze("beam", drop=True)
 
 
 class CalibrateEK60(CalibrateEK):
