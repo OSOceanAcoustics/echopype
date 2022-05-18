@@ -43,4 +43,4 @@ repos:
     rev: v2.1.0
     hooks:
       - id: codespell
-        args: ["-w", "docs/source", "echopype"]
+        args: ["--skip=*.ipynb", "-w", "docs/source", "echopype"]

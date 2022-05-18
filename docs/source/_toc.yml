@@ -15,6 +15,7 @@ parts:
   - file: open-converted
   - file: process
   - file: data-format
+  - file: viz
 - caption: Help & reference
   chapters:
   - file: api
