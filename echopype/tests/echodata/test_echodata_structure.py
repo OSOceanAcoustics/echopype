@@ -134,17 +134,25 @@ def test_v05x_v06x_conversion_structure():
                     _check_and_drop_var(ed_v05x, tree_v06x, key, var)
                     print(" ")
 
-            # sort the beam groups for EK80 according to channel (this is necessary for comparison)
+            # sort the beam groups for EK80 according to channel (necessary for comparison)
             ed_v05x['Sonar/Beam_group1'] = ed_v05x['Sonar/Beam_group1'].sortby("channel")
             ed_v05x['Sonar/Beam_group2'] = ed_v05x['Sonar/Beam_group2'].sortby("channel")
+
+            # sort the Platform group by channel for EK80 (necessary for comparison)
+            tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
+            ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
 
         if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
 
+            # sort the channels in tree_v06x and ed_v05x since they are not consistent
+            tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
+            ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
+
             for vars in ed_v05x["Platform"].variables:
 
-                print(f"varialbe = {str(vars)}")
+                print(f"variable = {str(vars)}")
                 print(f"identical = {ed_v05x['Platform'][str(vars)].identical(tree_v06x['Platform'][str(vars)])}")
 
         print("")
