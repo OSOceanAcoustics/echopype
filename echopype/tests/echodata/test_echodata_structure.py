@@ -54,6 +54,10 @@ def _tree_from_file(converted_raw_path: str,
 
 
 def _check_and_drop_var(ed, tree, grp_path, var):
+    """
+    TODO: add descr
+
+    """
 
     ed_var = ed[grp_path][var]
     tree_var = tree[grp_path].ds[var]
@@ -69,6 +73,25 @@ def _check_and_drop_var(ed, tree, grp_path, var):
     # drop variables so we can check that datasets are identical
     ed[grp_path] = ed[grp_path].drop(var)
     tree[grp_path].ds = tree[grp_path].ds.drop(var)
+
+
+def _check_and_drop_attr(ed, tree, grp_path, attr, typ):
+    """
+    TODO: add descr
+
+    """
+
+    # make sure that the attribute exists
+    print(f"--> at {attr in ed[grp_path].attrs.keys()}")
+    print(f"--> at {attr in tree[grp_path].ds.attrs.keys()}")
+
+    # make sure that the value of the attribute is the right type
+    print(f"--> at ty {isinstance(ed[grp_path].attrs[attr], typ)}")
+    print(f"--> at ty {isinstance(tree[grp_path].ds.attrs[attr], typ)}")
+
+    # drop the attribute so we can directly compare datasets
+    del ed[grp_path].attrs[attr]
+    del tree[grp_path].ds.attrs[attr]
 
 
 def compare_ed_against_tree(ed, tree):
@@ -106,8 +129,23 @@ def test_v05x_v06x_conversion_structure():
         ed_v05x = open_converted(path_v05x)
         tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
-        # TODO: drop conversion_software_version and conversion_time
-        #  attribute in Provenance group, make sure name exists and val is a string
+        # dictionary of attributes to drop (from the group only) where
+        # the group path is the key and the value is a list of tuples
+        # of the form (attr, type of attr expected)
+        attrs_to_drop = {
+            "Provenance": [("conversion_software_version", str),
+                           ("conversion_time", str)]
+        }
+
+        # check and drop attributes that cannot be directly compared
+        # because their values are not the same
+        for key, val in attrs_to_drop.items():
+            for var in val:
+                _check_and_drop_attr(ed_v05x, tree_v06x, key, var[0], var[1])
+
+        # dictionary of variables to drop where the group path is the
+        # key and the variables are the value
+        _check_and_drop_var(ed_v05x, tree_v06x, "Provenance", "source_filenames")
 
         print(f"sensor = {ed_v05x['Top-level'].attrs['keywords']}")
 
@@ -125,7 +163,8 @@ def test_v05x_v06x_conversion_structure():
                                             "sound_velocity_profile_depth",
                                             "sound_velocity_source",
                                             "transducer_name",
-                                            "transducer_sound_speed"]}
+                                            "transducer_sound_speed"]
+                            }
 
             # check and drop variables that cannot be directly compared
             # because their values are not the same
@@ -144,16 +183,16 @@ def test_v05x_v06x_conversion_structure():
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
 
-        if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
-
-            # sort the channels in tree_v06x and ed_v05x since they are not consistent
-            tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
-            ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
-
-            for vars in ed_v05x["Platform"].variables:
-
-                print(f"variable = {str(vars)}")
-                print(f"identical = {ed_v05x['Platform'][str(vars)].identical(tree_v06x['Platform'][str(vars)])}")
+        # if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
+        #
+        #     # sort the channels in tree_v06x and ed_v05x since they are not consistent
+        #     tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
+        #     ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
+        #
+        #     for vars in ed_v05x["Platform"].variables:
+        #
+        #         print(f"variable = {str(vars)}")
+        #         print(f"identical = {ed_v05x['Platform'][str(vars)].identical(tree_v06x['Platform'][str(vars)])}")
 
         print("")
 
