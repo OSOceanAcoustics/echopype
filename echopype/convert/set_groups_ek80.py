@@ -169,7 +169,7 @@ class SetGroupsEK80(SetGroupsBase):
                 {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
             ),
             "serial_number": (["channel"], var["serial_number"]),
-            "sonar_model": (["channel"], var["transducer_name"]),
+            "transducer_name": (["channel"], var["transducer_name"]),
             "sonar_serial_number": (["channel"], var["channel_id_short"]),
             "sonar_software_name": (
                 ["channel"],
@@ -190,8 +190,15 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 **beam_groups_coord,
             },
-            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
+
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
+            "sonar_manufacturer": "Simrad",
+            "sonar_model": self.sonar_model,
+            "sonar_type": "echosounder",
+        }
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds
 
