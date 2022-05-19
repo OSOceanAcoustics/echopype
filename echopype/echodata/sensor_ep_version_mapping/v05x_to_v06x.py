@@ -920,6 +920,73 @@ def _add_source_filenames_var(ed_obj):
     del ed_obj["Provenance"].attrs["src_filenames"]
 
 
+def _rename_vendor_group(ed_obj):
+    """
+    Renames the `Vendor` group to `Vendor_specific` for all
+    sonar sensors.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    ed_obj._tree["Vendor"].name = "Vendor_specific"
+
+
+def _change_list_attrs_to_str(ed_obj):
+    """
+    If the attribute ``valid_range`` of a variable in
+    the ``Platform`` group is not a string, turn it
+    into a string.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    for var in ed_obj["Platform"]:
+
+        if "valid_range" in ed_obj["Platform"][var].attrs.keys():
+
+            attr_val = ed_obj["Platform"][var].attrs["valid_range"]
+
+            if not isinstance(attr_val, str):
+                ed_obj["Platform"][var].attrs["valid_range"] = f"({attr_val[0]}, {attr_val[1]})"
+
+
+def _change_vertical_offset_attrs(ed_obj):
+    """
+    Changes the attributes of the variable
+    ``Platform.vertical_offset``.
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+    """
+
+    if "vertical_offset" in ed_obj["Platform"]:
+
+        ed_obj["Platform"]["vertical_offset"].attrs = {
+            "long_name": "Platform vertical offset from nominal",
+            "units": "m",
+        }
+
+
 def convert_v05x_to_v06x(echodata_obj):
     """
     This function converts the EchoData structure created in echopype
@@ -958,6 +1025,12 @@ def convert_v05x_to_v06x(echodata_obj):
     comment to these time coordinates.
     16. Make the attribute ``src_filenames`` into the
     variable ``source_filenames`` in the ``Provenance`` group.
+    17. Rename the `Vendor` group to `Vendor_specific` for all
+    sonar sensors.
+    18. Change the attribute ``valid_range`` of variables in
+    the ``Platform`` group into a string, if it is a numpy array.
+    19. Change the attributes of the variable
+    ``Platform.vertical_offset``.
 
     Parameters
     ----------
@@ -1010,6 +1083,10 @@ def convert_v05x_to_v06x(echodata_obj):
 
         _add_source_filenames_var(echodata_obj)
 
+        _change_list_attrs_to_str(echodata_obj)
+
+        _change_vertical_offset_attrs(echodata_obj)
+
         # Change src_filenames string attribute to source_filenames
         # list-of-strings variable in Platform (#620, #621)
         # TODO: correct Platform to Provenance in docs for the above
@@ -1017,4 +1094,4 @@ def convert_v05x_to_v06x(echodata_obj):
         # addition of missing required variables in Platform
         # groups (#592, #649)
 
-        # Rename `Vendor` group to `Vendor_specific` (Issue #675)
+    _rename_vendor_group(echodata_obj)

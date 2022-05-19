@@ -139,6 +139,14 @@ def test_v05x_v06x_conversion_structure():
             ed_v05x['Sonar/Beam_group2'] = ed_v05x['Sonar/Beam_group2'].sortby("channel")
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
+
+        if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
+
+            for vars in ed_v05x["Platform"].variables:
+
+                print(f"varialbe = {str(vars)}")
+                print(f"identical = {ed_v05x['Platform'][str(vars)].identical(tree_v06x['Platform'][str(vars)])}")
+
         print("")
 
     # TODO: do a comparison of a combined file, one of the groups creates an attribute key
