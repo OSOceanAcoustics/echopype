@@ -1,5 +1,3 @@
-import sys
-
 import echopype
 import echopype.visualize
 from echopype.testing import TEST_DATA_FOLDER

@@ -1,11 +1,23 @@
 from typing import Any, Dict, Optional
 from datatree import open_datatree
-import xarray as xr
 import pytest
+from echopype.echodata.echodata import EchoData, XARRAY_ENGINE_MAP
+from echopype.echodata.api import open_converted
 
-# TODO: change the below imports to absolute imports
-from ...echodata.echodata import EchoData, XARRAY_ENGINE_MAP
-from ...echodata.api import open_converted
+
+@pytest.fixture
+def azfp_path(test_path):
+    return test_path['AZFP']
+
+
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path['EK60']
+
+
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path['EK80']
 
 
 def _tree_from_file(converted_raw_path: str,
@@ -55,8 +67,31 @@ def _tree_from_file(converted_raw_path: str,
 
 def _check_and_drop_var(ed, tree, grp_path, var):
     """
-    TODO: add descr
+    This function performs minimal checks of
+    a variable contained both in an EchoData object
+    and a Datatree. It ensures that the dimensions,
+    attributes, and data types are the same. Once
+    the checks have passed, it then drops these
+    variables from both the EchoData object and the
+    Datatree.
 
+    Parameters
+    ----------
+    ed : EchoData
+        EchoData object that contains the variable
+        to check and drop.
+    tree : Datatree
+        Datatree object that contains the variable
+        to check and drop.
+    grp_path : str
+        The path to the group that the variable is in.
+    var : str
+        The variable to be checked and dropped.
+
+    Notes
+    -----
+    The Datatree object is created from an EchoData
+    object written to a netcdf file.
     """
 
     ed_var = ed[grp_path][var]
@@ -64,11 +99,11 @@ def _check_and_drop_var(ed, tree, grp_path, var):
 
     # make sure that the dimensions and attributes
     # are the same for the variable
-    print(f"--> {ed_var.dims == tree_var.dims}")
-    print(f"--> {ed_var.attrs == tree_var.attrs}")
+    assert ed_var.dims == tree_var.dims
+    assert ed_var.attrs == tree_var.attrs
 
     # make sure that the data types are correct too
-    print(f"--> {isinstance(ed_var.values, type(tree_var.values))}")
+    assert isinstance(ed_var.values, type(tree_var.values))
 
     # drop variables so we can check that datasets are identical
     ed[grp_path] = ed[grp_path].drop(var)
@@ -77,17 +112,44 @@ def _check_and_drop_var(ed, tree, grp_path, var):
 
 def _check_and_drop_attr(ed, tree, grp_path, attr, typ):
     """
-    TODO: add descr
+    This function performs minimal checks of
+    an attribute contained both in an EchoData object
+    and a Datatree group. This function only works for
+    a group's attribute, it cannot work on variable
+    attributes. It ensures that the attribute exists
+    and that it has the expected data type. Once
+    the checks have passed, it then drops the
+    attribute from both the EchoData object and the
+    Datatree.
 
+    Parameters
+    ----------
+    ed : EchoData
+        EchoData object that contains the attribute
+        to check and drop.
+    tree : Datatree
+        Datatree object that contains the attribute
+        to check and drop.
+    grp_path : str
+        The path to the group that the attribute  is in.
+    attr : str
+        The attribute to be checked and dropped.
+    typ : type
+        The expected data type of the attribute.
+
+    Notes
+    -----
+    The Datatree object is created from an EchoData
+    object written to a netcdf file.
     """
 
     # make sure that the attribute exists
-    print(f"--> at {attr in ed[grp_path].attrs.keys()}")
-    print(f"--> at {attr in tree[grp_path].ds.attrs.keys()}")
+    assert attr in ed[grp_path].attrs.keys()
+    assert attr in tree[grp_path].ds.attrs.keys()
 
     # make sure that the value of the attribute is the right type
-    print(f"--> at ty {isinstance(ed[grp_path].attrs[attr], typ)}")
-    print(f"--> at ty {isinstance(tree[grp_path].ds.attrs[attr], typ)}")
+    assert isinstance(ed[grp_path].attrs[attr], typ)
+    assert isinstance(tree[grp_path].ds.attrs[attr], typ)
 
     # drop the attribute so we can directly compare datasets
     del ed[grp_path].attrs[attr]
@@ -95,34 +157,45 @@ def _check_and_drop_attr(ed, tree, grp_path, attr, typ):
 
 
 def compare_ed_against_tree(ed, tree):
+    """
+    This function compares the Datasets
+    of ed against tree and makes sure they
+    are identical.
+
+    Parameters
+    ----------
+    ed : EchoData
+        EchoData object
+    tree : Datatree
+        Datatree object
+
+    Notes
+    -----
+    The Datatree object is created from an EchoData
+    object written to a netcdf file.
+    """
 
     for grp_path in ed.group_paths:
-
-        print(f"grp_path = {grp_path}")
         if grp_path == "Top-level":
-            print(f"--> {tree.ds.identical(ed[grp_path])}")
+            assert tree.ds.identical(ed[grp_path])
         else:
-            print(f"--> {tree[grp_path].ds.identical(ed[grp_path])}")
+            assert tree[grp_path].ds.identical(ed[grp_path])
 
 
-def test_v05x_v06x_conversion_structure():
+def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
     """
     Tests that version 0.5.x echopype files
     have been correctly converted to the
     0.6.x structure.
     """
 
-    ek60_path = "./"
-    ek80_path = "./"
-    azfp_path = "./"
+    converted_raw_paths_v06x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
+                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
+                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
 
-    converted_raw_paths_v06x = [ek60_path + "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
-                                ek80_path + "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
-                                azfp_path + "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
-
-    converted_raw_paths_v05x = [ek60_path + "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
-                                ek80_path + "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
-                                azfp_path + "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
+    converted_raw_paths_v05x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
+                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
+                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
 
     for path_v05x, path_v06x in zip(converted_raw_paths_v05x, converted_raw_paths_v06x):
 
@@ -147,8 +220,6 @@ def test_v05x_v06x_conversion_structure():
         # key and the variables are the value
         _check_and_drop_var(ed_v05x, tree_v06x, "Provenance", "source_filenames")
 
-        print(f"sensor = {ed_v05x['Top-level'].attrs['keywords']}")
-
         # ignore direct comparison of the variables Sonar.sonar_serial_number,
         # Platform.drop_keel_offset_is_manual, and Platform.water_level_draft_is_manual
         # for EK80, this data is not present in v0.5.x
@@ -171,7 +242,6 @@ def test_v05x_v06x_conversion_structure():
             for key, val in vars_to_drop.items():
                 for var in val:
                     _check_and_drop_var(ed_v05x, tree_v06x, key, var)
-                    print(" ")
 
             # sort the beam groups for EK80 according to channel (necessary for comparison)
             ed_v05x['Sonar/Beam_group1'] = ed_v05x['Sonar/Beam_group1'].sortby("channel")
@@ -183,20 +253,8 @@ def test_v05x_v06x_conversion_structure():
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
 
-        # if ed_v05x["Top-level"].attrs["keywords"] == "EK80":
-        #
-        #     # sort the channels in tree_v06x and ed_v05x since they are not consistent
-        #     tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
-        #     ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
-        #
-        #     for vars in ed_v05x["Platform"].variables:
-        #
-        #         print(f"variable = {str(vars)}")
-        #         print(f"identical = {ed_v05x['Platform'][str(vars)].identical(tree_v06x['Platform'][str(vars)])}")
-
-        print("")
-
-    # TODO: do a comparison of a combined file, one of the groups creates an attribute key
+    # TODO: Should we do a comparison of a combined file? One of the groups
+    #  creates an attribute key, so there may be issues there...
 
 
 def test_echodata_structure():
@@ -205,6 +263,9 @@ def test_echodata_structure():
     create the expected EchoData structure.
     """
 
+    # TODO: create this test once dev is in its final form.
+    # check and remove conversion time from attributes
+    # _check_and_drop_attr(ed_v05x, tree_v06x, "Provenance", "conversion_time", str)
     # compare_ed_against_tree(ed_v05x, tree_v06x)
 
     pytest.xfail("Full testing of the EchoData Structure has not been implemented yet.")

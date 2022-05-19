@@ -836,7 +836,7 @@ def _add_time_comment_in_environment(ed_obj, sensor):
         ed_obj["Environment"].time1.attrs["comment"] = (
             "Time coordinate corresponding to "
             "environmental variables. Note that "
-            "Platform.time3 is the same as Environment.time1"
+            "Platform.time3 is the same as Environment.time1."
         )
     else:
         ed_obj["Environment"].time1.attrs[
@@ -857,7 +857,6 @@ def _make_time_coords_consistent(ed_obj, sensor):
     ``Environment`` group.
     5. Adds time comments to the ``Platform``, ``Platform/NMEA``,
     and ``Environment`` groups.
-    6. TODO: add descr, when we modify Platform/NMEA time coordinates
 
 
     Parameters
@@ -891,8 +890,6 @@ def _make_time_coords_consistent(ed_obj, sensor):
         ed_obj["Platform/NMEA"].time1.attrs[
             "comment"
         ] = "Time coordinate corresponding to GPS location."
-
-    # TODO: modify Platform/NMEA time coordinates
 
 
 def _add_source_filenames_var(ed_obj):
@@ -1048,7 +1045,7 @@ def convert_v05x_to_v06x(echodata_obj):
         "Converting echopype version 0.5.x file to 0.6.x."
         + " For specific details on how items have been changed,"
         + " please see ... . It is recommended that one creates "
-        + "the file using open_raw again, rather than relying on this conversion"
+        + "the file using open_raw again, rather than relying on this conversion."
     )
 
     # get the sensor used to create the v0.5.x file.
@@ -1090,8 +1087,5 @@ def convert_v05x_to_v06x(echodata_obj):
         # Change src_filenames string attribute to source_filenames
         # list-of-strings variable in Platform (#620, #621)
         # TODO: correct Platform to Provenance in docs for the above
-
-        # addition of missing required variables in Platform
-        # groups (#592, #649)
 
     _rename_vendor_group(echodata_obj)
