@@ -200,7 +200,7 @@ class SetGroupsEK60(SetGroupsBase):
             # transducer (sonar) serial number is not stored in the EK60 raw data file,
             # so sonar_serial_number can't be populated from the raw datagrams
             "sonar_serial_number": "",
-            "sonar_software_name":  self.parser_obj.config_datagram["sounder_name"],
+            "sonar_software_name": self.parser_obj.config_datagram["sounder_name"],
             "sonar_software_version": self.parser_obj.config_datagram["version"],
             "sonar_type": "echosounder",
         }
