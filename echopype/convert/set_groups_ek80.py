@@ -121,7 +121,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to environmental "
                         "variables. Note that Platform.time3 is the same "
-                        "as Environment.time1",
+                        "as Environment.time1.",
                     },
                 ),
                 "sound_velocity_profile_depth": (
@@ -230,48 +230,20 @@ class SetGroupsEK80(SetGroupsBase):
                 "pitch": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
-                    {
-                        "long_name": "Platform pitch",
-                        "standard_name": "platform_pitch_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["pitch"],
                 ),
                 "roll": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("roll", [np.nan])),
-                    {
-                        "long_name": "Platform roll",
-                        "standard_name": "platform_roll_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["roll"],
                 ),
                 "vertical_offset": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
-                "latitude": (
-                    ["time1"],
-                    lat,
-                    {
-                        "long_name": "Platform latitude",
-                        "standard_name": "latitude",
-                        "units": "degrees_north",
-                        "valid_range": (-90.0, 90.0),
-                    },
-                ),
-                "longitude": (
-                    ["time1"],
-                    lon,
-                    {
-                        "long_name": "Platform longitude",
-                        "standard_name": "longitude",
-                        "units": "degrees_east",
-                        "valid_range": (-180.0, 180.0),
-                    },
-                ),
+                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
+                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
                 "sentence_type": (["time1"], msg_type),
                 "drop_keel_offset": (
                     ["time3"],
@@ -367,7 +339,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to environmental variables. "
-                        "Note that Platform.time3 is the same as Environment.time1",
+                        "Note that Platform.time3 is the same as Environment.time1.",
                     },
                 ),
                 "time1": (
