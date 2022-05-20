@@ -74,23 +74,24 @@ class CalibrateEK(CalibrateBase):
             np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"])
         )[0]
 
-        transmit_isnull = beam["transmit_duration_nominal"].isnull()
-
         # Find idx to select the corresponding param value
         # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
+        transmit_isnull = beam["transmit_duration_nominal"].isnull()
         idxmin = np.abs(
-            beam["transmit_duration_nominal"]  # .isel(ping_time=slice(None,5))
+            beam["transmit_duration_nominal"]
             - ds_vend["pulse_length"][relevant_indexes]
         ).idxmin(dim="pulse_length_bin")
         idxmin = (
-            idxmin.where(~idxmin.isnull(), 0)  # fill nan position with 0, remove before return
+            idxmin.where(~transmit_isnull, 0)  # fill nan position with 0, remove before return
             .astype(int)  # convert to int for indexing
         )
 
         # Get param dataarray into correct shape
-        da_param = ds_vend[param][relevant_indexes].expand_dims(  # expand dims for direct indexing
-            dim={"ping_time": idxmin["ping_time"]}
-        ).sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
+        da_param = (
+            ds_vend[param][relevant_indexes]
+            .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
+            .sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
+        )
 
         # Select corresponding index and clean up the original nan elements
         da_param = da_param.isel(pulse_length_bin=idxmin, drop=True)
@@ -633,8 +634,9 @@ class CalibrateEK80(CalibrateEK):
                             gain_single.sel(channel=ch_id)
                             # .assign_coords(ping_time=np.datetime64(0, "ns"))
                             # .expand_dims("ping_time")
-                            .reindex_like(self.echodata.beam.backscatter_r, method="nearest")
-                            .expand_dims("channel")
+                            .reindex_like(
+                                self.echodata.beam.backscatter_r, method="nearest"
+                            ).expand_dims("channel")
                         )
                     gain_temp.name = "gain"
                     gain.append(gain_temp)

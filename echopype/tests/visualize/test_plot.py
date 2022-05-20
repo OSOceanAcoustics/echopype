@@ -21,15 +21,16 @@ param_testdata = [
         None,
         {},
     ),
-    pytest.param(
+    # pytest.param(
+    (
         ek60_path / "DY1002_EK60-D20100318-T023008_rep_freq.raw",
         "EK60",
         None,
         {},
-        marks=pytest.mark.xfail(
-            run=False,
-            reason="Repeated frequencies not supported at the moment.",
-        ),
+        # marks=pytest.mark.xfail(
+        #     run=False,
+        #     reason="Repeated frequencies not supported at the moment.",
+        # ),
     ),
     (
         ek80_path / "echopype-test-D20211004-T235930.raw",
