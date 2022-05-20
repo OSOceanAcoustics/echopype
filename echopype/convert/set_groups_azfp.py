@@ -205,8 +205,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "backscatter_r": (["channel", "ping_time", "range_sample"], N),
                 "equivalent_beam_angle": (["channel"], parameters["BP"]),
@@ -275,8 +279,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "XML_transmit_duration_nominal": (["channel"], tdn),
                 "XML_gain_correction": (["channel"], parameters["gain"]),

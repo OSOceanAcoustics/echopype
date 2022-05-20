@@ -166,8 +166,12 @@ class SetGroupsEK80(SetGroupsBase):
             "frequency_nominal": (
                 ["channel"],
                 var["transducer_frequency"],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                 "standard_name": "sound_frequency"},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             ),
             "serial_number": (["channel"], var["serial_number"]),
             "transducer_name": (["channel"], var["transducer_name"]),
@@ -233,8 +237,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "pitch": (
                     ["time2"],
@@ -397,8 +405,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (["channel"], beam_params["transducer_beam_type"]),
                 "beamwidth_twoway_alongship": (
@@ -874,8 +886,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     param_dict["transducer_frequency"],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],

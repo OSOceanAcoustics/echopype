@@ -174,8 +174,12 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp["frequency_nominal"] = (
                 ["channel"],
                 [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                 "standard_name": "sound_frequency"},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             )
 
             ds_env.append(ds_tmp)
@@ -357,8 +361,12 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp["frequency_nominal"] = (
                     ["channel"],
                     [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 )
 
                 ds_plat.append(ds_tmp)
@@ -422,8 +430,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0,
-                     "standard_name": "sound_frequency"},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (
                     "channel",
@@ -724,7 +736,7 @@ class SetGroupsEK60(SetGroupsBase):
                         "units": "Hz",
                         "long_name": "Transducer frequency",
                         "valid_min": 0.0,
-                        "standard_name": "sound_frequency"
+                        "standard_name": "sound_frequency",
                     },
                 ),
                 "sa_correction": (["channel", "pulse_length_bin"], sa_correction),
