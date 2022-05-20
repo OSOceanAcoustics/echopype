@@ -159,9 +159,9 @@ def _plot_echogram(
 
     if 'backscatter_i' in ds.variables:
         col = 'beam'
+        kwargs.setdefault('figsize', (15, 5))
         kwargs.update(
             {
-                'figsize': (15, 5),
                 'col_wrap': None,
             }
         )
@@ -208,6 +208,9 @@ def _plot_echogram(
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
+                ping_time=filtered_ds.echo_range.dropna(dim='ping_time').ping_time
+            )
+            filtered_ds = filtered_ds.sel(
                 range_sample=filtered_ds.echo_range.dropna(dim='range_sample').range_sample
             )
         plot = filtered_ds.plot.pcolormesh(
@@ -243,6 +246,9 @@ def _plot_echogram(
                 and variable in ['backscatter_r', 'Sv']
             ):
                 # Handle the nans for echodata and Sv
+                d = d.sel(
+                    ping_time=d.echo_range.dropna(dim='ping_time').ping_time
+                )
                 d = d.sel(
                     range_sample=d.echo_range.dropna(dim='range_sample').range_sample
                 )
