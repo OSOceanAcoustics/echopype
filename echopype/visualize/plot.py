@@ -208,7 +208,7 @@ def _plot_echogram(
         ):
             # Handle the nans for echodata and Sv
             filtered_ds = filtered_ds.sel(
-                ping_time=filtered_ds.echo_range.dropna(dim='ping_time').ping_time
+                ping_time=filtered_ds.echo_range.dropna(dim='ping_time', how='all').ping_time
             )
             filtered_ds = filtered_ds.sel(
                 range_sample=filtered_ds.echo_range.dropna(dim='range_sample').range_sample
@@ -247,7 +247,7 @@ def _plot_echogram(
             ):
                 # Handle the nans for echodata and Sv
                 d = d.sel(
-                    ping_time=d.echo_range.dropna(dim='ping_time').ping_time
+                    ping_time=d.echo_range.dropna(dim='ping_time', how='all').ping_time
                 )
                 d = d.sel(
                     range_sample=d.echo_range.dropna(dim='range_sample').range_sample
