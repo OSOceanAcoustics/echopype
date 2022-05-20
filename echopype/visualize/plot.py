@@ -138,7 +138,7 @@ def _plot_echogram(
     # perform frequency filtering
     if channel is not None:
         if 'channel' not in ds.dims:
-            raise ValueError("Channel filtering is not available for your dataset!")
+            raise ValueError("Channel filtering is not available because channel is not a dimension for your dataset!")
         ds = ds.sel(channel=channel)
         filter_val = channel
     elif frequency is not None:
@@ -153,7 +153,7 @@ def _plot_echogram(
             ds = ds.sel(frequency=frequency)
 
         if duplicates:
-            raise ValueError("Duplicate frequency found, please use channels for filtering.")
+            raise ValueError("Duplicate frequency found, please use channel for filtering.")
         filter_val = frequency
         filter_var = 'frequency'
 

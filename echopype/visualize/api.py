@@ -27,7 +27,7 @@ def create_echogram(
         Otherwise all channels will be plotted.
     frequency : int, float, or list of float or ints, optional
         The frequency to be plotted.
-        Otherwise all frequency will be plotted.
+        If not specified, all frequency will be plotted.
     get_range : bool, optional
         Flag as to whether range (``echo_range``) should be computed or not,
         by default it will just plot `range_sample`` as the yaxis.
