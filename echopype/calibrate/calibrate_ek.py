@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from dask.array.core import Array
 from scipy import signal
 
 from ..utils import uwa
@@ -51,11 +50,9 @@ class CalibrateEK(CalibrateBase):
 
         Parameters
         ----------
-        param : str
+        param : str {"sa_correction", "gain_correction"}
             name of parameter to retrieve
         """
-        # TODO: need to test with EK80 power/angle data
-        #  currently this has only been tested with EK60 data
         ds_vend = self.echodata.vendor
 
         if ds_vend is None or param not in ds_vend:
@@ -63,22 +60,6 @@ class CalibrateEK(CalibrateBase):
 
         if param not in ["sa_correction", "gain_correction"]:
             raise ValueError(f"Unknown parameter {param}")
-
-        # Drop NaN ping_time for transmit_duration_nominal
-        if np.any(np.isnan(self.echodata.beam["transmit_duration_nominal"])):
-            # TODO: resolve performance warning:
-            #  /Users/wu-jung/miniconda3/envs/echopype_jan2021/lib/python3.8/site-packages/xarray/core/indexing.py:1369:
-            #  PerformanceWarning: Slicing is producing a large chunk. To accept the large
-            #  chunk and silence this warning, set the option
-            #      >>> with dask.config.set(**{'array.slicing.split_large_chunks': False}):
-            #      ...     array[indexer]
-            #  To avoid creating the large chunks, set the option
-            #      >>> with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-            #      ...     array[indexer]
-            #    return self.array[key]
-            self.echodata.beam = self.echodata.beam.dropna(
-                dim="ping_time", how="any", subset=["transmit_duration_nominal"]
-            )
 
         if waveform_mode == "CW" and self.echodata.beam_power is not None:
             beam = self.echodata.beam_power
@@ -90,22 +71,27 @@ class CalibrateEK(CalibrateBase):
             np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"])
         )[0]
 
-        unique_pulse_length = np.unique(beam["transmit_duration_nominal"], axis=1)
+        # Find idx to select the corresponding param value
+        # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
+        transmit_isnull = beam["transmit_duration_nominal"].isnull()
+        idxmin = np.abs(
+            beam["transmit_duration_nominal"] - ds_vend["pulse_length"][relevant_indexes]
+        ).idxmin(dim="pulse_length_bin")
 
-        pulse_length = ds_vend["pulse_length"][relevant_indexes]
+        # fill nan position with 0 (witll remove before return)
+        # and convert to int for indexing
+        idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
 
-        # Find index with correct pulse length
-        idx_wanted = np.abs(pulse_length - unique_pulse_length).argmin(dim="pulse_length_bin")
-
-        # Checks for dask array and compute first
-        if isinstance(idx_wanted.data, Array):
-            idx_wanted = idx_wanted.data.compute()
-
-        return (
-            ds_vend[param]
-            .isel(pulse_length_bin=idx_wanted, channel=relevant_indexes)
-            .drop("pulse_length_bin")
+        # Get param dataarray into correct shape
+        da_param = (
+            ds_vend[param][relevant_indexes]
+            .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
+            .sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
         )
+
+        # Select corresponding index and clean up the original nan elements
+        da_param = da_param.isel(pulse_length_bin=idxmin, drop=True)
+        return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
     def get_cal_params(self, cal_params, waveform_mode, encode_mode):
         """Get cal params using user inputs or values from data file.
@@ -658,8 +644,6 @@ class CalibrateEK80(CalibrateEK):
                     else:
                         gain_temp = (
                             gain_single.sel(channel=ch_id)
-                            .assign_coords(ping_time=np.datetime64(0, "ns"))
-                            .expand_dims("ping_time")
                             .reindex_like(self.echodata.beam.backscatter_r, method="nearest")
                             .expand_dims("channel")
                         )
