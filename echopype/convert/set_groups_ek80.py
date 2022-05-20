@@ -166,7 +166,12 @@ class SetGroupsEK80(SetGroupsBase):
             "frequency_nominal": (
                 ["channel"],
                 var["transducer_frequency"],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             ),
             "serial_number": (["channel"], var["serial_number"]),
             "transducer_name": (["channel"], var["transducer_name"]),
@@ -232,7 +237,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "pitch": (
                     ["time2"],
@@ -395,7 +405,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (["channel"], beam_params["transducer_beam_type"]),
                 "beamwidth_twoway_alongship": (
@@ -485,7 +500,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_alongship"],
                     {
-                        "long_name": "alongship sensitivity of the transducer",
+                        "long_name": "alongship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -496,7 +511,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
                     {
-                        "long_name": "athwartship sensitivity of the transducer",
+                        "long_name": "athwartship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -826,14 +841,14 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
-            self.beamgroups_to_convention(
+            self.beam_groups_to_convention(
                 ds_beam_power,
                 self.beam_only_names,
                 self.beam_ping_time_names,
                 self.ping_time_only_names,
             )
 
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -871,7 +886,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     param_dict["transducer_frequency"],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],
