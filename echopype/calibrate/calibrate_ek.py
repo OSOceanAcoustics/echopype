@@ -53,8 +53,6 @@ class CalibrateEK(CalibrateBase):
         param : str {"sa_correction", "gain_correction"}
             name of parameter to retrieve
         """
-        # TODO: need to test with EK80 power/angle data
-        #  currently this has only been tested with EK60 data
         ds_vend = self.echodata.vendor
 
         if ds_vend is None or param not in ds_vend:
