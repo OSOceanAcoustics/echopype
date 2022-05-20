@@ -251,17 +251,17 @@ def _change_beam_var_names(ed_obj, sensor):
             ["beamwidth_receive_athwartship", "beamwidth_transmit_alongship"]
         )
 
-        ed_obj["Sonar/Beam_group1"].angle_sensitivity_alongship.attrs[
-            "long_name"
-        ] = "alongship angle sensitivity of the transducer"
-
-        ed_obj["Sonar/Beam_group1"].angle_sensitivity_athwartship.attrs[
-            "long_name"
-        ] = "athwartship angle sensitivity of the transducer"
-
     if sensor in ["EK60", "EK80"]:
 
         for beam_group in ed_obj._tree["Sonar"].children:
+
+            beam_group.ds.angle_sensitivity_alongship.attrs[
+                "long_name"
+            ] = "alongship angle sensitivity of the transducer"
+
+            beam_group.ds.angle_sensitivity_athwartship.attrs[
+                "long_name"
+            ] = "athwartship angle sensitivity of the transducer"
 
             beam_group.ds.angle_offset_alongship.attrs[
                 "long_name"
@@ -377,7 +377,7 @@ def _beam_groups_to_convention(ed_obj, set_grp_cls):
             beam_group.ds["beam"] = (beam_group.ds.beam + 1).astype(str)
             beam_group.ds.beam.attrs["long_name"] = "Beam name"
 
-        set_grp_cls.beamgroups_to_convention(
+        set_grp_cls.beam_groups_to_convention(
             set_grp_cls,
             beam_group.ds,
             set_grp_cls.beam_only_names,
