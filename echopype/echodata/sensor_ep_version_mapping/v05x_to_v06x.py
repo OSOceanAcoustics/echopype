@@ -356,7 +356,7 @@ def _beam_groups_to_convention(ed_obj, set_grp_cls):
     Adds ``beam`` and ``ping_time`` dimensions to variables
     in ``Beam_groupX`` so that they comply with the convention.
     For beam groups containing the ``quadrant``,
-    changes the ``quadrant`` dimension to ``beam`` 
+    changes the ``quadrant`` dimension to ``beam``
     with string values starting at 1 and sets its attributes
     before adding the `beam` and `ping_time` dimensions.
 
