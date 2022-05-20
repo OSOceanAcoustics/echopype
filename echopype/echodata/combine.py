@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import xarray as xr
+from datatree import DataTree
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
@@ -97,6 +98,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
+    tree_dict = {}
     result = EchoData()
     if len(echodatas) == 0:
         return result
@@ -129,7 +131,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
-    for group in EchoData.group_map:
+    for group, value in EchoData.group_map.items():
         group_datasets = [
             getattr(echodata, group)
             for echodata in echodatas
@@ -226,7 +228,14 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
 
         combined_group = set_encodings(combined_group)
-        setattr(result, group, combined_group)
+        if value["ep_group"] is None:
+            tree_dict["root"] = combined_group
+        else:
+            tree_dict[value["ep_group"]] = combined_group
+
+    # Set tree into echodata object
+    result._set_tree(tree=DataTree.from_dict(tree_dict))
+    result._load_tree()
 
     # save ping time before reversal correction
     if old_ping_time is not None:
