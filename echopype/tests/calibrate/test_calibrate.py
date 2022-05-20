@@ -291,7 +291,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
-    and calibration in BB mode data encoded as complex seamples,
+    and calibration in BB mode data encoded as complex samples,
     while the file contains both CW power and BB complex samples.
     """
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
