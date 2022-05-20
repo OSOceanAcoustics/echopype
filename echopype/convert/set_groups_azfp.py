@@ -167,22 +167,6 @@ class SetGroupsAZFP(SetGroupsBase):
         ping_time = self.parser_obj.ping_time
         channel_id = self._create_unique_channel_name(unpacked_data)
 
-        # creates unique channel name
-        if unpacked_data["serial_number"].size == 1:
-            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
-
-            # TODO: replace str(i+1) with Frequency Number from XML
-            channel_id = [
-                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
-                for i in range(len(freq_as_str))
-            ]
-        else:
-            channel_id = None
-            raise NotImplementedError(
-                "Creating a channel name for more than"
-                + " one serial number has not been implemented."
-            )
-
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
         for ich in range(len(freq)):
@@ -283,22 +267,6 @@ class SetGroupsAZFP(SetGroupsBase):
             # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ich] = self.parser_obj._calc_Sv_offset(
                 freq[ich], unpacked_data["pulse_length"][ich]
-            )
-
-        # creates unique channel name
-        if unpacked_data["serial_number"].size == 1:
-            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
-
-            # TODO: replace str(i+1) with Frequency Number from XML
-            channel_id = [
-                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
-                for i in range(len(freq_as_str))
-            ]
-        else:
-            channel_id = None
-            raise NotImplementedError(
-                "Creating a channel name for more than"
-                + " one serial number has not been implemented."
             )
 
         ds = xr.Dataset(
