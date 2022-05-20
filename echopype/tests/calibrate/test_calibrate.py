@@ -113,6 +113,22 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     check_output(ds_TS['TS'], 'Sp')
 
 
+def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+    ek60_raw_path = str(
+        ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
+    )
+
+    # Convert file
+    echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
+
+    # Calibrate to get Sv
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_TS = ep.calibrate.compute_TS(echodata)
+
+    assert isinstance(ds_Sv, xr.Dataset)
+    assert isinstance(ds_TS, xr.Dataset)
+
+
 def test_compute_Sv_azfp(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
