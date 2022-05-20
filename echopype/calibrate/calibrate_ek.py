@@ -78,13 +78,13 @@ class CalibrateEK(CalibrateBase):
         # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
         transmit_isnull = beam["transmit_duration_nominal"].isnull()
         idxmin = np.abs(
-            beam["transmit_duration_nominal"]
-            - ds_vend["pulse_length"][relevant_indexes]
+            beam["transmit_duration_nominal"] - ds_vend["pulse_length"][relevant_indexes]
         ).idxmin(dim="pulse_length_bin")
-        idxmin = (
-            idxmin.where(~transmit_isnull, 0)  # fill nan position with 0, remove before return
-            .astype(int)  # convert to int for indexing
-        )
+        idxmin = idxmin.where(
+            ~transmit_isnull, 0
+        ).astype(  # fill nan position with 0, remove before return
+            int
+        )  # convert to int for indexing
 
         # Get param dataarray into correct shape
         da_param = (
