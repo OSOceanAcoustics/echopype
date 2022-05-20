@@ -8,6 +8,26 @@ from ..convention import sonarnetcdf_1
 _varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
 
+def _get_sensor(sensor_model):
+    """
+    This function returns the sensor name corresponding to
+    the ``set_groups_X.py`` that was used to create the
+    v0.5.x file's EchoData structure.
+
+    Parameters
+    ----------
+    sensor_model : str
+        Sensor model name provided in ``ed['Top-level'].keywords``
+    """
+
+    if sensor_model in ["EK60", "ES70"]:
+        return "EK60"
+    elif sensor_model in ["EK80", "ES80", "EA640"]:
+        return "EK80"
+    else:
+        return sensor_model
+
+
 def _range_bin_to_range_sample(ed_obj):
     """
     Renames the coordinate range_bin to range_sample.
@@ -1087,7 +1107,7 @@ def convert_v05x_to_v06x(echodata_obj):
     )
 
     # get the sensor used to create the v0.5.x file.
-    sensor = echodata_obj["Top-level"].keywords
+    sensor = _get_sensor(echodata_obj["Top-level"].keywords)
 
     if sensor == "AD2CP":
         pass
