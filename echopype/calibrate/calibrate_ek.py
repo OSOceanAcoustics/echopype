@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from dask.array.core import Array
 from scipy import signal
 
 from ..utils import uwa
