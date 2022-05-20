@@ -544,7 +544,7 @@ def _add_vars_to_platform(ed_obj, sensor):
 
     ed_obj["Platform"] = xr.merge([ed_obj["Platform"], ds_tmp])
 
-    if sensor != "AZFP":
+    if sensor != "AZFP":  # this variable was missing for AZFP v0.5.x
         ed_obj["Platform"] = ed_obj["Platform"].rename({"heave": "vertical_offset"})
 
     if sensor == "EK80":
