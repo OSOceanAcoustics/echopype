@@ -68,6 +68,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "echo_range variable changes across pings in at least one of the frequency channels."
         )
 
+    # TODO: right now this computation is brittle as it takes echo_range
+    #  from only the lowest frequency to make it the range for all channels.
+    #  This should be implemented different to allow non-uniform echo_range.
+
     # get indices of sorted frequency_nominal values. This is necessary
     # because the frequency_nominal values are not always in ascending order.
     sorted_freq_ind = np.argsort(ds_Sv.frequency_nominal)
@@ -151,6 +155,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "preprocess.compute_MVBS"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
+    ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     return ds_MVBS
 
@@ -221,6 +226,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
+    ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     return ds_MVBS
 
