@@ -181,7 +181,7 @@ class CalibrateEK(CalibrateBase):
             CSv = (
                 10 * np.log10(beam["transmit_power"])
                 + 2 * self.cal_params["gain_correction"]
-                + self.cal_params["equivalent_beam_angle"]
+                + self.cal_params["equivalent_beam_angle"]  # has beam dim
                 + 10
                 * np.log10(
                     wavelength**2
@@ -193,10 +193,10 @@ class CalibrateEK(CalibrateBase):
 
             # Calibration and echo integration
             out = (
-                beam["backscatter_r"]
+                beam["backscatter_r"]  # has beam dim
                 + spreading_loss
                 + absorption_loss
-                - CSv
+                - CSv  # has beam dim
                 - 2 * self.cal_params["sa_correction"]
             )
             out.name = "Sv"
@@ -223,7 +223,9 @@ class CalibrateEK(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        return out
+        # Squeeze out the beam dim
+        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
+        return out.squeeze("beam", drop=True)
 
 
 class CalibrateEK60(CalibrateEK):
@@ -702,7 +704,7 @@ class CalibrateEK80(CalibrateEK):
         if "frequency_start" in self.echodata.beam and "frequency_end" in self.echodata.beam:
             freq_center = (
                 self.echodata.beam["frequency_start"] + self.echodata.beam["frequency_end"]
-            ) / 2
+            ) / 2  # has beam dim
         else:
             freq_center = None
 
@@ -717,7 +719,7 @@ class CalibrateEK80(CalibrateEK):
             chan_sel = freq_center.dropna(dim="channel").channel
 
             # backscatter data
-            pc = self.compress_pulse(chirp, chan_BB=chan_sel)
+            pc = self.compress_pulse(chirp, chan_BB=chan_sel)  # has beam dim
             prx = (
                 self.echodata.beam.beam.size
                 * np.abs(pc.mean(dim="beam")) ** 2
@@ -748,10 +750,17 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # derived params
-        sound_speed = self.env_params["sound_speed"].squeeze()
-        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel).squeeze()
-        range_meter = self.range_meter.sel(channel=chan_sel).squeeze()
+        # Derived params
+        # TODO: right now squeeze out the single ping_time dimension
+        #  Need to properly align based on actual time
+        #  This ping_time is actually renamed from time1 in Environment group,
+        #  so that in the computation of range_meter it can be aligned with echo data easily.
+        #  This however makes this part of code less traceable,
+        #  since the ping_time here does not come from the "pings"
+        #  Will resolve later.
+        sound_speed = self.env_params["sound_speed"].squeeze(drop=True)
+        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel).squeeze(drop=True)
+        range_meter = self.range_meter.sel(channel=chan_sel)
         if waveform_mode == "BB":
             # use true center frequency for BB pulse
             wavelength = sound_speed / self.echodata.beam.frequency_nominal.sel(channel=chan_sel)
@@ -782,6 +791,7 @@ class CalibrateEK80(CalibrateEK):
 
             # other params
             transmit_power = self.echodata.beam["transmit_power"].sel(channel=chan_sel)
+            # equivalent_beam_angle has beam dim
             if waveform_mode == "BB":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(
                     channel=chan_sel
@@ -808,7 +818,7 @@ class CalibrateEK80(CalibrateEK):
             out = (
                 10 * np.log10(prx)
                 + 2 * spreading_loss
-                + absorption_loss
+                + absorption_loss  # has beam dim
                 - 10 * np.log10(wavelength**2 * transmit_power / (16 * np.pi**2))
                 - 2 * gain
             )
@@ -823,7 +833,10 @@ class CalibrateEK80(CalibrateEK):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        return out
+        # Squeeze out the beam dim
+        # out has beam dim, which came from absorption and absorption_loss
+        # self.cal_params["equivalent_beam_angle"] also has beam dim
+        return out.isel(beam=0).drop("beam")
 
     def _compute_cal(self, cal_type, waveform_mode, encode_mode) -> xr.Dataset:
         """

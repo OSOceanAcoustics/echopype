@@ -73,16 +73,16 @@ class SetGroupsAZFP(SetGroupsBase):
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
-        # Assemble sonar group dictionary
-        sonar_dict = {
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
             "sonar_manufacturer": "ASL Environmental Sciences",
-            "sonar_model": "Acoustic Zooplankton Fish Profiler",
+            "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
             "sonar_software_name": "Based on AZFP Matlab Toolbox",
             "sonar_software_version": "1.4",
             "sonar_type": "echosounder",
         }
-        ds = ds.assign_attrs(sonar_dict)
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds
 
