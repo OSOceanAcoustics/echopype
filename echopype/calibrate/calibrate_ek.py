@@ -76,15 +76,21 @@ class CalibrateEK(CalibrateBase):
 
         # Find idx to select the corresponding param value
         # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
-        idxmin = np.abs(
-            beam["transmit_duration_nominal"]  # .isel(ping_time=slice(None,5))
-            - ds_vend["pulse_length"][relevant_indexes]
-        ).idxmin(dim="pulse_length_bin").astype(int)
+        idxmin = (
+            np.abs(
+                beam["transmit_duration_nominal"]  # .isel(ping_time=slice(None,5))
+                - ds_vend["pulse_length"][relevant_indexes]
+            )
+            .idxmin(dim="pulse_length_bin")
+            .astype(int)
+        )
 
-        da_param = ds_vend[param][relevant_indexes].expand_dims(
-            dim={"ping_time": idxmin["ping_time"]}
-        ).sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
-        
+        da_param = (
+            ds_vend[param][relevant_indexes]
+            .expand_dims(dim={"ping_time": idxmin["ping_time"]})
+            .sortby(idxmin.channel)
+        )  # sortby in case channel sequence different in vendor and beam
+
         return da_param.isel(pulse_length_bin=idxmin).drop("pulse_length_bin")
 
     def get_cal_params(self, cal_params, waveform_mode, encode_mode):
@@ -624,8 +630,9 @@ class CalibrateEK80(CalibrateEK):
                             gain_single.sel(channel=ch_id)
                             # .assign_coords(ping_time=np.datetime64(0, "ns"))
                             # .expand_dims("ping_time")
-                            .reindex_like(self.echodata.beam.backscatter_r, method="nearest")
-                            .expand_dims("channel")
+                            .reindex_like(
+                                self.echodata.beam.backscatter_r, method="nearest"
+                            ).expand_dims("channel")
                         )
                     gain_temp.name = "gain"
                     gain.append(gain_temp)
