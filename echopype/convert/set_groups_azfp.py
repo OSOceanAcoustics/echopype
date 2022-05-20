@@ -129,7 +129,7 @@ class SetGroupsAZFP(SetGroupsBase):
                         "long_name": "Timestamps for platform motion and orientation data",
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
-                        "orientation sensors.",
+                        "orientation data.",
                     },
                 ),
             },
