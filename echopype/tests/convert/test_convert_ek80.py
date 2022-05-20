@@ -99,10 +99,6 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
-    # get indices of sorted frequency_nominal values. This is necessary
-    # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
-
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
