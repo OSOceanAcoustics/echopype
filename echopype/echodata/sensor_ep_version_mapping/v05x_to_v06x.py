@@ -984,6 +984,42 @@ def _change_vertical_offset_attrs(ed_obj):
         }
 
 
+def _consistent_sonar_model_attr(ed_obj, sensor):
+    """
+    Brings consistency to the attribute ``sonar_model`` of the
+    ``Sonar`` group amongst the sensors.
+    1. Changes ``sonar_model`` to "AZFP" for the AZFP sensor.
+    2. Sets EK60's attribute ``sonar_software_name`` to the
+    v0.5.x value of ``sonar_model``.
+    3. Changes ``sonar_model`` to "EK60" for the EK60 sensor.
+    4. Renames the variable ``Sonar.sonar_model`` to
+    ``Sonar.transducer_name`` for the EK80 sensor.
+    5. Adds the attribute ``sonar_model`` to the EK80 sensor
+    and sets it to "EK80".
+
+    Parameters
+    ----------
+    ed_obj : EchoData
+        EchoData object that was created using echopype version 0.5.x.
+    sensor : str
+        Variable specifying the sensor that created the file.
+
+    Notes
+    -----
+    The function directly modifies the input EchoData object.
+
+    """
+
+    if sensor == "AZFP":
+        ed_obj["Sonar"].attrs["sonar_model"] = "AZFP"
+    elif sensor == "EK60":
+        ed_obj["Sonar"].attrs["sonar_software_name"] = ed_obj["Sonar"].attrs["sonar_model"]
+        ed_obj["Sonar"].attrs["sonar_model"] = "EK60"
+    elif sensor == "EK80":
+        ed_obj["Sonar"] = ed_obj["Sonar"].rename({"sonar_model": "transducer_name"})
+        ed_obj["Sonar"].attrs["sonar_model"] = "EK80"
+
+
 def convert_v05x_to_v06x(echodata_obj):
     """
     This function converts the EchoData structure created in echopype
@@ -1028,6 +1064,8 @@ def convert_v05x_to_v06x(echodata_obj):
     the ``Platform`` group into a string, if it is a numpy array.
     19. Change the attributes of the variable
     ``Platform.vertical_offset``.
+    20. Bring consistency to the attribute ``sonar_model`` of the
+    ``Sonar`` group.
 
     Parameters
     ----------
@@ -1083,6 +1121,8 @@ def convert_v05x_to_v06x(echodata_obj):
         _change_list_attrs_to_str(echodata_obj)
 
         _change_vertical_offset_attrs(echodata_obj)
+
+        _consistent_sonar_model_attr(echodata_obj, sensor)
 
         # Change src_filenames string attribute to source_filenames
         # list-of-strings variable in Platform (#620, #621)
