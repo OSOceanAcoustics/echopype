@@ -43,8 +43,8 @@ def source_files_vars(source_paths: Union[str, List[Any]]) -> Dict[str, Tuple]:
         source_filenames xarray dataarray with filenames dimension
     """
 
-    # Handle a plain string containing a single path, a single pathlib Path,
-    # or a list of strings or pathlib paths
+    # Handle a plain string containing a single path,
+    # a single pathlib Path, or a list of strings or pathlib paths
     if type(source_paths) in (str, PosixPath):
         source_files = [str(source_paths)]
     else:
