@@ -41,7 +41,7 @@ import pytest
         ),
     ],
     ids=[
-        "ek60_cw_complex",
+        "ek60_cw_power",
         "ek80_bb_complex",
         "ek80_cw_power",
         "ek80_cw_complex",
@@ -265,6 +265,7 @@ def test_compute_MVBS_index_binning():
     )
     Sv.name = "Sv"
     ds_Sv = Sv.to_dataset()
+    ds_Sv["frequency_nominal"] = chan_index  # just so there's value in freq_nominal
     ds_Sv = ds_Sv.assign(
         echo_range=xr.DataArray(
             np.array([[np.linspace(0, 10, nrange_samples)] * npings] * nchan),
