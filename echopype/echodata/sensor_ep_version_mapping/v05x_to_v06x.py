@@ -215,7 +215,7 @@ def _change_beam_var_names(ed_obj, sensor):
     3. Remove the variables ``beamwidth_receive_athwartship``
     and ``beamwidth_transmit_alongship``
     4. Change the attribute ``long_name`` in the variables
-    ``angle_offsetalongship/athwartship`` and
+    ``angle_offset_alongship/athwartship`` and
     ``angle_sensitivity_alongship/athwartship``
 
     For EK80 ``Beam_group1``
