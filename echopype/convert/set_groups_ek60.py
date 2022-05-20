@@ -236,7 +236,7 @@ class SetGroupsEK60(SetGroupsBase):
                     time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to GPS location.",
+                        "comment": "Time coordinate corresponding to NMEA position data.",
                     },
                 )
             },
@@ -321,9 +321,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
-                                "long_name": "Timestamps for position datagrams",
+                                "long_name": "Timestamps for platform motion and orientation data",
                                 "standard_name": "time",
-                                "comment": "Time coordinate corresponding to platform sensors.",
+                                "comment": "Time coordinate corresponding to platform motion and "
+                                "orientation sensors.",
                             },
                         ),
                         "time3": (
@@ -331,7 +332,7 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
-                                "long_name": "Timestamps for position datagrams",
+                                "long_name": "Timestamps for environmental data",
                                 "standard_name": "time",
                                 "comment": "Time coordinate corresponding to "
                                 "environmental variables.",
