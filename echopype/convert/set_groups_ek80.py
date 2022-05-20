@@ -500,7 +500,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_alongship"],
                     {
-                        "long_name": "alongship sensitivity of the transducer",
+                        "long_name": "alongship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -511,7 +511,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
                     {
-                        "long_name": "athwartship sensitivity of the transducer",
+                        "long_name": "athwartship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -841,14 +841,14 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
-            self.beamgroups_to_convention(
+            self.beam_groups_to_convention(
                 ds_beam_power,
                 self.beam_only_names,
                 self.beam_ping_time_names,
                 self.ping_time_only_names,
             )
 
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 

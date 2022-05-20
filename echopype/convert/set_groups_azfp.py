@@ -250,7 +250,7 @@ class SetGroupsAZFP(SetGroupsBase):
         )
 
         # Manipulate some Dataset dimensions to adhere to convention
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
