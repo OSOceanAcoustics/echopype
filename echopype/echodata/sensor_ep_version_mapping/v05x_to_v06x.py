@@ -76,7 +76,6 @@ def _add_attrs_to_freq(ed_obj):
         if "frequency" in list(ed_obj[grp_path].coords):
 
             # creates consistent frequency attributes
-            # NOTE: the attribute standard_name will be removed in `frequency_nominal`
             ed_obj[grp_path]["frequency"] = ed_obj[grp_path].frequency.assign_attrs(
                 {
                     "long_name": "Transducer frequency",
@@ -179,12 +178,8 @@ def _frequency_to_channel(ed_obj, sensor):
 
         if "frequency" in ed_obj[grp_path]:
 
-            # add frequency_nominal, remove standard_name attribute, and
-            # rename frequency to channel
+            # add frequency_nominal
             ed_obj[grp_path]["frequency_nominal"] = ed_obj[grp_path].frequency
-
-            if "standard_name" in ed_obj[grp_path].frequency_nominal.attrs:
-                del ed_obj[grp_path].frequency_nominal.attrs["standard_name"]
             ed_obj[grp_path] = ed_obj[grp_path].rename({"frequency": "channel"})
 
             # set values for channel
