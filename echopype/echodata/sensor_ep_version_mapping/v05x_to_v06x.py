@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import xarray as xr
 
@@ -435,9 +437,6 @@ def _modify_sonar_group(ed_obj, sensor):
                 )
             }
         )
-
-    # TODO: Do we need to make attributes into variables
-    #  for EK60 and AZFP #681?
 
 
 def _move_transducer_offset_vars(ed_obj, sensor):
@@ -1104,12 +1103,13 @@ def convert_v05x_to_v06x(echodata_obj):
     No actions are taken for AD2CP.
     """
 
-    # TODO: make this a warning that links to the documentation
-    print(
-        "Converting echopype version 0.5.x file to 0.6.x."
-        + " For specific details on how items have been changed,"
-        + " please see ... . It is recommended that one creates "
-        + "the file using open_raw again, rather than relying on this conversion."
+    # TODO: put in an appropriate link to the v5 to v6 conversion outline
+    warnings.warn(
+        "Converting echopype version 0.5.x file to 0.6.0."
+        " For specific details on how items have been changed,"
+        " please see the echopype documentation. It is recommended "
+        "that one creates the file using echopype.open_raw again, "
+        "rather than relying on this conversion."
     )
 
     # get the sensor used to create the v0.5.x file.
@@ -1149,9 +1149,5 @@ def convert_v05x_to_v06x(echodata_obj):
         _change_vertical_offset_attrs(echodata_obj)
 
         _consistent_sonar_model_attr(echodata_obj, sensor)
-
-        # Change src_filenames string attribute to source_filenames
-        # list-of-strings variable in Platform (#620, #621)
-        # TODO: correct Platform to Provenance in docs for the above
 
     _rename_vendor_group(echodata_obj)
