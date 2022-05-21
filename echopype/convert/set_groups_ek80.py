@@ -117,7 +117,7 @@ class SetGroupsEK80(SetGroupsBase):
                     time1,
                     {
                         "axis": "T",
-                        "long_name": "Timestamp of each ping",
+                        "long_name": "Timestamps for NMEA position datagrams",
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to environmental "
                         "variables. Note that Platform.time3 is the same "
@@ -341,9 +341,10 @@ class SetGroupsEK80(SetGroupsBase):
                     time2,
                     {
                         "axis": "T",
-                        "long_name": "Timestamps for MRU datagrams",
+                        "long_name": "Timestamps for platform motion and orientation data",
                         "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform sensors.",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
                     },
                 ),
                 "time3": (
@@ -353,10 +354,11 @@ class SetGroupsEK80(SetGroupsBase):
                     else np.datetime64("NaT"),
                     {
                         "axis": "T",
-                        "long_name": "Timestamps for Environment XML datagrams",
+                        "long_name": "Timestamps for platform-related sampling environment",
                         "standard_name": "time",
-                        "comment": "Time coordinate corresponding to environmental variables. "
-                        "Note that Platform.time3 is the same as Environment.time1.",
+                        "comment": "Time coordinate corresponding to platform-related "
+                        "sampling environment. Note that Platform.time3 is "
+                        "the same as Environment.time1.",
                     },
                 ),
                 "time1": (
@@ -364,7 +366,7 @@ class SetGroupsEK80(SetGroupsBase):
                     time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to GPS location.",
+                        "comment": "Time coordinate corresponding to NMEA position data.",
                     },
                 ),
             },
