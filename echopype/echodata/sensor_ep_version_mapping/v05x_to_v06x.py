@@ -569,7 +569,6 @@ def _add_vars_to_platform(ed_obj, sensor):
                     ed_obj["Environment"].ping_time.values,
                     {
                         "axis": "T",
-                        "long_name": "Timestamps for Environment XML datagrams",
                         "standard_name": "time",
                     },
                 )
@@ -788,7 +787,6 @@ def _rename_and_add_time_vars_ek60(ed_obj):
                 ed_obj["Platform"].time3.values,
                 {
                     "axis": "T",
-                    "long_name": "Timestamps for position datagrams",
                     "standard_name": "time",
                 },
             )
@@ -796,9 +794,9 @@ def _rename_and_add_time_vars_ek60(ed_obj):
     )
 
 
-def _add_time_comment_in_platform(ed_obj, sensor):
+def _add_time_attrs_in_platform(ed_obj, sensor):
     """
-    Adds comments to ``time1``, ``time2``, and
+    Adds attributes to ``time1``, ``time2``, and
     ``time3`` in the ``Platform`` group.
 
     Parameters
@@ -814,26 +812,36 @@ def _add_time_comment_in_platform(ed_obj, sensor):
     """
 
     if "time1" in ed_obj["Platform"]:
-        ed_obj["Platform"].time1.attrs["comment"] = "Time coordinate corresponding to GPS location."
+        ed_obj["Platform"].time1.attrs[
+            "comment"
+        ] = "Time coordinate corresponding to NMEA position data."
 
-    ed_obj["Platform"].time2.attrs["comment"] = "Time coordinate corresponding to platform sensors."
+    ed_obj["Platform"].time2.attrs[
+        "long_name"
+    ] = "Timestamps for platform motion and orientation data"
+    ed_obj["Platform"].time2.attrs[
+        "comment"
+    ] = "Time coordinate corresponding to platform motion and orientation data."
+
+    if sensor == ["EK80", "EK60"]:
+
+        ed_obj["Platform"].time3.attrs[
+            "long_name"
+        ] = "Timestamps for platform-related sampling environment"
+        ed_obj["Platform"].time3.attrs[
+            "comment"
+        ] = "Time coordinate corresponding to platform-related sampling environment."
 
     if sensor == "EK80":
         ed_obj["Platform"].time3.attrs["comment"] = (
-            "Time coordinate corresponding to "
-            "environmental variables. Note that "
-            "Platform.time3 is the same as Environment.time1."
+            ed_obj["Platform"].time3.attrs["comment"]
+            + " Note that Platform.time3 is the same as Environment.time1."
         )
-    else:
-        if "time3" in ed_obj["Platform"]:
-            ed_obj["Platform"].time3.attrs[
-                "comment"
-            ] = "Time coordinate corresponding to environmental variables."
 
 
-def _add_time_comment_in_environment(ed_obj, sensor):
+def _add_time_attrs_in_environment(ed_obj, sensor):
     """
-    Adds comments to ``time1`` in the ``Environment`` group.
+    Adds attributes to ``time1`` in the ``Environment`` group.
 
     Parameters
     ----------
@@ -847,6 +855,9 @@ def _add_time_comment_in_environment(ed_obj, sensor):
     The function directly modifies the input EchoData object.
 
     """
+
+    if sensor in ["EK80", "EK60"]:
+        ed_obj["Environment"].time1.attrs["long_name"] = "Timestamps for NMEA position datagrams"
 
     if sensor == "EK80":
         ed_obj["Environment"].time1.attrs["comment"] = (
@@ -899,13 +910,13 @@ def _make_time_coords_consistent(ed_obj, sensor):
         ed_obj["Platform"] = ed_obj["Platform"].rename({"ping_time": "time2"})
         ed_obj["Environment"] = ed_obj["Environment"].rename({"ping_time": "time1"})
 
-    _add_time_comment_in_platform(ed_obj, sensor)
-    _add_time_comment_in_environment(ed_obj, sensor)
+    _add_time_attrs_in_platform(ed_obj, sensor)
+    _add_time_attrs_in_environment(ed_obj, sensor)
 
     if "Platform/NMEA" in ed_obj.group_paths:
         ed_obj["Platform/NMEA"].time1.attrs[
             "comment"
-        ] = "Time coordinate corresponding to GPS location."
+        ] = "Time coordinate corresponding to NMEA sensor data."
 
 
 def _add_source_filenames_var(ed_obj):
