@@ -182,6 +182,21 @@ def compare_ed_against_tree(ed, tree):
             assert tree[grp_path].ds.identical(ed[grp_path])
 
 
+def _get_conversion_file_lists(azfp_path, ek60_path, ek80_path):
+
+    converted_raw_paths_v06x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
+                                ek60_path / "ek60-combined-ep-v06x.nc",
+                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
+                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
+
+    converted_raw_paths_v05x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
+                                ek60_path / "ek60-combined-ep-v05x.nc",
+                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
+                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
+
+    return converted_raw_paths_v06x, converted_raw_paths_v05x
+
+
 def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
     """
     Tests that version 0.5.x echopype files
@@ -189,16 +204,12 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
     0.6.x structure.
     """
 
-    converted_raw_paths_v06x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
-                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
-                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
-
-    converted_raw_paths_v05x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
-                                ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
-                                azfp_path / "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
+    converted_raw_paths_v06x, converted_raw_paths_v05x = \
+        _get_conversion_file_lists(azfp_path, ek60_path, ek80_path)
 
     for path_v05x, path_v06x in zip(converted_raw_paths_v05x, converted_raw_paths_v06x):
 
+        print(f"path_v05x = {path_v05x}")
         ed_v05x = open_converted(path_v05x)
         tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
@@ -216,9 +227,22 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
             for var in val:
                 _check_and_drop_attr(ed_v05x, tree_v06x, key, var[0], var[1])
 
-        # dictionary of variables to drop where the group path is the
-        # key and the variables are the value
         _check_and_drop_var(ed_v05x, tree_v06x, "Provenance", "source_filenames")
+
+        # The following if block is for the case where we have a combined file
+        # TODO: look into this after v0.6.0 release
+        if "echodata_filename" in ed_v05x["Provenance"]:
+            prov_comb_names = ["echodata_filename", "top_attrs", "environment_attrs",
+                               "platform_attrs", "nmea_attrs", "provenance_attrs",
+                               "sonar_attrs", "beam_attrs", "vendor_attrs",
+                               "top_attr_key", "environment_attr_key",
+                               "platform_attr_key", "nmea_attr_key", "provenance_attr_key",
+                               "sonar_attr_key", "beam_attr_key", "vendor_attr_key"]
+
+            for name in prov_comb_names:
+                _check_and_drop_var(ed_v05x, tree_v06x, "Provenance", name)
+
+            ed_v05x["Provenance"] = ed_v05x["Provenance"].drop("src_filenames")
 
         # ignore direct comparison of the variables Sonar.sonar_serial_number,
         # Platform.drop_keel_offset_is_manual, and Platform.water_level_draft_is_manual
@@ -252,9 +276,6 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
             ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
 
         compare_ed_against_tree(ed_v05x, tree_v06x)
-
-    # TODO: Should we do a comparison of a combined file? One of the groups
-    #  creates an attribute key, so there may be issues there...
 
 
 def test_echodata_structure():

@@ -933,13 +933,23 @@ def _add_source_filenames_var(ed_obj):
     The function directly modifies the input EchoData object.
     """
 
-    ed_obj["Provenance"]["source_filenames"] = (
-        ["filenames"],
-        [ed_obj["Provenance"].attrs["src_filenames"]],
-        {"long_name": "Source filenames"},
-    )
+    # this statement only applies for a combined file
+    if "src_filenames" in ed_obj["Provenance"]:
+        ed_obj["Provenance"]["source_filenames"] = (
+            ["filenames"],
+            ed_obj["Provenance"].src_filenames.values,
+            {"long_name": "Source filenames"},
+        )
+        ed_obj["Provenance"].drop("src_filenames")
 
-    del ed_obj["Provenance"].attrs["src_filenames"]
+    else:
+        ed_obj["Provenance"]["source_filenames"] = (
+            ["filenames"],
+            [ed_obj["Provenance"].attrs["src_filenames"]],
+            {"long_name": "Source filenames"},
+        )
+
+        del ed_obj["Provenance"].attrs["src_filenames"]
 
 
 def _rename_vendor_group(ed_obj):
