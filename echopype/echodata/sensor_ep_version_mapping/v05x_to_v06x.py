@@ -823,8 +823,7 @@ def _add_time_attrs_in_platform(ed_obj, sensor):
         "comment"
     ] = "Time coordinate corresponding to platform motion and orientation data."
 
-    if sensor == ["EK80", "EK60"]:
-
+    if sensor in ["EK80", "EK60"]:
         ed_obj["Platform"].time3.attrs[
             "long_name"
         ] = "Timestamps for platform-related sampling environment"
