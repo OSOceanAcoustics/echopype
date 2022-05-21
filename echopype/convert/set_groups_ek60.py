@@ -174,7 +174,12 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp["frequency_nominal"] = (
                 ["channel"],
                 [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             )
 
             ds_env.append(ds_tmp)
@@ -357,7 +362,12 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp["frequency_nominal"] = (
                     ["channel"],
                     [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 )
 
                 ds_plat.append(ds_tmp)
@@ -421,7 +431,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (
                     "channel",
@@ -694,7 +709,7 @@ class SetGroupsEK60(SetGroupsBase):
         )  # override keeps the Dataset attributes
 
         # Manipulate some Dataset dimensions to adhere to convention
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -722,6 +737,7 @@ class SetGroupsEK60(SetGroupsBase):
                         "units": "Hz",
                         "long_name": "Transducer frequency",
                         "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
                     },
                 ),
                 "sa_correction": (["channel", "pulse_length_bin"], sa_correction),

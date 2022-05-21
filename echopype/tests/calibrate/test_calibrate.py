@@ -113,6 +113,22 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     check_output(ds_TS['TS'], 'Sp')
 
 
+def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+    ek60_raw_path = str(
+        ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
+    )
+
+    # Convert file
+    echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
+
+    # Calibrate to get Sv
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_TS = ep.calibrate.compute_TS(echodata)
+
+    assert isinstance(ds_Sv, xr.Dataset)
+    assert isinstance(ds_TS, xr.Dataset)
+
+
 def test_compute_Sv_azfp(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
@@ -291,7 +307,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
-    and calibration in BB mode data encoded as complex seamples,
+    and calibration in BB mode data encoded as complex samples,
     while the file contains both CW power and BB complex samples.
     """
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"

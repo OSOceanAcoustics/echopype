@@ -11,7 +11,7 @@ dependencies:
   - xarray
   - zarr
   - fsspec
-  - s3fs
+  - s3fs==2022.5.0
   - matplotlib-base
   - cmocean
   - mamba=0.20.0

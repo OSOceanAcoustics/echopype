@@ -208,7 +208,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "backscatter_r": (["channel", "ping_time", "range_sample"], N),
                 "equivalent_beam_angle": (["channel"], parameters["BP"]),
@@ -248,7 +253,7 @@ class SetGroupsAZFP(SetGroupsBase):
         )
 
         # Manipulate some Dataset dimensions to adhere to convention
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -277,7 +282,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "XML_transmit_duration_nominal": (["channel"], tdn),
                 "XML_gain_correction": (["channel"], parameters["gain"]),

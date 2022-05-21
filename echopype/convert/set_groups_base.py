@@ -282,7 +282,7 @@ class SetGroupsBase(abc.ABC):
                 .copy()
             )
 
-    def beamgroups_to_convention(
+    def beam_groups_to_convention(
         self,
         ds: xr.Dataset,
         beam_only_names: Set[str],
