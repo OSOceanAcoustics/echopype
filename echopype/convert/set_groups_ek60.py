@@ -324,7 +324,7 @@ class SetGroupsEK60(SetGroupsBase):
                                 "long_name": "Timestamps for platform motion and orientation data",
                                 "standard_name": "time",
                                 "comment": "Time coordinate corresponding to platform motion and "
-                                "orientation sensors.",
+                                "orientation data.",
                             },
                         ),
                         "time3": (
@@ -332,10 +332,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
-                                "long_name": "Timestamps for environmental data",
+                                "long_name": "Timestamps for platform-related sampling environment",
                                 "standard_name": "time",
-                                "comment": "Time coordinate corresponding to "
-                                "environmental variables.",
+                                "comment": "Time coordinate corresponding to platform-related "
+                                "sampling environment.",
                             },
                         ),
                     },
