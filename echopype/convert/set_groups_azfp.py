@@ -125,8 +125,11 @@ class SetGroupsAZFP(SetGroupsBase):
                     ["time2"],
                     time2,
                     {
-                        **self._varattrs["beam_coord_default"]["ping_time"],
-                        "comment": "Time coordinate corresponding to platform sensors.",
+                        "axis": "T",
+                        "long_name": "Timestamps for platform motion and orientation data",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
                     },
                 ),
             },
