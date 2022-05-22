@@ -30,6 +30,47 @@ def assemble_combined_provenance(input_paths):
     )
 
 
+def check_and_correct_reversed_time(combined_group, old_time, new_time, time_str, sonar_model):
+    """
+    Makes sure that the time coordinate ``time_str`` in
+    ``combined_group`` is in the correct order and corrects
+    it, if it is not.
+
+    Parameters
+    ----------
+    combined_group : xr.Dataset
+        Dataset representing a combined EchoData group
+    old_time : xr.DataArray
+        Time before reversal correction
+    new_time : xr.DataArray
+        Time after reversal correction
+    time_str : str
+        Name of time coordinate to be checked and corrected
+    sonar_model : str
+        Name of sonar model
+
+    Returns
+    -------
+    Combined group with monotonically increasing ``time_str``
+    coordinate, the time coordinate before correction, and
+    the time coordinate after correction.
+    """
+
+    if time_str in combined_group and exist_reversed_time(combined_group, time_str):
+        if old_time is None:
+            warnings.warn(
+                f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
+                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+            )
+            old_time = combined_group[time_str]
+            coerce_increasing_time(combined_group, time_name=time_str)
+            new_time = combined_group[time_str]
+        else:
+            combined_group[time_str] = new_time
+
+    return combined_group, old_time, new_time
+
+
 def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
     """
     Combines multiple `EchoData` objects into a single `EchoData` object.
@@ -185,53 +226,23 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["channel"] = combined_group["channel"].astype("<U50")
 
             if sonar_model in ("EK60", "EK80", "AZFP"):
-                if "ping_time" in combined_group and exist_reversed_time(
-                    combined_group, "ping_time"
-                ):
-                    if old_ping_time is None:
-                        warnings.warn(
-                            f"{sonar_model} ping_time reversal detected; the ping times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_ping_time = combined_group["ping_time"]
-                        coerce_increasing_time(combined_group, time_name="ping_time")
-                        new_ping_time = combined_group["ping_time"]
-                    else:
-                        combined_group["ping_time"] = new_ping_time
-                if "time1" in combined_group and exist_reversed_time(combined_group, "time1"):
-                    if group != "nmea":
-                        if old_time1 is None:
-                            warnings.warn(
-                                f"{sonar_model} time1 reversal detected; the location times will be corrected"  # noqa
-                                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                            )
-                            old_time1 = combined_group["time1"]
-                            coerce_increasing_time(combined_group, time_name="time1")
-                            new_time1 = combined_group["time1"]
-                        else:
-                            combined_group["time1"] = new_time1
-                if "time2" in combined_group and exist_reversed_time(combined_group, "time2"):
-                    if old_time2 is None:
-                        warnings.warn(
-                            f"{sonar_model} time2 reversal detected; the mru times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_time2 = combined_group["time2"]
-                        coerce_increasing_time(combined_group, time_name="time2")
-                        new_time2 = combined_group["time2"]
-                    else:
-                        combined_group["time2"] = new_time2
-                if "time3" in combined_group and exist_reversed_time(combined_group, "time3"):
-                    if old_time3 is None:
-                        warnings.warn(
-                            f"{sonar_model} time3 reversal detected; the times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_time3 = combined_group["time3"]
-                        coerce_increasing_time(combined_group, time_name="time3")
-                        new_time3 = combined_group["time3"]
-                    else:
-                        combined_group["time3"] = new_time3
+
+                combined_group, old_ping_time, new_ping_time = check_and_correct_reversed_time(
+                    combined_group, old_ping_time, new_ping_time, "ping_time", sonar_model
+                )
+
+                if group != "nmea":
+                    combined_group, old_time1, new_time1 = check_and_correct_reversed_time(
+                        combined_group, old_time1, new_time1, "time1", sonar_model
+                    )
+
+                combined_group, old_time2, new_time2 = check_and_correct_reversed_time(
+                    combined_group, old_time2, new_time2, "time2", sonar_model
+                )
+
+                combined_group, old_time3, new_time3 = check_and_correct_reversed_time(
+                    combined_group, old_time3, new_time3, "time3", sonar_model
+                )
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
