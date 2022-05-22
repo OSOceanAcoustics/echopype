@@ -210,7 +210,8 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
-        ch_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+        ch_ids = self.parser_obj.ch_ids["complex"] + self.parser_obj.ch_ids["power"]
+
         freq = np.array(
             [
                 self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]

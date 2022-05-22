@@ -187,11 +187,17 @@ def _get_conversion_file_lists(azfp_path, ek60_path, ek80_path):
     converted_raw_paths_v06x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v06x.nc",
                                 ek60_path / "ek60-combined-ep-v06x.nc",
                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
+                                ek80_path / "ek80-2018115-D20181213-T094600-ep-v06x.nc",
+                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v06x.nc",
+                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v06x.nc",
                                 azfp_path / "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
 
     converted_raw_paths_v05x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
                                 ek60_path / "ek60-combined-ep-v05x.nc",
                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
+                                ek80_path / "ek80-2018115-D20181213-T094600-ep-v05x.nc",
+                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v05x.nc",
+                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v05x.nc",
                                 azfp_path / "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
 
     return converted_raw_paths_v06x, converted_raw_paths_v05x
@@ -210,6 +216,7 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
     for path_v05x, path_v06x in zip(converted_raw_paths_v05x, converted_raw_paths_v06x):
 
         print(f"path_v05x = {path_v05x}")
+
         ed_v05x = open_converted(path_v05x)
         tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
@@ -269,16 +276,22 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
 
             # sort the beam groups for EK80 according to channel (necessary for comparison)
             ed_v05x['Sonar/Beam_group1'] = ed_v05x['Sonar/Beam_group1'].sortby("channel")
-            ed_v05x['Sonar/Beam_group2'] = ed_v05x['Sonar/Beam_group2'].sortby("channel")
+
+            if 'Sonar/Beam_group2' in ed_v05x.group_paths:
+                ed_v05x['Sonar/Beam_group2'] = ed_v05x['Sonar/Beam_group2'].sortby("channel")
 
             # sort the Platform group by channel for EK80 (necessary for comparison)
             tree_v06x['Platform'].ds = tree_v06x['Platform'].ds.sortby('channel')
             ed_v05x['Platform'] = ed_v05x['Platform'].sortby('channel')
 
+            # remove all attributes from Vendor_specific (data is missing sometimes)
+            tree_v06x["Vendor_specific"].ds.attrs = {"blank": 'None'}
+            ed_v05x["Vendor_specific"].attrs = {"blank": 'None'}
+
         compare_ed_against_tree(ed_v05x, tree_v06x)
 
 
-def test_echodata_structure():
+def test_echodata_structure(azfp_path, ek60_path, ek80_path):
     """
     Makes sure that all raw files opened
     create the expected EchoData structure.

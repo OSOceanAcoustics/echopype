@@ -1,4 +1,5 @@
 import warnings
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import xarray as xr
@@ -145,9 +146,24 @@ def get_channel_id(ed_obj, sensor):
 
     else:
 
-        channel_id = xr.concat(
-            [child.ds.channel_id for child in ed_obj._tree["Sonar"].children], dim="frequency"
-        )
+        # in the case of EK80 we cannot infer the correct frequency
+        # for each channel id, but we can obtain this information
+        # from the XML string in the Vendor attribute
+        if "config_xml" in ed_obj._tree["Vendor"].ds.attrs:
+            xmlstring = ed_obj._tree["Vendor"].ds.attrs["config_xml"]
+            root = ET.fromstring(xmlstring)
+            channel_ids = []
+            freq = []
+            for i in root.findall("./Transceivers/Transceiver"):
+                [channel_ids.append(j.attrib["ChannelID"]) for j in i.findall(".//Channel")]
+                [freq.append(np.float64(j.attrib["Frequency"])) for j in i.findall(".//Transducer")]
+
+            channel_id = xr.DataArray(data=channel_ids, coords={"frequency": (["frequency"], freq)})
+        else:
+            # collect all beam group channel ids and associated frequencies
+            channel_id = xr.concat(
+                [child.ds.channel_id for child in ed_obj._tree["Sonar"].children], dim="frequency"
+            )
 
     return channel_id
 
@@ -175,6 +191,8 @@ def _frequency_to_channel(ed_obj, sensor):
     """
 
     channel_id = get_channel_id(ed_obj, sensor)  # all channel ids
+
+    print(f"channel_id = {channel_id}")
 
     for grp_path in ed_obj.group_paths:
 
