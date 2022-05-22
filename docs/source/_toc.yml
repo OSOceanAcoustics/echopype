@@ -15,6 +15,7 @@ parts:
   - file: open-converted
   - file: process
   - file: data-format
+    title: Data formats
     sections:
     - file: data-format-raw
     - file: data-format-processed
