@@ -45,7 +45,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAZFP,
         "set_groups": SetGroupsAZFP,
         "concat_dims": {
-            "platform": None,
+            "platform": "time2",
             "nmea": "time1",
             "vendor": ["ping_time", "channel"],
             "default": "ping_time",
@@ -61,7 +61,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
-            "platform": ["time1", "ping_time"],
+            "platform": ["time1", "time2", "time3"],
             "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
@@ -76,7 +76,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
-            "platform": ["time1", "ping_time"],
+            "platform": ["time1", "time2", "time3"],
             "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
@@ -91,7 +91,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["time1", "time2"],
+            "platform": ["time1", "time2", "time3"],
             "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
@@ -106,7 +106,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["time1", "time2"],
+            "platform": ["time1", "time2", "time3"],
             "nmea": "time1",
             "vendor": None,
             "default": "ping_time",
@@ -121,7 +121,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
-            "platform": ["time1", "time2"],
+            "platform": ["time1", "time2", "time3"],
             "nmea": "time1",
             "vendor": None,
             "default": "ping_time",

@@ -145,6 +145,8 @@ def test_combine_echodata(raw_datasets):
                 "ping_time",
                 "old_time1",
                 "time1",
+                "old_time2",
+                "time2",
             ],
             errors="ignore",
         ).drop_dims(
@@ -157,6 +159,8 @@ def test_combine_echodata(raw_datasets):
                     "ping_time",
                     "old_time1",
                     "time1",
+                    "old_time2",
+                    "time2",
                 ],
                 errors="ignore",
             )
