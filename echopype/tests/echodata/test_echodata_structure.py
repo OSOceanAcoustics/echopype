@@ -215,8 +215,6 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
 
     for path_v05x, path_v06x in zip(converted_raw_paths_v05x, converted_raw_paths_v06x):
 
-        print(f"path_v05x = {path_v05x}")
-
         ed_v05x = open_converted(path_v05x)
         tree_v06x = _tree_from_file(converted_raw_path=path_v06x)
 
