@@ -2,7 +2,8 @@ from datetime import datetime as dt
 from pathlib import PosixPath
 from typing import Any, Dict, List, Tuple, Union
 
-from _echopype_version import version as ECHOPYPE_VERSION
+# TODO: uncomment after release (causes flake8 to fail)
+# from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
 
 ProcessType = Literal["conversion", "processing"]
@@ -17,9 +18,10 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     process_type : ProcessType
         Echopype process function type
     """
+    # TODO: change hard coded 0.6.0 after release
     prov_dict = {
         f"{process_type}_software_name": "echopype",
-        f"{process_type}_software_version": ECHOPYPE_VERSION,
+        f"{process_type}_software_version": "0.6.0",  # ECHOPYPE_VERSION,
         f"{process_type}_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
     }
 
