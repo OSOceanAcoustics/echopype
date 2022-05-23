@@ -225,7 +225,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     # TODO: investigate further why we need to do .astype("<U50")
                     combined_group["channel"] = combined_group["channel"].astype("<U50")
 
-            if sonar_model in ("EK60", "EK80", "AZFP"):
+            if sonar_model != "AD2CP":
 
                 combined_group, old_ping_time, new_ping_time = check_and_correct_reversed_time(
                     combined_group, old_ping_time, new_ping_time, "ping_time", sonar_model
