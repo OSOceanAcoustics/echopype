@@ -224,6 +224,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["gpt_software_version"] = combined_group[
                         "gpt_software_version"
                     ].astype("<U10")
+
                     # TODO: investigate further why we need to do .astype("<U50")
                     combined_group["channel"] = combined_group["channel"].astype("<U50")
 
