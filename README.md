@@ -67,11 +67,7 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 Contributors
 ------------
 
-[Wu-Jung Lee](http://leewujung.github.io) (@leewujung) leads this project and together with
-[Kavin Nguyen](https://github.com/ngkavin) (@ngkavin), [Landung "Don" Setiawan](https://github.com/lsetiawan) (@lsetiawan), and [Imran Majeed](https://github.com/imranmaj) (@imranmaj) are primary developers of this package.
-[Emilio Mayorga](https://www.apl.washington.edu/people/profile.php?last_name=Mayorga&first_name=Emilio) (@emiliom)
-and [Valentina Staneva](https://escience.washington.edu/people/valentina-staneva/) (@valentina-s)
-are also part of the development team.
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
 Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
 
