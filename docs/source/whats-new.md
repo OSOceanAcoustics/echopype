@@ -14,7 +14,7 @@ This is a major release that contains changes that enhances the compliance of ec
   - `Beam` --> `Sonar/Beam_group1`: contains either raw power or power/angle data (for all sonar models other than EK80) or complex data (EK80)
   - `Beam_power` --> `Sonar/Beam_group2`: contains power/angle when complex data occupies `Sonar/Beam_group1`; only exists for EK80 data when both power/angle data and complex data exist in the file
 - Rename the coordinate `range_bin` to `range_sample` to make it obvious that this coordinate indicates the digitization sample number for the sound waveform or intensity time series, and hence it takes a form of sequential integers 0, 1, 2, 3, ... (#595)
-- Rename the data variable `range` in the calibrated Sv or TS dataset to `echo_range`, so that it is not confused with the python reserved vocabulary (#590)
+- Rename the data variable `range` in the calibrated Sv or TS dataset to `echo_range`, so that it is not confused with the python built-in function (#590)
 - Rename the coordinate `quadrant` for EK80 data to `beam` (#619)
 - Add coordinate `beam` with length 1 for all sonar models, except for AD2CP (#638, #646)
 - Rename the data variable `Sp` to `TS` since "point backscattering strength" is a Simrad terminology and target strength (TS) is clearly defined and widely used. (#615)
