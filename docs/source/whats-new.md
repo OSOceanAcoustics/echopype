@@ -54,6 +54,9 @@ This is a major release that contains changes that enhances the compliance of ec
 
 - Remove the deprecated old (<0.5.0) API (#506, #601)
 - Update README in the `echopype/test_data` folder (#584)
+- Add documentation for visualization (#655)
+- Add development roadmap to documentation (#636, #688)
+- Restructure and expand data format section (#635)
 
 
 
