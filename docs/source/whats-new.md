@@ -6,7 +6,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 # v0.6.0 (2022 May 26)
 
 ## Overview
-This is a major release that contains changes that enhances the compliance of echopype data model (and hence generated file structure) to the [SONAR-netCDF4 ver.1 convention](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf) [LINK REQUIRES LOGIN??? CHECK AGAIN BEFORE RELEASE]. In addition, some variables were renamed to improve intuitive understanding of sonar data, provenance and standardized attributes are added to the processed dataset (e.g. Sv), the deprecated old API (<0.5.0) was removed, and some bugs were fixed.
+This is a major release that contains changes that enhances the compliance of echopype data model (and hence generated file structure) to the [SONAR-netCDF4 convention Version 1.0 ](http://www.ices.dk/sites/pub/Publication%20Reports/Cooperative%20Research%20Report%20(CRR)/CRR341.pdf). In addition, some variables were renamed to improve intuitive understanding of sonar data, provenance and standardized attributes are added to the processed dataset (e.g. Sv), the deprecated old API (<0.5.0) was removed, and some bugs were fixed.
 
 ## Changes of netCDF data model
 
