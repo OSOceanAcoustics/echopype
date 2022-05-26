@@ -26,7 +26,7 @@ Bring consistency to the names of the time coordinates for the `Platform` and `E
 
 ## Changes of `EchoData` group access pattern
 
-- The groups can now be accessed via a path in the form `echodata["Sonar/Platform"]`, `echodata["Sonar/Platform"]`, `echodata["Sonar/Beam_groupX"]`, etc. using [DataTree](https://github.com/xarray-contrib/datatree) functionalities. (#611)
+- The groups can now be accessed via a path in the form `echodata["Sonar/Platform"]`, `echodata["Sonar/Platform"]`, `echodata["Sonar/Beam_groupX"]`, etc. using [DataTree v0.0.4](https://github.com/xarray-contrib/datatree/tree/0.0.4) functionalities. (#611)
 - The previous access pattern `echodata.platform`, `echodata.sonar`, `echodata.beam`, etc. is deprecated and will be removed in v0.6.1.
 
 ## Addition of attributes and variables in raw-converted and processed data
