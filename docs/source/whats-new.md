@@ -22,7 +22,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Rename the coordinate `frequency` to `channel` for all groups, to be more flexible (can accommodate channels with identical frequencies #490) and reasonable (since for broadband data the channel frequency is only nominal #566) (#657)
 - Rename the data variable `heave` to `vertical_offset` in the Platform group (#592, #623)
 - Change `src_filenames` string attribute to `source_filenames` list-of-strings variable (#620, #621)
-Bring consistency to the names of the time coordinates for the `Platform` and `Environment groups` (#656, #672)
+- Bring consistency to the names of the time coordinates for the `Platform` and `Environment groups` (#656, #672)
 
 ## Changes of `EchoData` group access pattern
 
