@@ -8,7 +8,7 @@ This roadmap describes the major areas of `echopype` development currently envis
 
 A core goal of `echopype` is to enable sonar data analysis pipelines that are agnostic of the instrument that generated the data and span the continuum from raw data files to acoustically derived  biological information. Converting raw data to a standardized form facilitates this goal. This scope and our attention to the processing "chain" expose the need for well-articulated definitions of ["data processing levels"](https://earthdata.nasa.gov/collaborate/open-data-services-and-software/data-information-policy/data-levels/) that can lead directly to broad and highly productive use of the data. However, no such community agreement exists for active acoustic data.
 
-`Echopype` developers are [working towards such definitions](https://github.com/uw-echospace/data-processing-levels/blob/main/from_proposal.md), which will span raw data in vendor formats ("level 0"), standardized (converted) raw data ("level 1"), calibrated acoustic quantities at raw data resolution ("level 2"), and more processed products such as mean volume backscattering strength ($\textrm{MVBS}$). `Echopype` will implement such data level categorizations as standardized metadata in all its outputs.
+`Echopype` developers are [working towards such definitions](https://github.com/uw-echospace/data-processing-levels/blob/main/from_proposal.md), which will span raw data in vendor formats ("level 0"), standardized (converted) raw data ("level 1"), calibrated acoustic quantities at raw data resolution ("level 2"), and more processed products such as mean volume backscattering strength (MVBS). `Echopype` will implement such data level categorizations as standardized metadata in all its outputs.
 
 In addition to clear data level definitions and metadata, we are identifying [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing information that should be preserved in a standardized form and carried out from one data level to the next. Initial steps already implemented include parameters passed to processing functions and information about the software and functions used. [Other near-term improvements have been identified](https://github.com/OSOceanAcoustics/echopype/issues?q=is%3Aissue+is%3Aopen+provenance), but a more comprehensive approach will require substantial additional developments.
 
@@ -26,7 +26,7 @@ Release v0.6.0 include breaking changes to the structure of the core SONAR-netCD
 
 ### Derived, higher-level products
 
-`Echopype` already incorporates [functions to generate higher-level products](process), including calibrated ($\textrm{S}_textrm{V}$, $\textrm{TS}$), noise and reduced-binned ($\textrm{MVBS}$) products. Other functionalities are in planning for near-term implementation, including enhancement of processed data products (e.g., [#662](https://github.com/OSOceanAcoustics/echopype/issues/662)), integration of platform location information into $\textrm{S}_textrm{V}$, and seafloor detection and removal, etc.
+`Echopype` already incorporates [functions to generate higher-level products](process), including calibrated (S<sub>v</sub>, TS), noise and reduced-binned (MVBS) products. Other functionalities are in planning for near-term implementation, including enhancement of processed data products (e.g., [#662](https://github.com/OSOceanAcoustics/echopype/issues/662)), integration of platform location information into S<sub>V</sub>, and seafloor detection and removal, etc.
 
 
 ## Scalability in computation
