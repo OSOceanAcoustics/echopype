@@ -8,7 +8,6 @@ parts:
   chapters:
   - file: why
   - file: installation
-  - file: roadmap
 - caption: User guide
   chapters:
   - file: convert
@@ -20,5 +19,6 @@ parts:
   chapters:
   - file: api
   - file: whats-new
+  - file: roadmap
   - file: contributing
   - file: resources
