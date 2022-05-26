@@ -74,8 +74,8 @@ Other contributors are listed in [echopype documentation](https://echopype.readt
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
-We also thank [Rick Towler](https://github.com/rhtowler) (@rhtowler)
-of the Alaska Fisheries Science Center
+We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
+of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
