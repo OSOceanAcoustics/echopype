@@ -42,7 +42,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add parser for Echoview ECS file (#510)
 - Add provenance to raw-converted and processed datasets (#621)
 - Consolidate convention specs into a single yml file for pre-loading when creating `EchoData` objects (#565)
-
+- Extra visualization module can now handle both `frequency` and `channel` filtering, as well as files with duplicated frequencies (#660)
 ## CI improvements
 
 - Upgrade python minimum to 3.8 and tidy up packaging (#604, #608, #609)
