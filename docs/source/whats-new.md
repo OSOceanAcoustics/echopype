@@ -11,8 +11,8 @@ This is a major release that contains changes that enhances the compliance of ec
 ## Changes of netCDF data model
 
 - Move and rename the original `Beam` and `Beam_power` group to be subgroups under the `Sonar` group, in order to comply with the structure defined in the convention  (#567, #574, #605, #606, #611)
-  - `Beam` --> `Sonar/Beam_group1`: contains either raw power or power/angle data (for all sonar models other than EK80) or complex data (EK80)
-  - `Beam_power` --> `Sonar/Beam_group2`: contains power/angle when complex data occupies `Sonar/Beam_group1`; only exists for EK80 data when both power/angle data and complex data exist in the file
+  - `Beam` --> `Sonar/Beam_group1`: contains either raw power or power/angle data for all sonar models other than EK80. For EK80, if only complex or power/angle data exist, all data are in this group; if _both_ complex and power/angle data exist, the complex data are in this group.
+  - `Beam_power` --> `Sonar/Beam_group2`: contains power/angle when complex data occupies `Sonar/Beam_group1`; only exists for EK80 data when _both_ power/angle data and complex data bothexist in the file
 - Rename the coordinate `range_bin` to `range_sample` to make it obvious that this coordinate indicates the digitization sample number for the sound waveform or intensity time series, and hence it takes a form of sequential integers 0, 1, 2, 3, ... (#595)
 - Rename the data variable `range` in the calibrated Sv or TS dataset to `echo_range`, so that it is not confused with the python built-in function (#590)
 - Rename the coordinate `quadrant` for EK80 data to `beam` (#619)
@@ -31,7 +31,7 @@ This is a major release that contains changes that enhances the compliance of ec
 
 ## Addition of attributes and variables in raw-converted and processed data
 
-- Add indexing info for `Beam_groupX` as data variable under the `Sonar` group
+- Add indexing info for `Beam_groupX` as data variable under the `Sonar` group (#658)
 - Add missing coordinate and variable attributes in the processed datasets Sv, MVBS, TS(#594)
 - Add `water_level` to processed datasets (Sv, MVBS, TS) for convenient downstream conversion to depth (#259, #583, #615)
 - Add additional environment variables for EK80 data (#616)
@@ -43,6 +43,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add provenance to raw-converted and processed datasets (#621)
 - Consolidate convention specs into a single yml file for pre-loading when creating `EchoData` objects (#565)
 - Extra visualization module can now handle both `frequency` and `channel` filtering, as well as files with duplicated frequencies (#660)
+
 ## CI improvements
 
 - Upgrade python minimum to 3.8 and tidy up packaging (#604, #608, #609)
