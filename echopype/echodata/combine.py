@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import xarray as xr
+from datatree import DataTree
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
@@ -28,6 +29,47 @@ def assemble_combined_provenance(input_paths):
         data_vars=source_files_vars(input_paths),
         attrs=echopype_prov_attrs(process_type="conversion"),
     )
+
+
+def check_and_correct_reversed_time(combined_group, old_time, new_time, time_str, sonar_model):
+    """
+    Makes sure that the time coordinate ``time_str`` in
+    ``combined_group`` is in the correct order and corrects
+    it, if it is not.
+
+    Parameters
+    ----------
+    combined_group : xr.Dataset
+        Dataset representing a combined EchoData group
+    old_time : xr.DataArray
+        Time before reversal correction
+    new_time : xr.DataArray
+        Time after reversal correction
+    time_str : str
+        Name of time coordinate to be checked and corrected
+    sonar_model : str
+        Name of sonar model
+
+    Returns
+    -------
+    Combined group with monotonically increasing ``time_str``
+    coordinate, the time coordinate before correction, and
+    the time coordinate after correction.
+    """
+
+    if time_str in combined_group and exist_reversed_time(combined_group, time_str):
+        if old_time is None:
+            warnings.warn(
+                f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
+                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+            )
+            old_time = combined_group[time_str]
+            coerce_increasing_time(combined_group, time_name=time_str)
+            new_time = combined_group[time_str]
+        else:
+            combined_group[time_str] = new_time
+
+    return combined_group, old_time, new_time
 
 
 def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
@@ -97,6 +139,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
+    tree_dict = {}
     result = EchoData()
     if len(echodatas) == 0:
         return result
@@ -124,12 +167,16 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     old_time2 = None
     # mru time after reversal correction
     new_time2 = None
+    # time3 before reversal correction
+    old_time3 = None
+    # time3 after reversal correction
+    new_time3 = None
 
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
-    for group in EchoData.group_map:
+    for group, value in EchoData.group_map.items():
         group_datasets = [
             getattr(echodata, group)
             for echodata in echodatas
@@ -177,47 +224,28 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     combined_group["gpt_software_version"] = combined_group[
                         "gpt_software_version"
                     ].astype("<U10")
+
                     # TODO: investigate further why we need to do .astype("<U50")
                     combined_group["channel"] = combined_group["channel"].astype("<U50")
 
-            if sonar_model in ("EK60", "EK80"):
-                if "ping_time" in combined_group and exist_reversed_time(
-                    combined_group, "ping_time"
-                ):
-                    if old_ping_time is None:
-                        warnings.warn(
-                            f"{sonar_model} ping_time reversal detected; the ping times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_ping_time = combined_group["ping_time"]
-                        coerce_increasing_time(combined_group, time_name="ping_time")
-                        new_ping_time = combined_group["ping_time"]
-                    else:
-                        combined_group["ping_time"] = new_ping_time
-                if "time1" in combined_group and exist_reversed_time(combined_group, "time1"):
-                    if group != "nmea":
-                        if old_time1 is None:
-                            warnings.warn(
-                                f"{sonar_model} time1 reversal detected; the location times will be corrected"  # noqa
-                                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                            )
-                            old_time1 = combined_group["time1"]
-                            coerce_increasing_time(combined_group, time_name="time1")
-                            new_time1 = combined_group["time1"]
-                        else:
-                            combined_group["time1"] = new_time1
-            if sonar_model == "EK80":
-                if "time2" in combined_group and exist_reversed_time(combined_group, "time2"):
-                    if old_time2 is None:
-                        warnings.warn(
-                            f"{sonar_model} time2 reversal detected; the mru times will be corrected"  # noqa
-                            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-                        )
-                        old_time2 = combined_group["time2"]
-                        coerce_increasing_time(combined_group, time_name="time2")
-                        new_time2 = combined_group["time2"]
-                    else:
-                        combined_group["time2"] = new_time2
+            if sonar_model != "AD2CP":
+
+                combined_group, old_ping_time, new_ping_time = check_and_correct_reversed_time(
+                    combined_group, old_ping_time, new_ping_time, "ping_time", sonar_model
+                )
+
+                if group != "nmea":
+                    combined_group, old_time1, new_time1 = check_and_correct_reversed_time(
+                        combined_group, old_time1, new_time1, "time1", sonar_model
+                    )
+
+                combined_group, old_time2, new_time2 = check_and_correct_reversed_time(
+                    combined_group, old_time2, new_time2, "time2", sonar_model
+                )
+
+                combined_group, old_time3, new_time3 = check_and_correct_reversed_time(
+                    combined_group, old_time3, new_time3, "time3", sonar_model
+                )
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
@@ -226,7 +254,14 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             combined_group = combined_group.drop_dims("concat_dim", errors="ignore")
 
         combined_group = set_encodings(combined_group)
-        setattr(result, group, combined_group)
+        if value["ep_group"] is None:
+            tree_dict["root"] = combined_group
+        else:
+            tree_dict[value["ep_group"]] = combined_group
+
+    # Set tree into echodata object
+    result._set_tree(tree=DataTree.from_dict(tree_dict))
+    result._load_tree()
 
     # save ping time before reversal correction
     if old_ping_time is not None:
@@ -239,6 +274,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # save mru time before reversal correction
     if old_time2 is not None:
         result.provenance["old_time2"] = old_time2
+        result.provenance.attrs["reversed_ping_times"] = 1
+    # save time3 before reversal correction
+    if old_time3 is not None:
+        result.provenance["old_time3"] = old_time3
         result.provenance.attrs["reversed_ping_times"] = 1
     # TODO: possible parameter to disable original attributes and original ping_time storage
     # in provenance group?

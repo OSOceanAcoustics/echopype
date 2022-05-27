@@ -378,10 +378,10 @@ class SetGroupsAd2cp(SetGroupsBase):
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
-        # Assemble sonar group dictionary
-        sonar_dict = {
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
             "sonar_manufacturer": "Nortek",
-            "sonar_model": "AD2CP",
+            "sonar_model": self.sonar_model,
             "sonar_serial_number": "",
             "sonar_software_name": "",
             "sonar_software_version": "",
@@ -389,13 +389,13 @@ class SetGroupsAd2cp(SetGroupsBase):
             "sonar_type": "acoustic Doppler current profiler (ADCP)",
         }
         if "serial_number" in self.ds:
-            sonar_dict["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
+            sonar_attr_dict["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
         firmware_version = self.parser_obj.get_firmware_version()
         if firmware_version is not None:
-            sonar_dict["sonar_firmware_version"] = ", ".join(
+            sonar_attr_dict["sonar_firmware_version"] = ", ".join(
                 [f"{k}:{v}" for k, v in firmware_version.items()]
             )
 
-        ds = ds.assign_attrs(sonar_dict)
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds

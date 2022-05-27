@@ -174,7 +174,12 @@ class SetGroupsEK60(SetGroupsBase):
             ds_tmp["frequency_nominal"] = (
                 ["channel"],
                 [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             )
 
             ds_env.append(ds_tmp)
@@ -193,18 +198,18 @@ class SetGroupsEK60(SetGroupsBase):
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
-        # Assemble sonar group dictionary
-        sonar_dict = {
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
             "sonar_manufacturer": "Simrad",
-            "sonar_model": self.parser_obj.config_datagram["sounder_name"],
+            "sonar_model": self.sonar_model,
             # transducer (sonar) serial number is not stored in the EK60 raw data file,
             # so sonar_serial_number can't be populated from the raw datagrams
             "sonar_serial_number": "",
-            "sonar_software_name": "",
+            "sonar_software_name": self.parser_obj.config_datagram["sounder_name"],
             "sonar_software_version": self.parser_obj.config_datagram["version"],
             "sonar_type": "echosounder",
         }
-        ds = ds.assign_attrs(sonar_dict)
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds
 
@@ -236,7 +241,7 @@ class SetGroupsEK60(SetGroupsBase):
                     time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to GPS location.",
+                        "comment": "Time coordinate corresponding to NMEA position data.",
                     },
                 )
             },
@@ -321,9 +326,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
-                                "long_name": "Timestamps for position datagrams",
+                                "long_name": "Timestamps for platform motion and orientation data",
                                 "standard_name": "time",
-                                "comment": "Time coordinate corresponding to platform sensors.",
+                                "comment": "Time coordinate corresponding to platform motion and "
+                                "orientation data.",
                             },
                         ),
                         "time3": (
@@ -331,10 +337,10 @@ class SetGroupsEK60(SetGroupsBase):
                             self.parser_obj.ping_time[ch],
                             {
                                 "axis": "T",
-                                "long_name": "Timestamps for position datagrams",
+                                "long_name": "Timestamps for platform-related sampling environment",
                                 "standard_name": "time",
-                                "comment": "Time coordinate corresponding to "
-                                "environmental variables.",
+                                "comment": "Time coordinate corresponding to platform-related "
+                                "sampling environment.",
                             },
                         ),
                     },
@@ -356,7 +362,12 @@ class SetGroupsEK60(SetGroupsBase):
                 ds_tmp["frequency_nominal"] = (
                     ["channel"],
                     [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 )
 
                 ds_plat.append(ds_tmp)
@@ -420,7 +431,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (
                     "channel",
@@ -693,7 +709,7 @@ class SetGroupsEK60(SetGroupsBase):
         )  # override keeps the Dataset attributes
 
         # Manipulate some Dataset dimensions to adhere to convention
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -721,6 +737,7 @@ class SetGroupsEK60(SetGroupsBase):
                         "units": "Hz",
                         "long_name": "Transducer frequency",
                         "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
                     },
                 ),
                 "sa_correction": (["channel", "pulse_length_bin"], sa_correction),

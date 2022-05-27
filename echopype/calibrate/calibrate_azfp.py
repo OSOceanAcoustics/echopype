@@ -117,7 +117,7 @@ class CalibrateAZFP(CalibrateBase):
         a = self.cal_params["DS"]
         EL = (
             self.cal_params["EL"] - 2.5 / a + self.echodata.beam.backscatter_r / (26214 * a)
-        )  # eq.(5)
+        )  # eq.(5)  # has beam dim due to backscatter_r
 
         if cal_type == "Sv":
             # eq.(9)
@@ -154,7 +154,9 @@ class CalibrateAZFP(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        return out
+        # Squeeze out the beam dim
+        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
+        return out.squeeze("beam", drop=True)
 
     def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type="Sv")

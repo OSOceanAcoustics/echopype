@@ -68,9 +68,10 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
+    # TODO: resolve: pydevd warning: Computing repr of channels (list) was slow (took 0.29s)
     assert np.allclose(
         test_Sv[:, :, 7:],
-        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None), beam=0),
+        ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None)),
         atol=1e-8
     )
 
@@ -110,6 +111,22 @@ def test_compute_Sv_ek60_matlab(ek60_path):
 
     # Check TS
     check_output(ds_TS['TS'], 'Sp')
+
+
+def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+    ek60_raw_path = str(
+        ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
+    )
+
+    # Convert file
+    echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
+
+    # Calibrate to get Sv
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_TS = ep.calibrate.compute_TS(echodata)
+
+    assert isinstance(ds_Sv, xr.Dataset)
+    assert isinstance(ds_TS, xr.Dataset)
 
 
 def test_compute_Sv_azfp(azfp_path):
@@ -159,8 +176,7 @@ def test_compute_Sv_azfp(azfp_path):
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
-                ds_cmp[cal_type_in_ds_cmp[cal_type]]
-                .isel(channel=fidx, beam=0).drop('beam').values,
+                ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(channel=fidx).values,
                 ds_base['Output'][0][cal_type][fidx],
                 atol=1e-13,
                 rtol=0,
@@ -291,7 +307,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
-    and calibration in BB mode data encoded as complex seamples,
+    and calibration in BB mode data encoded as complex samples,
     while the file contains both CW power and BB complex samples.
     """
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"

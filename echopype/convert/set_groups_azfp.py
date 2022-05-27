@@ -73,16 +73,16 @@ class SetGroupsAZFP(SetGroupsBase):
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
-        # Assemble sonar group dictionary
-        sonar_dict = {
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
             "sonar_manufacturer": "ASL Environmental Sciences",
-            "sonar_model": "Acoustic Zooplankton Fish Profiler",
+            "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
             "sonar_software_name": "Based on AZFP Matlab Toolbox",
             "sonar_software_version": "1.4",
             "sonar_type": "echosounder",
         }
-        ds = ds.assign_attrs(sonar_dict)
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds
 
@@ -125,8 +125,11 @@ class SetGroupsAZFP(SetGroupsBase):
                     ["time2"],
                     time2,
                     {
-                        **self._varattrs["beam_coord_default"]["ping_time"],
-                        "comment": "Time coordinate corresponding to platform sensors.",
+                        "axis": "T",
+                        "long_name": "Timestamps for platform motion and orientation data",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
                     },
                 ),
             },
@@ -205,7 +208,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "backscatter_r": (["channel", "ping_time", "range_sample"], N),
                 "equivalent_beam_angle": (["channel"], parameters["BP"]),
@@ -245,7 +253,7 @@ class SetGroupsAZFP(SetGroupsBase):
         )
 
         # Manipulate some Dataset dimensions to adhere to convention
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -274,7 +282,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "XML_transmit_duration_nominal": (["channel"], tdn),
                 "XML_gain_correction": (["channel"], parameters["gain"]),

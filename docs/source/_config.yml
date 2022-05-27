@@ -45,3 +45,11 @@ sphinx:
     'sphinx.ext.githubpages',
     'sphinxcontrib.mermaid'
   ]
+  # config:
+  #   # https://github.com/executablebooks/jupyter-book/issues/1186
+  #   # https://sphinx-book-theme.readthedocs.io/en/latest/customize/sidebar-secondary.html
+  #   html_theme_options:
+  #     # primary sidebar (TOC)
+  #     show_navbar_depth: 1
+  #     # secondary (in-page) sidebar (TOC)
+  #     show_toc_level: 1

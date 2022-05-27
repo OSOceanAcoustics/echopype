@@ -128,7 +128,7 @@ class SetGroupsBase(abc.ABC):
                         "axis": "T",
                         "long_name": "Timestamps for NMEA datagrams",
                         "standard_name": "time",
-                        "comment": "Time coordinate corresponding to GPS location.",
+                        "comment": "Time coordinate corresponding to NMEA sensor data.",
                     },
                 )
             },
@@ -207,9 +207,8 @@ class SetGroupsBase(abc.ABC):
 
         return beam_groups_vars, beam_groups_coord
 
-    def _add_beam_dim(
-        self, ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]
-    ):
+    @staticmethod
+    def _add_beam_dim(ds: xr.Dataset, beam_only_names: Set[str], beam_ping_time_names: Set[str]):
         """
         Adds ``beam`` as the last dimension to the appropriate
         variables in ``Sonar/Beam_groupX`` groups when necessary.
@@ -245,7 +244,9 @@ class SetGroupsBase(abc.ABC):
                     .expand_dims(dim={"beam": np.array(["1"], dtype=str)}, axis=ds[var_name].ndim)
                     .copy()
                 )
-                ds[var_name].beam.attrs = self._varattrs["beam_coord_default"]["beam"]
+                ds[var_name].beam.attrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"][
+                    "beam_coord_default"
+                ]["beam"]
 
     @staticmethod
     def _add_ping_time_dim(
@@ -282,7 +283,7 @@ class SetGroupsBase(abc.ABC):
                 .copy()
             )
 
-    def beamgroups_to_convention(
+    def beam_groups_to_convention(
         self,
         ds: xr.Dataset,
         beam_only_names: Set[str],

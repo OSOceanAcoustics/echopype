@@ -117,11 +117,11 @@ class SetGroupsEK80(SetGroupsBase):
                     time1,
                     {
                         "axis": "T",
-                        "long_name": "Timestamp of each ping",
+                        "long_name": "Timestamps for NMEA position datagrams",
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to environmental "
                         "variables. Note that Platform.time3 is the same "
-                        "as Environment.time1",
+                        "as Environment.time1.",
                     },
                 ),
                 "sound_velocity_profile_depth": (
@@ -166,10 +166,15 @@ class SetGroupsEK80(SetGroupsBase):
             "frequency_nominal": (
                 ["channel"],
                 var["transducer_frequency"],
-                {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
             ),
             "serial_number": (["channel"], var["serial_number"]),
-            "sonar_model": (["channel"], var["transducer_name"]),
+            "transducer_name": (["channel"], var["transducer_name"]),
             "sonar_serial_number": (["channel"], var["channel_id_short"]),
             "sonar_software_name": (
                 ["channel"],
@@ -190,15 +195,23 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 **beam_groups_coord,
             },
-            attrs={"sonar_manufacturer": "Simrad", "sonar_type": "echosounder"},
         )
+
+        # Assemble sonar group global attribute dictionary
+        sonar_attr_dict = {
+            "sonar_manufacturer": "Simrad",
+            "sonar_model": self.sonar_model,
+            "sonar_type": "echosounder",
+        }
+        ds = ds.assign_attrs(sonar_attr_dict)
 
         return ds
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
-        ch_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+        ch_ids = self.parser_obj.ch_ids["complex"] + self.parser_obj.ch_ids["power"]
+
         freq = np.array(
             [
                 self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
@@ -225,53 +238,30 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "pitch": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
-                    {
-                        "long_name": "Platform pitch",
-                        "standard_name": "platform_pitch_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["pitch"],
                 ),
                 "roll": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("roll", [np.nan])),
-                    {
-                        "long_name": "Platform roll",
-                        "standard_name": "platform_roll_angle",
-                        "units": "arc_degree",
-                        "valid_range": (-90.0, 90.0),
-                    },
+                    self._varattrs["platform_var_default"]["roll"],
                 ),
                 "vertical_offset": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
-                "latitude": (
-                    ["time1"],
-                    lat,
-                    {
-                        "long_name": "Platform latitude",
-                        "standard_name": "latitude",
-                        "units": "degrees_north",
-                        "valid_range": (-90.0, 90.0),
-                    },
-                ),
-                "longitude": (
-                    ["time1"],
-                    lon,
-                    {
-                        "long_name": "Platform longitude",
-                        "standard_name": "longitude",
-                        "units": "degrees_east",
-                        "valid_range": (-180.0, 180.0),
-                    },
-                ),
+                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
+                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
                 "sentence_type": (["time1"], msg_type),
                 "drop_keel_offset": (
                     ["time3"],
@@ -352,9 +342,10 @@ class SetGroupsEK80(SetGroupsBase):
                     time2,
                     {
                         "axis": "T",
-                        "long_name": "Timestamps for MRU datagrams",
+                        "long_name": "Timestamps for platform motion and orientation data",
                         "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform sensors.",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
                     },
                 ),
                 "time3": (
@@ -364,10 +355,11 @@ class SetGroupsEK80(SetGroupsBase):
                     else np.datetime64("NaT"),
                     {
                         "axis": "T",
-                        "long_name": "Timestamps for Environment XML datagrams",
+                        "long_name": "Timestamps for platform-related sampling environment",
                         "standard_name": "time",
-                        "comment": "Time coordinate corresponding to environmental variables. "
-                        "Note that Platform.time3 is the same as Environment.time1",
+                        "comment": "Time coordinate corresponding to platform-related "
+                        "sampling environment. Note that Platform.time3 is "
+                        "the same as Environment.time1.",
                     },
                 ),
                 "time1": (
@@ -375,7 +367,7 @@ class SetGroupsEK80(SetGroupsBase):
                     time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to GPS location.",
+                        "comment": "Time coordinate corresponding to NMEA position data.",
                     },
                 ),
             },
@@ -416,7 +408,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     freq,
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "beam_type": (["channel"], beam_params["transducer_beam_type"]),
                 "beamwidth_twoway_alongship": (
@@ -506,7 +503,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_alongship"],
                     {
-                        "long_name": "alongship sensitivity of the transducer",
+                        "long_name": "alongship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -517,7 +514,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["angle_sensitivity_athwartship"],
                     {
-                        "long_name": "athwartship sensitivity of the transducer",
+                        "long_name": "athwartship angle sensitivity of the transducer",
                         "comment": (
                             "Introduced in echopype for Simrad echosounders. "  # noqa
                             "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
@@ -847,14 +844,14 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
-            self.beamgroups_to_convention(
+            self.beam_groups_to_convention(
                 ds_beam_power,
                 self.beam_only_names,
                 self.beam_ping_time_names,
                 self.ping_time_only_names,
             )
 
-        self.beamgroups_to_convention(
+        self.beam_groups_to_convention(
             ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
@@ -892,7 +889,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "frequency_nominal": (
                     ["channel"],
                     param_dict["transducer_frequency"],
-                    {"units": "Hz", "long_name": "Transducer frequency", "valid_min": 0.0},
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],
