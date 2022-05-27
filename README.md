@@ -67,15 +67,15 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 Contributors
 ------------
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team. 
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
 Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
 development of AZFP support in echopype.
-We also thank [Rick Towler](https://github.com/rhtowler) (@rhtowler)
-of the Alaska Fisheries Science Center
+We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
+of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 

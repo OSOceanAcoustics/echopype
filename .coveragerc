@@ -2,7 +2,4 @@
 omit =
     */echopype/tests/*
     */echopype/test_data/*
-    */echopype/process/*
-    */echopype/convert/add_ancillary.py
-    */echopype/convert/convert_combine.py
     */echopype/visualize/*

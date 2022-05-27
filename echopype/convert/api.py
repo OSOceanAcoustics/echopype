@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
+import xarray as xr
 import zarr
+from datatree import DataTree
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
@@ -21,9 +23,11 @@ COMPRESSION_SETTINGS = {
     "zarr": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
 }
 
-DEFAULT_CHUNK_SIZE = {"range_bin": 25000, "ping_time": 2500}
+DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
+
+BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
 
 def to_file(
@@ -115,7 +119,11 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Environment group
     io.save_file(
         echodata.environment.chunk(
-            {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
+            # Making chunking w.r.t. ping_time for AD2CP
+            # and w.r.t. time1 for the rest of the sensors
+            {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            if echodata.top.attrs["keywords"] != "AD2CP"
+            else {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
         ),  # TODO: chunking necessary?
         path=output_path,
         mode="a",
@@ -132,7 +140,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
     )
 
-    # Beam group
+    # /Sonar/Beam_groupX group
     if echodata.sonar_model == "AD2CP":
         io.save_file(
             echodata.beam.chunk(
@@ -143,41 +151,41 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam",
+            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
         io.save_file(
             echodata.beam.chunk(
                 {
-                    "range_bin": DEFAULT_CHUNK_SIZE["range_bin"],
+                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                 }
             ),
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam",
+            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     if echodata.beam_power is not None:
         io.save_file(
             echodata.beam_power.chunk(
                 {
-                    "range_bin": DEFAULT_CHUNK_SIZE["range_bin"],
+                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                 }
             ),
             path=output_path,
             mode="a",
             engine=engine,
-            group="Beam_power",
+            group="Sonar/Beam_group2",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
     # Platform group
     io.save_file(
-        echodata.platform,  # TODO: chunking necessary? location_time and mru_time (EK80) only
+        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
         path=output_path,
         mode="a",
         engine=engine,
@@ -196,7 +204,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
-    # Vendor-specific group
+    # Vendor_specific group
     if "ping_time" in echodata.vendor:
         io.save_file(
             echodata.vendor.chunk(
@@ -205,7 +213,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
@@ -214,7 +222,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
@@ -240,8 +248,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
         'platform_type': 'mooring'
     })
     """
-    # TODO: revise docstring, give examples.
-    # TODO: need to check and return valid/invalid params as done for Process
     out_params = dict()
 
     # Parameters for the Platform group
@@ -249,9 +255,7 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
     out_params["platform_type"] = param_dict.get("platform_type", "")
     out_params["water_level"] = param_dict.get("water_level", None)
-    out_params["nmea_gps_sentence"] = param_dict.get(
-        "nmea_gps_sentence", NMEA_SENTENCE_DEFAULT
-    )
+    out_params["nmea_gps_sentence"] = param_dict.get("nmea_gps_sentence", NMEA_SENTENCE_DEFAULT)
 
     # Parameters for the Top-level group
     out_params["survey_name"] = param_dict.get("survey_name", "")
@@ -429,28 +433,53 @@ def open_raw(
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
     )
-    # Set up echodata object
-    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
+
+    # Setup tree dictionary
+    tree_dict = {}
+
     # Top-level date_created varies depending on sonar model
+    # Top-level is called "root" within tree
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        echodata.top = setgrouper.set_toplevel(
-            sonar_model=sonar_model, date_created=parser.config_datagram["timestamp"]
+        tree_dict["root"] = setgrouper.set_toplevel(
+            sonar_model=sonar_model,
+            date_created=parser.config_datagram["timestamp"],
         )
     else:
-        echodata.top = setgrouper.set_toplevel(
+        tree_dict["root"] = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
-    echodata.environment = setgrouper.set_env()
-    echodata.platform = setgrouper.set_platform()
+    tree_dict["Environment"] = setgrouper.set_env()
+    tree_dict["Platform"] = setgrouper.set_platform()
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        echodata.nmea = setgrouper.set_nmea()
-    echodata.provenance = setgrouper.set_provenance()
-    echodata.sonar = setgrouper.set_sonar()
-    # Beam_power group only exist if EK80 has both complex and power/angle data
+        tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
+    tree_dict["Provenance"] = setgrouper.set_provenance()
+    # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
+    tree_dict["Sonar"] = None
+
+    # Set multi beam groups
+    beam_groups = setgrouper.set_beam()
+    if isinstance(beam_groups, xr.Dataset):
+        # if it's a single dataset like the ek60, make into list
+        beam_groups = [beam_groups]
+
+    valid_beam_groups_count = 0
+    for idx, beam_group in enumerate(beam_groups, start=1):
+        if beam_group is not None:
+            valid_beam_groups_count += 1
+            tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
+
     if sonar_model in ["EK80", "ES80", "EA640"]:
-        echodata.beam, echodata.beam_power = setgrouper.set_beam()
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
     else:
-        echodata.beam = setgrouper.set_beam()
-    echodata.vendor = setgrouper.set_vendor()
+        tree_dict["Sonar"] = setgrouper.set_sonar()
+
+    tree_dict["Vendor_specific"] = setgrouper.set_vendor()
+
+    # Create tree and echodata
+    # TODO: make the creation of tree dynamically generated from yaml
+    tree = DataTree.from_dict(tree_dict)
+    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
+    echodata._set_tree(tree)
+    echodata._load_tree()
 
     return echodata

@@ -31,7 +31,6 @@ MODULES_TO_TEST = {
     "preprocess": {},
     "utils": {},
     "visualize": {},
-    "old": {"extra_globs": ["echopype/convert/convert.py", "echopype/process/*"]},
     "metrics": {},
 }
 
@@ -45,9 +44,7 @@ if __name__ == "__main__":
         default="",
         help="Comma separated list of changed files.",
     )
-    parser.add_argument(
-        "--pytest-args", type=str, help="Optional pytest args", default=""
-    )
+    parser.add_argument("--pytest-args", type=str, help="Optional pytest args", default="")
     parser.add_argument(
         "--local",
         action="store_true",
@@ -124,13 +121,7 @@ if __name__ == "__main__":
             file_glob_str = f"echopype/tests/{k}/*.py"
             cov_mod_arg = [f"--cov=echopype/{k}"]
         if args.include_cov:
-            if k == "old":
-                pytest_args = original_pytest_args + [
-                    "--cov=echopype/convert",
-                    "--cov=echopype/process",
-                ]
-            else:
-                pytest_args = original_pytest_args + cov_mod_arg
+            pytest_args = original_pytest_args + cov_mod_arg
         test_files = glob.glob(file_glob_str)
         final_args = pytest_args + test_files
         print(f"Pytest args: {final_args}")
@@ -141,8 +132,8 @@ if __name__ == "__main__":
         print("No test(s) were run.")
         sys.exit(0)
     if all(True if e == 0 else False for e in total_exit_codes):
-        print("All test run successful")
+        print("All tests have been run successfully!")
         sys.exit(0)
     else:
-        print("Some run failed. Please see log.")
+        print("Some runs have failed. Please see the log.")
         sys.exit(1)
