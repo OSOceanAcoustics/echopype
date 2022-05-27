@@ -33,6 +33,49 @@ def ek80_new_file(request):
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
+def check_env_xml(echodata):
+    # check environment xml datagram
+
+    # check env vars
+    env_vars = {
+        "sound_velocity_source": ["Manual", "Calculated"],
+        "transducer_name": ["Unknown"],
+    }
+    for env_var, expected_env_var_values in env_vars.items():
+        assert env_var in echodata["Environment"]
+        assert echodata["Environment"][env_var].dims == ("time1",)
+        assert all([env_var_value in expected_env_var_values for env_var_value in echodata["Environment"][env_var]])
+    assert "transducer_sound_speed" in echodata["Environment"]
+    assert echodata["Environment"]["transducer_sound_speed"].dims == ("time1",)
+    assert (1480 <= echodata["Environment"]["transducer_sound_speed"]).all() and (echodata["Environment"]["transducer_sound_speed"] <= 1500).all()
+    assert "sound_velocity_profile" in echodata["Environment"]
+    assert echodata["Environment"]["sound_velocity_profile"].dims == ("time1", "sound_velocity_profile_depth")
+    assert (1470 <= echodata["Environment"]["sound_velocity_profile"]).all() and (echodata["Environment"]["sound_velocity_profile"] <= 1500).all()
+
+    # check env dims
+    assert "time1" in echodata["Environment"]
+    assert "sound_velocity_profile_depth"
+    assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
+
+    # check plat vars
+    plat_vars = {
+        "drop_keel_offset": [np.nan],
+        "drop_keel_offset_is_manual": [0, 1],
+        "water_level": [0],
+        "water_level_draft_is_manual": [0, 1]
+    }
+    for plat_var, expected_plat_var_values in plat_vars.items():
+        assert plat_var in echodata["Platform"]
+        assert echodata["Platform"][plat_var].dims == ("time3",)
+        if np.isnan(expected_plat_var_values).all():
+            assert np.isnan(echodata["Platform"][plat_var]).all()
+        else:
+            assert all([env_var_value in expected_plat_var_values for env_var_value in echodata["Platform"][plat_var]])
+
+    # check plat dims
+    assert "time3" in echodata["Platform"]
+
+
 def test_convert(ek80_new_file, dump_output_dir):
     print("converting", ek80_new_file)
     echodata = open_raw(raw_file=str(ek80_new_file), sonar_model="EK80")
@@ -42,6 +85,8 @@ def test_convert(ek80_new_file, dump_output_dir):
     assert nc_file.is_file() is True
 
     nc_file.unlink()
+
+    check_env_xml(echodata)
 
 
 def test_convert_ek80_complex_matlab(ek80_path):
@@ -54,10 +99,14 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata.beam.backscatter_r.isel(frequency=0, ping_time=0)
+        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C',
+                                        ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
         np.real(
@@ -65,13 +114,39 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ),  # real part
     )
     assert np.array_equal(
-        echodata.beam.backscatter_i.isel(frequency=0, ping_time=0)
+        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C',
+                                        ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
         np.imag(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # imag part
     )
+
+    check_env_xml(echodata)
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
 
 
 def test_convert_ek80_cw_power_angle_echoview(ek80_path):
@@ -96,16 +171,25 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     # Convert file
     echodata = open_raw(ek80_raw_path_cw, sonar_model='EK80')
 
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+
+    # get sorted channel list based on frequency_nominal values
+    channel_list = echodata.beam.channel[sorted_freq_ind.values]
+
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test power
     # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
-    echodata.beam.backscatter_r[3, 4, 13174] = -999
-    for file, freq in zip(ek80_echoview_power_csv, freq_list):
+    echodata.beam.backscatter_r[sorted_freq_ind.values[3], 4, 13174] = -999
+    for file, chan in zip(ek80_echoview_power_csv, channel_list):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata.beam.backscatter_r.sel(frequency=freq * 1e3).dropna(
-                'range_sample'
-            ),
+            echodata.beam.backscatter_r.sel(channel=chan,
+                                            beam='1').dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
         )
@@ -123,7 +207,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         / echodata.beam['angle_sensitivity_alongship']
         - echodata.beam['angle_offset_alongship']
     )
-    for freq, file in zip(freq_list, ek80_echoview_angle_csv):
+    for chan, file in zip(channel_list, ek80_echoview_angle_csv):
         df_angle = pd.read_csv(file)
         # NB: EchoView exported data only has 6 pings, but raw data actually has 7 pings.
         #     The first raw ping (ping 0) was removed in EchoView for some reason.
@@ -131,7 +215,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         for ping_idx in df_angle['Ping_index'].value_counts().index:
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                major.sel(frequency=freq * 1e3)
+                major.sel(channel=chan, beam='1')
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -139,12 +223,38 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
             )
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                minor.sel(frequency=freq * 1e3)
+                minor.sel(channel=chan, beam='1')
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
                 atol=5e-5,
             )
+
+    check_env_xml(echodata)
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+    assert "transducer_offset_z" in echodata["Platform"]
+    assert (echodata["Platform"]["transducer_offset_z"] == 9.15).all()
 
 
 def test_convert_ek80_complex_echoview(ek80_path):
@@ -157,12 +267,15 @@ def test_convert_ek80_complex_echoview(ek80_path):
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
     # Test complex parsed data
     df_bb = pd.read_csv(
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
     )  # averaged across beams
     assert np.allclose(
-        echodata.beam.backscatter_r.sel(frequency=70e3)
+        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
@@ -170,13 +283,38 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=8e-6,
     )
     assert np.allclose(
-        echodata.beam.backscatter_i.sel(frequency=70e3)
+        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
         rtol=0,
         atol=4e-6,
     )
+
+    check_env_xml(echodata)
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
 
 
 def test_convert_ek80_cw_bb_in_single_file(ek80_path):
@@ -190,13 +328,70 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     assert echodata.beam_power is not None
     assert echodata.beam is not None
 
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
+    check_env_xml(echodata)
+
 
 def test_convert_ek80_freq_subset(ek80_path):
-    """Make sure can convert EK80 file with multiple frequency channels off."""
+    """Make sure we can convert EK80 file with multiple frequency channels off."""
     ek80_raw_path_freq_subset = str(
         ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw')
     )
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
     # Check if converted output has only 2 frequency channels
-    assert echodata.beam.frequency.size == 2
+    assert echodata.beam.channel.size == 2
+
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+    # check water_level
+    assert (echodata["Platform"]["water_level"] == 0).all()
+
+    check_env_xml(echodata)

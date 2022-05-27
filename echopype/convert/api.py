@@ -119,7 +119,11 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Environment group
     io.save_file(
         echodata.environment.chunk(
-            {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
+            # Making chunking w.r.t. ping_time for AD2CP
+            # and w.r.t. time1 for the rest of the sensors
+            {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            if echodata.top.attrs["keywords"] != "AD2CP"
+            else {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
         ),  # TODO: chunking necessary?
         path=output_path,
         mode="a",
@@ -181,7 +185,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
 
     # Platform group
     io.save_file(
-        echodata.platform,  # TODO: chunking necessary? location_time and mru_time (EK80) only
+        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
         path=output_path,
         mode="a",
         engine=engine,
@@ -200,7 +204,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
-    # Vendor-specific group
+    # Vendor_specific group
     if "ping_time" in echodata.vendor:
         io.save_file(
             echodata.vendor.chunk(
@@ -209,7 +213,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
     else:
@@ -218,7 +222,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             path=output_path,
             mode="a",
             engine=engine,
-            group="Vendor",
+            group="Vendor_specific",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
 
@@ -449,20 +453,27 @@ def open_raw(
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
     tree_dict["Provenance"] = setgrouper.set_provenance()
-    tree_dict["Sonar"] = setgrouper.set_sonar()
+    # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
+    tree_dict["Sonar"] = None
 
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
     if isinstance(beam_groups, xr.Dataset):
-        # if it's a single dataset like the ek60,
-        # make into list
+        # if it's a single dataset like the ek60, make into list
         beam_groups = [beam_groups]
 
+    valid_beam_groups_count = 0
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
+            valid_beam_groups_count += 1
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
-    tree_dict["Vendor"] = setgrouper.set_vendor()
+    if sonar_model in ["EK80", "ES80", "EA640"]:
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+    else:
+        tree_dict["Sonar"] = setgrouper.set_sonar()
+
+    tree_dict["Vendor_specific"] = setgrouper.set_vendor()
 
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml

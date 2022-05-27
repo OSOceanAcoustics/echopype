@@ -28,10 +28,18 @@ class CalibrateAZFP(CalibrateBase):
         ----------
         cal_params : dict
         """
-        # Params from the Beam group
-        for p in ["EL", "DS", "TVR", "VTX", "Sv_offset", "equivalent_beam_angle"]:
+
+        # Get params from Beam_group1
+        self.cal_params["equivalent_beam_angle"] = (
+            cal_params["equivalent_beam_angle"]
+            if "equivalent_beam_angle" in cal_params
+            else self.echodata.beam["equivalent_beam_angle"]
+        )
+
+        # Get params from the Vendor_specific group
+        for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.beam[p]
+            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.vendor[p]
 
     def get_env_params(self):
         """Get env params using user inputs or values from data file.
@@ -41,10 +49,12 @@ class CalibrateAZFP(CalibrateBase):
         env_params : dict
         """
         # Temperature comes from either user input or data file
+        # Below, renaming time1 to ping_time is necessary because we are performing
+        # calculations with the beam groups that use ping_time
         self.env_params["temperature"] = (
             self.env_params["temperature"]
             if "temperature" in self.env_params
-            else self.echodata.environment["temperature"]
+            else self.echodata.environment["temperature"].rename({"time1": "ping_time"})
         )
 
         # Salinity and pressure always come from user input
@@ -62,7 +72,7 @@ class CalibrateAZFP(CalibrateBase):
             formula_source="AZFP",
         )
         self.env_params["sound_absorption"] = uwa.calc_absorption(
-            frequency=self.echodata.beam["frequency"],
+            frequency=self.echodata.beam["frequency_nominal"],
             temperature=self.env_params["temperature"],
             salinity=self.env_params["salinity"],
             pressure=self.env_params["pressure"],
@@ -107,7 +117,7 @@ class CalibrateAZFP(CalibrateBase):
         a = self.cal_params["DS"]
         EL = (
             self.cal_params["EL"] - 2.5 / a + self.echodata.beam.backscatter_r / (26214 * a)
-        )  # eq.(5)
+        )  # eq.(5)  # has beam dim due to backscatter_r
 
         if cal_type == "Sv":
             # eq.(9)
@@ -138,10 +148,15 @@ class CalibrateAZFP(CalibrateBase):
         out = out.to_dataset()
         out = out.merge(self.range_meter)
 
+        # Add frequency_nominal to data set
+        out["frequency_nominal"] = self.echodata.beam["frequency_nominal"]
+
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        return out
+        # Squeeze out the beam dim
+        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
+        return out.squeeze("beam", drop=True)
 
     def compute_Sv(self, **kwargs):
         return self._cal_power(cal_type="Sv")

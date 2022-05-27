@@ -68,10 +68,11 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     test_Sv = np.stack(channels)
 
     # Echoview data is shifted by 1 sample along range (missing the first sample)
+    # TODO: resolve: pydevd warning: Computing repr of channels (list) was slow (took 0.29s)
     assert np.allclose(
         test_Sv[:, :, 7:],
         ds_Sv.Sv.isel(ping_time=slice(None, 10), range_sample=slice(8, None)),
-        atol=1e-8,
+        atol=1e-8
     )
 
 
@@ -99,7 +100,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     def check_output(da_cmp, cal_type):
         for fidx in range(5):  # loop through all freq
             assert np.allclose(
-                da_cmp.isel(frequency=0).T.values,
+                da_cmp.isel(channel=0).T.values,
                 ds_base['data']['pings'][0][0][cal_type][0, 0],
                 atol=4e-5,
                 rtol=0,
@@ -110,6 +111,22 @@ def test_compute_Sv_ek60_matlab(ek60_path):
 
     # Check TS
     check_output(ds_TS['TS'], 'Sp')
+
+
+def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+    ek60_raw_path = str(
+        ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
+    )
+
+    # Convert file
+    echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
+
+    # Calibrate to get Sv
+    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_TS = ep.calibrate.compute_TS(echodata)
+
+    assert isinstance(ds_Sv, xr.Dataset)
+    assert isinstance(ds_TS, xr.Dataset)
 
 
 def test_compute_Sv_azfp(azfp_path):
@@ -130,7 +147,7 @@ def test_compute_Sv_azfp(azfp_path):
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
     # AZFP Matlab code uses average temperature
     avg_temperature = (
-        echodata.environment['temperature'].mean('ping_time').values
+        echodata.environment['temperature'].mean('time1').values
     )
     env_params = {
         'temperature': avg_temperature,
@@ -148,19 +165,18 @@ def test_compute_Sv_azfp(azfp_path):
 
     def check_output(base_path, ds_cmp, cal_type):
         ds_base = loadmat(base_path)
+        # print(f"ds_base = {ds_base}")
         cal_type_in_ds_cmp = {
             'Sv': 'Sv',
             'TS': 'TS',  # TS here is TS in matlab outputs
         }
         for fidx in range(4):  # loop through all freq
             assert np.alltrue(
-                ds_cmp.echo_range.isel(frequency=fidx).values
+                ds_cmp.echo_range.isel(channel=fidx, ping_time=0).values[None, :]
                 == ds_base['Output'][0]['Range'][fidx]
             )
             assert np.allclose(
-                ds_cmp[cal_type_in_ds_cmp[cal_type]]
-                .isel(frequency=fidx)
-                .values,
+                ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(channel=fidx).values,
                 ds_base['Output'][0][cal_type][fidx],
                 atol=1e-13,
                 rtol=0,
@@ -190,7 +206,7 @@ def test_compute_Sv_ek80_matlab(ek80_path):
 
     # TODO: resolve discrepancy in range between echopype and Matlab code
     ds_matlab = loadmat(ek80_matlab_path)
-    Sv_70k = ds_Sv.Sv.isel(frequency=0, ping_time=0).dropna('range_sample').values
+    Sv_70k = ds_Sv.Sv.isel(channel=0, ping_time=0).dropna('range_sample').values
 
 
 def test_compute_Sv_ek80_pc_echoview(ek80_path):
@@ -222,11 +238,11 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     freq_center = (
         echodata.beam["frequency_start"] + echodata.beam["frequency_end"]
     ).dropna(
-        dim="frequency"
+        dim="channel"
     ) / 2  # drop those that contain CW samples (nan in freq start/end)
-    pc = cal_obj.compress_pulse(chirp, freq_BB=freq_center.frequency)
+    pc = cal_obj.compress_pulse(chirp, chan_BB=freq_center.channel)
     pc_mean = (
-        pc.pulse_compressed_output.isel(frequency=0)
+        pc.pulse_compressed_output.isel(channel=1)
         .mean(dim='beam')
         .dropna('range_sample')
     )
@@ -245,7 +261,8 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
 
     # Compare only values for range > 0: difference is surprisingly large
-    range_meter = cal_obj.range_meter.isel(frequency=0, ping_time=0).values
+    range_meter = cal_obj.range_meter.sel(channel='WBT 549762-15 ES70-7C',
+                                          ping_time='2017-09-12T23:49:10.722999808').values
     first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
     assert np.allclose(
         df_real.values[:, first_nonzero_range : pc_mean.values.shape[1]],
@@ -290,7 +307,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
-    and calibration in BB mode data encoded as complex seamples,
+    and calibration in BB mode data encoded as complex samples,
     while the file contains both CW power and BB complex samples.
     """
     ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"
@@ -321,6 +338,7 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path):
     )
     assert isinstance(ds_Sv, xr.Dataset)
 
+
 def test_env_params(ek60_path):
     """
     Tests EnvParams interpolation
@@ -333,12 +351,12 @@ def test_env_params(ek60_path):
     # values after 1:25 will be extrapolated
     env_params_data = xr.Dataset(
         data_vars={
-            "pressure": ("ping_time", np.arange(50)),
-            "salinity": ("ping_time", np.arange(50)),
-            "temperature": ("ping_time", np.arange(50)),
+            "pressure": ("time3", np.arange(50)),
+            "salinity": ("time3", np.arange(50)),
+            "temperature": ("time3", np.arange(50)),
         },
         coords={
-            "ping_time": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+            "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
         }
     )
     env_params = EnvParams(env_params_data, "stationary")

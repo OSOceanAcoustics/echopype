@@ -2,7 +2,7 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: index.rst
+root: index
 parts:
 - caption: Getting Started
   chapters:
@@ -14,9 +14,11 @@ parts:
   - file: open-converted
   - file: process
   - file: data-format
+  - file: viz
 - caption: Help & reference
   chapters:
   - file: api
   - file: whats-new
+  - file: roadmap
   - file: contributing
   - file: resources
