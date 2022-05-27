@@ -39,33 +39,29 @@ File conversion for different types of echosounders is achieved by
 using the single function ``open_raw`` to parse the raw data and
 create a fully parsed ``EchoData`` object.
 
-Use the parameter ``sonar_model`` to indicate the echosounder type:
-    - ``EK60``: Kongsberg Simrad EK60 echosounder
-    - ``ES70``: Kongsberg Simrad ES70 echosounder
-    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echosounders
-    - ``EK80``: Kongsberg Simrad EK80 and Kongsberg EA640 echsoounders
+Use the parameter ``sonar_model`` to indicate the sonar type:
+    - ``EK60``: Kongsberg-Simrad EK60 echosounder
+    - ``ES70``: Kongsberg-Simrad ES70 echosounder
+    - ``EK80``: Kongsberg-Simrad EK80 echosounder
+    - ``ES80``: Kongsberg-Simrad ES80 echosounder
+    - ``EA640``: Kongsberg EA640 echosounder
     - ``AZFP``: ASL Environmental Sciences AZFP echosounder
     - ``AD2CP``: Nortek Signature series ADCP
       (tested with Signature 500 and Signature 1000)
 
+
+``EchoData`` objects are based on the **SONAR-netCDF4 vers.1 convention**, with some
+modifications introduced by echopype; see :doc:`data-format` for details.
+
 In the following example, ``open_raw`` is used to convert a raw EK80 file,
-return the EchoData object ``ed``, and generate a converted
-netCDF file named ``FILENAME.nc`` saved to the directory path
-``./unpacked_files``:
+and return an in-memory ``EchoData`` object ``ed``. The ``to_netcdf`` method on
+``ed`` is then used to generate a converted SONAR-netCDF4 vers.1 file named ``FILENAME.nc``
+saved to the directory path ``./unpacked_files``:
 
 .. code-block:: python
 
     ed = open_raw('FILENAME.raw', sonar_model='EK80')  # for EK80 file
     ed.to_netcdf(save_path='./unpacked_files')
-
-
-.. EXPERIMENT WITH BEST WAY TO PRESENT NOTES (DIRECTIVES) ABOUT CHANGES WITH NEW VERSION
-
-.. attention::
-
-   - The ``EchoData`` class has been overhauled in 0.5.0, and the new ``open_raw`` function
-     returns a fully parsed ``EchoData`` object that can be operated in memory or
-     exported to a converted file. For more details see :doc:`open-converted`.
 
 For data files from the AZFP echosounder, the conversion requires an
 extra ``.XML`` file along with the ``.01A`` data file, specified using
@@ -110,10 +106,6 @@ package, and all file systems implemented by ``fsspec`` are supported;
 a list of these file systems is available on the
 `fsspec registry documentation <https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations>`_.
 
-.. attention::
-   ``fsspec``-based access from file locations other than a local file system was
-   introduced in version 0.5.0
-
 https access
 ~~~~~~~~~~~~
 
@@ -156,7 +148,7 @@ through ``storage_options`` keywords:
 
 or via a credentials file stored in the default AWS credentials file
 (``~/.aws/credentials``). For ``profile`` "myprofilename" found in
-the credential file:
+the credential file (note that ``aiobotocore`` is installed by ``echopype``):
 
 .. code-block:: python
 
@@ -181,29 +173,23 @@ If the argument is not specified, the converted ``.nc`` and ``.zarr``
 files are saved into a folder called ``temp_echopype_output`` under the
 current execution folder. This folder will be created if it doesn't already exists.
 
-.. attention::
-
-   The use of a default ``temp_echopype_output`` folder was introduced in
-   versions 0.5.0. In prior versions, the default was to save each
-   converted file into the same folder as the corresponding input file.
-
 
 Specify metadata attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before calling ``to_netcdf()`` or ``to_zarr()``, you can manually set some
-data attributes that are not recorded in the raw data files but need to be
+metadata attributes that are not recorded in the raw data files but need to be
 specified according to the SONAR-netCDF4 convention.
-These attributes are metadata and include
-``platform_name``, ``platform_type``, ``platform_code_ICES``,
-and sometimes ``water_level``, depending on the sonar model.
+Common attributes typically not found in the raw files include the following,
+in the ``Platform`` netCDF4 group:
+``platform_name``, ``platform_type`` and ``platform_code_ICES``.
 These attributes can be set using the following:
 
 .. code-block:: python
 
-    ed.platform.attrs['platform_name'] = 'OOI'
-    ed.platform.attrs['platform_type'] = 'subsurface mooring'
-    ed.platform.attrs['platform_code_ICES'] = '3164'   # Platform code for Moorings
+    ed['Platform']['platform_name'] = 'OOI'
+    ed['Platform']['platform_type'] = 'subsurface mooring'
+    ed['Platform']['platform_code_ICES'] = '3164'   # Platform code for Moorings
 
 The ``platform_code_ICES`` attribute can be chosen by referencing
 the platform code from the
@@ -253,9 +239,6 @@ Save to AWS S3
 
    These instructions should apply to other object storage providers such as
    Google Cloud and Azure, but have only been tested on AWS S3.
-
-.. attention::
-   Saving to S3 was introduced in version 0.5.0.
 
 Converted files can be saved directly into an AWS S3 bucket by specifying
 ``output_storage_options``, similar to ``storage_options`` with input files

@@ -3,6 +3,10 @@ What's new
 
 See `GitHub releases page <https://github.com/OSOceanAcoustics/echopype/releases>`_ for the complete history.
 
+v0.6.0 (2022 May 26)
+--------------------
+
+
 v0.5.6 (2022 Feb 10)
 --------------------
 

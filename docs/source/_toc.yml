@@ -8,13 +8,13 @@ parts:
   chapters:
   - file: why
   - file: installation
-  - file: roadmap
 - caption: User guide
   chapters:
   - file: convert
   - file: open-converted
   - file: process
   - file: data-format
+    title: Data formats
     sections:
     - file: data-format-raw
     - file: data-format-processed
@@ -24,5 +24,6 @@ parts:
   chapters:
   - file: api
   - file: whats-new
+  - file: roadmap
   - file: contributing
   - file: resources
