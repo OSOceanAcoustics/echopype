@@ -15,7 +15,3 @@ prune echopype/test_data
 prune echopype/tests
 exclude echopype/testing.py
 exclude .gitattributes
-
-# Ignore some unfinished scripts
-exclude **/add_ancillary.py
-exclude **/convert_combine.py

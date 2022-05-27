@@ -37,14 +37,40 @@ def test_convert_ek60_matlab_raw(ek60_path):
     # Compare with matlab outputs
     ds_matlab = loadmat(ek60_matlab_path)
 
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
+
     # power
     assert np.allclose(
         [
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata.beam.backscatter_r.transpose(
-            'frequency', 'range_bin', 'ping_time'
+        echodata.beam.backscatter_r.isel(beam=0).transpose(
+            'channel', 'range_sample', 'ping_time'
         ),
         rtol=0,
         atol=1.6e-5,
@@ -56,8 +82,8 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata.beam['angle_' + angle].transpose(
-                'frequency', 'range_bin', 'ping_time'
+            echodata.beam['angle_' + angle].isel(beam=0).transpose(
+                'channel', 'range_sample', 'ping_time'
             ),
         )
 
@@ -84,17 +110,50 @@ def test_convert_ek60_echoview_raw(ek60_path):
 
     # Convert to netCDF and check
     echodata = open_raw(raw_file=ek60_raw_path, sonar_model='EK60')
+
+    # get indices of sorted frequency_nominal values. This is necessary
+    # because the frequency_nominal values are not always in ascending order.
+    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+
     for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
         assert np.allclose(
             test_power[fidx, :, :],
             echodata.beam.backscatter_r.isel(
-                frequency=fidx,
+                channel=sorted_freq_ind[fidx],
                 ping_time=slice(None, 10),
-                range_bin=slice(1, None),
+                range_sample=slice(1, None),
+                beam=0
             ),
             atol=9e-6,
             rtol=atol,
         )
+
+    # check platform
+    nan_plat_vars = [
+        "MRU_offset_x",
+        "MRU_offset_y",
+        "MRU_offset_z",
+        "MRU_rotation_x",
+        "MRU_rotation_y",
+        "MRU_rotation_z",
+        "position_offset_x",
+        "position_offset_y",
+        "position_offset_z"
+    ]
+    for plat_var in nan_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert np.isnan(echodata["Platform"][plat_var]).all()
+    zero_plat_vars = [
+        "transducer_offset_x",
+        "transducer_offset_y",
+        "transducer_offset_z",
+    ]
+    for plat_var in zero_plat_vars:
+        assert plat_var in echodata["Platform"]
+        assert (echodata["Platform"][plat_var] == 0).all()
+
+    # check water_level
+    assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 
 def test_convert_ek60_duplicate_ping_times(ek60_path):
@@ -109,3 +168,28 @@ def test_convert_ek60_duplicate_ping_times(ek60_path):
 
     assert "duplicate_ping_times" in ed.provenance.attrs
     assert "old_ping_time" in ed.provenance
+
+
+def test_convert_ek60_duplicate_frequencies(ek60_path):
+    """Convert a file with duplicate frequencies"""
+
+    raw_path = (
+        ek60_path
+        / "DY1002_EK60-D20100318-T023008_rep_freq.raw"
+    )
+    ed = open_raw(raw_path, "EK60")
+
+    truth_chan_vals = np.array(['GPT  18 kHz 009072034d45 1-1 ES18-11',
+                                'GPT  38 kHz 009072033fa2 2-1 ES38B',
+                                'GPT  70 kHz 009072058c6c 3-1 ES70-7C',
+                                'GPT  70 kHz 009072058c6c 3-2 ES70-7C',
+                                'GPT 120 kHz 00907205794e 4-1 ES120-7C',
+                                'GPT 200 kHz 0090720346a8 5-1 ES200-7C'], dtype='<U37')
+
+    truth_freq_nom_vals = np.array([18000., 38000., 70000.,
+                                    70000., 120000., 200000.], dtype=np.float64)
+
+    assert np.allclose(ed['Sonar/Beam_group1'].frequency_nominal,
+                       truth_freq_nom_vals, rtol=1e-05, atol=1e-08)
+
+    assert np.all(ed['Sonar/Beam_group1'].channel.values == truth_chan_vals)

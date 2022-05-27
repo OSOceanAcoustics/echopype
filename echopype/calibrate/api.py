@@ -3,6 +3,7 @@ import warnings
 import xarray as xr
 
 from ..echodata import EchoData
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 
@@ -20,9 +21,7 @@ def _compute_cal(
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
-            raise ValueError(
-                "waveform_mode and encode_mode must be specified for EK80 calibration"
-            )
+            raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
         elif waveform_mode not in ("BB", "CW"):
             raise ValueError("Input waveform_mode not recognized!")
         elif encode_mode not in ("complex", "power"):
@@ -51,11 +50,58 @@ def _compute_cal(
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
     )
+
+    def add_attrs(cal_type, ds):
+        """Add attributes to backscattering strength dataset.
+        cal_type: Sv or TS
+        """
+        ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
+        ds["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+        ds[cal_type].attrs = {
+            "long_name": {
+                "Sv": "Volume backscattering strength (Sv re 1 m-1)",
+                "TS": "Target strength (TS re 1 m^2)",
+            }[cal_type],
+            "units": "dB",
+            "actual_range": [
+                round(float(ds[cal_type].min().values), 2),
+                round(float(ds[cal_type].max().values), 2),
+            ],
+        }
+        if echodata.sonar_model == "EK80":
+            ds[cal_type] = ds[cal_type].assign_attrs(
+                {
+                    "waveform_mode": waveform_mode,
+                    "encode_mode": encode_mode,
+                }
+            )
+
     # Perform calibration
     if cal_type == "Sv":
-        return cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
     else:
-        return cal_obj.compute_Sp(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+    add_attrs(cal_type, cal_ds)
+    # Provenance source files may originate from raw files (echodata.source_files)
+    # or converted files (echodata.converted_raw_path)
+    if echodata.source_file is not None:
+        source_file = echodata.source_file
+    elif echodata.converted_raw_path is not None:
+        source_file = echodata.converted_raw_path
+    else:
+        source_file = "SOURCE FILE NOT IDENTIFIED"
+
+    cal_ds["source_filenames"] = source_files_vars(source_file)["source_filenames"]
+    prov_dict = echopype_prov_attrs(process_type="processing")
+    prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
+    cal_ds = cal_ds.assign_attrs(prov_dict)
+
+    if "water_level" in echodata.platform.data_vars.keys():
+        # add water_level to the created xr.Dataset
+        cal_ds["water_level"] = echodata.platform.water_level
+
+    return cal_ds
 
 
 def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
@@ -139,13 +185,17 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     The current calibration implemented for EK80 broadband complex data
     uses band-integrated Sv with the gain computed at the center frequency
     of the transmit signal.
+
+    The returned xr.Dataset will contain the variable `water_level` from the
+    EchoData object provided, if it exists. If `water_level` is not returned,
+    it must be set using `EchoData.update_platform()`.
     """
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
 
-def compute_Sp(echodata: EchoData, **kwargs):
+def compute_TS(echodata: EchoData, **kwargs):
     """
-    Compute point backscattering strength (Sp) from raw data.
+    Compute target strength (TS) from raw data.
 
     The calibration routine varies depending on the sonar type.
     Currently this operation is supported for the following ``sonar_model``:
@@ -206,7 +256,7 @@ def compute_Sp(echodata: EchoData, **kwargs):
     Returns
     -------
     xr.Dataset
-        The calibrated Sp dataset, including calibration parameters
+        The calibrated TS dataset, including calibration parameters
         and environmental variables used in the calibration operations.
 
     Notes
@@ -222,7 +272,17 @@ def compute_Sp(echodata: EchoData, **kwargs):
     similar to those recorded by EK60 echosounders.
 
     The current calibration implemented for EK80 broadband complex data
-    uses band-integrated Sp with the gain computed at the center frequency
+    uses band-integrated TS with the gain computed at the center frequency
     of the transmit signal.
+
+    Note that in the fisheries acoustics context, it is customary to
+    associate TS to a single scatterer.
+    TS is defined as: TS = 10 * np.log10 (sigma_bs), where sigma_bs
+    is the backscattering cross-section.
+
+    For details, see:
+    MacLennan et al. 2002. A consistent approach to definitions and
+    symbols in fisheries acoustics. ICES J. Mar. Sci. 59: 365-369.
+    https://doi.org/10.1006/jmsc.2001.1158
     """
-    return _compute_cal(cal_type="Sp", echodata=echodata, **kwargs)
+    return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)

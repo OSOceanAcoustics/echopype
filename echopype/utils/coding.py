@@ -1,3 +1,5 @@
+from re import search
+
 import numpy as np
 import xarray as xr
 import zarr
@@ -23,8 +25,9 @@ DEFAULT_ENCODINGS = {
     "ping_time_echosounder": DEFAULT_TIME_ENCODING,
     "ping_time_echosounder_raw": DEFAULT_TIME_ENCODING,
     "ping_time_echosounder_raw_transmit": DEFAULT_TIME_ENCODING,
-    "location_time": DEFAULT_TIME_ENCODING,
-    "mru_time": DEFAULT_TIME_ENCODING,
+    "time1": DEFAULT_TIME_ENCODING,
+    "time2": DEFAULT_TIME_ENCODING,
+    "time3": DEFAULT_TIME_ENCODING,
 }
 
 
@@ -56,7 +59,9 @@ def set_encodings(ds: xr.Dataset) -> xr.Dataset:
     for var, encoding in DEFAULT_ENCODINGS.items():
         if var in new_ds:
             da = new_ds[var].copy()
-            if "_time" in var:
+            # Process all variable names matching the patterns *_time* or time<digits>
+            # Examples: ping_time, ping_time_2, time1, time2
+            if bool(search(r"_time|^time[\d]+$", var)):
                 new_ds[var] = xr.apply_ufunc(
                     _encode_dataarray,
                     da,

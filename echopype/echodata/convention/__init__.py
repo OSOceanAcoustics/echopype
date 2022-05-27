@@ -1,14 +1,6 @@
-from pathlib import Path
+from .conv import _Convention
 
-import yaml
+# Instantiate the singleton
+sonarnetcdf_1 = _Convention(version="1.0")
 
-CONVENTION_PATH = Path(__file__).parent.absolute()
-
-
-def _get_convention(version="1.0") -> dict:
-    """Retrieves convention metadata as a dictionary"""
-    convention_file = CONVENTION_PATH / f"{version}.yml"
-    return yaml.load(convention_file.open(), Loader=yaml.SafeLoader)
-
-
-__all__ = [_get_convention]
+__all__ = ["sonarnetcdf_1"]

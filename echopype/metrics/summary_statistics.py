@@ -13,14 +13,14 @@ import numpy as np
 import xarray as xr
 
 
-def delta_z(ds: xr.Dataset, range_label="range") -> xr.DataArray:
-    """Helper function to calculate widths between range bins (dz) for discretized integral.
+def delta_z(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
+    """Helper function to calculate widths between range samples (dz) for discretized integral.
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -28,7 +28,7 @@ def delta_z(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     if range_label not in ds:
         raise ValueError(f"{range_label} not in the input Dataset!")
-    dz = ds[range_label].diff(dim="range_bin")
+    dz = ds[range_label].diff(dim="range_sample")
     return dz.where(dz != 0, other=np.nan)
 
 
@@ -48,16 +48,16 @@ def convert_to_linear(ds: xr.Dataset, Sv_label="Sv") -> xr.DataArray:
     return 10 ** (ds[Sv_label] / 10)
 
 
-def abundance(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def abundance(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the area-backscattering strength (Sa) [unit: dB re 1 m^2 m^-2].
 
-    This quantity is the integral of volumetric backscatter over range.
+    This quantity is the integral of volumetric backscatter over range (``echo_range``).
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -65,19 +65,19 @@ def abundance(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return 10 * np.log10((sv * dz).sum(dim="range_bin"))
+    return 10 * np.log10((sv * dz).sum(dim="range_sample"))
 
 
-def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def center_of_mass(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the mean backscatter location [unit: m].
 
-    This quantity is the weighted average of backscatter along range.
+    This quantity is the weighted average of backscatter along range (``echo_range``).
 
     Parameters
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -85,12 +85,10 @@ def center_of_mass(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return (ds[range_label] * sv * dz).sum(dim="range_bin") / (sv * dz).sum(
-        dim="range_bin"
-    )
+    return (ds[range_label] * sv * dz).sum(dim="range_sample") / (sv * dz).sum(dim="range_sample")
 
 
-def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def dispersion(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the inertia (I) [unit: m^-2].
 
     This quantity measures dispersion or spread of backscatter from the center of mass.
@@ -99,7 +97,7 @@ def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -108,12 +106,12 @@ def dispersion(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
     cm = center_of_mass(ds)
-    return ((ds[range_label] - cm) ** 2 * sv * dz).sum(dim="range_bin") / (sv * dz).sum(
-        dim="range_bin"
+    return ((ds[range_label] - cm) ** 2 * sv * dz).sum(dim="range_sample") / (sv * dz).sum(
+        dim="range_sample"
     )
 
 
-def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def evenness(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculates the equivalent area (EA) [unit: m].
 
     This quantity represents the area that would be occupied if all datacells
@@ -123,7 +121,7 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------
@@ -131,10 +129,10 @@ def evenness(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_label=range_label)
     sv = convert_to_linear(ds, "Sv")
-    return ((sv * dz).sum(dim="range_bin")) ** 2 / (sv**2 * dz).sum(dim="range_bin")
+    return ((sv * dz).sum(dim="range_sample")) ** 2 / (sv**2 * dz).sum(dim="range_sample")
 
 
-def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:
+def aggregation(ds: xr.Dataset, range_label="echo_range") -> xr.DataArray:
     """Calculated the index of aggregation (IA) [unit: m^-1].
 
     This quantity is reciprocal of the equivalent area.
@@ -144,7 +142,7 @@ def aggregation(ds: xr.Dataset, range_label="range") -> xr.DataArray:
     ----------
     ds : xr.Dataset
     range_label : str
-        Name of an xarray DataArray in `ds` containing range information.
+        Name of an xarray DataArray in ``ds`` containing ``echo_range`` information.
 
     Returns
     -------

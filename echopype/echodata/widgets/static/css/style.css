@@ -91,6 +91,27 @@ body.vscode-dark {
   color: var(--xr-font-color0);
 }
 
+.xr-section-list {
+  display: block;
+}
+
+.xr-section-list input {
+  display: none;
+}
+
+.xr-section-list input + label {
+  color: var(--xr-disabled-color);
+}
+
+.xr-section-list input:enabled + label {
+  cursor: pointer;
+  color: var(--xr-font-color2);
+}
+
+.xr-section-list input:enabled + label:hover {
+  color: var(--xr-font-color0);
+}
+
 .xr-section-summary {
   grid-column: 1;
   color: var(--xr-font-color2);
