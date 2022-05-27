@@ -43,6 +43,7 @@ This is a major release that contains changes that enhances the compliance of ec
 - Add provenance to raw-converted and processed datasets (#621)
 - Consolidate convention specs into a single yml file for pre-loading when creating `EchoData` objects (#565)
 - Extra visualization module can now handle both `frequency` and `channel` filtering, as well as files with duplicated frequencies (#660)
+- Improve selection of Vendor-specific calibration parameters for narrowband EK data (#697)
 
 ## CI improvements
 
