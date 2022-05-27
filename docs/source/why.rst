@@ -44,7 +44,7 @@ Scalability
 -----------
 
 echopype is written to use as much as functionality of `xarray`_ as possible.
-xarray is a powerful Python package that lets you work with multi-dimensional 
+xarray is a powerful Python package that lets you work with multi-dimensional
 labeled data set the same way as in `pandas`_.
 Under the hood, xarray uses `dask`_ to support parallel computations and
 streaming computation on data sets that don't fit into memory.
