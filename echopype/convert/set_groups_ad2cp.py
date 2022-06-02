@@ -102,6 +102,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                 field = data_record_format.get_field(field_name)
                 if field is None:
                     field_dimensions = Field.default_dimensions()
+                    # can't store in dims yet because there might be another data record format
+                    #   which does have this field
                 else:
                     field_dimensions = field.dimensions(packet.data_record_type)
 
@@ -126,17 +128,23 @@ class SetGroupsAd2cp(SetGroupsBase):
                     fields[field_name].append(np.array(0))
                     pad_idx[field_name].append(len(fields[field_name]) - 1)
 
-        # add dimensions to dims if they were not found
         for field_name in fields.keys():
+            # add dimensions to dims if they were not found
+            #   (the desired fields did not exist in any of the packet's data records
+            #   because they are in a different packet OR it is a field created by echopype
+            #   from a bitfield, etc.)
             if field_name not in dims:
                 dims[field_name] = Field.default_dimensions()
-
-        # add dtypes to dtypes if they were not found
-        for field_name in fields.keys():
+            # add dtypes to dtypes if they were not found
+            #   (the desired fields did not exist in any of the packet's data records
+            #   because they are in a different packet OR it is a field created by echopype
+            #   from a bitfield, etc.)
             if field_name not in dtypes:
                 dtypes[field_name] = DataType.default_dtype()
 
         # replace padding with correct shaped padding
+        #   (earlier we padded along the time dimension but we didn't necessarily know the shape
+        #   of the padding itself)
         for field_name, pad_idxs in pad_idx.items():
             for i in pad_idxs:
                 fields[field_name][i] = np.zeros(
