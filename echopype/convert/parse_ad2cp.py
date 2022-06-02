@@ -74,9 +74,7 @@ UNSIGNED_INTEGER = DataType.UNSIGNED_INTEGER
 FLOAT = DataType.FLOAT
 SIGNED_FRACTION = DataType.SIGNED_FRACTION
 
-DtypesHint = Literal[
-    "<i1", "<i2", "<i4", "<i8", "<u1", "<u2", "<u4", "<u8", "<f2", "<f4", "<f8"
-]
+DtypesHint = Literal["<i1", "<i2", "<i4", "<i8", "<u1", "<u2", "<u4", "<u8", "<f2", "<f4", "<f8"]
 DTYPES: Dict[Tuple[DataType, int], DtypesHint] = {
     (SIGNED_INTEGER, 1): "<i1",
     (SIGNED_INTEGER, 2): "<i2",
@@ -134,9 +132,9 @@ class Field:
         # field_entry_data_type: Union[DataType, Callable[["Ad2cpDataPacket"], DataType]],
         *,
         field_shape: Union[List[int], Callable[["Ad2cpDataPacket"], List[int]]] = [],
-        field_dimensions: Union[
-            List[Dimension], Callable[[DataRecordType], List[Dimension]]
-        ] = [Dimension.PING_TIME],
+        field_dimensions: Union[List[Dimension], Callable[[DataRecordType], List[Dimension]]] = [
+            Dimension.PING_TIME
+        ],
         field_units: Optional[str] = None,
         field_unit_conversion: Callable[
             ["Ad2cpDataPacket", np.ndarray], np.ndarray
@@ -436,9 +434,7 @@ class Ad2cpDataPacket:
         elif self.is_string():  # string data
             self.data_record_type = DataRecordType.STRING
         else:
-            raise ValueError(
-                "invalid data record type id: 0x{:02x}".format(self.data["id"])
-            )
+            raise ValueError("invalid data record type id: 0x{:02x}".format(self.data["id"]))
 
         self.data_record_format = HeaderOrDataRecordFormats.data_record_format(
             self.data_record_type
@@ -479,9 +475,7 @@ class Ad2cpDataPacket:
             # which, if not read in the correct order with other fields,
             # will offset the rest of the data
             if field_name is not None:
-                parsed_field = self._parse(
-                    raw_field, field_entry_data_type, field_entry_size_bytes
-                )
+                parsed_field = self._parse(raw_field, field_entry_data_type, field_entry_size_bytes)
                 parsed_field = np.reshape(parsed_field, field_shape)
                 parsed_field = field_unit_conversion(self, parsed_field)
                 self.data[field_name] = parsed_field
@@ -507,9 +501,7 @@ class Ad2cpDataPacket:
             # signed-magnitude format, an email exchange with Nortek revealed that it is
             # actually in 2's complement form.
             dtype = np.dtype(DTYPES[(SIGNED_FRACTION, size_bytes)])  # type: ignore
-            return (
-                np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)
-            ).astype("<f8")
+            return (np.frombuffer(value, dtype=dtype) / (np.iinfo(dtype).max + 1)).astype("<f8")
         else:
             raise ValueError("unrecognized data type")
 
@@ -630,9 +622,7 @@ class Ad2cpDataPacket:
                     self.parser.packets[-1].is_echosounder_raw()
                     or self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.packets[-1].data["echosounder_raw_beam"] = self.data[
-                        "beams"
-                    ][0]
+                    self.parser.packets[-1].data["echosounder_raw_beam"] = self.data["beams"][0]
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
@@ -708,9 +698,7 @@ class Ad2cpDataPacket:
                     self.parser.packets[-1].is_echosounder_raw()
                     or self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.packets[-1].data["echosounder_raw_beam"] = self.data[
-                        "beams"
-                    ][0]
+                    self.parser.packets[-1].data["echosounder_raw_beam"] = self.data["beams"][0]
             elif field_name == "status0":
                 if self.data["status0"] & 0b1000_0000_0000_0000:
                     self._postprocess_bitfield(
@@ -742,13 +730,10 @@ class Ad2cpDataPacket:
                     self.parser.packets[-1].is_echosounder_raw()
                     or self.parser.packets[-1].is_echosounder_raw_transmit()
                 ):
-                    self.parser.packets[-1].data[
-                        "echosounder_raw_echogram"
-                    ] = self.data["echosounder_index"]
-        elif (
-            self.data_record_format
-            == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT
-        ):
+                    self.parser.packets[-1].data["echosounder_raw_echogram"] = self.data[
+                        "echosounder_index"
+                    ]
+        elif self.data_record_format == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self._postprocess_bitfield(
                     self.data["configuration"],
@@ -789,12 +774,8 @@ class Ad2cpDataPacket:
             self.data_record_format == HeaderOrDataRecordFormats.ECHOSOUNDER_RAW_DATA_RECORD_FORMAT
         ):
             if field_name == "echosounder_raw_samples":
-                self.data["echosounder_raw_samples_i"] = self.data[
-                    "echosounder_raw_samples"
-                ][:, 0]
-                self.data["echosounder_raw_samples_q"] = self.data[
-                    "echosounder_raw_samples"
-                ][:, 1]
+                self.data["echosounder_raw_samples_i"] = self.data["echosounder_raw_samples"][:, 0]
+                self.data["echosounder_raw_samples_q"] = self.data["echosounder_raw_samples"][:, 1]
             elif field_name == "echosounder_raw_transmit_samples":
                 self.data["echosounder_raw_transmit_samples_i"] = self.data[
                     "echosounder_raw_transmit_samples"
@@ -892,294 +873,292 @@ class HeaderOrDataRecordFormats:
             ),
         ]
     )
-    BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = (
-        HeaderOrDataRecordFormat(
-            [
-                F("version", 1, UNSIGNED_INTEGER),
-                F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
-                F("serial_number", 4, UNSIGNED_INTEGER),
-                F("configuration", 2, UNSIGNED_INTEGER),
-                F("year", 1, UNSIGNED_INTEGER),
-                F("month", 1, UNSIGNED_INTEGER),
-                F("day", 1, UNSIGNED_INTEGER),
-                F("hour", 1, UNSIGNED_INTEGER),
-                F("minute", 1, UNSIGNED_INTEGER),
-                F("seconds", 1, UNSIGNED_INTEGER),
-                F("microsec100", 2, UNSIGNED_INTEGER),
-                F(
-                    "speed_of_sound",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x / 10,
-                ),
-                F(
-                    "temperature",
-                    2,
-                    SIGNED_INTEGER,
-                    field_units="degrees Celsius",
-                    field_unit_conversion=lambda packet, x: x / 100,
-                ),
-                F(
-                    "pressure",
-                    4,
-                    UNSIGNED_INTEGER,
-                    field_units="dBar",
-                    field_unit_conversion=lambda packet, x: x / 1000,
-                ),
-                F(
-                    "heading",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="degrees",
-                    field_unit_conversion=lambda packet, x: x / 100,
-                ),
-                F(
-                    "pitch",
-                    2,
-                    SIGNED_INTEGER,
-                    field_units="degrees",
-                    field_unit_conversion=lambda packet, x: x / 100,
-                ),
-                F(
-                    "roll",
-                    2,
-                    SIGNED_INTEGER,
-                    field_units="degrees",
-                    field_unit_conversion=lambda packet, x: x / 100,
-                ),
-                F("error", 2, UNSIGNED_INTEGER),
-                F("status", 2, UNSIGNED_INTEGER),
-                F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
-                F(
-                    "cell_size",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="m",
-                    field_unit_conversion=lambda packet, x: x / 1000,
-                ),
-                F(
-                    "blanking",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="m",
-                    field_unit_conversion=lambda packet, x: x / 1000,
-                ),
-                F(
-                    "velocity_range",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x / 1000,
-                ),
-                F(
-                    "battery_voltage",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="V",
-                    field_unit_conversion=lambda packet, x: x / 10,
-                ),
-                F(
-                    "magnetometer_raw",
-                    2,
-                    SIGNED_INTEGER,
-                    field_shape=[3],
-                    field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
-                ),
-                F(
-                    "accelerometer_raw_x_axis",
-                    2,
-                    SIGNED_INTEGER,
-                    field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
-                ),
-                F(
-                    "accelerometer_raw_y_axis",
-                    2,
-                    SIGNED_INTEGER,
-                    field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
-                ),
-                F(
-                    "accelerometer_raw_z_axis",
-                    2,
-                    SIGNED_INTEGER,
-                    field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
-                ),
-                F(
-                    "ambiguity_velocity",
-                    2,
-                    UNSIGNED_INTEGER,
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x / 10000,
-                ),
-                F("dataset_description", 2, UNSIGNED_INTEGER),
-                F("transmit_energy", 2, UNSIGNED_INTEGER),
-                F("velocity_scaling", 1, SIGNED_INTEGER),
-                F("power_level", 1, SIGNED_INTEGER, field_units="dB"),
-                F(None, 4, UNSIGNED_INTEGER),
-                F(  # used when burst
-                    "velocity_data_burst",
-                    2,
-                    SIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_BURST,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_BURST,
-                    ],
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
-                    field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["velocity_data_included"],
-                ),
-                F(  # used when average
-                    "velocity_data_average",
-                    2,
-                    SIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_AVERAGE,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_AVERAGE,
-                    ],
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
-                    field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["velocity_data_included"],
-                ),
-                F(  # used when echosounder
-                    "velocity_data_echosounder",
-                    2,
-                    SIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_ECHOSOUNDER,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_ECHOSOUNDER,
-                    ],
-                    field_units="m/s",
-                    field_unit_conversion=lambda packet, x: x
-                    * (10.0 ** packet.data["velocity_scaling"]),
-                    field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["velocity_data_included"],
-                ),
-                F(
-                    "amplitude_data_burst",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_BURST,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_BURST,
-                    ],
-                    field_units="dB/count",
-                    field_unit_conversion=lambda packet, x: x / 2,
-                    field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["amplitude_data_included"],
-                ),
-                F(
-                    "amplitude_data_average",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_AVERAGE,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_AVERAGE,
-                    ],
-                    field_units="dB/count",
-                    field_unit_conversion=lambda packet, x: x / 2,
-                    field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["amplitude_data_included"],
-                ),
-                F(
-                    "amplitude_data_echosounder",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_ECHOSOUNDER,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_ECHOSOUNDER,
-                    ],
-                    field_units="dB/count",
-                    field_unit_conversion=lambda packet, x: x / 2,
-                    field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["amplitude_data_included"],
-                ),
-                F(
-                    "correlation_data_burst",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_BURST,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_BURST,
-                    ],
-                    field_units="0-100",
-                    field_exists_predicate=lambda packet: packet.is_burst()
-                    and packet.data["correlation_data_included"],
-                ),
-                F(
-                    "correlation_data_average",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_AVERAGE,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_AVERAGE,
-                    ],
-                    field_units="0-100",
-                    field_exists_predicate=lambda packet: packet.is_average()
-                    and packet.data["correlation_data_included"],
-                ),
-                F(
-                    "correlation_data_echosounder",
-                    1,
-                    UNSIGNED_INTEGER,
-                    field_shape=lambda packet: [
-                        packet.data.get("num_beams", 0),
-                        packet.data.get("num_cells", 0),
-                    ],
-                    field_dimensions=[
-                        Dimension.PING_TIME_ECHOSOUNDER,
-                        Dimension.BEAM,
-                        Dimension.RANGE_SAMPLE_ECHOSOUNDER,
-                    ],
-                    field_units="0-100",
-                    field_exists_predicate=lambda packet: packet.is_echosounder()
-                    and packet.data["correlation_data_included"],
-                ),
-            ]
-        )
+    BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat(
+        [
+            F("version", 1, UNSIGNED_INTEGER),
+            F("offset_of_data", 1, UNSIGNED_INTEGER, field_units="# of bytes"),
+            F("serial_number", 4, UNSIGNED_INTEGER),
+            F("configuration", 2, UNSIGNED_INTEGER),
+            F("year", 1, UNSIGNED_INTEGER),
+            F("month", 1, UNSIGNED_INTEGER),
+            F("day", 1, UNSIGNED_INTEGER),
+            F("hour", 1, UNSIGNED_INTEGER),
+            F("minute", 1, UNSIGNED_INTEGER),
+            F("seconds", 1, UNSIGNED_INTEGER),
+            F("microsec100", 2, UNSIGNED_INTEGER),
+            F(
+                "speed_of_sound",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x / 10,
+            ),
+            F(
+                "temperature",
+                2,
+                SIGNED_INTEGER,
+                field_units="degrees Celsius",
+                field_unit_conversion=lambda packet, x: x / 100,
+            ),
+            F(
+                "pressure",
+                4,
+                UNSIGNED_INTEGER,
+                field_units="dBar",
+                field_unit_conversion=lambda packet, x: x / 1000,
+            ),
+            F(
+                "heading",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="degrees",
+                field_unit_conversion=lambda packet, x: x / 100,
+            ),
+            F(
+                "pitch",
+                2,
+                SIGNED_INTEGER,
+                field_units="degrees",
+                field_unit_conversion=lambda packet, x: x / 100,
+            ),
+            F(
+                "roll",
+                2,
+                SIGNED_INTEGER,
+                field_units="degrees",
+                field_unit_conversion=lambda packet, x: x / 100,
+            ),
+            F("error", 2, UNSIGNED_INTEGER),
+            F("status", 2, UNSIGNED_INTEGER),
+            F("num_beams_and_coordinate_system_and_num_cells", 2, UNSIGNED_INTEGER),
+            F(
+                "cell_size",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="m",
+                field_unit_conversion=lambda packet, x: x / 1000,
+            ),
+            F(
+                "blanking",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="m",
+                field_unit_conversion=lambda packet, x: x / 1000,
+            ),
+            F(
+                "velocity_range",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x / 1000,
+            ),
+            F(
+                "battery_voltage",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="V",
+                field_unit_conversion=lambda packet, x: x / 10,
+            ),
+            F(
+                "magnetometer_raw",
+                2,
+                SIGNED_INTEGER,
+                field_shape=[3],
+                field_dimensions=[Dimension.PING_TIME, Dimension.XYZ],
+            ),
+            F(
+                "accelerometer_raw_x_axis",
+                2,
+                SIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
+            ),
+            F(
+                "accelerometer_raw_y_axis",
+                2,
+                SIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
+            ),
+            F(
+                "accelerometer_raw_z_axis",
+                2,
+                SIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x / 16384 * 9.819,
+            ),
+            F(
+                "ambiguity_velocity",
+                2,
+                UNSIGNED_INTEGER,
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x / 10000,
+            ),
+            F("dataset_description", 2, UNSIGNED_INTEGER),
+            F("transmit_energy", 2, UNSIGNED_INTEGER),
+            F("velocity_scaling", 1, SIGNED_INTEGER),
+            F("power_level", 1, SIGNED_INTEGER, field_units="dB"),
+            F(None, 4, UNSIGNED_INTEGER),
+            F(  # used when burst
+                "velocity_data_burst",
+                2,
+                SIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_BURST,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_BURST,
+                ],
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x
+                * (10.0 ** packet.data["velocity_scaling"]),
+                field_exists_predicate=lambda packet: packet.is_burst()
+                and packet.data["velocity_data_included"],
+            ),
+            F(  # used when average
+                "velocity_data_average",
+                2,
+                SIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_AVERAGE,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_AVERAGE,
+                ],
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x
+                * (10.0 ** packet.data["velocity_scaling"]),
+                field_exists_predicate=lambda packet: packet.is_average()
+                and packet.data["velocity_data_included"],
+            ),
+            F(  # used when echosounder
+                "velocity_data_echosounder",
+                2,
+                SIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_ECHOSOUNDER,
+                ],
+                field_units="m/s",
+                field_unit_conversion=lambda packet, x: x
+                * (10.0 ** packet.data["velocity_scaling"]),
+                field_exists_predicate=lambda packet: packet.is_echosounder()
+                and packet.data["velocity_data_included"],
+            ),
+            F(
+                "amplitude_data_burst",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_BURST,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_BURST,
+                ],
+                field_units="dB/count",
+                field_unit_conversion=lambda packet, x: x / 2,
+                field_exists_predicate=lambda packet: packet.is_burst()
+                and packet.data["amplitude_data_included"],
+            ),
+            F(
+                "amplitude_data_average",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_AVERAGE,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_AVERAGE,
+                ],
+                field_units="dB/count",
+                field_unit_conversion=lambda packet, x: x / 2,
+                field_exists_predicate=lambda packet: packet.is_average()
+                and packet.data["amplitude_data_included"],
+            ),
+            F(
+                "amplitude_data_echosounder",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_ECHOSOUNDER,
+                ],
+                field_units="dB/count",
+                field_unit_conversion=lambda packet, x: x / 2,
+                field_exists_predicate=lambda packet: packet.is_echosounder()
+                and packet.data["amplitude_data_included"],
+            ),
+            F(
+                "correlation_data_burst",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_BURST,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_BURST,
+                ],
+                field_units="0-100",
+                field_exists_predicate=lambda packet: packet.is_burst()
+                and packet.data["correlation_data_included"],
+            ),
+            F(
+                "correlation_data_average",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_AVERAGE,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_AVERAGE,
+                ],
+                field_units="0-100",
+                field_exists_predicate=lambda packet: packet.is_average()
+                and packet.data["correlation_data_included"],
+            ),
+            F(
+                "correlation_data_echosounder",
+                1,
+                UNSIGNED_INTEGER,
+                field_shape=lambda packet: [
+                    packet.data.get("num_beams", 0),
+                    packet.data.get("num_cells", 0),
+                ],
+                field_dimensions=[
+                    Dimension.PING_TIME_ECHOSOUNDER,
+                    Dimension.BEAM,
+                    Dimension.RANGE_SAMPLE_ECHOSOUNDER,
+                ],
+                field_units="0-100",
+                field_exists_predicate=lambda packet: packet.is_echosounder()
+                and packet.data["correlation_data_included"],
+            ),
+        ]
     )
     BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT: HeaderOrDataRecordFormat = HeaderOrDataRecordFormat(
         [
@@ -1544,13 +1523,9 @@ class HeaderOrDataRecordFormats:
                 "altimeter_raw_data_samples",
                 2,
                 SIGNED_FRACTION,
-                field_shape=lambda packet: [
-                    packet.data["altimeter_raw_data_num_samples"]
-                ],
+                field_shape=lambda packet: [packet.data["altimeter_raw_data_num_samples"]],
                 field_dimensions=[Dimension.PING_TIME, Dimension.NUM_ALTIMETER_SAMPLES],
-                field_exists_predicate=lambda packet: packet.data[
-                    "altimeter_raw_data_included"
-                ],
+                field_exists_predicate=lambda packet: packet.data["altimeter_raw_data_included"],
             ),
             F(
                 "echosounder_data",
@@ -1794,9 +1769,7 @@ class HeaderOrDataRecordFormats:
                 UNSIGNED_INTEGER,
                 field_shape=lambda packet: [packet.data.get("num_beams", 0)],
                 field_dimensions=[Dimension.PING_TIME, Dimension.BEAM],
-                field_exists_predicate=lambda packet: packet.data[
-                    "figure_of_merit_data_included"
-                ],
+                field_exists_predicate=lambda packet: packet.data["figure_of_merit_data_included"],
             ),
         ]
     )

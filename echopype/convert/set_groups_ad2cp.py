@@ -74,9 +74,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # {field_name: [field_value]}
         #   [field_value] lines up with time_dim
-        fields: Dict[str, List[np.ndarray]] = {
-            field_name: [] for field_name in var_names.keys()
-        }
+        fields: Dict[str, List[np.ndarray]] = {field_name: [] for field_name in var_names.keys()}
         # {field_name: [Dimension]}
         dims: Dict[str, List[Dimension]] = dict()
         # {field_name: field dtype}
@@ -84,13 +82,9 @@ class SetGroupsAd2cp(SetGroupsBase):
         # {field_name: units}
         units: Dict[str, Optional[str]] = dict()
         # {field_name: [idx of padding]}
-        pad_idx: Dict[str, List[int]] = {
-            field_name: [] for field_name in var_names.keys()
-        }
+        pad_idx: Dict[str, List[int]] = {field_name: [] for field_name in var_names.keys()}
         # {field_name: field exists}
-        field_exists: Dict[str, bool] = {
-            field_name: False for field_name in var_names.keys()
-        }
+        field_exists: Dict[str, bool] = {field_name: False for field_name in var_names.keys()}
         beam_coords: Optional[np.ndarray] = None
         # separate by time dim
         for packet in self.parser_obj.packets:
@@ -100,9 +94,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 if beam_coords is None:
                     beam_coords = packet.data["beams"]
                 else:
-                    beam_coords = max(
-                        beam_coords, packet.data["beams"], key=lambda x: len(x)
-                    )
+                    beam_coords = max(beam_coords, packet.data["beams"], key=lambda x: len(x))
             data_record_format = HeaderOrDataRecordFormats.data_record_format(
                 packet.data_record_type
             )
@@ -179,9 +171,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # slice fields to time_dim
         for field_name, field_value in combined_fields.items():
-            combined_fields[field_name] = field_value[
-                self.times_idx[dims[field_name][0]]
-            ]
+            combined_fields[field_name] = field_value[self.times_idx[dims[field_name][0]]]
 
         # make ds
         used_dims: Set[Dimension] = {
