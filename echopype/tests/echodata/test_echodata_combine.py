@@ -1,4 +1,5 @@
 from typing import Any, List, Dict
+from textwrap import dedent
 from pathlib import Path
 
 import numpy as np
@@ -142,8 +143,10 @@ def test_combine_echodata(raw_datasets):
                 "concat_dim",
                 "old_ping_time",
                 "ping_time",
-                "old_location_time",
-                "location_time",
+                "old_time1",
+                "time1",
+                "old_time2",
+                "time2",
             ],
             errors="ignore",
         ).drop_dims(
@@ -154,8 +157,10 @@ def test_combine_echodata(raw_datasets):
                 [
                     "old_ping_time",
                     "ping_time",
-                    "old_location_time",
-                    "location_time",
+                    "old_time1",
+                    "time1",
+                    "old_time2",
+                    "time2",
                 ],
                 errors="ignore",
             )
@@ -177,17 +182,17 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
                 assert exist_reversed_time(combined_group, "old_ping_time")
-            if "location_time" in combined_group and group_name not in (
+            if "time1" in combined_group and group_name not in (
                 "provenance",
                 "nmea",
             ):
-                assert not exist_reversed_time(combined_group, "location_time")
-            if "old_location_time" in combined_group:
-                assert exist_reversed_time(combined_group, "old_location_time")
-            if "mru_time" in combined_group and group_name != "provenance":
-                assert not exist_reversed_time(combined_group, "mru_time")
-            if "old_mru_time" in combined_group:
-                assert exist_reversed_time(combined_group, "old_mru_time")
+                assert not exist_reversed_time(combined_group, "time1")
+            if "old_time1" in combined_group:
+                assert exist_reversed_time(combined_group, "old_time1")
+            if "time2" in combined_group and group_name != "provenance":
+                assert not exist_reversed_time(combined_group, "time2")
+            if "old_time2" in combined_group:
+                assert exist_reversed_time(combined_group, "old_time2")
 
 
 def test_attr_storage(ek60_test_data):
@@ -280,3 +285,25 @@ def test_combined_encodings(ek60_test_data):
         all_messages = ['Encoding mismatch found!'] + group_checks
         message_text = '\n'.join(all_messages)
         raise AssertionError(message_text)
+
+
+def test_combined_echodata_repr(ek60_test_data):
+    eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
+    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+    expected_repr = dedent(
+        """\
+        <EchoData: standardized raw data from Internal Memory>
+        Top-level: contains metadata about the SONAR-netCDF4 file format.
+        ├── Environment: contains information relevant to acoustic propagation through water.
+        ├── Platform: contains information about the platform on which the sonar is installed.
+        │   └── NMEA: contains information specific to the NMEA protocol.
+        ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
+        ├── Sonar: contains sonar system metadata and sonar beam groups.
+        │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+        └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
+    )
+
+    assert isinstance(repr(combined), str) is True
+
+    actual = "\n".join(x.rstrip() for x in repr(combined).split("\n"))
+    assert actual == expected_repr

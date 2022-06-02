@@ -122,7 +122,7 @@ class ParseAZFP(ParseBase):
             return T
 
         def compute_tilt(N, a, b, c, d):
-            return a + b * N + c * N ** 2 + d * N ** 3
+            return a + b * N + c * N**2 + d * N**3
 
         def compute_battery(N):
             USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
@@ -130,9 +130,7 @@ class ParseAZFP(ParseBase):
 
         # Instrument specific constants
         HEADER_SIZE = 124
-        HEADER_FORMAT = (
-            ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
-        )
+        HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
 
         # Read xml file into dict
         self.load_AZFP_xml()
@@ -192,9 +190,7 @@ class ParseAZFP(ParseBase):
                         )
                         # Calculate voltage of main battery pack
                         self.unpacked_data["battery_main"].append(
-                            compute_battery(
-                                self.unpacked_data["ancillary"][ping_num][2]
-                            )
+                            compute_battery(self.unpacked_data["ancillary"][ping_num][2])
                         )
                         # If there is a Tx battery pack
                         self.unpacked_data["battery_tx"].append(
@@ -209,9 +205,7 @@ class ParseAZFP(ParseBase):
         self._check_uniqueness()
         self._get_ping_time()
         # Explicitly cast frequency to a float in accordance with the SONAR-netCDF4 convention
-        self.unpacked_data["frequency"] = self.unpacked_data["frequency"].astype(
-            np.float64
-        )
+        self.unpacked_data["frequency"] = self.unpacked_data["frequency"].astype(np.float64)
 
     @staticmethod
     def _get_fields():
@@ -275,10 +269,7 @@ class ParseAZFP(ParseBase):
             self.unpacked_data["day"][0],
             self.unpacked_data["hour"][0],
             self.unpacked_data["minute"][0],
-            int(
-                self.unpacked_data["second"][0]
-                + self.unpacked_data["hundredths"][0] / 100
-            ),
+            int(self.unpacked_data["second"][0] + self.unpacked_data["hundredths"][0] / 100),
         )
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         pathstr, xml_name = os.path.split(self.xml_path)
@@ -331,9 +322,7 @@ class ParseAZFP(ParseBase):
         for field in fields:
             if field[0] in field_w_freq:  # fields with num_freq data
                 self.unpacked_data[field[0]].append(
-                    header_unpacked[
-                        header_byte_cnt : header_byte_cnt + self.parameters["num_freq"]
-                    ]
+                    header_unpacked[header_byte_cnt : header_byte_cnt + self.parameters["num_freq"]]
                 )
                 header_byte_cnt += firmware_freq_len
             elif len(field) == 3:  # other longer fields ('ancillary' and 'ad')
@@ -352,17 +341,13 @@ class ParseAZFP(ParseBase):
         for freq_ch in range(self.unpacked_data["num_chan"][ping_num]):
             counts_byte_size = self.unpacked_data["num_bins"][ping_num][freq_ch]
             if self.unpacked_data["data_type"][ping_num][freq_ch]:
-                if self.unpacked_data["avg_pings"][
-                    ping_num
-                ]:  # if pings are averaged over time
+                if self.unpacked_data["avg_pings"][ping_num]:  # if pings are averaged over time
                     divisor = (
                         self.unpacked_data["ping_per_profile"][ping_num]
                         * self.unpacked_data["range_samples_per_bin"][ping_num][freq_ch]
                     )
                 else:
-                    divisor = self.unpacked_data["range_samples_per_bin"][ping_num][
-                        freq_ch
-                    ]
+                    divisor = self.unpacked_data["range_samples_per_bin"][ping_num][freq_ch]
                 ls = unpack(
                     ">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4)
                 )  # Linear sum
@@ -384,9 +369,7 @@ class ParseAZFP(ParseBase):
         if not self.unpacked_data:
             self.parse_raw()
 
-        if (
-            np.array(self.unpacked_data["profile_flag"]).size != 1
-        ):  # Only check uniqueness once.
+        if np.array(self.unpacked_data["profile_flag"]).size != 1:  # Only check uniqueness once.
             # fields with num_freq data
             field_w_freq = (
                 "dig_rate",
@@ -416,17 +399,13 @@ class ParseAZFP(ParseBase):
                 if uniq.shape[0] == 1:
                     self.unpacked_data[field] = uniq.squeeze()
                 else:
-                    raise ValueError(
-                        f"Header value {field} is not constant for each ping"
-                    )
+                    raise ValueError(f"Header value {field} is not constant for each ping")
             for field in field_include:
                 uniq = np.unique(self.unpacked_data[field])
                 if uniq.shape[0] == 1:
                     self.unpacked_data[field] = uniq.squeeze()
                 else:
-                    raise ValueError(
-                        f"Header value {field} is not constant for each ping"
-                    )
+                    raise ValueError(f"Header value {field} is not constant for each ping")
 
     def _get_ping_time(self):
         """Assemble ping time from parsed values."""

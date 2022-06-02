@@ -21,11 +21,12 @@ other climate and oceanographic data sets, facilitating the integration of
 ocean sonar data in interdisciplinary oceanographic research.
 
 .. _netCDF:
-   https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_introduction.html
+   https://www.unidata.ucar.edu/software/netcdf/
 .. _xarray: http://xarray.pydata.org/
 .. _dask: http://dask.pydata.org/
 .. _pandas: https://pandas.pydata.org/
-
+.. _current defacto standard:
+   https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html
 
 Interoperability
 ----------------
@@ -33,22 +34,18 @@ Interoperability
 echopype contains tools for converting data from various manufacturer-specific
 formats into a standardized `netCDF`_ files.
 This is useful, because netCDF is the `current defacto standard`_ in climate
-research and is supported by many powerful Python packages for efficient
-computation.
+research and is supported by many powerful libraries for efficient
+computation in many programming languages.
 This means that once data are converted, researchers can then pick and choose
 what they need directly from the data and are not restricted by specialized
 and often proprietary data analysis software.
-
-.. _current defacto standard:
-   https://clouds.eos.ubc.ca/~phil/courses/parallel_python/02_xarray_zarr.html
-
 
 Scalability
 -----------
 
 echopype is written to use as much as functionality of `xarray`_ as possible.
-xarray is a powerful module that let you work with multi-dimensional labeled data
-set the same way as in `pandas`_.
+xarray is a powerful Python package that lets you work with multi-dimensional
+labeled data set the same way as in `pandas`_.
 Under the hood, xarray uses `dask`_ to support parallel computations and
 streaming computation on data sets that don't fit into memory.
 Building on xarray and dask, the goal of echopype to make sonar data analysis

@@ -32,3 +32,6 @@ azfp/
 temp_echopype_output/
 notebooks/*_dev/
 _echopype_version.py
+!echopype/test_data
+echopype/test_data/*
+!echopype/test_data/README.md

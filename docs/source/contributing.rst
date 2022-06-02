@@ -14,7 +14,7 @@ see these tips for submitting issues:
 For echopype development we use the **gitflow workflow** with forking. All development
 changes (except for documentation) are merged into the ``dev`` development branch.
 First create your own fork of the source GitHub repository
-`https://github.com/OSOceanAcoustics/echopype/ <https://github.com/OSOceanAcoustics/echopype/>`_
+`https://github.com/OSOceanAcoustics/echopype <https://github.com/OSOceanAcoustics/echopype/fork>`_
 (``upstream``), then clone your fork; your fork will be the ``origin`` remote. See
 `this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for
 guidance on forking and opening pull requests (PRs), but replace references to the ``main``
@@ -35,7 +35,8 @@ This diagram depicts the complete workflow we use in the source GitHub repositor
         rel --> main
 
 - ``doc patch``: Updates to the documentation that refer to the current ``echopype``
-  release can be pushed out immediately to the `echopype documentation site <https://echopype.readthedocs.io>`_
+  release can be pushed out immediately to the
+  `echopype documentation site <https://echopype.readthedocs.io>`_
   by contibuting patches (PRs) to the ``stable`` branch. See `Documentation development`_
   below for more details.
 - ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
@@ -76,12 +77,21 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
 
 .. code-block:: bash
 
-    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt
+    # create conda environment using the supplied requirements files
+    # note the last one docs/requirements.txt is only required for building docs
+    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
+
+    # switch to the newly built environment
     conda activate echopype
+
     # ipykernel is recommended, in order to use with JupyterLab and IPython
     # to aid with development. We recommend you install JupyterLab separately
     conda install -c conda-forge ipykernel
-    pip install -e .
+
+    # install echopype in editable mode (setuptools "develop mode")
+    # plot is an extra set of requirements that can be used for plotting.
+    # the command will install all the dependencies along with plotting dependencies.
+    pip install -e .[plot]
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
@@ -131,7 +141,6 @@ and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
 the latter via `minio <https://minio.io>`_.
 
 `.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-
 will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
 or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``,
 ``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
@@ -142,7 +151,6 @@ as an argument a comma-separated list of the modules that have changed. For exam
     python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
 
 will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
-
 For ``run-test.py`` usage information, use the ``-h`` argument:
 ``python .ci_helpers/run-test.py -h``
 
@@ -192,25 +200,36 @@ Function and object doc strings
 For inline strings documenting functions and objects ("doc strings"), we use the
 `numpydoc style (Numpy docstring format) <https://numpydoc.readthedocs.io/en/latest/format.html>`_.
 
-Sphinx ReadTheDocs documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Jupter Book ReadTheDocs documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on
-`Sphinx <https://www.sphinx-doc.org>`_ and is hosted at
-`Read The Docs <https://readthedocs.org>`_. The sphinx files are found
-in the ``docs`` directory, and the source documentation files, written in
-`reStructuredText <https://www.sphinx-doc.org/en/main/usage/restructuredtext/index.html>`_
-(``.rst``) format, are in the ``docs/source`` directory. The echopype development
-conda environment will install all required Sphinx dependencies.
-To run Sphinx locally:
+Echopype documentation (`<https://echopype.readthedocs.io>`_) is based on `Jupyter Book <https://jupyterbook.org/en/stable/intro.html>`_
+which are rendered under the hood with `Sphinx <https://www.sphinx-doc.org>`_. The documentation is hosted at
+`Read The Docs <https://readthedocs.org>`_. The documentation package dependencies are found
+in the ``docs/requirements.txt`` file, and the source documentation files are in the ``docs/source`` directory. The echopype development
+conda environment will install all required dependencies.
+
+Our documentation are currently a mixture of the following file formats:
+
+- `CommonMark <https://commonmark.org/>`_ and `MySt <https://jupyterbook.org/en/stable/content/myst.html>`_ Markdown
+- `Jupyter Notebook <https://jupyter-notebook.readthedocs.io/en/latest/notebook.html>`_
+- `reStructuredText <https://docutils.sourceforge.io/rst.html>`_
+
+To run Jupyter Book locally:
 
 .. code-block:: bash
 
-    cd docs
-    sphinx-build -b html -d _build/doctrees source _build/html
+    jupyter-book build docs/source --path-output docs
 
-To view the generated HTML files generated by Sphinx, open the
+To view the HTML files generated by Jupyter Book, open the
 ``docs/_build/html/index.html`` in your browser.
+
+Jupyter Book `configurations <https://jupyterbook.org/en/stable/customize/config.html>`_ can be found in the ``docs/source/_config.yml`` file.
+The `table of contents <https://jupyterbook.org/en/stable/structure/toc.html>`_ arragements for the sidebar can be found in ``docs/source/_toc.yml`` file.
+
+When ready to commit your changes, please pull request your changes to the `stable` branch. Once the PR is submitted, the `pre-commit` CI will run for basic spelling and formatting check (See the `pre-commit hooks section <contributing.html#pre-commit-hooks>`_ for more details). Any changes from the `pre-commit` check have to be pulled to your branch (via `git pull`) before your push further commits. You will also be able to view the newly built doc in the PR via the "docs/readthedocs.org:echopype" entry shown below.
+
+.. image:: https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png
 
 Updates to the documentation that are based on the current echopype release (that is,
 not involving echopype API changes) should be merged into the GitHub ``stable`` branch.
@@ -224,12 +243,13 @@ Documentation versions
 `<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version,
 `<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch
 on the ``echopype`` GitHub repository. In addition, the ``latest`` version
-(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``main`` branch,
-while the hidden `dev` version (`<https://echopype.readthedocs.io/en/dev/>`_) is built
-from the ``dev`` branch. Finally, each new echopype release is built as a new release version
-on ReadTheDocs. Merging pull requests into any of these three branches or issuing a
-new tagged release will automatically result in a new ReadTheDocs build for the
+(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``dev`` branch and
+therefore it reflects the bleeding edge development code (which may occasionally break
+the documentation build). Finally, each new echopype release is built as a new release version
+on ReadTheDocs. Merging pull requests into ``stable`` or ``dev`` or issuing a new
+tagged release will automatically result in a new ReadTheDocs build for the
 corresponding version.
 
 We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
 for viewing and debugging larger, more experimental changes, typically from a separate fork.
+This version is used to test one-off, major breaking changes.

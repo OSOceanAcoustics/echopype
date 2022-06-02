@@ -1,13 +1,6 @@
 Data processing
 ===============
 
-.. attention::
-   Starting with version 0.5.0, the data processing interface ``Process``
-   is deprecated. Attempts to use ``Process`` will still
-   work at the moment but will no longer be available in the future.
-   See `version 0.4.1 documentation <https://echopype.readthedocs.io/en/v0.4.1/>`_
-   if you're working with that echopype release.
-
 
 Functionality
 -------------
@@ -22,7 +15,7 @@ Functionality
     from the calibrated data.
   - Compute mean volume backscattering strength (MVBS) based
     on either the number of pings and sample intervals
-    (the ``range_bin`` dimension in the dataset) or a
+    (the ``range_sample`` dimension in the dataset) or a
     specified ping time interval and range interval in
     physics units (seconds and meters, respectively).
 
@@ -53,7 +46,7 @@ The steps for performing these analyses are summarized below:
       import echopype as ep
       nc_path = './converted_files/file.nc'     # path to a converted nc file
       echodata = ep.open_converted(nc_path)     # create an EchoData object
-      ds_Sv = ep.calibrate.compute_Sv(echodata)    # obtain a dataset containing Sv, range, and
+      ds_Sv = ep.calibrate.compute_Sv(echodata)    # obtain a dataset containing Sv, echo_range, and
                                                    # the calibration and environmental parameters
 
 - Reduce data by computing MVBS:
@@ -63,14 +56,14 @@ The steps for performing these analyses are summarized below:
       # Reduce data based on physical units
       ds_MVBS = ep.preprocess.compute_MVBS(
            ds_Sv,               # calibrated Sv dataset
-           range_meter_bin=20,  # bin size to average along range in meters
+           range_meter_bin=20,  # bin size to average along echo_range in meters
            ping_time_bin='20S'  # bin size to average along ping_time in seconds
        )
 
       # Reduce data based on sample number
       ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
            ds_Sv,             # calibrated Sv dataset
-           range_bin_num=30,  # number of sample bins to average along the range_bin dimensionm
+           range_sample_num=30,  # number of sample bins to average along the range_sample dimensionm
            ping_num=5         # number of pings to average
        )
 
@@ -81,7 +74,7 @@ The steps for performing these analyses are summarized below:
       # Remove noise
       ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
          ds_Sv,             # calibrated Sv dataset
-         range_bin_num=30,  # number of samples along the range_bin dimension for estimating noise
+         range_sample_num=30,  # number of samples along the range_sample dimension for estimating noise
          ping_num=5,        # number of pings for estimating noise
       )
 
@@ -91,7 +84,7 @@ and return a single xarray ``Dataset`` containing the calibrated backscatter
 quantities and the samples' corresponding range in meters.
 The input and output of all functions in the ``preprocess``
 subpackage are xarray ``Dataset`` instances, with the input being a ``Dataset``
-containing ``Sv`` and ``range`` generated from calibration.
+containing ``Sv`` and ``echo_range`` generated from calibration.
 
 The ``calibrate`` and ``preprocess`` functions do not save the calculation results to disk,
 but the returned xarray ``Dataset`` can be saved using native xarray methods
@@ -152,14 +145,14 @@ as a dictionary while calling ``ep.calibrate.compute_Sv()``:
 
 These values will be used in calculating sound speed,
 sound absorption, and the thickness of each sonar sample,
-which is used in calculating the range.
+which is used in calculating the range (``echo_range``).
 The updated values can be retrieved with:
 
 .. code-block:: python
 
    ds_Sv['sound_absorption']   # absorption in [dB/m]
    ds_Sv['sound_speed']        # sound speed in [m/s]
-   ds_Sv['range']              # range for each sonar sample in [m]
+   ds_Sv['echo_range']              # echo_range for each sonar sample in [m]
 
 
 For EK60 and EK80 data, echopype updates

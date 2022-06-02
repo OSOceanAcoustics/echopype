@@ -8,17 +8,17 @@ class NoiseEst:
     Attributes
     ----------
     ds_Sv : xr.Dataset
-        dataset containing Sv and range [m]
+        dataset containing ``Sv`` and ``echo_range`` [m]
     ping_num : int
         number of pings to obtain noise estimates
-    range_bin_num : int
-        number of samples along range to obtain noise estimates
+    range_sample_num : int
+        number of samples along ``echo_range`` to obtain noise estimates
     """
 
-    def __init__(self, ds_Sv, ping_num, range_bin_num):
+    def __init__(self, ds_Sv, ping_num, range_sample_num):
         self.ds_Sv = ds_Sv
         self.ping_num = ping_num
-        self.range_bin_num = range_bin_num
+        self.range_sample_num = range_sample_num
         self.spreading_loss = None
         self.absorption_loss = None
         self.Sv_noise = None
@@ -30,7 +30,7 @@ class NoiseEst:
         """Compute transmission loss"""
         if "sound_absorption" not in self.ds_Sv:
             sound_absorption = uwa.calc_absorption(
-                frequency=self.ds_Sv.frequency,
+                frequency=self.ds_Sv.frequency_nominal,
                 temperature=self.ds_Sv["temperature"],
                 salinity=self.ds_Sv["salinity"],
                 pressure=self.ds_Sv["pressure"],
@@ -40,9 +40,9 @@ class NoiseEst:
 
         # Transmission loss
         self.spreading_loss = 20 * np.log10(
-            self.ds_Sv["range"].where(self.ds_Sv["range"] >= 1, other=1)
+            self.ds_Sv["echo_range"].where(self.ds_Sv["echo_range"] >= 1, other=1)
         )
-        self.absorption_loss = 2 * sound_absorption * self.ds_Sv["range"]
+        self.absorption_loss = 2 * sound_absorption * self.ds_Sv["echo_range"]
 
     def _compute_power_cal(self):
         """Compute calibrated power without TVG, linear domain"""
@@ -60,10 +60,12 @@ class NoiseEst:
         """
         power_cal_binned_avg = 10 * np.log10(  # binned averages of calibrated power
             self.power_cal.coarsen(
-                ping_time=self.ping_num, range_bin=self.range_bin_num, boundary="pad"
+                ping_time=self.ping_num,
+                range_sample=self.range_sample_num,
+                boundary="pad",
             ).mean()
         )
-        noise = power_cal_binned_avg.min(dim="range_bin", skipna=True)
+        noise = power_cal_binned_avg.min(dim="range_sample", skipna=True)
 
         # align ping_time to first of each ping collection
         noise["ping_time"] = self.power_cal["ping_time"][:: self.ping_num]
@@ -111,13 +113,22 @@ class NoiseEst:
         )  # other=-999 (from paper)
 
         # Assemble output dataset
-        self.ds_Sv["Sv_corrected"] = Sv_corr
-        self.ds_Sv["Sv_noise"] = self.Sv_noise
-        self.ds_Sv = self.ds_Sv.assign_attrs(
-            {
+        def add_attrs(sv_type, da):
+            da.attrs = {
+                "long_name": f"Volume backscattering strength, {sv_type} (Sv re 1 m-1)",
+                "units": "dB",
+                "actual_range": [
+                    round(float(da.min().values), 2),
+                    round(float(da.max().values), 2),
+                ],
                 "noise_ping_num": self.ping_num,
-                "noise_range_bin_num": self.range_bin_num,
+                "noise_range_sample_num": self.range_sample_num,
                 "SNR_threshold": SNR_threshold,
                 "noise_max": noise_max,
             }
-        )
+
+        self.ds_Sv["Sv_noise"] = self.Sv_noise
+        add_attrs("noise", self.ds_Sv["Sv_noise"])
+
+        self.ds_Sv["Sv_corrected"] = Sv_corr
+        add_attrs("corrected", self.ds_Sv["Sv_corrected"])
