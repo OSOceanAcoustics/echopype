@@ -194,7 +194,7 @@ def test_compute_Sv_ek80_matlab(ek80_path):
 
     Unresolved: there is a discrepancy between the range vector due to minRange=0.02 m set in Matlab.
     """
-    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_raw_path = str(ek80_path.joinpath('raw4-D20220514-T172704.raw'))
     ek80_matlab_path = str(
         ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat')
     )
