@@ -643,7 +643,6 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds_tmp)
 
     def _assemble_ds_power(self, ch):
-        data_shape = self.parser_obj.ping_data_dict["power"][ch].shape
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
@@ -651,6 +650,17 @@ class SetGroupsEK80(SetGroupsBase):
                     self.parser_obj.ping_data_dict["power"][ch],
                     {"long_name": "Backscattering power", "units": "dB"},
                 ),
+                "transmit_pulse_r": (
+                    ["ping_time", "transmit_sample"],
+                    np.real(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                    {"long_name": "Real part of the transmit pulse", "units": "V"},
+                ),
+                "transmit_pulse_i": (
+                    ["ping_time", "transmit_sample"],
+                    np.imag(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                    {"long_name": "Imaginary part of the transmit pulse", "units": "V"},
+                )
+
             },
             coords={
                 "ping_time": (
@@ -660,8 +670,13 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "range_sample": (
                     ["range_sample"],
-                    np.arange(data_shape[1]),
-                    self._varattrs["beam_coord_default"]["range_sample"],
+                    np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
+                    # self._varattrs["beam_coord_default"]["range_sample"],
+                ),
+                "transmit_sample": (
+                    ["transmit_sample"],
+                    np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
+                    # self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
@@ -761,6 +776,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
+        # TODO: remove unused group_name
         def merge_save(ds_combine, ds_type, group_name):
             """Merge data from all complex or all power/angle channels"""
             ds_combine = xr.merge(ds_combine)
