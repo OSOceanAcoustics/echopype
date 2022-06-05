@@ -799,7 +799,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
-        def merge_save(ds_combine: List[xr.Dataset], ds_type : str):
+        def merge_save(ds_combine: List[xr.Dataset], ds_type: str):
             """Merge data from all complex or all power/angle channels"""
             ds_combine = xr.merge(ds_combine)
             if ds_type == "complex":
