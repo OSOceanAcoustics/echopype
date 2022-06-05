@@ -668,10 +668,10 @@ class SetGroupsEK80(SetGroupsBase):
         # If RAW4 datagram (transmit pulse in complex) exists
         if len(self.parser_obj.ping_data_dict_tx) != 0:
             # Add coordinate transmit_sample
-            ds_tmp.assign_coords(
+            ds_tmp = ds_tmp.assign_coords(
                 {
                     "transmit_sample": (
-                        "transmit_sample",
+                        ["transmit_sample"],
                         np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
                         {
                             "long_name": "Transmit pulse sample number, base 0",
