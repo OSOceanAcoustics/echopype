@@ -22,6 +22,7 @@ Most of these files are stored on Git LFS but the ones that aren't (due to file 
 - Winter2017-D20170115-T150122.raw: Contains a change of recording length in the middle of the file
 - 2015843-D20151023-T190636.raw: Not used in tests but contains ranges are not constant across ping times
 - SH1701_consecutive_files_w_range_change: Not used in tests. [Folder](https://drive.google.com/drive/u/1/folders/1PaDtL-xnG5EK3N3P1kGlXa5ub16Yic0f) on shared drive that contains sequential files with ranges that are not constant across ping times.
+- NBP_B050N-D20180117-T215840.raw: split-beam setup without angle data
 
 
 ### AZFP
