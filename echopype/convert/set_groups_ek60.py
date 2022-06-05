@@ -580,7 +580,6 @@ class SetGroupsEK60(SetGroupsBase):
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
         for ch in ch_ids:
-            data_shape = self.parser_obj.ping_data_dict["power"][ch].shape
             ds_tmp = xr.Dataset(
                 {
                     "backscatter_r": (
@@ -655,7 +654,7 @@ class SetGroupsEK60(SetGroupsBase):
                     ),
                     "range_sample": (
                         ["range_sample"],
-                        np.arange(data_shape[1]),
+                        np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
                         self._varattrs["beam_coord_default"]["range_sample"],
                     ),
                 },
