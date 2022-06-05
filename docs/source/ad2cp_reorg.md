@@ -16,7 +16,7 @@
 # The original `Beam` group
 
 ## Which mode goes to which group
-Proposal/question: 
+Proposal/question:
 - use specific group name for different mode
 - this means that then some groups may not exist all together, i.e., there won't always be `Beam_group1` in the converted data file
 - this conflicts with what we have for EK80, where there will always be `Beam_group1` but the content changes depending on what are in the file (power/angle samples only, complex samples only, or both)
@@ -170,7 +170,3 @@ Coordinates:
 
 Data variable:
 - `magnetometer_raw`
-
-
-
-
