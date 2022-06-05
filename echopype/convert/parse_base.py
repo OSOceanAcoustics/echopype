@@ -233,7 +233,6 @@ class ParseEK(ParseBase):
             ):
                 continue
 
-            print(new_datagram["type"])
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram["type"].startswith("XML"):
                 if new_datagram["subtype"] == "environment" and (
