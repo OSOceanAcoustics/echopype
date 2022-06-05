@@ -650,17 +650,6 @@ class SetGroupsEK80(SetGroupsBase):
                     self.parser_obj.ping_data_dict["power"][ch],
                     {"long_name": "Backscattering power", "units": "dB"},
                 ),
-                "transmit_pulse_r": (
-                    ["ping_time", "transmit_sample"],
-                    np.real(self.parser_obj.ping_data_dict_tx["complex"][ch]),
-                    {"long_name": "Real part of the transmit pulse", "units": "V"},
-                ),
-                "transmit_pulse_i": (
-                    ["ping_time", "transmit_sample"],
-                    np.imag(self.parser_obj.ping_data_dict_tx["complex"][ch]),
-                    {"long_name": "Imaginary part of the transmit pulse", "units": "V"},
-                )
-
             },
             coords={
                 "ping_time": (
@@ -671,15 +660,38 @@ class SetGroupsEK80(SetGroupsBase):
                 "range_sample": (
                     ["range_sample"],
                     np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
-                    # self._varattrs["beam_coord_default"]["range_sample"],
-                ),
-                "transmit_sample": (
-                    ["transmit_sample"],
-                    np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
-                    # self._varattrs["beam_coord_default"]["range_sample"],
+                    self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
+
+        # If RAW4 datagram (transmit pulse in complex) exists
+        # Add coordinate transmit_sample
+        if len(self.parser_obj.ping_data_dict_tx) != 0:
+            ds_tmp.assign_coords(
+                {
+                    "transmit_sample": (
+                        "transmit_sample",
+                        np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
+                        # self._varattrs["beam_coord_default"]["range_sample"],
+                    ),
+                },
+            )            
+        # Add data variables transmit_pulse_r/i
+            ds_tmp = ds_tmp.assign(
+                {
+                    "transmit_pulse_r": (
+                        ["ping_time", "transmit_sample"],
+                        np.real(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        {"long_name": "Real part of the transmit pulse", "units": "V"},
+                    ),
+                    "transmit_pulse_i": (
+                        ["ping_time", "transmit_sample"],
+                        np.imag(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        {"long_name": "Imaginary part of the transmit pulse", "units": "V"},
+                    ),
+                },
+            )
 
         # If angle data exist
         if ch in self.parser_obj.ch_ids["angle"]:
