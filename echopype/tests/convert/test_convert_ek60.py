@@ -193,3 +193,16 @@ def test_convert_ek60_duplicate_frequencies(ek60_path):
                        truth_freq_nom_vals, rtol=1e-05, atol=1e-08)
 
     assert np.all(ed['Sonar/Beam_group1'].channel.values == truth_chan_vals)
+
+
+# def test_convert_ek60_splitbeam_no_angle(ek60_path):
+#     """Convert a file from a split-beam setup but does not record angle data."""
+
+#     raw_path = (
+#         ek60_path
+#         / "NBP_B050N-D20180117-T215840.raw"
+#     )
+#     ed = open_raw(raw_path, "EK60")
+
+#     assert "angle_athwartship" not in ed["Sonar/Beam_group1"]
+#     assert "angle_alongship" not in ed["Sonar/Beam_group1"]
