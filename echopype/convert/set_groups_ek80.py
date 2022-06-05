@@ -799,8 +799,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
-        # TODO: remove unused group_name
-        def merge_save(ds_combine, ds_type, group_name):
+        def merge_save(ds_combine: List[xr.Dataset], ds_type : str):
             """Merge data from all complex or all power/angle channels"""
             ds_combine = xr.merge(ds_combine)
             if ds_type == "complex":
@@ -812,11 +811,6 @@ class SetGroupsEK80(SetGroupsBase):
                     [ds_invariant_power, ds_combine], combine_attrs="override"
                 )  # override keeps the Dataset attributes
             return set_encodings(ds_combine)
-            # # Save to file
-            # io.save_file(ds_combine.chunk({'range_sample': DEFAULT_CHUNK_SIZE['range_sample'],
-            #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-            #              path=self.output_path, mode='a', engine=self.engine,
-            #              group=group_name, compression_settings=self.compression_settings)
 
         # Assemble ping-invariant beam data variables
         params = [
@@ -875,11 +869,11 @@ class SetGroupsEK80(SetGroupsBase):
         #  if only one type of data exist: data in /Sonar/Beam_group1 group
         ds_beam_power = None
         if len(ds_complex) > 0:
-            ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
+            ds_beam = merge_save(ds_complex, ds_type="complex")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
+                ds_beam_power = merge_save(ds_power, ds_type="power")
         else:
-            ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+            ds_beam = merge_save(ds_power, ds_type="power")
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
