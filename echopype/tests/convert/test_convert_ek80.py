@@ -395,3 +395,16 @@ def test_convert_ek80_freq_subset(ek80_path):
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     check_env_xml(echodata)
+
+
+def test_convert_ek80_raw4(ek80_path):
+    """Make sure we can convert EK80 file with RAW4 datagram.."""
+    ek80_raw_path_freq_subset = str(
+        ek80_path.joinpath('raw4-D20220514-T172704.raw')
+    )
+    echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
+
+    # Check if correct data variables exist in Beam_group1
+    assert "transmit_pulse_r" in echodata["Sonar/Beam_group1"]
+    assert "transmit_pulse_i" in echodata["Sonar/Beam_group1"]
+    assert "transmit_sample" in echodata["Sonar/Beam_group1"]
