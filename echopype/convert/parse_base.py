@@ -39,7 +39,6 @@ class ParseEK(ParseBase):
         self.ping_data_dict = defaultdict(lambda: defaultdict(list))  # ping data
         self.ping_data_dict_tx = defaultdict(lambda: defaultdict(list))  # transmit ping data
         self.ping_time = defaultdict(list)  # store ping time according to channel
-        self.ping_time_tx = defaultdict(list)  # store transmit ping time according to channel
         self.num_range_sample_groups = None  # number of range_sample groups
         self.ch_ids = defaultdict(
             list
@@ -285,8 +284,8 @@ class ParseEK(ParseBase):
                 if current_parameters["channel_id"] != curr_ch_id:
                     raise ValueError("Parameter ID does not match RAW")
 
-                # Save channel-specific transmit ping time
-                self.ping_time_tx[curr_ch_id].append(new_datagram["timestamp"])
+                # Ping time is identical to the immediately following RAW3 datagram
+                # so does not need to be stored separately
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
