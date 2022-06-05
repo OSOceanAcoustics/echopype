@@ -675,7 +675,7 @@ class SetGroupsEK80(SetGroupsBase):
                         np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
                         {
                             "long_name": "Transmit pulse sample number, base 0",
-                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams"
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
                         },
                     ),
                 },
@@ -689,7 +689,7 @@ class SetGroupsEK80(SetGroupsBase):
                         {
                             "long_name": "Real part of the transmit pulse",
                             "units": "V",
-                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams"
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
                         },
                     ),
                     "transmit_pulse_i": (
@@ -698,7 +698,7 @@ class SetGroupsEK80(SetGroupsBase):
                         {
                             "long_name": "Imaginary part of the transmit pulse",
                             "units": "V",
-                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams"
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
                         },
                     ),
                 },
