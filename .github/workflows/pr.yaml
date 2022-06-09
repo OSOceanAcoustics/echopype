@@ -11,7 +11,7 @@ jobs:
   test:
     name: ${{ matrix.python-version }}-build
     runs-on: ubuntu-20.04
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: "!contains(github.event.pull_request.title, '[skip ci]')"
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
@@ -95,12 +95,12 @@ jobs:
         shell: bash -l {0}
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
       - name: Running all Tests
-        if: contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')
+        if: contains(github.event.pull_request.title, '[all tests ci]')
         shell: bash -l {0}
         run: |
           pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
-        if: "!contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')"
+        if: "!contains(github.event.pull_request.title, '[all tests ci]')"
         shell: bash -l {0}
         run: |
           python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=4,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
