@@ -15,7 +15,7 @@
     - `comment`: Description in spec sheet
     - `units`: following spec sheet and the units convention in [CF convention](https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html)
     - for those that are already converted to the actual units, put "but already converted to actual units here."
-    - for example: for the field `Temperature`, put 
+    - for example: for the field `Temperature`, put
         ```
         {
             "long_name": "Field "Temperature" in the data specification. "
@@ -57,7 +57,7 @@ Coordinates:
     - the actual physical beam activated in the setting (1, 2, 3, 4, 5): @imranmaj please double check this
     - parsed from the data variable `data_set_description` using `parse_ad2cp._postprocess_beams` for the following packets:
       - `BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT`
-      - `BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT` 
+      - `BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT`
       - `BOTTOM_TRACK_DATA_RECORD_FORMAT`
 
 Data variables:
@@ -110,9 +110,9 @@ Attributes:
 - `pulse_compressed`: this already is/will be in `Beam_group3` (echosounder mode data)
 
 ## Keep in `Vendor_specific` group
-- Questions: 
+- Questions:
   - flag for whether these data will be collected?
-  - when collected, what their expected dimensions are? 
+  - when collected, what their expected dimensions are?
 - `ahrs_rotation_matrix_mij`
 - `ahrs_quaternions_wxyz`
 - `ahrs_gyro_xyz`
@@ -124,7 +124,7 @@ Attributes:
 - `tilt_sensor_valid`
 
 ### Data collected for every ping in all modes
-- Coordinate `time1`: 
+- Coordinate `time1`:
   - this will be the combined `ping_time` from all modes
 - `temperature_of_pressure_sensor`: rename to `temperature_pressure_sensor`
 - `magnetometer_temperature`: rename to `temperature_magnetometer`
