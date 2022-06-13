@@ -19,8 +19,11 @@
         ```
         {
             "long_name": "Field "Temperature" in the data specification. "
-            "comment": "Reading from the temperature sensor. "
-                       "Raw data given as 0.01 °C but already converted to actual units here."
+            "comment": (
+                "Reading from the temperature sensor. "
+                "Raw data given as 0.01 °C "
+                "but already converted to actual units here."
+            )
             "units": "degree_C"
         }
         ```
@@ -31,10 +34,38 @@
 
 ## Which mode goes to which group
 - following SONAR-netCDF4 and our implementation of EK80 groups, we will use the following sequence when determining where data from each mode goes in `Beam_groupX`:
-    1. average
+    1. average:
+        ```
+        "descr": (
+            "contains echo intensity, velocity and correlation data "
+            "as well as other configuration parameters from the Average mode."
+        )
+        ```
     2. burst
+        ```
+        "descr": (
+            "contains echo intensity, velocity and correlation data "
+            "as well as other configuration parameters from the Burst mode."
+        )
+        ```
     3. echosounder
+        ```
+        "descr": (
+            "contains backscatter echo intensity and other configuration parameters from the Echosounder mode. "
+            "Data can be pulse compressed or raw intensity."
+        )
+        ```
     4. echosounder raw samples
+        ```
+        "descr": (
+            "contains complex backscatter raw samples and other configuration parameters from the Echosounder mode, "
+            "including complex data from the transmit pulse."
+        )
+        ```
+    - we need a trickier implementation than what's used for EK80, since for EK80 the max number group is 2, and depending on if complex or power data exist, where they show up may be different:
+        - if complex data exists, it is always stored in `Beam_group1`
+        - if ONLY power data exists, it is stored in `Beam_group1`
+        - if BOTH complex and power data exist, complex data in `Beam_group1` and power data in `Beam_group2`
 - examples:
     - example 1: file with average and burst mode:
         - `Beam_group1`: average
