@@ -1,66 +1,92 @@
-## Questions/comments:
+## Questions/comments for @imranmaj:
 - why check the version again?
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/parse_ad2cp.py#L589-L593
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/parse_ad2cp.py#L630-L634
 - Move `AHRS_COORDS` def to `parse_ad2cp`?
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/set_groups_ad2cp.py#L10-L14
 - the `beam` coordinate is missing in `rawtest.090.00015.nc`?
-- `echosounder_raw_beam`, `echosounder_raw_echogram`: not sure what these correspond to
-- `status`, `status0`: need additional parsing
 
 
 
+## Overarching action items:
+- Double check all raw to actual units conversion
+- For all variables, put
+    - `long_name`: Field in spec sheet
+    - `comment`: Description in spec sheet
+    - `units`: following spec sheet and the units convention in [CF convention](https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html)
+    - for those that are already converted to the actual units, put "but already converted to actual units here."
+    - for example: for the field `Temperature`, put 
+        ```
+        {
+            "long_name": "Field "Temperature" in the data specification. "
+            "comment": "Reading from the temperature sensor. "
+                       "Raw data given as 0.01 °C but already converted to actual units here."
+            "units": "degree_C"
+        }
+        ```
 
 
 
 # The original `Beam` group
 
 ## Which mode goes to which group
-Proposal/question:
-- use specific group name for different mode
-- this means that then some groups may not exist all together, i.e., there won't always be `Beam_group1` in the converted data file
-- this conflicts with what we have for EK80, where there will always be `Beam_group1` but the content changes depending on what are in the file (power/angle samples only, complex samples only, or both)
-- if we go with this approach, we can use the following:
-    - `Beam_group1`: average
-    - `Beam_group2`: burst
-    - `Beam_group3`: echosounder
-    - `Beam_group4`: echosounder raw samples
-        - the first ping is the raw transmit signal
-        - the rest of pings are the receive raw echoes
+- following SONAR-netCDF4 and our implementation of EK80 groups, we will use the following sequence when determining where data from each mode goes in `Beam_groupX`:
+    1. average
+    2. burst
+    3. echosounder
+    4. echosounder raw samples
+- examples:
+    - example 1: file with average and burst mode:
+        - `Beam_group1`: average
+        - `Beam_group2`: burst
+    - example 2: files with burst and echosounder mode:
+        - `Beam_group1`: burst
+        - `Beam_group2`: echosounder
+    - example 3: files with echosounder mode and raw echosounder data:
+        - `Beam_group1`: echosounder
+        - `Beam_group2`: echosounder raw samples
+- for echosounder raw samples
+    - the first ping is the raw transmit signal
+    - the rest of pings are the receive raw echoes
 
 ## Variables common to all modes
 Coordinates:
 - `ping_time`: use the original `ping_time_average`, `ping_time_burst` and `ping_time_echosounder` in each of their own `Beam_groupX` but with the same name `ping_time`
 - `range_sample`: use the original `range_sample_average`, `range_sample_burst` and `range_sample_echosounder` in each of their own `Beam_groupX` but with the same name `range_sample`
 - `beam`:
-    - the actual physical beam activated in the setting (1, 2, 3, 4, 5)
-    - parsed from the data variable `data_set_description` using `parse_ad2cp._postprocess_beams` for the following packets: `BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT`, `BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT`, `BOTTOM_TRACK_DATA_RECORD_FORMAT`
-    - this is missing in `rawtest.090.00008.nc`??
+    - the actual physical beam activated in the setting (1, 2, 3, 4, 5): @imranmaj please double check this
+    - parsed from the data variable `data_set_description` using `parse_ad2cp._postprocess_beams` for the following packets:
+      - `BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT`
+      - `BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT` 
+      - `BOTTOM_TRACK_DATA_RECORD_FORMAT`
 
 Data variables:
 - `number_of_beams`
 - `coordinate_system`
 - `number_of_cells`
 - `blanking`
-- `cell_size`
+- `cell_size`: this is conceptually equivalent to `sample_interval` for the other echosounders, just that `sample_interval` is defined in time (second) and `cell_size` is defined in space (meter)
 - `velocity_range`
 - `echosounder_frequency`
 - `ambiguity_velocity`
 - `data_set_description`
 - `transmit_energy`
 - `velocity_scaling`
-- `velocity`: separate `velocity_burst` and `velocity_average` into different `Beam_groupX` and use the name `velocity`
-- `amplitude`: separate `amplitude_burst`, `amplitude_average` and `amplitude_echosounder` into different `Beam_groupX` and use the name `amplitude`
-- `correlation`: separate `correlation_burst`, `correlation_average` and `correlation_echosounder` into different `Beam_groupX` and use the name `correlation`
+- `velocity`
+    - separate `velocity_burst` and `velocity_average` into different `Beam_groupX` and use the name `velocity`
+- `amplitude`
+    - separate `amplitude_burst`, `amplitude_average` and `amplitude_echosounder` into different `Beam_groupX` and use the name `amplitude`
+- `correlation`
+    - separate `correlation_burst`, `correlation_average` and `correlation_echosounder` into different `Beam_groupX` and use the name `correlation`
 
 Attributes:
 - `pulse_compressed`
-    - this probably should be a variable?
-    - should go to `Beam_group3` that stores the echosounder mode data
-    - can have a max length of 3 since there can be 3 echograms in the echosounder mode (aligned with `beam`): is this supported currently?
+    - this should be a variable in the `Beam_groupX` that stores echosounder mode data
+    - can have a max length of 3 since there can be 3 echograms in the echosounder mode (aligned with `beam`)
+    - @imranmaj: now sure what the current status of this is?
 
 
-## Move from `Beam` to `Platform` group
+## Move from `Beam` to `Vendor_specific` group
 - `figure_of_merit`: for bottom tracking
 - `altimeter_distance`
 - `altimeter_quality`
@@ -83,7 +109,10 @@ Attributes:
 ## Remove
 - `pulse_compressed`: this already is/will be in `Beam_group3` (echosounder mode data)
 
-## Move from `Vendor_specific` to `Platform` group
+## Keep in `Vendor_specific` group
+- Questions: 
+  - flag for whether these data will be collected?
+  - when collected, what their expected dimensions are? 
 - `ahrs_rotation_matrix_mij`
 - `ahrs_quaternions_wxyz`
 - `ahrs_gyro_xyz`
@@ -94,44 +123,37 @@ Attributes:
 - `compass_sensor_valid`
 - `tilt_sensor_valid`
 
-## Move from `Vendor_specific` to `Environment` group
-Coordinates:
-- `time1`: this will be the combined ping_time from all modes
-
-Data variables:
-- `temperature_of_pressure_sensor`: rename to "temperature_pressure_sensor"
-- `magnetometer_temperature`: rename to "temperature_magnetometer"
-- `real_ping_time_clock_temperature`: rename to "temperature_real_ping_time_clock"
+### Data collected for every ping in all modes
+- Coordinate `time1`: 
+  - this will be the combined `ping_time` from all modes
+- `temperature_of_pressure_sensor`: rename to `temperature_pressure_sensor`
+- `magnetometer_temperature`: rename to `temperature_magnetometer`
+- `real_ping_time_clock_temperature`: rename to `temperature_real_ping_time_clock`
 - `pressure_sensor_valid`
 - `temperature_sensor_valid`
-
-## Move from `Vendor_specific` to each of the `Beam_groupX` groups
-Coordinates: `ping_time` for that group (not the combined one)
-
-Data variables:
 - `data_record_version`
 - `error`
-- `status`: need additional parsing
-- `status0`: need additional parsing
+- `status`: need additional parsing @imranmaj
+- `status0`: need additional parsing @imranmaj
 - `power_level`
 - `nominal_correlation`
 - `percentage_good_data`
 - `battery_voltage`
 - `ensemble_counter`
 
-## Move from `Vendor_specific` to `Beam_group4` group
+## Move from `Vendor_specific` to `Beam_groupX` group
 Coordinates:
 - `ping_time` for that group (not the combined one)
 - `sample`: rename to `range_sample`; this is sample number along range for raw echosounder data
-- `sample_transmit`: rename to `transmit_sample` (to be consistent with what's used for Simrad RAW4)
+- `sample_transmit`: rename to `transmit_sample` (following the proposed new variable in PR#714)
 
 Data variables:
-- `echosounder_raw_samples_i`
-- `echosounder_raw_samples_q`
-- `echosounder_raw_transmit_samples_i`
-- `echosounder_raw_transmit_samples_q`
-- `echosounder_raw_beam`: not sure what this corresponds to, but couldn't find a variable that correpsonds to `beam` which is the physical beam used in transmission
-- `echosounder_raw_echogram`: not sure what this corresponds to
+- `echosounder_raw_samples_i`: rename to `backscatter_r`
+- `echosounder_raw_samples_q`: rename to `backscatter_i`
+- `echosounder_raw_transmit_samples_i`: rename to `transmit_pulse_r` (following the proposed new variable in PR#714)
+- `echosounder_raw_transmit_samples_q`: rename to `transmit_pulse_i` (following the proposed new variable in PR#714)
+- `echosounder_raw_beam`: not sure what this corresponds to, but couldn't find a variable that correpsonds to `beam` which is the physical beam used in transmission @imranmaj
+- `echosounder_raw_echogram`: not sure what this corresponds to @imranmaj
 
 
 
@@ -162,6 +184,7 @@ Data variables:
 - `heading`
 - `pitch`
 - `roll`
+- `tilt`: is there such a field defined in the spec sheet? I didn't see any in the example files  @imranmaj
 
 ## Move from `Platform` group to `Vendor_specific` group
 Coordinates:
