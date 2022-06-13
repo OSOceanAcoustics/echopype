@@ -2,8 +2,12 @@
 - why check the version again?
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/parse_ad2cp.py#L589-L593
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/parse_ad2cp.py#L630-L634
+    - Safety check to make sure the version is correct
+    - Maybe there are multiple versions in 1 file?
+    - Default is to interpret as version 3, maybe the version is 2?
 - Move `AHRS_COORDS` def to `parse_ad2cp`?
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/set_groups_ad2cp.py#L10-L14
+    - Chose to keep coordinate value logic in set_groups
 - the `beam` coordinate is missing in `rawtest.090.00015.nc`?
 
 
