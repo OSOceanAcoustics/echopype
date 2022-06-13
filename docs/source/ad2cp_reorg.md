@@ -9,6 +9,8 @@
     - https://github.com/OSOceanAcoustics/echopype/blob/16a574dda792a61f6f7ae0583b70b4b87d787f12/echopype/convert/set_groups_ad2cp.py#L10-L14
     - Chose to keep coordinate value logic in set_groups
 - the `beam` coordinate is missing in `rawtest.090.00015.nc`?
+    - Beam is currently not included because no variables in the beam group are indexed by beam
+    - It should be included anyway
 
 
 
