@@ -10,6 +10,7 @@
 
 ## Overarching action items:
 - Double check all raw to actual units conversion
+- Move the sequence of variable handling to following the sequence of the data specification, for easier reference
 - For all variables, put
     - `long_name`: Field in spec sheet
     - `comment`: Description in spec sheet
@@ -82,8 +83,10 @@
 
 ## Variables common to all modes
 Coordinates:
-- `ping_time`: use the original `ping_time_average`, `ping_time_burst` and `ping_time_echosounder` in each of their own `Beam_groupX` but with the same name `ping_time`
-- `range_sample`: use the original `range_sample_average`, `range_sample_burst` and `range_sample_echosounder` in each of their own `Beam_groupX` but with the same name `range_sample`
+- `ping_time`
+    - use the original `ping_time_average`, `ping_time_burst` and `ping_time_echosounder` in each of their own `Beam_groupX` but with the same name `ping_time`
+- `range_sample`
+    - use the original `range_sample_average`, `range_sample_burst` and `range_sample_echosounder` in each of their own `Beam_groupX` but with the same name `range_sample`
 - `beam`:
     - the actual physical beam activated in the setting (1, 2, 3, 4, 5): @imranmaj please double check this
     - parsed from the data variable `data_set_description` using `parse_ad2cp._postprocess_beams` for the following packets:
@@ -96,9 +99,11 @@ Data variables:
 - `coordinate_system`
 - `number_of_cells`
 - `blanking`
-- `cell_size`: this is conceptually equivalent to `sample_interval` for the other echosounders, just that `sample_interval` is defined in time (second) and `cell_size` is defined in space (meter)
+- `cell_size`
+    - this is conceptually equivalent to `sample_interval` for the other echosounders, just that `sample_interval` is defined in time (second) and `cell_size` is defined in space (meter)
 - `velocity_range`
 - `echosounder_frequency`
+    - the parsed values seem wrong: right now it shows as either 0 (these are probably for pings from other modes and not echosounder -- please verify) or 10000, but should be 1000000 (1 MHz)  @imranmaj
 - `ambiguity_velocity`
 - `data_set_description`
 - `transmit_energy`
@@ -106,7 +111,7 @@ Data variables:
 - `velocity`
     - separate `velocity_burst` and `velocity_average` into different `Beam_groupX` and use the name `velocity`
 - `amplitude`
-    - separate `amplitude_burst`, `amplitude_average` and `amplitude_echosounder` into different `Beam_groupX` and use the name `amplitude`
+    - separate `amplitude_burst`, `amplitude_average` and `amplitude_echosounder` into different `Beam_groupX` and use the name `backscatter_r` (since this "amplitude" is equivalent to what we have from EK60, AZFP and EK80 power data)
 - `correlation`
     - separate `correlation_burst`, `correlation_average` and `correlation_echosounder` into different `Beam_groupX` and use the name `correlation`
 
