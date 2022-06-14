@@ -966,11 +966,14 @@ class SetGroupsEK80(SetGroupsBase):
         decimation_factors = dict()
         for ch in channels:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
-            coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
-            decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
+            if self.parser_obj.fil_coeffs:
+                coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
+                decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
             # filter coeffs and decimation factor for pulse compression (PC)
-            coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
-            decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
+            if self.parser_obj.fil_df:
+
+                coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
+                decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
