@@ -258,6 +258,102 @@ class SetGroupsAd2cp(SetGroupsBase):
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
         # like was done for range_bin (we have range_bin_burst, range_bin_average,
         # and range_bin_echosounder)?
+        beam_groups = []
+
+        # burst
+        for packet in self.parser_obj.packets:
+            if packet.is_burst():
+                beam_groups.append(
+                    self._make_dataset(
+                        {
+                            "num_beams": "number_of_beams",
+                            "coordinate_system": "coordinate_system",
+                            "num_cells": "number_of_cells",
+                            "blanking": "blanking",
+                            "cell_size": "cell_size",
+                            "velocity_range": "velocity_range",
+                            "echosounder_frequency": "echosounder_frequency",
+                            "ambiguity_velocity": "ambiguity_velocity",
+                            "dataset_description": "data_set_description",
+                            "transmit_energy": "transmit_energy",
+                            "velocity_scaling": "velocity_scaling",
+                            "velocity_data_burst": "velocity_burst",
+                            "amplitude_data_burst": "amplitude_burst",
+                            "correlation_data_burst": "correlation_burst",
+                        }
+                    )
+                )
+                break
+        # average
+        for packet in self.parser_obj.packets:
+            if packet.is_average():
+                beam_groups.append(
+                    self._make_dataset(
+                        {
+                            "num_beams": "number_of_beams",
+                            "coordinate_system": "coordinate_system",
+                            "num_cells": "number_of_cells",
+                            "blanking": "blanking",
+                            "cell_size": "cell_size",
+                            "velocity_range": "velocity_range",
+                            "echosounder_frequency": "echosounder_frequency",
+                            "ambiguity_velocity": "ambiguity_velocity",
+                            "dataset_description": "data_set_description",
+                            "transmit_energy": "transmit_energy",
+                            "velocity_scaling": "velocity_scaling",
+                            "velocity_data_average": "velocity_average",
+                            "amplitude_data_average": "amplitude_average",
+                            "correlation_data_average": "correlation_average",
+                        }
+                    )
+                )
+                break
+        # echosounder
+        for packet in self.parser_obj.packets:
+            if packet.is_echosounder():
+                self._make_dataset(
+                    {
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "correlation_data_echosounder": "correlation_echosounder",
+                        "echosounder_data": "amplitude_echosounder",
+                    }
+                )
+        # echosounder raw
+        for packet in self.parser_obj.packets:
+            if packet.is_echosounder_raw():
+                self._make_dataset(
+                    {
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "echosounder_raw_samples_i": "backscatter_r",
+                        "echosounder_raw_samples_q": "backscatter_i",
+                        "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
+                        "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
+                        "echosounder_raw_beam": "echosounder_raw_beam",
+                        "echosounder_raw_echogram": "echosounder_raw_echogram",
+                    }
+                )
+                break
+
         ds = self._make_dataset(
             {
                 "num_beams": "number_of_beams",
