@@ -279,6 +279,12 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "correlation_data_average": "correlation_average",
                 "correlation_data_echosounder": "correlation_echosounder",
                 "echosounder_data": "amplitude_echosounder",
+                "echosounder_raw_samples_i": "backscatter_r",
+                "echosounder_raw_samples_q": "backscatter_i",
+                "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
+                "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
+                "echosounder_raw_beam": "echosounder_raw_beam",
+                "echosounder_raw_echogram": "echosounder_raw_echogram",
             }
         )
         ds = ds.assign_attrs({"pulse_compressed": self.pulse_compressed})
@@ -318,12 +324,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "temperature_sensor_valid": "temperature_sensor_valid",
                 "compass_sensor_valid": "compass_sensor_valid",
                 "tilt_sensor_valid": "tilt_sensor_valid",
-                "echosounder_raw_samples_i": "echosounder_raw_samples_i",
-                "echosounder_raw_samples_q": "echosounder_raw_samples_q",
-                "echosounder_raw_transmit_samples_i": "echosounder_raw_transmit_samples_i",
-                "echosounder_raw_transmit_samples_q": "echosounder_raw_transmit_samples_q",
-                "echosounder_raw_beam": "echosounder_raw_beam",
-                "echosounder_raw_echogram": "echosounder_raw_echogram",
                 "figure_of_merit_data": "figure_of_merit",
                 "altimeter_distance": "altimeter_distance",
                 "altimeter_quality": "altimeter_quality",
@@ -337,7 +337,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "altimeter_raw_data_samples": "altimeter_raw_data_samples",
             }
         )
-        ds = ds.assign_attrs({"pulse_compressed": self.pulse_compressed})
 
         # FIXME: this is a hack because the current file saving
         # mechanism requires that the vendor group have ping_time as a dimension,
