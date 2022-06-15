@@ -279,17 +279,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "correlation_data_average": "correlation_average",
                 "correlation_data_echosounder": "correlation_echosounder",
                 "echosounder_data": "amplitude_echosounder",
-                "figure_of_merit_data": "figure_of_merit",
-                "altimeter_distance": "altimeter_distance",
-                "altimeter_quality": "altimeter_quality",
-                "ast_distance": "ast_distance",
-                "ast_quality": "ast_quality",
-                "ast_offset_100us": "ast_offset_100us",
-                "ast_pressure": "ast_pressure",
-                "altimeter_spare": "altimeter_spare",
-                "altimeter_raw_data_num_samples": "altimeter_raw_data_num_samples",
-                "altimeter_raw_data_sample_distance": "altimeter_raw_data_sample_distance",
-                "altimeter_raw_data_samples": "altimeter_raw_data_samples",
             }
         )
         ds = ds.assign_attrs({"pulse_compressed": self.pulse_compressed})
@@ -335,6 +324,17 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "echosounder_raw_transmit_samples_q": "echosounder_raw_transmit_samples_q",
                 "echosounder_raw_beam": "echosounder_raw_beam",
                 "echosounder_raw_echogram": "echosounder_raw_echogram",
+                "figure_of_merit_data": "figure_of_merit",
+                "altimeter_distance": "altimeter_distance",
+                "altimeter_quality": "altimeter_quality",
+                "ast_distance": "ast_distance",
+                "ast_quality": "ast_quality",
+                "ast_offset_100us": "ast_offset_100us",
+                "ast_pressure": "ast_pressure",
+                "altimeter_spare": "altimeter_spare",
+                "altimeter_raw_data_num_samples": "altimeter_raw_data_num_samples",
+                "altimeter_raw_data_sample_distance": "altimeter_raw_data_sample_distance",
+                "altimeter_raw_data_samples": "altimeter_raw_data_samples",
             }
         )
         ds = ds.assign_attrs({"pulse_compressed": self.pulse_compressed})
