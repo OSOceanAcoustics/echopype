@@ -242,7 +242,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "heading": "heading",
                 "pitch": "pitch",
                 "roll": "roll",
-                "magnetometer_raw": "magnetometer_raw",
             }
         )
         ds = ds.assign_attrs(
@@ -409,6 +408,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "altimeter_raw_data_num_samples": "altimeter_raw_data_num_samples",
                 "altimeter_raw_data_sample_distance": "altimeter_raw_data_sample_distance",
                 "altimeter_raw_data_samples": "altimeter_raw_data_samples",
+                "magnetometer_raw": "magnetometer_raw",
             }
         )
 
