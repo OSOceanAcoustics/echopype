@@ -99,12 +99,12 @@ class Dimension(Enum):
     Determines the dimensions of the data in the output dataset
     """
 
-    PING_TIME = "ping_time"
-    PING_TIME_AVERAGE = "ping_time_average"
-    PING_TIME_BURST = "ping_time_burst"
-    PING_TIME_ECHOSOUNDER = "ping_time_echosounder"
-    PING_TIME_ECHOSOUNDER_RAW = "ping_time_echosounder_raw"
-    PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time_echosounder_raw_transmit"
+    PING_TIME = "time1"
+    PING_TIME_AVERAGE = "ping_time"
+    PING_TIME_BURST = "ping_time"
+    PING_TIME_ECHOSOUNDER = "ping_time"
+    PING_TIME_ECHOSOUNDER_RAW = "ping_time"
+    PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time"
     BEAM = "beam"
     RANGE_SAMPLE_BURST = "range_sample"
     RANGE_SAMPLE_AVERAGE = "range_sample"
