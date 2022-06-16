@@ -94,7 +94,6 @@ DTYPES: Dict[Tuple[DataType, int], DtypesHint] = {
 }
 
 
-@unique
 class Dimension(Enum):
     """
     Determines the dimensions of the data in the output dataset
@@ -107,12 +106,12 @@ class Dimension(Enum):
     PING_TIME_ECHOSOUNDER_RAW = "ping_time_echosounder_raw"
     PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time_echosounder_raw_transmit"
     BEAM = "beam"
-    RANGE_SAMPLE_BURST = "range_sample_burst"
-    RANGE_SAMPLE_AVERAGE = "range_sample_average"
-    RANGE_SAMPLE_ECHOSOUNDER = "range_sample_echosounder"
+    RANGE_SAMPLE_BURST = "range_sample"
+    RANGE_SAMPLE_AVERAGE = "range_sample"
+    RANGE_SAMPLE_ECHOSOUNDER = "range_sample"
     NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
-    SAMPLE = "sample"
-    SAMPLE_TRANSMIT = "sample_transmit"
+    SAMPLE = "range_sample"
+    SAMPLE_TRANSMIT = "transmit_sample"
     MIJ = "mij"
     XYZ = "xyz"
     WXYZ = "wxyz"
