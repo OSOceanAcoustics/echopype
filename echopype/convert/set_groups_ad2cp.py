@@ -17,16 +17,6 @@ AHRS_COORDS: Dict[Dimension, np.ndarray] = {
 class SetGroupsAd2cp(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from Ad2cp data files."""
 
-    beamgroups_possible = [
-        {
-            "name": "Beam_group1",
-            "descr": (
-                "contains velocity, correlation, and backscatter power (uncalibrated)"
-                " data and other data derived from acoustic data."
-            ),
-        }
-    ]
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
@@ -258,6 +248,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         # like was done for range_bin (we have range_bin_burst, range_bin_average,
         # and range_bin_echosounder)?
         beam_groups = []
+        self._beamgroups = []
 
         # burst
         for packet in self.parser_obj.packets:
@@ -282,6 +273,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                         }
                     )
                 )
+
+                self._beamgroups.append(
+                    {
+                        "name": f"Beam_group{len(self._beamgroups) + 1}",
+                        "descr": (
+                            "contains echo intensity, velocity and correlation data "
+                            "as well as other configuration parameters from the Burst mode."
+                        ),
+                    }
+                )
                 break
         # average
         for packet in self.parser_obj.packets:
@@ -305,6 +306,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                             "correlation_data_average": "correlation",
                         }
                     )
+                )
+
+                self._beamgroups.append(
+                    {
+                        "name": f"Beam_group{len(self._beamgroups) + 1}",
+                        "descr": (
+                            "contains echo intensity, velocity and correlation data "
+                            "as well as other configuration parameters from the Average mode."
+                        ),
+                    }
                 )
                 break
         # echosounder
@@ -332,6 +343,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                 pulse_compressed[self.pulse_compressed - 1] = 1
                 ds["pulse_compressed"] = (("echogram",), pulse_compressed)
                 beam_groups.append(ds)
+
+                self._beamgroups.append(
+                    {
+                        "name": f"Beam_group{len(self._beamgroups) + 1}",
+                        "descr": (
+                            "contains backscatter echo intensity and other configuration parameters from the Echosounder mode. "
+                            "Data can be pulse compressed or raw intensity."
+                        ),
+                    }
+                )
                 break
         # echosounder raw
         for packet in self.parser_obj.packets:
@@ -358,6 +379,16 @@ class SetGroupsAd2cp(SetGroupsBase):
                             "echosounder_raw_echogram": "echosounder_raw_echogram",
                         }
                     )
+                )
+
+                self._beamgroups.append(
+                    {
+                        "name": f"Beam_group{len(self._beamgroups) + 1}",
+                        "descr": (
+                            "contains complex backscatter raw samples and other configuration parameters from the Echosounder mode, "
+                            "including complex data from the transmit pulse."
+                        ),
+                    }
                 )
                 break
 
@@ -426,7 +457,6 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
-        self._beamgroups = self.beamgroups_possible
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
