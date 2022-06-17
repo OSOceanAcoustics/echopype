@@ -1,0 +1,820 @@
+BURST_AVERAGE_VERSION2_DATA_RECORD_FORMAT:
+  version:
+    long_name: Field "Version" in the data specification.
+    units: ''
+    comment: ''
+  offset_of_data:
+    long_name: Field "Offset Of Data" in the data specification.
+    units: '# of bytes'
+    comment: '
+
+      Data was converted to the specified units.'
+  serial_number:
+    long_name: Field "Serial Number" in the data specification.
+    units: ''
+    comment: ''
+  configuration:
+    long_name: Field "Configuration" in the data specification.
+    units: ''
+    comment: ''
+  year:
+    long_name: Field "Year" in the data specification.
+    units: ''
+    comment: ''
+  month:
+    long_name: Field "Month" in the data specification.
+    units: ''
+    comment: ''
+  day:
+    long_name: Field "Day" in the data specification.
+    units: ''
+    comment: ''
+  hour:
+    long_name: Field "Hour" in the data specification.
+    units: ''
+    comment: ''
+  minute:
+    long_name: Field "Minute" in the data specification.
+    units: ''
+    comment: ''
+  seconds:
+    long_name: Field "Seconds" in the data specification.
+    units: ''
+    comment: ''
+  microsec100:
+    long_name: Field "Microsec100" in the data specification.
+    units: ''
+    comment: ''
+  speed_of_sound:
+    long_name: Field "Speed Of Sound" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  temperature:
+    long_name: Field "Temperature" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  pressure:
+    long_name: Field "Pressure" in the data specification.
+    units: dBar
+    comment: '
+
+      Data was converted to the specified units.'
+  heading:
+    long_name: Field "Heading" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  pitch:
+    long_name: Field "Pitch" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  roll:
+    long_name: Field "Roll" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  error:
+    long_name: Field "Error" in the data specification.
+    units: ''
+    comment: ''
+  status:
+    long_name: Field "Status" in the data specification.
+    units: ''
+    comment: ''
+  num_beams_and_coordinate_system_and_num_cells:
+    long_name: Field "Num Beams And Coordinate System And Num Cells" in the data specification.
+    units: ''
+    comment: ''
+  cell_size:
+    long_name: Field "Cell Size" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  blanking:
+    long_name: Field "Blanking" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_range:
+    long_name: Field "Velocity Range" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  battery_voltage:
+    long_name: Field "Battery Voltage" in the data specification.
+    units: V
+    comment: '
+
+      Data was converted to the specified units.'
+  magnetometer_raw:
+    long_name: Field "Magnetometer Raw" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_x_axis:
+    long_name: Field "Accelerometer Raw X Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_y_axis:
+    long_name: Field "Accelerometer Raw Y Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_z_axis:
+    long_name: Field "Accelerometer Raw Z Axis" in the data specification.
+    units: ''
+    comment: ''
+  ambiguity_velocity:
+    long_name: Field "Ambiguity Velocity" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  dataset_description:
+    long_name: Field "Dataset Description" in the data specification.
+    units: ''
+    comment: ''
+  transmit_energy:
+    long_name: Field "Transmit Energy" in the data specification.
+    units: ''
+    comment: ''
+  velocity_scaling:
+    long_name: Field "Velocity Scaling" in the data specification.
+    units: ''
+    comment: ''
+  power_level:
+    long_name: Field "Power Level" in the data specification.
+    units: dB
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_data_burst:
+    long_name: Field "Velocity Data Burst" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_data_average:
+    long_name: Field "Velocity Data Average" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_data_echosounder:
+    long_name: Field "Velocity Data Echosounder" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_burst:
+    long_name: Field "Amplitude Data Burst" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_average:
+    long_name: Field "Amplitude Data Average" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_echosounder:
+    long_name: Field "Amplitude Data Echosounder" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_burst:
+    long_name: Field "Correlation Data Burst" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_average:
+    long_name: Field "Correlation Data Average" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_echosounder:
+    long_name: Field "Correlation Data Echosounder" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT:
+  version:
+    long_name: Field "Version" in the data specification.
+    units: ''
+    comment: ''
+  offset_of_data:
+    long_name: Field "Offset Of Data" in the data specification.
+    units: '# of bytes'
+    comment: '
+
+      Data was converted to the specified units.'
+  configuration:
+    long_name: Field "Configuration" in the data specification.
+    units: ''
+    comment: ''
+  serial_number:
+    long_name: Field "Serial Number" in the data specification.
+    units: ''
+    comment: ''
+  year:
+    long_name: Field "Year" in the data specification.
+    units: ''
+    comment: ''
+  month:
+    long_name: Field "Month" in the data specification.
+    units: ''
+    comment: ''
+  day:
+    long_name: Field "Day" in the data specification.
+    units: ''
+    comment: ''
+  hour:
+    long_name: Field "Hour" in the data specification.
+    units: ''
+    comment: ''
+  minute:
+    long_name: Field "Minute" in the data specification.
+    units: ''
+    comment: ''
+  seconds:
+    long_name: Field "Seconds" in the data specification.
+    units: ''
+    comment: ''
+  microsec100:
+    long_name: Field "Microsec100" in the data specification.
+    units: ''
+    comment: ''
+  speed_of_sound:
+    long_name: Field "Speed Of Sound" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  temperature:
+    long_name: Field "Temperature" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  pressure:
+    long_name: Field "Pressure" in the data specification.
+    units: dBar
+    comment: '
+
+      Data was converted to the specified units.'
+  heading:
+    long_name: Field "Heading" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  pitch:
+    long_name: Field "Pitch" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  roll:
+    long_name: Field "Roll" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  num_beams_and_coordinate_system_and_num_cells:
+    long_name: Field "Num Beams And Coordinate System And Num Cells" in the data specification.
+    units: ''
+    comment: ''
+  cell_size:
+    long_name: Field "Cell Size" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  blanking:
+    long_name: Field "Blanking" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  nominal_correlation:
+    long_name: Field "Nominal Correlation" in the data specification.
+    units: '%'
+    comment: '
+
+      Data was converted to the specified units.'
+  temperature_from_pressure_sensor:
+    long_name: Field "Temperature From Pressure Sensor" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  battery_voltage:
+    long_name: Field "Battery Voltage" in the data specification.
+    units: V
+    comment: '
+
+      Data was converted to the specified units.'
+  magnetometer_raw:
+    long_name: Field "Magnetometer Raw" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_x_axis:
+    long_name: Field "Accelerometer Raw X Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_y_axis:
+    long_name: Field "Accelerometer Raw Y Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_z_axis:
+    long_name: Field "Accelerometer Raw Z Axis" in the data specification.
+    units: ''
+    comment: ''
+  ambiguity_velocity_or_echosounder_frequency:
+    long_name: Field "Ambiguity Velocity Or Echosounder Frequency" in the data specification.
+    units: ''
+    comment: ''
+  dataset_description:
+    long_name: Field "Dataset Description" in the data specification.
+    units: ''
+    comment: ''
+  transmit_energy:
+    long_name: Field "Transmit Energy" in the data specification.
+    units: ''
+    comment: ''
+  velocity_scaling:
+    long_name: Field "Velocity Scaling" in the data specification.
+    units: ''
+    comment: ''
+  power_level:
+    long_name: Field "Power Level" in the data specification.
+    units: dB
+    comment: '
+
+      Data was converted to the specified units.'
+  magnetometer_temperature:
+    long_name: Field "Magnetometer Temperature" in the data specification.
+    units: ''
+    comment: ''
+  real_time_clock_temperature:
+    long_name: Field "Real Time Clock Temperature" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  error:
+    long_name: Field "Error" in the data specification.
+    units: ''
+    comment: ''
+  status0:
+    long_name: Field "Status0" in the data specification.
+    units: ''
+    comment: ''
+  status:
+    long_name: Field "Status" in the data specification.
+    units: ''
+    comment: ''
+  ensemble_counter:
+    long_name: Field "Ensemble Counter" in the data specification.
+    units: ''
+    comment: ''
+  velocity_data_burst:
+    long_name: Field "Velocity Data Burst" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_data_average:
+    long_name: Field "Velocity Data Average" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  velocity_data_echosounder:
+    long_name: Field "Velocity Data Echosounder" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_burst:
+    long_name: Field "Amplitude Data Burst" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_average:
+    long_name: Field "Amplitude Data Average" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  amplitude_data_echosounder:
+    long_name: Field "Amplitude Data Echosounder" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_burst:
+    long_name: Field "Correlation Data Burst" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_average:
+    long_name: Field "Correlation Data Average" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+  correlation_data_echosounder:
+    long_name: Field "Correlation Data Echosounder" in the data specification.
+    units: 0-100
+    comment: '
+
+      Data was converted to the specified units.'
+  altimeter_distance:
+    long_name: Field "Altimeter Distance" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  altimeter_quality:
+    long_name: Field "Altimeter Quality" in the data specification.
+    units: ''
+    comment: ''
+  ast_distance:
+    long_name: Field "Ast Distance" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  ast_quality:
+    long_name: Field "Ast Quality" in the data specification.
+    units: ''
+    comment: ''
+  ast_offset_100us:
+    long_name: Field "Ast Offset 100us" in the data specification.
+    units: "100 \u03BCs"
+    comment: '
+
+      Data was converted to the specified units.'
+  ast_pressure:
+    long_name: Field "Ast Pressure" in the data specification.
+    units: dBar
+    comment: '
+
+      Data was converted to the specified units.'
+  altimeter_spare:
+    long_name: Field "Altimeter Spare" in the data specification.
+    units: ''
+    comment: ''
+  altimeter_raw_data_num_samples:
+    long_name: Field "Altimeter Raw Data Num Samples" in the data specification.
+    units: ''
+    comment: ''
+  altimeter_raw_data_sample_distance:
+    long_name: Field "Altimeter Raw Data Sample Distance" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  altimeter_raw_data_samples:
+    long_name: Field "Altimeter Raw Data Samples" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_data:
+    long_name: Field "Echosounder Data" in the data specification.
+    units: dB/count
+    comment: '
+
+      Data was converted to the specified units.'
+  ahrs_rotation_matrix:
+    long_name: Field "Ahrs Rotation Matrix" in the data specification.
+    units: ''
+    comment: ''
+  ahrs_quaternions:
+    long_name: Field "Ahrs Quaternions" in the data specification.
+    units: ''
+    comment: ''
+  ahrs_gyro:
+    long_name: Field "Ahrs Gyro" in the data specification.
+    units: ''
+    comment: ''
+  percentage_good_data:
+    long_name: Field "Percentage Good Data" in the data specification.
+    units: '%'
+    comment: '
+
+      Data was converted to the specified units.'
+  std_dev_pitch:
+    long_name: Field "Std Dev Pitch" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  std_dev_roll:
+    long_name: Field "Std Dev Roll" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  std_dev_heading:
+    long_name: Field "Std Dev Heading" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  std_dev_pressure:
+    long_name: Field "Std Dev Pressure" in the data specification.
+    units: dBar
+    comment: '
+
+      Data was converted to the specified units.'
+BOTTOM_TRACK_DATA_RECORD_FORMAT:
+  version:
+    long_name: Field "Version" in the data specification.
+    units: ''
+    comment: ''
+  offset_of_data:
+    long_name: Field "Offset Of Data" in the data specification.
+    units: '# of bytes'
+    comment: '
+
+      Data was converted to the specified units.'
+  configuration:
+    long_name: Field "Configuration" in the data specification.
+    units: ''
+    comment: ''
+  serial_number:
+    long_name: Field "Serial Number" in the data specification.
+    units: ''
+    comment: ''
+  year:
+    long_name: Field "Year" in the data specification.
+    units: ''
+    comment: ''
+  month:
+    long_name: Field "Month" in the data specification.
+    units: ''
+    comment: ''
+  day:
+    long_name: Field "Day" in the data specification.
+    units: ''
+    comment: ''
+  hour:
+    long_name: Field "Hour" in the data specification.
+    units: ''
+    comment: ''
+  minute:
+    long_name: Field "Minute" in the data specification.
+    units: ''
+    comment: ''
+  seconds:
+    long_name: Field "Seconds" in the data specification.
+    units: ''
+    comment: ''
+  microsec100:
+    long_name: Field "Microsec100" in the data specification.
+    units: ''
+    comment: ''
+  speed_of_sound:
+    long_name: Field "Speed Of Sound" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  temperature:
+    long_name: Field "Temperature" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  pressure:
+    long_name: Field "Pressure" in the data specification.
+    units: dBar
+    comment: '
+
+      Data was converted to the specified units.'
+  heading:
+    long_name: Field "Heading" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  pitch:
+    long_name: Field "Pitch" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  roll:
+    long_name: Field "Roll" in the data specification.
+    units: degrees
+    comment: '
+
+      Data was converted to the specified units.'
+  num_beams_and_coordinate_system_and_num_cells:
+    long_name: Field "Num Beams And Coordinate System And Num Cells" in the data specification.
+    units: ''
+    comment: ''
+  cell_size:
+    long_name: Field "Cell Size" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  blanking:
+    long_name: Field "Blanking" in the data specification.
+    units: m
+    comment: '
+
+      Data was converted to the specified units.'
+  nominal_correlation:
+    long_name: Field "Nominal Correlation" in the data specification.
+    units: '%'
+    comment: '
+
+      Data was converted to the specified units.'
+  battery_voltage:
+    long_name: Field "Battery Voltage" in the data specification.
+    units: V
+    comment: '
+
+      Data was converted to the specified units.'
+  magnetometer_raw:
+    long_name: Field "Magnetometer Raw" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_x_axis:
+    long_name: Field "Accelerometer Raw X Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_y_axis:
+    long_name: Field "Accelerometer Raw Y Axis" in the data specification.
+    units: ''
+    comment: ''
+  accelerometer_raw_z_axis:
+    long_name: Field "Accelerometer Raw Z Axis" in the data specification.
+    units: ''
+    comment: ''
+  ambiguity_velocity:
+    long_name: Field "Ambiguity Velocity" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  dataset_description:
+    long_name: Field "Dataset Description" in the data specification.
+    units: ''
+    comment: ''
+  transmit_energy:
+    long_name: Field "Transmit Energy" in the data specification.
+    units: ''
+    comment: ''
+  velocity_scaling:
+    long_name: Field "Velocity Scaling" in the data specification.
+    units: ''
+    comment: ''
+  power_level:
+    long_name: Field "Power Level" in the data specification.
+    units: dB
+    comment: '
+
+      Data was converted to the specified units.'
+  magnetometer_temperature:
+    long_name: Field "Magnetometer Temperature" in the data specification.
+    units: ''
+    comment: ''
+  real_time_clock_temperature:
+    long_name: Field "Real Time Clock Temperature" in the data specification.
+    units: degrees Celsius
+    comment: '
+
+      Data was converted to the specified units.'
+  error:
+    long_name: Field "Error" in the data specification.
+    units: ''
+    comment: ''
+  status:
+    long_name: Field "Status" in the data specification.
+    units: ''
+    comment: ''
+  ensemble_counter:
+    long_name: Field "Ensemble Counter" in the data specification.
+    units: ''
+    comment: ''
+  velocity_data:
+    long_name: Field "Velocity Data" in the data specification.
+    units: m/s
+    comment: '
+
+      Data was converted to the specified units.'
+  distance_data:
+    long_name: Field "Distance Data" in the data specification.
+    units: ''
+    comment: ''
+  figure_of_merit_data:
+    long_name: Field "Figure Of Merit Data" in the data specification.
+    units: ''
+    comment: ''
+ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
+  version:
+    long_name: Field "Version" in the data specification.
+    units: ''
+    comment: ''
+  offset_of_data:
+    long_name: Field "Offset Of Data" in the data specification.
+    units: '# of bytes'
+    comment: '
+
+      Data was converted to the specified units.'
+  year:
+    long_name: Field "Year" in the data specification.
+    units: ''
+    comment: ''
+  month:
+    long_name: Field "Month" in the data specification.
+    units: ''
+    comment: ''
+  day:
+    long_name: Field "Day" in the data specification.
+    units: ''
+    comment: ''
+  hour:
+    long_name: Field "Hour" in the data specification.
+    units: ''
+    comment: ''
+  minute:
+    long_name: Field "Minute" in the data specification.
+    units: ''
+    comment: ''
+  seconds:
+    long_name: Field "Seconds" in the data specification.
+    units: ''
+    comment: ''
+  microsec100:
+    long_name: Field "Microsec100" in the data specification.
+    units: ''
+    comment: ''
+  error:
+    long_name: Field "Error" in the data specification.
+    units: ''
+    comment: ''
+  status:
+    long_name: Field "Status" in the data specification.
+    units: ''
+    comment: ''
+  serial_number:
+    long_name: Field "Serial Number" in the data specification.
+    units: ''
+    comment: ''
+  num_complex_samples:
+    long_name: Field "Num Complex Samples" in the data specification.
+    units: ''
+    comment: ''
+  ind_start_samples:
+    long_name: Field "Ind Start Samples" in the data specification.
+    units: ''
+    comment: ''
+  freq_raw_sample_data:
+    long_name: Field "Freq Raw Sample Data" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_samples:
+    long_name: Field "Echosounder Raw Samples" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_samples_i:
+    long_name: Field "Echosounder Raw Samples I" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_samples_q:
+    long_name: Field "Echosounder Raw Samples Q" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_transmit_samples:
+    long_name: Field "Echosounder Raw Transmit Samples" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_transmit_samples_i:
+    long_name: Field "Echosounder Raw Transmit Samples I" in the data specification.
+    units: ''
+    comment: ''
+  echosounder_raw_transmit_samples_q:
+    long_name: Field "Echosounder Raw Transmit Samples Q" in the data specification.
+    units: ''
+    comment: ''
