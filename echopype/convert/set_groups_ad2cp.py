@@ -487,4 +487,4 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         ds = ds.assign_attrs(sonar_attr_dict)
 
-        return ds
+        return set_encodings(ds)
