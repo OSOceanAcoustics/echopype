@@ -188,7 +188,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             Union[Tuple[List[str], np.ndarray, Dict[str, str]], Tuple[Tuple[()], None]],
         ] = {
             var_name: (
-                [dim.value for dim in dims[field_name]],
+                [dim.dimension_name() for dim in dims[field_name]],
                 combined_fields[field_name],
                 attrs.get(field_name, {}),
             )
@@ -199,15 +199,15 @@ class SetGroupsAd2cp(SetGroupsBase):
         coords: Dict[str, np.ndarray] = dict()
         for time_dim, time_idxs in self.times_idx.items():
             if time_dim in used_dims:
-                coords[time_dim.value] = self.timestamps[time_idxs]
+                coords[time_dim.dimension_name()] = self.timestamps[time_idxs]
         for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
             if ahrs_dim in used_dims:
-                coords[ahrs_dim.value] = ahrs_coords
+                coords[ahrs_dim.dimension_name()] = ahrs_coords
         if Dimension.BEAM in used_dims and beam_coords is not None:
-            coords[Dimension.BEAM.value] = beam_coords
+            coords[Dimension.BEAM.dimension_name()] = beam_coords
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
         # make arange coords for the remaining dims
-        non_coord_dims = {dim.value for dim in used_dims} - set(ds.coords.keys())
+        non_coord_dims = {dim.dimension_name() for dim in used_dims} - set(ds.coords.keys())
         ds = ds.assign_coords({dim: np.arange(ds.dims[dim]) for dim in non_coord_dims})
         return ds
 

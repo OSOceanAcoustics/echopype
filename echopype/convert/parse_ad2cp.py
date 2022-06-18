@@ -94,27 +94,51 @@ DTYPES: Dict[Tuple[DataType, int], DtypesHint] = {
 }
 
 
+@unique
 class Dimension(Enum):
     """
     Determines the dimensions of the data in the output dataset
     """
 
-    PING_TIME = "time1"
-    PING_TIME_AVERAGE = "ping_time"
-    PING_TIME_BURST = "ping_time"
-    PING_TIME_ECHOSOUNDER = "ping_time"
-    PING_TIME_ECHOSOUNDER_RAW = "ping_time"
-    PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = "ping_time"
-    BEAM = "beam"
-    RANGE_SAMPLE_BURST = "range_sample"
-    RANGE_SAMPLE_AVERAGE = "range_sample"
-    RANGE_SAMPLE_ECHOSOUNDER = "range_sample"
-    NUM_ALTIMETER_SAMPLES = "num_altimeter_samples"
-    SAMPLE = "range_sample"
-    SAMPLE_TRANSMIT = "transmit_sample"
-    MIJ = "mij"
-    XYZ = "xyz"
-    WXYZ = "wxyz"
+    PING_TIME = auto()
+    PING_TIME_AVERAGE = auto()
+    PING_TIME_BURST = auto()
+    PING_TIME_ECHOSOUNDER = auto()
+    PING_TIME_ECHOSOUNDER_RAW = auto()
+    PING_TIME_ECHOSOUNDER_RAW_TRANSMIT = auto()
+    BEAM = auto()
+    RANGE_SAMPLE_BURST = auto()
+    RANGE_SAMPLE_AVERAGE = auto()
+    RANGE_SAMPLE_ECHOSOUNDER = auto()
+    NUM_ALTIMETER_SAMPLES = auto()
+    SAMPLE = auto()
+    SAMPLE_TRANSMIT = auto()
+    MIJ = auto()
+    XYZ = auto()
+    WXYZ = auto()
+
+    def dimension_name(self) -> str:
+        return DIMENSION_NAMES[self]
+
+
+DIMENSION_NAMES = {
+    Dimension.PING_TIME: "time1",
+    Dimension.PING_TIME_AVERAGE: "ping_time",
+    Dimension.PING_TIME_BURST: "ping_time",
+    Dimension.PING_TIME_ECHOSOUNDER: "ping_time",
+    Dimension.PING_TIME_ECHOSOUNDER_RAW: "ping_time",
+    Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT: "ping_time_transmit",
+    Dimension.BEAM: "beam",
+    Dimension.RANGE_SAMPLE_BURST: "range_sample",
+    Dimension.RANGE_SAMPLE_AVERAGE: "range_sample",
+    Dimension.RANGE_SAMPLE_ECHOSOUNDER: "range_sample",
+    Dimension.NUM_ALTIMETER_SAMPLES: "num_altimeter_samples",
+    Dimension.SAMPLE: "range_sample",
+    Dimension.SAMPLE_TRANSMIT: "transmit_sample",
+    Dimension.MIJ: "mij",
+    Dimension.XYZ: "xyz",
+    Dimension.WXYZ: "wxyz",
+}
 
 
 class Field:

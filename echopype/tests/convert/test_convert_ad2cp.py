@@ -170,6 +170,8 @@ def _check_raw_output(
                 if base.attrs[f"Instrument_echo_pulseComp{i}"]:
                     pulse_compressed = i
                     break
+        for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+            if "pulse_compressed" in echodata[f"Sonar/Beam_group{i}"]:
         pulse_compressed_vector = np.zeros(3)
         pulse_compressed_vector[pulse_compressed - 1] = 1
         assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed_vector
@@ -190,30 +192,30 @@ def _check_raw_output(
             )
             if "090" in filepath_raw.parts:
                 assert np.allclose(
-                    echodata.vendor[
-                        "echosounder_raw_transmit_samples_i"
+                    echodata["Sonar/Beam_group2"][
+                        "transmit_pulse_r"
                     ].data.flatten(),
                     base["DataI"].data.flatten(),
                     atol=absolute_tolerance,
                 )
                 assert np.allclose(
-                    echodata.vendor[
-                        "echosounder_raw_transmit_samples_q"
+                    echodata["Sonar/Beam_group2"][
+                        "transmit_pulse_i"
                     ].data.flatten(),
                     base["DataQ"].data.flatten(),
                     atol=absolute_tolerance,
                 )
             else:
                 assert np.allclose(
-                    echodata.vendor[
-                        "echosounder_raw_transmit_samples_i"
+                    echodata["Sonar/Beam_group2"][
+                        "transmit_pulse_r"
                     ].data.flatten(),
                     base["Data_I"].data.flatten(),
                     atol=absolute_tolerance,
                 )
                 assert np.allclose(
-                    echodata.vendor[
-                        "echosounder_raw_transmit_samples_q"
+                    echodata["Sonar/Beam_group2"][
+                        "transmit_pulse_i"
                     ].data.flatten(),
                     base["Data_Q"].data.flatten(),
                     atol=absolute_tolerance,
@@ -226,25 +228,26 @@ def _check_raw_output(
             group="Data/RawEcho1_1000kHz",
         )
         if "090" in filepath_raw.parts:
+            print(base["DataI"].data.shape)
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_i"].data.flatten(),
+                echodata["Sonar/Beam_group2"]["backscatter_r"].data.flatten(),
                 base["DataI"].data.flatten(),
                 atol=absolute_tolerance,
             )
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_q"].data.flatten(),
+                echodata["Sonar/Beam_group2"]["backscatter_i"].data.flatten(),
                 base["DataQ"].data.flatten(),
                 atol=absolute_tolerance,
             )
         else:
             # note the transpose
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_i"].data.flatten(),
+                echodata["Sonar/Beam_group2"]["backscatter_r"].data.flatten(),
                 base["Data_I"].data.T.flatten(),
                 atol=absolute_tolerance,
             )
             assert np.allclose(
-                echodata.vendor["echosounder_raw_samples_q"].data.flatten(),
+                echodata["Sonar/Beam_group2"]["backscatter_i"].data.flatten(),
                 base["Data_Q"].data.T.flatten(),
                 atol=absolute_tolerance,
             )
