@@ -142,18 +142,19 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
 
     # /Sonar/Beam_groupX group
     if echodata.sonar_model == "AD2CP":
-        io.save_file(
-            echodata.beam.chunk(
-                {
-                    "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                }
-            ),
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
+        for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+            io.save_file(
+                echodata.beam.chunk(
+                    {
+                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                    }
+                ),
+                path=output_path,
+                mode="a",
+                engine=engine,
+                group=f"Sonar/Beam_group{i}",
+                compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            )
     else:
         io.save_file(
             echodata.beam.chunk(
@@ -168,20 +169,20 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
-    if echodata.beam_power is not None:
-        io.save_file(
-            echodata.beam_power.chunk(
-                {
-                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-                    "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                }
-            ),
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Sonar/Beam_group2",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
+        if echodata.beam_power is not None:
+            io.save_file(
+                echodata.beam_power.chunk(
+                    {
+                        "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
+                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                    }
+                ),
+                path=output_path,
+                mode="a",
+                engine=engine,
+                group="Sonar/Beam_group2",
+                compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            )
 
     # Platform group
     io.save_file(
