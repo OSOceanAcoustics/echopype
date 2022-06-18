@@ -172,9 +172,9 @@ def _check_raw_output(
                     break
         for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
             if "pulse_compressed" in echodata[f"Sonar/Beam_group{i}"]:
-        pulse_compressed_vector = np.zeros(3)
-        pulse_compressed_vector[pulse_compressed - 1] = 1
-        assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed_vector
+                pulse_compressed_vector = np.zeros(3)
+                pulse_compressed_vector[pulse_compressed - 1] = 1
+                assert (echodata[f"Sonar/Beam_group{i}"]["pulse_compressed"] == pulse_compressed_vector).all()
         base.close()
 
         # check raw data transmit samples
@@ -191,35 +191,40 @@ def _check_raw_output(
                 group="Data/RawEcho1_1000kHzTx",
             )
             if "090" in filepath_raw.parts:
-                assert np.allclose(
-                    echodata["Sonar/Beam_group2"][
-                        "transmit_pulse_r"
-                    ].data.flatten(),
-                    base["DataI"].data.flatten(),
-                    atol=absolute_tolerance,
-                )
-                assert np.allclose(
-                    echodata["Sonar/Beam_group2"][
-                        "transmit_pulse_i"
-                    ].data.flatten(),
-                    base["DataQ"].data.flatten(),
-                    atol=absolute_tolerance,
-                )
+                for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+                    if "transmit_pulse_r" in echodata[f"Sonar/Beam_group{i}"]:
+                        assert np.allclose(
+                            echodata[f"Sonar/Beam_group{i}"][
+                                "transmit_pulse_r"
+                            ].data.flatten(),
+                            base["DataI"].data.flatten(),
+                            atol=absolute_tolerance,
+                        )
+                        assert np.allclose(
+                            echodata[f"Sonar/Beam_group{i}"][
+                                "transmit_pulse_i"
+                            ].data.flatten(),
+                            base["DataQ"].data.flatten(),
+                            atol=absolute_tolerance,
+                        )
             else:
-                assert np.allclose(
-                    echodata["Sonar/Beam_group2"][
-                        "transmit_pulse_r"
-                    ].data.flatten(),
-                    base["Data_I"].data.flatten(),
-                    atol=absolute_tolerance,
-                )
-                assert np.allclose(
-                    echodata["Sonar/Beam_group2"][
-                        "transmit_pulse_i"
-                    ].data.flatten(),
-                    base["Data_Q"].data.flatten(),
-                    atol=absolute_tolerance,
-                )
+                for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+                    if "transmit_pulse_r" in echodata[f"Sonar/Beam_group{i}"]:
+                        # note the underscore
+                        assert np.allclose(
+                            echodata[f"Sonar/Beam_group{i}"][
+                                "transmit_pulse_r"
+                            ].data.flatten(),
+                            base["Data_I"].data.flatten(),
+                            atol=absolute_tolerance,
+                        )
+                        assert np.allclose(
+                            echodata[f"Sonar/Beam_group{i}"][
+                                "transmit_pulse_i"
+                            ].data.flatten(),
+                            base["Data_Q"].data.flatten(),
+                            atol=absolute_tolerance,
+                        )
             base.close()
 
         # check raw data samples
@@ -228,27 +233,30 @@ def _check_raw_output(
             group="Data/RawEcho1_1000kHz",
         )
         if "090" in filepath_raw.parts:
-            print(base["DataI"].data.shape)
-            assert np.allclose(
-                echodata["Sonar/Beam_group2"]["backscatter_r"].data.flatten(),
-                base["DataI"].data.flatten(),
-                atol=absolute_tolerance,
-            )
-            assert np.allclose(
-                echodata["Sonar/Beam_group2"]["backscatter_i"].data.flatten(),
-                base["DataQ"].data.flatten(),
-                atol=absolute_tolerance,
-            )
+            for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+                if "backscatter_r" in echodata[f"Sonar/Beam_group{i}"]:
+                    assert np.allclose(
+                        echodata[f"Sonar/Beam_group{i}"]["backscatter_r"].data.flatten(),
+                        base["DataI"].data.flatten(),
+                        atol=absolute_tolerance,
+                    )
+                    assert np.allclose(
+                        echodata[f"Sonar/Beam_group{i}"]["backscatter_i"].data.flatten(),
+                        base["DataQ"].data.flatten(),
+                        atol=absolute_tolerance,
+                    )
         else:
-            # note the transpose
-            assert np.allclose(
-                echodata["Sonar/Beam_group2"]["backscatter_r"].data.flatten(),
-                base["Data_I"].data.T.flatten(),
-                atol=absolute_tolerance,
-            )
-            assert np.allclose(
-                echodata["Sonar/Beam_group2"]["backscatter_i"].data.flatten(),
-                base["Data_Q"].data.T.flatten(),
-                atol=absolute_tolerance,
-            )
+            for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+                if "transmit_pulse_r" in echodata[f"Sonar/Beam_group{i}"]:
+                    # note the transpose
+                    assert np.allclose(
+                        echodata[f"Sonar/Beam_group{i}"]["backscatter_r"].data.flatten(),
+                        base["Data_I"].data.T.flatten(),
+                        atol=absolute_tolerance,
+                    )
+                    assert np.allclose(
+                        echodata[f"Sonar/Beam_group{i}"]["backscatter_i"].data.flatten(),
+                        base["Data_Q"].data.T.flatten(),
+                        atol=absolute_tolerance,
+                    )
         base.close()
