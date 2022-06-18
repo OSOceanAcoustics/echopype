@@ -144,7 +144,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     if echodata.sonar_model == "AD2CP":
         for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
             io.save_file(
-                echodata.beam.chunk(
+                echodata[f"Sonar/Beam_group{i}"].chunk(
                     {
                         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
                     }
