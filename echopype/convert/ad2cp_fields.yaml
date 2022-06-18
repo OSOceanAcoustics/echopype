@@ -45,7 +45,7 @@ the actual data.
     comment: ''
   microsec100:
     long_name: Field "Microsec100" in the data specification.
-    units: 'us'
+    units: 'μs'
     comment: 'Remaining micro seconds (Date object has
 milliseconds resolution)'
   speed_of_sound:
@@ -89,15 +89,51 @@ Raw data given as 0.01 °C
   error:
     long_name: Field "Error" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Error bit mask'
   status:
     long_name: Field "Status" in the data specification.
     units: ''
-    comment: ''
+    comment: '
+Bit 31-28: Wakeup State
+1111 0000 0000 0000 0000 0000 0000 0000
+00 = bad power
+01 = power applied
+10 = break
+11 = RTC alarm
+
+Bit 27-25: Orientation
+0000 1110 0000 0000 0000 0000 0000 0000
+0: "XUP" Instrument x-axis defined up, heading
+reference axis is Z positive
+1: "XDOWN" Instrument x-axis defined down,
+heading reference axis is Z positive
+2: "YUP" Instrument y-axis defined up, heading
+reference axis is Z positive
+3: "YDOWN" Instrument y-axis defined down,
+heading reference axis is Z positive
+4: "ZUP" Instrument z-axis defined up, heading
+reference axis is X positive
+5: "ZDOWN" Instrument z-axis defined down,
+heading reference axis is X positive
+7: "AHRS" AHRS reports orientation any way it
+points. Example: Z down -> Roll = 180 deg.
+
+Bit 24-22: autoOrientation
+0000 0001 1100 0000 0000 0000 0000 0000
+0: "Fixed" Fixed orientation
+1: "Auto" Auto Up Down
+3: "AHRS3D" AHRS3D'
   num_beams_and_coordinate_system_and_num_cells:
     long_name: Field "Beams, Coordinates And Cells" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Bit 11-10 (2 bits): Coordinate system
+b00:ENU, b01:XYZ, b10:BEAM
+
+Bit 15–12 (4 bits): Number of Beams (NB)
+Active beams represented as a 4 charstring of 1s
+and 0s.
+
+Bit 9-0 (10 bits): Number of Cells (NC).'
   cell_size:
     long_name: Field "Cell Size" in the data specification.
     units: m
@@ -150,7 +186,12 @@ Data given as 10^(Velocity scaling) m/s
   dataset_description:
     long_name: Field "Dataset Description" in the data specification.
     units: ''
-    comment: 'Data set description.'
+    comment: 'Data set description.
+0-2 Physical beam used for 1st data set.
+3-5 Physical beam used for 2nd data set.
+6-8 Physical beam used for 3th data set.
+9-11 Physical beam used for 4th data set.
+12-14 Physical beam used for 4th data set.'
   transmit_energy:
     long_name: Field "Transmit Energy" in the data specification.
     units: ''
@@ -284,7 +325,7 @@ the actual data.
     comment: ''
   microsec100:
     long_name: Field "Microsec100" in the data specification.
-    units: 'us'
+    units: 'μs'
     comment: 'Remaining micro seconds (Date object has
 milliseconds resolution)'
   speed_of_sound:
@@ -672,189 +713,251 @@ BOTTOM_TRACK_DATA_RECORD_FORMAT:
   version:
     long_name: Field "Version" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Version number of the Data Record Definition.
+Should be 3'
   offset_of_data:
     long_name: Field "Offset Of Data" in the data specification.
     units: '# of bytes'
-    comment: '
+    comment: 'Number of bytes from start of the record to start of
+the actual data.
 
       Data was converted to the specified units.'
   configuration:
     long_name: Field "Configuration" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Record Configuration Bit Mask'
   serial_number:
     long_name: Field "Serial Number" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Instrument serial number from factory.'
   year:
     long_name: Field "Year" in the data specification.
-    units: ''
-    comment: ''
+    units: 'year'
+    comment: 'Is given as years from 1900.'
   month:
     long_name: Field "Month" in the data specification.
-    units: ''
-    comment: ''
+    units: 'month'
+    comment: 'January is 0.'
   day:
     long_name: Field "Day" in the data specification.
-    units: ''
+    units: 'day'
     comment: ''
   hour:
     long_name: Field "Hour" in the data specification.
-    units: ''
+    units: 'hour'
     comment: ''
   minute:
     long_name: Field "Minute" in the data specification.
-    units: ''
+    units: 'minute'
     comment: ''
   seconds:
     long_name: Field "Seconds" in the data specification.
-    units: ''
+    units: 's'
     comment: ''
   microsec100:
     long_name: Field "Microsec100" in the data specification.
-    units: ''
-    comment: ''
+    units: 'μs'
+    comment: 'Remaining micro seconds (Date object has
+milliseconds resolution)'
   speed_of_sound:
     long_name: Field "Speed Of Sound" in the data specification.
     units: m/s
-    comment: '
+    comment: 'Speed of sound used by the instrument.
+Raw data given as 0.1m/s
 
       Data was converted to the specified units.'
   temperature:
     long_name: Field "Temperature" in the data specification.
     units: degrees Celsius
-    comment: '
+    comment: 'Reading from the temperature sensor.
+Raw data given as 0.01 °C
 
       Data was converted to the specified units.'
   pressure:
     long_name: Field "Pressure" in the data specification.
     units: dBar
-    comment: '
+    comment: 'Raw data given as 0.001 dBar
 
       Data was converted to the specified units.'
   heading:
     long_name: Field "Heading" in the data specification.
     units: degrees
-    comment: '
+    comment: 'Raw data given as 0.01 degrees
 
       Data was converted to the specified units.'
   pitch:
     long_name: Field "Pitch" in the data specification.
     units: degrees
-    comment: '
+    comment: 'Raw data given as 0.01 degrees
 
       Data was converted to the specified units.'
   roll:
     long_name: Field "Roll" in the data specification.
     units: degrees
-    comment: '
+    comment: 'Raw data given as 0.01 degrees
 
       Data was converted to the specified units.'
   num_beams_and_coordinate_system_and_num_cells:
-    long_name: Field "Num Beams And Coordinate System And Num Cells" in the data specification.
+    long_name: Field "Beams, Coordinates And Cells" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Bit 11-10 (2 bits) describes the coordinate system
+used.
+b00:ENU, b01:XYZ, b10:BEAM
+
+Bit 15–12 (4 bits) represent the number of beams
+(NB)
+Active beams represented as a 4 charstring of 1s
+and 0s.
+
+Bit 9-0 (10 bits) represent the number of cells (NC).'
   cell_size:
     long_name: Field "Cell Size" in the data specification.
     units: m
-    comment: '
+    comment: 'Size of each cell (resolution) on the beam.
+Raw data given as mm
 
       Data was converted to the specified units.'
   blanking:
     long_name: Field "Blanking" in the data specification.
     units: m
-    comment: '
+    comment: 'Distance from instrument to first data point on the
+beam.
+Raw data given as mm
 
       Data was converted to the specified units.'
   nominal_correlation:
     long_name: Field "Nominal Correlation" in the data specification.
     units: '%'
-    comment: '
+    comment: 'The nominal correlation for the configured
+combination of cell size and velocity range
 
       Data was converted to the specified units.'
   battery_voltage:
     long_name: Field "Battery Voltage" in the data specification.
     units: V
-    comment: '
+    comment: 'Raw value given in 0.1 Volt
 
       Data was converted to the specified units.'
   magnetometer_raw:
     long_name: Field "Magnetometer Raw" in the data specification.
     units: ''
-    comment: ''
+    comment: 's flux raw value in last measurement interval'
   accelerometer_raw_x_axis:
     long_name: Field "Accelerometer Raw X Axis" in the data specification.
     units: ''
-    comment: ''
+    comment: 'raw X axis value in last measurement interval'
   accelerometer_raw_y_axis:
     long_name: Field "Accelerometer Raw Y Axis" in the data specification.
     units: ''
-    comment: ''
+    comment: 'raw Y axis value in last measurement interval'
   accelerometer_raw_z_axis:
     long_name: Field "Accelerometer Raw Z Axis" in the data specification.
     units: ''
-    comment: ''
+    comment: 'raw Z axis value in last measurement interval'
   ambiguity_velocity:
     long_name: Field "Ambiguity Velocity" in the data specification.
     units: m/s
-    comment: '
+    comment: 'Ambiguity velocity, corrected forsound velocity,
+scaled according to Velocity scaling.
+10^(Velocity scaling) m/s
 
       Data was converted to the specified units.'
   dataset_description:
     long_name: Field "Dataset Description" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Data set description.
+0-3 Physical beam used for 1st data set.
+4-7 Physical beam used for 2nd data set.
+8-11 Physical beam used for 3th data set.
+12-16 Physical beam used for 4th data set'
   transmit_energy:
     long_name: Field "Transmit Energy" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Transmitted energy.'
   velocity_scaling:
     long_name: Field "Velocity Scaling" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Velocity scaling used to scale velocity data.'
   power_level:
     long_name: Field "Power Level" in the data specification.
     units: dB
-    comment: '
+    comment: 'Configured power level
 
       Data was converted to the specified units.'
   magnetometer_temperature:
     long_name: Field "Magnetometer Temperature" in the data specification.
-    units: ''
-    comment: ''
+    units: degrees Celsius
+    comment: 'Magnetometer temperature reading.
+Uncalibrated
+Raw data in 1/1000 °C
+
+      '
   real_time_clock_temperature:
     long_name: Field "Real Time Clock Temperature" in the data specification.
     units: degrees Celsius
-    comment: '
+    comment: 'Real Time Clock temperature reading
 
       Data was converted to the specified units.'
   error:
     long_name: Field "Error" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Error bit mask'
   status:
     long_name: Field "Status" in the data specification.
     units: ''
-    comment: ''
+    comment: '
+Bit 31-28: Wakeup State
+1111 0000 0000 0000 0000 0000 0000 0000
+00 = bad power
+01 = power applied
+10 = break
+11 = RTC alarm
+
+Bit 27-25: Orientation
+0000 1110 0000 0000 0000 0000 0000 0000
+0: "XUP" Instrument x-axis defined up, heading
+reference axis is Z positive
+1: "XDOWN" Instrument x-axis defined down,
+heading reference axis is Z positive
+2: "YUP" Instrument y-axis defined up, heading
+reference axis is Z positive
+3: "YDOWN" Instrument y-axis defined down,
+heading reference axis is Z positive
+4: "ZUP" Instrument z-axis defined up, heading
+reference axis is X positive
+5: "ZDOWN" Instrument z-axis defined down,
+heading reference axis is X positive
+7: "AHRS" AHRS reports orientation any way it
+points. Example: Z down -> Roll = 180 deg.
+
+Bit 24-22: autoOrientation
+0000 0001 1100 0000 0000 0000 0000 0000
+0: "Fixed" Fixed orientation
+1: "Auto" Auto Up Down
+3: "AHRS3D" AHRS3D'
   ensemble_counter:
     long_name: Field "Ensemble Counter" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Counts the number of ensembles in both averaged
+and burst data'
   velocity_data:
     long_name: Field "Velocity Data" in the data specification.
     units: m/s
-    comment: '
+    comment: 'This field exists if the Velocity data included bit of
+the Config byte is set.
+Data scaled as product of 10^(Velocity Scaling)
 
       Data was converted to the specified units.'
   distance_data:
     long_name: Field "Distance Data" in the data specification.
     units: ''
-    comment: ''
+    comment: 'This field exists if the Distance data included bit of
+the Config byte is set.'
   figure_of_merit_data:
     long_name: Field "Figure Of Merit Data" in the data specification.
     units: ''
-    comment: ''
+    comment: 'This field exists if the hasFigureOfMeritData bit of
+the Config byte is set.'
 ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
   version:
     long_name: Field "Version" in the data specification.
@@ -892,7 +995,7 @@ ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
     comment: ''
   microsec100:
     long_name: Field "Microsec100" in the data specification.
-    units: ''
+    units: 'μs'
     comment: ''
   error:
     long_name: Field "Error" in the data specification.
@@ -901,7 +1004,36 @@ ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
   status:
     long_name: Field "Status" in the data specification.
     units: ''
-    comment: ''
+    comment: '
+Bit 31-28: Wakeup State
+1111 0000 0000 0000 0000 0000 0000 0000
+00 = bad power
+01 = power applied
+10 = break
+11 = RTC alarm
+
+Bit 27-25: Orientation
+0000 1110 0000 0000 0000 0000 0000 0000
+0: "XUP" Instrument x-axis defined up, heading
+reference axis is Z positive
+1: "XDOWN" Instrument x-axis defined down,
+heading reference axis is Z positive
+2: "YUP" Instrument y-axis defined up, heading
+reference axis is Z positive
+3: "YDOWN" Instrument y-axis defined down,
+heading reference axis is Z positive
+4: "ZUP" Instrument z-axis defined up, heading
+reference axis is X positive
+5: "ZDOWN" Instrument z-axis defined down,
+heading reference axis is X positive
+7: "AHRS" AHRS reports orientation any way it
+points. Example: Z down -> Roll = 180 deg.
+
+Bit 24-22: autoOrientation
+0000 0001 1100 0000 0000 0000 0000 0000
+0: "Fixed" Fixed orientation
+1: "Auto" Auto Up Down
+3: "AHRS3D" AHRS3D'
   serial_number:
     long_name: Field "Serial Number" in the data specification.
     units: ''
