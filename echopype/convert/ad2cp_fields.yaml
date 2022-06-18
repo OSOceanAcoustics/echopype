@@ -962,45 +962,48 @@ ECHOSOUNDER_RAW_DATA_RECORD_FORMAT:
   version:
     long_name: Field "Version" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Version number of the Data Record Definition.
+Should be 3'
   offset_of_data:
     long_name: Field "Offset Of Data" in the data specification.
     units: '# of bytes'
-    comment: '
+    comment: 'Number of bytes from start of the record to start of
+the actual data.
 
       Data was converted to the specified units.'
   year:
     long_name: Field "Year" in the data specification.
-    units: ''
-    comment: ''
+    units: 'uear'
+    comment: 'Is given as years from 1900.'
   month:
     long_name: Field "Month" in the data specification.
-    units: ''
-    comment: ''
+    units: 'month'
+    comment: 'January is 0.'
   day:
     long_name: Field "Day" in the data specification.
-    units: ''
+    units: 'day'
     comment: ''
   hour:
     long_name: Field "Hour" in the data specification.
-    units: ''
+    units: 'hour'
     comment: ''
   minute:
     long_name: Field "Minute" in the data specification.
-    units: ''
+    units: 'minute'
     comment: ''
   seconds:
     long_name: Field "Seconds" in the data specification.
-    units: ''
+    units: 's'
     comment: ''
   microsec100:
     long_name: Field "Microsec100" in the data specification.
     units: 'μs'
-    comment: ''
+    comment: 'Remaining micro seconds (Date object has
+milliseconds resolution)'
   error:
     long_name: Field "Error" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Error bit mask'
   status:
     long_name: Field "Status" in the data specification.
     units: ''
@@ -1037,19 +1040,20 @@ Bit 24-22: autoOrientation
   serial_number:
     long_name: Field "Serial Number" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Instrument serial number from factory.'
   num_complex_samples:
     long_name: Field "Num Complex Samples" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Number of following Complex Samples'
   ind_start_samples:
     long_name: Field "Ind Start Samples" in the data specification.
     units: ''
-    comment: ''
+    comment: 'Sample number where the position is equal to the
+configured blanking distance.'
   freq_raw_sample_data:
     long_name: Field "Freq Raw Sample Data" in the data specification.
-    units: ''
-    comment: ''
+    units: 'Hz'
+    comment: 'Sample Rate'
   echosounder_raw_samples:
     long_name: Field "Echosounder Raw Samples" in the data specification.
     units: ''

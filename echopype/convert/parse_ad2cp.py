@@ -1279,7 +1279,12 @@ class HeaderOrDataRecordFormats:
             F("transmit_energy", 2, UNSIGNED_INTEGER),
             F("velocity_scaling", 1, SIGNED_INTEGER),
             F("power_level", 1, SIGNED_INTEGER, field_units="dB"),
-            F("magnetometer_temperature", 2, SIGNED_INTEGER),
+            F(
+                "magnetometer_temperature",
+                2,
+                SIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x * 1000,
+            ),
             F(
                 "real_time_clock_temperature",
                 2,
@@ -1477,6 +1482,7 @@ class HeaderOrDataRecordFormats:
                 "ast_quality",
                 2,
                 UNSIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x / 100,
                 field_exists_predicate=lambda packet: packet.data["ast_data_included"],
             ),
             F(
@@ -1731,7 +1737,12 @@ class HeaderOrDataRecordFormats:
             F("transmit_energy", 2, UNSIGNED_INTEGER),
             F("velocity_scaling", 1, SIGNED_INTEGER),
             F("power_level", 1, SIGNED_INTEGER, field_units="dB"),
-            F("magnetometer_temperature", 2, SIGNED_INTEGER),
+            F(
+                "magnetometer_temperature",
+                2,
+                SIGNED_INTEGER,
+                field_unit_conversion=lambda packet, x: x * 1000,
+            ),
             F(
                 "real_time_clock_temperature",
                 2,
