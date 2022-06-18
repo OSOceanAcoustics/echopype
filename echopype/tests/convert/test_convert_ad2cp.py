@@ -170,7 +170,9 @@ def _check_raw_output(
                 if base.attrs[f"Instrument_echo_pulseComp{i}"]:
                     pulse_compressed = i
                     break
-        assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed
+        pulse_compressed_vector = np.zeros(3)
+        pulse_compressed_vector[pulse_compressed - 1] = 1
+        assert echodata.vendor.attrs["pulse_compressed"] == pulse_compressed_vector
         base.close()
 
         # check raw data transmit samples
