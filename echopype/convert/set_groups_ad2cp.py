@@ -1,8 +1,11 @@
+from importlib import resources
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import xarray as xr
+import yaml
 
+from .. import convert
 from ..utils.coding import set_encodings
 from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
@@ -21,6 +24,8 @@ class SetGroupsAd2cp(SetGroupsBase):
         super().__init__(*args, **kwargs)
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self._make_time_coords()
+        with resources.open_text(convert, "ad2cp_fields.yaml") as f:
+            self.field_attrs: Dict[str, Dict[str, Dict[str, str]]] = yaml.safe_load(f)  # type: ignore # noqa
 
     def _make_time_coords(self):
         timestamps = []
@@ -69,8 +74,8 @@ class SetGroupsAd2cp(SetGroupsBase):
         dims: Dict[str, List[Dimension]] = dict()
         # {field_name: field dtype}
         dtypes: Dict[str, np.dtype] = dict()
-        # {field_name: units}
-        units: Dict[str, Optional[str]] = dict()
+        # {field_name: attrs}
+        attrs: Dict[str, Dict[str, str]] = dict()
         # {field_name: [idx of padding]}
         pad_idx: Dict[str, List[int]] = {field_name: [] for field_name in var_names.keys()}
         # {field_name: field exists}
@@ -106,8 +111,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                         dtypes[field_name] = field.field_entry_data_type.dtype(
                             field_entry_size_bytes
                         )
-                    if field_name not in units:
-                        units[field_name] = field.units()
+                    if field_name not in attrs:
+                        attrs[field_name] = self.field_attrs[data_record_format.name][field_name]
 
                 if field_name in packet.data:  # field is in this packet
                     fields[field_name].append(packet.data[field_name])
@@ -185,9 +190,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             var_name: (
                 [dim.value for dim in dims[field_name]],
                 combined_fields[field_name],
-                {"Units": units[field_name]}
-                if field_name in units and units[field_name] is not None
-                else {},
+                attrs.get(field_name, {}),
             )
             if field_exists[field_name]
             else ((), None)
@@ -348,7 +351,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                     {
                         "name": f"Beam_group{len(self._beamgroups) + 1}",
                         "descr": (
-                            "contains backscatter echo intensity and other configuration parameters from the Echosounder mode. "
+                            "contains backscatter echo intensity and other configuration "
+                            "parameters from the Echosounder mode. "
                             "Data can be pulse compressed or raw intensity."
                         ),
                     }
@@ -385,7 +389,8 @@ class SetGroupsAd2cp(SetGroupsBase):
                     {
                         "name": f"Beam_group{len(self._beamgroups) + 1}",
                         "descr": (
-                            "contains complex backscatter raw samples and other configuration parameters from the Echosounder mode, "
+                            "contains complex backscatter raw samples and other configuration "
+                            "parameters from the Echosounder mode, "
                             "including complex data from the transmit pulse."
                         ),
                     }

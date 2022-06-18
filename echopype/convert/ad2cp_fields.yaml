@@ -144,7 +144,9 @@ Raw data given as mm
   blanking:
     long_name: Field "Blanking" in the data specification.
     units: m
-    comment: '
+    comment: 'Distance from instrument to first data point on the
+beam.
+Raw data given as mm
 
       Data was converted to the specified units.'
   velocity_range:
@@ -387,7 +389,9 @@ Raw data given as mm
   blanking:
     long_name: Field "Blanking" in the data specification.
     units: m
-    comment: '
+    comment: 'Distance from instrument to first data point on the
+beam.
+Raw data given as mm
 
       Data was converted to the specified units.'
   nominal_correlation:
