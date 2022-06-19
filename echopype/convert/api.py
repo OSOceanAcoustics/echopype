@@ -117,15 +117,24 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Environment group
-    io.save_file(
-        echodata.environment.chunk(
-            {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
-        ),  # TODO: chunking necessary?
-        path=output_path,
-        mode="a",
-        engine=engine,
-        group="Environment",
-    )
+    if "time1" in echodata.environment:
+        io.save_file(
+            echodata.environment.chunk(
+                {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            ),  # TODO: chunking necessary?
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Environment",
+        )
+    else:
+        io.save_file(
+            echodata.environment,
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Environment",
+        )
 
     # Sonar group
     io.save_file(
