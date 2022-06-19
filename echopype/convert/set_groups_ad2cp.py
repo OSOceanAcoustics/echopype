@@ -229,13 +229,6 @@ class SetGroupsAd2cp(SetGroupsBase):
             }
         )
 
-        # FIXME: this is a hack because the current file saving
-        # mechanism requires that the env group have ping_time as a dimension,
-        # but ping_time might not be a dimension if the dataset is completely
-        # empty
-        if "ping_time" not in ds.dims:
-            ds = ds.expand_dims(dim="ping_time")
-
         return set_encodings(ds)
 
     def set_platform(self) -> xr.Dataset:
@@ -463,13 +456,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "magnetometer_raw": "magnetometer_raw",
             }
         )
-
-        # FIXME: this is a hack because the current file saving
-        # mechanism requires that the vendor group have ping_time as a dimension,
-        # but ping_time might not be a dimension if the dataset is completely
-        # empty
-        if "ping_time" not in ds.dims:
-            ds = ds.expand_dims(dim="ping_time")
 
         return set_encodings(ds)
 
