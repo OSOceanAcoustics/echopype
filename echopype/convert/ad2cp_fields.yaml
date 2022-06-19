@@ -52,38 +52,38 @@ milliseconds resolution)'
     long_name: Field "Speed Of Sound" in the data specification.
     units: m/s
     comment: 'Speed of sound used by the instrument.
-Raw data given as 0.1m/s
+Raw data given as 0.1m/s.
 
       Data was converted to the specified units.'
   temperature:
     long_name: Field "Temperature" in the data specification.
     units: degrees Celsius
     comment: 'Reading from the temperature sensor.
-Raw data given as 0.01 °C
+Raw data given as 0.01 °C.
 
       Data was converted to the specified units.'
   pressure:
     long_name: Field "Pressure" in the data specification.
     units: dBar
-    comment: 'Raw data given as 0.001 dBar
+    comment: 'Raw data given as 0.001 dBar.
 
       Data was converted to the specified units.'
   heading:
     long_name: Field "Heading" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   pitch:
     long_name: Field "Pitch" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   roll:
     long_name: Field "Roll" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   error:
@@ -138,7 +138,7 @@ Bit 9-0 (10 bits): Number of Cells (NC).'
     long_name: Field "Cell Size" in the data specification.
     units: m
     comment: 'Size of each cell (resolution) on the beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   blanking:
@@ -146,7 +146,7 @@ Raw data given as mm
     units: m
     comment: 'Distance from instrument to first data point on the
 beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   velocity_range:
@@ -158,7 +158,7 @@ Raw data given as mm
   battery_voltage:
     long_name: Field "Battery Voltage" in the data specification.
     units: V
-    comment: 'Raw value given in 0.1 Volt
+    comment: 'Raw value given in 0.1 Volt.
 
       Data was converted to the specified units.'
   magnetometer_raw:
@@ -182,7 +182,7 @@ Raw data given as mm
     units: m/s
     comment: 'Ambiguity velocity, corrected forsound velocity,
 scaled according to Velocity scaling.
-Data given as 10^(Velocity scaling) m/s
+Data given as 10^(Velocity scaling) m/s.
 
       Data was converted to the specified units.'
   dataset_description:
@@ -205,7 +205,7 @@ Data given as 10^(Velocity scaling) m/s
   power_level:
     long_name: Field "Power Level" in the data specification.
     units: dB
-    comment: 'Configured power level
+    comment: 'Configured power level.
 
       Data was converted to the specified units.'
   velocity_data_burst:
@@ -213,7 +213,7 @@ Data given as 10^(Velocity scaling) m/s
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   velocity_data_average:
@@ -221,7 +221,7 @@ Data given as 10^(Velocity Scaling)
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   velocity_data_echosounder:
@@ -229,7 +229,7 @@ Data given as 10^(Velocity Scaling)
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   amplitude_data_burst:
@@ -237,7 +237,7 @@ Data given as 10^(Velocity Scaling)
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
 the Config byte is set
-Data given as 0.5 dB/count
+Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
   amplitude_data_average:
@@ -245,7 +245,7 @@ Data given as 0.5 dB/count
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
 the Config byte is set
-Data given as 0.5 dB/count
+Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
   amplitude_data_echosounder:
@@ -253,14 +253,14 @@ Data given as 0.5 dB/count
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
 the Config byte is set
-Data given as 0.5 dB/count
+Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
   correlation_data_burst:
     long_name: Field "Correlation Data Burst" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 [0 – 100 %]
 
       Data was converted to the specified units.'
@@ -268,7 +268,7 @@ of the Config byte is set
     long_name: Field "Correlation Data Average" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 [0 – 100 %]
 
       Data was converted to the specified units.'
@@ -276,7 +276,7 @@ of the Config byte is set
     long_name: Field "Correlation Data Echosounder" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 [0 – 100 %]
 
       Data was converted to the specified units.'
@@ -334,38 +334,38 @@ milliseconds resolution)'
     long_name: Field "Speed Of Sound" in the data specification.
     units: m/s
     comment: 'Speed of sound used by the instrument.
-Raw data given as 0.1m/s
+Raw data given as 0.1m/s.
 
       Data was converted to the specified units.'
   temperature:
     long_name: Field "Temperature" in the data specification.
     units: degrees Celsius
     comment: 'Reading from the temperature sensor.
-Raw data given as 0.01 °C
+Raw data given as 0.01 °C.
 
       Data was converted to the specified units.'
   pressure:
     long_name: Field "Pressure" in the data specification.
     units: dBar
-    comment: 'Raw data given as 0.001 dBar
+    comment: 'Raw data given as 0.001 dBar.
 
       Data was converted to the specified units.'
   heading:
     long_name: Field "Heading" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   pitch:
     long_name: Field "Pitch" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   roll:
     long_name: Field "Roll" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   num_beams_and_coordinate_system_and_num_cells:
@@ -383,7 +383,7 @@ Bit 9-0 (10 bits): Number of Cells (NC).'
     long_name: Field "Cell Size" in the data specification.
     units: m
     comment: 'Size of each cell (resolution) on the beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   blanking:
@@ -391,14 +391,14 @@ Raw data given as mm
     units: m
     comment: 'Distance from instrument to first data point on the
 beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   nominal_correlation:
     long_name: Field "Nominal Correlation" in the data specification.
     units: '%'
     comment: 'The nominal correlation for the configured
-combination of cell size and velocity range
+combination of cell size and velocity range.
 
       Data was converted to the specified units.'
   temperature_from_pressure_sensor:
@@ -410,7 +410,7 @@ combination of cell size and velocity range
   battery_voltage:
     long_name: Field "Battery Voltage" in the data specification.
     units: V
-    comment: 'Raw value given in 0.1 Volt
+    comment: 'Raw value given in 0.1 Volt.
 
       Data was converted to the specified units.'
   magnetometer_raw:
@@ -455,7 +455,7 @@ scaled according to Velocity scaling.
   power_level:
     long_name: Field "Power Level" in the data specification.
     units: dB
-    comment: 'Configured power level
+    comment: 'Configured power level.
 
       Data was converted to the specified units.'
   magnetometer_temperature:
@@ -467,7 +467,7 @@ Raw data in 1/1000 °C'
   real_time_clock_temperature:
     long_name: Field "Real Time Clock Temperature" in the data specification.
     units: degrees Celsius
-    comment: 'Real Time Clock temperature reading
+    comment: 'Real Time Clock temperature reading.
 
       Data was converted to the specified units.'
   error:
@@ -531,7 +531,7 @@ and burst data'
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   velocity_data_average:
@@ -539,7 +539,7 @@ Data given as 10^(Velocity Scaling)
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   velocity_data_echosounder:
@@ -547,7 +547,7 @@ Data given as 10^(Velocity Scaling)
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   amplitude_data_burst:
@@ -555,7 +555,7 @@ Data given as 10^(Velocity Scaling)
     units: dB/count
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data given as 10^(Velocity Scaling)
+Data given as 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   amplitude_data_average:
@@ -563,7 +563,7 @@ Data given as 10^(Velocity Scaling)
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
 the Config byte is set
-Data given as 0.5 dB/count
+Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
   amplitude_data_echosounder:
@@ -571,14 +571,14 @@ Data given as 0.5 dB/count
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
 the Config byte is set
-Data given as 0.5 dB/count
+Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
   correlation_data_burst:
     long_name: Field "Correlation Data Burst" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 Data given as [0 – 100 %]
 
       Data was converted to the specified units.'
@@ -586,7 +586,7 @@ Data given as [0 – 100 %]
     long_name: Field "Correlation Data Average" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 Data given as [0 – 100 %]
 
       Data was converted to the specified units.'
@@ -594,14 +594,14 @@ Data given as [0 – 100 %]
     long_name: Field "Correlation Data Echosounder" in the data specification.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
-of the Config byte is set
+of the Config byte is set.
 Data given as [0 – 100 %]
 
       Data was converted to the specified units.'
   altimeter_distance:
     long_name: Field "Altimeter Distance" in the data specification.
     units: m
-    comment: 'Distance to surface from Leading Edge algorithm
+    comment: 'Distance to surface from Leading Edge algorithm.
 
       Data was converted to the specified units.'
   altimeter_quality:
@@ -613,7 +613,7 @@ and Quality set to 0.'
   ast_distance:
     long_name: Field "Ast Distance" in the data specification.
     units: m
-    comment: 'Distance to surface from Max Peak algorithm
+    comment: 'Distance to surface from Max Peak algorithm.
 
       Data was converted to the specified units.'
   ast_quality:
@@ -621,21 +621,22 @@ and Quality set to 0.'
     units: dB
     comment: 'Amplitude at which surface is detected
 Raw data in steps of 0.01 dB, i.e. quality of 8000 = 80
-dB
+dB.
+
       Data was converted to the specified units.'
   ast_offset_100us:
     long_name: Field "Ast Offset 100us" in the data specification.
     units: "100 μs"
     comment: 'Offset in step of measurement to velocity
-measurement
-Raw data given in 100 µs
+measurement.
+Raw data given in 100 µs.
 
       Data was converted to the specified units.'
   ast_pressure:
     long_name: Field "Ast Pressure" in the data specification.
     units: dBar
     comment: 'Pressure value measured during the AST/altimeter
-ping
+ping.
 
       Data was converted to the specified units.'
   altimeter_spare:
@@ -649,8 +650,8 @@ ping
   altimeter_raw_data_sample_distance:
     long_name: Field "Altimeter Raw Data Sample Distance" in the data specification.
     units: m
-    comment: 'Distance between samples
-Raw data given in 0.1mm
+    comment: 'Distance between samples.
+Raw data given in 0.1mm.
 
       Data was converted to the specified units.'
   altimeter_raw_data_samples:
@@ -661,8 +662,8 @@ Raw data given as 16 bits Signed fract'
   echosounder_data:
     long_name: Field "Echosounder Data" in the data specification.
     units: dB/count
-    comment: 'Echosounder amplitude Data
-Raw data given as 0.01 dB/count
+    comment: 'Echosounder amplitude Data.
+Raw data given as 0.01 dB/count.
 
       Data was converted to the specified units.'
   ahrs_rotation_matrix:
@@ -680,37 +681,37 @@ Raw data given as 0.01 dB/count
   percentage_good_data:
     long_name: Field "Percentage Good Data" in the data specification.
     units: '%'
-    comment: 'Percent Good Estimate per cell
+    comment: 'Percent Good Estimate per cell.
 These fields exist if the Percentage Good data
-included
+included.
 
       Data was converted to the specified units.'
   std_dev_pitch:
     long_name: Field "Std Dev Pitch" in the data specification.
     units: degrees
-    comment: 'Standard deviation on pitch data
-Raw data in 0.01 degrees
+    comment: 'Standard deviation on pitch data.
+Raw data in 0.01 degrees.
 
       Data was converted to the specified units.'
   std_dev_roll:
     long_name: Field "Std Dev Roll" in the data specification.
     units: degrees
-    comment: 'Standard deviation on roll data
-Raw data in 0.01 degrees
+    comment: 'Standard deviation on roll data.
+Raw data in 0.01 degrees.
 
       Data was converted to the specified units.'
   std_dev_heading:
     long_name: Field "Std Dev Heading" in the data specification.
     units: degrees
-    comment: 'Standard deviation on heading data
-Raw data in 0.01 degrees
+    comment: 'Standard deviation on heading data.
+Raw data in 0.01 degrees.
 
       Data was converted to the specified units.'
   std_dev_pressure:
     long_name: Field "Std Dev Pressure" in the data specification.
     units: dBar
-    comment: 'Standard deviation on pressure data
-Raw data in 0.001 Bar
+    comment: 'Standard deviation on pressure data.
+Raw data in 0.001 Bar.
 
       Data was converted to the specified units.'
 BOTTOM_TRACK_DATA_RECORD_FORMAT:
@@ -767,38 +768,38 @@ milliseconds resolution)'
     long_name: Field "Speed Of Sound" in the data specification.
     units: m/s
     comment: 'Speed of sound used by the instrument.
-Raw data given as 0.1m/s
+Raw data given as 0.1m/s.
 
       Data was converted to the specified units.'
   temperature:
     long_name: Field "Temperature" in the data specification.
     units: degrees Celsius
     comment: 'Reading from the temperature sensor.
-Raw data given as 0.01 °C
+Raw data given as 0.01 °C.
 
       Data was converted to the specified units.'
   pressure:
     long_name: Field "Pressure" in the data specification.
     units: dBar
-    comment: 'Raw data given as 0.001 dBar
+    comment: 'Raw data given as 0.001 dBar.
 
       Data was converted to the specified units.'
   heading:
     long_name: Field "Heading" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   pitch:
     long_name: Field "Pitch" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   roll:
     long_name: Field "Roll" in the data specification.
     units: degrees
-    comment: 'Raw data given as 0.01 degrees
+    comment: 'Raw data given as 0.01 degrees.
 
       Data was converted to the specified units.'
   num_beams_and_coordinate_system_and_num_cells:
@@ -818,7 +819,7 @@ Bit 9-0 (10 bits) represent the number of cells (NC).'
     long_name: Field "Cell Size" in the data specification.
     units: m
     comment: 'Size of each cell (resolution) on the beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   blanking:
@@ -826,20 +827,20 @@ Raw data given as mm
     units: m
     comment: 'Distance from instrument to first data point on the
 beam.
-Raw data given as mm
+Raw data given as mm.
 
       Data was converted to the specified units.'
   nominal_correlation:
     long_name: Field "Nominal Correlation" in the data specification.
     units: '%'
     comment: 'The nominal correlation for the configured
-combination of cell size and velocity range
+combination of cell size and velocity range.
 
       Data was converted to the specified units.'
   battery_voltage:
     long_name: Field "Battery Voltage" in the data specification.
     units: V
-    comment: 'Raw value given in 0.1 Volt
+    comment: 'Raw value given in 0.1 Volt.
 
       Data was converted to the specified units.'
   magnetometer_raw:
@@ -863,7 +864,7 @@ combination of cell size and velocity range
     units: m/s
     comment: 'Ambiguity velocity, corrected forsound velocity,
 scaled according to Velocity scaling.
-10^(Velocity scaling) m/s
+Data given as 10^(Velocity scaling) m/s.
 
       Data was converted to the specified units.'
   dataset_description:
@@ -885,7 +886,7 @@ scaled according to Velocity scaling.
   power_level:
     long_name: Field "Power Level" in the data specification.
     units: dB
-    comment: 'Configured power level
+    comment: 'Configured power level.
 
       Data was converted to the specified units.'
   magnetometer_temperature:
@@ -899,7 +900,7 @@ Raw data in 1/1000 °C
   real_time_clock_temperature:
     long_name: Field "Real Time Clock Temperature" in the data specification.
     units: degrees Celsius
-    comment: 'Real Time Clock temperature reading
+    comment: 'Real Time Clock temperature reading.
 
       Data was converted to the specified units.'
   error:
@@ -949,7 +950,7 @@ and burst data'
     units: m/s
     comment: 'This field exists if the Velocity data included bit of
 the Config byte is set.
-Data scaled as product of 10^(Velocity Scaling)
+Data scaled as product of 10^(Velocity Scaling).
 
       Data was converted to the specified units.'
   distance_data:
