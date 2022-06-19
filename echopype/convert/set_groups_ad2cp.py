@@ -1,3 +1,4 @@
+from enum import Enum, unique, auto
 from importlib import resources
 from typing import Dict, List, Optional, Set, Tuple, Union
 
@@ -15,6 +16,14 @@ AHRS_COORDS: Dict[Dimension, np.ndarray] = {
     Dimension.WXYZ: np.array(["w", "x", "y", "z"]),
     Dimension.XYZ: np.array(["x", "y", "z"]),
 }
+
+
+@unique
+class BeamGroup(Enum):
+    AVERAGE = auto()
+    BURST = auto()
+    ECHOSOUNDER = auto()
+    ECHOSOUNDER_RAW = auto()
 
 
 class SetGroupsAd2cp(SetGroupsBase):
@@ -252,79 +261,22 @@ class SetGroupsAd2cp(SetGroupsBase):
         # and range_bin_echosounder)?
         beam_groups = []
         self._beamgroups = []
+        beam_groups_exist = set()
 
-        # burst
-        for packet in self.parser_obj.packets:
-            if packet.is_burst():
-                beam_groups.append(
-                    self._make_dataset(
-                        {
-                            "num_beams": "number_of_beams",
-                            "coordinate_system": "coordinate_system",
-                            "num_cells": "number_of_cells",
-                            "blanking": "blanking",
-                            "cell_size": "cell_size",
-                            "velocity_range": "velocity_range",
-                            "echosounder_frequency": "echosounder_frequency",
-                            "ambiguity_velocity": "ambiguity_velocity",
-                            "dataset_description": "data_set_description",
-                            "transmit_energy": "transmit_energy",
-                            "velocity_scaling": "velocity_scaling",
-                            "velocity_data_burst": "velocity",
-                            "amplitude_data_burst": "amplitude",
-                            "correlation_data_burst": "correlation",
-                        }
-                    )
-                )
-
-                self._beamgroups.append(
-                    {
-                        "name": f"Beam_group{len(self._beamgroups) + 1}",
-                        "descr": (
-                            "contains echo intensity, velocity and correlation data "
-                            "as well as other configuration parameters from the Burst mode."
-                        ),
-                    }
-                )
-                break
-        # average
         for packet in self.parser_obj.packets:
             if packet.is_average():
-                beam_groups.append(
-                    self._make_dataset(
-                        {
-                            "num_beams": "number_of_beams",
-                            "coordinate_system": "coordinate_system",
-                            "num_cells": "number_of_cells",
-                            "blanking": "blanking",
-                            "cell_size": "cell_size",
-                            "velocity_range": "velocity_range",
-                            "echosounder_frequency": "echosounder_frequency",
-                            "ambiguity_velocity": "ambiguity_velocity",
-                            "dataset_description": "data_set_description",
-                            "transmit_energy": "transmit_energy",
-                            "velocity_scaling": "velocity_scaling",
-                            "velocity_data_average": "velocity",
-                            "amplitude_data_average": "amplitude",
-                            "correlation_data_average": "correlation",
-                        }
-                    )
-                )
+                beam_groups_exist.add(BeamGroup.AVERAGE)
+            elif packet.is_burst():
+                beam_groups_exist.add(BeamGroup.BURST)
+            elif packet.is_echosounder():
+                beam_groups_exist.add(BeamGroup.ECHOSOUNDER)
+            elif packet.is_echosounder_raw():
+                beam_groups_exist.add(BeamGroup.ECHOSOUNDER_RAW)
 
-                self._beamgroups.append(
-                    {
-                        "name": f"Beam_group{len(self._beamgroups) + 1}",
-                        "descr": (
-                            "contains echo intensity, velocity and correlation data "
-                            "as well as other configuration parameters from the Average mode."
-                        ),
-                    }
-                )
-                break
-        # echosounder
-        for packet in self.parser_obj.packets:
-            if packet.is_echosounder():
-                ds = self._make_dataset(
+        # average
+        if BeamGroup.AVERAGE in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
                     {
                         "num_beams": "number_of_beams",
                         "coordinate_system": "coordinate_system",
@@ -337,65 +289,125 @@ class SetGroupsAd2cp(SetGroupsBase):
                         "dataset_description": "data_set_description",
                         "transmit_energy": "transmit_energy",
                         "velocity_scaling": "velocity_scaling",
-                        "correlation_data_echosounder": "correlation",
-                        "echosounder_data": "amplitude",
+                        "velocity_data_average": "velocity",
+                        "amplitude_data_average": "amplitude",
+                        "correlation_data_average": "correlation",
                     }
                 )
-                ds = ds.assign_coords({"echogram": np.arange(3)})
-                pulse_compressed = np.zeros(3)
-                pulse_compressed[self.pulse_compressed - 1] = 1
-                ds["pulse_compressed"] = (("echogram",), pulse_compressed)
-                beam_groups.append(ds)
+            )
 
-                self._beamgroups.append(
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains echo intensity, velocity and correlation data "
+                        "as well as other configuration parameters from the Average mode."
+                    ),
+                }
+            )
+        # burst
+        if BeamGroup.BURST in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
                     {
-                        "name": f"Beam_group{len(self._beamgroups) + 1}",
-                        "descr": (
-                            "contains backscatter echo intensity and other configuration "
-                            "parameters from the Echosounder mode. "
-                            "Data can be pulse compressed or raw intensity."
-                        ),
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "velocity_data_burst": "velocity",
+                        "amplitude_data_burst": "amplitude",
+                        "correlation_data_burst": "correlation",
                     }
                 )
-                break
+            )
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains echo intensity, velocity and correlation data "
+                        "as well as other configuration parameters from the Burst mode."
+                    ),
+                }
+            )
+        # echosounder
+        if BeamGroup.ECHOSOUNDER in beam_groups_exist:
+            ds = self._make_dataset(
+                {
+                    "num_beams": "number_of_beams",
+                    "coordinate_system": "coordinate_system",
+                    "num_cells": "number_of_cells",
+                    "blanking": "blanking",
+                    "cell_size": "cell_size",
+                    "velocity_range": "velocity_range",
+                    "echosounder_frequency": "echosounder_frequency",
+                    "ambiguity_velocity": "ambiguity_velocity",
+                    "dataset_description": "data_set_description",
+                    "transmit_energy": "transmit_energy",
+                    "velocity_scaling": "velocity_scaling",
+                    "correlation_data_echosounder": "correlation",
+                    "echosounder_data": "amplitude",
+                }
+            )
+            ds = ds.assign_coords({"echogram": np.arange(3)})
+            pulse_compressed = np.zeros(3)
+            pulse_compressed[self.pulse_compressed - 1] = 1
+            ds["pulse_compressed"] = (("echogram",), pulse_compressed)
+            beam_groups.append(ds)
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains backscatter echo intensity and other configuration "
+                        "parameters from the Echosounder mode. "
+                        "Data can be pulse compressed or raw intensity."
+                    ),
+                }
+            )
         # echosounder raw
-        for packet in self.parser_obj.packets:
-            if packet.is_echosounder_raw():
-                beam_groups.append(
-                    self._make_dataset(
-                        {
-                            "num_beams": "number_of_beams",
-                            "coordinate_system": "coordinate_system",
-                            "num_cells": "number_of_cells",
-                            "blanking": "blanking",
-                            "cell_size": "cell_size",
-                            "velocity_range": "velocity_range",
-                            "echosounder_frequency": "echosounder_frequency",
-                            "ambiguity_velocity": "ambiguity_velocity",
-                            "dataset_description": "data_set_description",
-                            "transmit_energy": "transmit_energy",
-                            "velocity_scaling": "velocity_scaling",
-                            "echosounder_raw_samples_i": "backscatter_r",
-                            "echosounder_raw_samples_q": "backscatter_i",
-                            "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
-                            "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
-                            "echosounder_raw_beam": "echosounder_raw_beam",
-                            "echosounder_raw_echogram": "echosounder_raw_echogram",
-                        }
-                    )
-                )
-
-                self._beamgroups.append(
+        if BeamGroup.ECHOSOUNDER_RAW in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
                     {
-                        "name": f"Beam_group{len(self._beamgroups) + 1}",
-                        "descr": (
-                            "contains complex backscatter raw samples and other configuration "
-                            "parameters from the Echosounder mode, "
-                            "including complex data from the transmit pulse."
-                        ),
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "echosounder_raw_samples_i": "backscatter_r",
+                        "echosounder_raw_samples_q": "backscatter_i",
+                        "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
+                        "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
+                        "echosounder_raw_beam": "echosounder_raw_beam",
+                        "echosounder_raw_echogram": "echosounder_raw_echogram",
                     }
                 )
-                break
+            )
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains complex backscatter raw samples and other configuration "
+                        "parameters from the Echosounder mode, "
+                        "including complex data from the transmit pulse."
+                    ),
+                }
+            )
 
         # FIXME: this is a hack because the current file saving
         # mechanism requires that the beam group have ping_time as a dimension,
