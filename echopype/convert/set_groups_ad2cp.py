@@ -417,6 +417,10 @@ class SetGroupsAd2cp(SetGroupsBase):
             if "ping_time" not in ds.dims:
                 beam_groups[i] = ds.expand_dims(dim="ping_time")
 
+        # remove time1 from beam groups
+        for i, ds in enumerate(beam_groups):
+            beam_groups[i] = ds.sel(time1=ds["ping_time"])
+
         return [set_encodings(ds) for ds in beam_groups]
 
     def set_vendor(self) -> xr.Dataset:
