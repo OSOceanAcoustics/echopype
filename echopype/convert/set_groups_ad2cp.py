@@ -108,6 +108,10 @@ class SetGroupsAd2cp(SetGroupsBase):
                     field_dimensions = Field.default_dimensions()
                     # can't store in dims yet because there might be another data record format
                     #   which does have this field
+
+                    if field_name not in attrs:
+                        if field_name in self.field_attrs["POSTPROCESSED"]:
+                            attrs[field_name] = self.field_attrs["POSTPROCESSED"][field_name]
                 else:
                     field_dimensions = field.dimensions(packet.data_record_type)
 
@@ -420,15 +424,45 @@ class SetGroupsAd2cp(SetGroupsBase):
         ds = self._make_dataset(
             {
                 "version": "data_record_version",
+                "pressure_sensor_valid": "pressure_sensor_valid",
+                "temperature_sensor_valid": "temperature_sensor_valid",
+                "compass_sensor_valid": "compass_sensor_valid",
+                "tilt_sensor_valid": "tilt_sensor_valid",
+                "velocity_data_included": "velocity_data_included",
+                "amplitude_data_included": "amplitude_data_included",
+                "correlation_data_included": "correlation_data_included",
+                "altimeter_data_included": "altimeter_data_included",
+                "altimeter_raw_data_included": "altimeter_raw_data_included",
+                "ast_data_included": "ast_data_included",
+                "echosounder_data_included": "echosounder_data_included",
+                "ahrs_data_included": "ahrs_data_included",
+                "percentage_good_data_included": "percentage_good_data_included",
+                "std_dev_data_included": "std_dev_data_included",
+                "distance_data_included": "distance_data_included",
+                "figure_of_merit_data_included": "figure_of_merit_data_included",
                 "error": "error",
                 "status": "status",
+                "procidle3": "procidle3",
+                "procidle6": "procidle6",
+                "procidle12": "procidle12",
                 "status0": "status0",
+                "wakeup_state": "wakeup_state",
+                "orientation": "orientation",
+                "autoorientation": "autoorientation",
+                "previous_wakeup_state": "previous_wakeup_state",
+                "last_measurement_low_voltage_skip": "last_measurement_low_voltage_skip",
+                "active_configuration": "active_configuration",
+                "echosounder_index": "echosounder_index",
+                "telemetry_data": "telemetry_data",
+                "boost_running": "boost_running",
+                "echosounder_frequency_bin": "echosounder_frequency_bin",
+                "bd_scaling": "bd_scaling",
                 "battery_voltage": "battery_voltage",
                 "power_level": "power_level",
                 "temperature_from_pressure_sensor": "temperature_of_pressure_sensor",
                 "nominal_correlation": "nominal_correlation",
                 "magnetometer_temperature": "magnetometer_temperature",
-                "real_ping_time_clock_temperature": "real_ping_time_clock_temperature",
+                "real_time_clock_temperature": "real_time_clock_temperature",
                 "ensemble_counter": "ensemble_counter",
                 "ahrs_rotation_matrix": "ahrs_rotation_matrix_mij",
                 "ahrs_quaternions": "ahrs_quaternions_wxyz",
