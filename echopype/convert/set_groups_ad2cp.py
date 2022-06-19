@@ -1,4 +1,4 @@
-from enum import Enum, unique, auto
+from enum import Enum, auto, unique
 from importlib import resources
 from typing import Dict, List, Optional, Set, Tuple, Union
 
