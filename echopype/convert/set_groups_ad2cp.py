@@ -419,7 +419,7 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # remove time1 from beam groups
         for i, ds in enumerate(beam_groups):
-            beam_groups[i] = ds.sel(time1=ds["ping_time"])
+            beam_groups[i] = ds.sel(time1=ds["ping_time"]).drop_vars("time1", errors="ignore")
 
         return [set_encodings(ds) for ds in beam_groups]
 
