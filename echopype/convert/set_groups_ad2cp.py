@@ -393,7 +393,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                         "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
                         "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
                         "echosounder_raw_beam": "echosounder_raw_beam",
-                        "echosounder_raw_echogram": "echosounder_raw_echogram",
                     }
                 )
             )

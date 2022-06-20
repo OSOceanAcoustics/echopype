@@ -739,13 +739,6 @@ class Ad2cpDataPacket:
                         ("bd_scaling", 1, 1),
                     ],
                 )
-                if (
-                    self.parser.packets[-1].is_echosounder_raw()
-                    or self.parser.packets[-1].is_echosounder_raw_transmit()
-                ):
-                    self.parser.packets[-1].data["echosounder_raw_echogram"] = self.data[
-                        "echosounder_index"
-                    ]
         elif self.data_record_format == HeaderOrDataRecordFormats.BOTTOM_TRACK_DATA_RECORD_FORMAT:
             if field_name == "configuration":
                 self._postprocess_bitfield(
@@ -796,6 +789,23 @@ class Ad2cpDataPacket:
                 self.data["echosounder_raw_transmit_samples_q"] = self.data[
                     "echosounder_raw_transmit_samples"
                 ][:, 1]
+            elif field_name == "status":
+                self._postprocess_bitfield(
+                    self.data["status"],
+                    [
+                        ("wakeup_state", 31, 28),
+                        ("orientation", 27, 25),
+                        ("autoorientation", 24, 22),
+                        ("previous_wakeup_state", 21, 18),
+                        ("last_measurement_low_voltage_skip", 17, 17),
+                        ("active_configuration", 16, 16),
+                        ("echosounder_index", 15, 12),
+                        ("telemetry_data", 11, 11),
+                        ("boost_running", 10, 10),
+                        ("echosounder_frequency_bin", 9, 5),
+                        ("bd_scaling", 1, 1),
+                    ],
+                )
 
     @staticmethod
     def checksum(data: bytes) -> int:
