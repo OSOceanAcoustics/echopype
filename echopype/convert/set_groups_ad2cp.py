@@ -270,6 +270,9 @@ class SetGroupsAd2cp(SetGroupsBase):
             elif packet.is_echosounder_raw():
                 beam_groups_exist.add(BeamGroup.ECHOSOUNDER_RAW)
 
+            if len(beam_groups_exist) == len(BeamGroup):
+                break
+
         # average
         if BeamGroup.AVERAGE in beam_groups_exist:
             beam_groups.append(
