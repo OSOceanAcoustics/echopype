@@ -631,11 +631,6 @@ class Ad2cpDataPacket:
                     self.data["dataset_description"],
                     [(2, 0), (5, 3), (8, 6), (11, 9), (14, 12)],
                 )
-                if (
-                    self.parser.packets[-1].is_echosounder_raw()
-                    or self.parser.packets[-1].is_echosounder_raw_transmit()
-                ):
-                    self.parser.packets[-1].data["echosounder_raw_beam"] = self.data["beams"][0]
         elif (
             self.data_record_format
             == HeaderOrDataRecordFormats.BURST_AVERAGE_VERSION3_DATA_RECORD_FORMAT
