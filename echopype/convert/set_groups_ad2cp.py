@@ -509,16 +509,20 @@ class SetGroupsAd2cp(SetGroupsBase):
         sonar_attr_dict = {
             "sonar_manufacturer": "Nortek",
             "sonar_model": "AD2CP",
-            "sonar_serial_number": "",
+            "sonar_serial_number": ", ".join(
+                np.unique(
+                    [
+                        str(packet.data["serial_number"])
+                        for packet in self.parser_obj.packets
+                        if "serial_number" in packet.data
+                    ]
+                )
+            ),
             "sonar_software_name": "",
             "sonar_software_version": "",
             "sonar_firmware_version": "",
             "sonar_type": "acoustic Doppler current profiler (ADCP)",
         }
-        for packet in self.parser_obj.packets:
-            if "serial_number" in packet.data:
-                sonar_attr_dict["sonar_serial_number"] = packet.data["serial_number"]
-                break
         firmware_version = self.parser_obj.get_firmware_version()
         if firmware_version is not None:
             sonar_attr_dict["sonar_firmware_version"] = ", ".join(
