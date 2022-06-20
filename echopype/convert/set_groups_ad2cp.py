@@ -388,6 +388,9 @@ class SetGroupsAd2cp(SetGroupsBase):
                         "dataset_description": "data_set_description",
                         "transmit_energy": "transmit_energy",
                         "velocity_scaling": "velocity_scaling",
+                        "num_complex_samples": "num_complex_samples",
+                        "ind_start_samples": "ind_start_samples",
+                        "freq_raw_sample_data": "freq_raw_sample_data",
                         "echosounder_raw_samples_i": "backscatter_r",
                         "echosounder_raw_samples_q": "backscatter_i",
                         "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
@@ -515,7 +518,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         }
         for packet in self.parser_obj.packets:
             if "serial_number" in packet.data:
-                ds.attrs["sonar_serial_number"] = packet.data["serial_number"]
+                sonar_attr_dict["sonar_serial_number"] = packet.data["serial_number"]
                 break
         firmware_version = self.parser_obj.get_firmware_version()
         if firmware_version is not None:
