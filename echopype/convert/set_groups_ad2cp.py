@@ -31,6 +31,8 @@ class SetGroupsAd2cp(SetGroupsBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # TODO: bug: 0 if not exist in first string packet
+        # resulting in index error in setting ds["pulse_compressed"]
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self._make_time_coords()
         with resources.open_text(convert, "ad2cp_fields.yaml") as f:
@@ -358,6 +360,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             )
             ds = ds.assign_coords({"echogram": np.arange(3)})
             pulse_compressed = np.zeros(3)
+            # TODO: bug: if self.pulse_compress=0 this will set the last index to 1
             pulse_compressed[self.pulse_compressed - 1] = 1
             ds["pulse_compressed"] = (("echogram",), pulse_compressed)
             beam_groups.append(ds)
