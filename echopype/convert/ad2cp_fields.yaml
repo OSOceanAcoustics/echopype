@@ -94,15 +94,15 @@ Raw data given as 0.01 °C.
     long_name: Field "Status" in the data specification.
     units: ''
     comment: '
-Bit 31-28: Wakeup State
-1111 0000 0000 0000 0000 0000 0000 0000
+Bit 31-28: Wakeup State.
+1111 0000 0000 0000 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
 11 = RTC alarm
 
-Bit 27-25: Orientation
-0000 1110 0000 0000 0000 0000 0000 0000
+Bit 27-25: Orientation.
+0000 1110 0000 0000 0000 0000 0000 0000.
 0: "XUP" Instrument x-axis defined up, heading
 reference axis is Z positive
 1: "XDOWN" Instrument x-axis defined down,
@@ -118,18 +118,18 @@ heading reference axis is X positive
 7: "AHRS" AHRS reports orientation any way it
 points. Example: Z down -> Roll = 180 deg.
 
-Bit 24-22: autoOrientation
-0000 0001 1100 0000 0000 0000 0000 0000
+Bit 24-22: autoOrientation.
+0000 0001 1100 0000 0000 0000 0000 0000.
 0: "Fixed" Fixed orientation
 1: "Auto" Auto Up Down
 3: "AHRS3D" AHRS3D'
   num_beams_and_coordinate_system_and_num_cells:
     long_name: Field "Beams, Coordinates And Cells" in the data specification.
     units: ''
-    comment: 'Bit 11-10 (2 bits): Coordinate system
+    comment: 'Bit 11-10 (2 bits): Coordinate system.
 b00:ENU, b01:XYZ, b10:BEAM
 
-Bit 15–12 (4 bits): Number of Beams (NB)
+Bit 15–12 (4 bits): Number of Beams (NB).
 Active beams represented as a 4 charstring of 1s
 and 0s.
 
@@ -236,7 +236,7 @@ Data given as 10^(Velocity Scaling).
     long_name: Field "Amplitude Data Burst" in the data specification.
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
-the Config byte is set
+the Config byte is set.
 Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
@@ -244,7 +244,7 @@ Data given as 0.5 dB/count.
     long_name: Field "Amplitude Data Average" in the data specification.
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
-the Config byte is set
+the Config byte is set.
 Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
@@ -252,7 +252,7 @@ Data given as 0.5 dB/count.
     long_name: Field "Amplitude Data Echosounder" in the data specification.
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
-the Config byte is set
+the Config byte is set.
 Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
@@ -371,10 +371,10 @@ Raw data given as 0.01 °C.
   num_beams_and_coordinate_system_and_num_cells:
     long_name: Field "Beams, Coordinates And Cells" in the data specification.
     units: ''
-    comment: 'Bit 11-10 (2 bits): Coordinate system
+    comment: 'Bit 11-10 (2 bits): Coordinate system.
 b00:ENU, b01:XYZ, b10:BEAM
 
-Bit 15–12 (4 bits): Number of Beams (NB)
+Bit 15–12 (4 bits): Number of Beams (NB).
 Active beams represented as a 4 charstring of 1s
 and 0s.
 
@@ -443,7 +443,8 @@ scaled according to Velocity scaling.
 0-3 Physical beam used for 1st data set.
 4-7 Physical beam used for 2nd data set.
 8-11 Physical beam used for 3th data set.
-12-16 Physical beam used for 4th data set.'
+12-16 Physical beam used for 4th data set.
+This was parsed and used to set beam coordinate'
   transmit_energy:
     long_name: Field "Transmit Energy" in the data specification.
     units: ''
@@ -477,14 +478,11 @@ Raw data in 1/1000 °C'
   status0:
     long_name: Field "Status0" in the data specification.
     units: ''
-    comment: 'Extended status bit mask
+    comment: 'Extended status bit mask.
 
-0 bit: Indicates that the processor Idles less than 3
-percent
-1 bit: Indicates that the processor idles less than 6
-percent
-2 bit: Indicates that the processor idles less than 12
-percent
+0 bit: Indicates that the processor Idles less than 3 percent
+1 bit: Indicates that the processor idles less than 6 percent
+2 bit: Indicates that the processor idles less than 12 percent
 15 bit: If this bit is set the rest of the word/ extended
 status should be interpreted
 ' # 2 bit is also 1 bit in the spec but should be 2 bit
@@ -492,15 +490,15 @@ status should be interpreted
     long_name: Field "Status" in the data specification.
     units: ''
     comment: '
-Bit 31-28: Wakeup State
-1111 0000 0000 0000 0000 0000 0000 0000
+Bit 31-28: Wakeup State.
+1111 0000 0000 0000 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
 11 = RTC alarm
 
-Bit 27-25: Orientation
-0000 1110 0000 0000 0000 0000 0000 0000
+Bit 27-25: Orientation.
+0000 1110 0000 0000 0000 0000 0000 0000.
 0: "XUP" Instrument x-axis defined up, heading
 reference axis is Z positive
 1: "XDOWN" Instrument x-axis defined down,
@@ -516,8 +514,8 @@ heading reference axis is X positive
 7: "AHRS" AHRS reports orientation any way it
 points. Example: Z down -> Roll = 180 deg.
 
-Bit 24-22: autoOrientation
-0000 0001 1100 0000 0000 0000 0000 0000
+Bit 24-22: autoOrientation.
+0000 0001 1100 0000 0000 0000 0000 0000.
 0: "Fixed" Fixed orientation
 1: "Auto" Auto Up Down
 3: "AHRS3D" AHRS3D'
@@ -562,7 +560,7 @@ Data given as 10^(Velocity Scaling).
     long_name: Field "Amplitude Data Average" in the data specification.
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
-the Config byte is set
+the Config byte is set.
 Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
@@ -570,7 +568,7 @@ Data given as 0.5 dB/count.
     long_name: Field "Amplitude Data Echosounder" in the data specification.
     units: dB/count
     comment: 'This field exists if the amplitude data included bit of
-the Config byte is set
+the Config byte is set.
 Data given as 0.5 dB/count.
 
       Data was converted to the specified units.'
@@ -579,7 +577,7 @@ Data given as 0.5 dB/count.
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
 of the Config byte is set.
-Data given as [0 – 100 %]
+Data given as [0 – 100 %].
 
       Data was converted to the specified units.'
   correlation_data_average:
@@ -587,7 +585,7 @@ Data given as [0 – 100 %]
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
 of the Config byte is set.
-Data given as [0 – 100 %]
+Data given as [0 – 100 %].
 
       Data was converted to the specified units.'
   correlation_data_echosounder:
@@ -595,7 +593,7 @@ Data given as [0 – 100 %]
     units: 0-100%
     comment: 'This field exists if the Correlation data included bit
 of the Config byte is set.
-Data given as [0 – 100 %]
+Data given as [0 – 100 %].
 
       Data was converted to the specified units.'
   altimeter_distance:
@@ -809,10 +807,8 @@ Raw data given as 0.01 °C.
 used.
 b00:ENU, b01:XYZ, b10:BEAM
 
-Bit 15–12 (4 bits) represent the number of beams
-(NB)
-Active beams represented as a 4 charstring of 1s
-and 0s.
+Bit 15–12 (4 bits) represent the number of beams (NB).
+Active beams represented as a 4 charstring of 1s and 0s.
 
 Bit 9-0 (10 bits) represent the number of cells (NC).'
   cell_size:
@@ -911,15 +907,15 @@ Raw data in 1/1000 °C
     long_name: Field "Status" in the data specification.
     units: ''
     comment: '
-Bit 31-28: Wakeup State
-1111 0000 0000 0000 0000 0000 0000 0000
+Bit 31-28: Wakeup State.
+1111 0000 0000 0000 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
 11 = RTC alarm
 
-Bit 27-25: Orientation
-0000 1110 0000 0000 0000 0000 0000 0000
+Bit 27-25: Orientation.
+0000 1110 0000 0000 0000 0000 0000 0000.
 0: "XUP" Instrument x-axis defined up, heading
 reference axis is Z positive
 1: "XDOWN" Instrument x-axis defined down,
@@ -935,8 +931,8 @@ heading reference axis is X positive
 7: "AHRS" AHRS reports orientation any way it
 points. Example: Z down -> Roll = 180 deg.
 
-Bit 24-22: autoOrientation
-0000 0001 1100 0000 0000 0000 0000 0000
+Bit 24-22: autoOrientation.
+0000 0001 1100 0000 0000 0000 0000 0000.
 0: "Fixed" Fixed orientation
 1: "Auto" Auto Up Down
 3: "AHRS3D" AHRS3D'
@@ -1013,15 +1009,15 @@ milliseconds resolution)'
     long_name: Field "Status" in the data specification.
     units: ''
     comment: '
-Bit 31-28: Wakeup State
-1111 0000 0000 0000 0000 0000 0000 0000
+Bit 31-28: Wakeup State.
+1111 0000 0000 0000 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
 11 = RTC alarm
 
-Bit 27-25: Orientation
-0000 1110 0000 0000 0000 0000 0000 0000
+Bit 27-25: Orientation.
+0000 1110 0000 0000 0000 0000 0000 0000.
 0: "XUP" Instrument x-axis defined up, heading
 reference axis is Z positive
 1: "XDOWN" Instrument x-axis defined down,
@@ -1037,8 +1033,8 @@ heading reference axis is X positive
 7: "AHRS" AHRS reports orientation any way it
 points. Example: Z down -> Roll = 180 deg.
 
-Bit 24-22: autoOrientation
-0000 0001 1100 0000 0000 0000 0000 0000
+Bit 24-22: autoOrientation.
+0000 0001 1100 0000 0000 0000 0000 0000.
 0: "Fixed" Fixed orientation
 1: "Auto" Auto Up Down
 3: "AHRS3D" AHRS3D'
@@ -1171,7 +1167,7 @@ POSTPROCESSED:
   ambiguity_velocity:
     long_name: Field "Ambiguity Velocity" parsed from field "Ambiguity Velocity Or Echosounder Frequency"
     units: m/s
-    comment: 'Derived from field "Ambiguity Velocity Or Echosounder Frequency"
+    comment: 'Derived from field "Ambiguity Velocity Or Echosounder Frequency."
 
     Ambiguity velocity, corrected for sound velocity,
 scaled according to Velocity scaling.
@@ -1181,31 +1177,31 @@ Data given as 10^(Velocity scaling) m/s.
   procidle3:
     long_name: Field "Processor Idles <3%" parsed from field "Status0"
     units: ''
-    comment: 'Derived from field "Status0"
+    comment: 'Derived from field "Status0".
 
 Indicates that the processor Idles less than 3
 percent'
   procidle6:
     long_name: Field "Processor Idles <6%" parsed from field "Status0"
     units: ''
-    comment: 'Derived from field "Status0"
+    comment: 'Derived from field "Status0".
 
 Indicates that the processor Idles less than 6
 percent'
   procidle12:
     long_name: Field "Processor Idles <12%" parsed from field "Status0"
     units: ''
-    comment: 'Derived from field "Status0"
+    comment: 'Derived from field "Status0".
 
 Indicates that the processor Idles less than 12
 percent'
   wakeup_state:
     long_name: Field "Wakeup State" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 31-28: Wakeup State
-1111 0000 0000 0000 0000 0000 0000 0000
+Bit 31-28: Wakeup State.
+1111 0000 0000 0000 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
@@ -1215,8 +1211,8 @@ Bit 31-28: Wakeup State
     units: ''
     comment: 'Derived from field "Status"
 
-Bit 27-25: Orientation
-0000 1110 0000 0000 0000 0000 0000 0000
+Bit 27-25: Orientation.
+0000 1110 0000 0000 0000 0000 0000 0000.
 0: "XUP" Instrument x-axis defined up, heading
 reference axis is Z positive
 1: "XDOWN" Instrument x-axis defined down,
@@ -1234,20 +1230,20 @@ points. Example: Z down -> Roll = 180 deg.'
   autoorientation:
     long_name: Field "Auto Orientation" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 24-22: autoOrientation
-0000 0001 1100 0000 0000 0000 0000 0000
+Bit 24-22: autoOrientation.
+0000 0001 1100 0000 0000 0000 0000 0000.
 0: "Fixed" Fixed orientation
 1: "Auto" Auto Up Down
 3: "AHRS3D" AHRS3D'
   previous_wakeup_state:
     long_name: Field "Previous Wakeup State" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 21-18: Previous wakeup state
-0000 0000 0011 1100 0000 0000 0000 0000
+Bit 21-18: Previous wakeup state.
+0000 0000 0011 1100 0000 0000 0000 0000.
 00 = bad power
 01 = power applied
 10 = break
@@ -1255,24 +1251,24 @@ Bit 21-18: Previous wakeup state
   last_measurement_low_voltage_skip:
     long_name: Field "Previous Measurement Skipped Due To Low Voltage" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 17: Last measurement low voltage skip
+Bit 17: Last measurement low voltage skip.
 0: normal operation
 1: last measurement skipped due to low input
 voltage'
   active_configuration:
     long_name: Field "Active Configuration" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 16: Active configuration
+Bit 16: Active configuration.
 0: Settings for PLAN,BURST,AVG
 1: Settings for PLAN1,BURST1,AVG1'
   echosounder_index:
     long_name: Field "Echosounder Index" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
 Bit 15-12: Echosounder frequency index. Valid
 numbers are 0, 1 and 2 (or 0000, 0001 and 0010)
@@ -1294,7 +1290,7 @@ Boost running'
   echosounder_frequency_bin:
     long_name: Field "Echosounder Frequency Bin" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
 Bit 9-5: Echosounder frequency bin.
 Used only on the Signature100 which supports up to
@@ -1304,8 +1300,8 @@ done on the different frequency bands.
   bd_scaling:
     long_name: Field "Blanking Distance Scaling In Cm" parsed from field "Status"
     units: ''
-    comment: 'Derived from field "Status"
+    comment: 'Derived from field "Status".
 
-Bit 1: Scaling of blanking distance
+Bit 1: Scaling of blanking distance.
 0: mm scaling
 1: given in cm'
