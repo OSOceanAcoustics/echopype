@@ -10,7 +10,9 @@ from .noise_est import NoiseEst
 
 
 def _check_range_uniqueness(ds):
-    """Check if range (``echo_range``) changes across ping in a given frequency channel."""
+    """
+    Check if range (``echo_range``) changes across ping in a given frequency channel.
+    """
     return (
         ds["echo_range"].isel(ping_time=0).dropna(dim="range_sample")
         == ds["echo_range"].dropna(dim="range_sample")
@@ -18,7 +20,8 @@ def _check_range_uniqueness(ds):
 
 
 def _set_MVBS_attrs(ds):
-    """Attach common attributes
+    """
+    Attach common attributes.
 
     Parameters
     ----------
@@ -42,7 +45,8 @@ def _set_MVBS_attrs(ds):
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
@@ -161,7 +165,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of ``range_sample`` and ping number (``ping_num``) specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
