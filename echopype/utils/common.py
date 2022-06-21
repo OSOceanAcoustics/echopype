@@ -25,10 +25,9 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     # Only possible if no duplicated frequencies
     if np.unique(ds["frequency_nominal"]).size == ds["frequency_nominal"].size:
         return (
-            ds
-            .set_coords('frequency_nominal')
+            ds.set_coords("frequency_nominal")
             .swap_dims({"channel": "frequency_nominal"})
-            .reset_coords('channel')
+            .reset_coords("channel")
         )
     else:
         raise ValueError(
