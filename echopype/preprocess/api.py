@@ -86,9 +86,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             .mean()
         )
         sv_groupby_bins.coords["echo_range"] = (["echo_range_bins"], rint[:-1])
-        sv_groupby_bins = (
-            sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"})
-            .drop_vars("echo_range_bins")
+        sv_groupby_bins = sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"}).drop_vars(
+            "echo_range_bins"
         )
         return 10 * np.log10(sv_groupby_bins)
 
