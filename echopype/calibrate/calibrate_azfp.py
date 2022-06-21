@@ -154,6 +154,9 @@ class CalibrateAZFP(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
+        # Order the dimensions
+        out["echo_range"] = out["echo_range"].transpose("channel", "ping_time", "range_sample")
+
         # Squeeze out the beam dim
         # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
         return out.squeeze("beam", drop=True)
