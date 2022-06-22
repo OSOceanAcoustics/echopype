@@ -45,6 +45,14 @@ groups:
       including split-beam angle data when they exist.
       Only exists if complex backscatter data are already in Sonar/Beam_group1
     ep_group: Sonar/Beam_group2
+  beam_group3:
+    name: Beam_group3
+    description: ''
+    ep_group: Sonar/Beam_group3
+  beam_group4:
+    name: Beam_group4
+    description: ''
+    ep_group: Sonar/Beam_group4
   vendor:
     name: Vendor_specific
     description: contains vendor-specific information about the sonar and the data.
