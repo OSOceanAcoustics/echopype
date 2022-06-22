@@ -665,7 +665,7 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
 
-        # If RAW4 datagram (transmit pulse in complex) exists
+        # If RAW4 datagram (transmit pulse recorded in complex samples) exists
         if len(self.parser_obj.ping_data_dict_tx["complex"]) != 0:
             # Add coordinate transmit_sample
             ds_tmp = ds_tmp.assign_coords(
