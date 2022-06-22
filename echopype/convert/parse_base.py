@@ -275,7 +275,7 @@ class ParseEK(ParseBase):
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
 
-            # RAW4 datagrams store raw transmit pusle for a channel for EK80
+            # RAW4 datagrams store raw transmit pulse for a channel for EK80
             elif new_datagram["type"].startswith("RAW4"):
                 curr_ch_id = new_datagram["channel_id"]
                 # Check if the proceeding Parameter XML does not
