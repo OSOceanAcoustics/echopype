@@ -586,7 +586,6 @@ class EchoData:
         )
 
         platform = self.platform
-        platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
         platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
@@ -599,14 +598,16 @@ class EchoData:
         }
         platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
-        dropped_vars_target = [
-            "pitch",
-            "roll",
-            "vertical_offset",
-            "latitude",
-            "longitude",
-            "water_level",
-        ]
+        platform_vars_sourcenames = {
+            "pitch": ["pitch", "PITCH"],
+            "roll": ["roll", "ROLL"],
+            "vertical_offset": ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+            "latitude": ["lat", "latitude", "LATITUDE"],
+            "longitude": ["lon", "longitude", "LONGITUDE"],
+            "water_level": ["water_level", "WATER_LEVEL"],
+        }
+
+        dropped_vars_target = platform_vars_sourcenames.keys()
         dropped_vars = []
         for var in dropped_vars_target:
             if var in platform and (~platform[var].isnull()).all():
@@ -620,73 +621,32 @@ class EchoData:
             errors="ignore",
         )
 
-        num_obs = len(extra_platform_data[time_dim])
-
         def mapping_search_variable(mapping, keys, default=None):
             for key in keys:
                 if key in mapping:
                     return mapping[key].data
             return default
 
-        platform = platform.update(
-            {
-                "pitch": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["pitch", "PITCH"],
-                        platform.get("pitch", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "roll": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["roll", "ROLL"],
-                        platform.get("roll", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "vertical_offset": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        [
-                            "heave",
-                            "HEAVE",
-                            "vertical_offset",
-                            "VERTICAL_OFFSET",
-                        ],
-                        platform.get("vertical_offset", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "latitude": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lat", "latitude", "LATITUDE"],
-                        default=platform.get("latitude", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "longitude": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lon", "longitude", "LONGITUDE"],
-                        default=platform.get("longitude", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "water_level": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["water_level", "WATER_LEVEL"],
-                        default=platform.get("water_level", np.zeros(num_obs)),
-                    ),
-                ),
-            }
-        )
+        num_obs = len(extra_platform_data[time_dim])
+        for platform_var, sourcenames in platform_vars_sourcenames.items():
+            platform = platform.update(
+                {
+                    platform_var: (
+                        "time1",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            sourcenames,
+                            platform.get(platform_var, np.full(num_obs, np.nan)),
+                        ),
+                    )
+                }
+            )
+
+        convention_varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
         for var in dropped_vars_target:
-            platform[var] = platform[var].assign_attrs(**platform_vars_attrs[var])
+            platform[var] = platform[var].assign_attrs(
+                **convention_varattrs["platform_var_default"][var]
+            )
 
         self.platform = set_encodings(platform)
 

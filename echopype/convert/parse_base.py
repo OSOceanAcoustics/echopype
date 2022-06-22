@@ -36,7 +36,8 @@ class ParseEK(ParseBase):
 
         # Class attributes
         self.config_datagram = None
-        self.ping_data_dict = defaultdict(lambda: defaultdict(list))
+        self.ping_data_dict = defaultdict(lambda: defaultdict(list))  # ping data
+        self.ping_data_dict_tx = defaultdict(lambda: defaultdict(list))  # transmit ping data
         self.ping_time = defaultdict(list)  # store ping time according to channel
         self.num_range_sample_groups = None  # number of range_sample groups
         self.ch_ids = defaultdict(
@@ -111,19 +112,28 @@ class ParseEK(ParseBase):
 
             # Rectangularize all data and convert to numpy array indexed by channel
             for data_type in ["power", "angle", "complex"]:
+                # Receive data
                 for k, v in self.ping_data_dict[data_type].items():
                     if all(
                         (x is None) or (x.size == 0) for x in v
                     ):  # if no data in a particular channel
                         self.ping_data_dict[data_type][k] = None
                     else:
-                        # Sort complex and power/angle channels
+                        # Sort complex and power/angle channels and pad NaN
                         self.ch_ids[data_type].append(k)
                         self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
                         if data_type == "power":
                             self.ping_data_dict[data_type][k] = (
                                 self.ping_data_dict[data_type][k].astype("float32") * INDEX2POWER
                             )
+                # Transmit data
+                for k, v in self.ping_data_dict_tx[data_type].items():
+                    if all(
+                        (x is None) or (x.size == 0) for x in v
+                    ):  # if no data in a particular channel
+                        self.ping_data_dict_tx[data_type][k] = None
+                    else:
+                        self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -222,6 +232,7 @@ class ParseEK(ParseBase):
                 and "ALL" not in self.data_type
             ):
                 continue
+
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram["type"].startswith("XML"):
                 if new_datagram["subtype"] == "environment" and (
@@ -244,6 +255,11 @@ class ParseEK(ParseBase):
                 # Append ping by ping data
                 self._append_channel_ping_data(new_datagram)
 
+            # EK80 datagram sequence:
+            #   - XML0 pingsequence
+            #   - XML0 parameter
+            #   - RAW4
+            #   - RAW3
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram["type"].startswith("RAW3"):
                 curr_ch_id = new_datagram["channel_id"]
@@ -258,6 +274,21 @@ class ParseEK(ParseBase):
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
                 self._append_channel_ping_data(new_datagram)
+
+            # RAW4 datagrams store raw transmit pulse for a channel for EK80
+            elif new_datagram["type"].startswith("RAW4"):
+                curr_ch_id = new_datagram["channel_id"]
+                # Check if the proceeding Parameter XML does not
+                # match with data in this RAW4 datagram
+                if current_parameters["channel_id"] != curr_ch_id:
+                    raise ValueError("Parameter ID does not match RAW")
+
+                # Ping time is identical to the immediately following RAW3 datagram
+                # so does not need to be stored separately
+
+                # Append ping by ping data
+                new_datagram.update(current_parameters)
+                self._append_channel_ping_data(new_datagram, rx=False)
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram["type"].startswith("NME"):
@@ -296,15 +327,26 @@ class ParseEK(ParseBase):
             else:
                 print("Unknown datagram type: " + str(new_datagram["type"]))
 
-    def _append_channel_ping_data(self, datagram):
-        """Append ping by ping data."""
+    def _append_channel_ping_data(self, datagram, rx=True):
+        """
+        Append ping by ping data.
+
+        Parameters
+        ----------
+        datagram : dict
+            the newly read sample datagram
+        rx : bool
+            whether this is receive ping data
+        """
         # TODO: do a thorough check with the convention and processing
         # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
         for k, v in datagram.items():
-            # if k not in unsaved:
-            self.ping_data_dict[k][ch_id].append(v)
+            if rx:
+                self.ping_data_dict[k][ch_id].append(v)
+            else:
+                self.ping_data_dict_tx[k][ch_id].append(v)
 
     @staticmethod
     def pad_shorter_ping(data_list) -> np.ndarray:
