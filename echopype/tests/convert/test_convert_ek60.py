@@ -196,7 +196,7 @@ def test_convert_ek60_duplicate_frequencies(ek60_path):
 
 
 def test_convert_ek60_splitbeam_no_angle(ek60_path):
-    """Convert a file from a split-beam setup but does not record angle data."""
+    """Convert a file from a split-beam setup that does not record angle data."""
 
     raw_path = (
         ek60_path
