@@ -405,6 +405,9 @@ def test_convert_ek80_raw4(ek80_path):
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
     # Check if correct data variables exist in Beam_group1
-    assert "transmit_pulse_r" in echodata["Sonar/Beam_group1"]
-    assert "transmit_pulse_i" in echodata["Sonar/Beam_group1"]
     assert "transmit_sample" in echodata["Sonar/Beam_group1"]
+    for var in ["transmit_pulse_r", "transmit_pulse_i"]:
+        assert var in echodata["Sonar/Beam_group1"]
+        assert echodata["Sonar/Beam_group1"][var].dims == (
+            'channel', 'ping_time', 'transmit_sample'
+        )
