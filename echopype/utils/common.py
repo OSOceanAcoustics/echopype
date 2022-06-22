@@ -1,4 +1,3 @@
-from ast import Num
 import numpy as np
 import xarray as xr
 
@@ -38,7 +37,11 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 
 def add_depth(
-    ds: xr.Dataset, vertical: bool = True, downward: bool = True, tilt: Num = None, water_level: Num = None
+    ds: xr.Dataset,
+    vertical: bool = True,
+    downward: bool = True,
+    tilt: float = None,
+    water_level: float = None,
 ) -> xr.Dataset:
     """
     Create a depth data variable based on data in Sv dataset.
@@ -58,10 +61,10 @@ def add_depth(
     downward : bool
         Whether or not the transducers point downward.
         Default to True.
-    tilt : num
+    tilt : float
         Tilt angle (degree) if transducers are not mounted vertically (when `vertical=False`).
         Required if `vertical=False` and `tilt` does not exist in the dataset.
-    water_level : num
+    water_level : float
         User-defined `water_level` to replace the water_level stored in the dataset.
         Optional if `water_level` exists in the dataset.
         Required if `water_level` does not exist in the dataset.
@@ -92,11 +95,11 @@ def add_depth(
     else:
         tilt = 0
 
-    # Multiplication factor dependeing on if transducers are pointing downward
+    # Multiplication factor depending on if transducers are pointing downward
     if downward:
-        mult = 1
+        mult = 1  # no flip
     else:
-        mult = -1
+        mult = -1  # flip upside down (closer to transducer is deeper)
 
     # Compute depth
     ds["depth"] = mult * ds["echo_range"] * np.cos(tilt) + water_level
