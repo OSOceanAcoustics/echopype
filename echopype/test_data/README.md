@@ -11,6 +11,7 @@ Most of these files are stored on Git LFS but the ones that aren't (due to file 
 - 2019118 group2survey-D20191214-T081342.raw: Contains 6 channels but only 2 of those channels collect ping data
 - D20200528-T125932.raw: Data collected from WBT mini (instead of WBT), from @emlynjdavies
 - Green2.Survey2.FM.short.slow.-D20191004-T211557.raw: Contains 2-in-1 transducer, from @FletcherFT (reduced from 104.9 MB to 765 KB in test data updates)
+- raw4-D20220514-T172704.raw: Contains RAW4 datagram, 1 channel only, from @cornejotux
 - D20210330-T123857.raw: do not contain filter coefficients
 
 
