@@ -395,3 +395,16 @@ def test_convert_ek80_freq_subset(ek80_path):
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     check_env_xml(echodata)
+
+
+def test_convert_ek80_no_fil_coeff(ek80_path):
+    """Make sure we can convert EK80 file with empty filter coefficients."""
+    echodata = open_raw(raw_file=ek80_path.joinpath('D20210330-T123857.raw'), sonar_model='EK80')
+
+    ch_ids = list(echodata["Sonar/Beam_group1"]["channel"].values)
+
+    for ch_id in ch_ids:
+        assert f"{ch_id} WBT filter_r" not in echodata["Vendor_specific"].attrs.keys()
+        assert f"{ch_id} WBT filter_i" not in echodata["Vendor_specific"].attrs.keys()
+        assert f"{ch_id} PC filter_r" not in echodata["Vendor_specific"].attrs.keys()
+        assert f"{ch_id} PC filter_i" not in echodata["Vendor_specific"].attrs.keys()
