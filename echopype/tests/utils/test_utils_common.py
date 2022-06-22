@@ -73,7 +73,7 @@ def test_data_samples(request, test_path):
     )
 
 
-def test_preprocess_mvbs(test_data_samples):
+def test_swap_dims_channel_frequency(test_data_samples):
     """
     Test swapping dimension/coordinate from channel to frequency_nominal.
     """
