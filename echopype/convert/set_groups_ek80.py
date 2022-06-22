@@ -971,7 +971,6 @@ class SetGroupsEK80(SetGroupsBase):
                 decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
             # filter coeffs and decimation factor for pulse compression (PC)
             if self.parser_obj.fil_df:
-
                 coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
                 decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
 
