@@ -642,11 +642,12 @@ class EchoData:
                 }
             )
 
-        convention_varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
         for var in dropped_vars_target:
-            platform[var] = platform[var].assign_attrs(
-                **convention_varattrs["platform_var_default"][var]
-            )
+            var_attrs = self._varattrs["platform_var_default"][var]
+            # Insert history attr only if the variable was inserted with valid values
+            if not platform[var].isnull().all():
+                var_attrs["history"] = history_attr
+            platform[var] = platform[var].assign_attrs(**var_attrs)
 
         self.platform = set_encodings(platform)
 
