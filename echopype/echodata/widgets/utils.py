@@ -1,8 +1,8 @@
 import uuid
 from hashlib import md5
 
-import anytree
 from datatree import DataTree
+from datatree.render import RenderTree
 
 from ..convention.utils import _get_sonar_groups
 
@@ -27,14 +27,14 @@ def _single_node_repr(node):
     root_path = "root"
     node_pathstr = "Top-level"
     if node.name != root_path:
-        node_pathstr = node.pathstr.replace("root/", "")
+        node_pathstr = node.path[1:]
     sonar_group = SONAR_GROUPS[node_pathstr]
     node_info = f"{sonar_group['name']}: {sonar_group['description']}"
     return node_info
 
 
 def tree_repr(tree: DataTree) -> str:
-    renderer = anytree.RenderTree(tree)
+    renderer = RenderTree(tree)
     lines = []
     for pre, _, node in renderer:
         if node.has_data or node.has_attrs:
