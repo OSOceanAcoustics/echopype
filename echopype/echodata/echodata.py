@@ -132,6 +132,7 @@ class EchoData:
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
+        tree.name = "root"
 
         echodata._set_tree(tree)
 
