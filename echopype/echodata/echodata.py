@@ -81,23 +81,16 @@ class EchoData:
     def _repr_html_(self) -> str:
         """Make html representation of InferenceData object."""
         _, css_style = _load_static_files()
-        from xarray.core.options import OPTIONS
+        try:
+            from xarray.core.options import OPTIONS
 
-        display_style = OPTIONS["display_style"]
-        if display_style == "text":
+            display_style = OPTIONS["display_style"]
+            if display_style == "text":
+                html_repr = f"<pre>{escape(repr(self))}</pre>"
+            else:
+                return get_template("echodata.html.j2").render(echodata=self, css_style=css_style)
+        except:  # noqa
             html_repr = f"<pre>{escape(repr(self))}</pre>"
-        else:
-            return get_template("echodata.html.j2").render(echodata=self, css_style=css_style)
-        # try:
-        #     from xarray.core.options import OPTIONS
-
-        #     display_style = OPTIONS["display_style"]
-        #     if display_style == "text":
-        #         html_repr = f"<pre>{escape(repr(self))}</pre>"
-        #     else:
-        #         return get_template("echodata.html.j2").render(echodata=self, css_style=css_style)
-        # except:  # noqa
-        #     html_repr = f"<pre>{escape(repr(self))}</pre>"
         return html_repr
 
     def __setup_groups(self):
