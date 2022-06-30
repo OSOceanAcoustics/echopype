@@ -984,7 +984,9 @@ def _rename_vendor_group(ed_obj):
     The function directly modifies the input EchoData object.
     """
 
-    ed_obj._tree["Vendor"].name = "Vendor_specific"
+    node = ed_obj._tree["Vendor"]
+    ed_obj._tree["Vendor"].orphan()
+    ed_obj._tree["Vendor_specific"] = node
 
 
 def _change_list_attrs_to_str(ed_obj):
