@@ -11,16 +11,17 @@
         <li class="xr-section-list">
             {%-set node_key = 'root'|make_key -%}
             <input id="idata_{{node_key|hash_value}}" class="xr-section-summary-in" type="checkbox">
-            <label for="idata_{{node_key|hash_value}}" class="xr-section-summary">{{ echodata._tree|node_repr }}</label>
+            <label for="idata_{{node_key|hash_value}}" class="xr-section-summary">{{ echodata._tree['root']|node_repr }}</label>
             <div class="xr-section-inline-details"></div>
             <div class="xr-section-details">
                 <ul id="xr-dataset-coord-list" class="xr-var-list">
-                    <div style="padding-left:2rem;">{{echodata._tree.ds|html_repr}}<br></div>
+                    <div style="padding-left:2rem;">{{echodata._tree['root'].ds|html_repr}}<br></div>
                 </ul>
             </div>
         </li>
         <ul>
-            {%- for node in echodata._tree.children recursive -%}
+        {%- for _, node in echodata._tree.children.items() recursive -%}
+            {%- if node.name != 'root' -%}
                 {%- if node.has_data or node.has_attrs -%}
                 <li class="xr-section-list">
                     {%-set node_key = node.name|make_key -%}
@@ -34,11 +35,11 @@
                     </div>
                 </li>
                 {%- endif -%}
-                {%- if node.children -%}
-                    <ul>{{ loop(node.children) }}</ul>
+                {%- if node.children.items() -%}
+                    <ul>{{ loop(node.children.items()) }}</ul>
                 {%- endif %}
-            {%- endfor -%}
-        </ul>
+            {%- endif -%}
+        {%- endfor -%}
     </ul>
 </div>
 {%- include 'style.html.j2' -%}
