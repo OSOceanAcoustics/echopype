@@ -105,13 +105,11 @@ def _reorganize_beam_groups(ed_obj):
 
     # Map Beam --> Sonar/Beam_group1
     if "Beam" in ed_obj.group_paths:
-        ed_obj._tree["Sonar"].add_child(ed_obj._tree["Beam"])
-        ed_obj._tree["Sonar/Beam"].name = "Beam_group1"
+        ed_obj._tree["Sonar/Beam_group1"] = ed_obj._tree["Beam"]
 
     # Map Beam_power --> Sonar/Beam_group2
     if "Beam_power" in ed_obj.group_paths:
-        ed_obj._tree["Sonar"].add_child(ed_obj._tree["Beam_power"])
-        ed_obj._tree["Sonar/Beam_power"].name = "Beam_group2"
+        ed_obj._tree["Sonar/Beam_group2"] = ed_obj._tree["Beam_power"]
 
 
 def get_channel_id(ed_obj, sensor):

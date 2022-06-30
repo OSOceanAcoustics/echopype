@@ -260,7 +260,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             tree_dict[value["ep_group"]] = combined_group
 
     # Set tree into echodata object
-    result._set_tree(tree=DataTree.from_dict(tree_dict), name="root")
+    result._set_tree(tree=DataTree.from_dict(tree_dict, name="root"))
     result._load_tree()
 
     # save ping time before reversal correction
