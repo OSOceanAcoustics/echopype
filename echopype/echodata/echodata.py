@@ -180,11 +180,8 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        root_path = self._tree.pathstr
-        return {
-            i.replace(root_path + "/", "") if i != "root" else "Top-level"
-            for i in self._tree.groups
-        }
+        all_groups = (g for g in self._tree.groups if g != "/")
+        return {i[1:] if i[1:] != "root" else "Top-level" for i in all_groups}
 
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
