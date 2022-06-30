@@ -7,16 +7,10 @@ import pytest
 @pytest.fixture(
     params=[
         (
-            ("EK60", "ncei-wcsd", "Summer2017-D20170719-T211347.raw"),
+            ("EK60", "DY1002_EK60-D20100318-T023008_rep_freq.raw"),
             "EK60",
             None,
             {},
-        ),
-        (
-            ("EK80_NEW", "echopype-test-D20211004-T235930.raw"),
-            "EK80",
-            None,
-            {'waveform_mode': 'BB', 'encode_mode': 'complex'},
         ),
         (
             ("EK80_NEW", "D20211004-T233354.raw"),
@@ -25,28 +19,16 @@ import pytest
             {'waveform_mode': 'CW', 'encode_mode': 'power'},
         ),
         (
-            ("EK80_NEW", "D20211004-T233115.raw"),
-            "EK80",
-            None,
-            {'waveform_mode': 'CW', 'encode_mode': 'complex'},
-        ),
-        (("ES70", "D20151202-T020259.raw"), "ES70", None, {}),
-        (("AZFP", "17082117.01A"), "AZFP", ("AZFP", "17041823.XML"), {}),
-        (
-            ("AD2CP", "raw", "090", "rawtest.090.00001.ad2cp"),
-            "AD2CP",
-            None,
+            ("AZFP", "17082117.01A"),
+            "AZFP",
+            ("AZFP", "17041823.XML"),
             {},
         ),
     ],
     ids=[
-        "ek60_cw_power",
-        "ek80_bb_complex",
+        "ek60_dup_freq",
         "ek80_cw_power",
-        "ek80_cw_complex",
-        "es70",
         "azfp",
-        "ad2cp",
     ],
 )
 def test_data_samples(request, test_path):
@@ -56,16 +38,13 @@ def test_data_samples(request, test_path):
         azfp_xml_path,
         range_kwargs,
     ) = request.param
-    if sonar_model.lower() in ['es70', 'ad2cp']:
-        pytest.xfail(
-            reason="Not supported at the moment",
-        )
     path_model, *paths = filepath
     filepath = test_path[path_model].joinpath(*paths)
 
     if azfp_xml_path is not None:
         path_model, *paths = azfp_xml_path
         azfp_xml_path = test_path[path_model].joinpath(*paths)
+
     return (
         filepath,
         sonar_model,
@@ -87,7 +66,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('time1').values
+            ed['Environment']['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -98,11 +77,26 @@ def test_swap_dims_channel_frequency(test_data_samples):
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
 
+    dup_freq_valueerror = (
+            "Duplicated transducer nominal frequencies exist in the file. "
+            "Operation is not valid."
+        )
+
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
-    _check_swap(Sv, ep.utils.swap_dims_channel_frequency(Sv))
+    try:
+        Sv_swapped = ep.utils.swap_dims_channel_frequency(Sv)
+        _check_swap(Sv, Sv_swapped)
+    except Exception as e:
+        assert isinstance(e, ValueError) is True
+        assert str(e) == dup_freq_valueerror
 
     MVBS = ep.preprocess.compute_MVBS(Sv)
-    _check_swap(MVBS, ep.utils.swap_dims_channel_frequency(MVBS))
+    try:
+        MVBS_swapped = ep.utils.swap_dims_channel_frequency(MVBS)
+        _check_swap(Sv, MVBS_swapped)
+    except Exception as e:
+        assert isinstance(e, ValueError) is True
+        assert str(e) == dup_freq_valueerror
 
 
 def _check_swap(ds, ds_swap):
