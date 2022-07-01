@@ -190,33 +190,6 @@ def range_check_files(request, test_path):
     )
 
 
-@pytest.fixture(
-    params=[
-        {
-            "path_model": "EK80",
-            "raw_path": (
-                "saildrone",
-                "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
-            ),
-            "extra_data_path": (
-                "saildrone",
-                "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",
-            ),
-        },
-    ],
-    ids=["ek80_saildrone"],
-)
-def update_platform_samples(request, test_path):
-    return (
-        test_path[request.param["path_model"]].joinpath(
-            *request.param['raw_path']
-        ),
-        test_path[request.param["path_model"]].joinpath(
-            *request.param['extra_data_path']
-        ),
-    )
-
-
 class TestEchoData:
     @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
@@ -466,17 +439,68 @@ def test_nan_range_entries(range_check_files):
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_Sv_range)
 
 
-def test_update_platform(update_platform_samples):
-    raw_file, extra_platform_data_file = update_platform_samples
-    extra_platform_data_file_name = extra_platform_data_file.name
+@pytest.mark.parametrize(
+    ["ext_type", "sonar_model", "updated", "path_model", "raw_path", "platform_data"],
+    [
+        (
+                "external-trajectory",
+                "EK80",
+                ("pitch", "roll", "longitude", "latitude"),
+                "EK80",
+                (
+                        "saildrone",
+                        "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
+                ),
+                (
+                        "saildrone",
+                        "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
+                ),
+        ),
+        (
+                "fixed-location",
+                "EK60",
+                ("longitude", "latitude"),
+                "EK60",
+                (
+                        "ooi",
+                        "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+                ),
+                (-100.0, -50.0),
+        ),
+    ],
+)
+def test_update_platform(
+        ext_type,
+        sonar_model,
+        updated,
+        path_model,
+        raw_path,
+        platform_data,
+        test_path
+):
+    raw_file = test_path[path_model] / raw_path[0] / raw_path[1]
+    ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
-    ed = echopype.open_raw(raw_file, "EK80")
-
-    updated = ["pitch", "roll", "latitude", "longitude", "water_level"]
     for variable in updated:
         assert np.isnan(ed.platform[variable].values).all()
 
-    extra_platform_data = xr.open_dataset(extra_platform_data_file)
+    if ext_type == "external-trajectory":
+        extra_platform_data_file_name = platform_data[1]
+        extra_platform_data = xr.open_dataset(
+            test_path[path_model] / platform_data[0] / extra_platform_data_file_name
+        )
+    elif ext_type == "fixed-location":
+        extra_platform_data_file_name = None
+        extra_platform_data = xr.Dataset(
+            {
+                "longitude": (["time"], np.array([float(platform_data[0])])),
+                "latitude": (["time"], np.array([float(platform_data[1])])),
+            },
+            coords={
+                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]))
+            },
+        )
+
     ed.update_platform(
         extra_platform_data,
         extra_platform_data_file_name=extra_platform_data_file_name,
@@ -496,7 +520,7 @@ def test_update_platform(update_platform_samples):
         np.count_nonzero(
             ed.platform["time1"] < ed.beam["ping_time"].min()
         )
-        == 1
+        <= 1
     )
     # check times are < max(ed.beam["ping_time"]) + 2s
     assert (
@@ -508,5 +532,5 @@ def test_update_platform(update_platform_samples):
         np.count_nonzero(
             ed.platform["time1"] > ed.beam["ping_time"].max()
         )
-        == 1
+        <= 1
     )
