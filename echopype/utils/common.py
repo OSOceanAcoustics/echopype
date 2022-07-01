@@ -1,5 +1,6 @@
-from typing import Optional
 import datetime
+from typing import Optional
+
 import numpy as np
 import xarray as xr
 
@@ -40,11 +41,7 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
         )
 
 
-def add_location(
-    ds: xr.Dataset,
-    echodata: EchoData = None,
-    nmea_sentence: Optional[str] = None
-):
+def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None):
     """
     Add geographical location (latitude/longitude) to the Sv dataset.
 
@@ -65,6 +62,7 @@ def add_location(
     -------
     The input dataset with the the location data added
     """
+
     def sel_interp(var):
         # NMEA sentence selection
         if nmea_sentence:
@@ -82,8 +80,7 @@ def add_location(
     ds_copy["latitude"] = sel_interp("latitude")
     ds_copy["longitude"] = sel_interp("longitude")
     history = (
-        f"{datetime.datetime.utcnow()} +00:00. "
-        "Interpolated from Platform latitude/longitude."
+        f"{datetime.datetime.utcnow()} +00:00. " "Interpolated from Platform latitude/longitude."
     )
     ds_copy["latitude"] = ds_copy["latitude"].assign_attrs({"history": history})
     ds_copy["longitude"] = ds_copy["longitude"].assign_attrs({"history": history})
