@@ -1,6 +1,8 @@
 import echopype as ep
 import pytest
 
+from echopype.testing import TEST_DATA_FOLDER
+
 
 # TODO: consolidate this first section with the same section
 # in tests/preprocess/test_preprocess.py where the below came from
@@ -104,3 +106,22 @@ def _check_swap(ds, ds_swap):
     assert "frequency_nominal" not in ds.dims
     assert "frequency_nominal" in ds_swap.dims
     assert "channel" not in ds_swap.dims
+
+
+def test_add_location():
+    ed = ep.open_raw(
+        TEST_DATA_FOLDER / "ek60/Winter2017-D20170115-T150122.raw",
+        sonar_model="EK60"
+    )
+    ds = ep.calibrate.compute_Sv(ed)
+
+    def _check_var(ds_test):
+        assert "latitude" in ds_test
+        assert "longitude" in ds_test
+        assert "time1" not in ds_test
+
+    ds_all = ep.utils.common.add_location(ds=ds, echodata=ed)
+    _check_var(ds_all)
+
+    ds_sel = ep.utils.common.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
+    _check_var(ds_sel)
