@@ -490,7 +490,7 @@ def test_update_platform(
         extra_platform_data = xr.open_dataset(
             test_path[path_model] / platform_data[0] / extra_platform_data_file_name
         )
-    elif ext_type == "fixedlocation":
+    elif ext_type == "fixed-location":
         extra_platform_data_file_name = None
         extra_platform_data = xr.Dataset(
             {
