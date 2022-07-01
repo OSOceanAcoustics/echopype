@@ -1,17 +1,9 @@
-# from typing import TYPE_CHECKING, Optional
-
-# if TYPE_CHECKING:
-#     from ..core import PathHint
-
 from typing import Optional
 import datetime
 import numpy as np
 import xarray as xr
 
-# import echopype as ep
-# from .. import open_converted
-# from ..echodata import EchoData
-# from ..echodata.api import open_converted
+from ..echodata import EchoData
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -50,7 +42,7 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 def add_location(
     ds: xr.Dataset,
-    echodata=None,
+    echodata: EchoData = None,
     nmea_sentence: Optional[str] = None
 ):
     """
