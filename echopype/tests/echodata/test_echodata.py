@@ -458,7 +458,7 @@ def test_nan_range_entries(range_check_files):
                 ),
         ),
         (
-                "fixedlocation",
+                "fixed-location",
                 "EK60",
                 ("longitude", "latitude"),
                 "EK60",
