@@ -30,7 +30,7 @@ This is a minor release that includes important bug fixes, a number of new featu
 - Update Python requirements in docs to >=3.8 (#744)
 
 ## Infrastructure
-- Update PR action to use title [all tests ci] to run the entire suite of tests (#721)
+- Update PR action to use PR title [all tests ci] to run the entire suite of tests and [skip ci] to skip all tests (#721)
 
 
 
