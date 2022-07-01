@@ -1,11 +1,7 @@
 import echopype as ep
 import pytest
 
-from echopype.testing import TEST_DATA_FOLDER
 
-
-# TODO: consolidate this first section with the same section
-# in tests/preprocess/test_preprocess.py where the below came from
 @pytest.fixture(
     params=[
         (
@@ -108,9 +104,9 @@ def _check_swap(ds, ds_swap):
     assert "channel" not in ds_swap.dims
 
 
-def test_add_location():
+def test_add_location(test_path):
     ed = ep.open_raw(
-        TEST_DATA_FOLDER / "ek60/Winter2017-D20170115-T150122.raw",
+        test_path["EK60"] / "Winter2017-D20170115-T150122.raw",
         sonar_model="EK60"
     )
     ds = ep.calibrate.compute_Sv(ed)
