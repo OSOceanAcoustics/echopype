@@ -10,7 +10,9 @@ from .noise_est import NoiseEst
 
 
 def _check_range_uniqueness(ds):
-    """Check if range (``echo_range``) changes across ping in a given frequency channel."""
+    """
+    Check if range (``echo_range``) changes across ping in a given frequency channel.
+    """
     return (
         ds["echo_range"].isel(ping_time=0).dropna(dim="range_sample")
         == ds["echo_range"].dropna(dim="range_sample")
@@ -18,7 +20,8 @@ def _check_range_uniqueness(ds):
 
 
 def _set_MVBS_attrs(ds):
-    """Attach common attributes
+    """
+    Attach common attributes.
 
     Parameters
     ----------
@@ -42,7 +45,8 @@ def _set_MVBS_attrs(ds):
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
@@ -68,30 +72,23 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
             "echo_range variable changes across pings in at least one of the frequency channels."
         )
 
-    # TODO: right now this computation is brittle as it takes echo_range
-    #  from only the lowest frequency to make it the range for all channels.
-    #  This should be implemented different to allow non-uniform echo_range.
-
-    # get indices of sorted frequency_nominal values. This is necessary
-    # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(ds_Sv.frequency_nominal)
-
     def _freq_MVBS(ds, rint, pbin):
         sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
-        sv.coords["range_meter"] = (
+        sv.coords["echo_range"] = (
             ["range_sample"],
-            ds_Sv["echo_range"].isel(channel=sorted_freq_ind[0], ping_time=0).data,
+            ds["echo_range"].isel(ping_time=0).squeeze().drop("channel").data,
         )
-        sv = sv.swap_dims({"range_sample": "range_meter"})
+        sv = sv.swap_dims({"range_sample": "echo_range"})
         sv_groupby_bins = (
-            sv.groupby_bins("range_meter", bins=rint, right=False, include_lowest=True)
+            sv.groupby_bins("echo_range", bins=rint, right=False, include_lowest=True)
             .mean()
             .resample(ping_time=pbin, skipna=True)
             .mean()
         )
-        sv_groupby_bins.coords["echo_range"] = (["range_meter_bins"], rint[:-1])
-        sv_groupby_bins = sv_groupby_bins.swap_dims({"range_meter_bins": "echo_range"})
-        sv_groupby_bins = sv_groupby_bins.drop_vars("range_meter_bins")
+        sv_groupby_bins.coords["echo_range"] = (["echo_range_bins"], rint[:-1])
+        sv_groupby_bins = sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"}).drop_vars(
+            "echo_range_bins"
+        )
         return 10 * np.log10(sv_groupby_bins)
 
     # Groupby freq in case of different echo_range (from different sampling intervals)
@@ -161,7 +158,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of ``range_sample`` and ping number (``ping_num``) specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes

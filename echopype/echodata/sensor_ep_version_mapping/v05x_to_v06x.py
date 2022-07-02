@@ -105,13 +105,11 @@ def _reorganize_beam_groups(ed_obj):
 
     # Map Beam --> Sonar/Beam_group1
     if "Beam" in ed_obj.group_paths:
-        ed_obj._tree["Sonar"].add_child(ed_obj._tree["Beam"])
-        ed_obj._tree["Sonar/Beam"].name = "Beam_group1"
+        ed_obj._tree["Sonar/Beam_group1"] = ed_obj._tree["Beam"]
 
     # Map Beam_power --> Sonar/Beam_group2
     if "Beam_power" in ed_obj.group_paths:
-        ed_obj._tree["Sonar"].add_child(ed_obj._tree["Beam_power"])
-        ed_obj._tree["Sonar/Beam_power"].name = "Beam_group2"
+        ed_obj._tree["Sonar/Beam_group2"] = ed_obj._tree["Beam_power"]
 
 
 def get_channel_id(ed_obj, sensor):
@@ -162,7 +160,8 @@ def get_channel_id(ed_obj, sensor):
         else:
             # collect all beam group channel ids and associated frequencies
             channel_id = xr.concat(
-                [child.ds.channel_id for child in ed_obj._tree["Sonar"].children], dim="frequency"
+                [child.ds.channel_id for child in ed_obj._tree["Sonar"].children.values()],
+                dim="frequency",
             )
 
     return channel_id
@@ -273,7 +272,7 @@ def _change_beam_var_names(ed_obj, sensor):
 
     if sensor in ["EK60", "EK80"]:
 
-        for beam_group in ed_obj._tree["Sonar"].children:
+        for beam_group in ed_obj._tree["Sonar"].children.values():
 
             beam_group.ds.angle_sensitivity_alongship.attrs[
                 "long_name"
@@ -318,7 +317,7 @@ def _add_comment_to_beam_vars(ed_obj, sensor):
 
     if sensor in ["EK60", "EK80"]:
 
-        for beam_group in ed_obj._tree["Sonar"].children:
+        for beam_group in ed_obj._tree["Sonar"].children.values():
             beam_group.ds.beamwidth_twoway_alongship.attrs["comment"] = (
                 "Introduced in echopype for Simrad echosounders to avoid "
                 "potential confusion with convention definitions. The alongship "
@@ -387,7 +386,7 @@ def _beam_groups_to_convention(ed_obj, set_grp_cls):
     The function directly modifies the input EchoData object.
     """
 
-    for beam_group in ed_obj._tree["Sonar"].children:
+    for beam_group in ed_obj._tree["Sonar"].children.values():
 
         if "quadrant" in beam_group.ds:
 
@@ -437,7 +436,7 @@ def _modify_sonar_group(ed_obj, sensor):
     _beam_groups_to_convention(ed_obj, set_groups_cls)
 
     # add beam_group coordinate and beam_group_descr variable
-    num_beams = len(ed_obj._tree["Sonar"].children)
+    num_beams = len(ed_obj._tree["Sonar"].children.values())
     set_groups_cls._beamgroups = set_groups_cls.beamgroups_possible[:num_beams]
     beam_groups_vars, beam_groups_coord = set_groups_cls._beam_groups_vars(set_groups_cls)
 
@@ -481,7 +480,7 @@ def _move_transducer_offset_vars(ed_obj, sensor):
         full_transducer_vars = {"x": [], "y": [], "z": []}
 
         # collect transducser_offset_x/y/z from the beam groups
-        for beam_group in ed_obj._tree["Sonar"].children:
+        for beam_group in ed_obj._tree["Sonar"].children.values():
             for spatial in full_transducer_vars.keys():
                 full_transducer_vars[spatial].append(beam_group.ds["transducer_offset_" + spatial])
 
@@ -985,7 +984,9 @@ def _rename_vendor_group(ed_obj):
     The function directly modifies the input EchoData object.
     """
 
-    ed_obj._tree["Vendor"].name = "Vendor_specific"
+    node = ed_obj._tree["Vendor"]
+    ed_obj._tree["Vendor"].orphan()
+    ed_obj._tree["Vendor_specific"] = node
 
 
 def _change_list_attrs_to_str(ed_obj):
