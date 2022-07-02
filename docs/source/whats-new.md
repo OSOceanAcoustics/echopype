@@ -11,7 +11,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This is a minor release that includes important bug fixes, a number of new features, and some leftover data format changes specific to parsed AD2CP data format.
 
 ## Bug fixes
-- We use `datatree` under the hood for the `EchoData` object, but `datatree` v0.0.4 had a bug when access subgroups in netCDF data model in Windows OS. This was fixed in `datatree` v0.0.6, and hence we updated our dependency and made other associated changes to support cross platform users (#732, #748)
+- We use `datatree` under the hood for the `EchoData` object, but `datatree` v0.0.4 had a bug in accessing subgroups in netCDF data model in Windows OS. This was fixed in `datatree` v0.0.6, and hence we updated our dependency and made other associated changes to support cross platform users (#732, #748)
 - Fix a bug in `compute_MVBS` in selecting `echo_range` for specific frequency. This is from the process of converting the data to be aligned with dimension `frequency` to `channel` in v0.6.0 (#736)
 - Allow parsing data from EK60 with split-beam transducers but without phase/angle data (#491, #718)
 - Fix invalid timestamp issue in AD2CP data conversion (#733)
