@@ -446,12 +446,12 @@ def open_raw(
     # Top-level date_created varies depending on sonar model
     # Top-level is called "root" within tree
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        tree_dict["root"] = setgrouper.set_toplevel(
+        tree_dict["/"] = setgrouper.set_toplevel(
             sonar_model=sonar_model,
             date_created=parser.config_datagram["timestamp"],
         )
     else:
-        tree_dict["root"] = setgrouper.set_toplevel(
+        tree_dict["/"] = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
     tree_dict["Environment"] = setgrouper.set_env()
@@ -483,7 +483,7 @@ def open_raw(
 
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
-    tree = DataTree.from_dict(tree_dict)
+    tree = DataTree.from_dict(tree_dict, name="root")
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
     echodata._load_tree()

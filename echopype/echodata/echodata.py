@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 import fsspec
 import numpy as np
 import xarray as xr
-from anytree.resolver import ChildResolverError
 from datatree import DataTree, open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
@@ -133,6 +132,7 @@ class EchoData:
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
+        tree.name = "root"
 
         echodata._set_tree(tree)
 
@@ -161,7 +161,7 @@ class EchoData:
                     node = self._tree[value["ep_group"]]
 
                 ds = self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 # Skips group not found errors for EK80 and ADCP
                 ...
             if group == "top" and hasattr(ds, "keywords"):
@@ -181,11 +181,7 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        root_path = self._tree.pathstr
-        return {
-            i.replace(root_path + "/", "") if i != "root" else "Top-level"
-            for i in self._tree.groups
-        }
+        return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
 
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
@@ -204,7 +200,7 @@ class EchoData:
             try:
                 node = self.__get_node(__key)
                 return self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
@@ -215,7 +211,7 @@ class EchoData:
                 node = self.__get_node(__key)
                 node.ds = __newvalue
                 return self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
