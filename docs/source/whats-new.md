@@ -19,7 +19,7 @@ This is a minor release that includes important bug fixes, a number of new featu
 
 ## New features
 - Add utility function for swapping `channel` coordinate with `frequency_nominal` (#710)
-- Enhance update_platform to support more use cases (location data from moving platform or a fixed location) and add more consistency (#741)
+- Enhance `update_platform` to support a new use case (location data from fixed location) and add more consistency (#741)
 - Ability to parse and store RAW4 datagram for EK80 data (#714)
 
 ## Changes of netCDF data model
@@ -30,7 +30,7 @@ This is a minor release that includes important bug fixes, a number of new featu
 - Update Python requirements in docs to >=3.8 (#744)
 
 ## Infrastructure
-- Update PR action to use title [all tests ci] to run the entire suite of tests (#721)
+- Update PR action to use PR title [all tests ci] to run the entire suite of tests and [skip ci] to skip all tests (#721)
 
 
 
