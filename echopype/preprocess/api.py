@@ -44,8 +44,10 @@ def _freq_MVBS(ds, rint, pbin):
     # set 1D coordinate using the 1st ping echo_range since identical for all pings
     # remove padded NaN entries if exist for all pings
     er = (
-        ds["echo_range"].dropna(dim="range_sample", how="all")
-        .dropna(dim="ping_time").isel(ping_time=0)
+        ds["echo_range"]
+        .dropna(dim="range_sample", how="all")
+        .dropna(dim="ping_time")
+        .isel(ping_time=0)
     )
 
     # use first ping er as indexer for sv
