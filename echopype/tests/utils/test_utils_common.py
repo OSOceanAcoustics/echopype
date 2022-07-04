@@ -78,9 +78,9 @@ def test_swap_dims_channel_frequency(test_data_samples):
             range_kwargs.pop('azfp_cal_type')
 
     dup_freq_valueerror = (
-            "Duplicated transducer nominal frequencies exist in the file. "
-            "Operation is not valid."
-        )
+        "Duplicated transducer nominal frequencies exist in the file. "
+        "Operation is not valid."
+    )
 
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
     try:
