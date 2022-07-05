@@ -263,8 +263,8 @@ class EchoData:
         Harmonize time coordinate between Beam_groupX data and env_params to make sure
         the timestamps are broacast correctly in calibration and range calculations.
 
-        If timestamp exist for env_params (i.e. it is of type xr.DataArray),
-        they cpme from EchoData["Environment"] with coordinate time1.
+        If timestamps exist for env_params (i.e. it is of type xr.DataArray),
+        they come from EchoData["Environment"] with coordinate time1.
         For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
         so are directly interchangeable.
         For EK80, Environment.time1 is from the Environment XML datagram,
