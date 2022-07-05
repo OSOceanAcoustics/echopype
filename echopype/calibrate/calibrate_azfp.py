@@ -1,7 +1,6 @@
 import numpy as np
 
 from ..echodata import EchoData
-
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS
 from .calibrate_ek import CalibrateBase

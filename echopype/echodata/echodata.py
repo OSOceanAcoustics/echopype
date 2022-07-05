@@ -257,9 +257,7 @@ class EchoData:
         super().__setattr__(__name, attr_value)
 
     def _harmonize_env_param_time(
-        self,
-        p: Union[int, float, xr.DataArray],
-        ping_time: Union[xr.DataArray, datetime.datetime]
+        self, p: Union[int, float, xr.DataArray], ping_time: Union[xr.DataArray, datetime.datetime]
     ):
         """
         Harmonize time coordinate between Beam_groupX data and env_params to make sure

@@ -3,7 +3,6 @@ import xarray as xr
 from scipy import signal
 
 from ..echodata import EchoData
-
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS, CalibrateBase
 
@@ -377,9 +376,7 @@ class CalibrateEK80(CalibrateEK):
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    self.env_params[p1]
-                    if p1 in self.env_params
-                    else self.echodata.environment[p2]
+                    self.env_params[p1] if p1 in self.env_params else self.echodata.environment[p2]
                 )
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
