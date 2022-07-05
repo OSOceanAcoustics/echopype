@@ -6,6 +6,8 @@ import scipy.interpolate
 import xarray as xr
 from typing_extensions import Literal
 
+from ..echodata import EchoData
+
 CAL_PARAMS = {
     "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
@@ -208,7 +210,7 @@ class EnvParams:
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
-    def __init__(self, echodata, env_params=None):
+    def __init__(self, echodata: EchoData, env_params=None):
         self.echodata = echodata
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(echodata)

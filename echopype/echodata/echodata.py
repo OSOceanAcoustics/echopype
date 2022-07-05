@@ -2,7 +2,7 @@ import datetime
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -256,14 +256,33 @@ class EchoData:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
-    def _harmonize_env_param_time(self, p, ping_time=None):
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        # If timestamp exist for env_params (i.e. it is of type xr.DataArray),
-        #   they cpme from EchoData["Environment"] with coordinate time1.
-        # For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
-        #   so are directly interchangeable.
-        # For EK80, Environment.time1 is from the Environment XML datagram,
-        #   so has to be interpolated for operations with Beam_groupX ping_time
+    def _harmonize_env_param_time(
+        self,
+        p: Union[int, float, xr.DataArray],
+        ping_time: Union[xr.DataArray, datetime.datetime]
+    ):
+        """
+        Harmonize time coordinate between Beam_groupX data and env_params to make sure
+        the timestamps are broacast correctly in calibration and range calculations.
+
+        If timestamp exist for env_params (i.e. it is of type xr.DataArray),
+        they cpme from EchoData["Environment"] with coordinate time1.
+        For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
+        so are directly interchangeable.
+        For EK80, Environment.time1 is from the Environment XML datagram,
+        so has to be interpolated for operations with Beam_groupX ping_time
+
+        Parameters
+        ----------
+        p
+            The environment parameter for timestamp check/correction
+        ping_time
+            Beam_groupX ping_time to interpolate env_params timestamps to
+
+        Returns
+        -------
+        Environment parameter with correctly broadcasted timestamps
+        """
         if self.sonar_model == "EK60":
             if isinstance(p, xr.DataArray):
                 p_new = p.rename({"time1": "ping_time"})

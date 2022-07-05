@@ -2,12 +2,14 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
+from ..echodata import EchoData
+
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS, CalibrateBase
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata, env_params):
+    def __init__(self, echodata: EchoData, env_params):
         super().__init__(echodata, env_params)
 
         # cal params specific to EK echosounders
@@ -130,26 +132,6 @@ class CalibrateEK(CalibrateBase):
             else beam["equivalent_beam_angle"]
         )
 
-    def _harmonize_env_param_time(self, ping_time):
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        # If timestamp exist for env_params (i.e. it is of type xr.DataArray),
-        #   they cpme from EchoData["Environment"] with coordinate time1.
-        # For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
-        #   so are directly interchangeable.
-        # For EK80, Environment.time1 is from the Environment XML datagram,
-        #   so has to be interpolated for operations with Beam_groupX ping_time
-        if self.echodata.sonar_model == "EK60":
-            for p in self.env_params.keys():
-                if isinstance(self.env_params[p], xr.DataArray):
-                    self.env_params[p] = self.env_params[p].rename({"time1": "ping_time"})
-        else:
-            for p in self.env_params.keys():
-                if isinstance(self.env_params[p], xr.DataArray):
-                    if self.env_params[p]["time1"].size == 1:
-                        self.env_params[p] = self.env_params[p].squeeze(dim="time1").drop("time1")
-                    else:
-                        self.env_params[p] = self.env_params[p].interp(time1=ping_time)
-
     def _cal_power(self, cal_type, use_beam_power=False) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
 
@@ -175,7 +157,10 @@ class CalibrateEK(CalibrateBase):
             beam = self.echodata.beam
 
         # Harmonize time coordinate between Beam_groupX data and env_params
-        self._harmonize_env_param_time(ping_time=beam.ping_time)
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=beam.ping_time
+            )
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
@@ -746,17 +731,13 @@ class CalibrateEK80(CalibrateEK):
             prx = prx.to_dataset()
 
         # Derived params
-        # TODO: right now squeeze out the single ping_time dimension
-        #  Need to properly align based on actual time
-        #  This ping_time is actually renamed from time1 in Environment group,
-        #  so that in the computation of range_meter it can be aligned with echo data easily.
-        #  This however makes this part of code less traceable,
-        #  since the ping_time here does not come from the "pings"
-        #  Will resolve later.
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata.beam because complex sample is always in Beam_group1
-        self._harmonize_env_param_time(ping_time=self.echodata.beam.ping_time)
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=self.echodata.beam.ping_time
+            )
 
         sound_speed = self.env_params["sound_speed"]
         absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
