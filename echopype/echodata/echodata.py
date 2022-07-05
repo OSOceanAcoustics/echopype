@@ -349,6 +349,10 @@ class EchoData:
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(self)
 
+        # TODO:
+        # Right now this only works with Environment.time1 with length=1
+        # If length>1 then requires interpolation
+        # See CalibrateEK._harmonize_env_param_time for implementation
         def squeeze_non_scalar(n):
             if not np.isscalar(n):
                 n = n.squeeze()
@@ -364,9 +368,7 @@ class EchoData:
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(
-                self.environment["sound_speed_indicative"].rename({"time1": "ping_time"})
-            )
+            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
@@ -470,6 +472,7 @@ class EchoData:
 
             # set entries with NaN backscatter data to NaN
             if "beam" in beam["backscatter_r"].dims:
+                # Drop beam because echo_range does not have beam dimension
                 valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
