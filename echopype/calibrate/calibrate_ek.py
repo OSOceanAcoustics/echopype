@@ -730,7 +730,7 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # Derived params
+        # Compute derived params
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata.beam because complex sample is always in Beam_group1

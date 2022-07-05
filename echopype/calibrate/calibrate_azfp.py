@@ -49,12 +49,10 @@ class CalibrateAZFP(CalibrateBase):
         env_params : dict
         """
         # Temperature comes from either user input or data file
-        # Below, renaming time1 to ping_time is necessary because we are performing
-        # calculations with the beam groups that use ping_time
         self.env_params["temperature"] = (
             self.env_params["temperature"]
             if "temperature" in self.env_params
-            else self.echodata.environment["temperature"].rename({"time1": "ping_time"})
+            else self.echodata.environment["temperature"]
         )
 
         # Salinity and pressure always come from user input
@@ -106,7 +104,14 @@ class CalibrateAZFP(CalibrateBase):
             cal_type=cal_type
         )  # range computation different for Sv and TS per AZFP matlab code
 
-        # Compute various params
+        # Compute derived params
+
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        # Use self.echodata.beam because complex sample is always in Beam_group1
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=self.echodata.beam.ping_time
+            )
 
         # TODO: take care of dividing by zero encountered in log10
         spreading_loss = 20 * np.log10(self.range_meter)
