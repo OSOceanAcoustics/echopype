@@ -387,15 +387,6 @@ class EchoData:
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(self)
 
-        # TODO:
-        # Right now this only works with Environment.time1 with length=1
-        # If length>1 then requires interpolation
-        # See CalibrateEK._harmonize_env_param_time for implementation
-        def squeeze_non_scalar(n):
-            if not np.isscalar(n):
-                n = n.squeeze()
-            return n
-
         if "sound_speed" in env_params:
             sound_speed = self._harmonize_env_param_time(env_params["sound_speed"])
             # sound_speed = squeeze_non_scalar(env_params["sound_speed"])

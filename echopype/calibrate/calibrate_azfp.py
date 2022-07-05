@@ -1,12 +1,14 @@
 import numpy as np
 
+from ..echodata import EchoData
+
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS
 from .calibrate_ek import CalibrateBase
 
 
 class CalibrateAZFP(CalibrateBase):
-    def __init__(self, echodata, env_params, cal_params, **kwargs):
+    def __init__(self, echodata: EchoData, env_params, cal_params, **kwargs):
         super().__init__(echodata, env_params)
 
         # initialize cal params
