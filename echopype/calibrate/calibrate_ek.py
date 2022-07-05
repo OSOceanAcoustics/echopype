@@ -146,7 +146,7 @@ class CalibrateEK(CalibrateBase):
             for p in self.env_params.keys():
                 if isinstance(self.env_params[p], xr.DataArray):
                     if self.env_params[p]["time1"].size == 1:
-                        self.env_params[p] = self.env_params[p].squeeze().drop("time1")
+                        self.env_params[p] = self.env_params[p].squeeze(dim="time1").drop("time1")
                     else:
                         self.env_params[p] = self.env_params[p].interp(time1=ping_time)
 
@@ -758,8 +758,8 @@ class CalibrateEK80(CalibrateEK):
         # Use self.echodata.beam because complex sample is always in Beam_group1
         self._harmonize_env_param_time(ping_time=self.echodata.beam.ping_time)
 
-        sound_speed = self.env_params["sound_speed"].squeeze(drop=True)
-        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel).squeeze(drop=True)
+        sound_speed = self.env_params["sound_speed"]
+        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
         range_meter = self.range_meter.sel(channel=chan_sel)
         if waveform_mode == "BB":
             # use true center frequency for BB pulse

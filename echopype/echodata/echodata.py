@@ -256,6 +256,25 @@ class EchoData:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
+    def _harmonize_env_param_time(self, p, ping_time=None):
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        # If timestamp exist for env_params (i.e. it is of type xr.DataArray),
+        #   they cpme from EchoData["Environment"] with coordinate time1.
+        # For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
+        #   so are directly interchangeable.
+        # For EK80, Environment.time1 is from the Environment XML datagram,
+        #   so has to be interpolated for operations with Beam_groupX ping_time
+        if self.sonar_model == "EK60":
+            if isinstance(p, xr.DataArray):
+                p_new = p.rename({"time1": "ping_time"})
+        else:
+            if isinstance(p, xr.DataArray):
+                if p["time1"].size == 1:
+                    p_new = p.squeeze().drop("time1")
+                else:
+                    p_new = p.interp(time1=ping_time)
+        return p_new
+
     def compute_range(
         self,
         env_params=None,
@@ -359,20 +378,22 @@ class EchoData:
             return n
 
         if "sound_speed" in env_params:
-            sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+            sound_speed = self._harmonize_env_param_time(env_params["sound_speed"])
+            # sound_speed = squeeze_non_scalar(env_params["sound_speed"])
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
-                squeeze_non_scalar(env_params["temperature"]),
-                squeeze_non_scalar(env_params["salinity"]),
-                squeeze_non_scalar(env_params["pressure"]),
+                self._harmonize_env_param_time(env_params["temperature"]),
+                self._harmonize_env_param_time(env_params["salinity"]),
+                self._harmonize_env_param_time(env_params["pressure"]),
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(self.environment["sound_speed_indicative"])
+            sound_speed = self._harmonize_env_param_time(self.environment["sound_speed_indicative"])
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
-                "with temperature/salinity/pressure in env_params to be calculated, "
+                "with temperature, salinity, and pressure all specified in env_params "
+                "for sound speed to be calculated, "
                 "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
             )
 
