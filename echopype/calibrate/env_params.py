@@ -124,7 +124,8 @@ class EnvParams:
                 result[var] = ("time1", interp)
             env_params = xr.Dataset(
                 # we expect env_params to have coordinate time1
-                data_vars=result, coords={"time1": interp_plat["ping_time"].data}
+                data_vars=result,
+                coords={"time1": interp_plat["ping_time"].data},
             )
         else:
             # TODO: organized case
