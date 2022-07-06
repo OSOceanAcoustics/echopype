@@ -121,9 +121,10 @@ class EnvParams:
                     )
                 )
                 interp = scipy.interpolate.griddata(points, values, xi, method=self.interp_method)
-                result[var] = ("ping_time", interp)
+                result[var] = ("time1", interp)
             env_params = xr.Dataset(
-                data_vars=result, coords={"ping_time": interp_plat["ping_time"]}
+                # we expect env_params to have coordinate time1
+                data_vars=result, coords={"time1": interp_plat["ping_time"].data}
             )
         else:
             # TODO: organized case
@@ -189,10 +190,10 @@ class EnvParams:
         #     )
 
         if self.data_kind == "stationary":
-            # renaming time3 (from Platform group) to ping_time is necessary because
-            # we are performing calculations with the beam groups that use ping_time
+            # renaming time3 (from Platform group) to time1 because we expect
+            # environmental parameters to have dimension time1
             return {
-                var: env_params[var].rename({"time3": "ping_time"})
+                var: env_params[var].rename({"time3": "time1"})
                 for var in ("temperature", "salinity", "pressure")
             }
         else:
