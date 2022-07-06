@@ -216,6 +216,10 @@ class CalibrateEK(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
+        # Remove time1 if exist as a coordinate
+        if "time1" in out.coords:
+            out = out.drop("time1")
+
         # Squeeze out the beam dim
         # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
         return out.squeeze("beam", drop=True)
