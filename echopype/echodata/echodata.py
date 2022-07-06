@@ -257,7 +257,9 @@ class EchoData:
         super().__setattr__(__name, attr_value)
 
     def _harmonize_env_param_time(
-        self, p: Union[int, float, xr.DataArray], ping_time: Union[xr.DataArray, datetime.datetime]
+        self,
+        p: Union[int, float, xr.DataArray],
+        ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None
     ):
         """
         Harmonize time coordinate between Beam_groupX data and env_params to make sure
@@ -268,29 +270,38 @@ class EchoData:
         For EK60, Environment.time1 = Beam_group1.ping_time, both from the RAW0 datagram
         so are directly interchangeable.
         For EK80, Environment.time1 is from the Environment XML datagram,
-        so has to be interpolated for operations with Beam_groupX ping_time
+        so has to be interpolated for operations with Beam_groupX ping_time.
 
         Parameters
         ----------
         p
             The environment parameter for timestamp check/correction
         ping_time
-            Beam_groupX ping_time to interpolate env_params timestamps to
+            Beam_groupX ping_time to interpolate env_params timestamps to.
+            Only used if p.time1 has length >1
 
         Returns
         -------
         Environment parameter with correctly broadcasted timestamps
         """
-        if self.sonar_model == "EK60":
-            if isinstance(p, xr.DataArray):
-                p_new = p.rename({"time1": "ping_time"})
-        else:
-            if isinstance(p, xr.DataArray):
-                if p["time1"].size == 1:
-                    p_new = p.squeeze().drop("time1")
+        if isinstance(p, xr.DataArray):
+            if self.sonar_model == "EK60":
+                return p.rename({"time1": "ping_time"})
+            else:
+                if "time1" not in p.coords:
+                    return p
                 else:
-                    p_new = p.interp(time1=ping_time)
-        return p_new
+                    if p["time1"].size == 1:
+                        return p.squeeze(dim="time1").drop("time1")
+                    else:
+                        if ping_time is not None:
+                            return p.interp(time1=ping_time)
+                        else:
+                            raise ValueError(
+                                "ping_time needs to be provided if p.time1 has length >1"
+                            )
+        else:
+            return p
 
     def compute_range(
         self,
@@ -395,8 +406,8 @@ class EchoData:
                 self._harmonize_env_param_time(env_params["pressure"]),
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = self._harmonize_env_param_time(self.environment["sound_speed_indicative"])
+        # elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+        #     sound_speed = self._harmonize_env_param_time(self.environment["sound_speed_indicative"])
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
