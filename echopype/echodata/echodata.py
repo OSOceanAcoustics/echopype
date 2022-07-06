@@ -256,8 +256,8 @@ class EchoData:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
+    @staticmethod
     def _harmonize_env_param_time(
-        self,
         p: Union[int, float, xr.DataArray],
         ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
     ):
@@ -285,21 +285,18 @@ class EchoData:
         Environment parameter with correctly broadcasted timestamps
         """
         if isinstance(p, xr.DataArray):
-            if self.sonar_model == "EK60":
-                return p.rename({"time1": "ping_time"})
+            if "time1" not in p.coords:
+                return p
             else:
-                if "time1" not in p.coords:
-                    return p
+                if p["time1"].size == 1:
+                    return p.squeeze(dim="time1").drop("time1")
                 else:
-                    if p["time1"].size == 1:
-                        return p.squeeze(dim="time1").drop("time1")
+                    if ping_time is not None:
+                        return p.interp(time1=ping_time)
                     else:
-                        if ping_time is not None:
-                            return p.interp(time1=ping_time)
-                        else:
-                            raise ValueError(
-                                "ping_time needs to be provided if p.time1 has length >1"
-                            )
+                        raise ValueError(
+                            "ping_time needs to be provided if p.time1 has length >1"
+                        )
         else:
             return p
 
@@ -397,13 +394,13 @@ class EchoData:
             env_params = env_params._apply(self)
 
         if "sound_speed" in env_params:
-            sound_speed = self._harmonize_env_param_time(env_params["sound_speed"])
+            sound_speed = env_params["sound_speed"]
             # sound_speed = squeeze_non_scalar(env_params["sound_speed"])
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
-                self._harmonize_env_param_time(env_params["temperature"]),
-                self._harmonize_env_param_time(env_params["salinity"]),
-                self._harmonize_env_param_time(env_params["pressure"]),
+                env_params["temperature"],
+                env_params["salinity"],
+                env_params["pressure"],
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
         else:
@@ -428,6 +425,12 @@ class EchoData:
             # keep this in ref of AZFP matlab code,
             # set to 1 since we want to calculate from raw data
             bins_to_avg = 1
+
+            # Harmonize sound_speed time1 and Beam_group1 ping_time
+            sound_speed = self._harmonize_env_param_time(
+                p=sound_speed,
+                ping_time=self.beam.ping_time,
+            )
 
             # Calculate range using parameters for each freq
             # This is "the range to the centre of the sampling volume
@@ -485,6 +488,12 @@ class EchoData:
                 else:
                     beam = self.beam
 
+                # Harmonize sound_speed time1 and Beam_groupX ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
@@ -494,6 +503,13 @@ class EchoData:
                 beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
+
+                # Harmonize sound_speed time1 and Beam_group1 ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (

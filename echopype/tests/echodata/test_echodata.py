@@ -534,6 +534,3 @@ def test_update_platform(
         )
         <= 1
     )
-
-def test_harmonize_env_param_time():
-    assert 1 == 1
