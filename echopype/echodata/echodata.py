@@ -294,9 +294,7 @@ class EchoData:
                     if ping_time is not None:
                         return p.interp(time1=ping_time)
                     else:
-                        raise ValueError(
-                            "ping_time needs to be provided if p.time1 has length >1"
-                        )
+                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
         else:
             return p
 
