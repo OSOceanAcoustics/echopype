@@ -393,7 +393,8 @@ class EchoData:
 
         if "sound_speed" in env_params:
             sound_speed = env_params["sound_speed"]
-            # sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+            sound_speed = self.environment["sound_speed_indicative"]
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
                 env_params["temperature"],
