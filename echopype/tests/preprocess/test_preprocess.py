@@ -294,6 +294,102 @@ def test_compute_MVBS_index_binning():
     assert np.allclose(data_test, test_array, rtol=0, atol=1e-12)
 
 
+def _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
+                         range_sample_num, ping_time_bin,
+                         total_range, range_meter_bin):
+    """A collection of tests for test_compute_MVBS"""
+
+    ds_MVBS = ep.preprocess.compute_MVBS(
+        ds_Sv,
+        range_meter_bin=range_meter_bin,
+        ping_time_bin=f'{ping_time_bin}S',
+    )
+
+    data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
+
+    # Shape test
+    data_binned_shape = np.ceil((nchan, ping_num, range_sample_num)).astype(int)
+    assert np.all(data_test.shape == data_binned_shape)
+
+    # Construct test array that increases by 1 for each range_sample and ping_time
+    test_array = _construct_MVBS_test_data(
+        nchan, data_binned_shape[1], data_binned_shape[2]
+    )
+
+    # Test all values in MVBS
+    assert np.allclose(data_test, test_array, rtol=0, atol=1e-12)
+
+    # Test to see if ping_time was resampled correctly
+    test_ping_time = pd.date_range(
+        '1/1/2020', periods=np.ceil(ping_num), freq=f'{ping_time_bin}S'
+    )
+    assert np.array_equal(data_test.ping_time, test_ping_time)
+
+    # Test to see if range was resampled correctly
+    test_range = np.arange(0, total_range, range_meter_bin)
+    assert np.array_equal(data_test.echo_range, test_range)
+
+
+def _fill_w_nans(narr, nan_ping_time, nan_range_sample):
+    """
+    A routine that fills a numpy array with nans.
+
+    Parameters
+    ----------
+    narr : numpy array
+        Array of dimensions (ping_time, range_sample)
+    nan_ping_time : list
+        ping times to fill with nans
+    nan_range_sample: list
+        range samples to fill with nans
+    """
+    if len(nan_ping_time) != len(nan_range_sample):
+        raise ValueError('These lists must be the same size!')
+
+    # fill in nans according to the provided lists
+    for i, j in zip(nan_ping_time, nan_range_sample):
+        narr[i, j] = np.nan
+
+    return narr
+
+def _nan_cases_comp_MVBS(ds_Sv, chan):
+    """
+    For a single channel, obtains numpy array
+    filled with nans for various cases
+    """
+
+    # get echo_range values for a single channel
+    one_chan_er = ds_Sv.echo_range.sel(channel=chan).copy().values
+
+    # ping times to fill with NaNs
+    nan_ping_time_1 = [slice(None), slice(None)]
+    # range samples to fill with NaNs
+    nan_range_sample_1 = [3, 4]
+    # pad all ping_times with nans for a certain range_sample
+    case_1 = _fill_w_nans(one_chan_er, nan_ping_time_1, nan_range_sample_1)
+
+    # get echo_range values for a single channel
+    one_chan_er = ds_Sv.echo_range.sel(channel='0').copy().values
+    # ping times to fill with NaNs
+    nan_ping_time_2 = [1, 3, 5, 9]
+    # range samples to fill with NaNs
+    nan_range_sample_2 = [slice(None), slice(None), slice(None), slice(None)]
+    # pad all range_samples of certain ping_times
+    case_2 = _fill_w_nans(one_chan_er, nan_ping_time_2, nan_range_sample_2)
+
+    # get echo_range values for a single channel
+    one_chan_er = ds_Sv.echo_range.sel(channel='0').copy().values
+    # ping times to fill with NaNs
+    nan_ping_time_3 = [0, 2, 5, 7]
+    # range samples to fill with NaNs
+    nan_range_sample_3 = [slice(0, 2), slice(None), slice(None), slice(0, 3)]
+    # pad all range_samples of certain ping_times and
+    # pad some ping_times with nans for a certain range_sample
+    case_3 = _fill_w_nans(one_chan_er, nan_ping_time_3, nan_range_sample_3)
+
+    return case_1, case_2, case_3
+
+
 def test_compute_MVBS():
     """Test compute_MVBS on toy data"""
 
@@ -351,34 +447,36 @@ def test_compute_MVBS():
             coords=Sv.coords,
         )
     )
-    ds_MVBS = ep.preprocess.compute_MVBS(
-        ds_Sv,
-        range_meter_bin=range_meter_bin,
-        ping_time_bin=f'{ping_time_bin}S',
-    )
-    data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
 
-    # Shape test
-    data_binned_shape = np.ceil((nchan, ping_num, range_sample_num)).astype(int)
-    assert np.all(data_test.shape == data_binned_shape)
+    # initial test of compute_MVBS
+    _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
+                         range_sample_num, ping_time_bin,
+                         total_range, range_meter_bin)
 
-    # Construct test array that increases by 1 for each range_sample and ping_time
-    test_array = _construct_MVBS_test_data(
-        nchan, data_binned_shape[1], data_binned_shape[2]
-    )
+    # different nan cases for a single channel
+    case_1, case_2, case_3 = _nan_cases_comp_MVBS(ds_Sv, chan='0')
 
-    # Test all values in MVBS
-    assert np.allclose(data_test, test_array, rtol=0, atol=1e-12)
+    # pad all ping_times with nans for a certain range_sample
+    ds_Sv['echo_range'].loc[{'channel': '0'}] = case_1
 
-    # Test to see if ping_time was resampled correctly
-    test_ping_time = pd.date_range(
-        '1/1/2020', periods=np.ceil(ping_num), freq=f'{ping_time_bin}S'
-    )
-    assert np.array_equal(data_test.ping_time, test_ping_time)
+    _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
+                         range_sample_num, ping_time_bin,
+                         total_range, range_meter_bin)
 
-    # Test to see if range was resampled correctly
-    test_range = np.arange(0, total_range, range_meter_bin)
-    assert np.array_equal(data_test.echo_range, test_range)
+    # pad all range_samples of certain ping_times
+    ds_Sv['echo_range'].loc[{'channel': '0'}] = case_2
+
+    _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
+                         range_sample_num, ping_time_bin,
+                         total_range, range_meter_bin)
+
+    # pad all range_samples of certain ping_times and
+    # pad some ping_times with nans for a certain range_sample
+    ds_Sv['echo_range'].loc[{'channel': '0'}] = case_3
+
+    _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
+                         range_sample_num, ping_time_bin,
+                         total_range, range_meter_bin)
 
 
 def test_preprocess_mvbs(test_data_samples):
