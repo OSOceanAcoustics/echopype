@@ -259,7 +259,7 @@ class EchoData:
     def _harmonize_env_param_time(
         self,
         p: Union[int, float, xr.DataArray],
-        ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None
+        ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
     ):
         """
         Harmonize time coordinate between Beam_groupX data and env_params to make sure
@@ -406,8 +406,6 @@ class EchoData:
                 self._harmonize_env_param_time(env_params["pressure"]),
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
             )
-        # elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-        #     sound_speed = self._harmonize_env_param_time(self.environment["sound_speed_indicative"])
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
