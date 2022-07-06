@@ -6,7 +6,7 @@ from datatree import DataTree
 from zarr.errors import GroupNotFoundError
 
 import echopype
-from echopype.calibrate.calibrate_base import EnvParams
+from echopype.calibrate.env_params import EnvParams
 from echopype.echodata import EchoData
 from echopype import open_converted
 
