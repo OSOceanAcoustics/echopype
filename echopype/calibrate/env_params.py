@@ -1,11 +1,9 @@
 from typing import Dict, List
 
-from typing_extensions import Literal
-
 import numpy as np
 import scipy.interpolate
 import xarray as xr
-
+from typing_extensions import Literal
 
 DataKind = Literal["stationary", "mobile", "organized"]
 InterpMethod = Literal["linear", "nearest", "zero", "slinear", "quadratic", "cubic"]
