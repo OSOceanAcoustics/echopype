@@ -68,7 +68,7 @@ def ek60_converted_zarr(request, test_path):
             None,
             None,
             "CW",
-            "complex",
+            "power",
         ),
         (
             ("EK80_NEW", "D20211004-T233354.raw"),
@@ -128,7 +128,7 @@ def ek60_converted_zarr(request, test_path):
         ),
     ],
     ids=[
-        "ek60_cw_complex",
+        "ek60_cw_power",
         "ek80_cw_power",
         "ek80_bb_complex",
         "ek80_cw_complex",
