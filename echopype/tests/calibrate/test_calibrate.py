@@ -407,7 +407,7 @@ def test_env_params(ek60_path):
     }
     for var, values in known_values.items():
         for time, value in values.items():
-            assert np.isclose(converted_env_params[var].sel(ping_time=time), value)
+            assert np.isclose(converted_env_params[var].sel(time1=time), value)
 
     # mobile
     rng = np.random.default_rng(0)
@@ -468,4 +468,4 @@ def test_env_params(ek60_path):
     for var, values in known_values.items():
         for time, value in values.items():
             print(var, time, value)
-            assert np.isnan(value) or np.isclose(converted_env_params[var].sel(ping_time=time), value)
+            assert np.isnan(value) or np.isclose(converted_env_params[var].sel(time1=time), value)
