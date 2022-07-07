@@ -9,4 +9,4 @@ xarray
 zarr
 fsspec
 s3fs
-xarray-datatree==0.0.4
+xarray-datatree==0.0.6

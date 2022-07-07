@@ -643,7 +643,6 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds_tmp)
 
     def _assemble_ds_power(self, ch):
-        data_shape = self.parser_obj.ping_data_dict["power"][ch].shape
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
@@ -660,11 +659,50 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "range_sample": (
                     ["range_sample"],
-                    np.arange(data_shape[1]),
+                    np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
                     self._varattrs["beam_coord_default"]["range_sample"],
                 ),
             },
         )
+
+        # If RAW4 datagram (transmit pulse recorded in complex samples) exists
+        if len(self.parser_obj.ping_data_dict_tx["complex"]) != 0:
+            # Add coordinate transmit_sample
+            ds_tmp = ds_tmp.assign_coords(
+                {
+                    "transmit_sample": (
+                        ["transmit_sample"],
+                        np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
+                        {
+                            "long_name": "Transmit pulse sample number, base 0",
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                        },
+                    ),
+                },
+            )
+            # Add data variables transmit_pulse_r/i
+            ds_tmp = ds_tmp.assign(
+                {
+                    "transmit_pulse_r": (
+                        ["ping_time", "transmit_sample"],
+                        np.real(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        {
+                            "long_name": "Real part of the transmit pulse",
+                            "units": "V",
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                        },
+                    ),
+                    "transmit_pulse_i": (
+                        ["ping_time", "transmit_sample"],
+                        np.imag(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        {
+                            "long_name": "Imaginary part of the transmit pulse",
+                            "units": "V",
+                            "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                        },
+                    ),
+                },
+            )
 
         # If angle data exist
         if ch in self.parser_obj.ch_ids["angle"]:
@@ -761,7 +799,7 @@ class SetGroupsEK80(SetGroupsBase):
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
-        def merge_save(ds_combine, ds_type, group_name):
+        def merge_save(ds_combine: List[xr.Dataset], ds_type: str):
             """Merge data from all complex or all power/angle channels"""
             ds_combine = xr.merge(ds_combine)
             if ds_type == "complex":
@@ -773,11 +811,6 @@ class SetGroupsEK80(SetGroupsBase):
                     [ds_invariant_power, ds_combine], combine_attrs="override"
                 )  # override keeps the Dataset attributes
             return set_encodings(ds_combine)
-            # # Save to file
-            # io.save_file(ds_combine.chunk({'range_sample': DEFAULT_CHUNK_SIZE['range_sample'],
-            #                                'ping_time': DEFAULT_CHUNK_SIZE['ping_time']}),
-            #              path=self.output_path, mode='a', engine=self.engine,
-            #              group=group_name, compression_settings=self.compression_settings)
 
         # Assemble ping-invariant beam data variables
         params = [
@@ -836,11 +869,11 @@ class SetGroupsEK80(SetGroupsBase):
         #  if only one type of data exist: data in /Sonar/Beam_group1 group
         ds_beam_power = None
         if len(ds_complex) > 0:
-            ds_beam = merge_save(ds_complex, "complex", group_name="/Sonar/Beam_group1")
+            ds_beam = merge_save(ds_complex, ds_type="complex")
             if len(ds_power) > 0:
-                ds_beam_power = merge_save(ds_power, "power", group_name="/Sonar/Beam_group2")
+                ds_beam_power = merge_save(ds_power, ds_type="power")
         else:
-            ds_beam = merge_save(ds_power, "power", group_name="/Sonar/Beam_group1")
+            ds_beam = merge_save(ds_power, ds_type="power")
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
