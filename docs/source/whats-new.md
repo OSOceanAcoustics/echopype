@@ -3,6 +3,40 @@ What's new
 
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
+
+# v0.6.1 (2022 July 2)
+
+## Overview
+
+This is a minor release that includes important bug fixes, a number of new features, and some leftover data format changes specific to parsed AD2CP data format.
+
+## Bug fixes
+- We use `datatree` under the hood for the `EchoData` object, but `datatree` v0.0.4 had a bug in accessing subgroups in netCDF data model in Windows OS. This was fixed in `datatree` v0.0.6, and hence we updated our dependency and made other associated changes to support cross platform users (#732, #748)
+- Fix a bug in `compute_MVBS` in selecting `echo_range` for specific frequency. This is from the process of converting the data to be aligned with dimension `frequency` to `channel` in v0.6.0 (#736)
+- Allow parsing data from EK60 with split-beam transducers but without phase/angle data (#491, #718)
+- Fix invalid timestamp issue in AD2CP data conversion (#733)
+- Check filter coeffs existence in `SetGroupsEK80.set_vendor` before saving (#720, #724)
+- Fix empty Sv problem related to renaming time coordinate associated with environmental parameters used for calibration (#755)
+- Fix the check in `compute_MVBS` for handling different variations of NaN entries in the Sv dataset (#753)
+
+## New features
+- Enhance `update_platform` to support a new use case (location data from fixed location) and add more consistency (#741)
+- Ability to parse and store RAW4 datagram for EK80 data (#714)
+- Add utility function for swapping `channel` coordinate with `frequency_nominal` (#710)
+
+## Changes of netCDF data model
+- Reorganize AD2CP data variables into different `Sonar/Beam_groupX`s and different first-level groups in a form consistent with v0.6.0 changes for all other sonar models (#731); some variables remain to be discussed and may change in future releases (#719)
+
+## Enhancements
+- Refactor AD2CP conversion to improve speed and memory usage through removal of xr.merge (#505)
+- Update Python requirements in docs to >=3.8 (#744)
+
+## Infrastructure
+- Update PR action to use PR title [all tests ci] to run the entire suite of tests and [skip ci] to skip all tests (#721)
+
+
+
+
 # v0.6.0 (2022 May 26)
 
 ## Overview
