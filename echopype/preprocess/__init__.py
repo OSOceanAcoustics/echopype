@@ -6,5 +6,5 @@ __all__ = [
     "compute_MVBS_index_binning",
     "remove_noise",
     "swap_dims_channel_frequency",
-    "add_location"
+    "add_location",
 ]
