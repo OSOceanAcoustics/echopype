@@ -1,9 +1,8 @@
-import echopype as ep
 import pytest
 
+import echopype as ep
 
-# TODO: consolidate this first section with the same section
-# in tests/preprocess/test_preprocess.py where the below came from
+
 @pytest.fixture(
     params=[
         (
@@ -78,13 +77,13 @@ def test_swap_dims_channel_frequency(test_data_samples):
             range_kwargs.pop('azfp_cal_type')
 
     dup_freq_valueerror = (
-            "Duplicated transducer nominal frequencies exist in the file. "
-            "Operation is not valid."
-        )
+        "Duplicated transducer nominal frequencies exist in the file. "
+        "Operation is not valid."
+    )
 
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
     try:
-        Sv_swapped = ep.utils.swap_dims_channel_frequency(Sv)
+        Sv_swapped = ep.preprocess.swap_dims_channel_frequency(Sv)
         _check_swap(Sv, Sv_swapped)
     except Exception as e:
         assert isinstance(e, ValueError) is True
@@ -92,7 +91,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
 
     MVBS = ep.preprocess.compute_MVBS(Sv)
     try:
-        MVBS_swapped = ep.utils.swap_dims_channel_frequency(MVBS)
+        MVBS_swapped = ep.preprocess.swap_dims_channel_frequency(MVBS)
         _check_swap(Sv, MVBS_swapped)
     except Exception as e:
         assert isinstance(e, ValueError) is True
