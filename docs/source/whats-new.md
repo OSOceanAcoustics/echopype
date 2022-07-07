@@ -16,11 +16,13 @@ This is a minor release that includes important bug fixes, a number of new featu
 - Allow parsing data from EK60 with split-beam transducers but without phase/angle data (#491, #718)
 - Fix invalid timestamp issue in AD2CP data conversion (#733)
 - Check filter coeffs existence in `SetGroupsEK80.set_vendor` before saving (#720, #724)
+- Fix empty Sv problem related to renaming time coordinate associated with environmental parameters used for calibration (#755)
+- Fix the check in `compute_MVBS` for handling different variations of NaN entries in the Sv dataset (#753)
 
 ## New features
-- Add utility function for swapping `channel` coordinate with `frequency_nominal` (#710)
 - Enhance `update_platform` to support a new use case (location data from fixed location) and add more consistency (#741)
 - Ability to parse and store RAW4 datagram for EK80 data (#714)
+- Add utility function for swapping `channel` coordinate with `frequency_nominal` (#710)
 
 ## Changes of netCDF data model
 - Reorganize AD2CP data variables into different `Sonar/Beam_groupX`s and different first-level groups in a form consistent with v0.6.0 changes for all other sonar models (#731); some variables remain to be discussed and may change in future releases (#719)
