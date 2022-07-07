@@ -352,6 +352,7 @@ def _fill_w_nans(narr, nan_ping_time, nan_range_sample):
 
     return narr
 
+
 def _nan_cases_comp_MVBS(ds_Sv, chan):
     """
     For a single channel, obtains numpy array
@@ -369,7 +370,7 @@ def _nan_cases_comp_MVBS(ds_Sv, chan):
     case_1 = _fill_w_nans(one_chan_er, nan_ping_time_1, nan_range_sample_1)
 
     # get echo_range values for a single channel
-    one_chan_er = ds_Sv.echo_range.sel(channel='0').copy().values
+    one_chan_er = ds_Sv.echo_range.sel(channel=chan).copy().values
     # ping times to fill with NaNs
     nan_ping_time_2 = [1, 3, 5, 9]
     # range samples to fill with NaNs
@@ -378,7 +379,7 @@ def _nan_cases_comp_MVBS(ds_Sv, chan):
     case_2 = _fill_w_nans(one_chan_er, nan_ping_time_2, nan_range_sample_2)
 
     # get echo_range values for a single channel
-    one_chan_er = ds_Sv.echo_range.sel(channel='0').copy().values
+    one_chan_er = ds_Sv.echo_range.sel(channel=chan).copy().values
     # ping times to fill with NaNs
     nan_ping_time_3 = [0, 2, 5, 7]
     # range samples to fill with NaNs
@@ -453,6 +454,8 @@ def test_compute_MVBS():
                          range_sample_num, ping_time_bin,
                          total_range, range_meter_bin)
 
+    # TODO: use @pytest.fixture params/ids
+    # for multiple similar tests using the same set of parameters
     # different nan cases for a single channel
     case_1, case_2, case_3 = _nan_cases_comp_MVBS(ds_Sv, chan='0')
 
