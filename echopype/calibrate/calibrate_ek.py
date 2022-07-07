@@ -2,12 +2,13 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
+from ..echodata import EchoData
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS, CalibrateBase
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata, env_params):
+    def __init__(self, echodata: EchoData, env_params):
         super().__init__(echodata, env_params)
 
         # cal params specific to EK echosounders
@@ -154,6 +155,12 @@ class CalibrateEK(CalibrateBase):
         else:
             beam = self.echodata.beam
 
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=beam.ping_time
+            )
+
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
         range_meter = self.range_meter
@@ -209,6 +216,10 @@ class CalibrateEK(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
+        # Remove time1 if exist as a coordinate
+        if "time1" in out.coords:
+            out = out.drop("time1")
+
         # Squeeze out the beam dim
         # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
         return out.squeeze("beam", drop=True)
@@ -257,22 +268,15 @@ class CalibrateEK60(CalibrateEK):
             )
         # Otherwise get sound speed and absorption from user inputs or raw data file
         else:
-            # Below, renaming time1 to ping_time is necessary because
-            # we are performing calculations with the beam groups that use ping_time
-
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"].rename(
-                    {"time1": "ping_time"}
-                )
+                else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]
                 if "sound_absorption" in self.env_params
-                else self.echodata.environment["absorption_indicative"].rename(
-                    {"time1": "ping_time"}
-                )
+                else self.echodata.environment["absorption_indicative"]
             )
 
     def compute_Sv(self, **kwargs):
@@ -370,25 +374,18 @@ class CalibrateEK80(CalibrateEK):
         #  get sound speed from user inputs or raw data file
         #  get absorption from user inputs or computing from env params stored in raw data file
         else:
-            # Below, renaming time1 to ping_time is necessary because
-            # we are performing calculations with the beam groups that use ping_time
-
             # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
             for p1, p2 in zip(
                 ["temperature", "salinity", "pressure"],
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    self.env_params[p1]
-                    if p1 in self.env_params
-                    else self.echodata.environment[p2].rename({"time1": "ping_time"})
+                    self.env_params[p1] if p1 in self.env_params else self.echodata.environment[p2]
                 )
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"].rename(
-                    {"time1": "ping_time"}
-                )
+                else self.echodata.environment["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]
@@ -734,16 +731,17 @@ class CalibrateEK80(CalibrateEK):
             prx.name = "received_power"
             prx = prx.to_dataset()
 
-        # Derived params
-        # TODO: right now squeeze out the single ping_time dimension
-        #  Need to properly align based on actual time
-        #  This ping_time is actually renamed from time1 in Environment group,
-        #  so that in the computation of range_meter it can be aligned with echo data easily.
-        #  This however makes this part of code less traceable,
-        #  since the ping_time here does not come from the "pings"
-        #  Will resolve later.
-        sound_speed = self.env_params["sound_speed"].squeeze(drop=True)
-        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel).squeeze(drop=True)
+        # Compute derived params
+
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        # Use self.echodata.beam because complex sample is always in Beam_group1
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=self.echodata.beam.ping_time
+            )
+
+        sound_speed = self.env_params["sound_speed"]
+        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
         range_meter = self.range_meter.sel(channel=chan_sel)
         if waveform_mode == "BB":
             # use true center frequency for BB pulse

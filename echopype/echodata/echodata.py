@@ -2,7 +2,7 @@ import datetime
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -13,7 +13,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..calibrate.calibrate_base import EnvParams
+from ..calibrate.env_params import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.uwa import calc_sound_speed
@@ -256,6 +256,47 @@ class EchoData:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
+    @staticmethod
+    def _harmonize_env_param_time(
+        p: Union[int, float, xr.DataArray],
+        ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
+    ):
+        """
+        Harmonize time coordinate between Beam_groupX data and env_params to make sure
+        the timestamps are broacast correctly in calibration and range calculations.
+
+        Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
+        needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
+        If `time1` is of length=1, the dimension `time1` is dropped.
+        Otherwise, `p` is interpolated to `ping_time`.
+        If `p` is not an xr.DataArray it is returned directly.
+
+        Parameters
+        ----------
+        p
+            The environment parameter for timestamp check/correction
+        ping_time
+            Beam_groupX ping_time to interpolate env_params timestamps to.
+            Only used if p.time1 has length >1
+
+        Returns
+        -------
+        Environment parameter with correctly broadcasted timestamps
+        """
+        if isinstance(p, xr.DataArray):
+            if "time1" not in p.coords:
+                return p
+            else:
+                if p["time1"].size == 1:
+                    return p.squeeze(dim="time1").drop("time1")
+                else:
+                    if ping_time is not None:
+                        return p.interp(time1=ping_time)
+                    else:
+                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
+        else:
+            return p
+
     def compute_range(
         self,
         env_params=None,
@@ -349,28 +390,22 @@ class EchoData:
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(self)
 
-        def squeeze_non_scalar(n):
-            if not np.isscalar(n):
-                n = n.squeeze()
-            return n
-
         if "sound_speed" in env_params:
-            sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+            sound_speed = env_params["sound_speed"]
+        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+            sound_speed = self.environment["sound_speed_indicative"]
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
-                squeeze_non_scalar(env_params["temperature"]),
-                squeeze_non_scalar(env_params["salinity"]),
-                squeeze_non_scalar(env_params["pressure"]),
+                env_params["temperature"],
+                env_params["salinity"],
+                env_params["pressure"],
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
-            )
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(
-                self.environment["sound_speed_indicative"].rename({"time1": "ping_time"})
             )
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
-                "with temperature/salinity/pressure in env_params to be calculated, "
+                "with temperature, salinity, and pressure all specified in env_params "
+                "for sound speed to be calculated, "
                 "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
             )
 
@@ -388,6 +423,12 @@ class EchoData:
             # keep this in ref of AZFP matlab code,
             # set to 1 since we want to calculate from raw data
             bins_to_avg = 1
+
+            # Harmonize sound_speed time1 and Beam_group1 ping_time
+            sound_speed = self._harmonize_env_param_time(
+                p=sound_speed,
+                ping_time=self.beam.ping_time,
+            )
 
             # Calculate range using parameters for each freq
             # This is "the range to the centre of the sampling volume
@@ -445,6 +486,12 @@ class EchoData:
                 else:
                     beam = self.beam
 
+                # Harmonize sound_speed time1 and Beam_groupX ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
@@ -454,6 +501,13 @@ class EchoData:
                 beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
+
+                # Harmonize sound_speed time1 and Beam_group1 ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
@@ -470,10 +524,15 @@ class EchoData:
 
             # set entries with NaN backscatter data to NaN
             if "beam" in beam["backscatter_r"].dims:
+                # Drop beam because echo_range does not have beam dimension
                 valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)
+
+            # remove time1 if exists as a coordinate
+            if "time1" in range_meter.coords:
+                range_meter = range_meter.drop("time1")
 
             # add name to facilitate xr.merge
             range_meter.name = "echo_range"
