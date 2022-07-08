@@ -23,6 +23,7 @@ This is a minor release that includes important bug fixes, a number of new featu
 - Enhance `update_platform` to support a new use case (location data from fixed location) and add more consistency (#741)
 - Ability to parse and store RAW4 datagram for EK80 data (#714)
 - Add utility function for swapping `channel` coordinate with `frequency_nominal` (#710)
+- Add ES70, ES80, EA640 to allowed data type for calibration (#759)
 
 ## Changes of netCDF data model
 - Reorganize AD2CP data variables into different `Sonar/Beam_groupX`s and different first-level groups in a form consistent with v0.6.0 changes for all other sonar models (#731); some variables remain to be discussed and may change in future releases (#719)
