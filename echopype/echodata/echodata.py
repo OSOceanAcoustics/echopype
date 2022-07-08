@@ -481,16 +481,15 @@ class EchoData:
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
-                if (
-                    self.sonar_model == "EK80"
-                    and encode_mode == "power"
-                    and self.beam_power is not None
-                ):
-                    # if both CW and BB exist and beam_power group is not empty
-                    # this means that CW is recorded in power/angle mode
-                    beam = self.beam_power
+                try:
+                    if self.sonar_model == "EK80" and encode_mode == "power":
+                        # if both CW and BB exist and beam_power group is not empty
+                        # this means that CW is recorded in power/angle mode
+                        beam = self["Sonar/Beam_group2"]
+                except GroupNotFoundError:
+                    beam = self["Sonar/Beam_group1"]
                 else:
-                    beam = self.beam
+                    beam = self["Sonar/Beam_group1"]
 
                 # Harmonize sound_speed time1 and Beam_groupX ping_time
                 sound_speed = self._harmonize_env_param_time(

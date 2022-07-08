@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 from scipy import signal
+from zarr.errors import GroupNotFoundError
 
 from ..echodata import EchoData
 from ..utils import uwa
@@ -62,10 +63,13 @@ class CalibrateEK(CalibrateBase):
         if param not in ["sa_correction", "gain_correction"]:
             raise ValueError(f"Unknown parameter {param}")
 
-        if waveform_mode == "CW" and self.echodata.beam_power is not None:
-            beam = self.echodata.beam_power
+        try:
+            if waveform_mode == "CW":
+                beam = self.echodata["Sonar/Beam_group2"]
+        except GroupNotFoundError:
+            beam = self.echodata["Sonar/Beam_group1"]
         else:
-            beam = self.echodata.beam
+            beam = self.echodata["Sonar/Beam_group1"]
 
         # indexes of frequencies that are for power, not complex
         relevant_indexes = np.where(
