@@ -200,8 +200,8 @@ def test_attr_storage(ek60_test_data):
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
     for group in combined.group_map:
-        if f"{group}_attrs" in combined.provenance:
-            group_attrs = combined.provenance[f"{group}_attrs"]
+        if f"{group}_attrs" in combined["Provenance"]:
+            group_attrs = combined["Provenance"][f"{group}_attrs"]
             for i, ed in enumerate(eds):
                 for attr, value in getattr(ed, group).attrs.items():
                     assert str(
@@ -212,10 +212,10 @@ def test_attr_storage(ek60_test_data):
 
     # check selection by echodata_filename
     for file in ek60_test_data:
-        assert Path(file).name in combined.provenance["echodata_filename"]
+        assert Path(file).name in combined["Provenance"]["echodata_filename"]
     for group in combined.group_map:
-        if f"{group}_attrs" in combined.provenance:
-            group_attrs = combined.provenance[f"{group}_attrs"]
+        if f"{group}_attrs" in combined["Provenance"]:
+            group_attrs = combined["Provenance"][f"{group}_attrs"]
             assert np.array_equal(
                 group_attrs.sel(
                     echodata_filename=Path(ek60_test_data[0]).name

@@ -265,20 +265,20 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
 
     # save ping time before reversal correction
     if old_ping_time is not None:
-        result.provenance["old_ping_time"] = old_ping_time
-        result.provenance.attrs["reversed_ping_times"] = 1
+        result["Provenance"]["old_ping_time"] = old_ping_time
+        result["Provenance"].attrs["reversed_ping_times"] = 1
     # save location time before reversal correction
     if old_time1 is not None:
-        result.provenance["old_time1"] = old_time1
-        result.provenance.attrs["reversed_ping_times"] = 1
+        result["Provenance"]["old_time1"] = old_time1
+        result["Provenance"].attrs["reversed_ping_times"] = 1
     # save mru time before reversal correction
     if old_time2 is not None:
-        result.provenance["old_time2"] = old_time2
-        result.provenance.attrs["reversed_ping_times"] = 1
+        result["Provenance"]["old_time2"] = old_time2
+        result["Provenance"].attrs["reversed_ping_times"] = 1
     # save time3 before reversal correction
     if old_time3 is not None:
-        result.provenance["old_time3"] = old_time3
-        result.provenance.attrs["reversed_ping_times"] = 1
+        result["Provenance"]["old_time3"] = old_time3
+        result["Provenance"].attrs["reversed_ping_times"] = 1
     # TODO: possible parameter to disable original attributes and original ping_time storage
     # in provenance group?
     # save attrs from before combination
@@ -311,7 +311,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             },
             dims=["echodata_filename", f"{group}_attr_key"],
         )
-        result.provenance = result.provenance.assign({f"{group}_attrs": attrs})
+        result["Provenance"] = result["Provenance"].assign({f"{group}_attrs": attrs})
 
     # Add back sonar model
     result.sonar_model = sonar_model

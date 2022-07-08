@@ -166,8 +166,8 @@ def test_convert_ek60_duplicate_ping_times(ek60_path):
     )
     ed = open_raw(raw_path, "EK60")
 
-    assert "duplicate_ping_times" in ed.provenance.attrs
-    assert "old_ping_time" in ed.provenance
+    assert "duplicate_ping_times" in ed["Provenance"].attrs
+    assert "old_ping_time" in ed["Provenance"]
 
 
 def test_convert_ek60_duplicate_frequencies(ek60_path):
