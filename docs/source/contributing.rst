@@ -91,7 +91,12 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # install echopype in editable mode (setuptools "develop mode")
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
-    pip install -e .[plot]
+    pip install -e ".[plot]"
+
+.. attention::
+
+    Try using `mamba <https://mamba.readthedocs.io/en/latest/index.html>` instead of 
+    ``conda`` if the ``conda create`` and ``conda install`` step fail or take too long.
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
@@ -101,13 +106,6 @@ Tests and test infrastructure
 
 Test data files
 ~~~~~~~~~~~~~~~
-
-.. attention::
-
-    Echopype previously used Git LFS for managing and accessing large test data files.
-    We have deprecated its use starting with echopype version 0.5.0. The files
-    in https://github.com/OSOceanAcoustics/echopype/tree/main/echopype/test_data
-    are also being deprecated.
 
 Test echosounder data files are managed in a private Google Drive folder and
 made available via the `cormorack/http <https://hub.docker.com/r/cormorack/http>`_
@@ -180,15 +178,14 @@ especially `pr.yaml <https://github.com/OSOceanAcoustics/echopype/blob/main/.git
 The entire test suite can be a bit slow, taking up to 40 minutes or more.
 To mitigate this, the CI default is to run tests only for subpackages that
 were modified in the PR; this is done via ``.ci_helpers/run-test.py``
-(see the `Running the tests`_ section). To have the CI execute the
-entire test suite, add the GitHub label ``Needs Complete Testing`` to the
-PR before submitting it.
+(see the `Running the tests`_ section). To force the CI to execute the
+entire test suite, include the string "[all tests ci]" in the title of your PR.
 
 Under special circumstances, when the submitted changes have a
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing
 (you're a seasoned echopype contributor), the CI can be skipped.
-This is done by including the string "[skip ci]" in your last commit's message.
+This is done by including the string "[skip ci]" in the title of your PR.
 
 
 Documentation development
