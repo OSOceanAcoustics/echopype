@@ -558,7 +558,7 @@ class EchoData:
         extra_platform_data_file_name=None,
     ):
         """
-        Updates the `EchoData.platform` group with additional external platform data.
+        Updates the `EchoData["Platform"]` group with additional external platform data.
 
         `extra_platform_data` must be an xarray Dataset.
         The name of the time dimension in `extra_platform_data` is specified by the
@@ -578,7 +578,7 @@ class EchoData:
         ----------
         extra_platform_data : xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
-            to the `EchoData.platform` group.
+            to the `EchoData["Platform"]` group.
         time_dim: str, default="time"
             The name of the time dimension in `extra_platform_data`; used for extracting
             data from `extra_platform_data`.
@@ -646,7 +646,7 @@ class EchoData:
             }
         )
 
-        platform = self.platform
+        platform = self["Platform"]
         platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
@@ -710,7 +710,7 @@ class EchoData:
                 var_attrs["history"] = history_attr
             platform[var] = platform[var].assign_attrs(**var_attrs)
 
-        self.platform = set_encodings(platform)
+        self["Platform"] = set_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):

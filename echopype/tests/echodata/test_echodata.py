@@ -351,7 +351,7 @@ def test_compute_range(compute_range_samples):
         ek_encode_mode,
     ) = compute_range_samples
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    print(ed.platform)
+    print(ed["Platform"])
     rng = np.random.default_rng(0)
     stationary_env_params = EnvParams(
         xr.Dataset(
@@ -366,7 +366,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="stationary"
     )
-    if "time3" in ed.platform and sonar_model != "AD2CP":
+    if "time3" in ed["Platform"] and sonar_model != "AD2CP":
         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -391,7 +391,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="mobile"
     )
-    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["time1"]).all():
+    if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -481,7 +481,7 @@ def test_update_platform(
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
     for variable in updated:
-        assert np.isnan(ed.platform[variable].values).all()
+        assert np.isnan(ed["Platform"][variable].values).all()
 
     if ext_type == "external-trajectory":
         extra_platform_data_file_name = platform_data[1]
@@ -506,30 +506,30 @@ def test_update_platform(
     )
 
     for variable in updated:
-        assert not np.isnan(ed.platform[variable].values).all()
+        assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
     # check times are > min(ed.beam["ping_time"]) - 2s
     assert (
-        ed.platform["time1"]
+        ed["Platform"]["time1"]
         > ed.beam["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["time1"] < ed.beam["ping_time"].min()
+            ed["Platform"]["time1"] < ed.beam["ping_time"].min()
         )
         <= 1
     )
     # check times are < max(ed.beam["ping_time"]) + 2s
     assert (
-        ed.platform["time1"]
+        ed["Platform"]["time1"]
         < ed.beam["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed.beam["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["time1"] > ed.beam["ping_time"].max()
+            ed["Platform"]["time1"] > ed.beam["ping_time"].max()
         )
         <= 1
     )

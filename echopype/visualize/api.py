@@ -147,7 +147,7 @@ def create_echogram(
                     range_in_meter=range_in_meter,
                     water_level=water_level,
                     data_type=EchoData,
-                    platform_data=data.platform,
+                    platform_data=data["Platform"],
                 )
             ds = ds.assign_coords({'echo_range': range_in_meter})
             ds.echo_range.attrs = range_attrs

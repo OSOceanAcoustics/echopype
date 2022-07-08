@@ -237,7 +237,7 @@ def test_water_level_echodata(water_level, expect_warning):
 
     if isinstance(water_level, list):
         water_level = water_level[0]
-        echodata.platform = echodata.platform.drop_vars('water_level')
+        echodata["Platform"] = echodata["Platform"].drop_vars('water_level')
         no_input_water_level = True
 
     if isinstance(water_level, xr.DataArray):
@@ -247,7 +247,7 @@ def test_water_level_echodata(water_level, expect_warning):
         if no_input_water_level is False:
             original_array = (
                 single_array
-                + echodata.platform.water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                + echodata["Platform"].water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                                     time3='2017-07-19T21:13:47.984999936').values
             )
         else:
@@ -265,14 +265,14 @@ def test_water_level_echodata(water_level, expect_warning):
                     range_in_meter=range_in_meter,
                     water_level=water_level,
                     data_type=EchoData,
-                    platform_data=echodata.platform,
+                    platform_data=echodata["Platform"],
                 )
         else:
             results = _add_water_level(
                 range_in_meter=range_in_meter,
                 water_level=water_level,
                 data_type=EchoData,
-                platform_data=echodata.platform,
+                platform_data=echodata["Platform"],
             )
     except Exception as e:
         assert isinstance(e, ValueError)
