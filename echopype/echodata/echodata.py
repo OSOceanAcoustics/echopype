@@ -29,7 +29,10 @@ XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
 
 TVG_CORRECTION_FACTOR = {
     "EK60": 2,
+    "ES70": 2,
     "EK80": 0,
+    "ES80": 0,
+    "EA640": 0,
 }
 
 
@@ -454,7 +457,7 @@ class EchoData:
             return range_meter
 
         # EK
-        elif self.sonar_model in ("EK60", "EK80"):
+        elif self.sonar_model in ("EK60", "EK80", "ES70", "ES80", "EA640"):
             waveform_mode = ek_waveform_mode
             encode_mode = ek_encode_mode
 
