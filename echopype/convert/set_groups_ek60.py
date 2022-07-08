@@ -580,7 +580,6 @@ class SetGroupsEK60(SetGroupsBase):
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
         for ch in ch_ids:
-            data_shape = self.parser_obj.ping_data_dict["power"][ch].shape
             ds_tmp = xr.Dataset(
                 {
                     "backscatter_r": (
@@ -655,18 +654,16 @@ class SetGroupsEK60(SetGroupsBase):
                     ),
                     "range_sample": (
                         ["range_sample"],
-                        np.arange(data_shape[1]),
+                        np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
                         self._varattrs["beam_coord_default"]["range_sample"],
                     ),
                 },
             )
 
-            # TODO: below needs to be changed to use
-            #  self.convert_obj.ping_data_dict['mode'][ch] == 3
-            #  1 = Power only, 2 = Angle only 3 = Power & Angle
-            # Set angle data if in split beam mode (beam_type == 1)
-            # because single beam mode (beam_type == 0) does not record angle data
-            if self.parser_obj.config_datagram["transceivers"][ch]["beam_type"] == 1:
+            # Save angle data if exist based on values in self.parser_obj.ping_data_dict['mode'][ch]
+            # Assume the mode of all pings are identical
+            # 1 = Power only, 2 = Angle only 3 = Power & Angle
+            if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
                 ds_tmp = ds_tmp.assign(
                     {
                         "angle_athwartship": (

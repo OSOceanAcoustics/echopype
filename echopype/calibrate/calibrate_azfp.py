@@ -1,12 +1,13 @@
 import numpy as np
 
+from ..echodata import EchoData
 from ..utils import uwa
 from .calibrate_base import CAL_PARAMS
 from .calibrate_ek import CalibrateBase
 
 
 class CalibrateAZFP(CalibrateBase):
-    def __init__(self, echodata, env_params, cal_params, **kwargs):
+    def __init__(self, echodata: EchoData, env_params, cal_params, **kwargs):
         super().__init__(echodata, env_params)
 
         # initialize cal params
@@ -49,12 +50,10 @@ class CalibrateAZFP(CalibrateBase):
         env_params : dict
         """
         # Temperature comes from either user input or data file
-        # Below, renaming time1 to ping_time is necessary because we are performing
-        # calculations with the beam groups that use ping_time
         self.env_params["temperature"] = (
             self.env_params["temperature"]
             if "temperature" in self.env_params
-            else self.echodata.environment["temperature"].rename({"time1": "ping_time"})
+            else self.echodata.environment["temperature"]
         )
 
         # Salinity and pressure always come from user input
@@ -106,7 +105,14 @@ class CalibrateAZFP(CalibrateBase):
             cal_type=cal_type
         )  # range computation different for Sv and TS per AZFP matlab code
 
-        # Compute various params
+        # Compute derived params
+
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        # Use self.echodata.beam because complex sample is always in Beam_group1
+        for p in self.env_params.keys():
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=self.echodata.beam.ping_time
+            )
 
         # TODO: take care of dividing by zero encountered in log10
         spreading_loss = 20 * np.log10(self.range_meter)
@@ -153,6 +159,9 @@ class CalibrateAZFP(CalibrateBase):
 
         # Add env and cal parameters
         out = self._add_params_to_output(out)
+
+        # Order the dimensions
+        out["echo_range"] = out["echo_range"].transpose("channel", "ping_time", "range_sample")
 
         # Squeeze out the beam dim
         # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
