@@ -433,7 +433,7 @@ class EchoData:
             # Harmonize sound_speed time1 and Beam_group1 ping_time
             sound_speed = self._harmonize_env_param_time(
                 p=sound_speed,
-                ping_time=self.beam.ping_time,
+                ping_time=self["Sonar/Beam_group1"].ping_time,
             )
 
             # Calculate range using parameters for each freq
@@ -443,14 +443,15 @@ class EchoData:
                 range_offset = 0
             else:
                 range_offset = (
-                    sound_speed * self.beam["transmit_duration_nominal"] / 4
+                    sound_speed * self["Sonar/Beam_group1"]["transmit_duration_nominal"] / 4
                 )  # from matlab code
             range_meter = (
                 sound_speed * L / (2 * f)
                 + (sound_speed / 4)
                 * (
-                    ((2 * (self.beam.range_sample + 1) - 1) * N * bins_to_avg - 1) / f
-                    + self.beam["transmit_duration_nominal"]
+                    ((2 * (self["Sonar/Beam_group1"].range_sample + 1) - 1) * N * bins_to_avg - 1)
+                    / f
+                    + self["Sonar/Beam_group1"]["transmit_duration_nominal"]
                 )
                 - range_offset
             )
@@ -503,7 +504,7 @@ class EchoData:
                     beam.range_sample - tvg_correction_factor
                 ) * sample_thickness  # [frequency x range_sample]
             elif waveform_mode == "BB":
-                beam = self.beam  # always use the Beam group
+                beam = self["Sonar/Beam_group1"]  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
 
@@ -613,8 +614,8 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
-        # clip incoming time to 1 less than min of EchoData.beam["ping_time"] and
-        #   1 greater than max of EchoData.beam["ping_time"]
+        # clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"] and
+        #   1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"]
         # account for unsorted external time by checking whether each time value is between
         #   min and max ping_time instead of finding the 2 external times corresponding to the
         #   min and max ping_time and taking all the times between those indices
@@ -623,7 +624,7 @@ class EchoData:
         # fmt: off
         min_index = max(
             np.searchsorted(
-                sorted_external_time, self.beam["ping_time"].min(), side="left"
+                sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
             ) - 1,
             0,
         )
@@ -631,7 +632,7 @@ class EchoData:
         max_index = min(
             np.searchsorted(
                 sorted_external_time,
-                self.beam["ping_time"].max(),
+                self["Sonar/Beam_group1"]["ping_time"].max(),
                 side="right",
             ),
             len(sorted_external_time) - 1,

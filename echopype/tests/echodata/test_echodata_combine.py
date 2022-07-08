@@ -7,6 +7,8 @@ import pytest
 import xarray as xr
 from xarray.core.merge import MergeError
 
+from zarr.errors import GroupNotFoundError
+
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
@@ -107,54 +109,41 @@ def test_combine_echodata(raw_datasets):
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
-    for group_name in combined.group_map:
+    for group_name, value in combined.group_map.items():
         if group_name in ("top", "sonar", "provenance"):
             continue
-        combined_group: xr.Dataset = getattr(combined, group_name)
-        eds_groups = [
-            getattr(ed, group_name)
-            for ed in eds
-            if getattr(ed, group_name) is not None
-        ]
+        try:
+            combined_group: xr.Dataset = combined[value['ep_group']]
+            eds_groups = [
+                ed[value['ep_group']]
+                for ed in eds
+                if ed[value['ep_group']] is not None
+            ]
 
-        def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
-            """
-            Merges attrs from a list of datasets.
-            Prioritizes keys from later datasets.
-            """
+            def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
+                """
+                Merges attrs from a list of datasets.
+                Prioritizes keys from later datasets.
+                """
 
-            total_attrs = {}
-            for ds in datasets:
-                total_attrs.update(ds.attrs)
-            return total_attrs
+                total_attrs = {}
+                for ds in datasets:
+                    total_attrs.update(ds.attrs)
+                return total_attrs
 
-        test_ds = xr.combine_nested(
-            eds_groups,
-            [concat_dims.get(group_name, concat_dims["default"])],
-            data_vars=concat_data_vars.get(
-                group_name, concat_data_vars["default"]
-            ),
-            coords="minimal",
-            combine_attrs="drop",
-        )
-        test_ds.attrs.update(union_attrs(eds_groups))
-        test_ds = test_ds.drop_dims(
-            [
-                "concat_dim",
-                "old_ping_time",
-                "ping_time",
-                "old_time1",
-                "time1",
-                "old_time2",
-                "time2",
-            ],
-            errors="ignore",
-        ).drop_dims(
-            [f"{group}_attrs" for group in combined.group_map], errors="ignore"
-        )
-        assert combined_group is None or test_ds.identical(
-            combined_group.drop_dims(
+            test_ds = xr.combine_nested(
+                eds_groups,
+                [concat_dims.get(group_name, concat_dims["default"])],
+                data_vars=concat_data_vars.get(
+                    group_name, concat_data_vars["default"]
+                ),
+                coords="minimal",
+                combine_attrs="drop",
+            )
+            test_ds.attrs.update(union_attrs(eds_groups))
+            test_ds = test_ds.drop_dims(
                 [
+                    "concat_dim",
                     "old_ping_time",
                     "ping_time",
                     "old_time1",
@@ -163,8 +152,24 @@ def test_combine_echodata(raw_datasets):
                     "time2",
                 ],
                 errors="ignore",
+            ).drop_dims(
+                [f"{group}_attrs" for group in combined.group_map], errors="ignore"
             )
-        )
+            assert test_ds.identical(
+                combined_group.drop_dims(
+                    [
+                        "old_ping_time",
+                        "ping_time",
+                        "old_time1",
+                        "time1",
+                        "old_time2",
+                        "time2",
+                    ],
+                    errors="ignore",
+                )
+            )
+        except GroupNotFoundError:
+            pass
 
 
 def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
@@ -174,10 +179,13 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
     ]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
-    for group_name in combined.group_map:
-        combined_group: xr.Dataset = getattr(combined, group_name)
-
-        if combined_group is not None:
+    for group_name, value in combined.group_map.items():
+        try:
+            if value['ep_group'] is None:
+                combined_group: xr.Dataset = combined['Top-level']
+            else:
+                combined_group: xr.Dataset = combined[value['ep_group']]
+            
             if "ping_time" in combined_group and group_name != "provenance":
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
@@ -193,17 +201,23 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
                 assert not exist_reversed_time(combined_group, "time2")
             if "old_time2" in combined_group:
                 assert exist_reversed_time(combined_group, "old_time2")
+        except GroupNotFoundError:
+            ...
 
 
 def test_attr_storage(ek60_test_data):
     # check storage of attributes before combination in provenance group
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
-    for group in combined.group_map:
+    for group, value in combined.group_map.items():
+        if value['ep_group'] is None:
+            group_path = 'Top-level'
+        else:
+            group_path = value['ep_group']
         if f"{group}_attrs" in combined["Provenance"]:
             group_attrs = combined["Provenance"][f"{group}_attrs"]
             for i, ed in enumerate(eds):
-                for attr, value in getattr(ed, group).attrs.items():
+                for attr, value in ed[group_path].attrs.items():
                     assert str(
                         group_attrs.isel(echodata_filename=i)
                         .sel({f"{group}_attr_key": attr})
@@ -227,15 +241,15 @@ def test_attr_storage(ek60_test_data):
 def test_combine_attrs(ek60_test_data):
     # check parameter passed to combine_echodata that controls behavior of attribute combination
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
-    eds[0].beam.attrs.update({"foo": 1})
-    eds[1].beam.attrs.update({"foo": 2})
-    eds[2].beam.attrs.update({"foo": 3})
+    eds[0]["Sonar/Beam_group1"].attrs.update({"foo": 1})
+    eds[1]["Sonar/Beam_group1"].attrs.update({"foo": 2})
+    eds[2]["Sonar/Beam_group1"].attrs.update({"foo": 3})
 
     combined = echopype.combine_echodata(eds, "override")  # type: ignore
-    assert combined.beam.attrs["foo"] == 1
+    assert combined["Sonar/Beam_group1"].attrs["foo"] == 1
 
     combined = echopype.combine_echodata(eds, "drop")  # type: ignore
-    assert "foo" not in combined.beam.attrs
+    assert "foo" not in combined["Sonar/Beam_group1"].attrs
 
     try:
         combined = echopype.combine_echodata(eds, "identical")  # type: ignore
@@ -252,17 +266,17 @@ def test_combine_attrs(ek60_test_data):
         raise AssertionError
 
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
-    assert combined.beam.attrs["foo"] == 3
+    assert combined["Sonar/Beam_group1"].attrs["foo"] == 3
 
-    eds[0].beam.attrs.update({"foo": 1})
-    eds[1].beam.attrs.update({"foo": 1})
-    eds[2].beam.attrs.update({"foo": 1})
+    eds[0]["Sonar/Beam_group1"].attrs.update({"foo": 1})
+    eds[1]["Sonar/Beam_group1"].attrs.update({"foo": 1})
+    eds[2]["Sonar/Beam_group1"].attrs.update({"foo": 1})
 
     combined = echopype.combine_echodata(eds, "identical")  # type: ignore
-    assert combined.beam.attrs["foo"] == 1
+    assert combined["Sonar/Beam_group1"].attrs["foo"] == 1
 
     combined = echopype.combine_echodata(eds, "no_conflicts")  # type: ignore
-    assert combined.beam.attrs["foo"] == 1
+    assert combined["Sonar/Beam_group1"].attrs["foo"] == 1
 
 
 def test_combined_encodings(ek60_test_data):
@@ -270,16 +284,22 @@ def test_combined_encodings(ek60_test_data):
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
     group_checks = []
-    for group in combined.group_map:
-        ds = getattr(combined, group)
-        if ds is not None:
+    for group, value in combined.group_map.items():
+        try:
+            if value['ep_group'] is None:
+                ds = combined['Top-level']
+            else:
+                ds = combined[value['ep_group']]
+            
             for k, v in ds.variables.items():
                 if k in DEFAULT_ENCODINGS:
                     encoding = ds[k].encoding
                     if encoding != DEFAULT_ENCODINGS[k]:
                         group_checks.append(
-                            f"  {combined.group_map[group]['name']}::{k}"
+                            f"  {value['name']}::{k}"
                         )
+        except GroupNotFoundError:
+            pass
 
     if len(group_checks) > 0:
         all_messages = ['Encoding mismatch found!'] + group_checks

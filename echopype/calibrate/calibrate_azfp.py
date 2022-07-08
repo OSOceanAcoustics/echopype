@@ -34,7 +34,7 @@ class CalibrateAZFP(CalibrateBase):
         self.cal_params["equivalent_beam_angle"] = (
             cal_params["equivalent_beam_angle"]
             if "equivalent_beam_angle" in cal_params
-            else self.echodata.beam["equivalent_beam_angle"]
+            else self.echodata["Sonar/Beam_group1"]["equivalent_beam_angle"]
         )
 
         # Get params from the Vendor_specific group
@@ -73,7 +73,7 @@ class CalibrateAZFP(CalibrateBase):
             formula_source="AZFP",
         )
         self.env_params["sound_absorption"] = uwa.calc_absorption(
-            frequency=self.echodata.beam["frequency_nominal"],
+            frequency=self.echodata["Sonar/Beam_group1"]["frequency_nominal"],
             temperature=self.env_params["temperature"],
             salinity=self.env_params["salinity"],
             pressure=self.env_params["pressure"],
@@ -110,10 +110,10 @@ class CalibrateAZFP(CalibrateBase):
         # Compute derived params
 
         # Harmonize time coordinate between Beam_groupX data and env_params
-        # Use self.echodata.beam because complex sample is always in Beam_group1
+        # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
         for p in self.env_params.keys():
             self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p], ping_time=self.echodata.beam.ping_time
+                self.env_params[p], ping_time=self.echodata["Sonar/Beam_group1"].ping_time
             )
 
         # TODO: take care of dividing by zero encountered in log10
@@ -124,7 +124,9 @@ class CalibrateAZFP(CalibrateBase):
         # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
         a = self.cal_params["DS"]
         EL = (
-            self.cal_params["EL"] - 2.5 / a + self.echodata.beam.backscatter_r / (26214 * a)
+            self.cal_params["EL"]
+            - 2.5 / a
+            + self.echodata["Sonar/Beam_group1"].backscatter_r / (26214 * a)
         )  # eq.(5)  # has beam dim due to backscatter_r
 
         if cal_type == "Sv":
@@ -138,7 +140,7 @@ class CalibrateAZFP(CalibrateBase):
                 * np.log10(
                     0.5
                     * self.env_params["sound_speed"]
-                    * self.echodata.beam["transmit_duration_nominal"]
+                    * self.echodata["Sonar/Beam_group1"]["transmit_duration_nominal"]
                     * self.cal_params["equivalent_beam_angle"]
                 )
                 + self.cal_params["Sv_offset"]
@@ -157,7 +159,7 @@ class CalibrateAZFP(CalibrateBase):
         out = out.merge(self.range_meter)
 
         # Add frequency_nominal to data set
-        out["frequency_nominal"] = self.echodata.beam["frequency_nominal"]
+        out["frequency_nominal"] = self.echodata["Sonar/Beam_group1"]["frequency_nominal"]
 
         # Add env and cal parameters
         out = self._add_params_to_output(out)

@@ -88,7 +88,7 @@ def test_plot_single(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     plots = echopype.visualize.create_echogram(
-        ed, channel=ed.beam.channel[0].values
+        ed, channel=ed["Sonar/Beam_group1"].channel[0].values
     )
     assert isinstance(plots, list) is True
     if (
@@ -135,7 +135,7 @@ def test_plot_multi_get_range(
         assert plots[0].axes.shape[-1] == 1
 
     # Channel shape check
-    assert ed.beam.channel.shape[0] == len(plots)
+    assert ed["Sonar/Beam_group1"].channel.shape[0] == len(plots)
 
 
 @pytest.mark.parametrize(param_args, param_testdata)

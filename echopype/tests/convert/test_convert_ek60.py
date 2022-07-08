@@ -69,7 +69,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata.beam.backscatter_r.isel(beam=0).transpose(
+        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).transpose(
             'channel', 'range_sample', 'ping_time'
         ),
         rtol=0,
@@ -82,7 +82,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata.beam['angle_' + angle].isel(beam=0).transpose(
+            echodata["Sonar/Beam_group1"]['angle_' + angle].isel(beam=0).transpose(
                 'channel', 'range_sample', 'ping_time'
             ),
         )
@@ -113,12 +113,12 @@ def test_convert_ek60_echoview_raw(ek60_path):
 
     # get indices of sorted frequency_nominal values. This is necessary
     # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+    sorted_freq_ind = np.argsort(echodata["Sonar/Beam_group1"].frequency_nominal)
 
     for fidx, atol in zip(range(5), [1e-5, 1.1e-5, 1.1e-5, 1e-5, 1e-5]):
         assert np.allclose(
             test_power[fidx, :, :],
-            echodata.beam.backscatter_r.isel(
+            echodata["Sonar/Beam_group1"].backscatter_r.isel(
                 channel=sorted_freq_ind[fidx],
                 ping_time=slice(None, 10),
                 range_sample=slice(1, None),

@@ -252,14 +252,13 @@ class TestEchoData:
         sample_data = xr.Dataset({"x": [0, 0, 0]})
         sample_data2 = xr.Dataset({"y": [0, 0, 0]})
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        current_ed_beam = ed.beam
+        current_ed_beam = ed["Sonar/Beam_group1"]
         current_ed_top = ed['Top-level']
-        ed.beam = sample_data
+        ed["Sonar/Beam_group1"] = sample_data
         ed['Top-level'] = sample_data2
 
-        assert ed.beam.equals(sample_data) is True
-        assert ed.beam.equals(ed['Sonar/Beam_group1']) is True
-        assert ed.beam.equals(current_ed_beam) is False
+        assert ed["Sonar/Beam_group1"].equals(sample_data) is True
+        assert ed["Sonar/Beam_group1"].equals(current_ed_beam) is False
 
         assert ed['Top-level'].equals(sample_data2) is True
         assert ed['Top-level'].equals(current_ed_top) is False
@@ -426,11 +425,11 @@ def test_nan_range_entries(range_check_files):
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
         range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
         range_output = echodata.compute_range(env_params=[])
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
@@ -509,27 +508,27 @@ def test_update_platform(
         assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
-    # check times are > min(ed.beam["ping_time"]) - 2s
+    # check times are > min(ed["Sonar/Beam_group1"]["ping_time"]) - 2s
     assert (
         ed["Platform"]["time1"]
-        > ed.beam["ping_time"].min() - np.timedelta64(2, "s")
+        > ed["Sonar/Beam_group1"]["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
-    # check there is only 1 time < min(ed.beam["ping_time"])
+    # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] < ed.beam["ping_time"].min()
+            ed["Platform"]["time1"] < ed["Sonar/Beam_group1"]["ping_time"].min()
         )
         <= 1
     )
-    # check times are < max(ed.beam["ping_time"]) + 2s
+    # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
         ed["Platform"]["time1"]
-        < ed.beam["ping_time"].max() + np.timedelta64(2, "s")
+        < ed["Sonar/Beam_group1"]["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
-    # check there is only 1 time > max(ed.beam["ping_time"])
+    # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] > ed.beam["ping_time"].max()
+            ed["Platform"]["time1"] > ed["Sonar/Beam_group1"]["ping_time"].max()
         )
         <= 1
     )

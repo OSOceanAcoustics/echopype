@@ -236,7 +236,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     )  # compute range [m]
     chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
     freq_center = (
-        echodata.beam["frequency_start"] + echodata.beam["frequency_end"]
+        echodata["Sonar/Beam_group1"]["frequency_start"] + echodata["Sonar/Beam_group1"]["frequency_end"]
     ).dropna(
         dim="channel"
     ) / 2  # drop those that contain CW samples (nan in freq start/end)
