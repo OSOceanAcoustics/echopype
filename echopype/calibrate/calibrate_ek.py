@@ -54,7 +54,7 @@ class CalibrateEK(CalibrateBase):
         param : str {"sa_correction", "gain_correction"}
             name of parameter to retrieve
         """
-        ds_vend = self.echodata.vendor
+        ds_vend = self.echodata["Vendor_specific"]
 
         if ds_vend is None or param not in ds_vend:
             return None
@@ -413,16 +413,18 @@ class CalibrateEK80(CalibrateEK):
             'coeff' or 'decimation'
         """
         if param_type == "coeff":
-            v = self.echodata.vendor.attrs[
+            v = self.echodata["Vendor_specific"].attrs[
                 "%s %s filter_r" % (channel_id, filter_name)
             ] + 1j * np.array(
-                self.echodata.vendor.attrs["%s %s filter_i" % (channel_id, filter_name)]
+                self.echodata["Vendor_specific"].attrs["%s %s filter_i" % (channel_id, filter_name)]
             )
             if v.size == 1:
                 v = np.expand_dims(v, axis=0)  # expand dims for convolution
             return v
         else:
-            return self.echodata.vendor.attrs["%s %s decimation" % (channel_id, filter_name)]
+            return self.echodata["Vendor_specific"].attrs[
+                "%s %s decimation" % (channel_id, filter_name)
+            ]
 
     def _tapered_chirp(
         self,
@@ -624,19 +626,19 @@ class CalibrateEK80(CalibrateEK):
                 "gain_correction", waveform_mode=waveform_mode
             )
             gain = []
-            if "gain" in self.echodata.vendor.data_vars:
+            if "gain" in self.echodata["Vendor_specific"].data_vars:
                 # index using channel_id as order of frequency across channel can be arbitrary
                 # reference to freq_center in case some channels are CW complex samples
                 # (already dropped when computing freq_center in the calling function)
                 for ch_id in chan_sel:
                     # if channel gain exists in data
-                    if ch_id in self.echodata.vendor.cal_channel_id:
-                        gain_vec = self.echodata.vendor.gain.sel(cal_channel_id=ch_id)
+                    if ch_id in self.echodata["Vendor_specific"].cal_channel_id:
+                        gain_vec = self.echodata["Vendor_specific"].gain.sel(cal_channel_id=ch_id)
                         gain_temp = (
                             gain_vec.interp(
-                                cal_frequency=self.echodata.vendor.frequency_nominal.sel(
-                                    channel=ch_id
-                                )
+                                cal_frequency=self.echodata[
+                                    "Vendor_specific"
+                                ].frequency_nominal.sel(channel=ch_id)
                             ).drop(["cal_channel_id", "cal_frequency"])
                         ).expand_dims("channel")
                     # if no freq-dependent gain use CW gain
@@ -780,7 +782,8 @@ class CalibrateEK80(CalibrateEK):
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(
                     channel=chan_sel
                 ) + 10 * np.log10(
-                    self.echodata.vendor.frequency_nominal.sel(channel=chan_sel) / freq_center
+                    self.echodata["Vendor_specific"].frequency_nominal.sel(channel=chan_sel)
+                    / freq_center
                 )
             elif waveform_mode == "CW":
                 psifc = self.echodata.beam["equivalent_beam_angle"].sel(channel=chan_sel)

@@ -422,9 +422,9 @@ class EchoData:
                 raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
 
             # Notation below follows p.86 of user manual
-            N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
-            f = self.vendor["digitization_rate"]  # digitization rate
-            L = self.vendor["lockout_index"]  # number of lockout samples
+            N = self["Vendor_specific"]["number_of_samples_per_average_bin"]  # samples per bin
+            f = self["Vendor_specific"]["digitization_rate"]  # digitization rate
+            L = self["Vendor_specific"]["lockout_index"]  # number of lockout samples
 
             # keep this in ref of AZFP matlab code,
             # set to 1 since we want to calculate from raw data

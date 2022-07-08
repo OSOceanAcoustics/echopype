@@ -40,7 +40,9 @@ class CalibrateAZFP(CalibrateBase):
         # Get params from the Vendor_specific group
         for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
             # substitute if None in user input
-            self.cal_params[p] = cal_params[p] if p in cal_params else self.echodata.vendor[p]
+            self.cal_params[p] = (
+                cal_params[p] if p in cal_params else self.echodata["Vendor_specific"][p]
+            )
 
     def get_env_params(self):
         """Get env params using user inputs or values from data file.

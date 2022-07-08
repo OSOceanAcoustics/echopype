@@ -76,26 +76,26 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     # Test temperature
     assert np.array_equal(
         np.array([d[4] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.ancillary.isel(ancillary_len=4).values,
+        echodata["Vendor_specific"].ancillary.isel(ancillary_len=4).values,
     )
     assert np.array_equal(
         np.array([d[0] for d in ds_matlab['Data']['BatteryTx'][0]]).squeeze(),
-        echodata.vendor.battery_tx,
+        echodata["Vendor_specific"].battery_tx,
     )
     assert np.array_equal(
         np.array(
             [d[0] for d in ds_matlab['Data']['BatteryMain'][0]]
         ).squeeze(),
-        echodata.vendor.battery_main,
+        echodata["Vendor_specific"].battery_main,
     )
     # tilt x-y
     assert np.array_equal(
         np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.tilt_x_count,
+        echodata["Vendor_specific"].tilt_x_count,
     )
     assert np.array_equal(
         np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.tilt_y_count,
+        echodata["Vendor_specific"].tilt_y_count,
     )
 
     # check convention-required variables in the Platform group
