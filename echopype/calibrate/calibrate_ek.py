@@ -271,12 +271,12 @@ class CalibrateEK60(CalibrateEK):
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"]
+                else self.echodata["Environment"]["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]
                 if "sound_absorption" in self.env_params
-                else self.echodata.environment["absorption_indicative"]
+                else self.echodata["Environment"]["absorption_indicative"]
             )
 
     def compute_Sv(self, **kwargs):
@@ -380,12 +380,14 @@ class CalibrateEK80(CalibrateEK):
                 ["temperature", "salinity", "depth"],
             ):
                 self.env_params[p1] = (
-                    self.env_params[p1] if p1 in self.env_params else self.echodata.environment[p2]
+                    self.env_params[p1]
+                    if p1 in self.env_params
+                    else self.echodata["Environment"][p2]
                 )
             self.env_params["sound_speed"] = (
                 self.env_params["sound_speed"]
                 if "sound_speed" in self.env_params
-                else self.echodata.environment["sound_speed_indicative"]
+                else self.echodata["Environment"]["sound_speed_indicative"]
             )
             self.env_params["sound_absorption"] = (
                 self.env_params["sound_absorption"]

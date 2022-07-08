@@ -53,7 +53,7 @@ class CalibrateAZFP(CalibrateBase):
         self.env_params["temperature"] = (
             self.env_params["temperature"]
             if "temperature" in self.env_params
-            else self.echodata.environment["temperature"]
+            else self.echodata["Environment"]["temperature"]
         )
 
         # Salinity and pressure always come from user input

@@ -147,7 +147,7 @@ def test_compute_Sv_azfp(azfp_path):
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
     # AZFP Matlab code uses average temperature
     avg_temperature = (
-        echodata.environment['temperature'].mean('time1').values
+        echodata["Environment"]['temperature'].mean('time1').values
     )
     env_params = {
         'temperature': avg_temperature,

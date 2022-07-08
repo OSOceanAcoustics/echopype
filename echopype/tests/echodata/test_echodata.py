@@ -253,17 +253,16 @@ class TestEchoData:
         sample_data2 = xr.Dataset({"y": [0, 0, 0]})
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         current_ed_beam = ed.beam
-        current_ed_top = ed.top
+        current_ed_top = ed['Top-level']
         ed.beam = sample_data
-        ed.top = sample_data2
+        ed['Top-level'] = sample_data2
 
         assert ed.beam.equals(sample_data) is True
         assert ed.beam.equals(ed['Sonar/Beam_group1']) is True
         assert ed.beam.equals(current_ed_beam) is False
 
-        assert ed.top.equals(sample_data2) is True
-        assert ed.top.equals(ed['Top-level']) is True
-        assert ed.top.equals(current_ed_top) is False
+        assert ed['Top-level'].equals(sample_data2) is True
+        assert ed['Top-level'].equals(current_ed_top) is False
 
     def test_getitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)

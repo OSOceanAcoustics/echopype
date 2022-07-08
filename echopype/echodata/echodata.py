@@ -368,7 +368,7 @@ class EchoData:
             - When `sonar_model` is `"AZFP"` and `env_params` does not contain
               either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is `"EK60"` or `"EK80"`,
-              EchoData.environment.sound_speed_indicative does not exist,
+              EchoData["Environment"].sound_speed_indicative does not exist,
               and `env_params` does not contain either `"sound_speed"`
               or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
@@ -395,8 +395,10 @@ class EchoData:
 
         if "sound_speed" in env_params:
             sound_speed = env_params["sound_speed"]
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = self.environment["sound_speed_indicative"]
+        elif (
+            self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self["Environment"]
+        ):
+            sound_speed = self["Environment"]["sound_speed_indicative"]
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
                 env_params["temperature"],
@@ -409,7 +411,8 @@ class EchoData:
                 "sound speed must be specified in env_params, "
                 "with temperature, salinity, and pressure all specified in env_params "
                 "for sound speed to be calculated, "
-                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
+                "or in EchoData['Environment'].sound_speed_indicative "
+                "for EK60 and EK80 sonar models"
             )
 
         # AZFP
