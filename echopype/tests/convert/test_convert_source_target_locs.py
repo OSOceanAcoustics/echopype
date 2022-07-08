@@ -12,6 +12,7 @@ import os
 import fsspec
 import xarray as xr
 import pytest
+from zarr.errors import GroupNotFoundError
 from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
@@ -239,8 +240,11 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
     )
     ed.to_netcdf(overwrite=True)
     for group, details in ed.group_map.items():
-        if hasattr(ed, group):
-            group_ds = getattr(ed, group)
+        group_path = details['ep_group']
+        if group_path is None:
+            group_path = 'Top-level'
+        try:
+            group_ds = ed[group_path]
             if isinstance(group_ds, xr.Dataset):
                 for var, encoding in DEFAULT_ENCODINGS.items():
                     if var in group_ds:
@@ -267,6 +271,8 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
                             group=details['ep_group'],
                         )[var]
                         assert da.equals(decoded_da) is True
+        except GroupNotFoundError:
+            ...
     os.unlink(ed.converted_raw_path)
 
 

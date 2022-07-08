@@ -198,20 +198,20 @@ class TestEchoData:
     def test_constructor(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         expected_groups = [
-            'top',
-            'environment',
-            'platform',
-            'provenance',
-            'sonar',
-            'beam',
-            'vendor',
+            'Top-level',
+            'Environment',
+            'Platform',
+            'Provenance',
+            'Sonar',
+            'Sonar/Beam_group1',
+            'Vendor_specific',
         ]
 
         assert ed.sonar_model == 'EK60'
         assert ed.converted_raw_path == converted_zarr
         assert ed.storage_options == {}
         for group in expected_groups:
-            assert isinstance(getattr(ed, group), xr.Dataset)
+            assert isinstance(ed[group], xr.Dataset)
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
@@ -278,21 +278,6 @@ class TestEchoData:
         except Exception as e:
             assert isinstance(e, ValueError)
 
-    def test_getattr(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        expected_groups = {
-            'top': 'Top-level',
-            'environment': 'Environment',
-            'platform': 'Platform',
-            'nmea': 'Platform/NMEA',
-            'provenance': 'Provenance',
-            'sonar': 'Sonar',
-            'beam': 'Sonar/Beam_group1',
-            'vendor': 'Vendor_specific',
-        }
-        for group, path in expected_groups.items():
-            ds = getattr(ed, group)
-            assert ds.equals(ed[path])
 
     def test_setitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)

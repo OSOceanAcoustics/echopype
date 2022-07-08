@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import xarray as xr
 from datatree import DataTree
+from zarr.errors import GroupNotFoundError
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
@@ -177,13 +178,19 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
     for group, value in EchoData.group_map.items():
-        group_datasets = [
-            getattr(echodata, group)
-            for echodata in echodatas
-            if getattr(echodata, group) is not None
-        ]
+        group_datasets = []
+        group_path = value["ep_group"]
+        if group_path is None:
+            group_path = "Top-level"
+
+        for echodata in echodatas:
+            try:
+                group_datasets.append(echodata[group_path])
+            except GroupNotFoundError:
+                ...
+
         if group in ("top", "sonar"):
-            combined_group = getattr(echodatas[0], group)
+            combined_group = echodatas[0][group_path]
         elif group == "provenance":
             combined_group = assemble_combined_provenance(
                 [
@@ -195,7 +202,6 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             )
         else:
             if len(group_datasets) == 0:
-                setattr(result, group, None)
                 continue
 
             concat_dim = SONAR_MODELS[sonar_model]["concat_dims"].get(
