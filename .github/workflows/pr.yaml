@@ -2,7 +2,7 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml", "docs"]
+    paths-ignore: ["**/docker.yaml", "docs"]
 
 env:
   CONDA_ENV: echopype
@@ -36,6 +36,12 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
+      - name: Copying test data to services
+        run: |
+          python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
+
+          # Check data endpoint
+          curl http://localhost:8080/data/
       - name: Copying test data to http server
         run: |
           rm -rf ./echopype/test_data
