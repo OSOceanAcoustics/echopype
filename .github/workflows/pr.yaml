@@ -2,16 +2,17 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml", "docs"]
+    paths-ignore: ["**/docker.yaml", "docs"]
 
 env:
   CONDA_ENV: echopype
+  NUM_WORKERS: 2
 
 jobs:
   test:
     name: ${{ matrix.python-version }}-build
     runs-on: ubuntu-20.04
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: "!contains(github.event.pull_request.title, '[skip ci]')"
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
@@ -36,13 +37,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
-      - name: Copying test data to http server
-        run: |
-          rm -rf ./echopype/test_data
-          docker cp -L ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data ./echopype/test_data
-
-          # Check data endpoint
-          curl http://localhost:8080/data/
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -86,6 +80,13 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install -e .[plot]
+      - name: Copying test data to services
+        shell: bash -l {0}
+        run: |
+          python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
+
+          # Check data endpoint
+          curl http://localhost:8080/data/
       - name: Finding changed files
         id: files
         uses: lsetiawan/get-changed-files@pr_target
@@ -95,15 +96,15 @@ jobs:
         shell: bash -l {0}
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
       - name: Running all Tests
-        if: contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')
+        if: contains(github.event.pull_request.title, '[all tests ci]')
         shell: bash -l {0}
         run: |
-          pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
-        if: "!contains(github.event.pull_request.labels.*.name, 'Needs Complete Testing')"
+        if: "!contains(github.event.pull_request.title, '[all tests ci]')"
         shell: bash -l {0}
         run: |
-          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=4,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
+          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=${{ env.NUM_WORKERS }},--max-worker-restart=3,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v2

@@ -7,7 +7,14 @@ from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 
-CALIBRATOR = {"EK60": CalibrateEK60, "EK80": CalibrateEK80, "AZFP": CalibrateAZFP}
+CALIBRATOR = {
+    "EK60": CalibrateEK60,
+    "EK80": CalibrateEK80,
+    "AZFP": CalibrateAZFP,
+    "ES70": CalibrateEK60,
+    "ES80": CalibrateEK80,
+    "EA640": CalibrateEK80,
+}
 
 
 def _compute_cal(

@@ -1557,6 +1557,16 @@ class SimradRawParser(_SimradDatagramParser):
                 ("offset", "l"),
                 ("count", "l"),
             ],
+            4: [
+                ("type", "4s"),
+                ("low_date", "L"),
+                ("high_date", "L"),
+                ("channel_id", "128s"),
+                ("data_type", "h"),
+                ("spare", "2s"),
+                ("offset", "l"),
+                ("count", "l"),
+            ],
         }
         _SimradDatagramParser.__init__(self, "RAW", headers)
 
@@ -1602,7 +1612,8 @@ class SimradRawParser(_SimradDatagramParser):
                 data["power"] = np.empty((0,), dtype="int16")
                 data["angle"] = np.empty((0, 2), dtype="int8")
 
-        elif version == 3:
+        # RAW3 and RAW4 have the same format, only Datatype Bit 0-1 not used in RAW4
+        elif version == 3 or version == 4:
 
             # result = 1j*Data[...,1]; result += Data[...,0]
 
