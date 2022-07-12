@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+import fsspec
+
 logger = logging.getLogger("setup-services")
 streamHandler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter("%(message)s")
@@ -28,9 +30,20 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Setup services for testing")
     parser.add_argument("--deploy", action="store_true", help="Flag to setup docker services")
     parser.add_argument(
+        "--http-server",
+        default="docker_httpserver_1",
+        help="Flag for specifying docker http server id.",
+    )
+    parser.add_argument(
         "--no-pull",
         action="store_true",
         help="Optional flag to skip pulling the latest images from dockerhub",
+    )
+    parser.add_argument(
+        "--data-only",
+        action="store_true",
+        help="""Optional flag to only copy over data to http server,
+        and setup minio bucket and not deploy any services. NOTE: MUST HAVE SERVICES RUNNING!""",
     )
     parser.add_argument(
         "--tear-down",
@@ -62,6 +75,30 @@ def run_commands(commands: List[Dict]) -> None:
             raise ValueError(f"command of {type(cmd)} is invalid.")
 
 
+def load_s3(*args, **kwargs) -> None:
+    common_storage_options = dict(
+        client_kwargs=dict(endpoint_url="http://localhost:9000/"),
+        key="minioadmin",
+        secret="minioadmin",
+    )
+    bucket_name = "ooi-raw-data"
+    fs = fsspec.filesystem(
+        "s3",
+        **common_storage_options,
+    )
+    test_data = "data"
+    if not fs.exists(test_data):
+        fs.mkdir(test_data)
+
+    if not fs.exists(bucket_name):
+        fs.mkdir(bucket_name)
+
+    # Load test data into bucket
+    for d in TEST_DATA_PATH.iterdir():
+        source_path = f"echopype/test_data/{d.name}"
+        fs.put(source_path, f"{test_data}/{d.name}", recursive=True)
+
+
 if __name__ == "__main__":
     args = parse_args()
     commands = []
@@ -75,27 +112,28 @@ if __name__ == "__main__":
 
     if args.deploy:
         commands.append({"msg": "Starting test services deployment ...", "cmd": None})
-        if not args.no_pull:
+        if not args.data_only:
+            if not args.no_pull:
+                commands.append(
+                    {
+                        "msg": "Pulling latest images ...",
+                        "cmd": ["docker-compose", "-f", COMPOSE_FILE, "pull"],
+                    }
+                )
             commands.append(
                 {
-                    "msg": "Pulling latest images ...",
-                    "cmd": ["docker-compose", "-f", COMPOSE_FILE, "pull"],
+                    "msg": "Bringing up services ...",
+                    "cmd": [
+                        "docker-compose",
+                        "-f",
+                        COMPOSE_FILE,
+                        "up",
+                        "-d",
+                        "--remove-orphans",
+                        "--force-recreate",
+                    ],
                 }
             )
-        commands.append(
-            {
-                "msg": "Bringing up services ...",
-                "cmd": [
-                    "docker-compose",
-                    "-f",
-                    COMPOSE_FILE,
-                    "up",
-                    "-d",
-                    "--remove-orphans",
-                    "--force-recreate",
-                ],
-            }
-        )
 
         if TEST_DATA_PATH.exists():
             commands.append(
@@ -105,7 +143,6 @@ if __name__ == "__main__":
                     "args": TEST_DATA_PATH,
                 }
             )
-
         commands.append(
             {
                 "msg": "Copying new test folder from http service ...",
@@ -113,11 +150,13 @@ if __name__ == "__main__":
                     "docker",
                     "cp",
                     "-L",
-                    "docker_httpserver_1:/usr/local/apache2/htdocs/data",
+                    f"{args.http_server}:/usr/local/apache2/htdocs/data",
                     TEST_DATA_PATH,
                 ],
             }
         )
+
+        commands.append({"msg": "Setting up minio s3 bucket ...", "cmd": load_s3})
 
     if args.tear_down:
         command = ["docker-compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]

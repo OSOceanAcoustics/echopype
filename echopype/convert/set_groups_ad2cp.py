@@ -1,371 +1,502 @@
-from typing import List, Optional
+from enum import Enum, auto, unique
+from importlib import resources
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import xarray as xr
+import yaml
 
+from .. import convert
 from ..utils.coding import set_encodings
-from .parse_ad2cp import Ad2cpDataPacket, Field, HeaderOrDataRecordFormats
+from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
 
+AHRS_COORDS: Dict[Dimension, np.ndarray] = {
+    Dimension.MIJ: np.array(["11", "12", "13", "21", "22", "23", "31", "32", "33"]),
+    Dimension.WXYZ: np.array(["w", "x", "y", "z"]),
+    Dimension.XYZ: np.array(["x", "y", "z"]),
+}
 
-def merge_attrs(datasets: List[xr.Dataset]) -> List[xr.Dataset]:
-    """
-    Merges attrs from a list of datasets.
-    Prioritizes keys from later datasets.
-    """
 
-    total_attrs = dict()
-    for ds in datasets:
-        total_attrs.update(ds.attrs)
-    for ds in datasets:
-        ds.attrs = total_attrs
-    return datasets
+@unique
+class BeamGroup(Enum):
+    AVERAGE = auto()
+    BURST = auto()
+    ECHOSOUNDER = auto()
+    ECHOSOUNDER_RAW = auto()
 
 
 class SetGroupsAd2cp(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from Ad2cp data files."""
 
-    beamgroups_possible = [
-        {
-            "name": "Beam_group1",
-            "descr": (
-                "contains velocity, correlation, and backscatter power (uncalibrated)"
-                " data and other data derived from acoustic data."
-            ),
-        }
-    ]
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # TODO: bug: 0 if not exist in first string packet
+        # resulting in index error in setting ds["pulse_compressed"]
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
-        self.combine_packets()
+        self._make_time_coords()
+        with resources.open_text(convert, "ad2cp_fields.yaml") as f:
+            self.field_attrs: Dict[str, Dict[str, Dict[str, str]]] = yaml.safe_load(f)  # type: ignore # noqa
 
-    def combine_packets(self):
-        self.ds = None
+    def _make_time_coords(self):
+        timestamps = []
+        times_idx = {
+            Dimension.PING_TIME_AVERAGE: [],
+            Dimension.PING_TIME_BURST: [],
+            Dimension.PING_TIME_ECHOSOUNDER: [],
+            Dimension.PING_TIME_ECHOSOUNDER_RAW: [],
+            Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT: [],
+        }
 
-        # # TODO: where to put string data in output?
+        for packet in self.parser_obj.packets:
+            if not packet.has_timestamp():
+                continue
+            timestamps.append(packet.timestamp)
+            i = len(timestamps) - 1
+            if packet.is_average():
+                times_idx[Dimension.PING_TIME_AVERAGE].append(i)
+            elif packet.is_burst():
+                times_idx[Dimension.PING_TIME_BURST].append(i)
+            elif packet.is_echosounder():
+                times_idx[Dimension.PING_TIME_ECHOSOUNDER].append(i)
+            elif packet.is_echosounder_raw():
+                times_idx[Dimension.PING_TIME_ECHOSOUNDER_RAW].append(i)
+            elif packet.is_echosounder_raw_transmit():
+                times_idx[Dimension.PING_TIME_ECHOSOUNDER_RAW_TRANSMIT].append(i)
 
-        # pad raw samples so that "sample" dimension has same length
-        max_samples = 0
-        for packet in self.parser_obj.echosounder_raw_packets:
-            # both _r and _i have same dimensions
-            max_samples = max(max_samples, packet.data["echosounder_raw_samples_i"].shape[0])
-        for packet in self.parser_obj.echosounder_raw_packets:
-            packet.data["echosounder_raw_samples_i"] = np.pad(
-                packet.data["echosounder_raw_samples_i"],
-                ((0, max_samples - packet.data["echosounder_raw_samples_i"].shape[0])),
+        self.times_idx = {
+            time_dim: np.array(time_values, dtype="u8")
+            for time_dim, time_values in times_idx.items()
+        }
+        self.timestamps = np.array(timestamps)
+        _, unique_ping_time_idx = np.unique(self.timestamps, return_index=True)
+        self.times_idx[Dimension.PING_TIME] = unique_ping_time_idx
+
+    def _make_dataset(self, var_names: Dict[str, str]) -> xr.Dataset:
+        """
+        Constructs a dataset of the given variables using parser_obj data
+        var_names maps parser_obj field names to output dataset variable names
+        """
+
+        # {field_name: [field_value]}
+        #   [field_value] lines up with time_dim
+        fields: Dict[str, List[np.ndarray]] = {field_name: [] for field_name in var_names.keys()}
+        # {field_name: [Dimension]}
+        dims: Dict[str, List[Dimension]] = dict()
+        # {field_name: field dtype}
+        dtypes: Dict[str, np.dtype] = dict()
+        # {field_name: attrs}
+        attrs: Dict[str, Dict[str, str]] = dict()
+        # {field_name: [idx of padding]}
+        pad_idx: Dict[str, List[int]] = {field_name: [] for field_name in var_names.keys()}
+        # {field_name: field exists}
+        field_exists: Dict[str, bool] = {field_name: False for field_name in var_names.keys()}
+        beam_coords: Optional[np.ndarray] = None
+        # separate by time dim
+        for packet in self.parser_obj.packets:
+            if not packet.has_timestamp():
+                continue
+            if "beams" in packet.data:
+                if beam_coords is None:
+                    beam_coords = packet.data["beams"]
+                else:
+                    beam_coords = max(beam_coords, packet.data["beams"], key=lambda x: len(x))
+            data_record_format = HeaderOrDataRecordFormats.data_record_format(
+                packet.data_record_type
             )
-            packet.data["echosounder_raw_samples_q"] = np.pad(
-                packet.data["echosounder_raw_samples_q"],
-                ((0, max_samples - packet.data["echosounder_raw_samples_q"].shape[0])),
-            )
+            for field_name in var_names.keys():
+                field = data_record_format.get_field(field_name)
+                if field is None:
+                    field_dimensions = Field.default_dimensions()
+                    # can't store in dims yet because there might be another data record format
+                    #   which does have this field
 
-        def make_dataset(
-            packets: List[Ad2cpDataPacket], ping_time_dim: str
-        ) -> Optional[xr.Dataset]:
-            for i in range(len(packets)):
-                packet = packets[i]
-                data_vars = dict()
-                for field_name, field_value in packet.data.items():
-                    # add dimension names to data vars for xarray
-                    # TODO might not work with altimeter_spare
-                    field = HeaderOrDataRecordFormats.data_record_format(
-                        packet.data_record_type
-                    ).get_field(field_name)
-                    if field is not None:
-                        dims = field.dimensions(packet.data_record_type)
-                        units = field.units()
-                    else:
-                        dims = Field.default_dimensions()
-                        units = None
-                    if units:
-                        data_vars[field_name] = (
-                            tuple(dim.value for dim in dims),
-                            [field_value],
-                            {"Units": units},
-                        )
-                    else:
-                        data_vars[field_name] = (
-                            tuple(dim.value for dim in dims),
-                            [field_value],
-                        )
-                coords = {
-                    "ping_time": [packet.timestamp],
-                    ping_time_dim: [packet.timestamp],
-                }
-                if "beams" in packet.data_exclude:
-                    coords["beam"] = packet.data_exclude["beams"]
-                new_packet = xr.Dataset(data_vars=data_vars, coords=coords)
+                    if field_name not in attrs:
+                        if field_name in self.field_attrs["POSTPROCESSED"]:
+                            attrs[field_name] = self.field_attrs["POSTPROCESSED"][field_name]
+                else:
+                    field_dimensions = field.dimensions(packet.data_record_type)
 
-                # modify in place to reduce memory consumption
-                packets[i] = new_packet
-            if len(packets) > 0:
-                packets = merge_attrs(packets)
-                return xr.combine_by_coords(
-                    packets,
-                    data_vars="minimal",
-                    coords="minimal",
-                    combine_attrs="override",
+                    if field_name not in dims:
+                        dims[field_name] = field_dimensions
+                    if field_name not in dtypes:
+                        field_entry_size_bytes = field.field_entry_size_bytes
+                        if callable(field_entry_size_bytes):
+                            field_entry_size_bytes = field_entry_size_bytes(packet)
+                        dtypes[field_name] = field.field_entry_data_type.dtype(
+                            field_entry_size_bytes
+                        )
+                    if field_name not in attrs:
+                        attrs[field_name] = self.field_attrs[data_record_format.name][field_name]
+
+                if field_name in packet.data:  # field is in this packet
+                    fields[field_name].append(packet.data[field_name])
+                    field_exists[field_name] = True
+                else:  # field is not in this packet
+                    # pad the list of field values with an empty array so that
+                    #   the time dimension still lines up with the field values
+                    fields[field_name].append(np.array(0))
+                    pad_idx[field_name].append(len(fields[field_name]) - 1)
+
+        for field_name in fields.keys():
+            # add dimensions to dims if they were not found
+            #   (the desired fields did not exist in any of the packet's data records
+            #   because they are in a different packet OR it is a field created by echopype
+            #   from a bitfield, etc.)
+            if field_name not in dims:
+                dims[field_name] = Field.default_dimensions()
+            # add dtypes to dtypes if they were not found
+            #   (the desired fields did not exist in any of the packet's data records
+            #   because they are in a different packet OR it is a field created by echopype
+            #   from a bitfield, etc.)
+            if field_name not in dtypes:
+                dtypes[field_name] = DataType.default_dtype()
+
+        # replace padding with correct shaped padding
+        #   (earlier we padded along the time dimension but we didn't necessarily know the shape
+        #   of the padding itself)
+        for field_name, pad_idxs in pad_idx.items():
+            for i in pad_idxs:
+                fields[field_name][i] = np.zeros(
+                    np.ones(len(dims[field_name]) - 1, dtype="u1"),  # type: ignore
+                    dtype=dtypes[field_name],
                 )
-            else:
-                return None
 
-        burst_ds = make_dataset(self.parser_obj.burst_packets, ping_time_dim="ping_time_burst")
-        average_ds = make_dataset(
-            self.parser_obj.average_packets, ping_time_dim="ping_time_average"
-        )
-        echosounder_ds = make_dataset(
-            self.parser_obj.echosounder_packets, ping_time_dim="ping_time_echosounder"
-        )
-        echosounder_raw_ds = make_dataset(
-            self.parser_obj.echosounder_raw_packets,
-            ping_time_dim="ping_time_echosounder_raw",
-        )
-        echosounder_raw_transmit_ds = make_dataset(
-            self.parser_obj.echosounder_raw_transmit_packets,
-            ping_time_dim="ping_time_echosounder_raw_transmit",
-        )
+        # {field_name: field_value}
+        #   field_value is now combined along time_dim
+        combined_fields: Dict[str, np.ndarray] = dict()
+        # pad to max shape and stack
+        for field_name, field_values in fields.items():
+            if field_exists[field_name]:
+                if len(dims[field_name]) > 1:
+                    shapes = [field_value.shape for field_value in field_values]
+                    max_shape = np.amax(
+                        np.stack(shapes),
+                        axis=0,
+                    )
+                    field_values = [
+                        np.pad(
+                            field_value,
+                            tuple(
+                                (0, max_axis_len - field_value.shape[i])
+                                for i, max_axis_len in enumerate(max_shape)  # type: ignore
+                            ),
+                        )
+                        for field_value in field_values
+                    ]
+                field_values = np.stack(field_values)
+                combined_fields[field_name] = field_values
 
-        datasets = [
-            ds
-            for ds in (
-                burst_ds,
-                average_ds,
-                echosounder_ds,
-                echosounder_raw_ds,
-                echosounder_raw_transmit_ds,
+        # slice fields to time_dim
+        for field_name, field_value in combined_fields.items():
+            combined_fields[field_name] = field_value[self.times_idx[dims[field_name][0]]]
+
+        # make ds
+        used_dims: Set[Dimension] = {
+            dim
+            for field_name, dims_list in dims.items()
+            for dim in dims_list
+            if field_exists[field_name]
+        }
+        data_vars: Dict[
+            str,
+            Union[Tuple[List[str], np.ndarray, Dict[str, str]], Tuple[Tuple[()], None]],
+        ] = {
+            var_name: (
+                [dim.dimension_name() for dim in dims[field_name]],
+                combined_fields[field_name],
+                attrs.get(field_name, {}),
             )
-            if ds
-        ]
-
-        for dataset in datasets:
-            if "offset_of_data" in dataset:
-                print(dataset["offset_of_data"])
-
-        datasets = merge_attrs(datasets)
-        self.ds = xr.merge(datasets)
+            if field_exists[field_name]
+            else ((), None)
+            for field_name, var_name in var_names.items()
+        }  # type: ignore
+        coords: Dict[str, np.ndarray] = dict()
+        for time_dim, time_idxs in self.times_idx.items():
+            if time_dim in used_dims:
+                coords[time_dim.dimension_name()] = self.timestamps[time_idxs]
+        for ahrs_dim, ahrs_coords in AHRS_COORDS.items():
+            if ahrs_dim in used_dims:
+                coords[ahrs_dim.dimension_name()] = ahrs_coords
+        if Dimension.BEAM in used_dims and beam_coords is not None:
+            coords[Dimension.BEAM.dimension_name()] = beam_coords
+        ds = xr.Dataset(data_vars=data_vars, coords=coords)
+        # make arange coords for the remaining dims
+        non_coord_dims = {dim.dimension_name() for dim in used_dims} - set(ds.coords.keys())
+        ds = ds.assign_coords({dim: np.arange(ds.dims[dim]) for dim in non_coord_dims})
+        return ds
 
     def set_env(self) -> xr.Dataset:
-        ds = xr.Dataset(
-            data_vars={
-                "sound_speed_indicative": self.ds.get("speed_of_sound"),
-                "temperature": self.ds.get("temperature"),
-                "pressure": self.ds.get("pressure"),
-            },
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_burst": self.ds.get("ping_time_burst", []),
-                "ping_time_average": self.ds.get("ping_time_average", []),
-                "ping_time_echosounder": self.ds.get("ping_time_echosounder", []),
-            },
+        ds = self._make_dataset(
+            {
+                "speed_of_sound": "sound_speed_indicative",
+                "temperature": "temperature",
+                "pressure": "pressure",
+            }
         )
-
-        # FIXME: this is a hack because the current file saving
-        # mechanism requires that the env group have ping_time as a dimension,
-        # but ping_time might not be a dimension if the dataset is completely
-        # empty
-        if "ping_time" not in ds.dims:
-            ds = ds.expand_dims(dim="ping_time")
 
         return set_encodings(ds)
 
     def set_platform(self) -> xr.Dataset:
-        ds = xr.Dataset(
-            data_vars={
-                "heading": self.ds.get("heading"),
-                "pitch": self.ds.get("pitch"),
-                "roll": self.ds.get("roll"),
-                "magnetometer_raw_x": self.ds.get("magnetometer_raw_x"),
-                "magnetometer_raw_y": self.ds.get("magnetometer_raw_y"),
-                "magnetometer_raw_z": self.ds.get("magnetometer_raw_z"),
-            },
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_burst": self.ds.get("ping_time_burst"),
-                "ping_time_average": self.ds.get("ping_time_average"),
-                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
-                "beam": self.ds.get("beam"),
-                "range_sample_burst": self.ds.get("range_sample_burst"),
-                "range_sample_average": self.ds.get("range_sample_average"),
-                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
-            },
-            attrs={
-                "platform_name": self.ui_param["platform_name"],
-                "platform_type": self.ui_param["platform_type"],
-                "platform_code_ICES": self.ui_param["platform_code_ICES"],
-            },
+        ds = self._make_dataset(
+            {
+                "heading": "heading",
+                "pitch": "pitch",
+                "roll": "roll",
+            }
+        )
+        ds = ds.assign_attrs(
+            {
+                "platform_name": self.ui_param["platform_name"],  # type: ignore
+                "platform_type": self.ui_param["platform_type"],  # type: ignore
+                "platform_code_ICES": self.ui_param["platform_code_ICES"],  # type: ignore
+            }
         )
         return set_encodings(ds)
 
-    def set_beam(self) -> xr.Dataset:
+    def set_beam(self) -> List[xr.Dataset]:
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
-        # like was done for range_sample (we have range_sample_burst, range_sample_average,
-        # and range_sample_echosounder)?
-        data_vars = {
-            "number_of_beams": self.ds.get("num_beams"),
-            "coordinate_system": self.ds.get("coordinate_system"),
-            "number_of_cells": self.ds.get("num_cells"),
-            "blanking": self.ds.get("blanking"),
-            "cell_size": self.ds.get("cell_size"),
-            "velocity_range": self.ds.get("velocity_range"),
-            "echosounder_frequency": self.ds.get("echosounder_frequency"),
-            "ambiguity_velocity": self.ds.get("ambiguity_velocity"),
-            "data_set_description": self.ds.get("dataset_description"),
-            "transmit_energy": self.ds.get("transmit_energy"),
-            "velocity_scaling": self.ds.get("velocity_scaling"),
-            "velocity_burst": self.ds.get("velocity_data_burst"),
-            "velocity_average": self.ds.get("velocity_data_average"),
-            # "velocity_echosounder": self.ds.get("velocity_data_echosounder"),
-            "amplitude_burst": self.ds.get("amplitude_data_burst"),
-            "amplitude_average": self.ds.get("amplitude_data_average"),
-            # "amplitude_echosounder": self.ds.get("amplitude_data_echosounder"),
-            "correlation_burst": self.ds.get("correlation_data_burst"),
-            "correlation_average": self.ds.get("correlation_data_average"),
-            "correlation_echosounder": self.ds.get("correlation_data_echosounder"),
-            # "echosounder": self.ds.get("echosounder_data"),
-            "amplitude_echosounder": self.ds.get("echosounder_data"),
-            "figure_of_merit": self.ds.get("figure_of_merit_data"),
-            "altimeter_distance": self.ds.get("altimeter_distance"),
-            "altimeter_quality": self.ds.get("altimeter_quality"),
-            "ast_distance": self.ds.get("ast_distance"),
-            "ast_quality": self.ds.get("ast_quality"),
-            "ast_offset_100us": self.ds.get("ast_offset_100us"),
-            "ast_pressure": self.ds.get("ast_pressure"),
-            "altimeter_spare": self.ds.get("altimeter_spare"),
-            "altimeter_raw_data_num_samples": self.ds.get("altimeter_raw_data_num_samples"),
-            "altimeter_raw_data_sample_distance": self.ds.get("altimeter_raw_data_sample_distance"),
-            "altimeter_raw_data_samples": self.ds.get("altimeter_raw_data_samples"),
-        }
+        # like was done for range_bin (we have range_bin_burst, range_bin_average,
+        # and range_bin_echosounder)?
+        beam_groups = []
+        self._beamgroups = []
+        beam_groups_exist = set()
 
-        ds = xr.Dataset(
-            data_vars=data_vars,
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_burst": self.ds.get("ping_time_burst"),
-                "ping_time_average": self.ds.get("ping_time_average"),
-                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
-                "beam": self.ds.get("beam"),
-                "range_sample_burst": self.ds.get("range_sample_burst"),
-                "range_sample_average": self.ds.get("range_sample_average"),
-                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
-                "altimeter_sample_bin": self.ds.get("altimeter_sample_bin"),
-            },
-            attrs={"pulse_compressed": self.pulse_compressed},
-        )
+        for packet in self.parser_obj.packets:
+            if packet.is_average():
+                beam_groups_exist.add(BeamGroup.AVERAGE)
+            elif packet.is_burst():
+                beam_groups_exist.add(BeamGroup.BURST)
+            elif packet.is_echosounder():
+                beam_groups_exist.add(BeamGroup.ECHOSOUNDER)
+            elif packet.is_echosounder_raw():
+                beam_groups_exist.add(BeamGroup.ECHOSOUNDER_RAW)
+
+            if len(beam_groups_exist) == len(BeamGroup):
+                break
+
+        # average
+        if BeamGroup.AVERAGE in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
+                    {
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "velocity_data_average": "velocity",
+                        "amplitude_data_average": "amplitude",
+                        "correlation_data_average": "correlation",
+                    }
+                )
+            )
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains echo intensity, velocity and correlation data "
+                        "as well as other configuration parameters from the Average mode."
+                    ),
+                }
+            )
+        # burst
+        if BeamGroup.BURST in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
+                    {
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "velocity_data_burst": "velocity",
+                        "amplitude_data_burst": "amplitude",
+                        "correlation_data_burst": "correlation",
+                    }
+                )
+            )
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains echo intensity, velocity and correlation data "
+                        "as well as other configuration parameters from the Burst mode."
+                    ),
+                }
+            )
+        # echosounder
+        if BeamGroup.ECHOSOUNDER in beam_groups_exist:
+            ds = self._make_dataset(
+                {
+                    "num_beams": "number_of_beams",
+                    "coordinate_system": "coordinate_system",
+                    "num_cells": "number_of_cells",
+                    "blanking": "blanking",
+                    "cell_size": "cell_size",
+                    "velocity_range": "velocity_range",
+                    "echosounder_frequency": "echosounder_frequency",
+                    "ambiguity_velocity": "ambiguity_velocity",
+                    "dataset_description": "data_set_description",
+                    "transmit_energy": "transmit_energy",
+                    "velocity_scaling": "velocity_scaling",
+                    "correlation_data_echosounder": "correlation",
+                    "echosounder_data": "amplitude",
+                }
+            )
+            ds = ds.assign_coords({"echogram": np.arange(3)})
+            pulse_compressed = np.zeros(3)
+            # TODO: bug: if self.pulse_compress=0 this will set the last index to 1
+            pulse_compressed[self.pulse_compressed - 1] = 1
+            ds["pulse_compressed"] = (("echogram",), pulse_compressed)
+            beam_groups.append(ds)
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains backscatter echo intensity and other configuration "
+                        "parameters from the Echosounder mode. "
+                        "Data can be pulse compressed or raw intensity."
+                    ),
+                }
+            )
+        # echosounder raw
+        if BeamGroup.ECHOSOUNDER_RAW in beam_groups_exist:
+            beam_groups.append(
+                self._make_dataset(
+                    {
+                        "num_beams": "number_of_beams",
+                        "coordinate_system": "coordinate_system",
+                        "num_cells": "number_of_cells",
+                        "blanking": "blanking",
+                        "cell_size": "cell_size",
+                        "velocity_range": "velocity_range",
+                        "echosounder_frequency": "echosounder_frequency",
+                        "ambiguity_velocity": "ambiguity_velocity",
+                        "dataset_description": "data_set_description",
+                        "transmit_energy": "transmit_energy",
+                        "velocity_scaling": "velocity_scaling",
+                        "num_complex_samples": "num_complex_samples",
+                        "ind_start_samples": "ind_start_samples",
+                        "freq_raw_sample_data": "freq_raw_sample_data",
+                        "echosounder_raw_samples_i": "backscatter_r",
+                        "echosounder_raw_samples_q": "backscatter_i",
+                        "echosounder_raw_transmit_samples_i": "transmit_pulse_r",
+                        "echosounder_raw_transmit_samples_q": "transmit_pulse_i",
+                    }
+                )
+            )
+
+            self._beamgroups.append(
+                {
+                    "name": f"Beam_group{len(self._beamgroups) + 1}",
+                    "descr": (
+                        "contains complex backscatter raw samples and other configuration "
+                        "parameters from the Echosounder mode, "
+                        "including complex data from the transmit pulse."
+                    ),
+                }
+            )
 
         # FIXME: this is a hack because the current file saving
         # mechanism requires that the beam group have ping_time as a dimension,
         # but ping_time might not be a dimension if the dataset is completely
         # empty
-        if "ping_time" not in ds.dims:
-            ds = ds.expand_dims(dim="ping_time")
+        for i, ds in enumerate(beam_groups):
+            if "ping_time" not in ds.dims:
+                beam_groups[i] = ds.expand_dims(dim="ping_time")
 
-        return set_encodings(ds)
+        # remove time1 from beam groups
+        for i, ds in enumerate(beam_groups):
+            beam_groups[i] = ds.sel(time1=ds["ping_time"]).drop_vars("time1", errors="ignore")
+
+        return [set_encodings(ds) for ds in beam_groups]
 
     def set_vendor(self) -> xr.Dataset:
-        attrs = {
-            "pressure_sensor_valid": self.ds.get("pressure_sensor_valid"),
-            "temperature_sensor_valid": self.ds.get("temperature_sensor_valid"),
-            "compass_sensor_valid": self.ds.get("compass_sensor_valid"),
-            "tilt_sensor_valid": self.ds.get("tilt_sensor_valid"),
-        }
-        attrs = {
-            field_name: field_value.data[0]
-            for field_name, field_value in attrs.items()
-            if field_value is not None
-        }
-        ds = xr.Dataset(
-            data_vars={
-                "data_record_version": self.ds.get("version"),
-                "error": self.ds.get("error"),
-                "status": self.ds.get("status"),
-                "status0": self.ds.get("status0"),
-                "battery_voltage": self.ds.get("battery_voltage"),
-                "power_level": self.ds.get("power_level"),
-                "temperature_of_pressure_sensor": self.ds.get("temperature_from_pressure_sensor"),
-                "nominal_correlation": self.ds.get("nominal_correlation"),
-                "magnetometer_temperature": self.ds.get("magnetometer_temperature"),
-                "real_ping_time_clock_temperature": self.ds.get("real_ping_time_clock_temperature"),
-                "ensemble_counter": self.ds.get("ensemble_counter"),
-                "ahrs_rotation_matrix_mij": (
-                    ("mij", "ping_time") if "ahrs_rotation_matrix_m11" in self.ds else "mij",
-                    [
-                        self.ds.get("ahrs_rotation_matrix_m11"),
-                        self.ds.get("ahrs_rotation_matrix_m12"),
-                        self.ds.get("ahrs_rotation_matrix_m13"),
-                        self.ds.get("ahrs_rotation_matrix_m21"),
-                        self.ds.get("ahrs_rotation_matrix_m22"),
-                        self.ds.get("ahrs_rotation_matrix_m23"),
-                        self.ds.get("ahrs_rotation_matrix_m31"),
-                        self.ds.get("ahrs_rotation_matrix_m32"),
-                        self.ds.get("ahrs_rotation_matrix_m33"),
-                    ],
-                ),
-                "ahrs_quaternions_wxyz": (
-                    ("wxyz", "ping_time") if "ahrs_quaternions_w" in self.ds else "wxyz",
-                    [
-                        self.ds.get("ahrs_quaternions_w"),
-                        self.ds.get("ahrs_quaternions_x"),
-                        self.ds.get("ahrs_quaternions_y"),
-                        self.ds.get("ahrs_quaternions_z"),
-                    ],
-                ),
-                "ahrs_gyro_xyz": (
-                    ("xyz", "ping_time") if "ahrs_gyro_x" in self.ds else "xyz",
-                    [
-                        self.ds.get("ahrs_gyro_x"),
-                        self.ds.get("ahrs_gyro_y"),
-                        self.ds.get("ahrs_gyro_z"),
-                    ],
-                ),
-                "percentage_good_data": self.ds.get("percentage_good_data"),
-                "std_dev_pitch": self.ds.get("std_dev_pitch"),
-                "std_dev_roll": self.ds.get("std_dev_roll"),
-                "std_dev_heading": self.ds.get("std_dev_heading"),
-                "std_dev_pressure": self.ds.get("std_dev_pressure"),
-                "echosounder_raw_samples_i": self.ds.get("echosounder_raw_samples_i"),
-                "echosounder_raw_samples_q": self.ds.get("echosounder_raw_samples_q"),
-                "echosounder_raw_transmit_samples_i": self.ds.get(
-                    "echosounder_raw_transmit_samples_i"
-                ),
-                "echosounder_raw_transmit_samples_q": self.ds.get(
-                    "echosounder_raw_transmit_samples_q"
-                ),
-                "echosounder_raw_beam": self.ds.get("echosounder_raw_beam"),
-                "echosounder_raw_echogram": self.ds.get("echosounder_raw_echogram"),
-            },
-            coords={
-                "ping_time": self.ds.get("ping_time"),
-                "ping_time_burst": self.ds.get("ping_time_burst"),
-                "ping_time_average": self.ds.get("ping_time_average"),
-                "ping_time_echosounder": self.ds.get("ping_time_echosounder"),
-                "ping_time_echosounder_raw": self.ds.get("ping_time_echosounder_raw"),
-                "ping_time_echosounder_raw_transmit": self.ds.get(
-                    "ping_time_echosounder_raw_transmit"
-                ),
-                "sample": self.ds.get("sample"),
-                "sample_transmit": self.ds.get("sample_transmit"),
-                "beam": self.ds.get("beam"),
-                "range_sample_average": self.ds.get("range_sample_average"),
-                "range_sample_burst": self.ds.get("range_sample_burst"),
-                "range_sample_echosounder": self.ds.get("range_sample_echosounder"),
-            },
-            attrs={**attrs, "pulse_compressed": self.pulse_compressed},
-        )
-        ds = ds.reindex(
+        ds = self._make_dataset(
             {
-                "mij": np.array(["11", "12", "13", "21", "22", "23", "31", "32", "33"]),
-                "wxyz": np.array(["w", "x", "y", "z"]),
-                "xyz": np.array(["x", "y", "z"]),
+                "version": "data_record_version",
+                "pressure_sensor_valid": "pressure_sensor_valid",
+                "temperature_sensor_valid": "temperature_sensor_valid",
+                "compass_sensor_valid": "compass_sensor_valid",
+                "tilt_sensor_valid": "tilt_sensor_valid",
+                "velocity_data_included": "velocity_data_included",
+                "amplitude_data_included": "amplitude_data_included",
+                "correlation_data_included": "correlation_data_included",
+                "altimeter_data_included": "altimeter_data_included",
+                "altimeter_raw_data_included": "altimeter_raw_data_included",
+                "ast_data_included": "ast_data_included",
+                "echosounder_data_included": "echosounder_data_included",
+                "ahrs_data_included": "ahrs_data_included",
+                "percentage_good_data_included": "percentage_good_data_included",
+                "std_dev_data_included": "std_dev_data_included",
+                "distance_data_included": "distance_data_included",
+                "figure_of_merit_data_included": "figure_of_merit_data_included",
+                "error": "error",
+                "status0": "status0",
+                "procidle3": "procidle3",
+                "procidle6": "procidle6",
+                "procidle12": "procidle12",
+                "status": "status",
+                "wakeup_state": "wakeup_state",
+                "orientation": "orientation",
+                "autoorientation": "autoorientation",
+                "previous_wakeup_state": "previous_wakeup_state",
+                "last_measurement_low_voltage_skip": "last_measurement_low_voltage_skip",
+                "active_configuration": "active_configuration",
+                "echosounder_index": "echosounder_index",
+                "telemetry_data": "telemetry_data",
+                "boost_running": "boost_running",
+                "echosounder_frequency_bin": "echosounder_frequency_bin",
+                "bd_scaling": "bd_scaling",
+                "battery_voltage": "battery_voltage",
+                "power_level": "power_level",
+                "temperature_from_pressure_sensor": "temperature_of_pressure_sensor",
+                "nominal_correlation": "nominal_correlation",
+                "magnetometer_temperature": "magnetometer_temperature",
+                "real_time_clock_temperature": "real_time_clock_temperature",
+                "ensemble_counter": "ensemble_counter",
+                "ahrs_rotation_matrix": "ahrs_rotation_matrix_mij",
+                "ahrs_quaternions": "ahrs_quaternions_wxyz",
+                "ahrs_gyro": "ahrs_gyro_xyz",
+                "percentage_good_data": "percentage_good_data",
+                "std_dev_pitch": "std_dev_pitch",
+                "std_dev_roll": "std_dev_roll",
+                "std_dev_heading": "std_dev_heading",
+                "std_dev_pressure": "std_dev_pressure",
+                "pressure_sensor_valid": "pressure_sensor_valid",
+                "temperature_sensor_valid": "temperature_sensor_valid",
+                "compass_sensor_valid": "compass_sensor_valid",
+                "tilt_sensor_valid": "tilt_sensor_valid",
+                "figure_of_merit_data": "figure_of_merit",
+                "altimeter_distance": "altimeter_distance",
+                "altimeter_quality": "altimeter_quality",
+                "ast_distance": "ast_distance",
+                "ast_quality": "ast_quality",
+                "ast_offset_100us": "ast_offset_100us",
+                "ast_pressure": "ast_pressure",
+                "altimeter_spare": "altimeter_spare",
+                "altimeter_raw_data_num_samples": "altimeter_raw_data_num_samples",
+                "altimeter_raw_data_sample_distance": "altimeter_raw_data_sample_distance",
+                "altimeter_raw_data_samples": "altimeter_raw_data_samples",
+                "magnetometer_raw": "magnetometer_raw",
             }
         )
-
-        # FIXME: this is a hack because the current file saving
-        # mechanism requires that the vendor group have ping_time as a dimension,
-        # but ping_time might not be a dimension if the dataset is completely
-        # empty
-        if "ping_time" not in ds.dims:
-            ds = ds.expand_dims(dim="ping_time")
 
         return set_encodings(ds)
 
@@ -374,22 +505,27 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
-        self._beamgroups = self.beamgroups_possible
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
         ds = xr.Dataset(beam_groups_vars, coords=beam_groups_coord)
 
         # Assemble sonar group global attribute dictionary
         sonar_attr_dict = {
             "sonar_manufacturer": "Nortek",
-            "sonar_model": self.sonar_model,
-            "sonar_serial_number": "",
+            "sonar_model": "AD2CP",
+            "sonar_serial_number": ", ".join(
+                np.unique(
+                    [
+                        str(packet.data["serial_number"])
+                        for packet in self.parser_obj.packets
+                        if "serial_number" in packet.data
+                    ]
+                )
+            ),
             "sonar_software_name": "",
             "sonar_software_version": "",
             "sonar_firmware_version": "",
             "sonar_type": "acoustic Doppler current profiler (ADCP)",
         }
-        if "serial_number" in self.ds:
-            sonar_attr_dict["sonar_serial_number"] = int(self.ds["serial_number"].data[0])
         firmware_version = self.parser_obj.get_firmware_version()
         if firmware_version is not None:
             sonar_attr_dict["sonar_firmware_version"] = ", ".join(
@@ -398,4 +534,4 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         ds = ds.assign_attrs(sonar_attr_dict)
 
-        return ds
+        return set_encodings(ds)

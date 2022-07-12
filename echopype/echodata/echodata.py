@@ -2,19 +2,18 @@ import datetime
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 import fsspec
 import numpy as np
 import xarray as xr
-from anytree.resolver import ChildResolverError
 from datatree import DataTree, open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..calibrate.calibrate_base import EnvParams
+from ..calibrate.env_params import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.uwa import calc_sound_speed
@@ -30,7 +29,10 @@ XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
 
 TVG_CORRECTION_FACTOR = {
     "EK60": 2,
+    "ES70": 2,
     "EK80": 0,
+    "ES80": 0,
+    "EA640": 0,
 }
 
 
@@ -133,6 +135,7 @@ class EchoData:
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
+        tree.name = "root"
 
         echodata._set_tree(tree)
 
@@ -161,7 +164,7 @@ class EchoData:
                     node = self._tree[value["ep_group"]]
 
                 ds = self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 # Skips group not found errors for EK80 and ADCP
                 ...
             if group == "top" and hasattr(ds, "keywords"):
@@ -181,11 +184,7 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        root_path = self._tree.pathstr
-        return {
-            i.replace(root_path + "/", "") if i != "root" else "Top-level"
-            for i in self._tree.groups
-        }
+        return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
 
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
@@ -204,7 +203,7 @@ class EchoData:
             try:
                 node = self.__get_node(__key)
                 return self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
@@ -215,7 +214,7 @@ class EchoData:
                 node = self.__get_node(__key)
                 node.ds = __newvalue
                 return self.__get_dataset(node)
-            except ChildResolverError:
+            except KeyError:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
@@ -259,6 +258,47 @@ class EchoData:
                     else:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
+
+    @staticmethod
+    def _harmonize_env_param_time(
+        p: Union[int, float, xr.DataArray],
+        ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
+    ):
+        """
+        Harmonize time coordinate between Beam_groupX data and env_params to make sure
+        the timestamps are broacast correctly in calibration and range calculations.
+
+        Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
+        needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
+        If `time1` is of length=1, the dimension `time1` is dropped.
+        Otherwise, `p` is interpolated to `ping_time`.
+        If `p` is not an xr.DataArray it is returned directly.
+
+        Parameters
+        ----------
+        p
+            The environment parameter for timestamp check/correction
+        ping_time
+            Beam_groupX ping_time to interpolate env_params timestamps to.
+            Only used if p.time1 has length >1
+
+        Returns
+        -------
+        Environment parameter with correctly broadcasted timestamps
+        """
+        if isinstance(p, xr.DataArray):
+            if "time1" not in p.coords:
+                return p
+            else:
+                if p["time1"].size == 1:
+                    return p.squeeze(dim="time1").drop("time1")
+                else:
+                    if ping_time is not None:
+                        return p.interp(time1=ping_time)
+                    else:
+                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
+        else:
+            return p
 
     def compute_range(
         self,
@@ -353,28 +393,22 @@ class EchoData:
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(self)
 
-        def squeeze_non_scalar(n):
-            if not np.isscalar(n):
-                n = n.squeeze()
-            return n
-
         if "sound_speed" in env_params:
-            sound_speed = squeeze_non_scalar(env_params["sound_speed"])
+            sound_speed = env_params["sound_speed"]
+        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
+            sound_speed = self.environment["sound_speed_indicative"]
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
-                squeeze_non_scalar(env_params["temperature"]),
-                squeeze_non_scalar(env_params["salinity"]),
-                squeeze_non_scalar(env_params["pressure"]),
+                env_params["temperature"],
+                env_params["salinity"],
+                env_params["pressure"],
                 formula_source="AZFP" if self.sonar_model == "AZFP" else "Mackenzie",
-            )
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = squeeze_non_scalar(
-                self.environment["sound_speed_indicative"].rename({"time1": "ping_time"})
             )
         else:
             raise ValueError(
                 "sound speed must be specified in env_params, "
-                "with temperature/salinity/pressure in env_params to be calculated, "
+                "with temperature, salinity, and pressure all specified in env_params "
+                "for sound speed to be calculated, "
                 "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
             )
 
@@ -392,6 +426,12 @@ class EchoData:
             # keep this in ref of AZFP matlab code,
             # set to 1 since we want to calculate from raw data
             bins_to_avg = 1
+
+            # Harmonize sound_speed time1 and Beam_group1 ping_time
+            sound_speed = self._harmonize_env_param_time(
+                p=sound_speed,
+                ping_time=self.beam.ping_time,
+            )
 
             # Calculate range using parameters for each freq
             # This is "the range to the centre of the sampling volume
@@ -417,7 +457,7 @@ class EchoData:
             return range_meter
 
         # EK
-        elif self.sonar_model in ("EK60", "EK80"):
+        elif self.sonar_model in ("EK60", "EK80", "ES70", "ES80", "EA640"):
             waveform_mode = ek_waveform_mode
             encode_mode = ek_encode_mode
 
@@ -449,6 +489,12 @@ class EchoData:
                 else:
                     beam = self.beam
 
+                # Harmonize sound_speed time1 and Beam_groupX ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 sample_thickness = beam["sample_interval"] * sound_speed / 2
                 # TODO: Check with the AFSC about the half sample difference
                 range_meter = (
@@ -458,6 +504,13 @@ class EchoData:
                 beam = self.beam  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
+
+                # Harmonize sound_speed time1 and Beam_group1 ping_time
+                sound_speed = self._harmonize_env_param_time(
+                    p=sound_speed,
+                    ping_time=beam.ping_time,
+                )
+
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
                 range_meter = (
@@ -474,10 +527,15 @@ class EchoData:
 
             # set entries with NaN backscatter data to NaN
             if "beam" in beam["backscatter_r"].dims:
+                # Drop beam because echo_range does not have beam dimension
                 valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
             else:
                 valid_idx = ~beam["backscatter_r"].isnull()
             range_meter = range_meter.where(valid_idx)
+
+            # remove time1 if exists as a coordinate
+            if "time1" in range_meter.coords:
+                range_meter = range_meter.drop("time1")
 
             # add name to facilitate xr.merge
             range_meter.name = "echo_range"
@@ -586,7 +644,6 @@ class EchoData:
         )
 
         platform = self.platform
-        platform_vars_attrs = {var: platform[var].attrs for var in platform.variables}
         platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
@@ -599,14 +656,16 @@ class EchoData:
         }
         platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
-        dropped_vars_target = [
-            "pitch",
-            "roll",
-            "vertical_offset",
-            "latitude",
-            "longitude",
-            "water_level",
-        ]
+        platform_vars_sourcenames = {
+            "pitch": ["pitch", "PITCH"],
+            "roll": ["roll", "ROLL"],
+            "vertical_offset": ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
+            "latitude": ["lat", "latitude", "LATITUDE"],
+            "longitude": ["lon", "longitude", "LONGITUDE"],
+            "water_level": ["water_level", "WATER_LEVEL"],
+        }
+
+        dropped_vars_target = platform_vars_sourcenames.keys()
         dropped_vars = []
         for var in dropped_vars_target:
             if var in platform and (~platform[var].isnull()).all():
@@ -620,73 +679,33 @@ class EchoData:
             errors="ignore",
         )
 
-        num_obs = len(extra_platform_data[time_dim])
-
         def mapping_search_variable(mapping, keys, default=None):
             for key in keys:
                 if key in mapping:
                     return mapping[key].data
             return default
 
-        platform = platform.update(
-            {
-                "pitch": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["pitch", "PITCH"],
-                        platform.get("pitch", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "roll": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["roll", "ROLL"],
-                        platform.get("roll", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "vertical_offset": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        [
-                            "heave",
-                            "HEAVE",
-                            "vertical_offset",
-                            "VERTICAL_OFFSET",
-                        ],
-                        platform.get("vertical_offset", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "latitude": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lat", "latitude", "LATITUDE"],
-                        default=platform.get("latitude", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "longitude": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["lon", "longitude", "LONGITUDE"],
-                        default=platform.get("longitude", np.full(num_obs, np.nan)),
-                    ),
-                ),
-                "water_level": (
-                    "time1",
-                    mapping_search_variable(
-                        extra_platform_data,
-                        ["water_level", "WATER_LEVEL"],
-                        default=platform.get("water_level", np.zeros(num_obs)),
-                    ),
-                ),
-            }
-        )
+        num_obs = len(extra_platform_data[time_dim])
+        for platform_var, sourcenames in platform_vars_sourcenames.items():
+            platform = platform.update(
+                {
+                    platform_var: (
+                        "time1",
+                        mapping_search_variable(
+                            extra_platform_data,
+                            sourcenames,
+                            platform.get(platform_var, np.full(num_obs, np.nan)),
+                        ),
+                    )
+                }
+            )
+
         for var in dropped_vars_target:
-            platform[var] = platform[var].assign_attrs(**platform_vars_attrs[var])
+            var_attrs = self._varattrs["platform_var_default"][var]
+            # Insert history attr only if the variable was inserted with valid values
+            if not platform[var].isnull().all():
+                var_attrs["history"] = history_attr
+            platform[var] = platform[var].assign_attrs(**var_attrs)
 
         self.platform = set_encodings(platform)
 

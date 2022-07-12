@@ -4,21 +4,72 @@ Functions for enhancing the spatial and temporal coherence of data.
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from ..utils.prov import echopype_prov_attrs
 from .noise_est import NoiseEst
 
 
-def _check_range_uniqueness(ds):
-    """Check if range (``echo_range``) changes across ping in a given frequency channel."""
-    return (
-        ds["echo_range"].isel(ping_time=0).dropna(dim="range_sample")
-        == ds["echo_range"].dropna(dim="range_sample")
-    ).all()
+def _check_range_uniqueness(da):
+    """
+    Check if range (``echo_range``) changes across ping in a given frequency channel.
+    """
+    # squeeze to remove "channel" dim if present
+    # TODO: not sure why not already removed for the AZFP case. Investigate.
+    da = da.squeeze()
+
+    # remove pings with NaN entries if exist
+    # since goal here is to check uniqueness
+    if np.unique(da.isnull(), axis=0).shape[0] != 1:
+        da = da.dropna(dim="ping_time", how="any")
+
+    # remove padded NaN entries if exist for all pings
+    da = da.dropna(dim="range_sample", how="all")
+
+    ping_time_idx = np.argwhere([dim == "ping_time" for dim in da.dims])[0][0]
+    if np.unique(da, axis=ping_time_idx).shape[ping_time_idx] == 1:
+        return xr.DataArray(data=True, coords={"channel": da["channel"].values})
+    else:
+        return xr.DataArray(data=False, coords={"channel": da["channel"].values})
+
+
+def _freq_MVBS(ds, rint, pbin):
+    # squeeze to remove "channel" dim if present
+    # TODO: not sure why not already removed for the AZFP case. Investigate.
+    ds = ds.squeeze()
+
+    # average should be done in linear domain
+    sv = 10 ** (ds["Sv"] / 10)
+
+    # set 1D coordinate using the 1st ping echo_range since identical for all pings
+    # remove padded NaN entries if exist for all pings
+    er = (
+        ds["echo_range"]
+        .dropna(dim="range_sample", how="all")
+        .dropna(dim="ping_time")
+        .isel(ping_time=0)
+    )
+
+    # use first ping er as indexer for sv
+    sv = sv.sel(range_sample=er.range_sample.values)
+    sv.coords["echo_range"] = (["range_sample"], er.values)
+    sv = sv.swap_dims({"range_sample": "echo_range"})
+    sv_groupby_bins = (
+        sv.resample(ping_time=pbin, skipna=True)
+        .mean(skipna=True)
+        .groupby_bins("echo_range", bins=rint, right=False, include_lowest=True)
+        .mean(skipna=True)
+    )
+    sv_groupby_bins.coords["echo_range"] = (["echo_range_bins"], rint[:-1])
+    sv_groupby_bins = sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"}).drop_vars(
+        "echo_range_bins"
+    )
+    return 10 * np.log10(sv_groupby_bins)
 
 
 def _set_MVBS_attrs(ds):
-    """Attach common attributes
+    """
+    Attach common attributes.
 
     Parameters
     ----------
@@ -42,7 +93,8 @@ def _set_MVBS_attrs(ds):
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
@@ -63,36 +115,10 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     A dataset containing bin-averaged Sv
     """
 
-    if not ds_Sv.groupby("channel").apply(_check_range_uniqueness).all():
+    if not ds_Sv["echo_range"].groupby("channel").apply(_check_range_uniqueness).all():
         raise ValueError(
             "echo_range variable changes across pings in at least one of the frequency channels."
         )
-
-    # TODO: right now this computation is brittle as it takes echo_range
-    #  from only the lowest frequency to make it the range for all channels.
-    #  This should be implemented different to allow non-uniform echo_range.
-
-    # get indices of sorted frequency_nominal values. This is necessary
-    # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(ds_Sv.frequency_nominal)
-
-    def _freq_MVBS(ds, rint, pbin):
-        sv = 10 ** (ds["Sv"] / 10)  # average should be done in linear domain
-        sv.coords["range_meter"] = (
-            ["range_sample"],
-            ds_Sv["echo_range"].isel(channel=sorted_freq_ind[0], ping_time=0).data,
-        )
-        sv = sv.swap_dims({"range_sample": "range_meter"})
-        sv_groupby_bins = (
-            sv.groupby_bins("range_meter", bins=rint, right=False, include_lowest=True)
-            .mean()
-            .resample(ping_time=pbin, skipna=True)
-            .mean()
-        )
-        sv_groupby_bins.coords["echo_range"] = (["range_meter_bins"], rint[:-1])
-        sv_groupby_bins = sv_groupby_bins.swap_dims({"range_meter_bins": "echo_range"})
-        sv_groupby_bins = sv_groupby_bins.drop_vars("range_meter_bins")
-        return 10 * np.log10(sv_groupby_bins)
 
     # Groupby freq in case of different echo_range (from different sampling intervals)
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
@@ -161,7 +187,8 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
 
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
-    """Compute Mean Volume Backscattering Strength (MVBS)
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of ``range_sample`` and ping number (``ping_num``) specified in index number.
 
     Output of this function differs from that of ``compute_MVBS``, which computes
@@ -299,3 +326,37 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
 
 def regrid():
     return 1
+
+
+def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Use frequency_nominal in place of channel as dataset dimension and coordinate.
+
+    This is useful because the nominal transducer frequencies are commonly used to
+    refer to data collected from a specific transducer.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset for which the dimension will be swapped
+
+    Returns
+    -------
+    The input dataset with the dimension swapped
+
+    Note
+    ----
+    This operation is only possible when there are no duplicated frequencies present in the file.
+    """
+    # Only possible if no duplicated frequencies
+    if np.unique(ds["frequency_nominal"]).size == ds["frequency_nominal"].size:
+        return (
+            ds.set_coords("frequency_nominal")
+            .swap_dims({"channel": "frequency_nominal"})
+            .reset_coords("channel")
+        )
+    else:
+        raise ValueError(
+            "Duplicated transducer nominal frequencies exist in the file. "
+            "Operation is not valid."
+        )
