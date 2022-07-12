@@ -117,19 +117,24 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Environment group
-    io.save_file(
-        echodata.environment.chunk(
-            # Making chunking w.r.t. ping_time for AD2CP
-            # and w.r.t. time1 for the rest of the sensors
-            {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
-            if echodata.top.attrs["keywords"] != "AD2CP"
-            else {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
-        ),  # TODO: chunking necessary?
-        path=output_path,
-        mode="a",
-        engine=engine,
-        group="Environment",
-    )
+    if "time1" in echodata.environment:
+        io.save_file(
+            echodata.environment.chunk(
+                {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            ),  # TODO: chunking necessary?
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Environment",
+        )
+    else:
+        io.save_file(
+            echodata.environment,
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Environment",
+        )
 
     # Sonar group
     io.save_file(
@@ -142,18 +147,19 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
 
     # /Sonar/Beam_groupX group
     if echodata.sonar_model == "AD2CP":
-        io.save_file(
-            echodata.beam.chunk(
-                {
-                    "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                }
-            ),
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
+        for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
+            io.save_file(
+                echodata[f"Sonar/Beam_group{i}"].chunk(
+                    {
+                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                    }
+                ),
+                path=output_path,
+                mode="a",
+                engine=engine,
+                group=f"Sonar/Beam_group{i}",
+                compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            )
     else:
         io.save_file(
             echodata.beam.chunk(
@@ -168,20 +174,20 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
-    if echodata.beam_power is not None:
-        io.save_file(
-            echodata.beam_power.chunk(
-                {
-                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-                    "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                }
-            ),
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Sonar/Beam_group2",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
+        if echodata.beam_power is not None:
+            io.save_file(
+                echodata.beam_power.chunk(
+                    {
+                        "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
+                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                    }
+                ),
+                path=output_path,
+                mode="a",
+                engine=engine,
+                group="Sonar/Beam_group2",
+                compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            )
 
     # Platform group
     io.save_file(
@@ -440,12 +446,12 @@ def open_raw(
     # Top-level date_created varies depending on sonar model
     # Top-level is called "root" within tree
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        tree_dict["root"] = setgrouper.set_toplevel(
+        tree_dict["/"] = setgrouper.set_toplevel(
             sonar_model=sonar_model,
             date_created=parser.config_datagram["timestamp"],
         )
     else:
-        tree_dict["root"] = setgrouper.set_toplevel(
+        tree_dict["/"] = setgrouper.set_toplevel(
             sonar_model=sonar_model, date_created=parser.ping_time[0]
         )
     tree_dict["Environment"] = setgrouper.set_env()
@@ -477,7 +483,7 @@ def open_raw(
 
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
-    tree = DataTree.from_dict(tree_dict)
+    tree = DataTree.from_dict(tree_dict, name="root")
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
     echodata._load_tree()

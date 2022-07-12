@@ -20,7 +20,7 @@
             </div>
         </li>
         <ul>
-            {%- for node in echodata._tree.children recursive -%}
+            {%- for node in echodata._tree.children.values() recursive -%}
                 {%- if node.has_data or node.has_attrs -%}
                 <li class="xr-section-list">
                     {%-set node_key = node.name|make_key -%}
@@ -34,8 +34,8 @@
                     </div>
                 </li>
                 {%- endif -%}
-                {%- if node.children -%}
-                    <ul>{{ loop(node.children) }}</ul>
+                {%- if node.children.values() -%}
+                    <ul>{{ loop(node.children.values()) }}</ul>
                 {%- endif %}
             {%- endfor -%}
         </ul>
