@@ -93,10 +93,12 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # the command will install all the dependencies along with plotting dependencies.
     pip install -e ".[plot]"
 
-.. attention::
+.. note::
 
-    Try using `mamba <https://mamba.readthedocs.io/en/latest/index.html>` instead of 
-    ``conda`` if the ``conda create`` and ``conda install`` step fail or take too long.
+    Try using `mamba <https://mamba.readthedocs.io>`_ instead of ``conda``
+    if the ``conda create`` and ``conda install`` step fail or take too long.
+    ``Mamba`` is a drop-in replacement for conda environment creation and package
+    installation that is typically faster than conda.
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
@@ -178,14 +180,13 @@ especially `pr.yaml <https://github.com/OSOceanAcoustics/echopype/blob/main/.git
 The entire test suite can be a bit slow, taking up to 40 minutes or more.
 To mitigate this, the CI default is to run tests only for subpackages that
 were modified in the PR; this is done via ``.ci_helpers/run-test.py``
-(see the `Running the tests`_ section). To force the CI to execute the
-entire test suite, include the string "[all tests ci]" in the title of your PR.
-
+(see the `Running the tests`_ section). To have the CI execute the
+entire test suite, add the string "[all tests ci]" to the PR title.
 Under special circumstances, when the submitted changes have a
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing
-(you're a seasoned echopype contributor), the CI can be skipped.
-This is done by including the string "[skip ci]" in the title of your PR.
+(you're a seasoned echopype contributor), the CI can be skipped. 
+This is done by adding the string "[skip ci]" to the PR title.
 
 
 Documentation development
