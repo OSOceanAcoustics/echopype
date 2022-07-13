@@ -91,7 +91,14 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # install echopype in editable mode (setuptools "develop mode")
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
-    pip install -e .[plot]
+    pip install -e ".[plot]"
+
+.. note::
+
+    Try using `mamba <https://mamba.readthedocs.io>`_ instead of ``conda``
+    if the ``conda create`` and ``conda install`` step fail or take too long.
+    ``Mamba`` is a drop-in replacement for conda environment creation and package
+    installation that is typically faster than conda.
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
@@ -101,13 +108,6 @@ Tests and test infrastructure
 
 Test data files
 ~~~~~~~~~~~~~~~
-
-.. attention::
-
-    Echopype previously used Git LFS for managing and accessing large test data files.
-    We have deprecated its use starting with echopype version 0.5.0. The files
-    in https://github.com/OSOceanAcoustics/echopype/tree/main/echopype/test_data
-    are also being deprecated.
 
 Test echosounder data files are managed in a private Google Drive folder and
 made available via the `cormorack/http <https://hub.docker.com/r/cormorack/http>`_
@@ -181,14 +181,12 @@ The entire test suite can be a bit slow, taking up to 40 minutes or more.
 To mitigate this, the CI default is to run tests only for subpackages that
 were modified in the PR; this is done via ``.ci_helpers/run-test.py``
 (see the `Running the tests`_ section). To have the CI execute the
-entire test suite, add the GitHub label ``Needs Complete Testing`` to the
-PR before submitting it.
-
+entire test suite, add the string "[all tests ci]" to the PR title.
 Under special circumstances, when the submitted changes have a
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing
 (you're a seasoned echopype contributor), the CI can be skipped.
-This is done by including the string "[skip ci]" in your last commit's message.
+This is done by adding the string "[skip ci]" to the PR title.
 
 
 Documentation development
