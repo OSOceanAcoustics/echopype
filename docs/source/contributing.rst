@@ -185,7 +185,7 @@ entire test suite, add the string "[all tests ci]" to the PR title.
 Under special circumstances, when the submitted changes have a
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing
-(you're a seasoned echopype contributor), the CI can be skipped. 
+(you're a seasoned echopype contributor), the CI can be skipped.
 This is done by adding the string "[skip ci]" to the PR title.
 
 
