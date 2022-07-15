@@ -13,8 +13,8 @@ def test_add_location(test_path):
         assert "longitude" in ds_test
         assert "time1" not in ds_test
 
-    ds_all = ep.preprocess.add_location(ds=ds, echodata=ed)
+    ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
     _check_var(ds_all)
 
-    ds_sel = ep.preprocess.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
+    ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
     _check_var(ds_sel)
