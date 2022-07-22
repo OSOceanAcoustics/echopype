@@ -431,61 +431,69 @@ def open_raw(
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk, params=params, storage_options=storage_options
     )
-    parser.parse_raw()
-    setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
-        parser,
-        input_file=file_chk,
-        output_path=None,
-        sonar_model=sonar_model,
-        params=_set_convert_params(convert_params),
-    )
 
-    # Setup tree dictionary
-    tree_dict = {}
+    # check if the parsed data is sparse
+    will_it_explode = True
 
-    # Top-level date_created varies depending on sonar model
-    # Top-level is called "root" within tree
-    if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        tree_dict["/"] = setgrouper.set_toplevel(
+    if will_it_explode:
+        parser.parse_raw()
+
+    else:
+        parser.parse_raw()
+        setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
+            parser,
+            input_file=file_chk,
+            output_path=None,
             sonar_model=sonar_model,
-            date_created=parser.config_datagram["timestamp"],
+            params=_set_convert_params(convert_params),
         )
-    else:
-        tree_dict["/"] = setgrouper.set_toplevel(
-            sonar_model=sonar_model, date_created=parser.ping_time[0]
-        )
-    tree_dict["Environment"] = setgrouper.set_env()
-    tree_dict["Platform"] = setgrouper.set_platform()
-    if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
-    tree_dict["Provenance"] = setgrouper.set_provenance()
-    # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
-    tree_dict["Sonar"] = None
 
-    # Set multi beam groups
-    beam_groups = setgrouper.set_beam()
-    if isinstance(beam_groups, xr.Dataset):
-        # if it's a single dataset like the ek60, make into list
-        beam_groups = [beam_groups]
+        # Setup tree dictionary
+        tree_dict = {}
 
-    valid_beam_groups_count = 0
-    for idx, beam_group in enumerate(beam_groups, start=1):
-        if beam_group is not None:
-            valid_beam_groups_count += 1
-            tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
+        # Top-level date_created varies depending on sonar model
+        # Top-level is called "root" within tree
+        if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+            tree_dict["/"] = setgrouper.set_toplevel(
+                sonar_model=sonar_model,
+                date_created=parser.config_datagram["timestamp"],
+            )
+        else:
+            tree_dict["/"] = setgrouper.set_toplevel(
+                sonar_model=sonar_model, date_created=parser.ping_time[0]
+            )
+        tree_dict["Environment"] = setgrouper.set_env()
+        tree_dict["Platform"] = setgrouper.set_platform()
+        if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+            tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
+        tree_dict["Provenance"] = setgrouper.set_provenance()
+        # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
+        tree_dict["Sonar"] = None
 
-    if sonar_model in ["EK80", "ES80", "EA640"]:
-        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
-    else:
-        tree_dict["Sonar"] = setgrouper.set_sonar()
+        # Set multi beam groups
+        beam_groups = setgrouper.set_beam()
+        if isinstance(beam_groups, xr.Dataset):
+            # if it's a single dataset like the ek60, make into list
+            beam_groups = [beam_groups]
 
-    tree_dict["Vendor_specific"] = setgrouper.set_vendor()
+        valid_beam_groups_count = 0
+        for idx, beam_group in enumerate(beam_groups, start=1):
+            if beam_group is not None:
+                valid_beam_groups_count += 1
+                tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
-    # Create tree and echodata
-    # TODO: make the creation of tree dynamically generated from yaml
-    tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
-    echodata._set_tree(tree)
-    echodata._load_tree()
+        if sonar_model in ["EK80", "ES80", "EA640"]:
+            tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+        else:
+            tree_dict["Sonar"] = setgrouper.set_sonar()
 
-    return echodata
+        tree_dict["Vendor_specific"] = setgrouper.set_vendor()
+
+        # Create tree and echodata
+        # TODO: make the creation of tree dynamically generated from yaml
+        tree = DataTree.from_dict(tree_dict, name="root")
+        echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
+        echodata._set_tree(tree)
+        echodata._load_tree()
+
+        return echodata

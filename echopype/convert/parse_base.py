@@ -19,6 +19,7 @@ class ParseBase:
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
+        self.zarr_datagrams = []  # holds all parsed datagrams
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -51,6 +52,10 @@ class ParseEK(ParseBase):
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
+
+        # variables and associated coords that should be written directly to zarr
+        self.zarr_vars = {"power": ["timestamp", "frequency"],
+                          "angle": ["timestamp", "frequency"]}
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
@@ -326,6 +331,52 @@ class ParseEK(ParseBase):
                 print("DEP datagram encountered.")
             else:
                 print("Unknown datagram type: " + str(new_datagram["type"]))
+
+            # add successfully parsed datagrams
+            if any([key in new_datagram.keys() for key in self.zarr_vars.keys()]):
+                # TODO: suppress storage of power and angle
+                #  (i.e. self.zarr_vars) data elsewhere. Also add
+                #  condition to if statement to check it we want to
+                #  go directly to zarr variables
+
+                reduced_datagram = self._get_zarr_dgram(new_datagram)
+                self.zarr_datagrams.append(reduced_datagram)
+                print(self.zarr_datagrams)
+                import sys
+                sys.exit()
+
+    def _get_zarr_dgram(self, full_dgram) -> dict:
+        """
+        selects a subset of the datagram values that
+        need to be sent directly to a zarr file. If
+        datagram contains angle data, then the data
+        is split into angle_athwartship and angle_alongship.
+        """
+
+        wanted_vars = set()
+        for key in self.zarr_vars.keys():
+            wanted_vars = wanted_vars.union({key, *self.zarr_vars[key]})
+
+            # deal with angle data separately by splitting it up
+        if "angle" in wanted_vars:
+
+            wanted_vars.remove("angle")
+            angle_val = full_dgram["angle"]
+
+            # account for None values
+            if isinstance(angle_val, np.ndarray):
+                angle_split = {"angle_athwartship": angle_val[:, 0],
+                               "angle_alongship": angle_val[:, 1]}
+            else:
+                angle_split = {"angle_athwartship": None,
+                               "angle_alongship": None}
+        else:
+            angle_split = {}
+
+        # construct reduced datagram
+        reduced_datagram = {key: full_dgram[key] for key in wanted_vars}
+        reduced_datagram.update(angle_split)
+        return reduced_datagram
 
     def _append_channel_ping_data(self, datagram, rx=True):
         """
