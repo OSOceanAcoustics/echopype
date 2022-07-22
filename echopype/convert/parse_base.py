@@ -53,9 +53,15 @@ class ParseEK(ParseBase):
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
-        # variables and associated coords that should be written directly to zarr
-        self.zarr_vars = {"power": ["timestamp", "frequency"],
-                          "angle": ["timestamp", "frequency"]}
+        # dgram vars and associated dims that should be written directly to zarr
+        self.dgram_zarr_vars = {"power": ["timestamp", "frequency"],
+                                "angle": ["timestamp", "frequency"]}
+
+        # reduced dgram vars and associated dims that should be written directly to zarr
+        # IMPORTANT: the dims should have the longest dim as the first element
+        self.red_dgram_zarr_vars = {"power": ["timestamp", "frequency"],
+                                    "angle_alongship": ["timestamp", "frequency"],
+                                    "angle_athwartship": ["timestamp", "frequency"]}
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
@@ -333,7 +339,7 @@ class ParseEK(ParseBase):
                 print("Unknown datagram type: " + str(new_datagram["type"]))
 
             # add successfully parsed datagrams
-            if any([key in new_datagram.keys() for key in self.zarr_vars.keys()]):
+            if any([key in new_datagram.keys() for key in self.dgram_zarr_vars.keys()]):
                 # TODO: suppress storage of power and angle
                 #  (i.e. self.zarr_vars) data elsewhere. Also add
                 #  condition to if statement to check it we want to
@@ -341,23 +347,34 @@ class ParseEK(ParseBase):
 
                 reduced_datagram = self._get_zarr_dgram(new_datagram)
                 self.zarr_datagrams.append(reduced_datagram)
-                print(self.zarr_datagrams)
-                import sys
-                sys.exit()
 
-    def _get_zarr_dgram(self, full_dgram) -> dict:
+    def _get_zarr_dgram(self, full_dgram: dict) -> dict:
         """
-        selects a subset of the datagram values that
+        Selects a subset of the datagram values that
         need to be sent directly to a zarr file. If
-        datagram contains angle data, then the data
+        the datagram contains angle data, then the data
         is split into angle_athwartship and angle_alongship.
+
+        Parameters
+        ----------
+        full_dgram : dict
+            Successfully parsed datagram containing at least
+            one variable that should be written to a zarr file
+
+        Returns
+        -------
+        reduced_datagram : dict
+            A reduced datagram containing only those variables
+            that should be written to a zarr file and their
+            associated dimensions.
         """
 
         wanted_vars = set()
-        for key in self.zarr_vars.keys():
-            wanted_vars = wanted_vars.union({key, *self.zarr_vars[key]})
+        for key in self.dgram_zarr_vars.keys():
+            wanted_vars = wanted_vars.union({key, *self.dgram_zarr_vars[key]})
 
-            # deal with angle data separately by splitting it up
+        # deal with angle data separately by splitting it up
+        # TODO: make this a function
         if "angle" in wanted_vars:
 
             wanted_vars.remove("angle")
@@ -372,6 +389,8 @@ class ParseEK(ParseBase):
                                "angle_alongship": None}
         else:
             angle_split = {}
+
+        # TODO: deal with complex power data here too (make it a function)
 
         # construct reduced datagram
         reduced_datagram = {key: full_dgram[key] for key in wanted_vars}

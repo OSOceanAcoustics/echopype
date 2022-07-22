@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
+import tempfile
 import xarray as xr
 import zarr
 from datatree import DataTree
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
+
+from .parsed_to_zarr import datagram_to_zarr
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -436,9 +439,24 @@ def open_raw(
     will_it_explode = True
 
     if will_it_explode:
+        # TODO: make this its own function
+
         parser.parse_raw()
 
+        # temporary directory that will hold the zarr file
+        # TODO: will this work well in the cloud?
+        temp_zarr_dir = tempfile.TemporaryDirectory()
+
+        datagram_to_zarr(parser.zarr_datagrams,
+                         parser.red_dgram_zarr_vars,
+                         temp_zarr_dir)
+
+        import sys
+        sys.exit()
+
     else:
+
+        # TODO: make this its own function
         parser.parse_raw()
         setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
             parser,
