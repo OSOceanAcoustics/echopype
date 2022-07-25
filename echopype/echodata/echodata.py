@@ -21,6 +21,7 @@ from .convention import sonarnetcdf_1
 from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
 from .widgets.widgets import _load_static_files, get_template
+import tempfile
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",
@@ -51,6 +52,7 @@ class EchoData:
         xml_path: Optional["PathHint"] = None,
         sonar_model: Optional["SonarModelsHint"] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        temp_zarr_dir: Optional[tempfile.TemporaryDirectory] = None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -65,6 +67,9 @@ class EchoData:
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
+
+        # needed for when we directly write to a zarr file
+        self.temp_zarr_dir: Optional[tempfile.TemporaryDirectory] = temp_zarr_dir
 
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)

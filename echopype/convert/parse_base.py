@@ -54,14 +54,15 @@ class ParseEK(ParseBase):
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
         # dgram vars and associated dims that should be written directly to zarr
-        self.dgram_zarr_vars = {"power": ["timestamp", "frequency"],
-                                "angle": ["timestamp", "frequency"]}
+        self.dgram_zarr_vars = {"power": ["timestamp", "channel"],
+                                "angle": ["timestamp", "channel"]}  # TODO: this may not be good enough for mult freq
 
         # reduced dgram vars and associated dims that should be written directly to zarr
         # IMPORTANT: the dims should have the longest dim as the first element
-        self.red_dgram_zarr_vars = {"power": ["timestamp", "frequency"],
-                                    "angle_alongship": ["timestamp", "frequency"],
-                                    "angle_athwartship": ["timestamp", "frequency"]}
+        # TODO: this may not be good enough for mult freq
+        self.red_dgram_zarr_vars = {"power": ["timestamp", "channel"],
+                                    "angle_alongship": ["timestamp", "channel"],
+                                    "angle_athwartship": ["timestamp", "channel"]}
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
@@ -122,7 +123,7 @@ class ParseEK(ParseBase):
             INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
             # Rectangularize all data and convert to numpy array indexed by channel
-            for data_type in ["power", "angle", "complex"]:
+            for data_type in ["power", "angle", "complex"]:  # TODO: skip this when going to zarr
                 # Receive data
                 for k, v in self.ping_data_dict[data_type].items():
                     if all(
@@ -395,6 +396,15 @@ class ParseEK(ParseBase):
         # construct reduced datagram
         reduced_datagram = {key: full_dgram[key] for key in wanted_vars}
         reduced_datagram.update(angle_split)
+
+        if "power" in wanted_vars:
+
+            if "ALL" in self.data_type:
+                # Manufacturer-specific power conversion factor
+                INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+
+                reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
+
         return reduced_datagram
 
     def _append_channel_ping_data(self, datagram, rx=True):
@@ -412,7 +422,7 @@ class ParseEK(ParseBase):
         # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
-        for k, v in datagram.items():
+        for k, v in datagram.items():  # TODO: don't store power, angle, etc. when going to zarr directly
             if rx:
                 self.ping_data_dict[k][ch_id].append(v)
             else:

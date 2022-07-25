@@ -36,20 +36,22 @@ def set_multi_index(df: pd.DataFrame, dims: list):
     return df_multi
 
 
-def get_np_chunk(df_chunk, time_chunk, num_freq, size_elem, nan_array):
+def get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array):
+
+    # TODO: need to pad range_sample here too, if is is not of size `size_elem`
 
     np_chunk = np.concatenate([elm if isinstance(elm, np.ndarray) else nan_array for elm in df_chunk.to_list()],
                               axis=0)
 
-    np_chunk = np_chunk.reshape((time_chunk, num_freq, size_elem))
+    np_chunk = np_chunk.reshape((time_chunk, num_chan, size_elem))
 
     return np_chunk
 
 
-def write_chunks(pd_series, num_freq, size_elem, nan_array, time_chunk, zarr_grp):
+def write_chunks(pd_series, num_chan, size_elem, nan_array, time_chunk, zarr_grp):
     """
     pd_series -- pandas series representing a column of the datagram df
-    num_freq -- number of unique frequencies
+    num_chan -- number of unique channels
     size_elem -- size of element for the range_sample dimension
     nan_array -- an array filled with NaNs with the same size as the number of bins
     time_chunk -- the number of indices of time for each chunk
@@ -63,38 +65,37 @@ def write_chunks(pd_series, num_freq, size_elem, nan_array, time_chunk, zarr_grp
     rem = num_times % time_chunk
 
     # write initial chunk to the Zarr
-    df_chunk = pd_series.iloc[slice(0, num_freq * time_chunk)]
-    np_chunk = get_np_chunk(df_chunk, time_chunk, num_freq, size_elem, nan_array)
+    df_chunk = pd_series.iloc[slice(0, num_chan * time_chunk)]
+    np_chunk = get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array)
 
     full_array = zarr_grp.array(name=pd_series.name,
                                 data=np_chunk,
-                                chunks=(time_chunk, num_freq, size_elem),  # TODO: round-robin -> change chunks
+                                chunks=(time_chunk, num_chan, size_elem),  # TODO: round-robin -> change chunks
                                 dtype='f8', fill_value='NaN')
-    full_array.attrs['_ARRAY_DIMENSIONS'] = list(pd_series.index.names)
 
     for i in range(1, num_chunks):
-        i_start = i * time_chunk * num_freq
-        i_end = (i + 1) * time_chunk * num_freq
+        i_start = i * time_chunk * num_chan
+        i_end = (i + 1) * time_chunk * num_chan
 
         df_chunk = pd_series.iloc[slice(i_start, i_end)]
 
-        np_chunk = get_np_chunk(df_chunk, time_chunk, num_freq, size_elem, nan_array)
+        np_chunk = get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array)
         full_array.append(np_chunk)
 
-    if num_chunks * time_chunk * num_freq < pd_series.shape[0]:
+    if num_chunks * time_chunk * num_chan < pd_series.shape[0]:
         # write the remaining chunk to zarr
         # TODO: there is a better way to do this (round robin)
-        last_index = num_chunks * time_chunk * num_freq
+        last_index = num_chunks * time_chunk * num_chan
 
         df_chunk = pd_series.iloc[slice(last_index, None)]
-        np_chunk = get_np_chunk(df_chunk, rem, num_freq, size_elem, nan_array)
+        np_chunk = get_np_chunk(df_chunk, rem, num_chan, size_elem, nan_array)
         full_array.append(np_chunk)
 
 
 def array_col_to_zarr(pd_series, array_grp, num_mb):
     """
     This function specifically sets those columns
-    in df that are arrays and have dims (timestamp, frequency)
+    in df that are arrays and have dims (timestamp, channel)
     in the future we can make this more general
     """
 
@@ -107,20 +108,20 @@ def array_col_to_zarr(pd_series, array_grp, num_mb):
     # the number of elements required to fill approximately `num_mb` Mb  of memory
     num_elements = int(num_mb)*int(1e6 // elem_bytes)  # TODO: play around with this value
 
-    num_freq = len(pd_series.index.unique('frequency'))
+    num_chan = len(pd_series.index.unique('channel'))
 
     # The number of pings needed to fill approximately 1Mb of memory
-    num_pings = num_elements // num_freq
+    num_pings = num_elements // num_chan
 
     # nan array used in padding of elements
     nan_array = np.empty(max_dim, dtype=np.float64)
     nan_array[:] = np.nan
 
-    print(f"elem_bytes = {elem_bytes}")
-    print(f"num_elements = {num_elements}")
-    print(f"num_pings = {num_pings}")
+    # print(f"elem_bytes = {elem_bytes}")
+    # print(f"num_elements = {num_elements}")
+    # print(f"num_pings = {num_pings}")
 
-    write_chunks(pd_series, num_freq, max_dim, nan_array, num_pings, array_grp)
+    write_chunks(pd_series, num_chan, max_dim, nan_array, num_pings, array_grp)
 
 
 def write_df_to_zarr(df, array_grp, num_mb):
@@ -129,11 +130,11 @@ def write_df_to_zarr(df, array_grp, num_mb):
 
         pd_series = df[column]
 
-        is_array = True  # TODO: create a function for this
+        is_array = True  # TODO: create a function for this, check for np array and make sure it is 1D
 
         if is_array:
-
-            if not (set(pd_series.index.names).difference({"timestamp", "frequency"})):
+            # TODO: this may not be good enough for multiple freq
+            if not (set(pd_series.index.names).difference({"timestamp", "channel"})):
                 array_col_to_zarr(pd_series, array_grp, num_mb)
             else:
                 raise NotImplementedError(f"variable arrays with dims {list(pd_series.index.names)} " +
@@ -165,8 +166,6 @@ def datagram_to_zarr(zarr_dgrams: list,
         The number of Mb to use for each chunk
     """
 
-    print(f"temp_dir = {temp_dir}")
-
     # create zarr store and array_group
     zarr_file_name = temp_dir.name + '/temp.zarr'
     store = zarr.DirectoryStore(zarr_file_name)
@@ -191,5 +190,3 @@ def datagram_to_zarr(zarr_dgrams: list,
     store.close()
 
     return df_multi
-
-

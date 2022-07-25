@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 import xarray as xr
+import dask
 
 from ..utils.coding import set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
@@ -385,6 +386,56 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_encodings(ds)
 
+    def set_beam_group1_zarr_vars(self, ds):
+        # TODO: document this!!
+
+        zarr_group_path = self.temp_zarr_dir.name + '/temp.zarr/All_Arrays/'
+        power_zarr = dask.array.from_zarr(zarr_group_path, component='power')
+        angle_athwartship_zarr = dask.array.from_zarr(zarr_group_path,
+                                                      component='angle_athwartship')
+        angle_alongship_zarr = dask.array.from_zarr(zarr_group_path,
+                                                    component='angle_alongship')
+
+        backscatter_r = xr.DataArray(data=power_zarr,
+                                     coords={'ping_time': ds.ping_time,
+                                             'channel': ds.channel,
+                                             'range_sample': ds.range_sample},
+                                     name="backscatter_r",
+                                     attrs={"long_name": "Backscatter power", "units": "dB"})
+
+        angle_athwartship = xr.DataArray(data=angle_athwartship_zarr,
+                                     coords={'ping_time': ds.ping_time,
+                                             'channel': ds.channel,
+                                             'range_sample': ds.range_sample},
+                                     name="angle_athwartship",
+                                     attrs={
+                                         "long_name": "electrical athwartship angle",
+                                         "comment":
+                                             ("Introduced in echopype for Simrad echosounders. "  # noqa
+                                              + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                                             )}
+                                         )
+
+        angle_alongship = xr.DataArray(data=angle_alongship_zarr,
+                                         coords={'ping_time': ds.ping_time,
+                                                 'channel': ds.channel,
+                                                 'range_sample': ds.range_sample},
+                                         name="angle_alongship",
+                                         attrs={
+                                             "long_name": "electrical alongship angle",
+                                             "comment":
+                                                 ("Introduced in echopype for Simrad echosounders. "  # noqa
+                                                  + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "
+                                                  # noqa
+                                                  )}
+                                         )
+
+        ds = ds.assign(backscatter_r=backscatter_r,
+                       angle_athwartship=angle_athwartship,
+                       angle_alongship=angle_alongship)
+
+        return ds
+
     def set_beam(self) -> xr.Dataset:
         """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
@@ -580,13 +631,9 @@ class SetGroupsEK60(SetGroupsBase):
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
         for ch in ch_ids:
-            ds_tmp = xr.Dataset(
+
+            var_dict = \
                 {
-                    "backscatter_r": (
-                        ["ping_time", "range_sample"],
-                        self.parser_obj.ping_data_dict["power"][ch],
-                        {"long_name": "Backscatter power", "units": "dB"},
-                    ),
                     "sample_interval": (
                         ["ping_time"],
                         self.parser_obj.ping_data_dict["sample_interval"][ch],
@@ -645,7 +692,15 @@ class SetGroupsEK60(SetGroupsBase):
                         self.parser_obj.ping_data_dict["transmit_mode"][ch],
                         {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
                     ),
-                },
+                }
+
+            if not self.temp_zarr_dir:
+
+                var_dict["backscatter_r"] = (["ping_time", "range_sample"],
+                                             self.parser_obj.ping_data_dict["power"][ch],
+                                             {"long_name": "Backscatter power", "units": "dB"})
+
+            ds_tmp = xr.Dataset(var_dict,
                 coords={
                     "ping_time": (
                         ["ping_time"],
@@ -660,36 +715,37 @@ class SetGroupsEK60(SetGroupsBase):
                 },
             )
 
-            # Save angle data if exist based on values in self.parser_obj.ping_data_dict['mode'][ch]
-            # Assume the mode of all pings are identical
-            # 1 = Power only, 2 = Angle only 3 = Power & Angle
-            if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
-                ds_tmp = ds_tmp.assign(
-                    {
-                        "angle_athwartship": (
-                            ["ping_time", "range_sample"],
-                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
-                            {
-                                "long_name": "electrical athwartship angle",
-                                "comment": (
-                                    "Introduced in echopype for Simrad echosounders. "  # noqa
-                                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
-                                ),
-                            },
-                        ),
-                        "angle_alongship": (
-                            ["ping_time", "range_sample"],
-                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
-                            {
-                                "long_name": "electrical alongship angle",
-                                "comment": (
-                                    "Introduced in echopype for Simrad echosounders. "  # noqa
-                                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
-                                ),
-                            },
-                        ),
-                    }
-                )
+            if not self.temp_zarr_dir:
+                # Save angle data if exist based on values in self.parser_obj.ping_data_dict['mode'][ch]
+                # Assume the mode of all pings are identical
+                # 1 = Power only, 2 = Angle only 3 = Power & Angle
+                if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
+                    ds_tmp = ds_tmp.assign(
+                        {
+                            "angle_athwartship": (
+                                ["ping_time", "range_sample"],
+                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
+                                {
+                                    "long_name": "electrical athwartship angle",
+                                    "comment": (
+                                        "Introduced in echopype for Simrad echosounders. "  # noqa
+                                        + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                                    ),
+                                },
+                            ),
+                            "angle_alongship": (
+                                ["ping_time", "range_sample"],
+                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
+                                {
+                                    "long_name": "electrical alongship angle",
+                                    "comment": (
+                                        "Introduced in echopype for Simrad echosounders. "  # noqa
+                                        + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                                    ),
+                                },
+                            ),
+                        }
+                    )
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
@@ -704,6 +760,9 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge(
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
+
+        if self.temp_zarr_dir:
+            ds = self.set_beam_group1_zarr_vars(ds)
 
         # Manipulate some Dataset dimensions to adhere to convention
         self.beam_groups_to_convention(

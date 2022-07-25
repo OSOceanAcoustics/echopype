@@ -8,6 +8,7 @@ import xarray as xr
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
+import tempfile
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -25,6 +26,7 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
+        temp_zarr_dir: tempfile.TemporaryDirectory = None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
@@ -38,6 +40,7 @@ class SetGroupsBase(abc.ABC):
         self.compress = compress
         self.overwrite = overwrite
         self.ui_param = params
+        self.temp_zarr_dir = temp_zarr_dir
 
         if not self.compress:
             self.compression_settings = None
