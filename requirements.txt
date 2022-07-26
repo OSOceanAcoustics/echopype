@@ -10,3 +10,4 @@ zarr
 fsspec
 s3fs
 xarray-datatree==0.0.6
+more_itertools==8.13.0

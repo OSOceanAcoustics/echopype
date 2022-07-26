@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tempfile
 import zarr
+import more_itertools as miter
 
 
 def set_multi_index(df: pd.DataFrame, dims: list):
@@ -48,47 +49,42 @@ def get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array):
     return np_chunk
 
 
-def write_chunks(pd_series, num_chan, size_elem, nan_array, time_chunk, zarr_grp):
+def write_chunks(pd_series, num_chan, size_elem, nan_array, max_time_chunk, zarr_grp):
     """
     pd_series -- pandas series representing a column of the datagram df
     num_chan -- number of unique channels
     size_elem -- size of element for the range_sample dimension
     nan_array -- an array filled with NaNs with the same size as the number of bins
-    time_chunk -- the number of indices of time for each chunk
-
-
+    max_time_chunk -- the maximum number of indices of time for each chunk
     """
 
-    num_times = pd_series.index.get_level_values(0).unique().size
+    # TODO: instead of performing this on a single column, we
+    #  can do it on a df where each column has the same structure
 
-    num_chunks = (num_times // time_chunk)
-    rem = num_times % time_chunk
+    unique_times = pd_series.index.get_level_values(0).unique()
+
+    # evenly chunk unique times so that the smallest and largest
+    # chunk differ by at most 1 element
+    chunks = list(miter.chunked_even(unique_times, max_time_chunk))
+
+    # obtain the number of times for each chunk
+    chunk_len = [len(i) for i in chunks]
+
+    max_chunk_len = max(chunk_len)
 
     # write initial chunk to the Zarr
-    df_chunk = pd_series.iloc[slice(0, num_chan * time_chunk)]
-    np_chunk = get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array)
-
+    df_chunk = pd_series.loc[chunks[0]]
+    np_chunk = get_np_chunk(df_chunk, chunk_len[0], num_chan, size_elem, nan_array)
     full_array = zarr_grp.array(name=pd_series.name,
                                 data=np_chunk,
-                                chunks=(time_chunk, num_chan, size_elem),  # TODO: round-robin -> change chunks
+                                chunks=(max_chunk_len, num_chan, size_elem),  # TODO: round-robin -> change chunks
                                 dtype='f8', fill_value='NaN')
 
-    for i in range(1, num_chunks):
-        i_start = i * time_chunk * num_chan
-        i_end = (i + 1) * time_chunk * num_chan
+    # append each chunk to full_array
+    for i, chunk in enumerate(chunks[1:], start=1):
 
-        df_chunk = pd_series.iloc[slice(i_start, i_end)]
-
-        np_chunk = get_np_chunk(df_chunk, time_chunk, num_chan, size_elem, nan_array)
-        full_array.append(np_chunk)
-
-    if num_chunks * time_chunk * num_chan < pd_series.shape[0]:
-        # write the remaining chunk to zarr
-        # TODO: there is a better way to do this (round robin)
-        last_index = num_chunks * time_chunk * num_chan
-
-        df_chunk = pd_series.iloc[slice(last_index, None)]
-        np_chunk = get_np_chunk(df_chunk, rem, num_chan, size_elem, nan_array)
+        df_chunk = pd_series.loc[chunk]
+        np_chunk = get_np_chunk(df_chunk, chunk_len[i], num_chan, size_elem, nan_array)
         full_array.append(np_chunk)
 
 
@@ -110,18 +106,14 @@ def array_col_to_zarr(pd_series, array_grp, num_mb):
 
     num_chan = len(pd_series.index.unique('channel'))
 
-    # The number of pings needed to fill approximately 1Mb of memory
-    num_pings = num_elements // num_chan
+    # The maximum number of pings needed to fill approximately `num_mb` Mb  of memory
+    max_num_pings = num_elements // num_chan
 
     # nan array used in padding of elements
     nan_array = np.empty(max_dim, dtype=np.float64)
     nan_array[:] = np.nan
 
-    # print(f"elem_bytes = {elem_bytes}")
-    # print(f"num_elements = {num_elements}")
-    # print(f"num_pings = {num_pings}")
-
-    write_chunks(pd_series, num_chan, max_dim, nan_array, num_pings, array_grp)
+    write_chunks(pd_series, num_chan, max_dim, nan_array, max_num_pings, array_grp)
 
 
 def write_df_to_zarr(df, array_grp, num_mb):
@@ -189,4 +181,3 @@ def datagram_to_zarr(zarr_dgrams: list,
     zarr.consolidate_metadata(store)
     store.close()
 
-    return df_multi
