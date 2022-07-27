@@ -54,15 +54,18 @@ class ParseEK(ParseBase):
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
         # dgram vars and associated dims that should be written directly to zarr
+        # TODO: this may not be good enough for mult freq
         self.dgram_zarr_vars = {"power": ["timestamp", "channel"],
-                                "angle": ["timestamp", "channel"]}  # TODO: this may not be good enough for mult freq
+                                "angle": ["timestamp", "channel"]}  # ,
+                                # "sample_interval": ["timestamp", "channel"]}
 
         # reduced dgram vars and associated dims that should be written directly to zarr
         # IMPORTANT: the dims should have the longest dim as the first element
         # TODO: this may not be good enough for mult freq
         self.red_dgram_zarr_vars = {"power": ["timestamp", "channel"],
                                     "angle_alongship": ["timestamp", "channel"],
-                                    "angle_athwartship": ["timestamp", "channel"]}
+                                    "angle_athwartship": ["timestamp", "channel"]}  # ,
+                                    # "sample_interval": ["timestamp", "channel"]}
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")

@@ -3,7 +3,7 @@ import numpy as np
 import tempfile
 import zarr
 import more_itertools as miter
-from typing import Tuple
+from typing import Dict, Any, List, Tuple
 
 
 def set_multi_index(df: pd.DataFrame, dims: list) -> pd.DataFrame:
@@ -64,19 +64,19 @@ def get_col_info(df: pd.DataFrame, time_name: str,
         approximately `num_mb` Mb  of memory.
     chunk_shape : dict
         The key corresponds to the column name and the
-        value is the shape of the chunk. The shape of
-        chunk is of the form: ``[None, num_index_2, max_dim]``
-        if we have an array column and ``None`` if  we have
-        a column that does not contain an array.
+        value is the shape of the chunk.
 
     Notes
     -----
-    This function assumes that our df has at most 2 indices and
+    This function assumes that our df has 2 indices and
     ``time_name`` is one of them.
 
     For ``chunk_shape`` the first element corresponds to time
     and this element will be filled later, thus, it is set
-    to None here.
+    to None here. The shape of chunk is of the form:
+    ``[None, num_index_2, max_dim]`` if we have an array column
+    and ``[None, num_index_2]`` if  we have a column that does
+    not contain an array.
     """
 
     multi_ind_names = list(df.index.names)
@@ -84,12 +84,13 @@ def get_col_info(df: pd.DataFrame, time_name: str,
     if len(multi_ind_names) > 2:
         raise NotImplementedError("df contains more than 2 indices")
 
-    multi_ind_names.remove(time_name)
+    multi_ind_names.remove(time_name)  # allows us to infer the other index name
 
     max_num_times = {}
     chunk_shape = {}
     for column in df:
 
+        # get maximum dimension of column element
         if is_array:
             # TODO: this only works for 1D arrays, generalize it
             max_dim = np.max(df[column].apply(lambda x: x.shape[0] if isinstance(x, np.ndarray) else 0))
@@ -103,41 +104,79 @@ def get_col_info(df: pd.DataFrame, time_name: str,
         # the number of elements required to fill approximately `num_mb` MB  of memory
         num_elements = int(num_mb) * int(1e6 // elem_bytes)
 
-        if multi_ind_names:
-
-            index_2_name = multi_ind_names[0]
-            # the number of unique elements in the second index
-            num_index_2 = len(df[column].index.unique(index_2_name))
-        else:
-            num_index_2 = 1
+        # the number of unique elements in the second index
+        index_2_name = multi_ind_names[0]
+        num_index_2 = len(df[column].index.unique(index_2_name))
 
         # The maximum number of times needed to fill approximately `num_mb` Mb  of memory
+        # TODO: fine tune this later to account for even chunks
         max_num_times[column] = num_elements // num_index_2
 
+        # create form of chunk shape
         if max_dim != 1:
             chunk_shape[column] = [None, num_index_2, max_dim]
         else:
-            chunk_shape[column] = None
+            chunk_shape[column] = [None, num_index_2]
 
     return max_num_times, chunk_shape
 
 
-def get_np_chunk(series_chunk: pd.Series,
-                 chunk_shape: list,
-                 nan_array: np.array):
+def get_np_chunk(series_chunk: pd.Series, chunk_shape: list,
+                 nan_array: np.ndarray) -> np.ndarray:
+    """
+    Manipulates the ``series_chunk`` values into the
+    correct shape that can then be written to a
+    zarr array.
 
-    # TODO: need to pad range_sample here too, if it is the same size as `nan_array`
+    Parameters
+    ----------
+    series_chunk : pd.Series
+        A chunk of the dataframe column
+    chunk_shape : list
+        Specifies what shape the numpy chunk
+        should be reshaped to.
+    nan_array : np.ndarray
+        An array filled with NaNs that has the
+        maximum length of a column's element.
+        This value is used to pad empty elements
 
-    np_chunk = np.concatenate([elm if isinstance(elm, np.ndarray)
-                               else nan_array for elm in series_chunk.to_list()],
-                              axis=0)
+    Returns
+    -------
+    np_chunk : np.ndarray
+        Final form of series_chunk that can be
+        written to a zarr array
+    """
 
-    np_chunk = np_chunk.reshape(chunk_shape)
+    if isinstance(nan_array, np.ndarray):
+
+        # appropriately pad elements of series_chunk, if needed
+        padded_elements = []
+        for elm in series_chunk.to_list():
+
+            if isinstance(elm, np.ndarray):
+
+                # obtain the slice for the nan array
+                nan_slice = slice(elm.shape[0], None)
+
+                # pad elm array so its of size nan_array
+                padded_array = np.concatenate([elm, nan_array[nan_slice]],
+                                              axis=0, dtype=np.float64)
+
+                padded_elements.append(padded_array)
+
+            else:
+                padded_elements.append(nan_array)
+
+        np_chunk = np.concatenate(padded_elements, axis=0, dtype=np.float64)
+        np_chunk = np_chunk.reshape(chunk_shape)
+
+    else:
+        np_chunk = series_chunk.to_numpy().reshape(chunk_shape)
 
     return np_chunk
 
 
-def write_chunks(pd_series, zarr_grp, chunks: list, chunk_shape: list):
+def write_chunks(pd_series, zarr_grp, is_array: bool, chunks: list, chunk_shape: list):
     """
     pd_series -- pandas series representing a column of the datagram df
     num_chan -- number of unique channels
@@ -146,31 +185,24 @@ def write_chunks(pd_series, zarr_grp, chunks: list, chunk_shape: list):
     max_time_chunk -- the maximum number of indices of time for each chunk
     """
 
-    if chunk_shape:
+    if is_array:
         # nan array used in padding of elements
         nan_array = np.empty(chunk_shape[2], dtype=np.float64)
         nan_array[:] = np.nan
     else:
-        nan_array = None
+        nan_array = np.empty(1, dtype=np.float64)
 
     # obtain the number of times for each chunk
     chunk_len = [len(i) for i in chunks]
 
     max_chunk_len = max(chunk_len)
 
-    if chunk_shape:
-        zarr_chunk_shape = chunk_shape
-        zarr_chunk_shape[0] = max_chunk_len
-    else:
-        zarr_chunk_shape = [max_chunk_len]
+    zarr_chunk_shape = chunk_shape
+    zarr_chunk_shape[0] = max_chunk_len
 
     # write initial chunk to the Zarr
     series_chunk = pd_series.loc[chunks[0]]
-
-    if chunk_shape:
-        chunk_shape[0] = chunk_len[0]
-    else:
-        chunk_shape = chunk_len[0]
+    chunk_shape[0] = chunk_len[0]
     np_chunk = get_np_chunk(series_chunk, chunk_shape, nan_array)
     full_array = zarr_grp.array(name=pd_series.name,
                                 data=np_chunk,
@@ -181,22 +213,19 @@ def write_chunks(pd_series, zarr_grp, chunks: list, chunk_shape: list):
     for i, chunk in enumerate(chunks[1:], start=1):
 
         series_chunk = pd_series.loc[chunk]
-        if chunk_shape:
-            chunk_shape[0] = chunk_len[i]
-        else:
-            chunk_shape = chunk_len[0]
+        chunk_shape[0] = chunk_len[i]
         np_chunk = get_np_chunk(series_chunk, chunk_shape, nan_array)
         full_array.append(np_chunk)
 
 
-def write_array_cols(df, zarr_grp, time_name: str = "timestamp", num_mb: int = 100):
+def write_df_cols(df, zarr_grp, is_array: bool, time_name: str = "timestamp", num_mb: int = 100):
     """
     This assumes that our df has at most 2 indices and
     ``time_name`` is one of them.
 
     """
 
-    max_num_times, chunk_shape = get_col_info(df, time_name, is_array=True, num_mb=num_mb)
+    max_num_times, chunk_shape = get_col_info(df, time_name, is_array=is_array, num_mb=num_mb)
 
     unique_times = df.index.get_level_values(time_name).unique()
 
@@ -207,7 +236,7 @@ def write_array_cols(df, zarr_grp, time_name: str = "timestamp", num_mb: int = 1
         chunks = list(miter.chunked_even(unique_times,
                                          max_num_times[column]))
 
-        write_chunks(df[column], zarr_grp, chunks, chunk_shape[column])
+        write_chunks(df[column], zarr_grp, is_array, chunks, chunk_shape[column])
 
 
 def write_df_to_zarr(df, array_grp, num_mb, time_name: str = "timestamp"):
@@ -226,10 +255,10 @@ def write_df_to_zarr(df, array_grp, num_mb, time_name: str = "timestamp"):
         is_array[column] = np.any(df[column].apply(lambda x: isinstance(x, np.ndarray)))
 
     array_cols = [key for key, val in is_array.items() if val]
-    write_array_cols(df[array_cols], array_grp, time_name=time_name, num_mb=num_mb)
+    write_df_cols(df[array_cols], array_grp, is_array=True, time_name=time_name, num_mb=num_mb)
 
-    # non_array_cols = [key for key, val in is_array.items() if not val]
-    # write_array_cols(df[non_array_cols], array_grp, time_name=time_name, num_mb=num_mb)
+    non_array_cols = [key for key, val in is_array.items() if not val]
+    write_df_cols(df[non_array_cols], array_grp, is_array=False, time_name=time_name, num_mb=num_mb)
 
 
 def datagram_to_zarr(zarr_dgrams: list,
