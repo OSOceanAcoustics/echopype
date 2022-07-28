@@ -341,7 +341,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    num_zarr_mb: int = 100,
+    max_zarr_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -370,8 +370,8 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
-    num_zarr_mb : int
-        Number of Mb that each chunk should hold, when using the direct to
+    max_zarr_mb : int
+        Maximum MB that each chunk should hold, when using the direct to
         zarr routine.
 
     Returns
@@ -458,7 +458,7 @@ def open_raw(
 
         datagram_to_zarr(parser.zarr_datagrams,
                          parser.red_dgram_zarr_vars,
-                         temp_zarr_dir, num_mb=num_zarr_mb)  # TODO: make num_mb a user input value?
+                         temp_zarr_dir, max_mb=max_zarr_mb)
 
     else:
         parser.parse_raw()

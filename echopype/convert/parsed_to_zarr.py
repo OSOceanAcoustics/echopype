@@ -39,10 +39,10 @@ def set_multi_index(df: pd.DataFrame, dims: list) -> pd.DataFrame:
 
 
 def get_col_info(df: pd.DataFrame, time_name: str,
-                 is_array: bool, num_mb: int) -> Tuple[dict, dict]:
+                 is_array: bool, max_mb: int) -> Tuple[dict, dict]:
     """
     Provides the maximum number of times needed to
-    fill approximately `num_mb` MB  of memory and the
+    fill at most `max_mb` MB  of memory and the
     shape of each chunk.
 
     Parameters
@@ -53,15 +53,15 @@ def get_col_info(df: pd.DataFrame, time_name: str,
         The name of the index corresponding to time
     is_array : bool
         Specifies if we are working with a column that has arrays
-    num_mb : int
-        Approximately the amount of MB we want for each chunk
+    max_mb : int
+        Maximum MB allowed for each chunk
 
     Returns
     -------
     max_num_times : dict
         The key corresponds to the column name and the
         value is the number of times needed to fill
-        approximately `num_mb` MB  of memory.
+        at most `max_mb` MB  of memory.
     chunk_shape : dict
         The key corresponds to the column name and the
         value is the shape of the chunk.
@@ -101,16 +101,16 @@ def get_col_info(df: pd.DataFrame, time_name: str,
         # TODO: this assumes we are holding floats (the 8 value), generalize it
         elem_bytes = max_dim * 8
 
-        # the number of elements required to fill approximately `num_mb` MB  of memory
-        num_elements = int(num_mb) * int(1e6 // elem_bytes)
-
         # the number of unique elements in the second index
         index_2_name = multi_ind_names[0]
         num_index_2 = len(df[column].index.unique(index_2_name))
 
-        # The maximum number of times needed to fill approximately `num_mb` MB  of memory
-        # TODO: fine tune this later to account for even chunks
-        max_num_times[column] = num_elements // num_index_2
+        bytes_per_time = num_index_2 * elem_bytes
+
+        mb_per_time = bytes_per_time / 1e6
+
+        # The maximum number of times needed to fill at most `max_mb` MB of memory
+        max_num_times[column] = max_mb // mb_per_time
 
         # create form of chunk shape
         if max_dim != 1:
@@ -232,7 +232,6 @@ def write_chunks(pd_series: pd.Series, zarr_grp: zarr.group,
 
     # append each chunk to full_array
     for i, chunk in enumerate(chunks[1:], start=1):
-
         series_chunk = pd_series.loc[chunk]
         chunk_shape[0] = chunk_len[i]
         np_chunk = get_np_chunk(series_chunk, chunk_shape, nan_array)
@@ -241,7 +240,7 @@ def write_chunks(pd_series: pd.Series, zarr_grp: zarr.group,
 
 def write_df_cols(df: pd.DataFrame, zarr_grp: zarr.group,
                   is_array: bool, time_name: str = "timestamp",
-                  num_mb: int = 100) -> None:
+                  max_mb: int = 100) -> None:
     """
     Obtains the appropriate information needed
     to determine the chunks of a column and
@@ -260,8 +259,8 @@ def write_df_cols(df: pd.DataFrame, zarr_grp: zarr.group,
         column are arrays, False otherwise
     time_name: str
         The name of the time index for ``df``
-    num_mb : int
-        Approximately the amount of MB we want for each chunk
+    max_mb : int
+        Maximum MB allowed for each chunk
 
     Notes
     -----
@@ -278,13 +277,12 @@ def write_df_cols(df: pd.DataFrame, zarr_grp: zarr.group,
 
     # For each column, obtain the maximum amount of times needed for
     # each chunk and the associated form for the shape of the chunks
-    max_num_times, chunk_shape = get_col_info(df, time_name, is_array=is_array, num_mb=num_mb)
+    max_num_times, chunk_shape = get_col_info(df, time_name, is_array=is_array, max_mb=max_mb)
 
     unique_times = df.index.get_level_values(time_name).unique()
 
     # write each column of df to a zarr array
     for column in df:
-
         # evenly chunk unique times so that the smallest and largest
         # chunk differ by at most 1 element
         chunks = list(miter.chunked_even(unique_times,
@@ -294,7 +292,7 @@ def write_df_cols(df: pd.DataFrame, zarr_grp: zarr.group,
 
 
 def write_df_to_zarr(df: pd.DataFrame, zarr_grp: zarr.group,
-                     time_name: str = "timestamp", num_mb: int = 100) -> None:
+                     time_name: str = "timestamp", max_mb: int = 100) -> None:
     """
     Splits ``df`` into a DataFrame where all
     columns have elements that are arrays and
@@ -312,8 +310,8 @@ def write_df_to_zarr(df: pd.DataFrame, zarr_grp: zarr.group,
         Zarr group that we should write the zarr array to
     time_name: str
         The name of the time index for ``df``
-    num_mb : int
-        Approximately the amount of MB we want for each chunk
+    max_mb : int
+        Maximum MB allowed for each chunk
     """
 
     # see if there is an array in any element of the column
@@ -324,17 +322,17 @@ def write_df_to_zarr(df: pd.DataFrame, zarr_grp: zarr.group,
     # write df columns whose elements are arrays
     array_cols = [key for key, val in is_array.items() if val]
     if array_cols:
-        write_df_cols(df[array_cols], zarr_grp, is_array=True, time_name=time_name, num_mb=num_mb)
+        write_df_cols(df[array_cols], zarr_grp, is_array=True, time_name=time_name, max_mb=max_mb)
 
     # write df columns whose elements are not arrays
     non_array_cols = [key for key, val in is_array.items() if not val]
     if non_array_cols:
-        write_df_cols(df[non_array_cols], zarr_grp, is_array=False, time_name=time_name, num_mb=num_mb)
+        write_df_cols(df[non_array_cols], zarr_grp, is_array=False, time_name=time_name, max_mb=max_mb)
 
 
 def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
                      temp_dir: tempfile.TemporaryDirectory,
-                     num_mb: int) -> None:
+                     max_mb: int) -> None:
     """
     Facilitates the conversion of a list of
     datagrams to a form that can be written
@@ -352,8 +350,8 @@ def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
         are a list of the variable's dimensions.
     temp_dir: tempfile.TemporaryDirectory
         Temporary directory that will hold the Zarr Store
-    num_mb : int
-        Approximately the amount of MB we want for each chunk
+    max_mb : int
+        Maximum MB allowed for each chunk
 
     Notes
     -----
@@ -362,6 +360,11 @@ def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
 
     The dimensions provided in ``zarr_vars`` must have the
     time dimension as the first element.
+
+    The chunking routine evenly distributes the times such
+    that each chunk differs by at most one time. This makes
+    it so that the memory required for each chunk is approximately
+    the same.
     """
 
     # create zarr store and zarr group we want to write to
@@ -375,7 +378,6 @@ def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
 
     # write groups of variables with the same dimensions to zarr
     for dims in unique_dims:
-
         # get all variables with dimensions dims
         var_names = [key for key, val in zarr_vars.items() if val == dims]
 
@@ -384,7 +386,7 @@ def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
 
         df_multi = set_multi_index(datagram_df[req_cols], dims)
 
-        write_df_to_zarr(df_multi, array_grp, time_name=dims[0], num_mb=num_mb)
+        write_df_to_zarr(df_multi, array_grp, time_name=dims[0], max_mb=max_mb)
 
     # consolidate metadata and close zarr store
     zarr.consolidate_metadata(store)
