@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 import xarray as xr
-import dask
+import dask.array
 
 from ..utils.coding import set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
@@ -389,7 +389,7 @@ class SetGroupsEK60(SetGroupsBase):
     def set_beam_group1_zarr_vars(self, ds):
         # TODO: document this!!
 
-        zarr_group_path = self.temp_zarr_dir.name + '/temp.zarr/All_Arrays/'
+        zarr_group_path = self.temp_zarr_dir.name + '/temp.zarr/'
         power_zarr = dask.array.from_zarr(zarr_group_path, component='power')
         angle_athwartship_zarr = dask.array.from_zarr(zarr_group_path,
                                                       component='angle_athwartship')
