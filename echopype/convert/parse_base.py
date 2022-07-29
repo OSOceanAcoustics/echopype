@@ -28,7 +28,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options):
+    def __init__(self, file, params, storage_options, dgram_zarr_vars, red_dgram_zarr_vars):
         super().__init__(file, storage_options)
 
         # Parent class attributes
@@ -54,18 +54,11 @@ class ParseEK(ParseBase):
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
         # dgram vars and associated dims that should be written directly to zarr
-        # TODO: this may not be good enough for mult freq
-        self.dgram_zarr_vars = {"power": ["timestamp", "channel"],
-                                "angle": ["timestamp", "channel"]}  # ,
-                                # "sample_interval": ["timestamp", "channel"]}
+        self.dgram_zarr_vars = dgram_zarr_vars
 
         # reduced dgram vars and associated dims that should be written directly to zarr
         # IMPORTANT: the dims should have the longest dim as the first element
-        # TODO: this may not be good enough for mult freq
-        self.red_dgram_zarr_vars = {"power": ["timestamp", "channel"],
-                                    "angle_alongship": ["timestamp", "channel"],
-                                    "angle_athwartship": ["timestamp", "channel"]}  # ,
-                                    # "sample_interval": ["timestamp", "channel"]}
+        self.red_dgram_zarr_vars = red_dgram_zarr_vars
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
@@ -342,6 +335,8 @@ class ParseEK(ParseBase):
             else:
                 print("Unknown datagram type: " + str(new_datagram["type"]))
 
+            print(f"new_datagram = {new_datagram} \n")
+
             # add successfully parsed datagrams
             if any([key in new_datagram.keys() for key in self.dgram_zarr_vars.keys()]):
                 # TODO: suppress storage of power and angle
@@ -379,7 +374,7 @@ class ParseEK(ParseBase):
 
         # deal with angle data separately by splitting it up
         # TODO: make this a function
-        if "angle" in wanted_vars:
+        if ("angle" in wanted_vars) and ("angle" in full_dgram.keys()):
 
             wanted_vars.remove("angle")
             angle_val = full_dgram["angle"]
@@ -394,15 +389,32 @@ class ParseEK(ParseBase):
         else:
             angle_split = {}
 
-        # TODO: deal with complex power data here too (make it a function)
+        # deal with complex data by splitting it into its real and imaginary parts
+        # TODO: make this into a function
+        if ("complex" in wanted_vars) and ("complex" in full_dgram.keys()):
+
+            wanted_vars.remove("complex")
+            complex_val = full_dgram["complex"]
+
+            # account for None values
+            if isinstance(complex_val, np.ndarray):
+                complex_split = {"backscatter_r": np.real(complex_val),
+                                 "backscatter_i": np.imag(complex_val)}
+            else:
+                complex_split = {"backscatter_r": None,
+                                 "backscatter_i": None}
+        else:
+            complex_split = {}
+
 
         # construct reduced datagram
-        reduced_datagram = {key: full_dgram[key] for key in wanted_vars}
+        reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
         reduced_datagram.update(angle_split)
+        reduced_datagram.update(complex_split)
 
-        if "power" in wanted_vars:
+        if "power" in reduced_datagram.keys():
 
-            if "ALL" in self.data_type:
+            if ("ALL" in self.data_type) and isinstance(reduced_datagram["power"], np.ndarray):
                 # Manufacturer-specific power conversion factor
                 INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 

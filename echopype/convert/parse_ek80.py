@@ -4,8 +4,8 @@ from .parse_base import ParseEK
 class ParseEK80(ParseEK):
     """Class for converting data from Simrad EK80 echosounders."""
 
-    def __init__(self, file, params, storage_options={}):
-        super().__init__(file, params, storage_options)
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, red_dgram_zarr_vars={}):
+        super().__init__(file, params, storage_options, dgram_zarr_vars, red_dgram_zarr_vars)
         self.environment = {}  # dictionary to store environment data
 
     def _select_datagrams(self, params):

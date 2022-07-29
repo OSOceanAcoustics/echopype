@@ -439,17 +439,20 @@ def open_raw(
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
+    # obtain dicts associated with directly writing to zarr
+    dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
+    red_dgram_zarr_vars = SONAR_MODELS[sonar_model]["red_dgram_zarr_vars"]
+
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options
+        file_chk, params=params, storage_options=storage_options,
+        dgram_zarr_vars=dgram_zarr_vars, red_dgram_zarr_vars=red_dgram_zarr_vars,
     )
 
     # check if the parsed data is sparse
-    will_it_explode = True
+    will_it_explode = True   # TODO: make this its own function
 
     if will_it_explode:
-        # TODO: make this its own function
-
         parser.parse_raw()
 
         # temporary directory that will hold the zarr file
@@ -464,7 +467,7 @@ def open_raw(
         parser.parse_raw()
         temp_zarr_dir = None
 
-    # TODO: make this its own function
+    # TODO: make the below code its own function
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,

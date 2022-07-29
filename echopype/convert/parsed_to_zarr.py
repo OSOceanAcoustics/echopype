@@ -6,6 +6,26 @@ import more_itertools as miter
 from typing import Tuple
 
 
+def unique_second_index(df: pd.DataFrame) -> None:
+    """
+    Raises an error if the second index has
+    repeated values. All routines assume that
+    the second index does not have repeated
+    values.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        DataFrame with two indices.
+    """
+
+    for time in df.index.get_level_values(0).unique():
+        val, cnts = np.unique(df.loc[time].index.get_level_values(0), return_counts=True)
+
+        if max(cnts) > 1:
+            raise NotImplementedError("write_df_to_zarr requires a unique second index.")
+
+
 def set_multi_index(df: pd.DataFrame, dims: list) -> pd.DataFrame:
     """
     Sets a multiindex on a copy of df and then
@@ -385,6 +405,9 @@ def datagram_to_zarr(zarr_dgrams: list, zarr_vars: dict,
         req_cols = var_names + dims
 
         df_multi = set_multi_index(datagram_df[req_cols], dims)
+
+        # check to make sure the second index is unique
+        unique_second_index(df_multi)
 
         write_df_to_zarr(df_multi, array_grp, time_name=dims[0], max_mb=max_mb)
 
