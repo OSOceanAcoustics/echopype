@@ -455,9 +455,9 @@ def open_raw(
     if will_it_explode:
         parser.parse_raw()
 
-        # temporary directory that will hold the zarr file
-        # TODO: will this work well in the cloud?
-        temp_zarr_dir = tempfile.TemporaryDirectory()
+        # # temporary directory that will hold the zarr file
+        # # TODO: will this work well in the cloud?
+        # temp_zarr_dir = tempfile.TemporaryDirectory()
 
         datagram_to_zarr(parser.zarr_datagrams,
                          parser.red_dgram_zarr_vars,

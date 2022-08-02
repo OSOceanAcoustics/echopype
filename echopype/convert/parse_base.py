@@ -335,8 +335,6 @@ class ParseEK(ParseBase):
             else:
                 print("Unknown datagram type: " + str(new_datagram["type"]))
 
-            print(f"new_datagram = {new_datagram} \n")
-
             # add successfully parsed datagrams
             if any([key in new_datagram.keys() for key in self.dgram_zarr_vars.keys()]):
                 # TODO: suppress storage of power and angle
@@ -374,51 +372,51 @@ class ParseEK(ParseBase):
 
         # deal with angle data separately by splitting it up
         # TODO: make this a function
-        if ("angle" in wanted_vars) and ("angle" in full_dgram.keys()):
-
-            wanted_vars.remove("angle")
-            angle_val = full_dgram["angle"]
-
-            # account for None values
-            if isinstance(angle_val, np.ndarray):
-                angle_split = {"angle_athwartship": angle_val[:, 0],
-                               "angle_alongship": angle_val[:, 1]}
-            else:
-                angle_split = {"angle_athwartship": None,
-                               "angle_alongship": None}
-        else:
-            angle_split = {}
+        # if ("angle" in wanted_vars) and ("angle" in full_dgram.keys()):
+        #
+        #     wanted_vars.remove("angle")
+        #     angle_val = full_dgram["angle"]
+        #
+        #     # account for None values
+        #     if isinstance(angle_val, np.ndarray):
+        #         angle_split = {"angle_athwartship": angle_val[:, 0],
+        #                        "angle_alongship": angle_val[:, 1]}
+        #     else:
+        #         angle_split = {"angle_athwartship": None,
+        #                        "angle_alongship": None}
+        # else:
+        #     angle_split = {}
 
         # deal with complex data by splitting it into its real and imaginary parts
         # TODO: make this into a function
-        if ("complex" in wanted_vars) and ("complex" in full_dgram.keys()):
-
-            wanted_vars.remove("complex")
-            complex_val = full_dgram["complex"]
-
-            # account for None values
-            if isinstance(complex_val, np.ndarray):
-                complex_split = {"backscatter_r": np.real(complex_val),
-                                 "backscatter_i": np.imag(complex_val)}
-            else:
-                complex_split = {"backscatter_r": None,
-                                 "backscatter_i": None}
-        else:
-            complex_split = {}
+        # if ("complex" in wanted_vars) and ("complex" in full_dgram.keys()):
+        #
+        #     wanted_vars.remove("complex")
+        #     complex_val = full_dgram["complex"]
+        #
+        #     # account for None values
+        #     if isinstance(complex_val, np.ndarray):
+        #         complex_split = {"backscatter_r": np.real(complex_val),
+        #                          "backscatter_i": np.imag(complex_val)}
+        #     else:
+        #         complex_split = {"backscatter_r": None,
+        #                          "backscatter_i": None}
+        # else:
+        #     complex_split = {}
 
 
         # construct reduced datagram
         reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
-        reduced_datagram.update(angle_split)
-        reduced_datagram.update(complex_split)
+        # reduced_datagram.update(angle_split)
+        # reduced_datagram.update(complex_split)
 
-        if "power" in reduced_datagram.keys():
-
-            if ("ALL" in self.data_type) and isinstance(reduced_datagram["power"], np.ndarray):
-                # Manufacturer-specific power conversion factor
-                INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
-
-                reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
+        # if "power" in reduced_datagram.keys():
+        #
+        #     if ("ALL" in self.data_type) and isinstance(reduced_datagram["power"], np.ndarray):
+        #         # Manufacturer-specific power conversion factor
+        #         INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+        #
+        #         reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
 
         return reduced_datagram
 
@@ -438,6 +436,7 @@ class ParseEK(ParseBase):
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
         for k, v in datagram.items():  # TODO: don't store power, angle, etc. when going to zarr directly
+            # if k not in ["power", "angle", "complex"]:
             if rx:
                 self.ping_data_dict[k][ch_id].append(v)
             else:
