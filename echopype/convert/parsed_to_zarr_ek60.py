@@ -16,21 +16,25 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         self.power_dims = ['timestamp', 'channel']
         self.angle_dims = ['timestamp', 'channel']
 
-    def _process_power_data(self, pd_series: pd.Series):
+    @staticmethod
+    def _get_string_dtype(pd_series: pd.Index) -> str:
         """
-        Applies power conversion factor to
-        power data and returns it.
+        Returns the string dtype in a format that
+        works for zarr.
 
         Parameters
         ----------
-        pd_series : pd.Series
-            Series representing the power data
+        pd_series: pd.Index
+            A series where all of the elements are strings
         """
 
-        # Manufacturer-specific power conversion factor
-        INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+        if all(pd_series.map(type) == str):
+            max_len = pd_series.map(len).max()
+            dtype = f'<U{max_len}'
+        else:
+            raise ValueError("All elements of pd_series must be strings!")
 
-        return pd_series.astype("float64") * INDEX2POWER
+        return dtype
 
     def _write_power(self, df: pd.DataFrame, max_mb: int) -> None:
         """
@@ -45,10 +49,8 @@ class Parsed2ZarrEK60(Parsed2Zarr):
             Maximum MB allowed for each chunk
         """
 
-        # obtain power data with no NA values
-        power_series = df.set_index(self.power_dims)['power'].dropna().copy()
-
-        power_series = self._process_power_data(power_series)
+        # obtain power data
+        power_series = df.set_index(self.power_dims)['power'].copy()
 
         # get unique indices
         times = power_series.index.get_level_values(0).unique()
@@ -65,10 +67,30 @@ class Parsed2ZarrEK60(Parsed2Zarr):
                              is_array=True, unique_time_ind=times, max_mb=max_mb)
 
         # write the unique indices to the power group
-        zarr_grp.array(name='timestamp', data=times, dtype='<M8[ns]', fill_value='NaN')
-        zarr_grp.array(name='channel', data=channels, dtype='i8', fill_value='NaN')
+        zarr_grp.array(name=self.power_dims[0], data=times.values, dtype='<M8[ns]', fill_value='NaT')
 
-    def _split_angle_data(self, angle_series):
+        dtype = self._get_string_dtype(channels)
+        zarr_grp.array(name=self.power_dims[1], data=channels.values, dtype=dtype, fill_value=None)
+
+    @staticmethod
+    def _split_angle_data(angle_series: pd.Series) -> pd.DataFrame:
+        """
+        Splits the 2D angle data into two 1D arrays
+        representing angle_athwartship and angle_alongship,
+        for each element in ``angle_series``.
+
+        Parameters
+        ----------
+        angle_series : pd.Series
+            Series representing the angle data
+
+        Returns
+        -------
+        DataFrame with columns angle_athwartship and
+        angle_alongship obtained from splitting the
+        2D angle data, with that same index as
+        ``angle_series``
+        """
 
         # split each angle element into angle_athwartship and angle_alongship
         angle_split = angle_series.apply(lambda x: [x[:, 0], x[:, 1]] if isinstance(x, np.ndarray) else [None, None])
@@ -85,33 +107,36 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         Parameters
         ----------
         df : pd.DataFrame
-            DataFrame that contains power data
+            DataFrame that contains angle data
         max_mb : int
             Maximum MB allowed for each chunk
         """
 
-        # obtain angle data with no NA values
-        angle_series = df.set_index(self.angle_dims)['angle'].dropna().copy()
+        # obtain angle data
+        angle_series = df.set_index(self.angle_dims)['angle'].copy()
 
-        power_series = self._process_power_data(power_series)
+        angle_df = self._split_angle_data(angle_series)
 
         # get unique indices
-        times = power_series.index.get_level_values(0).unique()
-        channels = power_series.index.get_level_values(1).unique()
+        times = angle_df.index.get_level_values(0).unique()
+        channels = angle_df.index.get_level_values(1).unique()
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]
 
-        power_series = self.set_multi_index(power_series, unique_dims)
+        angle_df = self.set_multi_index(angle_df, unique_dims)
 
-        # write power data to the power group
-        zarr_grp = self.zarr_root.create_group('power')
-        self.write_df_column(pd_series=power_series, zarr_grp=zarr_grp,
-                             is_array=True, unique_time_ind=times, max_mb=max_mb)
+        # write angle data to the angle group
+        zarr_grp = self.zarr_root.create_group('angle')
+        for column in angle_df:
+            self.write_df_column(pd_series=angle_df[column], zarr_grp=zarr_grp,
+                                 is_array=True, unique_time_ind=times, max_mb=max_mb)
 
-        # write the unique indices to the power group
-        zarr_grp.array(name='timestamp', data=times, dtype='<M8[ns]', fill_value='NaN')
-        zarr_grp.array(name='channel', data=channels, dtype='i8', fill_value='NaN')
+        # write the unique indices to the angle group
+        zarr_grp.array(name=self.angle_dims[0], data=times.values, dtype='<M8[ns]', fill_value='NaT')
+
+        dtype = self._get_string_dtype(channels)
+        zarr_grp.array(name=self.angle_dims[1], data=channels.values, dtype=dtype, fill_value=None)
 
     def datagram_to_zarr(self, zarr_dgrams: List[dict],
                          max_mb: int) -> None:
@@ -142,6 +167,10 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         datagram_df = pd.DataFrame.from_dict(zarr_dgrams)
 
+        # convert channel column to a string
+        datagram_df['channel'] = datagram_df['channel'].astype(str)
+
         self._write_power(df=datagram_df, max_mb=max_mb)
+        self._write_angle(df=datagram_df, max_mb=max_mb)
 
         self._close_store()

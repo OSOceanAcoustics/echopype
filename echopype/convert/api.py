@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
-import tempfile
 import xarray as xr
 import zarr
 from datatree import DataTree
@@ -18,8 +17,6 @@ if TYPE_CHECKING:
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
-
-from .parsed_to_zarr import datagram_to_zarr
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -439,15 +436,16 @@ def open_raw(
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
-    # obtain dicts associated with directly writing to zarr
+    # obtain dict associated with directly writing to zarr
     dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
-    red_dgram_zarr_vars = SONAR_MODELS[sonar_model]["red_dgram_zarr_vars"]
 
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk, params=params, storage_options=storage_options,
-        dgram_zarr_vars=dgram_zarr_vars, red_dgram_zarr_vars=red_dgram_zarr_vars,
-    )
+        dgram_zarr_vars=dgram_zarr_vars)
+
+    # Determines if writing to zarr is necessary and writes to zarr
+    parser2zarr = SONAR_MODELS[sonar_model]["parser2zarr"]()
 
     # check if the parsed data is sparse
     will_it_explode = True   # TODO: make this its own function
@@ -455,13 +453,10 @@ def open_raw(
     if will_it_explode:
         parser.parse_raw()
 
-        # # temporary directory that will hold the zarr file
-        # # TODO: will this work well in the cloud?
-        # temp_zarr_dir = tempfile.TemporaryDirectory()
+        # temporary directory that will hold the zarr file
+        temp_zarr_dir = parser2zarr.temp_zarr_dir
 
-        datagram_to_zarr(parser.zarr_datagrams,
-                         parser.red_dgram_zarr_vars,
-                         temp_zarr_dir, max_mb=max_zarr_mb)
+        parser2zarr.datagram_to_zarr(parser.zarr_datagrams, max_mb=max_zarr_mb)
 
     else:
         parser.parse_raw()

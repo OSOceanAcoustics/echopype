@@ -220,8 +220,7 @@ class NoMorePackets(Exception):
 
 class ParseAd2cp(ParseBase):
     def __init__(self, file, params,
-                 storage_options={}, dgram_zarr_vars={},
-                 red_dgram_zarr_vars={}):
+                 storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
         self.config = None
         self.packets: List[Ad2cpDataPacket] = []

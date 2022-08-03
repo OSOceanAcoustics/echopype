@@ -1,51 +1,90 @@
-from .parsed_to_zarr import Parsed2Zarr
+from parsed_to_zarr_ek60 import Parsed2ZarrEK60
 import pandas as pd
 from typing import List
 import numpy as np
 
 
-class Parsed2ZarrEK60(Parsed2Zarr):
+class Parsed2ZarrEK80(Parsed2ZarrEK60):
     """
     Facilitates the writing of parsed data to
-    a zarr file for the EK60 sensor.
+    a zarr file for the EK80 sensor.
     """
 
     def __init__(self):
         super().__init__()
 
-    def _process_power_data(self, reduced_datagram):
+        self.power_dims = ['timestamp', 'channel_id']
+        self.angle_dims = ['timestamp', 'channel_id']
+        self.complex_dims = ['timestamp', 'channel_id']
 
-        if "power" in reduced_datagram.keys():
+    @staticmethod
+    def _split_complex_data(complex_series: pd.Series) -> pd.DataFrame:
+        """
+        Splits the 1D complex data into two 1D arrays
+        representing the real and imaginary parts of
+        the complex data, for each element in ``complex_series``.
 
-            if ("ALL" in self.data_type) and isinstance(reduced_datagram["power"], np.ndarray):
-                # Manufacturer-specific power conversion factor
-                INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+        Parameters
+        ----------
+        complex_series : pd.Series
+            Series representing the complex data
 
-                reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
+        Returns
+        -------
+        DataFrame with columns backscatter_r and
+        backscatter_i obtained from splitting the
+        complex data into real and imaginary parts,
+        respectively. The DataFrame will have the
+        same index as ``complex_series``.
+        """
 
-    def _split_angle_data(self, angle_val):
+        complex_split = complex_series.apply(
+            lambda x: [np.real(x), np.imag(x)] if isinstance(x, np.ndarray) else [None, None])
 
-        # account for None values
-        if isinstance(angle_val, np.ndarray):
-            angle_split = {"angle_athwartship": angle_val[:, 0],
-                           "angle_alongship": angle_val[:, 1]}
-        else:
-            angle_split = {"angle_athwartship": None,
-                           "angle_alongship": None}
+        return pd.DataFrame(data=complex_split.to_list(),
+                            columns=['backscatter_r', 'backscatter_i'],
+                            index=complex_series.index)
 
-    def _split_complex_data(self, complex_val):
+    def _write_complex(self, df: pd.DataFrame, max_mb: int):
+        """
+        Writes the complex data and associated indices
+        to a zarr group.
 
-        # account for None values
-        if isinstance(complex_val, np.ndarray):
-            complex_split = {"backscatter_r": np.real(complex_val),
-                             "backscatter_i": np.imag(complex_val)}
-        else:
-            complex_split = {"backscatter_r": None,
-                             "backscatter_i": None}
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame that contains angle data
+        max_mb : int
+            Maximum MB allowed for each chunk
+        """
 
+        # obtain complex data and drop NaNs
+        complex_series = df.set_index(self.complex_dims)['complex'].dropna().copy()
 
+        complex_df = self._split_complex_data(complex_series)
 
-    def datagram_to_zarr(self, zarr_dgrams: List[dict], zarr_vars: dict,
+        # get unique indices
+        times = complex_df.index.get_level_values(0).unique()
+        channels = complex_df.index.get_level_values(1).unique()
+
+        # create multi index using the product of the unique dims
+        unique_dims = [times, channels]
+
+        complex_df = self.set_multi_index(complex_df, unique_dims)
+
+        # write complex data to the complex group
+        zarr_grp = self.zarr_root.create_group('complex')
+        for column in complex_df:
+            self.write_df_column(pd_series=complex_df[column], zarr_grp=zarr_grp,
+                                 is_array=True, unique_time_ind=times, max_mb=max_mb)
+
+        # write the unique indices to the complex group
+        zarr_grp.array(name=self.complex_dims[0], data=times.values, dtype='<M8[ns]', fill_value='NaT')
+
+        dtype = self._get_string_dtype(channels)
+        zarr_grp.array(name=self.complex_dims[1], data=channels.values, dtype=dtype, fill_value=None)
+
+    def datagram_to_zarr(self, zarr_dgrams: List[dict],
                          max_mb: int) -> None:
         """
         Facilitates the conversion of a list of
@@ -58,10 +97,6 @@ class Parsed2ZarrEK60(Parsed2Zarr):
             A list of datagrams where each datagram contains
             at least one variable that should be written to
             a zarr file and any associated dimensions.
-        zarr_vars : dict
-            A dictionary where the keys represent the variable
-            that should be written to a zarr file and the values
-            are a list of the variable's dimensions.
         max_mb : int
             Maximum MB allowed for each chunk
 
@@ -69,9 +104,6 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         -----
         This function specifically writes chunks along the time
         index.
-
-        The dimensions provided in ``zarr_vars`` must have the
-        time dimension as the first element.
 
         The chunking routine evenly distributes the times such
         that each chunk differs by at most one time. This makes
@@ -81,21 +113,19 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         datagram_df = pd.DataFrame.from_dict(zarr_dgrams)
 
-        # unique_dims = map(list, set(map(tuple, zarr_vars.values())))
-        #
-        # # write groups of variables with the same dimensions to zarr
-        # for dims in unique_dims:
-        #     # get all variables with dimensions dims
-        #     var_names = [key for key, val in zarr_vars.items() if val == dims]
-        #
-        #     # columns needed to compute df_multi
-        #     req_cols = var_names + dims
-        #
-        #     df_multi = set_multi_index(datagram_df[req_cols], dims)
-        #
-        #     # check to make sure the second index is unique
-        #     unique_second_index(df_multi)
-        #
-        #     write_df_to_zarr(df_multi, array_grp, time_name=dims[0], max_mb=max_mb)
+        # get df corresponding to power and angle only
+        pow_ang_df = datagram_df[['power', 'angle', 'timestamp', 'channel_id']].copy()
+
+        # remove power and angle to conserve memory
+        del datagram_df['power']
+        del datagram_df['angle']
+
+        # drop rows with missing power and angle data
+        pow_ang_df.dropna(how='all', subset=['power', 'angle'], inplace=True)
+
+        self._write_power(df=pow_ang_df, max_mb=max_mb)
+        self._write_angle(df=pow_ang_df, max_mb=max_mb)
+
+        self._write_complex(df=datagram_df, max_mb=max_mb)
 
         self._close_store()

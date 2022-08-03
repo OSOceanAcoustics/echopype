@@ -28,7 +28,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options, dgram_zarr_vars, red_dgram_zarr_vars):
+    def __init__(self, file, params, storage_options, dgram_zarr_vars):
         super().__init__(file, storage_options)
 
         # Parent class attributes
@@ -53,12 +53,8 @@ class ParseEK(ParseBase):
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
-        # dgram vars and associated dims that should be written directly to zarr
+        # dgram vars and their associated dims that should be written directly to zarr
         self.dgram_zarr_vars = dgram_zarr_vars
-
-        # reduced dgram vars and associated dims that should be written directly to zarr
-        # IMPORTANT: the dims should have the longest dim as the first element
-        self.red_dgram_zarr_vars = red_dgram_zarr_vars
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
@@ -342,15 +338,15 @@ class ParseEK(ParseBase):
                 #  condition to if statement to check it we want to
                 #  go directly to zarr variables
 
-                reduced_datagram = self._get_zarr_dgram(new_datagram)
-                self.zarr_datagrams.append(reduced_datagram)
+                self._append_zarr_dgram(new_datagram)
 
-    def _get_zarr_dgram(self, full_dgram: dict) -> dict:
+    def _append_zarr_dgram(self, full_dgram: dict):
         """
         Selects a subset of the datagram values that
-        need to be sent directly to a zarr file. If
-        the datagram contains angle data, then the data
-        is split into angle_athwartship and angle_alongship.
+        need to be sent directly to a zarr file and
+        appends them to the class variable ``zarr_datagrams``.
+        Additionally, if any power data exists, the
+        conversion factor will be applied to it.
 
         Parameters
         ----------
@@ -370,55 +366,18 @@ class ParseEK(ParseBase):
         for key in self.dgram_zarr_vars.keys():
             wanted_vars = wanted_vars.union({key, *self.dgram_zarr_vars[key]})
 
-        # deal with angle data separately by splitting it up
-        # TODO: make this a function
-        # if ("angle" in wanted_vars) and ("angle" in full_dgram.keys()):
-        #
-        #     wanted_vars.remove("angle")
-        #     angle_val = full_dgram["angle"]
-        #
-        #     # account for None values
-        #     if isinstance(angle_val, np.ndarray):
-        #         angle_split = {"angle_athwartship": angle_val[:, 0],
-        #                        "angle_alongship": angle_val[:, 1]}
-        #     else:
-        #         angle_split = {"angle_athwartship": None,
-        #                        "angle_alongship": None}
-        # else:
-        #     angle_split = {}
-
-        # deal with complex data by splitting it into its real and imaginary parts
-        # TODO: make this into a function
-        # if ("complex" in wanted_vars) and ("complex" in full_dgram.keys()):
-        #
-        #     wanted_vars.remove("complex")
-        #     complex_val = full_dgram["complex"]
-        #
-        #     # account for None values
-        #     if isinstance(complex_val, np.ndarray):
-        #         complex_split = {"backscatter_r": np.real(complex_val),
-        #                          "backscatter_i": np.imag(complex_val)}
-        #     else:
-        #         complex_split = {"backscatter_r": None,
-        #                          "backscatter_i": None}
-        # else:
-        #     complex_split = {}
-
-
         # construct reduced datagram
         reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
-        # reduced_datagram.update(angle_split)
-        # reduced_datagram.update(complex_split)
 
-        # if "power" in reduced_datagram.keys():
-        #
-        #     if ("ALL" in self.data_type) and isinstance(reduced_datagram["power"], np.ndarray):
-        #         # Manufacturer-specific power conversion factor
-        #         INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
-        #
-        #         reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
+        # apply conversion factor to power data, if it exists
+        if ("power" in reduced_datagram.keys()) and (isinstance(reduced_datagram["power"], np.ndarray)):
 
-        return reduced_datagram
+            # Manufacturer-specific power conversion factor
+            INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+
+            reduced_datagram["power"].astype("float64") * INDEX2POWER
+
+        self.zarr_datagrams.append(reduced_datagram)
 
     def _append_channel_ping_data(self, datagram, rx=True):
         """

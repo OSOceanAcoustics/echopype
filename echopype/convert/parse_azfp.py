@@ -16,7 +16,7 @@ FILENAME_DATETIME_AZFP = "\\w+.01A"
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
-    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, red_dgram_zarr_vars={}):
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename

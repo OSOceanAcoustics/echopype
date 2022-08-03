@@ -3,7 +3,7 @@ import numpy as np
 import tempfile
 import zarr
 import more_itertools as miter
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 
 class Parsed2Zarr:
@@ -33,27 +33,8 @@ class Parsed2Zarr:
         self.store.close()
 
     @staticmethod
-    def unique_second_index(df: pd.DataFrame) -> None:
-        """
-        Raises an error if the second index has
-        repeated values. All routines assume that
-        the second index does not have repeated
-        values.
-
-        Parameters
-        ----------
-        df: pd.DataFrame
-            DataFrame with two indices.
-        """
-
-        for time in df.index.get_level_values(0).unique():
-            val, cnts = np.unique(df.loc[time].index.get_level_values(0), return_counts=True)
-
-            if max(cnts) > 1:
-                raise NotImplementedError("write_df_to_zarr requires a unique second index.")
-
-    @staticmethod
-    def set_multi_index(pd_series: pd.Series, unique_dims: List[pd.Index]) -> pd.Series:
+    def set_multi_index(pd_obj: Union[pd.Series, pd.DataFrame],
+                        unique_dims: List[pd.Index]) -> Union[pd.Series, pd.DataFrame]:
         """
         Sets a multi-index from the product of the unique
         dimension values on a series and then
@@ -61,8 +42,8 @@ class Parsed2Zarr:
 
         Parameters
         ----------
-        pd_series : pd.Series
-            Series that needs its multi-index modified.
+        pd_obj : Union[pd.Series, pd.DataFrame]
+            Series or DataFrame that needs its multi-index modified.
         unique_dims : List[pd.Index]
             List where the elements are the unique values
             of the index.
@@ -76,9 +57,7 @@ class Parsed2Zarr:
         multi_index = pd.MultiIndex.from_product(unique_dims)
 
         # set product multi-index i.e. a preliminary padding of the df
-        series_prod = pd_series.reindex(multi_index, fill_value=np.nan)
-
-        return series_prod
+        return pd_obj.reindex(multi_index, fill_value=np.nan)
 
     @staticmethod
     def get_col_info(pd_series: pd.Series, time_name: str,
