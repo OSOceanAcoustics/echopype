@@ -26,7 +26,7 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
-        temp_zarr_dir: tempfile.TemporaryDirectory = None,
+        parser2zarr_obj=None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
@@ -40,7 +40,9 @@ class SetGroupsBase(abc.ABC):
         self.compress = compress
         self.overwrite = overwrite
         self.ui_param = params
-        self.temp_zarr_dir = temp_zarr_dir
+
+        # parsed data written directly to zarr object
+        self.parser2zarr_obj = parser2zarr_obj
 
         if not self.compress:
             self.compression_settings = None

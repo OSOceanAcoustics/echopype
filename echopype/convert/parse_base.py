@@ -375,7 +375,7 @@ class ParseEK(ParseBase):
             # Manufacturer-specific power conversion factor
             INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
-            reduced_datagram["power"].astype("float64") * INDEX2POWER
+            reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
 
         self.zarr_datagrams.append(reduced_datagram)
 

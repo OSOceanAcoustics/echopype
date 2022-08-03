@@ -16,6 +16,18 @@ class Parsed2Zarr:
 
     def __init__(self):
 
+        self.temp_zarr_dir = None
+        self.zarr_file_name = None
+        self.store = None
+        self.zarr_root = None
+
+    def _create_zarr_info(self):
+        """
+        Creates the temporary directory for zarr
+        storage, zarr file name, zarr store, and
+        the root group of the zarr store.
+        """
+
         # temporary directory that will hold the zarr file
         # TODO: will this work well in the cloud?
         self.temp_zarr_dir = tempfile.TemporaryDirectory()

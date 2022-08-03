@@ -1,4 +1,4 @@
-from parsed_to_zarr import Parsed2Zarr
+from .parsed_to_zarr import Parsed2Zarr
 import pandas as pd
 from typing import List
 import numpy as np
@@ -164,6 +164,8 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         it so that the memory required for each chunk is approximately
         the same.
         """
+
+        self._create_zarr_info()
 
         datagram_df = pd.DataFrame.from_dict(zarr_dgrams)
 

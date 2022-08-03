@@ -453,23 +453,18 @@ def open_raw(
     if will_it_explode:
         parser.parse_raw()
 
-        # temporary directory that will hold the zarr file
-        temp_zarr_dir = parser2zarr.temp_zarr_dir
-
         parser2zarr.datagram_to_zarr(parser.zarr_datagrams, max_mb=max_zarr_mb)
 
     else:
         parser.parse_raw()
-        temp_zarr_dir = None
 
-    # TODO: make the below code its own function
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        temp_zarr_dir=temp_zarr_dir,
+        parser2zarr_obj=parser2zarr,
     )
 
     # Setup tree dictionary
@@ -517,7 +512,7 @@ def open_raw(
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk,
-                        sonar_model=sonar_model, temp_zarr_dir=temp_zarr_dir)
+                        sonar_model=sonar_model, parser2zarr_obj=parser2zarr)
     echodata._set_tree(tree)
     echodata._load_tree()
 
