@@ -447,16 +447,17 @@ def open_raw(
     # Determines if writing to zarr is necessary and writes to zarr
     parser2zarr = SONAR_MODELS[sonar_model]["parser2zarr"]()
 
+    parser.parse_raw()
+
     # check if the parsed data is sparse
-    will_it_explode = True   # TODO: make this its own function
+    will_it_explode = True  # TODO: make this its own function
 
     if will_it_explode:
-        parser.parse_raw()
-
         parser2zarr.datagram_to_zarr(parser.zarr_datagrams, max_mb=max_zarr_mb)
 
     else:
-        parser.parse_raw()
+        if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and ("ALL" in parser.data_type):
+            parser.rectangularize_data()
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
