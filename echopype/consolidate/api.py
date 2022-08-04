@@ -43,14 +43,13 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
             return xr.DataArray(
                 data=coord_var.values[0] * np.ones(len(ds["ping_time"]), dtype=np.float64),
                 dims=["ping_time"],
-                attrs=coord_var.attrs
+                attrs=coord_var.attrs,
             )
         else:
             # Interpolation. time1 is always associated with location data
             return coord_var.interp(time1=ds["ping_time"])
 
-    if ("longitude" not in echodata["Platform"]
-            or echodata["Platform"]["longitude"].isnull().all()):
+    if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
 
     interp_ds = ds.copy()
@@ -59,7 +58,8 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history = (
-        f"{datetime.datetime.utcnow()} +00:00. " "Interpolated or propagated from Platform latitude/longitude."  # noqa
+        f"{datetime.datetime.utcnow()} +00:00. "
+        "Interpolated or propagated from Platform latitude/longitude."  # noqa
     )
     interp_ds["latitude"] = interp_ds["latitude"].assign_attrs({"history": history})
     interp_ds["longitude"] = interp_ds["longitude"].assign_attrs({"history": history})
