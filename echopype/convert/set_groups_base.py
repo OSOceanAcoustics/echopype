@@ -1,14 +1,15 @@
 import abc
-from typing import Set
+from typing import Set, List, Tuple
 
 import numpy as np
 import pynmea2
 import xarray as xr
+import dask.array
 
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
-import tempfile
+
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -322,3 +323,117 @@ class SetGroupsBase(abc.ABC):
 
         self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
         self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
+
+    def _get_channel_ids(self, chan_str: np.ndarray) -> List[str]:
+        """
+        Obtains the channel IDs associated with ``chan_str``.
+
+        Parameters
+        ----------
+        chan_str : np.ndarray
+            A numpy array of strings corresponding to the
+            keys of ``config_datagram["transceivers"]``
+
+        Returns
+        -------
+        A list of strings representing the channel IDS
+        """
+
+        return [self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"] for i in chan_str]
+
+    def _get_power_dataarray(self, zarr_path: str) -> xr.DataArray:
+        """
+        Constructs a DataArray from a Dask array for the power
+        data.
+
+        Parameters
+        ----------
+        zarr_path: str
+            Path to the zarr file that contain the power data
+
+        Returns
+        -------
+        DataArray named "backscatter_r" representing the
+        power data.
+        """
+
+        # collect variables associated with the power data
+        power = dask.array.from_zarr(zarr_path, component='power/power')
+        power_time = dask.array.from_zarr(zarr_path, component='power/timestamp').compute()
+        power_channel = dask.array.from_zarr(zarr_path, component='power/channel').compute()
+
+        # obtain channel names for power data
+        pow_chan_names = self._get_channel_ids(power_channel)
+
+        backscatter_r = xr.DataArray(data=power,
+                                     coords={'ping_time': (["ping_time"], power_time,
+                                                           self._varattrs["beam_coord_default"]["ping_time"]),
+                                             'channel': (["channel"], pow_chan_names,
+                                                         self._varattrs["beam_coord_default"]["channel"]),
+                                             'range_sample': (["range_sample"], np.arange(power.shape[2]),
+                                                              self._varattrs["beam_coord_default"]["range_sample"])},
+                                     name="backscatter_r",
+                                     attrs={"long_name": "Backscatter power", "units": "dB"})
+
+        return backscatter_r
+
+    def _get_angle_dataarrays(self, zarr_path: str) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Constructs the DataArrays from Dask arrays associated
+        with the angle data.
+
+        Parameters
+        ----------
+        zarr_path: str
+            Path to the zarr file that contains the angle data
+
+        Returns
+        -------
+        DataArrays named "angle_athwartship" and "angle_alongship",
+        respectively, representing the angle data.
+        """
+
+        # collect variables associated with the angle data
+        angle_along = dask.array.from_zarr(zarr_path, component='angle/angle_alongship')
+        angle_athwart = dask.array.from_zarr(zarr_path, component='angle/angle_athwartship')
+        angle_time = dask.array.from_zarr(zarr_path, component='angle/timestamp').compute()
+        angle_channel = dask.array.from_zarr(zarr_path, component='angle/channel').compute()
+
+        # obtain channel names for angle data
+        ang_chan_names = self._get_channel_ids(angle_channel)
+
+        angle_athwartship = xr.DataArray(data=angle_athwart,
+                                         coords={'ping_time': (["ping_time"], angle_time,
+                                                               self._varattrs["beam_coord_default"]["ping_time"]),
+                                             'channel': (["channel"], ang_chan_names,
+                                                         self._varattrs["beam_coord_default"]["channel"]),
+                                             'range_sample': (["range_sample"], np.arange(angle_athwart.shape[2]),
+                                                              self._varattrs["beam_coord_default"]["range_sample"])},
+                                         name="angle_athwartship",
+                                         attrs={
+                                             "long_name": "electrical athwartship angle",
+                                             "comment":
+                                                 ("Introduced in echopype for Simrad echosounders. "  # noqa
+                                                  + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "
+                                                  # noqa
+                                                  )}
+                                         )
+
+        angle_alongship = xr.DataArray(data=angle_along,
+                                       coords={'ping_time': (["ping_time"], angle_time,
+                                                             self._varattrs["beam_coord_default"]["ping_time"]),
+                                             'channel': (["channel"], ang_chan_names,
+                                                         self._varattrs["beam_coord_default"]["channel"]),
+                                             'range_sample': (["range_sample"], np.arange(angle_along.shape[2]),
+                                                              self._varattrs["beam_coord_default"]["range_sample"])},
+                                       name="angle_alongship",
+                                       attrs={
+                                           "long_name": "electrical alongship angle",
+                                           "comment":
+                                               ("Introduced in echopype for Simrad echosounders. "  # noqa
+                                                + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "
+                                                # noqa
+                                                )}
+                                       )
+
+        return angle_athwartship, angle_alongship
