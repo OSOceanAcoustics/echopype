@@ -16,6 +16,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.power_dims = ['timestamp', 'channel_id']
         self.angle_dims = ['timestamp', 'channel_id']
         self.complex_dims = ['timestamp', 'channel_id']
+        self.p2z_ch_ids = {}  # channel ids for power, angle, complex
 
     @staticmethod
     def _split_complex_data(complex_series: pd.Series) -> pd.DataFrame:
@@ -66,6 +67,8 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         # get unique indices
         times = complex_df.index.get_level_values(0).unique()
         channels = complex_df.index.get_level_values(1).unique()
+
+        self.p2z_ch_ids['complex'] = channels.values  # store channel ids for variable
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]

@@ -392,12 +392,13 @@ class ParseEK(ParseBase):
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
+        # append zarr variables, if they exist
         if zar_vars:
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
                 self._append_zarr_dgram(datagram)
-                for vars in common_vars:
-                    del datagram[vars]
+                for var in common_vars:
+                    del datagram[var]
 
         for k, v in datagram.items():
             if rx:

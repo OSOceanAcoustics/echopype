@@ -15,6 +15,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         self.power_dims = ['timestamp', 'channel']
         self.angle_dims = ['timestamp', 'channel']
+        self.p2z_ch_ids = {}  # channel ids for power, angle, complex
 
     @staticmethod
     def _get_string_dtype(pd_series: pd.Index) -> str:
@@ -55,6 +56,8 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # get unique indices
         times = power_series.index.get_level_values(0).unique()
         channels = power_series.index.get_level_values(1).unique()
+
+        self.p2z_ch_ids['power'] = channels.values  # store channel ids for variable
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]
@@ -120,6 +123,8 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # get unique indices
         times = angle_df.index.get_level_values(0).unique()
         channels = angle_df.index.get_level_values(1).unique()
+
+        self.p2z_ch_ids['angle'] = channels.values  # store channel ids for variable
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]

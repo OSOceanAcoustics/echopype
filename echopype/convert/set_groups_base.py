@@ -338,8 +338,10 @@ class SetGroupsBase(abc.ABC):
         -------
         A list of strings representing the channel IDS
         """
-
-        return [self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"] for i in chan_str]
+        if self.sonar_model in ["EK60", "ES70"]:
+            return [self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"] for i in chan_str]
+        else:
+            return [self.parser_obj.config_datagram['configuration'][i]['channel_id'] for i in chan_str]
 
     def _get_power_dataarray(self, zarr_path: str) -> xr.DataArray:
         """
@@ -359,8 +361,11 @@ class SetGroupsBase(abc.ABC):
 
         # collect variables associated with the power data
         power = dask.array.from_zarr(zarr_path, component='power/power')
-        power_time = dask.array.from_zarr(zarr_path, component='power/timestamp').compute()
-        power_channel = dask.array.from_zarr(zarr_path, component='power/channel').compute()
+
+        pow_time_path = 'power/' + self.parser2zarr_obj.power_dims[0]
+        pow_chan_path = 'power/' + self.parser2zarr_obj.power_dims[1]
+        power_time = dask.array.from_zarr(zarr_path, component=pow_time_path).compute()
+        power_channel = dask.array.from_zarr(zarr_path, component=pow_chan_path).compute()
 
         # obtain channel names for power data
         pow_chan_names = self._get_channel_ids(power_channel)
@@ -396,8 +401,11 @@ class SetGroupsBase(abc.ABC):
         # collect variables associated with the angle data
         angle_along = dask.array.from_zarr(zarr_path, component='angle/angle_alongship')
         angle_athwart = dask.array.from_zarr(zarr_path, component='angle/angle_athwartship')
-        angle_time = dask.array.from_zarr(zarr_path, component='angle/timestamp').compute()
-        angle_channel = dask.array.from_zarr(zarr_path, component='angle/channel').compute()
+
+        ang_time_path = 'angle/' + self.parser2zarr_obj.power_dims[0]
+        ang_chan_path = 'angle/' + self.parser2zarr_obj.power_dims[1]
+        angle_time = dask.array.from_zarr(zarr_path, component=ang_time_path).compute()
+        angle_channel = dask.array.from_zarr(zarr_path, component=ang_chan_path).compute()
 
         # obtain channel names for angle data
         ang_chan_names = self._get_channel_ids(angle_channel)

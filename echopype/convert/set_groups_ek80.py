@@ -63,6 +63,11 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # if we have zarr files, create parser_obj.ch_ids
+        if self.parser2zarr_obj.temp_zarr_dir:
+            for k, v in self.parser2zarr_obj.p2z_ch_ids.items():
+                self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
+
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
 
@@ -868,10 +873,15 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
 
             # TODO: make this its own function?
-            ds_common = self._assemble_ds_common(ch, ds_data.range_sample.size)
-            ds_data = xr.merge(
-                [ds_data, ds_common], combine_attrs="override"
-            )  # override keeps the Dataset attributes
+            ds_common = self._assemble_ds_common(ch, ds_power.range_sample.size)
+
+            if ds_data and ds_common:
+                ds_data = xr.merge(
+                    [ds_data, ds_common], combine_attrs="override"
+                )  # override keeps the Dataset attributes
+            elif ds_common:
+                ds_data = ds_common
+
             # Attach channel dimension/coordinate
             ds_data = ds_data.expand_dims(
                 {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
@@ -882,9 +892,11 @@ class SetGroupsEK80(SetGroupsBase):
 
             ds_tmp.append(ds_data)
 
+        ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
+
         # TODO: assign ds_tmp to ds_power
 
-        return self.merge_save(ds_tmp, ds_invariant_power)
+        return xr.merge([ds_power, ds_tmp], join="left") #, combine_attrs="override")
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
@@ -965,6 +977,8 @@ class SetGroupsEK80(SetGroupsBase):
             #     ds_complex = self._set_power_beamgroup_zarr_vars()
             # else:
             #     ds_complex = None
+            print(self.parser_obj.ch_ids["power"])
+            print(f"ds_power = {ds_power}")
 
             ds_beam_power = ds_power
             # ds_beam_power = None
@@ -975,7 +989,7 @@ class SetGroupsEK80(SetGroupsBase):
             # else:
             #     ds_beam = merge_save(ds_power, ds_type="power")
 
-            ds_beam = xr.Dataset()
+            ds_beam = ds_power.copy()
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
