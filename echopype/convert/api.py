@@ -1,5 +1,4 @@
 import warnings
-from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
-from ..utils import io
+from ..utils import io, log
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -28,6 +27,9 @@ DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
+
+# Logging setup
+logger = log._init_logger(__name__)
 
 
 def to_file(
@@ -78,15 +80,15 @@ def to_file(
 
     # Sequential or parallel conversion
     if exists and not overwrite:
-        print(
-            f"{dt.now().strftime('%H:%M:%S')}  {echodata.source_file} has already been converted to {engine}. "  # noqa
+        logger.info(
+            f"{echodata.source_file} has already been converted to {engine}. "  # noqa
             f"File saving not executed."
         )
     else:
         if exists:
-            print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {output_file}")
+            logger.info(f"overwriting {output_file}")
         else:
-            print(f"{dt.now().strftime('%H:%M:%S')}  saving {output_file}")
+            logger.info(f"saving {output_file}")
         _save_groups_to_file(
             echodata,
             output_path=io.sanitize_file_path(
@@ -367,7 +369,7 @@ def open_raw(
     EchoData object
     """
     if (sonar_model is None) and (raw_file is None):
-        print("Please specify the path to the raw data file and the sonar model.")
+        logger.warning("Please specify the path to the raw data file and the sonar model.")
         return
 
     # Check inputs
@@ -376,7 +378,7 @@ def open_raw(
     storage_options = storage_options if storage_options is not None else {}
 
     if sonar_model is None:
-        print("Please specify the sonar model.")
+        logger.warning("Please specify the sonar model.")
 
         if xml_path is None:
             sonar_model = "EK60"

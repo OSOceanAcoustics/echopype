@@ -4,8 +4,11 @@ from typing import List
 import numpy as np
 import xarray as xr
 
+from ..utils import log
 from ..utils.coding import set_encodings
 from .set_groups_base import SetGroupsBase
+
+logger = log._init_logger(__name__)
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -226,7 +229,7 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
-            print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
+            logger.info("WARNING: The water_level_draft was not in the file. Value set to NaN.")
 
         time1, msg_type, lat, lon = self._parse_NMEA()
         time2 = self.parser_obj.mru.get("timestamp", None)

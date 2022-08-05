@@ -1,10 +1,12 @@
-import warnings
 from typing import Optional, Union, List
 
 import xarray as xr
 
 from .plot import _plot_echogram, FacetGrid, QuadMesh
 from ..echodata import EchoData
+from ..utils.log import _init_logger
+
+logger = _init_logger(__name__)
 
 
 def create_echogram(
@@ -68,7 +70,7 @@ def create_echogram(
     }
 
     if channel and frequency:
-        warnings.warn(
+        logger.warning(
             "Both channel and frequency are specified. Channel filtering will be used."
         )
 
@@ -200,7 +202,7 @@ def _add_water_level(
     if isinstance(water_level, bool):
         if water_level is True:
             if data_type == xr.Dataset:
-                warnings.warn(
+                logger.warning(
                     "Boolean type found for water level. Ignored since data is an xarray dataset."
                 )
                 return range_in_meter
@@ -211,11 +213,11 @@ def _add_water_level(
                 ):
                     return range_in_meter + platform_data.water_level.rename({'time3': 'ping_time'})
                 else:
-                    warnings.warn(
+                    logger.warning(
                         "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
                     )
                     return range_in_meter
-        warnings.warn(f"Water level value of {water_level} is ignored.")
+        logger.warning(f"Water level value of {water_level} is ignored.")
         return range_in_meter
     if isinstance(water_level, xr.DataArray):
         check_dims = range_in_meter.dims

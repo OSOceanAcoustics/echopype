@@ -6,18 +6,18 @@ by Rick Towler <rick.towler@noaa.gov> at NOAA AFSC.
 Contains low-level functions called by ./ek_raw_parsers.py
 """
 
-import logging
 import struct
 from io import SEEK_CUR, SEEK_END, SEEK_SET, BufferedReader, FileIO
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 
+from ...utils.log import _init_logger
 from . import ek_raw_parsers as parsers
 
 __all__ = ["RawSimradFile"]
 
-log = logging.getLogger(__name__)
+log = _init_logger(__name__)
 
 
 class SimradEOF(Exception):
@@ -590,7 +590,7 @@ class RawSimradFile(BufferedReader):
             dgram_size = self._read_dgram_size()
 
         except DatagramSizeError:
-            print("Error reading the datagram")
+            log.info("Error reading the datagram")
             self._seek_bytes(old_file_pos, SEEK_SET)
             raise
 

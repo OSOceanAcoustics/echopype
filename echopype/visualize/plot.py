@@ -1,4 +1,3 @@
-import warnings
 import matplotlib.pyplot as plt
 import matplotlib.cm
 import xarray as xr
@@ -7,6 +6,9 @@ from xarray.plot.facetgrid import FacetGrid
 from matplotlib.collections import QuadMesh
 from typing import Optional, Union, List
 from .cm import cmap_d
+from ..utils.log import _init_logger
+
+logger = _init_logger(__name__)
 
 
 def _format_axis_label(axis_variable):
@@ -114,7 +116,7 @@ def _set_plot_defaults(kwargs):
     exclude_attrs = ['x', 'y', 'col', 'row']
     for attr in exclude_attrs:
         if attr in kwargs:
-            warnings.warn(f"{attr} in kwargs. Removing.")
+            logger.warning(f"{attr} in kwargs. Removing.")
             kwargs.pop(attr)
 
     return kwargs
