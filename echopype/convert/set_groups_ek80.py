@@ -915,6 +915,36 @@ class SetGroupsEK80(SetGroupsBase):
 
         return xr.merge([ds_tmp, ds_power], combine_attrs="override")
 
+    def _get_ds_complex_zarr(self, ds_invariant_complex: xr.Dataset) -> xr.Dataset:
+        """
+        Constructs the data set `ds_beam_power` when
+        there are zarr variables present.
+
+        Parameters
+        ----------
+        ds_invariant_complex : xr.Dataset
+            Dataset for ping-invariant params associated with power
+
+        Returns
+        -------
+        A Dataset representing `ds_beam_power`.
+        """
+
+        # TODO: In the future it would be nice to have a dictionary of
+        #  attributes stored in one place for all of the variables.
+        #  This would reduce unnecessary code duplication in the
+        #  functions below.
+
+        # obtain DataArrays using zarr variables
+        zarr_path = self.parser2zarr_obj.zarr_file_name
+        backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
+
+        # create power related ds using DataArrays created from zarr file
+        ds_complex = xr.merge([backscatter_r, backscatter_i])
+        ds_complex = set_encodings(ds_complex)
+
+
+
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 

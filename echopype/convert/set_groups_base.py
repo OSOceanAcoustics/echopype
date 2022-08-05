@@ -402,21 +402,23 @@ class SetGroupsBase(abc.ABC):
         angle_along = dask.array.from_zarr(zarr_path, component='angle/angle_alongship')
         angle_athwart = dask.array.from_zarr(zarr_path, component='angle/angle_athwartship')
 
-        ang_time_path = 'angle/' + self.parser2zarr_obj.power_dims[0]
-        ang_chan_path = 'angle/' + self.parser2zarr_obj.power_dims[1]
+        ang_time_path = 'angle/' + self.parser2zarr_obj.angle_dims[0]
+        ang_chan_path = 'angle/' + self.parser2zarr_obj.angle_dims[1]
         angle_time = dask.array.from_zarr(zarr_path, component=ang_time_path).compute()
         angle_channel = dask.array.from_zarr(zarr_path, component=ang_chan_path).compute()
 
         # obtain channel names for angle data
         ang_chan_names = self._get_channel_ids(angle_channel)
 
+        array_coords = {'ping_time': (["ping_time"], angle_time,
+                                      self._varattrs["beam_coord_default"]["ping_time"]),
+                        'channel': (["channel"], ang_chan_names,
+                                    self._varattrs["beam_coord_default"]["channel"]),
+                        'range_sample': (["range_sample"], np.arange(angle_athwart.shape[2]),
+                                         self._varattrs["beam_coord_default"]["range_sample"])}
+
         angle_athwartship = xr.DataArray(data=angle_athwart,
-                                         coords={'ping_time': (["ping_time"], angle_time,
-                                                               self._varattrs["beam_coord_default"]["ping_time"]),
-                                             'channel': (["channel"], ang_chan_names,
-                                                         self._varattrs["beam_coord_default"]["channel"]),
-                                             'range_sample': (["range_sample"], np.arange(angle_athwart.shape[2]),
-                                                              self._varattrs["beam_coord_default"]["range_sample"])},
+                                         coords=array_coords,
                                          name="angle_athwartship",
                                          attrs={
                                              "long_name": "electrical athwartship angle",
@@ -428,12 +430,7 @@ class SetGroupsBase(abc.ABC):
                                          )
 
         angle_alongship = xr.DataArray(data=angle_along,
-                                       coords={'ping_time': (["ping_time"], angle_time,
-                                                             self._varattrs["beam_coord_default"]["ping_time"]),
-                                             'channel': (["channel"], ang_chan_names,
-                                                         self._varattrs["beam_coord_default"]["channel"]),
-                                             'range_sample': (["range_sample"], np.arange(angle_along.shape[2]),
-                                                              self._varattrs["beam_coord_default"]["range_sample"])},
+                                       coords=array_coords,
                                        name="angle_alongship",
                                        attrs={
                                            "long_name": "electrical alongship angle",
@@ -445,3 +442,50 @@ class SetGroupsBase(abc.ABC):
                                        )
 
         return angle_athwartship, angle_alongship
+
+    def _get_complex_dataarrays(self, zarr_path: str) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Constructs the DataArrays from Dask arrays associated
+        with the complex data.
+
+        Parameters
+        ----------
+        zarr_path: str
+            Path to the zarr file that contains the complex data
+
+        Returns
+        -------
+        DataArrays named "backscatter_r" and "backscatter_i",
+        respectively, representing the complex data.
+        """
+
+        # collect variables associated with the complex data
+        complex_r = dask.array.from_zarr(zarr_path, component='complex/backscatter_r')
+        complex_i = dask.array.from_zarr(zarr_path, component='complex/backscatter_i')
+
+        comp_time_path = 'complex/' + self.parser2zarr_obj.complex_dims[0]
+        comp_chan_path = 'complex/' + self.parser2zarr_obj.complex_dims[1]
+        complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
+        complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
+
+        # obtain channel names for complex data
+        comp_chan_names = self._get_channel_ids(complex_channel)
+
+        array_coords = {'ping_time': (["ping_time"], complex_time,
+                                      self._varattrs["beam_coord_default"]["ping_time"]),
+                        'channel': (["channel"], comp_chan_names,
+                                    self._varattrs["beam_coord_default"]["channel"]),
+                        'range_sample': (["range_sample"], np.arange(complex_r.shape[2]),
+                                         self._varattrs["beam_coord_default"]["range_sample"])}
+
+        backscatter_r = xr.DataArray(data=complex_r,
+                                     coords=array_coords,
+                                     name="backscatter_r",
+                                     attrs={"long_name": "Real part of backscatter power", "units": "V"})
+
+        backscatter_i = xr.DataArray(data=complex_i,
+                                     coords=array_coords,
+                                     name="backscatter_i",
+                                     attrs={"long_name": "Imaginary part of backscatter power", "units": "V"})
+
+        return backscatter_r, backscatter_i
