@@ -451,6 +451,7 @@ def open_raw(
 
     # check if the parsed data is sparse
     will_it_explode = True  # TODO: make this its own function
+    print(f"will_it_explode = {will_it_explode}")
 
     if will_it_explode:
         parser2zarr.datagram_to_zarr(parser.zarr_datagrams, max_mb=max_zarr_mb)

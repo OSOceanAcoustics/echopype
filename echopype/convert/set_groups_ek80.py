@@ -705,7 +705,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-            return ds_tmp
+        return ds_tmp
 
     def _assemble_ds_power(self, ch):
 
@@ -714,7 +714,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscattering power", "units": "dB"},
+                    {"long_name": "Backscatter power", "units": "dB"},
                 ),
             },
             coords={
@@ -731,7 +731,7 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
 
-        self._add_trasmit_pulse_complex(ds_tmp, ch)
+        ds_tmp = self._add_trasmit_pulse_complex(ds_tmp, ch)
 
         # If angle data exist
         if ch in self.parser_obj.ch_ids["angle"]:
@@ -834,20 +834,57 @@ class SetGroupsEK80(SetGroupsBase):
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override"
         )  # override keeps the Dataset attributes
-
         return set_encodings(ds_combine)
 
-    def _set_power_beamgroup_zarr_vars(self,
-                                       ds_invariant_power: xr.Dataset) -> xr.Dataset:
+    def _attach_vars_to_ds_data(self, ds_data: xr.Dataset,
+                                ch: str, rs_size: int) -> xr.Dataset:
+        """
+        Attaches common variables and the channel dimension.
+
+        Parameters
+        ----------
+        ds_data : xr.Dataset
+            Data set to add variables to
+        ch: str
+            Channel string associated with variables
+        rs_size: int
+            The size of the range sample dimension
+            i.e. ``range_sample.size``
+
+        Returns
+        -------
+        ``ds_data`` with the variables added to it.
         """
 
+        ds_common = self._assemble_ds_common(ch, rs_size)
+
+        ds_data = xr.merge(
+            [ds_data, ds_common], combine_attrs="override"
+        )
+
+        # Attach channel dimension/coordinate
+        ds_data = ds_data.expand_dims(
+            {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
+        )
+        ds_data["channel"] = ds_data["channel"].assign_attrs(
+            **self._varattrs["beam_coord_default"]["channel"]
+        )
+
+        return ds_data
+
+    def _get_ds_beam_power_zarr(self, ds_invariant_power: xr.Dataset) -> xr.Dataset:
+        """
+        Constructs the data set `ds_beam_power` when
+        there are zarr variables present.
 
         Parameters
         ----------
         ds_invariant_power : xr.Dataset
+            Dataset for ping-invariant params associated with power
 
         Returns
         -------
+        A Dataset representing `ds_beam_power`.
         """
 
         # TODO: In the future it would be nice to have a dictionary of
@@ -855,48 +892,28 @@ class SetGroupsEK80(SetGroupsBase):
         #  This would reduce unnecessary code duplication in the
         #  functions below.
 
+        # obtain DataArrays using zarr variables
         zarr_path = self.parser2zarr_obj.zarr_file_name
-
         backscatter_r = self._get_power_dataarray(zarr_path)
-
         angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
 
-        ds_power = xr.Dataset()
+        # create power related ds using DataArrays created from zarr file
+        ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
+        ds_power = set_encodings(ds_power)
 
-        # append power related DataArrays created from zarr file
-        ds_power = ds_power.assign(backscatter_r=backscatter_r,
-                                   angle_athwartship=angle_athwartship,
-                                   angle_alongship=angle_alongship)
-
+        # obtain additional variables that need to be added to ds_power
         ds_tmp = []
         for ch in self.parser_obj.ch_ids["power"]:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
+            ds_data = set_encodings(ds_data)
 
-            # TODO: make this its own function?
-            ds_common = self._assemble_ds_common(ch, ds_power.range_sample.size)
-
-            if ds_data and ds_common:
-                ds_data = xr.merge(
-                    [ds_data, ds_common], combine_attrs="override"
-                )  # override keeps the Dataset attributes
-            elif ds_common:
-                ds_data = ds_common
-
-            # Attach channel dimension/coordinate
-            ds_data = ds_data.expand_dims(
-                {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
-            )
-            ds_data["channel"] = ds_data["channel"].assign_attrs(
-                **self._varattrs["beam_coord_default"]["channel"]
-            )
-
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch,
+                                                   rs_size=ds_power.range_sample.size)
             ds_tmp.append(ds_data)
 
         ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
 
-        # TODO: assign ds_tmp to ds_power
-
-        return xr.merge([ds_power, ds_tmp], join="left") #, combine_attrs="override")
+        return xr.merge([ds_tmp, ds_power], combine_attrs="override")
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
@@ -938,18 +955,8 @@ class SetGroupsEK80(SetGroupsBase):
                 else:  # skip for channels containing no data
                     continue
 
-                # TODO: make this a function?
-                ds_common = self._assemble_ds_common(ch, ds_data.range_sample.size)
-                ds_data = xr.merge(
-                    [ds_data, ds_common], combine_attrs="override"
-                )  # override keeps the Dataset attributes
-                # Attach channel dimension/coordinate
-                ds_data = ds_data.expand_dims(
-                    {"channel": [self.parser_obj.config_datagram["configuration"][ch]["channel_id"]]}
-                )
-                ds_data["channel"] = ds_data["channel"].assign_attrs(
-                    **self._varattrs["beam_coord_default"]["channel"]
-                )
+                ds_data = self._attach_vars_to_ds_data(ds_data, ch,
+                                                       rs_size=ds_data.range_sample.size)
 
                 if ch in self.parser_obj.ch_ids["complex"]:
                     ds_complex.append(ds_data)
@@ -969,7 +976,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ds_beam = self.merge_save(ds_power, ds_invariant_power)
         else:
             if self.parser_obj.ch_ids["power"]:
-                ds_power = self._set_power_beamgroup_zarr_vars(ds_invariant_power)
+                ds_power = self._get_ds_beam_power_zarr(ds_invariant_power)
             else:
                 ds_power = None
 
@@ -977,8 +984,6 @@ class SetGroupsEK80(SetGroupsBase):
             #     ds_complex = self._set_power_beamgroup_zarr_vars()
             # else:
             #     ds_complex = None
-            print(self.parser_obj.ch_ids["power"])
-            print(f"ds_power = {ds_power}")
 
             ds_beam_power = ds_power
             # ds_beam_power = None

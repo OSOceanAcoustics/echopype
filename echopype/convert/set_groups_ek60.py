@@ -410,17 +410,15 @@ class SetGroupsEK60(SetGroupsBase):
         #  This would reduce unnecessary code duplication in the
         #  functions below.
 
+        # obtain DataArrays using zarr variables
         zarr_path = self.parser2zarr_obj.zarr_file_name
-
         backscatter_r = self._get_power_dataarray(zarr_path)
-
         angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
 
         # append DataArrays created from zarr file
         ds = ds.assign(backscatter_r=backscatter_r,
                        angle_athwartship=angle_athwartship,
                        angle_alongship=angle_alongship)
-
         return ds
 
     def set_beam(self) -> xr.Dataset:
