@@ -3,13 +3,15 @@ from typing import Any, Dict, List
 
 import xarray as xr
 from datatree import DataTree
-from loguru import logger
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
+from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .echodata import EchoData
+
+logger = _init_logger(__name__)
 
 
 def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
