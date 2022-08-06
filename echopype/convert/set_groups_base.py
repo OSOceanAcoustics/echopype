@@ -476,7 +476,13 @@ class SetGroupsBase(abc.ABC):
                         'channel': (["channel"], comp_chan_names,
                                     self._varattrs["beam_coord_default"]["channel"]),
                         'range_sample': (["range_sample"], np.arange(complex_r.shape[2]),
-                                         self._varattrs["beam_coord_default"]["range_sample"])}
+                                         self._varattrs["beam_coord_default"]["range_sample"]),
+                        "beam": (
+                            ["beam"],
+                            np.arange(start=1, stop=complex_r.shape[3] + 1).astype(str),
+                            self._varattrs["beam_coord_default"]["beam"],
+                        ),
+                        }
 
         backscatter_r = xr.DataArray(data=complex_r,
                                      coords=array_coords,

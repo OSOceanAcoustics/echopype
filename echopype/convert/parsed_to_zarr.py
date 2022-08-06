@@ -125,9 +125,9 @@ class Parsed2Zarr:
         For ``chunk_shape`` the first element corresponds to time
         and this element will be filled later, thus, it is set
         to None here. The shape of chunk is of the form:
-        ``[None, num_index_2, max_dim]`` if we have an array column
-        and ``[None, num_index_2]`` if  we have a column that does
-        not contain an array.
+        ``[None, num_index_2, max_element_shape]`` if we have an
+        array column and ``[None, num_index_2]`` if  we have a
+        column that does not contain an array.
         """
 
         multi_ind_names = list(pd_series.index.names)

@@ -548,6 +548,73 @@ class SetGroupsEK80(SetGroupsBase):
 
         return ds
 
+    def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
+        """
+        Returns a Dataset with variables
+        ``frequency_start`` and ``frequency_end``
+        added to ``ds_tmp`` for a specific channel,
+        if ``frequency_start`` is in ping_data_dict.
+
+        Parameters
+        ----------
+        ds_tmp: xr.Dataset
+            Dataset containing the complex data
+        ch: str
+            Channel id
+        """
+
+        # CW data encoded as complex samples do NOT have frequency_start and frequency_end
+        # TODO: use PulseForm instead of checking for the existence
+        #   of FrequencyStart and FrequencyEnd
+        if (
+                "frequency_start" in self.parser_obj.ping_data_dict.keys()
+                and self.parser_obj.ping_data_dict["frequency_start"][ch]
+        ):
+
+            ds_f_start_end = xr.Dataset(
+                {
+                    "frequency_start": (
+                        ["ping_time"],
+                        np.array(
+                            self.parser_obj.ping_data_dict["frequency_start"][ch],
+                            dtype=int,
+                        ),
+                        {
+                            "long_name": "Starting frequency of the transducer",
+                            "units": "Hz",
+                        },
+                    ),
+                    "frequency_end": (
+                        ["ping_time"],
+                        np.array(
+                            self.parser_obj.ping_data_dict["frequency_end"][ch],
+                            dtype=int,
+                        ),
+                        {
+                            "long_name": "Ending frequency of the transducer",
+                            "units": "Hz",
+                        },
+                    ),
+                },
+                coords={
+                    "ping_time": (
+                        ["ping_time"],
+                        self.parser_obj.ping_time[ch],
+                        {
+                            "axis": "T",
+                            "long_name": "Timestamp of each ping",
+                            "standard_name": "time",
+                        },
+                    ),
+                },
+            )
+
+            ds_tmp = xr.merge(
+                [ds_tmp, ds_f_start_end], combine_attrs="override"
+            )  # override keeps the Dataset attributes
+
+        return ds_tmp
+
     def _assemble_ds_complex(self, ch):
         num_transducer_sectors = np.unique(
             np.array(self.parser_obj.ping_data_dict["n_complex"][ch])
@@ -597,53 +664,7 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
 
-        # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence
-        #   of FrequencyStart and FrequencyEnd
-        if (
-            "frequency_start" in self.parser_obj.ping_data_dict.keys()
-            and self.parser_obj.ping_data_dict["frequency_start"][ch]
-        ):
-            ds_f_start_end = xr.Dataset(
-                {
-                    "frequency_start": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_start"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Starting frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                    "frequency_end": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_end"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Ending frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                },
-                coords={
-                    "ping_time": (
-                        ["ping_time"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamp of each ping",
-                            "standard_name": "time",
-                        },
-                    ),
-                },
-            )
-            ds_tmp = xr.merge(
-                [ds_tmp, ds_f_start_end], combine_attrs="override"
-            )  # override keeps the Dataset attributes
+        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
 
         return set_encodings(ds_tmp)
 
@@ -917,17 +938,17 @@ class SetGroupsEK80(SetGroupsBase):
 
     def _get_ds_complex_zarr(self, ds_invariant_complex: xr.Dataset) -> xr.Dataset:
         """
-        Constructs the data set `ds_beam_power` when
+        Constructs the data set `ds_complex` when
         there are zarr variables present.
 
         Parameters
         ----------
         ds_invariant_complex : xr.Dataset
-            Dataset for ping-invariant params associated with power
+            Dataset for ping-invariant params associated with complex data
 
         Returns
         -------
-        A Dataset representing `ds_beam_power`.
+        A Dataset representing `ds_complex`.
         """
 
         # TODO: In the future it would be nice to have a dictionary of
@@ -943,7 +964,21 @@ class SetGroupsEK80(SetGroupsBase):
         ds_complex = xr.merge([backscatter_r, backscatter_i])
         ds_complex = set_encodings(ds_complex)
 
+        # obtain additional variables that need to be added to ds_complex
+        ds_tmp = []
+        for ch in self.parser_obj.ch_ids["complex"]:
+            ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
+            ds_data = self._add_freq_start_end_ds(ds_data, ch)
 
+            ds_data = set_encodings(ds_data)
+
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch,
+                                                   rs_size=ds_complex.range_sample.size)
+            ds_tmp.append(ds_data)
+
+        ds_tmp = self.merge_save(ds_tmp, ds_invariant_complex)
+
+        return xr.merge([ds_tmp, ds_complex], combine_attrs="override")
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
@@ -1010,21 +1045,20 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power = None
 
-            # if self.parser_obj.ch_ids["complex"]:
-            #     ds_complex = self._set_power_beamgroup_zarr_vars()
-            # else:
-            #     ds_complex = None
-
             ds_beam_power = ds_power
-            # ds_beam_power = None
-            # if len(ds_complex) > 0:
-            #     ds_beam = merge_save(ds_complex, ds_type="complex")
-            #     if len(ds_power) > 0:
-            #         ds_beam_power = merge_save(ds_power, ds_type="power")
-            # else:
-            #     ds_beam = merge_save(ds_power, ds_type="power")
 
-            ds_beam = ds_power.copy()
+            if self.parser_obj.ch_ids["complex"]:
+                ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
+            else:
+                ds_complex = None
+
+            # correctly assign the beam groups
+            if ds_complex:
+                ds_beam = ds_complex
+                if ds_power:
+                    ds_beam_power = ds_power
+            else:
+                ds_beam = ds_power
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
