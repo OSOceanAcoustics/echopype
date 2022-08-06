@@ -445,7 +445,7 @@ def open_raw(
         dgram_zarr_vars=dgram_zarr_vars)
 
     # Determines if writing to zarr is necessary and writes to zarr
-    parser2zarr = SONAR_MODELS[sonar_model]["parser2zarr"]()
+    parser2zarr = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
 
     parser.parse_raw()
 

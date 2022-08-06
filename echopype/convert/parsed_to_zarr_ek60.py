@@ -10,8 +10,8 @@ class Parsed2ZarrEK60(Parsed2Zarr):
     a zarr file for the EK60 sensor.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parser_obj):
+        super().__init__(parser_obj)
 
         self.power_dims = ['timestamp', 'channel']
         self.angle_dims = ['timestamp', 'channel']

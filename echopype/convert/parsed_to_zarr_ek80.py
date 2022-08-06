@@ -10,13 +10,58 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
     a zarr file for the EK80 sensor.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parser_obj):
+        super().__init__(parser_obj)
 
         self.power_dims = ['timestamp', 'channel_id']
         self.angle_dims = ['timestamp', 'channel_id']
         self.complex_dims = ['timestamp', 'channel_id']
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
+
+    def _get_num_transd_sec(self, x: pd.DataFrame):
+        """
+        Returns the number of transducer sectors.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            DataFrame representing the complex series
+        """
+
+        num_transducer_sectors = np.unique(np.array(self.parser_obj.ping_data_dict["n_complex"][x.name[1]]))
+        if num_transducer_sectors.size > 1:  # this is not supposed to happen
+            raise ValueError("Transducer sector number changes in the middle of the file!")
+        else:
+            num_transducer_sectors = num_transducer_sectors[0]
+
+        return num_transducer_sectors
+
+    def _reshape_series(self, complex_series: pd.Series) -> pd.Series:
+        """
+        Reshapes complex series into the correct form, taking
+        into account the beam dimension. The new shape of
+        each element of ``complex_series`` will be
+        (element length, num_transducer_sectors).
+
+        Parameters
+        ----------
+        complex_series: pd.Series
+            Series representing the complex data
+        """
+
+        # get dimension 2, which represents the number of transducer elements
+        dim_2 = pd.DataFrame(complex_series).apply(self._get_num_transd_sec, axis=1)
+        dim_2.name = "dim_2"
+
+        range_sample_len = complex_series.apply(lambda x: x.shape[0] if isinstance(x, np.ndarray) else 0)
+
+        # get dimension 1, which represents the new range_sample length
+        dim_1 = (range_sample_len / dim_2).astype('int')
+        dim_1.name = "dim_1"
+
+        comp_shape_df = pd.concat([complex_series, dim_1, dim_2], axis=1)
+
+        return comp_shape_df.apply(lambda x: x.values[0].reshape((x.dim_1, x.dim_2)) if isinstance(x.values[0], np.ndarray) else None, axis=1)
 
     @staticmethod
     def _split_complex_data(complex_series: pd.Series) -> pd.DataFrame:
@@ -62,11 +107,13 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         # obtain complex data and drop NaNs
         complex_series = df.set_index(self.complex_dims)['complex'].dropna().copy()
 
-        complex_df = self._split_complex_data(complex_series)
-
         # get unique indices
-        times = complex_df.index.get_level_values(0).unique()
-        channels = complex_df.index.get_level_values(1).unique()
+        times = complex_series.index.get_level_values(0).unique()
+        channels = complex_series.index.get_level_values(1).unique()
+
+        complex_series = self._reshape_series(complex_series)
+
+        complex_df = self._split_complex_data(complex_series)
 
         self.p2z_ch_ids['complex'] = channels.values  # store channel ids for variable
 

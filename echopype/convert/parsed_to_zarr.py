@@ -14,12 +14,13 @@ class Parsed2Zarr:
     such as names of array groups and their paths.
     """
 
-    def __init__(self):
+    def __init__(self, parser_obj):
 
         self.temp_zarr_dir = None
         self.zarr_file_name = None
         self.store = None
         self.zarr_root = None
+        self.parser_obj = parser_obj  # parser object ParseEK60/ParseEK80/etc.
 
     def _create_zarr_info(self):
         """
@@ -72,7 +73,24 @@ class Parsed2Zarr:
         return pd_obj.reindex(multi_index, fill_value=np.nan)
 
     @staticmethod
-    def get_col_info(pd_series: pd.Series, time_name: str,
+    def get_max_elem_shape(pd_series: pd.Series) -> np.ndarray:
+        """
+        Returns the maximum element shape for a
+        Series that has array elements
+
+        Parameters
+        ----------
+        pd_series: pd.Series
+            Series with array elements
+        """
+
+        all_shapes = pd_series.apply(lambda x: np.array(x.shape) if isinstance(x, np.ndarray) else 0)
+
+        all_dims = np.vstack(all_shapes.to_list())
+
+        return all_dims.max(axis=0)
+
+    def get_col_info(self, pd_series: pd.Series, time_name: str,
                      is_array: bool, max_mb: int) -> Tuple[int, list]:
         """
         Provides the maximum number of times needed to
@@ -122,13 +140,13 @@ class Parsed2Zarr:
         # get maximum dimension of column element
         if is_array:
             # TODO: this only works for 1D arrays, generalize it
-            max_dim = np.max(pd_series.apply(lambda x: x.shape[0] if isinstance(x, np.ndarray) else 0))
+            max_element_shape = self.get_max_elem_shape(pd_series)
         else:
-            max_dim = 1
+            max_element_shape = 1
 
         # bytes required to hold one element of the column
         # TODO: this assumes we are holding floats (the 8 value), generalize it
-        elem_bytes = max_dim * 8
+        elem_bytes = max_element_shape.prod(axis=0) * 8
 
         # the number of unique elements in the second index
         index_2_name = multi_ind_names[0]
@@ -142,8 +160,8 @@ class Parsed2Zarr:
         max_num_times = max_mb // mb_per_time
 
         # create form of chunk shape
-        if max_dim != 1:
-            chunk_shape = [None, num_index_2, max_dim]
+        if isinstance(max_element_shape, np.ndarray):
+            chunk_shape = [None, num_index_2, max_element_shape]
         else:
             chunk_shape = [None, num_index_2]
 
@@ -184,12 +202,16 @@ class Parsed2Zarr:
 
                 if isinstance(elm, np.ndarray):
 
-                    # obtain the slice for the nan array
-                    nan_slice = slice(elm.shape[0], None)
+                    # TODO: ideally this would take place in the parser, do this
+                    elm = elm.astype(np.float64)
 
-                    # pad elm array so its of size nan_array
-                    padded_array = np.concatenate([elm, nan_array[nan_slice]],
-                                                  axis=0, dtype=np.float64)
+                    # amount of padding to add to each axis
+                    padding_amount = chunk_shape[2] - elm.shape
+
+                    # create np.pad pad_width
+                    pad_width = [(0, i) for i in padding_amount]
+
+                    padded_array = np.pad(elm, pad_width, 'constant', constant_values=np.nan)
 
                     padded_elements.append(padded_array)
 
@@ -197,7 +219,10 @@ class Parsed2Zarr:
                     padded_elements.append(nan_array)
 
             np_chunk = np.concatenate(padded_elements, axis=0, dtype=np.float64)
-            np_chunk = np_chunk.reshape(chunk_shape)
+
+            # reshape chunk to the appropriate size
+            full_shape = chunk_shape[:2] + list(chunk_shape[2])
+            np_chunk = np_chunk.reshape(full_shape)
 
         else:
             np_chunk = series_chunk.to_numpy().reshape(chunk_shape)
@@ -244,7 +269,7 @@ class Parsed2Zarr:
 
         max_chunk_len = max(chunk_len)
 
-        zarr_chunk_shape = chunk_shape
+        zarr_chunk_shape = chunk_shape[:2] + list(chunk_shape[2])
         zarr_chunk_shape[0] = max_chunk_len
 
         # obtain initial chunk in the proper form
