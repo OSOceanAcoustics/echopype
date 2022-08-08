@@ -1,7 +1,7 @@
 from .parsed_to_zarr import Parsed2Zarr
 import pandas as pd
-from typing import List
 import numpy as np
+import psutil
 
 
 class Parsed2ZarrEK60(Parsed2Zarr):
@@ -143,8 +143,60 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         dtype = self._get_string_dtype(channels)
         zarr_grp.array(name=self.angle_dims[1], data=channels.values, dtype=dtype, fill_value=None)
 
-    def datagram_to_zarr(self, zarr_dgrams: List[dict],
-                         max_mb: int) -> None:
+    def _get_power_angle_size(self, df: pd.DataFrame) -> int:
+        """
+        Returns the total memory in bytes required to
+        store the expanded power and angle data.
+
+        Parameters
+        ----------
+        df: pd.DataFrame
+            DataFrame containing the power, angle, and
+            the appropriate dimension data
+        """
+
+        # get unique indices
+        times = df[self.power_dims[0]].unique()
+        channels = df[self.power_dims[1]].unique()
+
+        # get final form of index
+        multi_index = pd.MultiIndex.from_product([times, channels])
+
+        # get the total memory required for expanded zarr variables
+        pow_mem = self.array_series_bytes(df['power'], multi_index.shape[0])
+        angle_mem = self.array_series_bytes(df['angle'], multi_index.shape[0])
+
+        return pow_mem + angle_mem
+
+    def write_to_zarr(self, mem_mult: float = 0.3) -> bool:
+        """
+        Determines if the zarr data provided will expand
+        into a form that is larger than a percentage of
+        the total physical RAM.
+
+        Parameters
+        ----------
+        mem_mult : float
+            Multiplier for total physical RAM
+
+        Notes
+        -----
+        If ``mem_mult`` times the total RAM is less
+        than the total memory required to store the
+        expaned zarr variables, this function will
+        return True, otherwise False.
+        """
+
+        df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+
+        total_mem = self._get_power_angle_size(df)
+
+        # get statistics about system memory usage
+        mem = psutil.virtual_memory()
+
+        return mem.total * mem_mult < total_mem
+
+    def datagram_to_zarr(self, max_mb: int) -> None:
         """
         Facilitates the conversion of a list of
         datagrams to a form that can be written
@@ -152,10 +204,6 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         Parameters
         ----------
-        zarr_dgrams : List[dict]
-            A list of datagrams where each datagram contains
-            at least one variable that should be written to
-            a zarr file and any associated dimensions.
         max_mb : int
             Maximum MB allowed for each chunk
 
@@ -172,12 +220,17 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         self._create_zarr_info()
 
-        datagram_df = pd.DataFrame.from_dict(zarr_dgrams)
+        datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+
+        del self.parser_obj.zarr_datagrams  # free memory
 
         # convert channel column to a string
         datagram_df['channel'] = datagram_df['channel'].astype(str)
 
         self._write_power(df=datagram_df, max_mb=max_mb)
+
+        del datagram_df['power']  # free memory
+
         self._write_angle(df=datagram_df, max_mb=max_mb)
 
         self._close_store()

@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
@@ -338,6 +338,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
+    offload_to_zarr: Optional[Union[str, bool]] = 'auto',
     max_zarr_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -367,13 +368,24 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
+    offload_to_zarr: str or bool
+        specifies if variables with a large memory footprint should be
+        written to a temporary zarr store. Possible options: True,
+        False, 'auto'.
     max_zarr_mb : int
-        Maximum MB that each chunk should hold, when using the direct to
-        zarr routine.
+        maximum MB that each zarr chunk should hold, when offloading
+        variables with a large memory footprint to a temporary zarr store
 
     Returns
     -------
     EchoData object
+
+    Notes
+    -----
+    If ``offload_to_zarr='auto'``, a heuristically driven method will
+    determine if variables with a large memory footprint should be
+    written to a temporary zarr store. This method is currently only
+    available for the following echosounders: EK60, ES70, EK80, ES80, EA640.
     """
     if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
@@ -429,6 +441,10 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
+    # Ensure offload_to_zarr is 'auto', if it is a string
+    if isinstance(offload_to_zarr, str) and offload_to_zarr != 'auto':
+        raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
+
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
     if SONAR_MODELS[sonar_model]["xml"]:
@@ -444,17 +460,21 @@ def open_raw(
         file_chk, params=params, storage_options=storage_options,
         dgram_zarr_vars=dgram_zarr_vars)
 
-    # Determines if writing to zarr is necessary and writes to zarr
-    parser2zarr = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
-
     parser.parse_raw()
 
-    # check if the parsed data is sparse
-    will_it_explode = True  # TODO: make this its own function
-    print(f"will_it_explode = {will_it_explode}")
+    # Determines if writing to zarr is necessary and writes to zarr
+    p2z = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
 
-    if will_it_explode:
-        parser2zarr.datagram_to_zarr(parser.zarr_datagrams, max_mb=max_zarr_mb)
+    # code block corresponding to directly writing parsed data to zarr
+    if offload_to_zarr and (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]):
+
+        if offload_to_zarr == 'auto' and p2z.write_to_zarr(mem_mult=0.3):
+            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+        elif offload_to_zarr == True:
+            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+        else:
+            if "ALL" in parser.data_type:
+                parser.rectangularize_data()
 
     else:
         if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and ("ALL" in parser.data_type):
@@ -466,7 +486,7 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        parser2zarr_obj=parser2zarr,
+        parser2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -514,7 +534,7 @@ def open_raw(
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
     echodata = EchoData(source_file=file_chk, xml_path=xml_chk,
-                        sonar_model=sonar_model, parser2zarr_obj=parser2zarr)
+                        sonar_model=sonar_model, parser2zarr_obj=p2z)
     echodata._set_tree(tree)
     echodata._load_tree()
 

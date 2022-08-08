@@ -84,7 +84,7 @@ class Parsed2Zarr:
             Series with array elements
         """
 
-        all_shapes = pd_series.apply(lambda x: np.array(x.shape) if isinstance(x, np.ndarray) else 0)
+        all_shapes = pd_series.apply(lambda x: np.array(x.shape) if isinstance(x, np.ndarray) else None).dropna()
 
         all_dims = np.vstack(all_shapes.to_list())
 
@@ -337,6 +337,39 @@ class Parsed2Zarr:
                                          max_num_times))
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
+
+    def array_series_bytes(self, pd_series: pd.Series, n_rows: int):
+        """
+        Determines the amount of bytes required for a
+        series with array elements, for ``n_rows``.
+
+        Parameters
+        ----------
+        pd_series: pd.Series
+            Series with array elements
+        n_rows: int
+            The number of rows with array elements
+
+        Returns
+        -------
+        The amount of bytes required to hold data
+        """
+
+        # the number of bytes required to hold 1 element of series
+        # Note: this assumes that we are holding floats
+        pow_bytes = self.get_max_elem_shape(pd_series).prod(axis=0) * 8
+
+        # total memory required for series data
+        return n_rows * pow_bytes
+
+    def write_to_zarr(self, **kwargs) -> None:
+        """
+        Determines if the zarr data provided will expand
+        into a form that is larger than a percentage of
+        the total physical RAM.
+        """
+
+        pass
 
     def datagram_to_zarr(self, **kwargs) -> None:
         """

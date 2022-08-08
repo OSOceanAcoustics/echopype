@@ -10,4 +10,6 @@ zarr
 fsspec
 s3fs
 xarray-datatree==0.0.6
+psutil
+pandas
 more_itertools==8.13.0
