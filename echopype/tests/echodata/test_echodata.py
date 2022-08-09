@@ -335,7 +335,6 @@ def test_compute_range(compute_range_samples):
         ek_encode_mode,
     ) = compute_range_samples
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    print(ed["Platform"])
     rng = np.random.default_rng(0)
     stationary_env_params = EnvParams(
         xr.Dataset(
