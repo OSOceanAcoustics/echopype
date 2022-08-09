@@ -48,6 +48,13 @@ def verbose(logfile: Optional[str] = None, override: Optional[bool] = None) -> N
                 # Only add the logfile handler if it doesn't exist
                 _set_logfile(logger, logfile)
 
+            if isinstance(logfile, str):
+                # Prevents multiple handler from propagating messages
+                # this way there are no duplicate line in logfile
+                logger.propagate = False
+            else:
+                logger.propagate = True
+
 
 def _get_all_loggers() -> List[logging.Logger]:
     """Get all loggers"""
@@ -85,10 +92,6 @@ def _init_logger(name) -> logging.Logger:
     ERR_STREAM_HANDLER.set_name(STDERR_NAME)
     ERR_STREAM_HANDLER.setFormatter(LOG_FORMATTER)
     logger.addHandler(ERR_STREAM_HANDLER)
-
-    # Prevents multiple handler from propagating messages
-    # this way there are no duplicate line in logfile
-    logger.propagate = False
     return logger
 
 
