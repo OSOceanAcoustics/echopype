@@ -4,6 +4,7 @@ import tempfile
 import zarr
 import more_itertools as miter
 from typing import Tuple, List, Union
+import sys
 
 
 class Parsed2Zarr:
@@ -139,7 +140,6 @@ class Parsed2Zarr:
 
         # get maximum dimension of column element
         if is_array:
-            # TODO: this only works for 1D arrays, generalize it
             max_element_shape = self.get_max_elem_shape(pd_series)
         else:
             max_element_shape = 1
@@ -319,10 +319,6 @@ class Parsed2Zarr:
         This assumes that our pd_series has at most 2 indices.
         """
 
-        # TODO: this function and subsequent ones may not be good enough
-        #  for multiple freq, test it! Specifically the shapes for the
-        #  numpy and zarr arrays
-
         if len(pd_series.index.names) > 2:
             raise NotImplementedError("series contains more than 2 indices!")
 
@@ -337,6 +333,19 @@ class Parsed2Zarr:
                                          max_num_times))
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
+
+    def _get_zarr_dgrams_size(self):
+        """
+        Returns the size in bytes of the list of zarr
+        datagrams.
+        """
+
+        size = 0
+        for i in self.parser_obj.zarr_datagrams:
+
+            size += sum([sys.getsizeof(val) for key, val in i.items()])
+
+        return size
 
     def array_series_bytes(self, pd_series: pd.Series, n_rows: int):
         """

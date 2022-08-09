@@ -16,6 +16,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         self.power_dims = ['timestamp', 'channel']
         self.angle_dims = ['timestamp', 'channel']
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
+        self.datagram_df = None  # df created from zarr variables
 
     @staticmethod
     def _get_string_dtype(pd_series: pd.Index) -> str:
@@ -183,18 +184,31 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         -----
         If ``mem_mult`` times the total RAM is less
         than the total memory required to store the
-        expaned zarr variables, this function will
+        expanded zarr variables, this function will
         return True, otherwise False.
         """
 
-        df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+        # create datagram df, if it does not exist
+        if not isinstance(self.datagram_df, pd.DataFrame):
+            self.datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
 
-        total_mem = self._get_power_angle_size(df)
+        total_mem = self._get_power_angle_size(self.datagram_df)
 
         # get statistics about system memory usage
         mem = psutil.virtual_memory()
 
-        return mem.total * mem_mult < total_mem
+        zarr_dgram_size = self._get_zarr_dgrams_size()
+
+        # approx. the amount of memory that will be used after expansion
+        req_mem = mem.used - zarr_dgram_size + total_mem
+
+        # free memory, if we no longer need it
+        if mem.total * mem_mult > req_mem:
+            del self.datagram_df
+        else:
+            del self.parser_obj.zarr_datagrams
+
+        return mem.total * mem_mult < req_mem
 
     def datagram_to_zarr(self, max_mb: int) -> None:
         """
@@ -220,17 +234,20 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         self._create_zarr_info()
 
-        datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
-
-        del self.parser_obj.zarr_datagrams  # free memory
+        # create datagram df, if it does not exist
+        if not isinstance(self.datagram_df, pd.DataFrame):
+            self.datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+            del self.parser_obj.zarr_datagrams  # free memory
 
         # convert channel column to a string
-        datagram_df['channel'] = datagram_df['channel'].astype(str)
+        self.datagram_df['channel'] = self.datagram_df['channel'].astype(str)
 
-        self._write_power(df=datagram_df, max_mb=max_mb)
+        self._write_power(df=self.datagram_df, max_mb=max_mb)
 
-        del datagram_df['power']  # free memory
+        del self.datagram_df['power']  # free memory
 
-        self._write_angle(df=datagram_df, max_mb=max_mb)
+        self._write_angle(df=self.datagram_df, max_mb=max_mb)
+
+        del self.datagram_df  # free memory
 
         self._close_store()

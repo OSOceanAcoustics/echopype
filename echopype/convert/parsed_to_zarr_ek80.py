@@ -17,6 +17,8 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.angle_dims = ['timestamp', 'channel_id']
         self.complex_dims = ['timestamp', 'channel_id']
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
+        self.pow_ang_df = None  # df that holds power and angle data
+        self.complex_df = None  # df that holds complex data
 
     def _get_num_transd_sec(self, x: pd.DataFrame):
         """
@@ -105,7 +107,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         """
 
         # obtain complex data and drop NaNs
-        complex_series = df.set_index(self.complex_dims)['complex'].dropna().copy()
+        complex_series = df.set_index(self.complex_dims)['complex'].copy()
 
         # get unique indices
         times = complex_series.index.get_level_values(0).unique()
@@ -159,6 +161,26 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         # multiply by 2 because we store both the complex and real parts
         return 2*complex_mem
 
+    def _get_zarr_dfs(self):
+        """
+        Creates the DataFrames that hold the power, angle, and
+        complex data, which are needed for downstream computation.
+        """
+
+        datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+
+        # get df corresponding to power and angle only
+        self.pow_ang_df = datagram_df[['power', 'angle', 'timestamp', 'channel_id']].copy()
+
+        # remove power and angle to conserve memory
+        del datagram_df['power']
+        del datagram_df['angle']
+
+        # drop rows with missing power and angle data
+        self.pow_ang_df.dropna(how='all', subset=['power', 'angle'], inplace=True)
+
+        self.complex_df = datagram_df.dropna().copy()
+
     def write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
         Determines if the zarr data provided will expand
@@ -174,33 +196,35 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         -----
         If ``mem_mult`` times the total RAM is less
         than the total memory required to store the
-        expaned zarr variables, this function will
+        expanded zarr variables, this function will
         return True, otherwise False.
         """
+        isinstance(self.datagram_df, pd.DataFrame)
+        # create zarr dfs, if they do not exist
+        if not isinstance(self.pow_ang_df, pd.DataFrame) and not isinstance(self.complex_df, pd.DataFrame):
+            self._get_zarr_dfs()
 
-        df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
-
-        # get df corresponding to power and angle only
-        pow_ang_df = df[['power', 'angle', 'timestamp', 'channel_id']].copy()
-
-        # remove power and angle to conserve memory
-        del df['power']
-        del df['angle']
-
-        # drop rows with missing power and angle data
-        pow_ang_df.dropna(how='all', subset=['power', 'angle'], inplace=True)
-
-        pow_ang_total_mem = self._get_power_angle_size(pow_ang_df)
-
-        df.dropna(inplace=True)
-        comp_total_mem = self._get_complex_size(df)
-
+        # get memory required for zarr data
+        pow_ang_total_mem = self._get_power_angle_size(self.pow_ang_df)
+        comp_total_mem = self._get_complex_size(self.complex_df)
         total_mem = pow_ang_total_mem + comp_total_mem
 
         # get statistics about system memory usage
         mem = psutil.virtual_memory()
 
-        return mem.total * mem_mult < total_mem
+        zarr_dgram_size = self._get_zarr_dgrams_size()
+
+        # approx. the amount of memory that will be used after expansion
+        req_mem = mem.used - zarr_dgram_size + total_mem
+
+        # free memory, if we no longer need it
+        if mem.total * mem_mult > req_mem:
+            del self.pow_ang_df
+            del self.complex_df
+        else:
+            del self.parser_obj.zarr_datagrams
+
+        return mem.total * mem_mult < req_mem
 
     def datagram_to_zarr(self, max_mb: int) -> None:
         """
@@ -226,23 +250,18 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         self._create_zarr_info()
 
-        datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_datagrams)
+        # create zarr dfs, if they do not exist
+        if not isinstance(self.pow_ang_df, pd.DataFrame) and not isinstance(self.complex_df, pd.DataFrame):
+            self._get_zarr_dfs()
+            del self.parser_obj.zarr_datagrams  # free memory
 
-        del self.parser_obj.zarr_datagrams  # free memory
+        self._write_power(df=self.pow_ang_df, max_mb=max_mb)
+        self._write_angle(df=self.pow_ang_df, max_mb=max_mb)
 
-        # get df corresponding to power and angle only
-        pow_ang_df = datagram_df[['power', 'angle', 'timestamp', 'channel_id']].copy()
+        del self.pow_ang_df  # free memory
 
-        # remove power and angle to conserve memory
-        del datagram_df['power']
-        del datagram_df['angle']
+        self._write_complex(df=self.complex_df, max_mb=max_mb)
 
-        # drop rows with missing power and angle data
-        pow_ang_df.dropna(how='all', subset=['power', 'angle'], inplace=True)
-
-        self._write_power(df=pow_ang_df, max_mb=max_mb)
-        self._write_angle(df=pow_ang_df, max_mb=max_mb)
-
-        self._write_complex(df=datagram_df, max_mb=max_mb)
+        del self.complex_df  # free memory
 
         self._close_store()

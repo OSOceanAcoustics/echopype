@@ -2,6 +2,7 @@ import warnings
 from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
+from .parsed_to_zarr import Parsed2Zarr
 
 import fsspec
 import xarray as xr
@@ -338,7 +339,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    offload_to_zarr: Optional[Union[str, bool]] = 'auto',
+    offload_to_zarr: Optional[Union[str, bool]] = False,
     max_zarr_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -462,21 +463,25 @@ def open_raw(
 
     parser.parse_raw()
 
-    # Determines if writing to zarr is necessary and writes to zarr
-    p2z = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
-
     # code block corresponding to directly writing parsed data to zarr
     if offload_to_zarr and (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]):
 
-        if offload_to_zarr == 'auto' and p2z.write_to_zarr(mem_mult=0.3):
+        # Determines if writing to zarr is necessary and writes to zarr
+        p2z = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
+
+        # TODO: perform more robust tests for the 'auto' heuristic value
+        if offload_to_zarr == 'auto' and p2z.write_to_zarr(mem_mult=0.4):
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
         elif offload_to_zarr == True:
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
         else:
+            del p2z
+            p2z = Parsed2Zarr(parser)
             if "ALL" in parser.data_type:
                 parser.rectangularize_data()
 
     else:
+        p2z = Parsed2Zarr(parser)
         if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and ("ALL" in parser.data_type):
             parser.rectangularize_data()
 
