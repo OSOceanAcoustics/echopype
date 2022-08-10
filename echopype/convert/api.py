@@ -15,7 +15,8 @@ if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
-from ..utils import io, log
+from ..utils import io
+from ..utils.log import _init_logger
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -29,7 +30,7 @@ NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
 # Logging setup
-logger = log._init_logger(__name__)
+logger = _init_logger(__name__)
 
 
 def to_file(
