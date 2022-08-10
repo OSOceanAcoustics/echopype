@@ -105,9 +105,9 @@ def _compute_cal(
     prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
     cal_ds = cal_ds.assign_attrs(prov_dict)
 
-    if "water_level" in echodata.platform.data_vars.keys():
+    if "water_level" in echodata["Platform"].data_vars.keys():
         # add water_level to the created xr.Dataset
-        cal_ds["water_level"] = echodata.platform.water_level
+        cal_ds["water_level"] = echodata["Platform"].water_level
 
     return cal_ds
 

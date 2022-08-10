@@ -651,7 +651,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscattering power", "units": "dB"},
+                    {"long_name": "Backscatter power", "units": "dB"},
                 ),
             },
             coords={
