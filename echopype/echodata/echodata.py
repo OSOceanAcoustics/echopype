@@ -21,7 +21,6 @@ from .convention import sonarnetcdf_1
 from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
 from .widgets.widgets import _load_static_files, get_template
-import tempfile
 
 XARRAY_ENGINE_MAP: Dict["FileFormatHint", "EngineHint"] = {
     ".nc": "netcdf4",

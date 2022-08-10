@@ -1,15 +1,14 @@
 import abc
-from typing import Set, List, Tuple
+from typing import List, Set, Tuple
 
+import dask.array
 import numpy as np
 import pynmea2
 import xarray as xr
-import dask.array
 
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
-
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -339,9 +338,14 @@ class SetGroupsBase(abc.ABC):
         A list of strings representing the channel IDS
         """
         if self.sonar_model in ["EK60", "ES70"]:
-            return [self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"] for i in chan_str]
+            return [
+                self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"]
+                for i in chan_str
+            ]
         else:
-            return [self.parser_obj.config_datagram['configuration'][i]['channel_id'] for i in chan_str]
+            return [
+                self.parser_obj.config_datagram["configuration"][i]["channel_id"] for i in chan_str
+            ]
 
     def _get_power_dataarray(self, zarr_path: str) -> xr.DataArray:
         """
@@ -360,25 +364,38 @@ class SetGroupsBase(abc.ABC):
         """
 
         # collect variables associated with the power data
-        power = dask.array.from_zarr(zarr_path, component='power/power')
+        power = dask.array.from_zarr(zarr_path, component="power/power")
 
-        pow_time_path = 'power/' + self.parser2zarr_obj.power_dims[0]
-        pow_chan_path = 'power/' + self.parser2zarr_obj.power_dims[1]
+        pow_time_path = "power/" + self.parser2zarr_obj.power_dims[0]
+        pow_chan_path = "power/" + self.parser2zarr_obj.power_dims[1]
         power_time = dask.array.from_zarr(zarr_path, component=pow_time_path).compute()
         power_channel = dask.array.from_zarr(zarr_path, component=pow_chan_path).compute()
 
         # obtain channel names for power data
         pow_chan_names = self._get_channel_ids(power_channel)
 
-        backscatter_r = xr.DataArray(data=power,
-                                     coords={'ping_time': (["ping_time"], power_time,
-                                                           self._varattrs["beam_coord_default"]["ping_time"]),
-                                             'channel': (["channel"], pow_chan_names,
-                                                         self._varattrs["beam_coord_default"]["channel"]),
-                                             'range_sample': (["range_sample"], np.arange(power.shape[2]),
-                                                              self._varattrs["beam_coord_default"]["range_sample"])},
-                                     name="backscatter_r",
-                                     attrs={"long_name": "Backscatter power", "units": "dB"})
+        backscatter_r = xr.DataArray(
+            data=power,
+            coords={
+                "ping_time": (
+                    ["ping_time"],
+                    power_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+                "channel": (
+                    ["channel"],
+                    pow_chan_names,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "range_sample": (
+                    ["range_sample"],
+                    np.arange(power.shape[2]),
+                    self._varattrs["beam_coord_default"]["range_sample"],
+                ),
+            },
+            name="backscatter_r",
+            attrs={"long_name": "Backscatter power", "units": "dB"},
+        )
 
         return backscatter_r
 
@@ -399,47 +416,60 @@ class SetGroupsBase(abc.ABC):
         """
 
         # collect variables associated with the angle data
-        angle_along = dask.array.from_zarr(zarr_path, component='angle/angle_alongship')
-        angle_athwart = dask.array.from_zarr(zarr_path, component='angle/angle_athwartship')
+        angle_along = dask.array.from_zarr(zarr_path, component="angle/angle_alongship")
+        angle_athwart = dask.array.from_zarr(zarr_path, component="angle/angle_athwartship")
 
-        ang_time_path = 'angle/' + self.parser2zarr_obj.angle_dims[0]
-        ang_chan_path = 'angle/' + self.parser2zarr_obj.angle_dims[1]
+        ang_time_path = "angle/" + self.parser2zarr_obj.angle_dims[0]
+        ang_chan_path = "angle/" + self.parser2zarr_obj.angle_dims[1]
         angle_time = dask.array.from_zarr(zarr_path, component=ang_time_path).compute()
         angle_channel = dask.array.from_zarr(zarr_path, component=ang_chan_path).compute()
 
         # obtain channel names for angle data
         ang_chan_names = self._get_channel_ids(angle_channel)
 
-        array_coords = {'ping_time': (["ping_time"], angle_time,
-                                      self._varattrs["beam_coord_default"]["ping_time"]),
-                        'channel': (["channel"], ang_chan_names,
-                                    self._varattrs["beam_coord_default"]["channel"]),
-                        'range_sample': (["range_sample"], np.arange(angle_athwart.shape[2]),
-                                         self._varattrs["beam_coord_default"]["range_sample"])}
+        array_coords = {
+            "ping_time": (
+                ["ping_time"],
+                angle_time,
+                self._varattrs["beam_coord_default"]["ping_time"],
+            ),
+            "channel": (
+                ["channel"],
+                ang_chan_names,
+                self._varattrs["beam_coord_default"]["channel"],
+            ),
+            "range_sample": (
+                ["range_sample"],
+                np.arange(angle_athwart.shape[2]),
+                self._varattrs["beam_coord_default"]["range_sample"],
+            ),
+        }
 
-        angle_athwartship = xr.DataArray(data=angle_athwart,
-                                         coords=array_coords,
-                                         name="angle_athwartship",
-                                         attrs={
-                                             "long_name": "electrical athwartship angle",
-                                             "comment":
-                                                 ("Introduced in echopype for Simrad echosounders. "  # noqa
-                                                  + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "
-                                                  # noqa
-                                                  )}
-                                         )
+        angle_athwartship = xr.DataArray(
+            data=angle_athwart,
+            coords=array_coords,
+            name="angle_athwartship",
+            attrs={
+                "long_name": "electrical athwartship angle",
+                "comment": (
+                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                ),
+            },
+        )
 
-        angle_alongship = xr.DataArray(data=angle_along,
-                                       coords=array_coords,
-                                       name="angle_alongship",
-                                       attrs={
-                                           "long_name": "electrical alongship angle",
-                                           "comment":
-                                               ("Introduced in echopype for Simrad echosounders. "  # noqa
-                                                + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "
-                                                # noqa
-                                                )}
-                                       )
+        angle_alongship = xr.DataArray(
+            data=angle_along,
+            coords=array_coords,
+            name="angle_alongship",
+            attrs={
+                "long_name": "electrical alongship angle",
+                "comment": (
+                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                ),
+            },
+        )
 
         return angle_athwartship, angle_alongship
 
@@ -460,38 +490,52 @@ class SetGroupsBase(abc.ABC):
         """
 
         # collect variables associated with the complex data
-        complex_r = dask.array.from_zarr(zarr_path, component='complex/backscatter_r')
-        complex_i = dask.array.from_zarr(zarr_path, component='complex/backscatter_i')
+        complex_r = dask.array.from_zarr(zarr_path, component="complex/backscatter_r")
+        complex_i = dask.array.from_zarr(zarr_path, component="complex/backscatter_i")
 
-        comp_time_path = 'complex/' + self.parser2zarr_obj.complex_dims[0]
-        comp_chan_path = 'complex/' + self.parser2zarr_obj.complex_dims[1]
+        comp_time_path = "complex/" + self.parser2zarr_obj.complex_dims[0]
+        comp_chan_path = "complex/" + self.parser2zarr_obj.complex_dims[1]
         complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
         complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
 
         # obtain channel names for complex data
         comp_chan_names = self._get_channel_ids(complex_channel)
 
-        array_coords = {'ping_time': (["ping_time"], complex_time,
-                                      self._varattrs["beam_coord_default"]["ping_time"]),
-                        'channel': (["channel"], comp_chan_names,
-                                    self._varattrs["beam_coord_default"]["channel"]),
-                        'range_sample': (["range_sample"], np.arange(complex_r.shape[2]),
-                                         self._varattrs["beam_coord_default"]["range_sample"]),
-                        "beam": (
-                            ["beam"],
-                            np.arange(start=1, stop=complex_r.shape[3] + 1).astype(str),
-                            self._varattrs["beam_coord_default"]["beam"],
-                        ),
-                        }
+        array_coords = {
+            "ping_time": (
+                ["ping_time"],
+                complex_time,
+                self._varattrs["beam_coord_default"]["ping_time"],
+            ),
+            "channel": (
+                ["channel"],
+                comp_chan_names,
+                self._varattrs["beam_coord_default"]["channel"],
+            ),
+            "range_sample": (
+                ["range_sample"],
+                np.arange(complex_r.shape[2]),
+                self._varattrs["beam_coord_default"]["range_sample"],
+            ),
+            "beam": (
+                ["beam"],
+                np.arange(start=1, stop=complex_r.shape[3] + 1).astype(str),
+                self._varattrs["beam_coord_default"]["beam"],
+            ),
+        }
 
-        backscatter_r = xr.DataArray(data=complex_r,
-                                     coords=array_coords,
-                                     name="backscatter_r",
-                                     attrs={"long_name": "Real part of backscatter power", "units": "V"})
+        backscatter_r = xr.DataArray(
+            data=complex_r,
+            coords=array_coords,
+            name="backscatter_r",
+            attrs={"long_name": "Real part of backscatter power", "units": "V"},
+        )
 
-        backscatter_i = xr.DataArray(data=complex_i,
-                                     coords=array_coords,
-                                     name="backscatter_i",
-                                     attrs={"long_name": "Imaginary part of backscatter power", "units": "V"})
+        backscatter_i = xr.DataArray(
+            data=complex_i,
+            coords=array_coords,
+            name="backscatter_i",
+            attrs={"long_name": "Imaginary part of backscatter power", "units": "V"},
+        )
 
         return backscatter_r, backscatter_i

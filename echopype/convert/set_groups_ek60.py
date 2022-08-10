@@ -3,11 +3,9 @@ from collections import defaultdict
 
 import numpy as np
 import xarray as xr
-import dask.array
 
 from ..utils.coding import set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
-from typing import List, Tuple
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
@@ -416,9 +414,11 @@ class SetGroupsEK60(SetGroupsBase):
         angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
 
         # append DataArrays created from zarr file
-        ds = ds.assign(backscatter_r=backscatter_r,
-                       angle_athwartship=angle_athwartship,
-                       angle_alongship=angle_alongship)
+        ds = ds.assign(
+            backscatter_r=backscatter_r,
+            angle_athwartship=angle_athwartship,
+            angle_alongship=angle_alongship,
+        )
         return ds
 
     def set_beam(self) -> xr.Dataset:
@@ -617,75 +617,77 @@ class SetGroupsEK60(SetGroupsBase):
         ds_backscatter = []
         for ch in ch_ids:
 
-            var_dict = \
-                {
-                    "sample_interval": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["sample_interval"][ch],
-                        {
-                            "long_name": "Interval between recorded raw data samples",
-                            "units": "s",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_bandwidth": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["bandwidth"][ch],
-                        {
-                            "long_name": "Nominal bandwidth of transmitted pulse",
-                            "units": "Hz",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_duration_nominal": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["pulse_length"][ch],
-                        {
-                            "long_name": "Nominal bandwidth of transmitted pulse",
-                            "units": "s",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_power": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["transmit_power"][ch],
-                        {
-                            "long_name": "Nominal transmit power",
-                            "units": "W",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "data_type": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["mode"][ch],
-                        {
-                            "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
-                        },
-                    ),
-                    "count": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["count"][ch],
-                        {"long_name": "Number of samples "},
-                    ),
-                    "offset": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["offset"][ch],
-                        {"long_name": "Offset of first sample"},
-                    ),
-                    "transmit_mode": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                        {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
-                    ),
-                }
+            var_dict = {
+                "sample_interval": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["sample_interval"][ch],
+                    {
+                        "long_name": "Interval between recorded raw data samples",
+                        "units": "s",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_bandwidth": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["bandwidth"][ch],
+                    {
+                        "long_name": "Nominal bandwidth of transmitted pulse",
+                        "units": "Hz",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_duration_nominal": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["pulse_length"][ch],
+                    {
+                        "long_name": "Nominal bandwidth of transmitted pulse",
+                        "units": "s",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_power": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["transmit_power"][ch],
+                    {
+                        "long_name": "Nominal transmit power",
+                        "units": "W",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "data_type": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["mode"][ch],
+                    {
+                        "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
+                    },
+                ),
+                "count": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["count"][ch],
+                    {"long_name": "Number of samples "},
+                ),
+                "offset": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["offset"][ch],
+                    {"long_name": "Offset of first sample"},
+                ),
+                "transmit_mode": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["transmit_mode"][ch],
+                    {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
+                ),
+            }
 
             if not self.parser2zarr_obj.temp_zarr_dir:
 
-                var_dict["backscatter_r"] = (["ping_time", "range_sample"],
-                                             self.parser_obj.ping_data_dict["power"][ch],
-                                             {"long_name": "Backscatter power", "units": "dB"})
+                var_dict["backscatter_r"] = (
+                    ["ping_time", "range_sample"],
+                    self.parser_obj.ping_data_dict["power"][ch],
+                    {"long_name": "Backscatter power", "units": "dB"},
+                )
 
-                ds_tmp = xr.Dataset(var_dict,
+                ds_tmp = xr.Dataset(
+                    var_dict,
                     coords={
                         "ping_time": (
                             ["ping_time"],
@@ -700,18 +702,20 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 )
             else:
-                ds_tmp = xr.Dataset(var_dict,
-                                    coords={
-                                        "ping_time": (
-                                            ["ping_time"],
-                                            self.parser_obj.ping_time[ch],
-                                            self._varattrs["beam_coord_default"]["ping_time"],
-                                        ),
-                                    },
-                                    )
+                ds_tmp = xr.Dataset(
+                    var_dict,
+                    coords={
+                        "ping_time": (
+                            ["ping_time"],
+                            self.parser_obj.ping_time[ch],
+                            self._varattrs["beam_coord_default"]["ping_time"],
+                        ),
+                    },
+                )
 
             if not self.parser2zarr_obj.temp_zarr_dir:
-                # Save angle data if exist based on values in self.parser_obj.ping_data_dict['mode'][ch]
+                # Save angle data if exist based on values in
+                # self.parser_obj.ping_data_dict['mode'][ch]
                 # Assume the mode of all pings are identical
                 # 1 = Power only, 2 = Angle only 3 = Power & Angle
                 if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):

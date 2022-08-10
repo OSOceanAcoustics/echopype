@@ -74,10 +74,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "concat_data_vars": {
             "default": "minimal",
         },
-        "dgram_zarr_vars": {
-            "power": ["timestamp", "channel"],
-            "angle": ["timestamp", "channel"]
-        },
+        "dgram_zarr_vars": {"power": ["timestamp", "channel"], "angle": ["timestamp", "channel"]},
     },
     "ES70": {
         "validate_ext": validate_ext(".raw"),
@@ -94,10 +91,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "concat_data_vars": {
             "default": "minimal",
         },
-        "dgram_zarr_vars": {
-            "power": ["timestamp", "channel"],
-            "angle": ["timestamp", "channel"]
-        },
+        "dgram_zarr_vars": {"power": ["timestamp", "channel"], "angle": ["timestamp", "channel"]},
     },
     "EK80": {
         "validate_ext": validate_ext(".raw"),
@@ -117,7 +111,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
-            "angle": ["timestamp", "channel_id"]
+            "angle": ["timestamp", "channel_id"],
         },
     },
     "ES80": {
@@ -138,7 +132,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
-            "angle": ["timestamp", "channel_id"]
+            "angle": ["timestamp", "channel_id"],
         },
     },
     "EA640": {
@@ -159,7 +153,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
-            "angle": ["timestamp", "channel_id"]
+            "angle": ["timestamp", "channel_id"],
         },
     },
     "AD2CP": {

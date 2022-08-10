@@ -364,14 +364,17 @@ class ParseEK(ParseBase):
         reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
 
         # apply conversion factor to power data, if it exists
-        if ("power" in reduced_datagram.keys()) and (isinstance(reduced_datagram["power"], np.ndarray)):
+        if ("power" in reduced_datagram.keys()) and (
+            isinstance(reduced_datagram["power"], np.ndarray)
+        ):
 
             # Manufacturer-specific power conversion factor
             INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
             reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
 
-        self.zarr_datagrams.append(reduced_datagram)
+        if reduced_datagram:
+            self.zarr_datagrams.append(reduced_datagram)
 
     def _append_channel_ping_data(self, datagram, rx=True, zar_vars=True):
         """
@@ -393,7 +396,7 @@ class ParseEK(ParseBase):
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
         # append zarr variables, if they exist
-        if zar_vars:
+        if zar_vars and rx:
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
                 self._append_zarr_dgram(datagram)

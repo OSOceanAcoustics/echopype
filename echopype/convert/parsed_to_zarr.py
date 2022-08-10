@@ -1,10 +1,11 @@
-import pandas as pd
-import numpy as np
-import tempfile
-import zarr
-import more_itertools as miter
-from typing import Tuple, List, Union
 import sys
+import tempfile
+from typing import List, Tuple, Union
+
+import more_itertools as miter
+import numpy as np
+import pandas as pd
+import zarr
 
 
 class Parsed2Zarr:
@@ -35,7 +36,7 @@ class Parsed2Zarr:
         self.temp_zarr_dir = tempfile.TemporaryDirectory()
 
         # create zarr store and zarr group we want to write to
-        self.zarr_file_name = self.temp_zarr_dir.name + '/temp.zarr'
+        self.zarr_file_name = self.temp_zarr_dir.name + "/temp.zarr"
         self.store = zarr.DirectoryStore(self.zarr_file_name)
         self.zarr_root = zarr.group(store=self.store, overwrite=True)
 
@@ -47,8 +48,9 @@ class Parsed2Zarr:
         self.store.close()
 
     @staticmethod
-    def set_multi_index(pd_obj: Union[pd.Series, pd.DataFrame],
-                        unique_dims: List[pd.Index]) -> Union[pd.Series, pd.DataFrame]:
+    def set_multi_index(
+        pd_obj: Union[pd.Series, pd.DataFrame], unique_dims: List[pd.Index]
+    ) -> Union[pd.Series, pd.DataFrame]:
         """
         Sets a multi-index from the product of the unique
         dimension values on a series and then
@@ -85,14 +87,17 @@ class Parsed2Zarr:
             Series with array elements
         """
 
-        all_shapes = pd_series.apply(lambda x: np.array(x.shape) if isinstance(x, np.ndarray) else None).dropna()
+        all_shapes = pd_series.apply(
+            lambda x: np.array(x.shape) if isinstance(x, np.ndarray) else None
+        ).dropna()
 
         all_dims = np.vstack(all_shapes.to_list())
 
         return all_dims.max(axis=0)
 
-    def get_col_info(self, pd_series: pd.Series, time_name: str,
-                     is_array: bool, max_mb: int) -> Tuple[int, list]:
+    def get_col_info(
+        self, pd_series: pd.Series, time_name: str, is_array: bool, max_mb: int
+    ) -> Tuple[int, list]:
         """
         Provides the maximum number of times needed to
         fill at most `max_mb` MB  of memory and the
@@ -168,8 +173,9 @@ class Parsed2Zarr:
         return max_num_times, chunk_shape
 
     @staticmethod
-    def get_np_chunk(series_chunk: pd.Series, chunk_shape: list,
-                     nan_array: np.ndarray) -> np.ndarray:
+    def get_np_chunk(
+        series_chunk: pd.Series, chunk_shape: list, nan_array: np.ndarray
+    ) -> np.ndarray:
         """
         Manipulates the ``series_chunk`` values into the
         correct shape that can then be written to a
@@ -211,7 +217,7 @@ class Parsed2Zarr:
                     # create np.pad pad_width
                     pad_width = [(0, i) for i in padding_amount]
 
-                    padded_array = np.pad(elm, pad_width, 'constant', constant_values=np.nan)
+                    padded_array = np.pad(elm, pad_width, "constant", constant_values=np.nan)
 
                     padded_elements.append(padded_array)
 
@@ -229,9 +235,14 @@ class Parsed2Zarr:
 
         return np_chunk
 
-    def write_chunks(self, pd_series: pd.Series, zarr_grp: zarr.group,
-                     is_array: bool, chunks: list,
-                     chunk_shape: list) -> None:
+    def write_chunks(
+        self,
+        pd_series: pd.Series,
+        zarr_grp: zarr.group,
+        is_array: bool,
+        chunks: list,
+        chunk_shape: list,
+    ) -> None:
         """
         Writes ``pd_series`` to ``zarr_grp`` as a zarr array
         with name ``pd_series.name``, using the specified chunks.
@@ -278,10 +289,13 @@ class Parsed2Zarr:
         np_chunk = self.get_np_chunk(series_chunk, chunk_shape, nan_array)
 
         # create array in zarr_grp using initial chunk
-        full_array = zarr_grp.array(name=pd_series.name,
-                                    data=np_chunk,
-                                    chunks=zarr_chunk_shape,
-                                    dtype='f8', fill_value='NaN')
+        full_array = zarr_grp.array(
+            name=pd_series.name,
+            data=np_chunk,
+            chunks=zarr_chunk_shape,
+            dtype="f8",
+            fill_value="NaN",
+        )
 
         # append each chunk to full_array
         for i, chunk in enumerate(chunks[1:], start=1):
@@ -290,9 +304,14 @@ class Parsed2Zarr:
             np_chunk = self.get_np_chunk(series_chunk, chunk_shape, nan_array)
             full_array.append(np_chunk)
 
-    def write_df_column(self, pd_series: pd.Series, zarr_grp: zarr.group,
-                        is_array: bool, unique_time_ind: pd.Index,
-                        max_mb: int = 100) -> None:
+    def write_df_column(
+        self,
+        pd_series: pd.Series,
+        zarr_grp: zarr.group,
+        is_array: bool,
+        unique_time_ind: pd.Index,
+        max_mb: int = 100,
+    ) -> None:
         """
         Obtains the appropriate information needed
         to determine the chunks of a column and
@@ -324,13 +343,13 @@ class Parsed2Zarr:
 
         # For a column, obtain the maximum amount of times needed for
         # each chunk and the associated form for the shape of the chunks
-        max_num_times, chunk_shape = self.get_col_info(pd_series, unique_time_ind.name,
-                                                       is_array=is_array, max_mb=max_mb)
+        max_num_times, chunk_shape = self.get_col_info(
+            pd_series, unique_time_ind.name, is_array=is_array, max_mb=max_mb
+        )
 
         # evenly chunk unique times so that the smallest and largest
         # chunk differ by at most 1 element
-        chunks = list(miter.chunked_even(unique_time_ind,
-                                         max_num_times))
+        chunks = list(miter.chunked_even(unique_time_ind, max_num_times))
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
 

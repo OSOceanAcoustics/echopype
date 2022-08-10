@@ -2,7 +2,6 @@ import warnings
 from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
-from .parsed_to_zarr import Parsed2Zarr
 
 import fsspec
 import xarray as xr
@@ -12,6 +11,7 @@ from datatree import DataTree
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
 from ..core import SONAR_MODELS
+from .parsed_to_zarr import Parsed2Zarr
 
 if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
@@ -443,7 +443,7 @@ def open_raw(
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
     # Ensure offload_to_zarr is 'auto', if it is a string
-    if isinstance(offload_to_zarr, str) and offload_to_zarr != 'auto':
+    if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
         raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
@@ -458,8 +458,8 @@ def open_raw(
 
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options,
-        dgram_zarr_vars=dgram_zarr_vars)
+        file_chk, params=params, storage_options=storage_options, dgram_zarr_vars=dgram_zarr_vars
+    )
 
     parser.parse_raw()
 
@@ -470,9 +470,9 @@ def open_raw(
         p2z = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
 
         # TODO: perform more robust tests for the 'auto' heuristic value
-        if offload_to_zarr == 'auto' and p2z.write_to_zarr(mem_mult=0.4):
+        if offload_to_zarr == "auto" and p2z.write_to_zarr(mem_mult=0.4):
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
-        elif offload_to_zarr == True:
+        elif offload_to_zarr is True:
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
         else:
             del p2z
@@ -482,7 +482,9 @@ def open_raw(
 
     else:
         p2z = Parsed2Zarr(parser)
-        if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and ("ALL" in parser.data_type):
+        if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and (
+            "ALL" in parser.data_type
+        ):
             parser.rectangularize_data()
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
@@ -538,8 +540,9 @@ def open_raw(
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(source_file=file_chk, xml_path=xml_chk,
-                        sonar_model=sonar_model, parser2zarr_obj=p2z)
+    echodata = EchoData(
+        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parser2zarr_obj=p2z
+    )
     echodata._set_tree(tree)
     echodata._load_tree()
 

@@ -567,8 +567,8 @@ class SetGroupsEK80(SetGroupsBase):
         # TODO: use PulseForm instead of checking for the existence
         #   of FrequencyStart and FrequencyEnd
         if (
-                "frequency_start" in self.parser_obj.ping_data_dict.keys()
-                and self.parser_obj.ping_data_dict["frequency_start"][ch]
+            "frequency_start" in self.parser_obj.ping_data_dict.keys()
+            and self.parser_obj.ping_data_dict["frequency_start"][ch]
         ):
 
             ds_f_start_end = xr.Dataset(
@@ -847,8 +847,7 @@ class SetGroupsEK80(SetGroupsBase):
         return set_encodings(ds_common)
 
     @staticmethod
-    def merge_save(ds_combine: List[xr.Dataset],
-                   ds_invariant: xr.Dataset) -> xr.Dataset:
+    def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
         ds_combine = xr.merge(ds_combine)
 
@@ -857,8 +856,7 @@ class SetGroupsEK80(SetGroupsBase):
         )  # override keeps the Dataset attributes
         return set_encodings(ds_combine)
 
-    def _attach_vars_to_ds_data(self, ds_data: xr.Dataset,
-                                ch: str, rs_size: int) -> xr.Dataset:
+    def _attach_vars_to_ds_data(self, ds_data: xr.Dataset, ch: str, rs_size: int) -> xr.Dataset:
         """
         Attaches common variables and the channel dimension.
 
@@ -879,9 +877,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         ds_common = self._assemble_ds_common(ch, rs_size)
 
-        ds_data = xr.merge(
-            [ds_data, ds_common], combine_attrs="override"
-        )
+        ds_data = xr.merge([ds_data, ds_common], combine_attrs="override")
 
         # Attach channel dimension/coordinate
         ds_data = ds_data.expand_dims(
@@ -928,8 +924,7 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = set_encodings(ds_data)
 
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch,
-                                                   rs_size=ds_power.range_sample.size)
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_power.range_sample.size)
             ds_tmp.append(ds_data)
 
         ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
@@ -972,8 +967,9 @@ class SetGroupsEK80(SetGroupsBase):
 
             ds_data = set_encodings(ds_data)
 
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch,
-                                                   rs_size=ds_complex.range_sample.size)
+            ds_data = self._attach_vars_to_ds_data(
+                ds_data, ch, rs_size=ds_complex.range_sample.size
+            )
             ds_tmp.append(ds_data)
 
         ds_tmp = self.merge_save(ds_tmp, ds_invariant_complex)
@@ -1020,8 +1016,9 @@ class SetGroupsEK80(SetGroupsBase):
                 else:  # skip for channels containing no data
                     continue
 
-                ds_data = self._attach_vars_to_ds_data(ds_data, ch,
-                                                       rs_size=ds_data.range_sample.size)
+                ds_data = self._attach_vars_to_ds_data(
+                    ds_data, ch, rs_size=ds_data.range_sample.size
+                )
 
                 if ch in self.parser_obj.ch_ids["complex"]:
                     ds_complex.append(ds_data)
