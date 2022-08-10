@@ -11,6 +11,8 @@ from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
+NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
+
 
 class SetGroupsBase(abc.ABC):
     """Base class for saving groups to netcdf or zarr from echosounder data files."""
@@ -146,7 +148,7 @@ class SetGroupsBase(abc.ABC):
     def _parse_NMEA(self):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
-        idx_loc = np.argwhere(np.isin(messages, self.ui_param["nmea_gps_sentence"])).squeeze()
+        idx_loc = np.argwhere(np.isin(messages, NMEA_SENTENCE_DEFAULT)).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []

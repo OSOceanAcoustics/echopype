@@ -25,8 +25,6 @@ COMPRESSION_SETTINGS = {
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
-NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
-
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
 
@@ -238,9 +236,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
 
     The default set of parameters include:
     - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
-    - Platform/NMEA: ``nmea_gps_sentence``,
-                     for selecting specific NMEA sentences,
-                     with default values ['GGA', 'GLL', 'RMC'].
     - Top-level group: ``survey_name``
 
     Other parameters will be saved to the top level.
@@ -261,7 +256,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
     out_params["platform_type"] = param_dict.get("platform_type", "")
     out_params["water_level"] = param_dict.get("water_level", None)
-    out_params["nmea_gps_sentence"] = param_dict.get("nmea_gps_sentence", NMEA_SENTENCE_DEFAULT)
 
     # Parameters for the Top-level group
     out_params["survey_name"] = param_dict.get("survey_name", "")
