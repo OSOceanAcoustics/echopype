@@ -26,7 +26,7 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
-        parser2zarr_obj=None,
+        parsed2zarr_obj=None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
@@ -42,7 +42,7 @@ class SetGroupsBase(abc.ABC):
         self.ui_param = params
 
         # parsed data written directly to zarr object
-        self.parser2zarr_obj = parser2zarr_obj
+        self.parsed2zarr_obj = parsed2zarr_obj
 
         if not self.compress:
             self.compression_settings = None
@@ -366,8 +366,8 @@ class SetGroupsBase(abc.ABC):
         # collect variables associated with the power data
         power = dask.array.from_zarr(zarr_path, component="power/power")
 
-        pow_time_path = "power/" + self.parser2zarr_obj.power_dims[0]
-        pow_chan_path = "power/" + self.parser2zarr_obj.power_dims[1]
+        pow_time_path = "power/" + self.parsed2zarr_obj.power_dims[0]
+        pow_chan_path = "power/" + self.parsed2zarr_obj.power_dims[1]
         power_time = dask.array.from_zarr(zarr_path, component=pow_time_path).compute()
         power_channel = dask.array.from_zarr(zarr_path, component=pow_chan_path).compute()
 
@@ -419,8 +419,8 @@ class SetGroupsBase(abc.ABC):
         angle_along = dask.array.from_zarr(zarr_path, component="angle/angle_alongship")
         angle_athwart = dask.array.from_zarr(zarr_path, component="angle/angle_athwartship")
 
-        ang_time_path = "angle/" + self.parser2zarr_obj.angle_dims[0]
-        ang_chan_path = "angle/" + self.parser2zarr_obj.angle_dims[1]
+        ang_time_path = "angle/" + self.parsed2zarr_obj.angle_dims[0]
+        ang_chan_path = "angle/" + self.parsed2zarr_obj.angle_dims[1]
         angle_time = dask.array.from_zarr(zarr_path, component=ang_time_path).compute()
         angle_channel = dask.array.from_zarr(zarr_path, component=ang_chan_path).compute()
 
@@ -493,8 +493,8 @@ class SetGroupsBase(abc.ABC):
         complex_r = dask.array.from_zarr(zarr_path, component="complex/backscatter_r")
         complex_i = dask.array.from_zarr(zarr_path, component="complex/backscatter_i")
 
-        comp_time_path = "complex/" + self.parser2zarr_obj.complex_dims[0]
-        comp_chan_path = "complex/" + self.parser2zarr_obj.complex_dims[1]
+        comp_time_path = "complex/" + self.parsed2zarr_obj.complex_dims[0]
+        comp_chan_path = "complex/" + self.parsed2zarr_obj.complex_dims[1]
         complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
         complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
 

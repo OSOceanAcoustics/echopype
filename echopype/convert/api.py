@@ -467,7 +467,7 @@ def open_raw(
     if offload_to_zarr and (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]):
 
         # Determines if writing to zarr is necessary and writes to zarr
-        p2z = SONAR_MODELS[sonar_model]["parser2zarr"](parser)
+        p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
 
         # TODO: perform more robust tests for the 'auto' heuristic value
         if offload_to_zarr == "auto" and p2z.write_to_zarr(mem_mult=0.4):
@@ -493,7 +493,7 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        parser2zarr_obj=p2z,
+        parsed2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -541,7 +541,7 @@ def open_raw(
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
     echodata = EchoData(
-        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parser2zarr_obj=p2z
+        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parsed2zarr_obj=p2z
     )
     echodata._set_tree(tree)
     echodata._load_tree()

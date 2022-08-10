@@ -409,7 +409,7 @@ class SetGroupsEK60(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parser2zarr_obj.zarr_file_name
+        zarr_path = self.parsed2zarr_obj.zarr_file_name
         backscatter_r = self._get_power_dataarray(zarr_path)
         angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
 
@@ -678,7 +678,7 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
             }
 
-            if not self.parser2zarr_obj.temp_zarr_dir:
+            if not self.parsed2zarr_obj.temp_zarr_dir:
 
                 var_dict["backscatter_r"] = (
                     ["ping_time", "range_sample"],
@@ -713,7 +713,7 @@ class SetGroupsEK60(SetGroupsBase):
                     },
                 )
 
-            if not self.parser2zarr_obj.temp_zarr_dir:
+            if not self.parsed2zarr_obj.temp_zarr_dir:
                 # Save angle data if exist based on values in
                 # self.parser_obj.ping_data_dict['mode'][ch]
                 # Assume the mode of all pings are identical
@@ -760,7 +760,7 @@ class SetGroupsEK60(SetGroupsBase):
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
 
-        if self.parser2zarr_obj.temp_zarr_dir:
+        if self.parsed2zarr_obj.temp_zarr_dir:
             ds = self._set_beam_group1_zarr_vars(ds)
 
         # Manipulate some Dataset dimensions to adhere to convention

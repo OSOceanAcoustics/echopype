@@ -45,7 +45,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_azfp_ext,
         "xml": True,
         "parser": ParseAZFP,
-        "parser2zarr": None,
+        "parsed2zarr": None,
         "set_groups": SetGroupsAZFP,
         "concat_dims": {
             "platform": "time2",
@@ -63,7 +63,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".raw"),
         "xml": False,
         "parser": ParseEK60,
-        "parser2zarr": Parsed2ZarrEK60,
+        "parsed2zarr": Parsed2ZarrEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
             "platform": ["time1", "time2", "time3"],
@@ -80,7 +80,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".raw"),
         "xml": False,
         "parser": ParseEK60,
-        "parser2zarr": Parsed2ZarrEK60,
+        "parsed2zarr": Parsed2ZarrEK60,
         "set_groups": SetGroupsEK60,
         "concat_dims": {
             "platform": ["time1", "time2", "time3"],
@@ -97,7 +97,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".raw"),
         "xml": False,
         "parser": ParseEK80,
-        "parser2zarr": Parsed2ZarrEK80,
+        "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
             "platform": ["time1", "time2", "time3"],
@@ -118,7 +118,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".raw"),
         "xml": False,
         "parser": ParseEK80,
-        "parser2zarr": Parsed2ZarrEK80,
+        "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
             "platform": ["time1", "time2", "time3"],
@@ -139,7 +139,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".raw"),
         "xml": False,
         "parser": ParseEK80,
-        "parser2zarr": Parsed2ZarrEK80,
+        "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
         "concat_dims": {
             "platform": ["time1", "time2", "time3"],
@@ -160,7 +160,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "validate_ext": validate_ext(".ad2cp"),
         "xml": False,
         "parser": ParseAd2cp,
-        "parser2zarr": None,
+        "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
         "concat_dims": {
             "platform": "ping_time",

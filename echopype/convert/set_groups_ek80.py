@@ -64,8 +64,8 @@ class SetGroupsEK80(SetGroupsBase):
         super().__init__(*args, **kwargs)
 
         # if we have zarr files, create parser_obj.ch_ids
-        if self.parser2zarr_obj.temp_zarr_dir:
-            for k, v in self.parser2zarr_obj.p2z_ch_ids.items():
+        if self.parsed2zarr_obj.temp_zarr_dir:
+            for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
                 self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
 
     def set_env(self) -> xr.Dataset:
@@ -910,7 +910,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parser2zarr_obj.zarr_file_name
+        zarr_path = self.parsed2zarr_obj.zarr_file_name
         backscatter_r = self._get_power_dataarray(zarr_path)
         angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
 
@@ -952,7 +952,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parser2zarr_obj.zarr_file_name
+        zarr_path = self.parsed2zarr_obj.zarr_file_name
         backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
 
         # create power related ds using DataArrays created from zarr file
@@ -1004,7 +1004,7 @@ class SetGroupsEK80(SetGroupsBase):
         if self.parser_obj.ch_ids["power"]:
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
-        if not self.parser2zarr_obj.temp_zarr_dir:
+        if not self.parsed2zarr_obj.temp_zarr_dir:
             # Assemble dataset for backscatter data and other ping-by-ping data
             ds_complex = []
             ds_power = []
