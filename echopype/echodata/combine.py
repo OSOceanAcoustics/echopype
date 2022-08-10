@@ -4,7 +4,6 @@ from typing import Any, Dict, List
 
 import xarray as xr
 from datatree import DataTree
-from zarr.errors import GroupNotFoundError
 
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
@@ -184,10 +183,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             group_path = "Top-level"
 
         for echodata in echodatas:
-            try:
+            if echodata[group_path] is not None:
                 group_datasets.append(echodata[group_path])
-            except GroupNotFoundError:
-                ...
 
         if group in ("top", "sonar"):
             combined_group = echodatas[0][group_path]

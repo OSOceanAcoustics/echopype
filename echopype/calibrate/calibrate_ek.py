@@ -1,7 +1,6 @@
 import numpy as np
 import xarray as xr
 from scipy import signal
-from zarr.errors import GroupNotFoundError
 
 from ..echodata import EchoData
 from ..utils import uwa
@@ -63,11 +62,8 @@ class CalibrateEK(CalibrateBase):
         if param not in ["sa_correction", "gain_correction"]:
             raise ValueError(f"Unknown parameter {param}")
 
-        try:
-            if waveform_mode == "CW":
-                beam = self.echodata["Sonar/Beam_group2"]
-        except GroupNotFoundError:
-            beam = self.echodata["Sonar/Beam_group1"]
+        if waveform_mode == "CW" and self.echodata["Sonar/Beam_group2"] is not None:
+            beam = self.echodata["Sonar/Beam_group2"]
         else:
             beam = self.echodata["Sonar/Beam_group1"]
 
@@ -106,11 +102,12 @@ class CalibrateEK(CalibrateBase):
         cal_params : dict
         """
 
-        try:
-            if encode_mode == "power" and waveform_mode == "CW":
-                beam = self.echodata["Sonar/Beam_group2"]
-        except GroupNotFoundError:
-            beam = self.echodata["Sonar/Beam_group1"]
+        if (
+            encode_mode == "power"
+            and waveform_mode == "CW"
+            and self.echodata["Sonar/Beam_group2"] is not None
+        ):
+            beam = self.echodata["Sonar/Beam_group2"]
         else:
             beam = self.echodata["Sonar/Beam_group1"]
 
@@ -341,11 +338,12 @@ class CalibrateEK80(CalibrateEK):
               the echosounder is configured for narrowband transmission
         """
 
-        try:
-            if encode_mode == "power" and waveform_mode == "CW":
-                beam = self.echodata["Sonar/Beam_group2"]
-        except GroupNotFoundError:
-            beam = self.echodata["Sonar/Beam_group1"]
+        if (
+            encode_mode == "power"
+            and waveform_mode == "CW"
+            and self.echodata["Sonar/Beam_group2"] is not None
+        ):
+            beam = self.echodata["Sonar/Beam_group2"]
         else:
             beam = self.echodata["Sonar/Beam_group1"]
 
@@ -924,8 +922,7 @@ class CalibrateEK80(CalibrateEK):
         #   power samples will be stored in echodata["Sonar/Beam_group2"]
         # When only one type of samples exist,
         #   all samples with be stored in echodata["Sonar/Beam_group1"]
-        try:
-            self.echodata["Sonar/Beam_group2"]
+        if self.echodata["Sonar/Beam_group2"] is not None:  # both power and complex samples exist
             # If both beam and beam_power groups exist,
             #   this means that CW data are encoded as power samples and in beam_power group
             if waveform_mode == "CW" and encode_mode == "complex":
@@ -940,8 +937,7 @@ class CalibrateEK80(CalibrateEK):
                 print(
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
-        except GroupNotFoundError:
-            # only power OR complex samples exist
+        else:  # only power OR complex samples exist
             if (
                 "backscatter_i" in self.echodata["Sonar/Beam_group1"].variables
             ):  # data contain only complex samples

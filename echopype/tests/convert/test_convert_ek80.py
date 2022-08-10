@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from zarr.errors import GroupNotFoundError
 from echopype import open_raw
 
 from echopype.testing import TEST_DATA_FOLDER

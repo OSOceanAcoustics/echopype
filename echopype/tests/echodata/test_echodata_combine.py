@@ -7,8 +7,6 @@ import pytest
 import xarray as xr
 from xarray.core.merge import MergeError
 
-from zarr.errors import GroupNotFoundError
-
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
@@ -112,39 +110,52 @@ def test_combine_echodata(raw_datasets):
     for group_name, value in combined.group_map.items():
         if group_name in ("top", "sonar", "provenance"):
             continue
-        try:
-            combined_group: xr.Dataset = combined[value['ep_group']]
-            eds_groups = [
-                ed[value['ep_group']]
-                for ed in eds
-                if ed[value['ep_group']] is not None
-            ]
+        combined_group: xr.Dataset = combined[value['ep_group']]
+        eds_groups = [
+            ed[value['ep_group']]
+            for ed in eds
+            if ed[value['ep_group']] is not None
+        ]
 
-            def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
-                """
-                Merges attrs from a list of datasets.
-                Prioritizes keys from later datasets.
-                """
+        def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
+            """
+            Merges attrs from a list of datasets.
+            Prioritizes keys from later datasets.
+            """
 
-                total_attrs = {}
-                for ds in datasets:
-                    total_attrs.update(ds.attrs)
-                return total_attrs
+            total_attrs = {}
+            for ds in datasets:
+                total_attrs.update(ds.attrs)
+            return total_attrs
 
-            test_ds = xr.combine_nested(
-                eds_groups,
-                [concat_dims.get(group_name, concat_dims["default"])],
-                data_vars=concat_data_vars.get(
-                    group_name, concat_data_vars["default"]
-                ),
-                coords="minimal",
-                combine_attrs="drop",
-            )
-            test_ds.attrs.update(union_attrs(eds_groups))
-            test_ds = test_ds.drop_dims(
+        test_ds = xr.combine_nested(
+            eds_groups,
+            [concat_dims.get(group_name, concat_dims["default"])],
+            data_vars=concat_data_vars.get(
+                group_name, concat_data_vars["default"]
+            ),
+            coords="minimal",
+            combine_attrs="drop",
+        )
+        test_ds.attrs.update(union_attrs(eds_groups))
+        test_ds = test_ds.drop_dims(
+            [
+                # xarray inserts this dimension when concatenating along multiple dimensions
+                "concat_dim",
+                "old_ping_time",
+                "ping_time",
+                "old_time1",
+                "time1",
+                "old_time2",
+                "time2",
+            ],
+            errors="ignore",
+        ).drop_dims(
+            [f"{group}_attrs" for group in combined.group_map], errors="ignore"
+        )
+        assert combined_group is None or test_ds.identical(
+            combined_group.drop_dims(
                 [
-                    # xarray inserts this dimension when concatenating along multiple dimensions
-                    "concat_dim",
                     "old_ping_time",
                     "ping_time",
                     "old_time1",
@@ -153,24 +164,8 @@ def test_combine_echodata(raw_datasets):
                     "time2",
                 ],
                 errors="ignore",
-            ).drop_dims(
-                [f"{group}_attrs" for group in combined.group_map], errors="ignore"
             )
-            assert test_ds.identical(
-                combined_group.drop_dims(
-                    [
-                        "old_ping_time",
-                        "ping_time",
-                        "old_time1",
-                        "time1",
-                        "old_time2",
-                        "time2",
-                    ],
-                    errors="ignore",
-                )
-            )
-        except GroupNotFoundError:
-            pass
+        )
 
 
 def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
@@ -181,12 +176,12 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
     combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
 
     for group_name, value in combined.group_map.items():
-        try:
-            if value['ep_group'] is None:
-                combined_group: xr.Dataset = combined['Top-level']
-            else:
-                combined_group: xr.Dataset = combined[value['ep_group']]
-            
+        if value['ep_group'] is None:
+            combined_group: xr.Dataset = combined['Top-level']
+        else:
+            combined_group: xr.Dataset = combined[value['ep_group']]
+
+        if combined_group is not None:
             if "ping_time" in combined_group and group_name != "provenance":
                 assert not exist_reversed_time(combined_group, "ping_time")
             if "old_ping_time" in combined_group:
@@ -202,8 +197,6 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
                 assert not exist_reversed_time(combined_group, "time2")
             if "old_time2" in combined_group:
                 assert exist_reversed_time(combined_group, "old_time2")
-        except GroupNotFoundError:
-            ...
 
 
 def test_attr_storage(ek60_test_data):
@@ -286,12 +279,12 @@ def test_combined_encodings(ek60_test_data):
 
     group_checks = []
     for group, value in combined.group_map.items():
-        try:
-            if value['ep_group'] is None:
-                ds = combined['Top-level']
-            else:
-                ds = combined[value['ep_group']]
-            
+        if value['ep_group'] is None:
+            ds = combined['Top-level']
+        else:
+            ds = combined[value['ep_group']]
+
+        if ds is not None:
             for k, v in ds.variables.items():
                 if k in DEFAULT_ENCODINGS:
                     encoding = ds[k].encoding
@@ -299,8 +292,6 @@ def test_combined_encodings(ek60_test_data):
                         group_checks.append(
                             f"  {value['name']}::{k}"
                         )
-        except GroupNotFoundError:
-            pass
 
     if len(group_checks) > 0:
         all_messages = ['Encoding mismatch found!'] + group_checks

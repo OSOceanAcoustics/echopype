@@ -267,10 +267,7 @@ class TestEchoData:
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         beam = ed['Sonar/Beam_group1']
         assert isinstance(beam, xr.Dataset)
-        try:
-            ed['MyGroup']
-        except Exception as e:
-            assert isinstance(e, GroupNotFoundError)
+        assert ed['MyGroup'] is None
 
         ed._tree = None
         try:
@@ -278,12 +275,16 @@ class TestEchoData:
         except Exception as e:
             assert isinstance(e, ValueError)
 
-
     def test_setitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'beam': 'beam_newname'})
 
         assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['beam_newname', 'channel', 'ping_time', 'range_sample']
+
+        try:
+            ed['SomeRandomGroup'] = 'Testing value'
+        except Exception as e:
+            assert isinstance(e, GroupNotFoundError)
 
     def test_get_dataset(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)

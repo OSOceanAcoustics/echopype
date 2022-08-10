@@ -7,7 +7,6 @@ import fsspec
 import xarray as xr
 import zarr
 from datatree import DataTree
-from zarr.errors import GroupNotFoundError
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
@@ -175,7 +174,8 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
-        try:
+        if echodata["Sonar/Beam_group2"] is not None:
+            # some sonar model does not produce Sonar/Beam_group2
             io.save_file(
                 echodata["Sonar/Beam_group2"].chunk(
                     {
@@ -189,9 +189,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 group="Sonar/Beam_group2",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
             )
-        except GroupNotFoundError:
-            # some sonar model does not produce Sonar/Beam_group2
-            ...
 
     # Platform group
     io.save_file(
@@ -204,7 +201,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     )
 
     # Platform/NMEA group: some sonar model does not produce NMEA data
-    try:
+    if echodata["Platform/NMEA"] is not None:
         io.save_file(
             echodata["Platform/NMEA"],  # TODO: chunking necessary?
             path=output_path,
@@ -213,8 +210,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             group="Platform/NMEA",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
-    except GroupNotFoundError:
-        ...
 
     # Vendor_specific group
     if "ping_time" in echodata["Vendor_specific"]:

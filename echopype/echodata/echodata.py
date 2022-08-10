@@ -204,7 +204,7 @@ class EchoData:
                 node = self.__get_node(__key)
                 return self.__get_dataset(node)
             except KeyError:
-                raise GroupNotFoundError(__key)
+                return None
         else:
             raise ValueError("Datatree not found!")
 
@@ -458,13 +458,14 @@ class EchoData:
             tvg_correction_factor = TVG_CORRECTION_FACTOR[self.sonar_model]
 
             if waveform_mode == "CW":
-                try:
-                    if self.sonar_model == "EK80" and encode_mode == "power":
-                        # if both CW and BB exist and beam_power group is not empty
-                        # this means that CW is recorded in power/angle mode
-                        beam = self["Sonar/Beam_group2"]
-                except GroupNotFoundError:
-                    beam = self["Sonar/Beam_group1"]
+                if (
+                    self.sonar_model == "EK80"
+                    and encode_mode == "power"
+                    and self["Sonar/Beam_group2"] is not None
+                ):
+                    # if both CW and BB exist and beam_power group is not empty
+                    # this means that CW is recorded in power/angle mode
+                    beam = self["Sonar/Beam_group2"]
                 else:
                     beam = self["Sonar/Beam_group1"]
 
