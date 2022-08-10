@@ -8,12 +8,12 @@ from struct import unpack
 import fsspec
 import numpy as np
 
-from ..utils import log
+from ..utils.log import _init_logger
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
 
-logger = log._init_logger(__name__)
+logger = _init_logger(__name__)
 
 
 class ParseAZFP(ParseBase):

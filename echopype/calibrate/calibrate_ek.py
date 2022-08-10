@@ -3,10 +3,11 @@ import xarray as xr
 from scipy import signal
 
 from ..echodata import EchoData
-from ..utils import log, uwa
+from ..utils import uwa
+from ..utils.log import _init_logger
 from .calibrate_base import CAL_PARAMS, CalibrateBase
 
-logger = log._init_logger(__name__)
+logger = _init_logger(__name__)
 
 
 class CalibrateEK(CalibrateBase):

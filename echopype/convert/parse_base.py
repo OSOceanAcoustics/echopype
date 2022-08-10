@@ -4,14 +4,14 @@ from datetime import datetime as dt
 
 import numpy as np
 
-from ..utils import log
+from ..utils.log import _init_logger
 from .utils.ek_raw_io import RawSimradFile, SimradEOF
 
 FILENAME_DATETIME_EK60 = (
     "(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw"
 )
 
-logger = log._init_logger(__name__)
+logger = _init_logger(__name__)
 
 
 class ParseBase:

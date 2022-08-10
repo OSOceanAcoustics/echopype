@@ -4,11 +4,11 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils import log
 from ..utils.coding import set_encodings
+from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
 
-logger = log._init_logger(__name__)
+logger = _init_logger(__name__)
 
 
 class SetGroupsEK80(SetGroupsBase):
