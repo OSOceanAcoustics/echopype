@@ -64,6 +64,11 @@ class Parsed2Zarr:
             List where the elements are the unique values
             of the index.
 
+        Returns
+        -------
+        Union[pd.Series, pd.DataFrame]
+            ``pd_obj`` with product multi-index
+
         Notes
         -----
         By setting the multiindex, this method fills (or pads)
@@ -85,6 +90,11 @@ class Parsed2Zarr:
         ----------
         pd_series: pd.Series
             Series with array elements
+
+        Returns
+        -------
+        np.ndarray
+            The maximum element shape
         """
 
         all_shapes = pd_series.apply(
@@ -353,7 +363,7 @@ class Parsed2Zarr:
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
 
-    def _get_zarr_dgrams_size(self):
+    def _get_zarr_dgrams_size(self) -> int:
         """
         Returns the size in bytes of the list of zarr
         datagrams.
@@ -366,7 +376,7 @@ class Parsed2Zarr:
 
         return size
 
-    def array_series_bytes(self, pd_series: pd.Series, n_rows: int):
+    def array_series_bytes(self, pd_series: pd.Series, n_rows: int) -> int:
         """
         Determines the amount of bytes required for a
         series with array elements, for ``n_rows``.
