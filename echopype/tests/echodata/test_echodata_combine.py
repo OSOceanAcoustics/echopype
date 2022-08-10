@@ -140,7 +140,7 @@ def test_combine_echodata(raw_datasets):
         test_ds.attrs.update(union_attrs(eds_groups))
         test_ds = test_ds.drop_dims(
             [
-                # xarray inserts this dimension when concatenating along multiple dimensions
+                # xarray inserts "concat_dim" when concatenating along multiple dimensions
                 "concat_dim",
                 "old_ping_time",
                 "ping_time",
