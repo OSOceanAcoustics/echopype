@@ -95,7 +95,7 @@ class EnvParams:
             raise ValueError("invalid data_kind")
 
         for dim in dims:
-            if dim not in echodata.platform:
+            if dim not in echodata["Platform"]:
                 raise ValueError(
                     f"could not interpolate env_params; EchoData is missing dimension {dim}"
                 )
@@ -103,10 +103,12 @@ class EnvParams:
         env_params = self.env_params
 
         if self.data_kind == "mobile":
-            if np.isnan(echodata.platform["time1"]).all():
+            if np.isnan(echodata["Platform"]["time1"]).all():
                 raise ValueError("cannot perform mobile interpolation without time1")
             # compute_range needs indexing by ping_time
-            interp_plat = echodata.platform.interp({"time1": echodata.beam["ping_time"]})
+            interp_plat = echodata["Platform"].interp(
+                {"time1": echodata["Sonar/Beam_group1"]["ping_time"]}
+            )
 
             result = {}
             for var, values in env_params.data_vars.items():
@@ -134,7 +136,7 @@ class EnvParams:
             }
 
             extrap = env_params.interp(
-                {dim: echodata.platform[dim].data for dim in dims},
+                {dim: echodata["Platform"][dim].data for dim in dims},
                 method=self.extrap_method,
                 # scipy interp uses "extrapolate" but scipy interpn uses None
                 kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
@@ -143,7 +145,7 @@ class EnvParams:
             extrap_unique_idx = {dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims}
             extrap = extrap.isel(**extrap_unique_idx)
             interp = env_params.interp(
-                {dim: echodata.platform[dim].data for dim in dims},
+                {dim: echodata["Platform"][dim].data for dim in dims},
                 method=self.interp_method,
             )
             interp_unique_idx = {dim: np.unique(interp[dim], return_index=True)[1] for dim in dims}
@@ -179,8 +181,8 @@ class EnvParams:
 
         # if self.data_kind == "organized":
         #     # get platform latitude and longitude indexed by ping_time
-        #     interp_plat = echodata.platform.interp(
-        #         {"time": echodata.platform["ping_time"]}
+        #     interp_plat = echodata["Platform"].interp(
+        #         {"time": echodata["Platform"]["ping_time"]}
         #     )
         #     # get env_params latitude and longitude indexed by ping_time
         #     env_params = env_params.interp(

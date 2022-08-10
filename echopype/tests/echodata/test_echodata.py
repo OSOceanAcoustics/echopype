@@ -198,20 +198,20 @@ class TestEchoData:
     def test_constructor(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         expected_groups = [
-            'top',
-            'environment',
-            'platform',
-            'provenance',
-            'sonar',
-            'beam',
-            'vendor',
+            'Top-level',
+            'Environment',
+            'Platform',
+            'Provenance',
+            'Sonar',
+            'Sonar/Beam_group1',
+            'Vendor_specific',
         ]
 
         assert ed.sonar_model == 'EK60'
         assert ed.converted_raw_path == converted_zarr
         assert ed.storage_options == {}
         for group in expected_groups:
-            assert isinstance(getattr(ed, group), xr.Dataset)
+            assert isinstance(ed[group], xr.Dataset)
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
@@ -252,27 +252,22 @@ class TestEchoData:
         sample_data = xr.Dataset({"x": [0, 0, 0]})
         sample_data2 = xr.Dataset({"y": [0, 0, 0]})
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        current_ed_beam = ed.beam
-        current_ed_top = ed.top
-        ed.beam = sample_data
-        ed.top = sample_data2
+        current_ed_beam = ed["Sonar/Beam_group1"]
+        current_ed_top = ed['Top-level']
+        ed["Sonar/Beam_group1"] = sample_data
+        ed['Top-level'] = sample_data2
 
-        assert ed.beam.equals(sample_data) is True
-        assert ed.beam.equals(ed['Sonar/Beam_group1']) is True
-        assert ed.beam.equals(current_ed_beam) is False
+        assert ed["Sonar/Beam_group1"].equals(sample_data) is True
+        assert ed["Sonar/Beam_group1"].equals(current_ed_beam) is False
 
-        assert ed.top.equals(sample_data2) is True
-        assert ed.top.equals(ed['Top-level']) is True
-        assert ed.top.equals(current_ed_top) is False
+        assert ed['Top-level'].equals(sample_data2) is True
+        assert ed['Top-level'].equals(current_ed_top) is False
 
     def test_getitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         beam = ed['Sonar/Beam_group1']
         assert isinstance(beam, xr.Dataset)
-        try:
-            ed['MyGroup']
-        except Exception as e:
-            assert isinstance(e, GroupNotFoundError)
+        assert ed['MyGroup'] is None
 
         ed._tree = None
         try:
@@ -280,27 +275,16 @@ class TestEchoData:
         except Exception as e:
             assert isinstance(e, ValueError)
 
-    def test_getattr(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        expected_groups = {
-            'top': 'Top-level',
-            'environment': 'Environment',
-            'platform': 'Platform',
-            'nmea': 'Platform/NMEA',
-            'provenance': 'Provenance',
-            'sonar': 'Sonar',
-            'beam': 'Sonar/Beam_group1',
-            'vendor': 'Vendor_specific',
-        }
-        for group, path in expected_groups.items():
-            ds = getattr(ed, group)
-            assert ds.equals(ed[path])
-
     def test_setitem(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
         ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'beam': 'beam_newname'})
 
         assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['beam_newname', 'channel', 'ping_time', 'range_sample']
+
+        try:
+            ed['SomeRandomGroup'] = 'Testing value'
+        except Exception as e:
+            assert isinstance(e, GroupNotFoundError)
 
     def test_get_dataset(self, converted_zarr):
         ed = EchoData.from_file(converted_raw_path=converted_zarr)
@@ -352,7 +336,6 @@ def test_compute_range(compute_range_samples):
         ek_encode_mode,
     ) = compute_range_samples
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    print(ed.platform)
     rng = np.random.default_rng(0)
     stationary_env_params = EnvParams(
         xr.Dataset(
@@ -367,7 +350,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="stationary"
     )
-    if "time3" in ed.platform and sonar_model != "AD2CP":
+    if "time3" in ed["Platform"] and sonar_model != "AD2CP":
         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -392,7 +375,7 @@ def test_compute_range(compute_range_samples):
         ),
         data_kind="mobile"
     )
-    if "latitude" in ed.platform and "longitude" in ed.platform and sonar_model != "AD2CP" and not np.isnan(ed.platform["time1"]).all():
+    if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
     else:
         try:
@@ -427,11 +410,11 @@ def test_nan_range_entries(range_check_files):
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
         range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
         range_output = echodata.compute_range(env_params=[])
-        nan_locs_backscatter_r = ~echodata.beam.backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
@@ -482,7 +465,7 @@ def test_update_platform(
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
     for variable in updated:
-        assert np.isnan(ed.platform[variable].values).all()
+        assert np.isnan(ed["Platform"][variable].values).all()
 
     if ext_type == "external-trajectory":
         extra_platform_data_file_name = platform_data[1]
@@ -507,30 +490,30 @@ def test_update_platform(
     )
 
     for variable in updated:
-        assert not np.isnan(ed.platform[variable].values).all()
+        assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
-    # check times are > min(ed.beam["ping_time"]) - 2s
+    # check times are > min(ed["Sonar/Beam_group1"]["ping_time"]) - 2s
     assert (
-        ed.platform["time1"]
-        > ed.beam["ping_time"].min() - np.timedelta64(2, "s")
+        ed["Platform"]["time1"]
+        > ed["Sonar/Beam_group1"]["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
-    # check there is only 1 time < min(ed.beam["ping_time"])
+    # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["time1"] < ed.beam["ping_time"].min()
+            ed["Platform"]["time1"] < ed["Sonar/Beam_group1"]["ping_time"].min()
         )
         <= 1
     )
-    # check times are < max(ed.beam["ping_time"]) + 2s
+    # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
-        ed.platform["time1"]
-        < ed.beam["ping_time"].max() + np.timedelta64(2, "s")
+        ed["Platform"]["time1"]
+        < ed["Sonar/Beam_group1"]["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
-    # check there is only 1 time > max(ed.beam["ping_time"])
+    # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed.platform["time1"] > ed.beam["ping_time"].max()
+            ed["Platform"]["time1"] > ed["Sonar/Beam_group1"]["ping_time"].max()
         )
         <= 1
     )

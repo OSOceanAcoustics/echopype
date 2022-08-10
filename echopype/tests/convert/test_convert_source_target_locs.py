@@ -239,34 +239,36 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
     )
     ed.to_netcdf(overwrite=True)
     for group, details in ed.group_map.items():
-        if hasattr(ed, group):
-            group_ds = getattr(ed, group)
-            if isinstance(group_ds, xr.Dataset):
-                for var, encoding in DEFAULT_ENCODINGS.items():
-                    if var in group_ds:
-                        da = group_ds[var]
-                        assert da.encoding == encoding
+        group_path = details['ep_group']
+        if group_path is None:
+            group_path = 'Top-level'
+        group_ds = ed[group_path]
+        if isinstance(group_ds, xr.Dataset):
+            for var, encoding in DEFAULT_ENCODINGS.items():
+                if var in group_ds:
+                    da = group_ds[var]
+                    assert da.encoding == encoding
 
-                        # Combine encoding and attributes since this
-                        # is what is shown when using decode_cf=False
-                        # without dtype attribute
-                        total_attrs = dict(**da.attrs, **da.encoding)
-                        total_attrs.pop('dtype')
+                    # Combine encoding and attributes since this
+                    # is what is shown when using decode_cf=False
+                    # without dtype attribute
+                    total_attrs = dict(**da.attrs, **da.encoding)
+                    total_attrs.pop('dtype')
 
-                        # Read converted file back in
-                        file_da = xr.open_dataset(
-                            ed.converted_raw_path,
-                            group=details['ep_group'],
-                            decode_cf=False,
-                        )[var]
-                        assert file_da.dtype == encoding['dtype']
+                    # Read converted file back in
+                    file_da = xr.open_dataset(
+                        ed.converted_raw_path,
+                        group=details['ep_group'],
+                        decode_cf=False,
+                    )[var]
+                    assert file_da.dtype == encoding['dtype']
 
-                        # Read converted file back in
-                        decoded_da = xr.open_dataset(
-                            ed.converted_raw_path,
-                            group=details['ep_group'],
-                        )[var]
-                        assert da.equals(decoded_da) is True
+                    # Read converted file back in
+                    decoded_da = xr.open_dataset(
+                        ed.converted_raw_path,
+                        group=details['ep_group'],
+                    )[var]
+                    assert da.equals(decoded_da) is True
     os.unlink(ed.converted_raw_path)
 
 
