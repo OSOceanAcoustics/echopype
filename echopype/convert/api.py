@@ -107,15 +107,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Top-level group
     io.save_file(echodata.top, path=output_path, mode="w", engine=engine)
 
-    # Provenance group
-    io.save_file(
-        echodata.provenance,
-        path=output_path,
-        group="Provenance",
-        mode="a",
-        engine=engine,
-    )
-
     # Environment group
     if "time1" in echodata.environment:
         io.save_file(
@@ -135,6 +126,36 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             engine=engine,
             group="Environment",
         )
+
+    # Platform group
+    io.save_file(
+        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
+        path=output_path,
+        mode="a",
+        engine=engine,
+        group="Platform",
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+    )
+
+    # Platform/NMEA group: some sonar model does not produce NMEA data
+    if echodata.nmea is not None:
+        io.save_file(
+            echodata.nmea,  # TODO: chunking necessary?
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Platform/NMEA",
+            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        )
+
+    # Provenance group
+    io.save_file(
+        echodata.provenance,
+        path=output_path,
+        group="Provenance",
+        mode="a",
+        engine=engine,
+    )
 
     # Sonar group
     io.save_file(
@@ -188,27 +209,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 group="Sonar/Beam_group2",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
             )
-
-    # Platform group
-    io.save_file(
-        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
-        path=output_path,
-        mode="a",
-        engine=engine,
-        group="Platform",
-        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-    )
-
-    # Platform/NMEA group: some sonar model does not produce NMEA data
-    if echodata.nmea is not None:
-        io.save_file(
-            echodata.nmea,  # TODO: chunking necessary?
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Platform/NMEA",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
 
     # Vendor_specific group
     if "ping_time" in echodata.vendor:
