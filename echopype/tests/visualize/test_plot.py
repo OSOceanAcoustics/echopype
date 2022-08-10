@@ -266,7 +266,7 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
             range_in_meter=range_in_meter,
             water_level=water_level,
             data_type=EchoData,
-            platform_data=echodata.platform,
+            platform_data=echodata["Platform"],
         )
         if expect_warning:
             assert 'WARNING' in caplog.text
