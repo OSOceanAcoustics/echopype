@@ -176,6 +176,8 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
 
+    # Specification for Echodata.group_map can be found in
+    # echopype/echodata/convention/1.0.yml
     for group, value in EchoData.group_map.items():
         group_datasets = []
         group_path = value["ep_group"]
