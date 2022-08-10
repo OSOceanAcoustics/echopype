@@ -78,7 +78,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         # write the unique indices to the power group
         zarr_grp.array(
-            name=self.power_dims[0], data=times.values, dtype="<M8[ns]", fill_value="NaT"
+            name=self.power_dims[0], data=times.values, dtype=times.dtype.str, fill_value="NaT"
         )
 
         dtype = self._get_string_dtype(channels)
@@ -157,7 +157,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         # write the unique indices to the angle group
         zarr_grp.array(
-            name=self.angle_dims[0], data=times.values, dtype="<M8[ns]", fill_value="NaT"
+            name=self.angle_dims[0], data=times.values, dtype=times.dtype.str, fill_value="NaT"
         )
 
         dtype = self._get_string_dtype(channels)

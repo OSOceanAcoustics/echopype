@@ -150,7 +150,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         # write the unique indices to the complex group
         zarr_grp.array(
-            name=self.complex_dims[0], data=times.values, dtype="<M8[ns]", fill_value="NaT"
+            name=self.complex_dims[0], data=times.values, dtype=times.dtype.str, fill_value="NaT"
         )
 
         dtype = self._get_string_dtype(channels)
