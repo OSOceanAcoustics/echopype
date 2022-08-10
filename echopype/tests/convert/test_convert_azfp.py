@@ -62,40 +62,40 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     # frequency
     assert np.array_equal(
         ds_matlab['Data']['Freq'][0][0].squeeze(),
-        echodata.beam.frequency_nominal / 1000,
+        echodata["Sonar/Beam_group1"].frequency_nominal / 1000,
     )  # matlab file in kHz
     # backscatter count
     assert np.array_equal(
         np.array(
             [ds_matlab_output['Output'][0]['N'][fidx] for fidx in range(4)]
         ),
-        echodata.beam.backscatter_r.isel(beam=0).drop('beam').values,
+        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop('beam').values,
     )
 
     # Test vendor group
     # Test temperature
     assert np.array_equal(
         np.array([d[4] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.ancillary.isel(ancillary_len=4).values,
+        echodata["Vendor_specific"].ancillary.isel(ancillary_len=4).values,
     )
     assert np.array_equal(
         np.array([d[0] for d in ds_matlab['Data']['BatteryTx'][0]]).squeeze(),
-        echodata.vendor.battery_tx,
+        echodata["Vendor_specific"].battery_tx,
     )
     assert np.array_equal(
         np.array(
             [d[0] for d in ds_matlab['Data']['BatteryMain'][0]]
         ).squeeze(),
-        echodata.vendor.battery_main,
+        echodata["Vendor_specific"].battery_main,
     )
     # tilt x-y
     assert np.array_equal(
         np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.tilt_x_count,
+        echodata["Vendor_specific"].tilt_x_count,
     )
     assert np.array_equal(
         np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        echodata.vendor.tilt_y_count,
+        echodata["Vendor_specific"].tilt_y_count,
     )
 
     # check convention-required variables in the Platform group
@@ -137,7 +137,7 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert np.array_equal(test_power, echodata.beam.backscatter_r.isel(beam=0).drop('beam'))
+    assert np.array_equal(test_power, echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop('beam'))
 
     # check convention-required variables in the Platform group
     check_platform_required_vars(echodata)
@@ -152,10 +152,10 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert echodata.beam.backscatter_r.sel(channel='55030-125-1').dropna(
+    assert echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='55030-125-1').dropna(
         'range_sample'
     ).shape == (360, 438, 1)
-    assert echodata.beam.backscatter_r.sel(channel='55030-769-4').dropna(
+    assert echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='55030-769-4').dropna(
         'range_sample'
     ).shape == (360, 135, 1)
 

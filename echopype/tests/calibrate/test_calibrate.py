@@ -37,7 +37,7 @@ def test_compute_Sv_returns_water_level(ek60_path):
     # make sure the returned Dataset has water_level and throw an assertion error if the
     # EchoData object does not have water_level (just in case we remove it from the file
     # used in the future)
-    assert 'water_level' in ed.platform.data_vars.keys()
+    assert 'water_level' in ed["Platform"].data_vars.keys()
     assert 'water_level' in ds_Sv.data_vars
 
 
@@ -147,7 +147,7 @@ def test_compute_Sv_azfp(azfp_path):
     # Calibrate using identical env params as in Matlab ParametersAZFP.m
     # AZFP Matlab code uses average temperature
     avg_temperature = (
-        echodata.environment['temperature'].mean('time1').values
+        echodata["Environment"]['temperature'].mean('time1').values
     )
     env_params = {
         'temperature': avg_temperature,
@@ -236,7 +236,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     )  # compute range [m]
     chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
     freq_center = (
-        echodata.beam["frequency_start"] + echodata.beam["frequency_end"]
+        echodata["Sonar/Beam_group1"]["frequency_start"] + echodata["Sonar/Beam_group1"]["frequency_end"]
     ).dropna(
         dim="channel"
     ) / 2  # drop those that contain CW samples (nan in freq start/end)

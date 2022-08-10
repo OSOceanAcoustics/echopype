@@ -495,7 +495,7 @@ def test_preprocess_mvbs(test_data_samples):
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('time1').values
+            ed["Environment"]['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,

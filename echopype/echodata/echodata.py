@@ -208,7 +208,7 @@ class EchoData:
                 node = self.__get_node(__key)
                 return self.__get_dataset(node)
             except KeyError:
-                raise GroupNotFoundError(__key)
+                return None
         else:
             raise ValueError("Datatree not found!")
 
@@ -222,30 +222,6 @@ class EchoData:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
-
-    # NOTE: Temporary for now until the attribute access pattern is deprecated
-    def __getattribute__(self, __name: str) -> Any:
-        attr_value = super().__getattribute__(__name)
-        group_map = sonarnetcdf_1.yaml_dict["groups"]
-        if __name in group_map:
-            group = group_map.get(__name)
-            group_path = group["ep_group"]
-            if __name == "top":
-                group_path = "Top-level"
-            msg_list = ["This access pattern will be deprecated in future releases."]
-            if attr_value is not None:
-                msg_list.append(f"Access the group directly by doing echodata['{group_path}']")
-                if self._tree:
-                    if group_path == "Top-level":
-                        node = self._tree
-                    else:
-                        node = self._tree[group_path]
-                    attr_value = self.__get_dataset(node)
-            else:
-                msg_list.append(f"No group path exists for '{self.__class__.__name__}.{__name}'")
-            msg = " ".join(msg_list)
-            warnings.warn(message=msg, category=DeprecationWarning, stacklevel=2)
-        return attr_value
 
     def __setattr__(self, __name: str, __value: Any) -> None:
         attr_value = __value
@@ -372,7 +348,7 @@ class EchoData:
             - When `sonar_model` is `"AZFP"` and `env_params` does not contain
               either `"sound_speed"` or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is `"EK60"` or `"EK80"`,
-              EchoData.environment.sound_speed_indicative does not exist,
+              EchoData["Environment"].sound_speed_indicative does not exist,
               and `env_params` does not contain either `"sound_speed"`
               or all of `"temperature"`, `"salinity"`, and `"pressure"`.
             - When `sonar_model` is not `"AZFP"`, `"EK60"`, or `"EK80"`.
@@ -399,8 +375,10 @@ class EchoData:
 
         if "sound_speed" in env_params:
             sound_speed = env_params["sound_speed"]
-        elif self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self.environment:
-            sound_speed = self.environment["sound_speed_indicative"]
+        elif (
+            self.sonar_model in ("EK60", "EK80") and "sound_speed_indicative" in self["Environment"]
+        ):
+            sound_speed = self["Environment"]["sound_speed_indicative"]
         elif all([param in env_params for param in ("temperature", "salinity", "pressure")]):
             sound_speed = calc_sound_speed(
                 env_params["temperature"],
@@ -413,7 +391,8 @@ class EchoData:
                 "sound speed must be specified in env_params, "
                 "with temperature, salinity, and pressure all specified in env_params "
                 "for sound speed to be calculated, "
-                "or in EchoData.environment.sound_speed_indicative for EK60 and EK80 sonar models"
+                "or in EchoData['Environment'].sound_speed_indicative "
+                "for EK60 and EK80 sonar models"
             )
 
         # AZFP
@@ -423,9 +402,9 @@ class EchoData:
                 raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
 
             # Notation below follows p.86 of user manual
-            N = self.vendor["number_of_samples_per_average_bin"]  # samples per bin
-            f = self.vendor["digitization_rate"]  # digitization rate
-            L = self.vendor["lockout_index"]  # number of lockout samples
+            N = self["Vendor_specific"]["number_of_samples_per_average_bin"]  # samples per bin
+            f = self["Vendor_specific"]["digitization_rate"]  # digitization rate
+            L = self["Vendor_specific"]["lockout_index"]  # number of lockout samples
 
             # keep this in ref of AZFP matlab code,
             # set to 1 since we want to calculate from raw data
@@ -434,7 +413,7 @@ class EchoData:
             # Harmonize sound_speed time1 and Beam_group1 ping_time
             sound_speed = self._harmonize_env_param_time(
                 p=sound_speed,
-                ping_time=self.beam.ping_time,
+                ping_time=self["Sonar/Beam_group1"].ping_time,
             )
 
             # Calculate range using parameters for each freq
@@ -444,14 +423,15 @@ class EchoData:
                 range_offset = 0
             else:
                 range_offset = (
-                    sound_speed * self.beam["transmit_duration_nominal"] / 4
+                    sound_speed * self["Sonar/Beam_group1"]["transmit_duration_nominal"] / 4
                 )  # from matlab code
             range_meter = (
                 sound_speed * L / (2 * f)
                 + (sound_speed / 4)
                 * (
-                    ((2 * (self.beam.range_sample + 1) - 1) * N * bins_to_avg - 1) / f
-                    + self.beam["transmit_duration_nominal"]
+                    ((2 * (self["Sonar/Beam_group1"].range_sample + 1) - 1) * N * bins_to_avg - 1)
+                    / f
+                    + self["Sonar/Beam_group1"]["transmit_duration_nominal"]
                 )
                 - range_offset
             )
@@ -485,13 +465,13 @@ class EchoData:
                 if (
                     self.sonar_model == "EK80"
                     and encode_mode == "power"
-                    and self.beam_power is not None
+                    and self["Sonar/Beam_group2"] is not None
                 ):
                     # if both CW and BB exist and beam_power group is not empty
                     # this means that CW is recorded in power/angle mode
-                    beam = self.beam_power
+                    beam = self["Sonar/Beam_group2"]
                 else:
-                    beam = self.beam
+                    beam = self["Sonar/Beam_group1"]
 
                 # Harmonize sound_speed time1 and Beam_groupX ping_time
                 sound_speed = self._harmonize_env_param_time(
@@ -505,7 +485,7 @@ class EchoData:
                     beam.range_sample - tvg_correction_factor
                 ) * sample_thickness  # [frequency x range_sample]
             elif waveform_mode == "BB":
-                beam = self.beam  # always use the Beam group
+                beam = self["Sonar/Beam_group1"]  # always use the Beam group
                 # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
 
@@ -559,7 +539,7 @@ class EchoData:
         extra_platform_data_file_name=None,
     ):
         """
-        Updates the `EchoData.platform` group with additional external platform data.
+        Updates the `EchoData["Platform"]` group with additional external platform data.
 
         `extra_platform_data` must be an xarray Dataset.
         The name of the time dimension in `extra_platform_data` is specified by the
@@ -579,7 +559,7 @@ class EchoData:
         ----------
         extra_platform_data : xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
-            to the `EchoData.platform` group.
+            to the `EchoData["Platform"]` group.
         time_dim: str, default="time"
             The name of the time dimension in `extra_platform_data`; used for extracting
             data from `extra_platform_data`.
@@ -615,8 +595,8 @@ class EchoData:
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
             extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
 
-        # clip incoming time to 1 less than min of EchoData.beam["ping_time"] and
-        #   1 greater than max of EchoData.beam["ping_time"]
+        # clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"] and
+        #   1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"]
         # account for unsorted external time by checking whether each time value is between
         #   min and max ping_time instead of finding the 2 external times corresponding to the
         #   min and max ping_time and taking all the times between those indices
@@ -625,7 +605,7 @@ class EchoData:
         # fmt: off
         min_index = max(
             np.searchsorted(
-                sorted_external_time, self.beam["ping_time"].min(), side="left"
+                sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
             ) - 1,
             0,
         )
@@ -633,7 +613,7 @@ class EchoData:
         max_index = min(
             np.searchsorted(
                 sorted_external_time,
-                self.beam["ping_time"].max(),
+                self["Sonar/Beam_group1"]["ping_time"].max(),
                 side="right",
             ),
             len(sorted_external_time) - 1,
@@ -647,7 +627,7 @@ class EchoData:
             }
         )
 
-        platform = self.platform
+        platform = self["Platform"]
         platform = platform.drop_dims(["time1"], errors="ignore")
         # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
@@ -711,7 +691,7 @@ class EchoData:
                 var_attrs["history"] = history_attr
             platform[var] = platform[var].assign_attrs(**var_attrs)
 
-        self.platform = set_encodings(platform)
+        self["Platform"] = set_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):

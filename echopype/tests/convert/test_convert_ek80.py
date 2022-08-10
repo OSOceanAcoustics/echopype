@@ -105,7 +105,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C',
+        echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='WBT 549762-15 ES70-7C',
                                         ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
@@ -114,7 +114,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ),  # real part
     )
     assert np.array_equal(
-        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C',
+        echodata["Sonar/Beam_group1"].backscatter_i.sel(channel='WBT 549762-15 ES70-7C',
                                         ping_time='2017-09-12T23:49:10.722999808')
         .dropna('range_sample')
         .values[1:, :],
@@ -173,22 +173,22 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
 
     # get indices of sorted frequency_nominal values. This is necessary
     # because the frequency_nominal values are not always in ascending order.
-    sorted_freq_ind = np.argsort(echodata.beam.frequency_nominal)
+    sorted_freq_ind = np.argsort(echodata["Sonar/Beam_group1"].frequency_nominal)
 
     # get sorted channel list based on frequency_nominal values
-    channel_list = echodata.beam.channel[sorted_freq_ind.values]
+    channel_list = echodata["Sonar/Beam_group1"].channel[sorted_freq_ind.values]
 
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()
 
     # Test power
     # single point error in original raw data. Read as -2000 by echopype and -999 by EchoView
-    echodata.beam.backscatter_r[sorted_freq_ind.values[3], 4, 13174] = -999
+    echodata["Sonar/Beam_group1"].backscatter_r[sorted_freq_ind.values[3], 4, 13174] = -999
     for file, chan in zip(ek80_echoview_power_csv, channel_list):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata.beam.backscatter_r.sel(channel=chan,
+            echodata["Sonar/Beam_group1"].backscatter_r.sel(channel=chan,
                                             beam='1').dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
@@ -196,16 +196,16 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
 
     # Convert from electrical angles to physical angle [deg]
     major = (
-        echodata.beam['angle_athwartship']
+        echodata["Sonar/Beam_group1"]['angle_athwartship']
         * 1.40625
-        / echodata.beam['angle_sensitivity_athwartship']
-        - echodata.beam['angle_offset_athwartship']
+        / echodata["Sonar/Beam_group1"]['angle_sensitivity_athwartship']
+        - echodata["Sonar/Beam_group1"]['angle_offset_athwartship']
     )
     minor = (
-        echodata.beam['angle_alongship']
+        echodata["Sonar/Beam_group1"]['angle_alongship']
         * 1.40625
-        / echodata.beam['angle_sensitivity_alongship']
-        - echodata.beam['angle_offset_alongship']
+        / echodata["Sonar/Beam_group1"]['angle_sensitivity_alongship']
+        - echodata["Sonar/Beam_group1"]['angle_offset_alongship']
     )
     for chan, file in zip(channel_list, ek80_echoview_angle_csv):
         df_angle = pd.read_csv(file)
@@ -275,7 +275,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         ek80_echoview_bb_power_csv, header=None, skiprows=[0]
     )  # averaged across beams
     assert np.allclose(
-        echodata.beam.backscatter_r.sel(channel='WBT 549762-15 ES70-7C')
+        echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[::2, 14:],  # real rows
@@ -283,7 +283,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         atol=8e-6,
     )
     assert np.allclose(
-        echodata.beam.backscatter_i.sel(channel='WBT 549762-15 ES70-7C')
+        echodata["Sonar/Beam_group1"].backscatter_i.sel(channel='WBT 549762-15 ES70-7C')
         .dropna('range_sample')
         .mean(dim='beam'),
         df_bb.iloc[1::2, 14:],  # imag rows
@@ -325,8 +325,8 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     echodata = open_raw(raw_file=ek80_raw_path_bb_cw, sonar_model='EK80')
 
     # Check there are both Sonar/Beam_group1 and /Sonar/Beam_power groups in the converted file
-    assert echodata.beam_power is not None
-    assert echodata.beam is not None
+    assert echodata["Sonar/Beam_group2"]
+    assert echodata["Sonar/Beam_group1"]
 
     # check platform
     nan_plat_vars = [
@@ -366,7 +366,7 @@ def test_convert_ek80_freq_subset(ek80_path):
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
     # Check if converted output has only 2 frequency channels
-    assert echodata.beam.channel.size == 2
+    assert echodata["Sonar/Beam_group1"].channel.size == 2
 
     # check platform
     nan_plat_vars = [
