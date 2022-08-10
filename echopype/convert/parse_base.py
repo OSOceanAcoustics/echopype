@@ -376,7 +376,7 @@ class ParseEK(ParseBase):
         if reduced_datagram:
             self.zarr_datagrams.append(reduced_datagram)
 
-    def _append_channel_ping_data(self, datagram, rx=True, zar_vars=True):
+    def _append_channel_ping_data(self, datagram, rx=True, zarr_vars=True):
         """
         Append ping by ping data.
 
@@ -386,8 +386,8 @@ class ParseEK(ParseBase):
             the newly read sample datagram
         rx : bool
             whether this is receive ping data
-        zar_vars : bool
-            whether one should account for zar vars
+        zarr_vars : bool
+            whether one should account for zarr vars
         """
 
         # TODO: do a thorough check with the convention and processing
@@ -396,7 +396,7 @@ class ParseEK(ParseBase):
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
         # append zarr variables, if they exist
-        if zar_vars and rx:
+        if zarr_vars and rx:
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
                 self._append_zarr_dgram(datagram)
