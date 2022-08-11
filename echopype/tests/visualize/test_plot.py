@@ -1,4 +1,3 @@
-import logging
 
 import echopype
 import echopype.visualize
