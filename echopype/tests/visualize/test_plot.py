@@ -88,7 +88,7 @@ def test_plot_single(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     plots = echopype.visualize.create_echogram(
-        ed, channel=ed.beam.channel[0].values
+        ed, channel=ed["Sonar/Beam_group1"].channel[0].values
     )
     assert isinstance(plots, list) is True
     if (
@@ -111,7 +111,7 @@ def test_plot_multi_get_range(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('time1').values
+            ed["Environment"]['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -135,7 +135,7 @@ def test_plot_multi_get_range(
         assert plots[0].axes.shape[-1] == 1
 
     # Channel shape check
-    assert ed.beam.channel.shape[0] == len(plots)
+    assert ed["Sonar/Beam_group1"].channel.shape[0] == len(plots)
 
 
 @pytest.mark.parametrize(param_args, param_testdata)
@@ -149,7 +149,7 @@ def test_plot_Sv(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('time1').values
+            ed["Environment"]['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -176,7 +176,7 @@ def test_plot_mvbs(
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
         avg_temperature = (
-            ed.environment['temperature'].mean('time1').values
+            ed["Environment"]['temperature'].mean('time1').values
         )
         env_params = {
             'temperature': avg_temperature,
@@ -237,7 +237,7 @@ def test_water_level_echodata(water_level, expect_warning):
 
     if isinstance(water_level, list):
         water_level = water_level[0]
-        echodata.platform = echodata.platform.drop_vars('water_level')
+        echodata["Platform"] = echodata["Platform"].drop_vars('water_level')
         no_input_water_level = True
 
     if isinstance(water_level, xr.DataArray):
@@ -247,7 +247,7 @@ def test_water_level_echodata(water_level, expect_warning):
         if no_input_water_level is False:
             original_array = (
                 single_array
-                + echodata.platform.water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                + echodata["Platform"].water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                                     time3='2017-07-19T21:13:47.984999936').values
             )
         else:
@@ -265,14 +265,14 @@ def test_water_level_echodata(water_level, expect_warning):
                     range_in_meter=range_in_meter,
                     water_level=water_level,
                     data_type=EchoData,
-                    platform_data=echodata.platform,
+                    platform_data=echodata["Platform"],
                 )
         else:
             results = _add_water_level(
                 range_in_meter=range_in_meter,
                 water_level=water_level,
                 data_type=EchoData,
-                platform_data=echodata.platform,
+                platform_data=echodata["Platform"],
             )
     except Exception as e:
         assert isinstance(e, ValueError)

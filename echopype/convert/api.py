@@ -105,21 +105,12 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
 
     # Top-level group
-    io.save_file(echodata.top, path=output_path, mode="w", engine=engine)
-
-    # Provenance group
-    io.save_file(
-        echodata.provenance,
-        path=output_path,
-        group="Provenance",
-        mode="a",
-        engine=engine,
-    )
+    io.save_file(echodata["Top-level"], path=output_path, mode="w", engine=engine)
 
     # Environment group
-    if "time1" in echodata.environment:
+    if "time1" in echodata["Environment"]:
         io.save_file(
-            echodata.environment.chunk(
+            echodata["Environment"].chunk(
                 {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
             ),  # TODO: chunking necessary?
             path=output_path,
@@ -129,16 +120,46 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         )
     else:
         io.save_file(
-            echodata.environment,
+            echodata["Environment"],
             path=output_path,
             mode="a",
             engine=engine,
             group="Environment",
         )
 
+    # Platform group
+    io.save_file(
+        echodata["Platform"],  # TODO: chunking necessary? time1 and time2 (EK80) only
+        path=output_path,
+        mode="a",
+        engine=engine,
+        group="Platform",
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+    )
+
+    # Platform/NMEA group: some sonar model does not produce NMEA data
+    if echodata["Platform/NMEA"] is not None:
+        io.save_file(
+            echodata["Platform/NMEA"],  # TODO: chunking necessary?
+            path=output_path,
+            mode="a",
+            engine=engine,
+            group="Platform/NMEA",
+            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        )
+
+    # Provenance group
+    io.save_file(
+        echodata["Provenance"],
+        path=output_path,
+        group="Provenance",
+        mode="a",
+        engine=engine,
+    )
+
     # Sonar group
     io.save_file(
-        echodata.sonar,
+        echodata["Sonar"],
         path=output_path,
         group="Sonar",
         mode="a",
@@ -162,7 +183,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             )
     else:
         io.save_file(
-            echodata.beam.chunk(
+            echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"].chunk(
                 {
                     "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                     "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
@@ -174,9 +195,10 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
         )
-        if echodata.beam_power is not None:
+        if echodata["Sonar/Beam_group2"] is not None:
+            # some sonar model does not produce Sonar/Beam_group2
             io.save_file(
-                echodata.beam_power.chunk(
+                echodata["Sonar/Beam_group2"].chunk(
                     {
                         "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
                         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
@@ -189,31 +211,10 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
             )
 
-    # Platform group
-    io.save_file(
-        echodata.platform,  # TODO: chunking necessary? time1 and time2 (EK80) only
-        path=output_path,
-        mode="a",
-        engine=engine,
-        group="Platform",
-        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-    )
-
-    # Platform/NMEA group: some sonar model does not produce NMEA data
-    if echodata.nmea is not None:
-        io.save_file(
-            echodata.nmea,  # TODO: chunking necessary?
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Platform/NMEA",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
-
     # Vendor_specific group
-    if "ping_time" in echodata.vendor:
+    if "ping_time" in echodata["Vendor_specific"]:
         io.save_file(
-            echodata.vendor.chunk(
+            echodata["Vendor_specific"].chunk(
                 {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
             ),  # TODO: chunking necessary?
             path=output_path,
@@ -224,7 +225,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         )
     else:
         io.save_file(
-            echodata.vendor,  # TODO: chunking necessary?
+            echodata["Vendor_specific"],  # TODO: chunking necessary?
             path=output_path,
             mode="a",
             engine=engine,
