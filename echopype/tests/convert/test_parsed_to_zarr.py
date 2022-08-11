@@ -39,7 +39,7 @@ def test_writing_directly_to_zarr(ek60_path, ek80_path):
     to a zarr.
     """
 
-    pytest.xfail("Full testing of writing variables directly to a zarr store has not been implemented yet.")
+    pass
 
     # TODO: use the below structure to compare small files
     # TODO: also create a test that runs L0003-D20040909-T161906-EK60.raw (the 95MB file that explodes)
