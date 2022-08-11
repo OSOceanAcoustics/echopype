@@ -1,12 +1,12 @@
 import warnings
 from collections import defaultdict
+from typing import List
 
 import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
-from typing import List
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase

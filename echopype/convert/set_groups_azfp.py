@@ -1,11 +1,12 @@
 """
 Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
+from typing import List
+
 import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
-from typing import List
 from .set_groups_base import SetGroupsBase
 
 
