@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime as dt
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
 import xarray as xr
