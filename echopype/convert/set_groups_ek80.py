@@ -228,7 +228,7 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = np.nan
             print("WARNING: The water_level_draft was not in the file. " "Value set to NaN.")
 
-        time1, msg_type, lat, lon = self._parse_NMEA()
+        time1, msg_type, lat, lon = self._extract_NMEA_latlon()
         time2 = self.parser_obj.mru.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
 

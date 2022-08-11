@@ -218,7 +218,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        time1, msg_type, lat, lon = self._parse_NMEA()
+        time1, msg_type, lat, lon = self._extract_NMEA_latlon()
 
         # NMEA dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
