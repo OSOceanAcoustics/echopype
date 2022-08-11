@@ -4,7 +4,34 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.6.1 (2022 July 2)
+# v0.6.2 (2022 August 12)
+
+## Overview
+
+This is a minor release that includes a few new features and memory efficiency-related changes that echopype better.
+
+## New features
+- Add a new subpackage `consolidate` that contains functions to consolidate data across the calibrated Sv dataset and the correspnding raw-converted file 
+- Add function to interpolate location to calibrated dataset (`consolidate.add_location`)  (#749)
+- Add function to convert `range_meter` to `depth` with information on transducer tilt and depth (`consolidate.add_depth`) (#XXX)
+- Move function that swaps the channel with frequency dimension (now in `consolidate.swap_dims_channel_frequency`) (#XXX)
+- Add new functionality to allow control of logging outputs (#XXX)
+
+## Under the hood enhancements 
+- Improve memory usage while converting files that require significant NaN-padding and previously would incur very large memory expansion (#XXX)
+- Overhaul access pattern for EchoData (#762)
+  - remove previous access pattern for different groups in the raw-converted file
+  - starting from this release all groups are access with `echodata["GROUP_PATH"]`, e.g., `echodata["Platform"]`, `echodata["Sonar/Beam_group1"]`, etc.
+- Make long_name in ds_power for EK80 consistent with other sonar model (#771)
+
+## Infrastructure
+- Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
+  - decrease the number of workers from 4 to 2
+  
+
+
+
+# v0.6.1 (2022 July 7)
 
 ## Overview
 
