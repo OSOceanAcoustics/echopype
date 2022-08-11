@@ -11,5 +11,4 @@ fsspec
 s3fs
 xarray-datatree==0.0.6
 psutil==5.9.1
-pandas==1.4.3
 more_itertools==8.13.0
