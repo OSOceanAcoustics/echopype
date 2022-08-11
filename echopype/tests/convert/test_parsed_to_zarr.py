@@ -29,6 +29,45 @@ def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
     ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop(var_to_comp)
     return ed_zarr, ed_no_zarr
 
+
+@pytest.mark.parametrize(
+    ["raw_file", "sonar_model", "offload_to_zarr"],
+    [
+        ("L0003-D20040909-T161906-EK60.raw", "EK60", True),
+        pytest.param(
+            "L0003-D20040909-T161906-EK60.raw",
+            "EK60",
+            False,
+            marks=pytest.mark.xfail(
+                run=False,
+                reason="Expected out of memory error. See https://github.com/OSOceanAcoustics/echopype/issues/489",
+            ),
+        ),
+    ],
+    ids=["noaa_offloaded", "noaa_not_offloaded"],
+)
+def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
+    """Tests for memory expansion relief"""
+    import os
+    from tempfile import TemporaryDirectory
+    from echopype.echodata.echodata import EchoData
+    name = os.path.basename(raw_file).replace('.raw', '')
+    fname = f"{name}__{offload_to_zarr}.zarr"
+    file_path = ek60_path / raw_file
+    echodata = open_raw(
+        raw_file=file_path,
+        sonar_model=sonar_model,
+        offload_to_zarr=offload_to_zarr
+    )
+    # Most likely succeed if it doesn't crash
+    assert isinstance(echodata, EchoData)
+    with TemporaryDirectory() as tmpdir:
+        output_save_path = tmpdir + f"/{fname}"
+        echodata.to_zarr(output_save_path)
+        # If it goes all the way to here it is most likely successful
+        assert os.path.exists(output_save_path)
+
+
 @pytest.mark.skip(reason="Full testing of writing variables directly to a zarr store has not been implemented yet.")
 def test_writing_directly_to_zarr(ek60_path, ek80_path):
     """
