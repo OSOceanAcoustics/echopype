@@ -383,10 +383,9 @@ def open_raw(
 
     Notes
     -----
-    If ``offload_to_zarr='auto'``, a heuristically driven method will
-    determine if variables with a large memory footprint should be
-    written to a temporary zarr store. This method is currently only
-    available for the following echosounders: EK60, ES70, EK80, ES80, EA640.
+    ``offload_to_zarr=True`` is only available for the following
+    echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
+    is currently in beta.
     """
     if (sonar_model is None) and (raw_file is None):
         print("Please specify the path to the raw data file and the sonar model.")
