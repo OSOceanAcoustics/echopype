@@ -8,15 +8,18 @@ from struct import unpack
 import fsspec
 import numpy as np
 
+from ..utils.log import _init_logger
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
+
+logger = _init_logger(__name__)
 
 
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
-    def __init__(self, file, params, storage_options={}):
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
@@ -273,10 +276,7 @@ class ParseAZFP(ParseBase):
         )
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         pathstr, xml_name = os.path.split(self.xml_path)
-        print(
-            f"{dt.now().strftime('%H:%M:%S')}  parsing file {filename} with {xml_name}, "
-            f"time of first ping: {timestr}"
-        )
+        logger.info(f"parsing file {filename} with {xml_name}, " f"time of first ping: {timestr}")
 
     def _split_header(self, raw, header_unpacked):
         """Splits the header information into a dictionary.
@@ -300,7 +300,7 @@ class ParseAZFP(ParseBase):
         ):  # first field should match hard-coded FILE_TYPE from manufacturer
             check_eof = raw.read(1)
             if check_eof:
-                print("Error: Unknown file type")
+                logger.error("Unknown file type")
                 return False
         header_byte_cnt = 0
 
