@@ -19,7 +19,7 @@ logger = _init_logger(__name__)
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
-    def __init__(self, file, params, storage_options={}):
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename

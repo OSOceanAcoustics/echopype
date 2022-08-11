@@ -22,6 +22,7 @@ class ParseBase:
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
+        self.zarr_datagrams = []  # holds all parsed datagrams
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -30,7 +31,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options):
+    def __init__(self, file, params, storage_options, dgram_zarr_vars):
         super().__init__(file, storage_options)
 
         # Parent class attributes
@@ -55,11 +56,46 @@ class ParseEK(ParseBase):
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
+        # dgram vars and their associated dims that should be written directly to zarr
+        self.dgram_zarr_vars = dgram_zarr_vars
+
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
+
+    def rectangularize_data(self):
+        """
+        Rectangularize the power, angle, and complex data.
+        Additionally, convert the data to a numpy array
+        indexed by channel.
+        """
+
+        # append zarr datagrams to channel ping data
+        for dgram in self.zarr_datagrams:
+            self._append_channel_ping_data(dgram, zarr_vars=False)
+
+        # Rectangularize all data and convert to numpy array indexed by channel
+        for data_type in ["power", "angle", "complex"]:
+            # Receive data
+            for k, v in self.ping_data_dict[data_type].items():
+                if all(
+                    (x is None) or (x.size == 0) for x in v
+                ):  # if no data in a particular channel
+                    self.ping_data_dict[data_type][k] = None
+                else:
+                    # Sort complex and power/angle channels and pad NaN
+                    self.ch_ids[data_type].append(k)
+                    self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
+            # Transmit data
+            for k, v in self.ping_data_dict_tx[data_type].items():
+                if all(
+                    (x is None) or (x.size == 0) for x in v
+                ):  # if no data in a particular channel
+                    self.ping_data_dict_tx[data_type][k] = None
+                else:
+                    self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
@@ -108,34 +144,6 @@ class ParseEK(ParseBase):
             #  this will help merge data from all channels into a cube
             for ch, val in self.ping_time.items():
                 self.ping_time[ch] = np.array(val)
-
-            # Manufacturer-specific power conversion factor
-            INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
-
-            # Rectangularize all data and convert to numpy array indexed by channel
-            for data_type in ["power", "angle", "complex"]:
-                # Receive data
-                for k, v in self.ping_data_dict[data_type].items():
-                    if all(
-                        (x is None) or (x.size == 0) for x in v
-                    ):  # if no data in a particular channel
-                        self.ping_data_dict[data_type][k] = None
-                    else:
-                        # Sort complex and power/angle channels and pad NaN
-                        self.ch_ids[data_type].append(k)
-                        self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
-                        if data_type == "power":
-                            self.ping_data_dict[data_type][k] = (
-                                self.ping_data_dict[data_type][k].astype("float32") * INDEX2POWER
-                            )
-                # Transmit data
-                for k, v in self.ping_data_dict_tx[data_type].items():
-                    if all(
-                        (x is None) or (x.size == 0) for x in v
-                    ):  # if no data in a particular channel
-                        self.ping_data_dict_tx[data_type][k] = None
-                    else:
-                        self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -228,7 +236,6 @@ class ParseEK(ParseBase):
             num_datagrams_parsed += 1
 
             # Skip any datagram that the user does not want to save
-
             if (
                 not any(new_datagram["type"].startswith(dgram) for dgram in self.data_type)
                 and "ALL" not in self.data_type
@@ -329,7 +336,49 @@ class ParseEK(ParseBase):
             else:
                 logger.info("Unknown datagram type: " + str(new_datagram["type"]))
 
-    def _append_channel_ping_data(self, datagram, rx=True):
+    def _append_zarr_dgram(self, full_dgram: dict):
+        """
+        Selects a subset of the datagram values that
+        need to be sent directly to a zarr file and
+        appends them to the class variable ``zarr_datagrams``.
+        Additionally, if any power data exists, the
+        conversion factor will be applied to it.
+
+        Parameters
+        ----------
+        full_dgram : dict
+            Successfully parsed datagram containing at least
+            one variable that should be written to a zarr file
+
+        Returns
+        -------
+        reduced_datagram : dict
+            A reduced datagram containing only those variables
+            that should be written to a zarr file and their
+            associated dimensions.
+        """
+
+        wanted_vars = set()
+        for key in self.dgram_zarr_vars.keys():
+            wanted_vars = wanted_vars.union({key, *self.dgram_zarr_vars[key]})
+
+        # construct reduced datagram
+        reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
+
+        # apply conversion factor to power data, if it exists
+        if ("power" in reduced_datagram.keys()) and (
+            isinstance(reduced_datagram["power"], np.ndarray)
+        ):
+
+            # Manufacturer-specific power conversion factor
+            INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
+
+            reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
+
+        if reduced_datagram:
+            self.zarr_datagrams.append(reduced_datagram)
+
+    def _append_channel_ping_data(self, datagram, rx=True, zarr_vars=True):
         """
         Append ping by ping data.
 
@@ -339,11 +388,23 @@ class ParseEK(ParseBase):
             the newly read sample datagram
         rx : bool
             whether this is receive ping data
+        zarr_vars : bool
+            whether one should account for zarr vars
         """
+
         # TODO: do a thorough check with the convention and processing
         # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
+
+        # append zarr variables, if they exist
+        if zarr_vars and rx:
+            common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
+            if common_vars:
+                self._append_zarr_dgram(datagram)
+                for var in common_vars:
+                    del datagram[var]
+
         for k, v in datagram.items():
             if rx:
                 self.ping_data_dict[k][ch_id].append(v)

@@ -54,6 +54,7 @@ class EchoData:
         xml_path: Optional["PathHint"] = None,
         sonar_model: Optional["SonarModelsHint"] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parsed2zarr_obj=None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -68,6 +69,9 @@ class EchoData:
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
+
+        # object associated with directly writing to a zarr file
+        self.parsed2zarr_obj = parsed2zarr_obj
 
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
