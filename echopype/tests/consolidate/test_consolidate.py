@@ -1,5 +1,9 @@
 import pytest
 
+import numpy as np
+import pandas as pd
+import xarray as xr
+
 import echopype as ep
 
 
@@ -103,6 +107,54 @@ def test_swap_dims_channel_frequency(test_data_samples):
     except Exception as e:
         assert isinstance(e, ValueError) is True
         assert str(e) == dup_freq_valueerror
+
+
+def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
+    return xr.Dataset(
+        data_vars={
+            "Sv": ( 
+                ("channel", "range_sample", "ping_time"),
+                np.random.random((len(channel), range_sample.size, ping_time.size)),
+            ),
+            "echo_range": (
+                ("channel", "range_sample", "ping_time"),
+                (
+                    np.swapaxes(np.tile(range_sample, (len(channel), ping_time.size, 1)), 1, 2)
+                    * sample_interval
+                ),
+            ),
+        },
+        coords={
+            "channel": channel,
+            "range_sample": range_sample,
+            "ping_time": ping_time,
+        },
+    )
+
+
+def test_add_depth():
+    # Build test Sv dataset
+    channel = ["channel_0", "channel_1", "channel_2"]
+    range_sample = np.arange(100)
+    ping_time = pd.date_range(start="2022-08-10T10:00:00", end="2022-08-10T12:00:00", periods=121)
+    sample_interval = 0.01
+    ds_Sv = _build_ds_Sv(channel, range_sample, ping_time, sample_interval)
+
+    # no water_level in ds
+    try:
+        ds_Sv_depth = ep.consolidate.add_depth(ds_Sv)
+    except ValueError:
+        ...
+
+    # user input water_level
+    water_level = 10
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, water_level=water_level)
+    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] + water_level)
+
+    # user input water_level and tilt
+    tilt = 15
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, vertical=False, tilt=tilt, water_level=water_level)
+    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
 
 
 def test_add_location(test_path):

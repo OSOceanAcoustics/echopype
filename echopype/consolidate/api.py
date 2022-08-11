@@ -80,7 +80,7 @@ def add_depth(
     """
     # Water level has to come from somewhere
     if water_level is None:
-        if "water_level" not in ds:
+        if "water_level" in ds:
             water_level = ds["water_level"]
         else:
             raise ValueError(
@@ -107,7 +107,7 @@ def add_depth(
         mult = -1  # flip upside down (closer to transducer is deeper)
 
     # Compute depth
-    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt) + water_level
+    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level
 
     return ds
 
