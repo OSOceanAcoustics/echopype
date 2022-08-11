@@ -145,7 +145,7 @@ class SetGroupsBase(abc.ABC):
         raise NotImplementedError
 
     # TODO: move this to be part of parser as it is not a "set" operation
-    def _parse_NMEA(self):
+    def _extract_NMEA_latlon(self):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
         idx_loc = np.argwhere(np.isin(messages, NMEA_SENTENCE_DEFAULT)).squeeze()
