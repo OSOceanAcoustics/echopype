@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import List
 
 import numpy as np
 import xarray as xr
@@ -423,7 +424,7 @@ class SetGroupsEK60(SetGroupsBase):
         )
         return ds
 
-    def set_beam(self) -> xr.Dataset:
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -770,7 +771,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return set_encodings(ds)
+        return [set_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction

@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
-import xarray as xr
 import zarr
 from datatree import DataTree
 
@@ -521,9 +520,6 @@ def open_raw(
 
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
-    if isinstance(beam_groups, xr.Dataset):
-        # if it's a single dataset like the ek60, make into list
-        beam_groups = [beam_groups]
 
     valid_beam_groups_count = 0
     for idx, beam_group in enumerate(beam_groups, start=1):
