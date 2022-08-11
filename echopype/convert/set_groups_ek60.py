@@ -6,6 +6,7 @@ import xarray as xr
 
 from ..utils.coding import set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
+from typing import List
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
@@ -385,7 +386,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_encodings(ds)
 
-    def set_beam(self) -> xr.Dataset:
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -710,7 +711,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return set_encodings(ds)
+        return [set_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
