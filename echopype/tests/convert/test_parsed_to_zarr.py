@@ -29,7 +29,7 @@ def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
     ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop(var_to_comp)
     return ed_zarr, ed_no_zarr
 
-
+@pytest.mark.skip(reason="Full testing of writing variables directly to a zarr store has not been implemented yet.")
 def test_writing_directly_to_zarr(ek60_path, ek80_path):
     """
     Tests that ensure writing variables directly to a
