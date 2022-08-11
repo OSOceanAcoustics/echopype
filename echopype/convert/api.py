@@ -340,7 +340,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    offload_to_zarr: Optional[Union[str, bool]] = False,
+    offload_to_zarr: Optional[bool] = False,
     max_zarr_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -370,10 +370,9 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
-    offload_to_zarr: str or bool
-        specifies if variables with a large memory footprint should be
-        written to a temporary zarr store. Possible options: True,
-        False, 'auto'.
+    offload_to_zarr: bool
+        If True, variables with a large memory footprint will be
+        written to a temporary zarr store.
     max_zarr_mb : int
         maximum MB that each zarr chunk should hold, when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -443,9 +442,14 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
+    # TODO: remove once 'auto' option is added
+    if not isinstance(offload_to_zarr, bool):
+        raise ValueError("offload_to_zarr must be of type bool.")
+
     # Ensure offload_to_zarr is 'auto', if it is a string
-    if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
-        raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
+    # TODO: use the following when we allow for 'auto' option
+    # if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
+    #     raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
