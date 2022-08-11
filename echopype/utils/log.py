@@ -15,7 +15,7 @@ class _ExcludeWarningsFilter(logging.Filter):
         return record.levelno < logging.WARNING
 
 
-def verbose(logfile: Optional[str] = None, override: Optional[bool] = None) -> None:
+def verbose(logfile: Optional[str] = None, override: bool = False) -> None:
     """Set the verbosity for echopype print outs.
     If called it will output logs to terminal by default.
 
@@ -23,18 +23,20 @@ def verbose(logfile: Optional[str] = None, override: Optional[bool] = None) -> N
     ----------
     logfile : str, optional
         Optional string path to the desired log file.
-    override: bool, optional
-        Optional boolean flag to override verbosity.
+    override: bool
+        Boolean flag to override verbosity,
+        which turns off verbosity if the value is `False`.
+        Default is `False`.
 
     Returns
     -------
     None
     """
-    if override is not None and not isinstance(override, bool):
+    if not isinstance(override, bool):
         raise ValueError("override argument must be a boolean!")
     package_name = __name__.split(".")[0]  # Get the package name
     loggers = _get_all_loggers()
-    verbose = True if override is None else override
+    verbose = True if override is False else False
     _set_verbose(verbose)
     for logger in loggers:
         if package_name in logger.name:

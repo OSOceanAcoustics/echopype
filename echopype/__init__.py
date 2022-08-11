@@ -8,7 +8,7 @@ from .echodata.api import open_converted
 from .echodata.combine import combine_echodata
 from .utils.log import verbose
 
-verbose(override=False)
+verbose(override=True)
 
 __all__ = [
     "open_raw",

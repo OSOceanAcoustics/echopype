@@ -1,4 +1,3 @@
-import logging
 import pytest
 
 EXPECTED_MESSAGE = "Testing log function"
@@ -14,6 +13,7 @@ def verbose(request):
 
 
 def test_init_logger():
+    import logging
     from echopype.utils import log
     logger = log._init_logger('echopype.testing0')
     handlers = [h.name for h in logger.handlers]
@@ -57,6 +57,7 @@ def test_set_verbose(verbose, capsys):
 
 
 def test_get_all_loggers():
+    import logging
     from echopype.utils import log
     all_loggers = log._get_all_loggers()
     loggers = [logging.getLogger()]  # get the root logger
@@ -75,7 +76,7 @@ def run_verbose_test(logger, override, logfile, capsys):
 
     captured = capsys.readouterr()
 
-    if override is False:
+    if override is True:
         assert captured.out == ""
     else:
         assert EXPECTED_MESSAGE in captured.out
@@ -87,10 +88,9 @@ def run_verbose_test(logger, override, logfile, capsys):
 
 
 @pytest.mark.parametrize(["id", "override", "logfile"], [
-    ("fn", False, None),
-    ("tn", True, None),
-    ("nn", None, None),
-    ("tf", True, 'test.log')
+    ("fn", True, None),
+    ("tn", False, None),
+    ("tf", False, 'test.log')
 ])
 def test_verbose(id, override, logfile, capsys):
     from echopype.utils import log
