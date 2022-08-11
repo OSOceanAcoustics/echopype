@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
-import xarray as xr
 import zarr
 from datatree import DataTree
 
