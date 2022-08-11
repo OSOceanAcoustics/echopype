@@ -1,4 +1,3 @@
-import warnings
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -6,9 +5,11 @@ import xarray as xr
 
 # TODO: turn this into an absolute import!
 from ...core import SONAR_MODELS
+from ...utils.log import _init_logger
 from ..convention import sonarnetcdf_1
 
 _varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+logger = _init_logger(__name__)
 
 
 def _get_sensor(sensor_model):
@@ -1133,7 +1134,7 @@ def convert_v05x_to_v06x(echodata_obj):
     """
 
     # TODO: put in an appropriate link to the v5 to v6 conversion outline
-    warnings.warn(
+    logger.warning(
         "Converting echopype version 0.5.x file to 0.6.0."
         " For specific details on how items have been changed,"
         " please see the echopype documentation. It is recommended "

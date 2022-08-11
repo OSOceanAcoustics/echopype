@@ -1,16 +1,18 @@
-import warnings
 from collections import defaultdict
 
 import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
+from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 
 # fmt: on
+
+logger = _init_logger(__name__)
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -84,7 +86,7 @@ class SetGroupsEK60(SetGroupsBase):
                     backscatter_r[all_duplicates_idx[0]],
                     backscatter_r[all_duplicates_idx[1]],
                 ):
-                    warnings.warn(
+                    logger.warning(
                         "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
                     )
                     for v in self.parser_obj.ping_data_dict.values():
@@ -96,7 +98,7 @@ class SetGroupsEK60(SetGroupsBase):
                             v[ch] = [v[ch][i] for i in unique_idx]
                     self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
                 else:
-                    warnings.warn(
+                    logger.warning(
                         "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
                     )
 

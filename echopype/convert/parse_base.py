@@ -4,11 +4,14 @@ from datetime import datetime as dt
 
 import numpy as np
 
+from ..utils.log import _init_logger
 from .utils.ek_raw_io import RawSimradFile, SimradEOF
 
 FILENAME_DATETIME_EK60 = (
     "(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw"
 )
+
+logger = _init_logger(__name__)
 
 
 class ParseBase:
@@ -54,9 +57,8 @@ class ParseEK(ParseBase):
 
     def _print_status(self):
         time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
-        print(
-            f"{dt.now().strftime('%H:%M:%S')}  parsing file {os.path.basename(self.source_file)}, "
-            f"time of first ping: {time}"
+        logger.info(
+            f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
 
     def parse_raw(self):
@@ -80,7 +82,7 @@ class ParseEK(ParseBase):
                     xml_type = "environment"
                 elif "CONFIG" in self.data_type:
                     xml_type = "configuration"
-                print(f"{dt.now().strftime('%H:%M:%S')} exporting {xml_type} XML file")
+                logger.info(f"exporting {xml_type} XML file")
                 # Don't parse anything else if only the config xml is required.
                 if "CONFIG" in self.data_type:
                     return
@@ -314,18 +316,18 @@ class ParseEK(ParseBase):
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
-                print("TAG datagram encountered.")
+                logger.info("TAG datagram encountered.")
 
             # BOT datagrams contain sounder detected bottom depths from .bot files
             elif new_datagram["type"].startswith("BOT"):
-                print("BOT datagram encountered.")
+                logger.info("BOT datagram encountered.")
 
             # DEP datagrams contain sounder detected bottom depths from .out files
             # as well as reflectivity data
             elif new_datagram["type"].startswith("DEP"):
-                print("DEP datagram encountered.")
+                logger.info("DEP datagram encountered.")
             else:
-                print("Unknown datagram type: " + str(new_datagram["type"]))
+                logger.info("Unknown datagram type: " + str(new_datagram["type"]))
 
     def _append_channel_ping_data(self, datagram, rx=True):
         """
