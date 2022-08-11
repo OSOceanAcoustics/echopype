@@ -14,6 +14,7 @@ Most of these files are stored on Git LFS but the ones that aren't (due to file 
 - raw4-D20220514-T172704.raw: Contains RAW4 datagram, 1 channel only, from @cornejotux
 - D20210330-T123857.raw: do not contain filter coefficients
 
+
 ### EA640
 - 0001a-D20200321-T032026.raw: Data of identical format to standard EK80 files, but with a different NME1 datagram (instead of NME0).
 
@@ -24,6 +25,7 @@ Most of these files are stored on Git LFS but the ones that aren't (due to file 
 - 2015843-D20151023-T190636.raw: Not used in tests but contains ranges are not constant across ping times
 - SH1701_consecutive_files_w_range_change: Not used in tests. [Folder](https://drive.google.com/drive/u/1/folders/1PaDtL-xnG5EK3N3P1kGlXa5ub16Yic0f) on shared drive that contains sequential files with ranges that are not constant across ping times.
 - NBP_B050N-D20180118-T090228.raw: split-beam setup without angle data
+
 
 ### AZFP
 - 17082117.01A: Standard test. Used with 17041823.XML.
