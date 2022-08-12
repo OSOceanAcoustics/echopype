@@ -25,6 +25,7 @@ This is a minor release that includes a few new features and memory efficiency-r
   - Starting from this release all groups are accessed with `echodata["GROUP_PATH"]`, e.g., `echodata["Platform"]`, `echodata["Sonar/Beam_group1"]`, etc.
 - Make long_name in ds_power for EK80 consistent with other sonar model (#771)
 - Modify `set_beam()` so it returns a list (#780)
+- Change the order in `_save_groups_to_file` so the order of groups is preserved when opening a converted netcdf file (#779)
 
 ## Infrastructure
 - Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
