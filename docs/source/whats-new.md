@@ -31,7 +31,8 @@ This is a minor release that includes a few new features and memory efficiency-r
 - Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
   - decrease the number of workers from 4 to 2
 
-
+## Other changes
+- Remove the user option to select NMEA sentences (#778)
 
 
 # v0.6.1 (2022 July 7)
