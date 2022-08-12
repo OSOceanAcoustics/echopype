@@ -11,13 +11,13 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This is a minor release that includes a few new features and memory efficiency-related changes that echopype better.
 
 ## New features
-- Add a new subpackage `consolidate` that contains functions to consolidate data across the calibrated Sv dataset and the correspnding raw-converted file 
+- Add a new subpackage `consolidate` that contains functions to consolidate data across the calibrated Sv dataset and the corresponding raw-converted file
 - Add function to interpolate location to calibrated dataset (`consolidate.add_location`)  (#749)
 - Add function to convert `range_meter` to `depth` with information on transducer tilt and depth (`consolidate.add_depth`) (#738)
 - Move function that swaps the channel with frequency dimension (now as `consolidate.swap_dims_channel_frequency`) (#738)
 - Add new functionality to allow control of logging outputs (#772)
 
-## Under the hood enhancements 
+## Under the hood enhancements
 - Improve memory usage while converting files that require significant NaN-padding and previously would incur very large memory expansion (#774)
   - This is achieved by directly writing variables that may incur a large memory expansion into a temporary zarr store
 - Overhaul access pattern for EchoData (#762)
@@ -29,7 +29,7 @@ This is a minor release that includes a few new features and memory efficiency-r
 ## Infrastructure
 - Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
   - decrease the number of workers from 4 to 2
-  
+
 
 
 
