@@ -1,6 +1,8 @@
 """
 Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
+from typing import List
+
 import numpy as np
 import xarray as xr
 
@@ -161,7 +163,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 + " one serial number has not been implemented."
             )
 
-    def set_beam(self) -> xr.Dataset:
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
@@ -257,7 +259,7 @@ class SetGroupsAZFP(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return set_encodings(ds)
+        return [set_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""

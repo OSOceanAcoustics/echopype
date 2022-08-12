@@ -1,3 +1,4 @@
+
 import echopype
 import echopype.visualize
 from echopype.testing import TEST_DATA_FOLDER
@@ -212,9 +213,10 @@ def test_plot_mvbs(
         (30.5, False),
     ],
 )
-def test_water_level_echodata(water_level, expect_warning):
+def test_water_level_echodata(water_level, expect_warning, caplog):
     from echopype.echodata import EchoData
     from echopype.visualize.api import _add_water_level
+    echopype.verbose()
 
     filepath = ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw"
     sonar_model = "EK60"
@@ -259,21 +261,14 @@ def test_water_level_echodata(water_level, expect_warning):
 
     results = None
     try:
+        results = _add_water_level(
+            range_in_meter=range_in_meter,
+            water_level=water_level,
+            data_type=EchoData,
+            platform_data=echodata["Platform"],
+        )
         if expect_warning:
-            with pytest.warns(UserWarning):
-                results = _add_water_level(
-                    range_in_meter=range_in_meter,
-                    water_level=water_level,
-                    data_type=EchoData,
-                    platform_data=echodata["Platform"],
-                )
-        else:
-            results = _add_water_level(
-                range_in_meter=range_in_meter,
-                water_level=water_level,
-                data_type=EchoData,
-                platform_data=echodata["Platform"],
-            )
+            assert 'WARNING' in caplog.text
     except Exception as e:
         assert isinstance(e, ValueError)
         assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
@@ -297,8 +292,9 @@ def test_water_level_echodata(water_level, expect_warning):
         (30.5, False),
     ],
 )
-def test_water_level_Sv_dataset(water_level, expect_warning):
+def test_water_level_Sv_dataset(water_level, expect_warning, caplog):
     from echopype.visualize.api import _add_water_level
+    echopype.verbose()
 
     filepath = ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw"
     sonar_model = "EK60"
@@ -324,19 +320,14 @@ def test_water_level_Sv_dataset(water_level, expect_warning):
 
     results = None
     try:
+        results = _add_water_level(
+            range_in_meter=range_in_meter,
+            water_level=water_level,
+            data_type=xr.Dataset,
+        )
+
         if expect_warning:
-            with pytest.warns(UserWarning):
-                results = _add_water_level(
-                    range_in_meter=range_in_meter,
-                    water_level=water_level,
-                    data_type=xr.Dataset,
-                )
-        else:
-            results = _add_water_level(
-                range_in_meter=range_in_meter,
-                water_level=water_level,
-                data_type=xr.Dataset,
-            )
+            assert 'WARNING' in caplog.text
     except Exception as e:
         assert isinstance(e, ValueError)
         assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa

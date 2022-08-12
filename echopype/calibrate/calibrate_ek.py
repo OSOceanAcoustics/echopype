@@ -4,7 +4,10 @@ from scipy import signal
 
 from ..echodata import EchoData
 from ..utils import uwa
+from ..utils.log import _init_logger
 from .calibrate_base import CAL_PARAMS, CalibrateBase
+
+logger = _init_logger(__name__)
 
 
 class CalibrateEK(CalibrateBase):
@@ -930,11 +933,11 @@ class CalibrateEK80(CalibrateEK):
 
             if encode_mode == "power":
                 use_beam_power = True  # switch source of backscatter data
-                print(
+                logger.info(
                     "Only power samples are calibrated, but complex samples also exist in the raw data file!"  # noqa
                 )
             else:
-                print(
+                logger.info(
                     "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
                 )
         else:  # only power OR complex samples exist
