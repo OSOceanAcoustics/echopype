@@ -3,13 +3,14 @@ echopype utilities for file handling
 """
 import os
 import sys
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
 import fsspec
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
+
+from ..utils.log import _init_logger
 
 if TYPE_CHECKING:
     from ..core import PathHint
@@ -21,6 +22,8 @@ SUPPORTED_ENGINES = {
         "ext": ".zarr",
     },
 }
+
+logger = _init_logger(__name__)
 
 
 def get_files_from_dir(folder):
@@ -162,7 +165,7 @@ def validate_output_path(
     file_ext = SUPPORTED_ENGINES[engine]["ext"]
 
     if save_path is None:
-        warnings.warn("save_path is not provided")
+        logger.warning("save_path is not provided")
 
         current_dir = Path.cwd()
         # Check permission, raise exception if no permission
@@ -171,7 +174,7 @@ def validate_output_path(
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
-        warnings.warn(f"Resulting converted file(s) will be available at {str(out_dir)}")
+        logger.warning(f"Resulting converted file(s) will be available at {str(out_dir)}")
         out_path = str(out_dir / (Path(source_file).stem + file_ext))
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
@@ -206,7 +209,7 @@ def validate_output_path(
                 final_path = Path(save_path)
                 out_path = save_path
             if final_path.suffix != file_ext:
-                warnings.warn(
+                logger.warning(
                     "Mismatch between specified engine and save_path found; forcing output format to engine."  # noqa
                 )
     return out_path
@@ -263,7 +266,7 @@ def check_file_permissions(FILE_DIR):
                 FILE_DIR = Path(FILE_DIR)
 
             if not FILE_DIR.exists():
-                warnings.warn(f"{str(FILE_DIR)} does not exist. Attempting to create it.")
+                logger.warning(f"{str(FILE_DIR)} does not exist. Attempting to create it.")
                 FILE_DIR.mkdir(exist_ok=True, parents=True)
             TEST_FILE = FILE_DIR.joinpath(Path(".permission_test"))
             TEST_FILE.write_text("testing\n")

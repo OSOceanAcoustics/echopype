@@ -6,6 +6,9 @@ from . import calibrate, consolidate, preprocess, utils
 from .convert.api import open_raw
 from .echodata.api import open_converted
 from .echodata.combine import combine_echodata
+from .utils.log import verbose
+
+verbose(override=True)
 
 __all__ = [
     "open_raw",
@@ -15,4 +18,5 @@ __all__ = [
     "consolidate",
     "preprocess",
     "utils",
+    "verbose",
 ]

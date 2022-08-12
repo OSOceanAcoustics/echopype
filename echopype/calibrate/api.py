@@ -1,8 +1,7 @@
-import warnings
-
 import xarray as xr
 
 from ..echodata import EchoData
+from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
@@ -15,6 +14,8 @@ CALIBRATOR = {
     "ES80": CalibrateEK80,
     "EA640": CalibrateEK80,
 }
+
+logger = _init_logger(__name__)
 
 
 def _compute_cal(
@@ -39,12 +40,12 @@ def _compute_cal(
             )
     elif echodata.sonar_model in ("EK60", "AZFP"):
         if waveform_mode is not None and waveform_mode != "CW":
-            warnings.warn(
+            logger.warning(
                 "This sonar model transmits only narrowband signals (waveform_mode='CW'). "
                 "Calibration will be in CW mode",
             )
         if encode_mode is not None and encode_mode != "power":
-            warnings.warn(
+            logger.warning(
                 "This sonar model only record data as power or power/angle samples "
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )

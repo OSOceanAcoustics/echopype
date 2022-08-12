@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -8,8 +7,11 @@ from datatree import DataTree
 from ..core import SONAR_MODELS
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.coding import set_encodings
+from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .echodata import EchoData
+
+logger = _init_logger(__name__)
 
 
 def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
@@ -59,7 +61,7 @@ def check_and_correct_reversed_time(combined_group, old_time, new_time, time_str
 
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
         if old_time is None:
-            warnings.warn(
+            logger.warning(
                 f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
                 " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
             )

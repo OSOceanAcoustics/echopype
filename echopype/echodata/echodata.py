@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from ..calibrate.env_params import EnvParams
 from ..utils.coding import set_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
+from ..utils.log import _init_logger
 from ..utils.uwa import calc_sound_speed
 from .convention import sonarnetcdf_1
 from .sensor_ep_version_mapping import ep_version_mapper
@@ -35,6 +36,8 @@ TVG_CORRECTION_FACTOR = {
     "EA640": 0,
 }
 
+logger = _init_logger(__name__)
+
 
 class EchoData:
     """Echo data model class for handling raw converted data,
@@ -51,6 +54,7 @@ class EchoData:
         xml_path: Optional["PathHint"] = None,
         sonar_model: Optional["SonarModelsHint"] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parsed2zarr_obj=None,
     ):
 
         # TODO: consider if should open datasets in init
@@ -65,6 +69,9 @@ class EchoData:
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
+
+        # object associated with directly writing to a zarr file
+        self.parsed2zarr_obj = parsed2zarr_obj
 
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
@@ -651,7 +658,7 @@ class EchoData:
             if var in platform and (~platform[var].isnull()).all():
                 dropped_vars.append(var)
         if len(dropped_vars) > 0:
-            warnings.warn(
+            logger.warning(
                 f"Some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
             )
         platform = platform.drop_vars(

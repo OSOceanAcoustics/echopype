@@ -1,22 +1,22 @@
 import warnings
-from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
-import xarray as xr
 import zarr
 from datatree import DataTree
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
 from ..core import SONAR_MODELS
+from .parsed_to_zarr import Parsed2Zarr
 
 if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
+from ..utils.log import _init_logger
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
@@ -25,9 +25,10 @@ COMPRESSION_SETTINGS = {
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
-NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
-
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
+
+# Logging setup
+logger = _init_logger(__name__)
 
 
 def to_file(
@@ -78,15 +79,15 @@ def to_file(
 
     # Sequential or parallel conversion
     if exists and not overwrite:
-        print(
-            f"{dt.now().strftime('%H:%M:%S')}  {echodata.source_file} has already been converted to {engine}. "  # noqa
+        logger.info(
+            f"{echodata.source_file} has already been converted to {engine}. "  # noqa
             f"File saving not executed."
         )
     else:
         if exists:
-            print(f"{dt.now().strftime('%H:%M:%S')}  overwriting {output_file}")
+            logger.info(f"overwriting {output_file}")
         else:
-            print(f"{dt.now().strftime('%H:%M:%S')}  saving {output_file}")
+            logger.info(f"saving {output_file}")
         _save_groups_to_file(
             echodata,
             output_path=io.sanitize_file_path(
@@ -110,9 +111,10 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Environment group
     if "time1" in echodata["Environment"]:
         io.save_file(
-            echodata["Environment"].chunk(
-                {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
-            ),  # TODO: chunking necessary?
+            # echodata["Environment"].chunk(
+            #     {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
+            # ),  # TODO: chunking necessary?
+            echodata["Environment"],
             path=output_path,
             mode="a",
             engine=engine,
@@ -170,11 +172,12 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     if echodata.sonar_model == "AD2CP":
         for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
             io.save_file(
-                echodata[f"Sonar/Beam_group{i}"].chunk(
-                    {
-                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                    }
-                ),
+                # echodata[f"Sonar/Beam_group{i}"].chunk(
+                #     {
+                #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                #     }
+                # ),
+                echodata[f"Sonar/Beam_group{i}"],
                 path=output_path,
                 mode="a",
                 engine=engine,
@@ -183,12 +186,13 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             )
     else:
         io.save_file(
-            echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"].chunk(
-                {
-                    "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-                    "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                }
-            ),
+            # echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"].chunk(
+            #     {
+            #         "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
+            #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+            #     }
+            # ),
+            echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"],
             path=output_path,
             mode="a",
             engine=engine,
@@ -198,12 +202,13 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         if echodata["Sonar/Beam_group2"] is not None:
             # some sonar model does not produce Sonar/Beam_group2
             io.save_file(
-                echodata["Sonar/Beam_group2"].chunk(
-                    {
-                        "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-                        "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                    }
-                ),
+                # echodata["Sonar/Beam_group2"].chunk(
+                #     {
+                #         "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
+                #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
+                #     }
+                # ),
+                echodata["Sonar/Beam_group2"],
                 path=output_path,
                 mode="a",
                 engine=engine,
@@ -214,9 +219,10 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # Vendor_specific group
     if "ping_time" in echodata["Vendor_specific"]:
         io.save_file(
-            echodata["Vendor_specific"].chunk(
-                {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
-            ),  # TODO: chunking necessary?
+            # echodata["Vendor_specific"].chunk(
+            #     {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
+            # ),  # TODO: chunking necessary?
+            echodata["Vendor_specific"],
             path=output_path,
             mode="a",
             engine=engine,
@@ -239,9 +245,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
 
     The default set of parameters include:
     - Platform group: ``platform_name``, ``platform_type``, ``platform_code_ICES``, ``water_level``
-    - Platform/NMEA: ``nmea_gps_sentence``,
-                     for selecting specific NMEA sentences,
-                     with default values ['GGA', 'GLL', 'RMC'].
     - Top-level group: ``survey_name``
 
     Other parameters will be saved to the top level.
@@ -262,7 +265,6 @@ def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
     out_params["platform_code_ICES"] = param_dict.get("platform_code_ICES", "")
     out_params["platform_type"] = param_dict.get("platform_type", "")
     out_params["water_level"] = param_dict.get("water_level", None)
-    out_params["nmea_gps_sentence"] = param_dict.get("nmea_gps_sentence", NMEA_SENTENCE_DEFAULT)
 
     # Parameters for the Top-level group
     out_params["survey_name"] = param_dict.get("survey_name", "")
@@ -334,6 +336,8 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
+    offload_to_zarr: bool = False,
+    max_zarr_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -362,13 +366,25 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
+    offload_to_zarr: bool
+        If True, variables with a large memory footprint will be
+        written to a temporary zarr store.
+    max_zarr_mb : int
+        maximum MB that each zarr chunk should hold, when offloading
+        variables with a large memory footprint to a temporary zarr store
 
     Returns
     -------
     EchoData object
+
+    Notes
+    -----
+    ``offload_to_zarr=True`` is only available for the following
+    echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
+    is currently in beta.
     """
     if (sonar_model is None) and (raw_file is None):
-        print("Please specify the path to the raw data file and the sonar model.")
+        logger.warning("Please specify the path to the raw data file and the sonar model.")
         return
 
     # Check inputs
@@ -377,7 +393,7 @@ def open_raw(
     storage_options = storage_options if storage_options is not None else {}
 
     if sonar_model is None:
-        print("Please specify the sonar model.")
+        logger.warning("Please specify the sonar model.")
 
         if xml_path is None:
             sonar_model = "EK60"
@@ -421,6 +437,15 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
+    # TODO: remove once 'auto' option is added
+    if not isinstance(offload_to_zarr, bool):
+        raise ValueError("offload_to_zarr must be of type bool.")
+
+    # Ensure offload_to_zarr is 'auto', if it is a string
+    # TODO: use the following when we allow for 'auto' option
+    # if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
+    #     raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
+
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
     if SONAR_MODELS[sonar_model]["xml"]:
@@ -428,17 +453,47 @@ def open_raw(
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
+    # obtain dict associated with directly writing to zarr
+    dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
+
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options
+        file_chk, params=params, storage_options=storage_options, dgram_zarr_vars=dgram_zarr_vars
     )
+
     parser.parse_raw()
+
+    # code block corresponding to directly writing parsed data to zarr
+    if offload_to_zarr and (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]):
+
+        # Determines if writing to zarr is necessary and writes to zarr
+        p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
+
+        # TODO: perform more robust tests for the 'auto' heuristic value
+        if offload_to_zarr == "auto" and p2z.write_to_zarr(mem_mult=0.4):
+            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+        elif offload_to_zarr is True:
+            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+        else:
+            del p2z
+            p2z = Parsed2Zarr(parser)
+            if "ALL" in parser.data_type:
+                parser.rectangularize_data()
+
+    else:
+        p2z = Parsed2Zarr(parser)
+        if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and (
+            "ALL" in parser.data_type
+        ):
+            parser.rectangularize_data()
+
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
+        parsed2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -465,9 +520,6 @@ def open_raw(
 
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
-    if isinstance(beam_groups, xr.Dataset):
-        # if it's a single dataset like the ek60, make into list
-        beam_groups = [beam_groups]
 
     valid_beam_groups_count = 0
     for idx, beam_group in enumerate(beam_groups, start=1):
@@ -485,7 +537,9 @@ def open_raw(
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
+    echodata = EchoData(
+        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parsed2zarr_obj=p2z
+    )
     echodata._set_tree(tree)
     echodata._load_tree()
 
