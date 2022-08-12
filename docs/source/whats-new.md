@@ -8,7 +8,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This is a minor release that includes a few new features and memory efficiency-related changes that echopype better.
+This is a minor release that includes a few new features and memory efficiency-related changes that make echopype better.
 
 ## New features
 - Add a new subpackage `consolidate` that contains functions to consolidate data across the calibrated Sv dataset and the corresponding raw-converted file
