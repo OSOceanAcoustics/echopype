@@ -13,16 +13,18 @@ This is a minor release that includes a few new features and memory efficiency-r
 ## New features
 - Add a new subpackage `consolidate` that contains functions to consolidate data across the calibrated Sv dataset and the correspnding raw-converted file 
 - Add function to interpolate location to calibrated dataset (`consolidate.add_location`)  (#749)
-- Add function to convert `range_meter` to `depth` with information on transducer tilt and depth (`consolidate.add_depth`) (#XXX)
-- Move function that swaps the channel with frequency dimension (now in `consolidate.swap_dims_channel_frequency`) (#XXX)
-- Add new functionality to allow control of logging outputs (#XXX)
+- Add function to convert `range_meter` to `depth` with information on transducer tilt and depth (`consolidate.add_depth`) (#738)
+- Move function that swaps the channel with frequency dimension (now as `consolidate.swap_dims_channel_frequency`) (#738)
+- Add new functionality to allow control of logging outputs (#772)
 
 ## Under the hood enhancements 
-- Improve memory usage while converting files that require significant NaN-padding and previously would incur very large memory expansion (#XXX)
+- Improve memory usage while converting files that require significant NaN-padding and previously would incur very large memory expansion (#774)
+  - This is achieved by directly writing variables that may incur a large memory expansion into a temporary zarr store
 - Overhaul access pattern for EchoData (#762)
-  - remove previous access pattern for different groups in the raw-converted file
-  - starting from this release all groups are access with `echodata["GROUP_PATH"]`, e.g., `echodata["Platform"]`, `echodata["Sonar/Beam_group1"]`, etc.
+  - Remove previous access pattern for different groups in the raw-converted file
+  - Starting from this release all groups are accessed with `echodata["GROUP_PATH"]`, e.g., `echodata["Platform"]`, `echodata["Sonar/Beam_group1"]`, etc.
 - Make long_name in ds_power for EK80 consistent with other sonar model (#771)
+- Modify `set_beam()` so it returns a list (#780)
 
 ## Infrastructure
 - Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
