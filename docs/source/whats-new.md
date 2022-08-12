@@ -28,7 +28,6 @@ This is a minor release that includes a few new features and memory efficiency-r
 - Change the order in `_save_groups_to_file` so the order of groups is preserved when opening a converted netcdf file (#779)
 - Remove the user option to select NMEA sentences in `open_raw` to ensure raw data is preserved (#778)
 
-
 ## Infrastructure
 - Update CI set up to avoid exceeding GitHub actions memory limitation (#761)
   - decrease the number of workers from 4 to 2
