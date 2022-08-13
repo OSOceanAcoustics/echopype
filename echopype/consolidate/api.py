@@ -67,8 +67,8 @@ def add_depth(
         Whether or not the transducers point downward.
         Default to True.
     tilt : float
-        Tilt angle (degree) if transducers are not mounted vertically (when `vertical=False`).
-        Required if `vertical=False` and `tilt` does not exist in the dataset.
+        Tilt angle (degree). Required if transducers are not mounted vertically
+        (`vertical=False`) and `tilt` does not exist in the dataset.
     water_level : float
         User-defined `water_level` to replace the water_level stored in the dataset.
         Optional if `water_level` exists in the dataset.
