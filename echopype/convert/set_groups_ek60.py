@@ -1,16 +1,19 @@
-import warnings
 from collections import defaultdict
+from typing import List
 
 import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_encodings
+from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
 
 # fmt: on
+
+logger = _init_logger(__name__)
 
 
 class SetGroupsEK60(SetGroupsBase):
@@ -84,7 +87,7 @@ class SetGroupsEK60(SetGroupsBase):
                     backscatter_r[all_duplicates_idx[0]],
                     backscatter_r[all_duplicates_idx[1]],
                 ):
-                    warnings.warn(
+                    logger.warning(
                         "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
                     )
                     for v in self.parser_obj.ping_data_dict.values():
@@ -96,7 +99,7 @@ class SetGroupsEK60(SetGroupsBase):
                             v[ch] = [v[ch][i] for i in unique_idx]
                     self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
                 else:
-                    warnings.warn(
+                    logger.warning(
                         "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
                     )
 
@@ -218,7 +221,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        time1, msg_type, lat, lon = self._parse_NMEA()
+        time1, msg_type, lat, lon = self._extract_NMEA_latlon()
 
         # NMEA dataset: variables filled with nan if do not exist
         ds = xr.Dataset(
@@ -385,7 +388,43 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_encodings(ds)
 
-    def set_beam(self) -> xr.Dataset:
+    def _set_beam_group1_zarr_vars(self, ds: xr.Dataset) -> xr.Dataset:
+        """
+        Modifies ds by setting all variables associated with
+        ``Beam_group1``, that were directly written to a
+        temporary zarr file.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset representing ``Beam_group1`` filled with
+            all variables, besides those written to zarr
+
+        Returns
+        -------
+        A modified version of ``ds`` with the zarr variables
+        added to it.
+        """
+
+        # TODO: In the future it would be nice to have a dictionary of
+        #  attributes stored in one place for all of the variables.
+        #  This would reduce unnecessary code duplication in the
+        #  functions below.
+
+        # obtain DataArrays using zarr variables
+        zarr_path = self.parsed2zarr_obj.zarr_file_name
+        backscatter_r = self._get_power_dataarray(zarr_path)
+        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
+
+        # append DataArrays created from zarr file
+        ds = ds.assign(
+            backscatter_r=backscatter_r,
+            angle_athwartship=angle_athwartship,
+            angle_alongship=angle_alongship,
+        )
+        return ds
+
+    def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
         # Get channel keys and frequency
         ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -580,116 +619,135 @@ class SetGroupsEK60(SetGroupsBase):
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
         for ch in ch_ids:
-            ds_tmp = xr.Dataset(
-                {
-                    "backscatter_r": (
-                        ["ping_time", "range_sample"],
-                        self.parser_obj.ping_data_dict["power"][ch],
-                        {"long_name": "Backscatter power", "units": "dB"},
-                    ),
-                    "sample_interval": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["sample_interval"][ch],
-                        {
-                            "long_name": "Interval between recorded raw data samples",
-                            "units": "s",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_bandwidth": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["bandwidth"][ch],
-                        {
-                            "long_name": "Nominal bandwidth of transmitted pulse",
-                            "units": "Hz",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_duration_nominal": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["pulse_length"][ch],
-                        {
-                            "long_name": "Nominal bandwidth of transmitted pulse",
-                            "units": "s",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "transmit_power": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["transmit_power"][ch],
-                        {
-                            "long_name": "Nominal transmit power",
-                            "units": "W",
-                            "valid_min": 0.0,
-                        },
-                    ),
-                    "data_type": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["mode"][ch],
-                        {
-                            "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
-                        },
-                    ),
-                    "count": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["count"][ch],
-                        {"long_name": "Number of samples "},
-                    ),
-                    "offset": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["offset"][ch],
-                        {"long_name": "Offset of first sample"},
-                    ),
-                    "transmit_mode": (
-                        ["ping_time"],
-                        self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                        {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
-                    ),
-                },
-                coords={
-                    "ping_time": (
-                        ["ping_time"],
-                        self.parser_obj.ping_time[ch],
-                        self._varattrs["beam_coord_default"]["ping_time"],
-                    ),
-                    "range_sample": (
-                        ["range_sample"],
-                        np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
-                        self._varattrs["beam_coord_default"]["range_sample"],
-                    ),
-                },
-            )
 
-            # Save angle data if exist based on values in self.parser_obj.ping_data_dict['mode'][ch]
-            # Assume the mode of all pings are identical
-            # 1 = Power only, 2 = Angle only 3 = Power & Angle
-            if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
-                ds_tmp = ds_tmp.assign(
+            var_dict = {
+                "sample_interval": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["sample_interval"][ch],
                     {
-                        "angle_athwartship": (
-                            ["ping_time", "range_sample"],
-                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
-                            {
-                                "long_name": "electrical athwartship angle",
-                                "comment": (
-                                    "Introduced in echopype for Simrad echosounders. "  # noqa
-                                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
-                                ),
-                            },
-                        ),
-                        "angle_alongship": (
-                            ["ping_time", "range_sample"],
-                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
-                            {
-                                "long_name": "electrical alongship angle",
-                                "comment": (
-                                    "Introduced in echopype for Simrad echosounders. "  # noqa
-                                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
-                                ),
-                            },
-                        ),
-                    }
+                        "long_name": "Interval between recorded raw data samples",
+                        "units": "s",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_bandwidth": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["bandwidth"][ch],
+                    {
+                        "long_name": "Nominal bandwidth of transmitted pulse",
+                        "units": "Hz",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_duration_nominal": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["pulse_length"][ch],
+                    {
+                        "long_name": "Nominal bandwidth of transmitted pulse",
+                        "units": "s",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_power": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["transmit_power"][ch],
+                    {
+                        "long_name": "Nominal transmit power",
+                        "units": "W",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "data_type": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["mode"][ch],
+                    {
+                        "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
+                    },
+                ),
+                "count": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["count"][ch],
+                    {"long_name": "Number of samples "},
+                ),
+                "offset": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["offset"][ch],
+                    {"long_name": "Offset of first sample"},
+                ),
+                "transmit_mode": (
+                    ["ping_time"],
+                    self.parser_obj.ping_data_dict["transmit_mode"][ch],
+                    {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
+                ),
+            }
+
+            if not self.parsed2zarr_obj.temp_zarr_dir:
+
+                var_dict["backscatter_r"] = (
+                    ["ping_time", "range_sample"],
+                    self.parser_obj.ping_data_dict["power"][ch],
+                    {"long_name": "Backscatter power", "units": "dB"},
                 )
+
+                ds_tmp = xr.Dataset(
+                    var_dict,
+                    coords={
+                        "ping_time": (
+                            ["ping_time"],
+                            self.parser_obj.ping_time[ch],
+                            self._varattrs["beam_coord_default"]["ping_time"],
+                        ),
+                        "range_sample": (
+                            ["range_sample"],
+                            np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
+                            self._varattrs["beam_coord_default"]["range_sample"],
+                        ),
+                    },
+                )
+            else:
+                ds_tmp = xr.Dataset(
+                    var_dict,
+                    coords={
+                        "ping_time": (
+                            ["ping_time"],
+                            self.parser_obj.ping_time[ch],
+                            self._varattrs["beam_coord_default"]["ping_time"],
+                        ),
+                    },
+                )
+
+            if not self.parsed2zarr_obj.temp_zarr_dir:
+                # Save angle data if exist based on values in
+                # self.parser_obj.ping_data_dict['mode'][ch]
+                # Assume the mode of all pings are identical
+                # 1 = Power only, 2 = Angle only 3 = Power & Angle
+                if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
+                    ds_tmp = ds_tmp.assign(
+                        {
+                            "angle_athwartship": (
+                                ["ping_time", "range_sample"],
+                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
+                                {
+                                    "long_name": "electrical athwartship angle",
+                                    "comment": (
+                                        "Introduced in echopype for Simrad echosounders. "  # noqa
+                                        + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                                    ),
+                                },
+                            ),
+                            "angle_alongship": (
+                                ["ping_time", "range_sample"],
+                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
+                                {
+                                    "long_name": "electrical alongship angle",
+                                    "comment": (
+                                        "Introduced in echopype for Simrad echosounders. "  # noqa
+                                        + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                                    ),
+                                },
+                            ),
+                        }
+                    )
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
@@ -705,12 +763,15 @@ class SetGroupsEK60(SetGroupsBase):
             [ds, xr.merge(ds_backscatter)], combine_attrs="override"
         )  # override keeps the Dataset attributes
 
+        if self.parsed2zarr_obj.temp_zarr_dir:
+            ds = self._set_beam_group1_zarr_vars(ds)
+
         # Manipulate some Dataset dimensions to adhere to convention
         self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return set_encodings(ds)
+        return [set_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         # Retrieve pulse length and sa correction
