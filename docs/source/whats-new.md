@@ -20,7 +20,7 @@ This is a minor release that includes a few new features and memory efficiency-r
 ## Under the hood enhancements
 - Improve memory usage while converting files that require significant NaN-padding and previously would incur very large memory expansion (#774)
   - This is achieved by directly writing variables that may incur a large memory expansion into a temporary zarr store
-  - Beta function that will benefit from user feeback
+  - Beta function that will benefit from user feedback
 - Overhaul access pattern for EchoData (#762)
   - Remove previous access pattern for different groups in the raw-converted file
   - Starting from this release all groups are accessed with `echodata["GROUP_PATH"]`, e.g., `echodata["Platform"]`, `echodata["Sonar/Beam_group1"]`, etc.
