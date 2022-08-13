@@ -58,7 +58,7 @@ def add_depth(
     Parameters
     ----------
     ds : xr.Dataset
-        Dataset for which the dimension will be swapped.
+        Source Sv dataset to which a depth variable will be added.
         Must contain `echo_range`.
     vertical : bool
         Whether or not the transducers are mounted vertically.
