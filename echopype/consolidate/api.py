@@ -43,10 +43,9 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 def add_depth(
     ds: xr.Dataset,
-    vertical: bool = True,
+    depth_offset: float = 0,
+    tilt: float = 0,
     downward: bool = True,
-    tilt: float = None,
-    water_level: float = None,
 ) -> xr.Dataset:
     """
     Create a depth data variable based on data in Sv dataset.
@@ -60,54 +59,53 @@ def add_depth(
     ds : xr.Dataset
         Dataset for which the dimension will be swapped.
         Must contain `echo_range`.
-    vertical : bool
-        Whether or not the transducers are mounted vertically.
-        Default to True.
+    depth_offset : float
+        Offset along the vertical (depth) dimension to account for actual transducer
+        position in water, since `echo_range` is counted from transducer surface.
+        Default is 0.
+    tilt : float
+        Transducer tilt angle [degree].
+        Default is 0 (transducer mounted vertically).
     downward : bool
         Whether or not the transducers point downward.
         Default to True.
-    tilt : float
-        Tilt angle (degree) if transducers are not mounted vertically (when `vertical=False`).
-        Required if `vertical=False` and `tilt` does not exist in the dataset.
-    water_level : float
-        User-defined `water_level` to replace the water_level stored in the dataset.
-        Optional if `water_level` exists in the dataset.
-        Required if `water_level` does not exist in the dataset.
 
     Returns
     -------
     The input dataset with a `depth` variable added
     """
-    # Water level has to come from somewhere
-    if water_level is None:
-        if "water_level" in ds:
-            water_level = ds["water_level"]
-        else:
-            raise ValueError(
-                "water_level not found in dataset and needs to be supplied by the user"
-            )
+    # TODO: add options to use water_depth, vertical_offset, tilt stored in EchoData
+    # # Water level has to come from somewhere
+    # if depth_offset is None:
+    #     if "water_level" in ds:
+    #         depth_offset = ds["water_level"]
+    #     else:
+    #         raise ValueError(
+    #             "water_level not found in dataset and needs to be supplied by the user"
+    #         )
 
-    # If not vertical needs to have tilt
-    if not vertical:
-        if tilt is None:
-            if "tilt" in ds:
-                tilt = ds["tilt"]
-            else:
-                raise ValueError(
-                    "tilt not found in dataset and needs to be supplied by the user. "
-                    "Required when vertical=False"
-                )
-    else:
-        tilt = 0
+    # # If not vertical needs to have tilt
+    # if not vertical:
+    #     if tilt is None:
+    #         if "tilt" in ds:
+    #             tilt = ds["tilt"]
+    #         else:
+    #             raise ValueError(
+    #                 "tilt not found in dataset and needs to be supplied by the user. "
+    #                 "Required when vertical=False"
+    #             )
+    # else:
+    #     tilt = 0
 
     # Multiplication factor depending on if transducers are pointing downward
-    if downward:
-        mult = 1  # no flip
-    else:
-        mult = -1  # flip upside down (closer to transducer is deeper)
+    mult = 1 if downward else -1
 
     # Compute depth
-    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level
+    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + depth_offset
+    ds["depth"].attrs = {
+        "long_name": "Depth",
+        "standard_name": "depth"
+    }
 
     return ds
 

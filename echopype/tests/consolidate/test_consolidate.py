@@ -140,21 +140,28 @@ def test_add_depth():
     sample_interval = 0.01
     ds_Sv = _build_ds_Sv(channel, range_sample, ping_time, sample_interval)
 
-    # no water_level in ds
-    try:
-        ds_Sv_depth = ep.consolidate.add_depth(ds_Sv)
-    except ValueError:
-        ...
+    # # no water_level in ds
+    # try:
+    #     ds_Sv_depth = ep.consolidate.add_depth(ds_Sv)
+    # except ValueError:
+    #     ...
 
     # user input water_level
     water_level = 10
-    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, water_level=water_level)
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level)
     assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] + water_level)
 
     # user input water_level and tilt
     tilt = 15
-    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, vertical=False, tilt=tilt, water_level=water_level)
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt)
     assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
+
+    # inverted echosounder
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt, downward=False)
+    assert ds_Sv_depth["depth"].equals(-1 * ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
+
+    # check attributes
+    assert ds_Sv_depth["depth"].attrs == {"long_name": "Depth", "standard_name": "depth"}
 
 
 def test_add_location(test_path):
