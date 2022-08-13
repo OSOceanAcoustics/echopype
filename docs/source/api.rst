@@ -34,6 +34,8 @@ EchoData class
 Open raw and converted files
 ----------------------------
 
+.. _api-open_raw:
+
 .. automodule:: echopype
    :members: open_raw
 
