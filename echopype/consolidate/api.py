@@ -111,10 +111,7 @@ def add_depth(
 
     # Compute depth
     ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + depth_offset
-    ds["depth"].attrs = {
-        "long_name": "Depth",
-        "standard_name": "depth"
-    }
+    ds["depth"].attrs = {"long_name": "Depth", "standard_name": "depth"}
 
     return ds
 
