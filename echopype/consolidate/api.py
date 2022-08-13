@@ -73,6 +73,15 @@ def add_depth(
     Returns
     -------
     The input dataset with a `depth` variable added
+
+    Notes
+    -----
+    Currently this function only scalar inputs of depth_offset and tilt angle.
+    In future expansion we plan to add the following options:
+
+    * Allow inputs as xr.DataArray for time-varying variations of these variables
+    * Use data stored in the EchoData object or raw-converted file from which the Sv is derived,
+      specifically `water_level`, `vertical_offtset` and `tilt` in the `Platform` group.
     """
     # TODO: add options to use water_depth, vertical_offset, tilt stored in EchoData
     # # Water level has to come from somewhere
