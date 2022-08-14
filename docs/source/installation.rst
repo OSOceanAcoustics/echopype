@@ -18,10 +18,6 @@ or through conda from the `conda-forge Anaconda channel <https://anaconda.org/co
 
    $ conda install -c conda-forge echopype
 
-.. attention::
-   Currently echopype v0.6.2 is only available on via pip install due to an `issue with installing
-   a dependendy in conda <https://github.com/conda-forge/more-itertools-feedstock/issues>`_.
-
 Previous releases are also available on PyPI and conda.
 
 For instructions on installing a development version of echopype,
