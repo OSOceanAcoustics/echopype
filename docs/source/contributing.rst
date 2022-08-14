@@ -94,11 +94,11 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     pip install -e ".[plot]"
 
 .. attention::
-    There is currently an `issue with one of the echopype dependendies 
+    There is currently an `issue with one of the echopype dependendies
     in conda <https://github.com/conda-forge/more-itertools-feedstock/issues>`_
     that results in the ``conda create`` command above to return an error.
     If you run into this problem, remove the line ``more-itertools==8.13.0``
-    from ``requirements.txt`` and manually install this package using 
+    from ``requirements.txt`` and manually install this package using
     ``conda install -c conda-forge more-itertools==8.13.0``
     to circumvent the problem.
 
