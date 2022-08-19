@@ -192,8 +192,6 @@ def _frequency_to_channel(ed_obj, sensor):
 
     channel_id = get_channel_id(ed_obj, sensor)  # all channel ids
 
-    print(f"channel_id = {channel_id}")
-
     for grp_path in ed_obj.group_paths:
 
         if "frequency" in ed_obj[grp_path]:
