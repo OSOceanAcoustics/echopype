@@ -249,7 +249,7 @@ class EchoData:
     ):
         """
         Harmonize time coordinate between Beam_groupX data and env_params to make sure
-        the timestamps are broacast correctly in calibration and range calculations.
+        the timestamps are broadcast correctly in calibration and range calculations.
 
         Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
         needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
