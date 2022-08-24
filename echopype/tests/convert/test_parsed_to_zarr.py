@@ -4,12 +4,8 @@ from echopype import open_raw
 
 @pytest.fixture
 def ek60_path(test_path):
+    print(test_path)
     return test_path['EK60']
-
-
-@pytest.fixture
-def ek80_path(test_path):
-    return test_path['EK80']
 
 
 def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
@@ -68,44 +64,55 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         assert os.path.exists(output_save_path)
 
 
-@pytest.mark.skip(reason="Full testing of writing variables directly to a zarr store has not been implemented yet.")
-def test_writing_directly_to_zarr(ek60_path, ek80_path):
+@pytest.mark.parametrize(
+    ["path_model", "raw_file", "sonar_model"],
+    [
+        ("EK60", "ncei-wcsd/Summer2017-D20170615-T190214.raw", "EK60"),
+        ("EK60", "DY1002_EK60-D20100318-T023008_rep_freq.raw", "EK60"),
+        ("EK80",  "Summer2018--D20180905-T033113.raw", "EK80"),
+        # ("EK80_CAL" / "", "EK80"),
+    ],
+    ids=["ek60_summer_2017", "ek60_rep_freq", "ek80_summer_2018"],
+)
+#
+# converted_raw_paths_v05x = [
+#                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
+#                                 ek80_path / "ek80-2018115-D20181213-T094600-ep-v05x.nc",
+#                                 ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v05x.nc",
+#                                 ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v05x.nc"
+def test_writing_directly_to_zarr(path_model, raw_file, sonar_model, test_path):
     """
     Tests that ensure writing variables directly to a
     temporary zarr store and then assigning them to
     the EchoData object create an EchoData object that
     is identical to the method of not writing directly
-    to a zarr.
+    to a zarr. This test should only be conducted with
+    small raw files as DataSets must be loaded into RAM.
     """
 
-    pass
+    raw_file_path = test_path[path_model] / raw_file
 
-    # TODO: use the below structure to compare small files
-    # TODO: also create a test that runs L0003-D20040909-T161906-EK60.raw (the 95MB file that explodes)
+    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=True, max_zarr_mb=100)
+    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=False)
 
-    # ed_zarr = ep.open_raw(path_to_raw, sonar_model=sonar_model, offload_to_zarr=True, max_zarr_mb=100)
-    # ed_no_zarr = ep.open_raw(path_to_raw, sonar_model=sonar_model, offload_to_zarr=False)
-    #
-    # for grp in ed_zarr.group_paths:
-    #
-    #     if "conversion_time" in ed_zarr[grp].attrs:
-    #         del ed_zarr[grp].attrs["conversion_time"]
-    #         del ed_no_zarr[grp].attrs["conversion_time"]
-    #
-    #     # Compare straight up angle, power, complex, if zarr
-    #     # drop the zarr variables and compare datasets
-    #
-    #     if grp == "Sonar/Beam_group2":
-    #         var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
-    #         ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
-    #
-    #     if grp == "Sonar/Beam_group1":
-    #
-    #         if 'backscatter_i' in ed_zarr[grp]:
-    #             var_to_comp = ['backscatter_r', 'backscatter_i']
-    #         else:
-    #             var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
-    #
-    #         ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
-    #
-    #     assert ed_zarr[grp].identical(ed_no_zarr[grp])
+    for grp in ed_zarr.group_paths:
+
+        if "conversion_time" in ed_zarr[grp].attrs:
+            del ed_zarr[grp].attrs["conversion_time"]
+            del ed_no_zarr[grp].attrs["conversion_time"]
+
+        # Compare angle, power, complex, if zarr drop the zarr variables and compare datasets
+        if grp == "Sonar/Beam_group2":
+            var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+
+        if grp == "Sonar/Beam_group1":
+
+            if 'backscatter_i' in ed_zarr[grp]:
+                var_to_comp = ['backscatter_r', 'backscatter_i']
+            else:
+                var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
+
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+
+        assert ed_zarr[grp].identical(ed_no_zarr[grp])
