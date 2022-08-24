@@ -1,15 +1,42 @@
 import pytest
+import xarray as xr
+from typing import List, Tuple
 from echopype import open_raw
 
 
 @pytest.fixture
 def ek60_path(test_path):
-    print(test_path)
     return test_path['EK60']
 
 
-def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
-    # TODO: add docstring and comments
+def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
+                      var_to_comp: List[str], ed_path) -> Tuple[xr.Dataset, xr.Dataset]:
+    """
+    Compares the dask variables in ``ed_zarr`` against their
+    counterparts in ``ed_no_zarr`` by computing the dask results
+    and using xarray to make sure the variables are identical.
+    Additionally, this function will drop all of these compared
+    variables.
+
+    Parameters
+    ----------
+    ed_zarr : xr.Dataset
+        EchoData object with variables that were written directly
+        to a zarr and then loaded with dask
+    ed_no_zarr : xr.Dataset
+        An in-memory EchoData object
+    var_to_comp : List[str]
+        List representing those variables that were written directly
+        to a zarr and then loaded with dask
+    ed_path : str
+        EchoData group (e.g. "Sonar/Beam_group1")
+
+    Returns
+    -------
+    Tuple[xr.Dataset, xr.Dataset]
+        Datasets ``ed_zarr`` and ``ed_no_zarr``, respectively with
+        ``var_to_comp`` removed.
+    """
 
     for var in var_to_comp:
 
@@ -21,8 +48,8 @@ def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
 
             assert var_zarr.identical(var_no_zarr)
 
-    ed_zarr[ed_path] = ed_zarr[ed_path].drop(var_to_comp)
-    ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop(var_to_comp)
+    ed_zarr[ed_path] = ed_zarr[ed_path].drop_vars(var_to_comp)
+    ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop_vars(var_to_comp)
     return ed_zarr, ed_no_zarr
 
 
@@ -70,24 +97,38 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         ("EK60", "ncei-wcsd/Summer2017-D20170615-T190214.raw", "EK60"),
         ("EK60", "DY1002_EK60-D20100318-T023008_rep_freq.raw", "EK60"),
         ("EK80",  "Summer2018--D20180905-T033113.raw", "EK80"),
-        # ("EK80_CAL" / "", "EK80"),
+        ("EK80_CAL", "2018115-D20181213-T094600.raw", "EK80"),
+        ("EK80",  "Green2.Survey2.FM.short.slow.-D20191004-T211557.raw", "EK80"),
+        ("EK80",  "2019118 group2survey-D20191214-T081342.raw", "EK80"),
     ],
-    ids=["ek60_summer_2017", "ek60_rep_freq", "ek80_summer_2018"],
+    ids=["ek60_summer_2017", "ek60_rep_freq", "ek80_summer_2018",
+         "ek80_bb_w_cal", "ek80_short_slow", "ek80_grp_2_survey"],
 )
-#
-# converted_raw_paths_v05x = [
-#                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
-#                                 ek80_path / "ek80-2018115-D20181213-T094600-ep-v05x.nc",
-#                                 ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v05x.nc",
-#                                 ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v05x.nc"
-def test_writing_directly_to_zarr(path_model, raw_file, sonar_model, test_path):
+def test_direct_to_zarr_integration(path_model: str, raw_file: str,
+                                    sonar_model: str, test_path: dict) -> None:
     """
-    Tests that ensure writing variables directly to a
-    temporary zarr store and then assigning them to
-    the EchoData object create an EchoData object that
-    is identical to the method of not writing directly
-    to a zarr. This test should only be conducted with
-    small raw files as DataSets must be loaded into RAM.
+    Integration Test that ensure writing variables
+    directly to a temporary zarr store and then assigning
+    them to the EchoData object create an EchoData object
+    that is identical to the method of not writing directly
+    to a zarr.
+
+    Parameters
+    ----------
+    path_model: str
+        The key in ``test_path`` pointing to the appropriate
+        directory containing ``raw_file``
+    raw_file: str
+        The raw file to test
+    sonar_model: str
+        The sonar model corresponding to ``raw_file``
+    test_path: dict
+        A dictionary of all the model paths.
+
+    Notes
+    -----
+    This test should only be conducted with small raw files
+    as DataSets must be loaded into RAM!
     """
 
     raw_file_path = test_path[path_model] / raw_file
@@ -97,6 +138,7 @@ def test_writing_directly_to_zarr(path_model, raw_file, sonar_model, test_path):
 
     for grp in ed_zarr.group_paths:
 
+        # remove conversion time so we can do a direct comparison
         if "conversion_time" in ed_zarr[grp].attrs:
             del ed_zarr[grp].attrs["conversion_time"]
             del ed_no_zarr[grp].attrs["conversion_time"]

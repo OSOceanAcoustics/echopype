@@ -281,12 +281,14 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
             self._get_zarr_dfs()
             del self.parser_obj.zarr_datagrams  # free memory
 
-        self._write_power(df=self.pow_ang_df, max_mb=max_mb)
-        self._write_angle(df=self.pow_ang_df, max_mb=max_mb)
+        if not self.pow_ang_df.empty:
+            self._write_power(df=self.pow_ang_df, max_mb=max_mb)
+            self._write_angle(df=self.pow_ang_df, max_mb=max_mb)
 
         del self.pow_ang_df  # free memory
 
-        self._write_complex(df=self.complex_df, max_mb=max_mb)
+        if not self.complex_df.empty:
+            self._write_complex(df=self.complex_df, max_mb=max_mb)
 
         del self.complex_df  # free memory
 
