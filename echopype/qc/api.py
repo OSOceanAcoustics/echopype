@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 
 
 def _clean_ping_time(ping_time_old, local_win_len=100):
@@ -25,12 +26,11 @@ def _clean_ping_time(ping_time_old, local_win_len=100):
         return ping_time_old  # no negative diff
 
 
-def coerce_increasing_time(ds, time_name="ping_time", local_win_len=100):
-    """Coerce a time coordinate to always flow forward.
-
-    This is to correct for problems sometimes observed in EK60 data
-    where a time coordinate (``ping_time`` or ``time1``)
-    would suddenly go backward for one ping but with the rest of the pinging interval undisturbed.
+def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time",
+                           local_win_len: int = 100) -> None:
+    """
+    Coerce a time coordinate so that it always flows forward. If coercion
+    is necessary, the input `ds` will be directly modified.
 
     Parameters
     ----------
@@ -45,9 +45,15 @@ def coerce_increasing_time(ds, time_name="ping_time", local_win_len=100):
     Returns
     -------
     the input dataset but with specified time coordinate coerced to flow forward
+
+    Notes
+    -----
+    This is to correct for problems sometimes observed in EK60 data
+    where a time coordinate (``ping_time`` or ``time1``) would suddenly
+    go backward for one ping, but then the rest of the pinging interval
+    would remain undisturbed.
     """
     ds[time_name] = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
-    return ds
 
 
 def exist_reversed_time(ds, time_name):

@@ -157,23 +157,6 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
         elif echodata.sonar_model != sonar_model:
             raise ValueError("all EchoData objects must have the same sonar_model value")
 
-    # ping time before reversal correction
-    old_ping_time = None
-    # ping time after reversal correction
-    new_ping_time = None
-    # location time before reversal correction
-    old_time1 = None
-    # location time after reversal correction
-    new_time1 = None
-    # mru time before reversal correction
-    old_time2 = None
-    # mru time after reversal correction
-    new_time2 = None
-    # time3 before reversal correction
-    old_time3 = None
-    # time3 after reversal correction
-    new_time3 = None
-
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
