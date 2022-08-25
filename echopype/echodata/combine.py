@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import xarray as xr
 from datatree import DataTree
@@ -14,6 +14,81 @@ from .echodata import EchoData
 logger = _init_logger(__name__)
 
 
+def check_echodatas_input(echodatas: List[EchoData]) -> str:
+    """
+    Ensures that the input ``echodatas`` for ``combine_echodata``
+    is in the correct form.
+
+    Parameters
+    ----------
+    echodatas: List[EchoData]
+        The list of `EchoData` objects to be combined.
+
+    Returns
+    -------
+    sonar_model : str
+        The sonar model used for all values in ``echodatas``
+    """
+
+    sonar_model = None
+    for echodata in echodatas:
+        if echodata.sonar_model is None:
+            raise ValueError("all EchoData objects must have non-None sonar_model values")
+        elif sonar_model is None:
+            sonar_model = echodata.sonar_model
+        elif echodata.sonar_model != sonar_model:
+            raise ValueError("all EchoData objects must have the same sonar_model value")
+
+    return sonar_model
+
+
+def check_and_correct_reversed_time(
+    combined_group: xr.Dataset, time_str: str, sonar_model: str
+) -> Optional[xr.DataArray]:
+    """
+    Makes sure that the time coordinate ``time_str`` in
+    ``combined_group`` is in the correct order and corrects
+    it, if it is not. If coercion is necessary, the input
+    `combined_group` will be directly modified.
+
+    Parameters
+    ----------
+    combined_group : xr.Dataset
+        Dataset representing a combined EchoData group
+    time_str : str
+        Name of time coordinate to be checked and corrected
+    sonar_model : str
+        Name of sonar model
+
+    Returns
+    -------
+    old_time : Optional[xr.DataArray]
+        If correction is necessary, returns the time before
+        reversal correction, otherwise returns None
+    """
+
+    if time_str in combined_group and exist_reversed_time(combined_group, time_str):
+
+        logger.warning(
+            f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
+            " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
+        )
+        old_time = combined_group[time_str]
+        coerce_increasing_time(combined_group, time_name=time_str)
+
+    else:
+        old_time = None
+
+    return old_time
+
+
+def assemble_combined_provenance(input_paths):
+    return xr.Dataset(
+        data_vars=source_files_vars(input_paths),
+        attrs=echopype_prov_attrs(process_type="conversion"),
+    )
+
+
 def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
     """
     Merges attrs from a list of datasets.
@@ -26,71 +101,71 @@ def union_attrs(datasets: List[xr.Dataset]) -> Dict[str, Any]:
     return total_attrs
 
 
-def assemble_combined_provenance(input_paths):
-    return xr.Dataset(
-        data_vars=source_files_vars(input_paths),
-        attrs=echopype_prov_attrs(process_type="conversion"),
-    )
-
-
-def check_and_correct_reversed_time(combined_group, old_time, new_time, time_str, sonar_model):
+def examine_group_time_coords(
+    combined_group: xr.Dataset,
+    group: str,
+    sonar_model: str,
+    old_times: Dict[str, Optional[xr.DataArray]],
+) -> None:
     """
-    Makes sure that the time coordinate ``time_str`` in
-    ``combined_group`` is in the correct order and corrects
-    it, if it is not.
+    Ensures that the time coords for each group are in the
+    correct order.
 
     Parameters
     ----------
-    combined_group : xr.Dataset
-        Dataset representing a combined EchoData group
-    old_time : xr.DataArray
-        Time before reversal correction
-    new_time : xr.DataArray
-        Time after reversal correction
-    time_str : str
-        Name of time coordinate to be checked and corrected
-    sonar_model : str
+    combined_group: xr.Dataset
+        Dataset representing a combined ``EchoData`` group
+    group: str
+        Group name of ``combined_group`` obtained from ``Echodata.group_map``
+    sonar_model: str
         Name of sonar model
+    old_times: Dict[str, Optional[xr.DataArray]]
+        Dictionary that holds times before they are corrected
 
-    Returns
-    -------
-    Combined group with monotonically increasing ``time_str``
-    coordinate, the time coordinate before correction, and
-    the time coordinate after correction.
+    Notes
+    -----
+    If old time coordinates need to be stored, ``old_times``
+    will be directly modified.
+
+    This does not check the AD2CP time coordinates!
     """
 
-    if time_str in combined_group and exist_reversed_time(combined_group, time_str):
-        if old_time is None:
-            logger.warning(
-                f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
-                " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
-            )
-            old_time = combined_group[time_str]
-            coerce_increasing_time(combined_group, time_name=time_str)
-            new_time = combined_group[time_str]
-        else:
-            combined_group[time_str] = new_time
+    if sonar_model != "AD2CP":
 
-    return combined_group, old_time, new_time
+        old_times["old_ping_time"] = check_and_correct_reversed_time(
+            combined_group, "ping_time", sonar_model
+        )
+
+        if group != "nmea":
+            old_times["old_time1"] = check_and_correct_reversed_time(
+                combined_group, "time1", sonar_model
+            )
+
+        old_times["old_time2"] = check_and_correct_reversed_time(
+            combined_group, "time2", sonar_model
+        )
+        old_times["old_time3"] = check_and_correct_reversed_time(
+            combined_group, "time3", sonar_model
+        )
 
 
 def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
     """
-    Combines multiple `EchoData` objects into a single `EchoData` object.
+    Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
 
     Parameters
     ----------
     echodatas: List[EchoData]
-        The list of `EchoData` objects to be combined.
+        The list of ``EchoData`` objects to be combined.
     combine_attrs: { "override", "drop", "identical", "no_conflicts", "overwrite_conflicts" }
-        String indicating how to combine attrs of the `EchoData` objects being merged.
+        String indicating how to combine attrs of the ``EchoData`` objects being merged.
         This parameter matches the identically named xarray parameter
         (see https://xarray.pydata.org/en/latest/generated/xarray.combine_nested.html)
         with the exception of the "overwrite_conflicts" value.
 
-        * "override": Default. skip comparing and copy attrs from the first `EchoData`
+        * "override": Default. skip comparing and copy attrs from the first ``EchoData``
           object to the result.
-        * "drop": empty attrs on returned `EchoData` object.
+        * "drop": empty attrs on returned ``EchoData`` object.
         * "identical": all attrs must be the same on every object.
         * "no_conflicts": attrs from all objects are combined,
           any that have the same name must also have the same value.
@@ -100,39 +175,40 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     Returns
     -------
     EchoData
-        An `EchoData` object with all of the data from the input `EchoData` objects combined.
+        An `EchoData` object with all of the data from the input ``EchoData`` objects combined.
 
     Raises
     ------
     ValueError
-        If `echodatas` contains `EchoData` objects with different or `None` `sonar_model` values
-        (i.e., all `EchoData` objects must have the same non-None `sonar_model` value).
+        If ``echodatas`` contains ``EchoData`` objects with different or ``None``
+        ``sonar_model`` values (i.e., all `EchoData` objects must have the same
+        non-None ``sonar_model`` value).
     ValueError
         If EchoData objects have conflicting source file names.
 
     Warns
     -----
     UserWarning
-        If the `sonar_model` of the input `EchoData` objects is `"EK60"` and any `EchoData` objects
-        have non-monotonically increasing `ping_time`, `time1` or `time2` values,
-        the corresponding values in the output `EchoData` object will be increased starting at the
-        timestamp where the reversal occurs such that all values in the output are monotonically
-        increasing. Additionally, the original `ping_time`, `time1` or `time2` values
-        will be stored in the `Provenance` group, although this behavior may change in future
-        versions.
+        If the ``sonar_model`` of the input ``EchoData`` objects is ``"EK60"`` and any
+        ``EchoData`` objects have non-monotonically increasing ``ping_time``, ``time1``
+        or ``time2`` values, the corresponding values in the output ``EchoData`` object
+        will be increased starting at the timestamp where the reversal occurs such that
+        all values in the output are monotonically increasing. Additionally, the original
+        ``ping_time``, ``time1`` or ``time2`` values will be stored in the ``Provenance``
+        group, although this behavior may change in future versions.
 
     Warnings
     --------
-    Changes in parameters between `EchoData` objects are not currently checked;
+    Changes in parameters between ``EchoData`` objects are not currently checked;
     however, they may raise an error in future versions.
 
     Notes
     -----
-    * `EchoData` objects are combined by combining their groups individually.
+    * ``EchoData`` objects are combined by combining their groups individually.
     * Attributes from all groups before the combination will be stored in the provenance group,
       although this behavior may change in future versions.
-    * The `source_file` and `converted_raw_path` attributes will be copied from the first
-      `EchoData` object in the given list, but this may change in future versions.
+    * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
+      ``EchoData`` object in the given list, but this may change in future versions.
 
     Examples
     --------
@@ -141,6 +217,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
+    # initialize EchoData object that will store the final result
     tree_dict = {}
     result = EchoData()
     if len(echodatas) == 0:
@@ -148,18 +225,14 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     result.source_file = echodatas[0].source_file
     result.converted_raw_path = echodatas[0].converted_raw_path
 
-    sonar_model = None
-    for echodata in echodatas:
-        if echodata.sonar_model is None:
-            raise ValueError("all EchoData objects must have non-None sonar_model values")
-        elif sonar_model is None:
-            sonar_model = echodata.sonar_model
-        elif echodata.sonar_model != sonar_model:
-            raise ValueError("all EchoData objects must have the same sonar_model value")
+    sonar_model = check_echodatas_input(echodatas)
 
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
     old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
+
+    # dict that holds times before they are corrected
+    old_times = {"old_ping_time": None, "old_time1": None, "old_time2": None, "old_time3": None}
 
     # Specification for Echodata.group_map can be found in
     # echopype/echodata/convention/1.0.yml
@@ -218,24 +291,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
                     # TODO: investigate further why we need to do .astype("<U50")
                     combined_group["channel"] = combined_group["channel"].astype("<U50")
 
-            if sonar_model != "AD2CP":
-
-                combined_group, old_ping_time, new_ping_time = check_and_correct_reversed_time(
-                    combined_group, old_ping_time, new_ping_time, "ping_time", sonar_model
-                )
-
-                if group != "nmea":
-                    combined_group, old_time1, new_time1 = check_and_correct_reversed_time(
-                        combined_group, old_time1, new_time1, "time1", sonar_model
-                    )
-
-                combined_group, old_time2, new_time2 = check_and_correct_reversed_time(
-                    combined_group, old_time2, new_time2, "time2", sonar_model
-                )
-
-                combined_group, old_time3, new_time3 = check_and_correct_reversed_time(
-                    combined_group, old_time3, new_time3, "time3", sonar_model
-                )
+            examine_group_time_coords(combined_group, group, sonar_model, old_times)
 
         if len(group_datasets) > 1:
             old_attrs[group] = [group_dataset.attrs for group_dataset in group_datasets]
@@ -253,24 +309,14 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     result._set_tree(tree=DataTree.from_dict(tree_dict, name="root"))
     result._load_tree()
 
-    # save ping time before reversal correction
-    if old_ping_time is not None:
-        result["Provenance"]["old_ping_time"] = old_ping_time
-        result["Provenance"].attrs["reversed_ping_times"] = 1
-    # save location time before reversal correction
-    if old_time1 is not None:
-        result["Provenance"]["old_time1"] = old_time1
-        result["Provenance"].attrs["reversed_ping_times"] = 1
-    # save mru time before reversal correction
-    if old_time2 is not None:
-        result["Provenance"]["old_time2"] = old_time2
-        result["Provenance"].attrs["reversed_ping_times"] = 1
-    # save time3 before reversal correction
-    if old_time3 is not None:
-        result["Provenance"]["old_time3"] = old_time3
-        result["Provenance"].attrs["reversed_ping_times"] = 1
+    # save times before reversal correction
+    for key, val in old_times.items():
+        if val is not None:
+            result["Provenance"][key] = val
+            result["Provenance"].attrs["reversed_ping_times"] = 1
+
     # TODO: possible parameter to disable original attributes and original ping_time storage
-    # in provenance group?
+    #  in provenance group?
     # save attrs from before combination
     for group in old_attrs:
         all_group_attrs = set()

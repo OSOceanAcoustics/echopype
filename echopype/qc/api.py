@@ -26,8 +26,9 @@ def _clean_ping_time(ping_time_old, local_win_len=100):
         return ping_time_old  # no negative diff
 
 
-def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time",
-                           local_win_len: int = 100) -> None:
+def coerce_increasing_time(
+    ds: xr.Dataset, time_name: str = "ping_time", local_win_len: int = 100
+) -> None:
     """
     Coerce a time coordinate so that it always flows forward. If coercion
     is necessary, the input `ds` will be directly modified.
@@ -53,6 +54,7 @@ def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time",
     go backward for one ping, but then the rest of the pinging interval
     would remain undisturbed.
     """
+
     ds[time_name] = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
 
 
