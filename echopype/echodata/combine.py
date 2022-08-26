@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import xarray as xr
 from datatree import DataTree
@@ -14,10 +14,10 @@ from .echodata import EchoData
 logger = _init_logger(__name__)
 
 
-def check_echodatas_input(echodatas: List[EchoData]) -> str:
+def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
     Ensures that the input ``echodatas`` for ``combine_echodata``
-    is in the correct form.
+    is in the correct form and all necessary items exist.
 
     Parameters
     ----------
@@ -28,18 +28,36 @@ def check_echodatas_input(echodatas: List[EchoData]) -> str:
     -------
     sonar_model : str
         The sonar model used for all values in ``echodatas``
+    echodata_filenames : List[str]
+        The source files names for all values in ``echodatas``
     """
 
     sonar_model = None
-    for echodata in echodatas:
-        if echodata.sonar_model is None:
+    echodata_filenames = []
+    for ed in echodatas:
+
+        # check sonar model and store it
+        if ed.sonar_model is None:
             raise ValueError("all EchoData objects must have non-None sonar_model values")
         elif sonar_model is None:
-            sonar_model = echodata.sonar_model
-        elif echodata.sonar_model != sonar_model:
+            sonar_model = ed.sonar_model
+        elif ed.sonar_model != sonar_model:
             raise ValueError("all EchoData objects must have the same sonar_model value")
 
-    return sonar_model
+        # check for file names and store them
+        if ed.source_file is not None:
+            filepath = ed.source_file
+        elif ed.converted_raw_path is not None:
+            filepath = ed.converted_raw_path
+        else:
+            # unreachable
+            raise ValueError("EchoData object does not have a file path")
+        filename = Path(filepath).name
+        if filename in echodata_filenames:
+            raise ValueError("EchoData objects have conflicting filenames")
+        echodata_filenames.append(filename)
+
+    return sonar_model, echodata_filenames
 
 
 def check_and_correct_reversed_time(
@@ -149,6 +167,56 @@ def examine_group_time_coords(
         )
 
 
+def store_old_attrs(
+    result: EchoData,
+    old_attrs: Dict[str, List[Dict[str, Any]]],
+    echodata_filenames: List[str],
+    sonar_model: str,
+) -> None:
+    """
+    Stores all attributes of the groups in ``echodatas`` before
+    they were combined in the ``Provenance`` group of ``result``
+    and specifies the sonar model of the new combined data.
+
+    Parameters
+    ----------
+    result: EchoData
+        The final ``EchoData`` object representing the combined data
+    old_attrs: Dict[str, List[Dict[str, Any]]]
+        All attributes before combination
+    echodata_filenames : List[str]
+        The source files names for all values in ``echodatas``
+    sonar_model : str
+        The sonar model used for all values in ``echodatas``
+
+    Notes
+    -----
+    The input ``result`` will be directly modified.
+    """
+
+    # store all old attributes
+    for group in old_attrs:
+        all_group_attrs = set()
+        for group_attrs in old_attrs[group]:
+            for attr in group_attrs:
+                all_group_attrs.add(attr)
+        attrs = xr.DataArray(
+            [
+                [group_attrs.get(attr) for attr in all_group_attrs]
+                for group_attrs in old_attrs[group]
+            ],
+            coords={
+                "echodata_filename": echodata_filenames,
+                f"{group}_attr_key": list(all_group_attrs),
+            },
+            dims=["echodata_filename", f"{group}_attr_key"],
+        )
+        result["Provenance"] = result["Provenance"].assign({f"{group}_attrs": attrs})
+
+    # Add back sonar model
+    result.sonar_model = sonar_model
+
+
 def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
@@ -225,7 +293,7 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
     result.source_file = echodatas[0].source_file
     result.converted_raw_path = echodatas[0].converted_raw_path
 
-    sonar_model = check_echodatas_input(echodatas)
+    sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
     # all attributes before combination
     # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
@@ -315,41 +383,10 @@ def combine_echodata(echodatas: List[EchoData], combine_attrs="override") -> Ech
             result["Provenance"][key] = val
             result["Provenance"].attrs["reversed_ping_times"] = 1
 
+    # save attrs from before combination
+    store_old_attrs(result, old_attrs, echodata_filenames, sonar_model)
+
     # TODO: possible parameter to disable original attributes and original ping_time storage
     #  in provenance group?
-    # save attrs from before combination
-    for group in old_attrs:
-        all_group_attrs = set()
-        for group_attrs in old_attrs[group]:
-            for attr in group_attrs:
-                all_group_attrs.add(attr)
-        echodata_filenames = []
-        for ed in echodatas:
-            if ed.source_file is not None:
-                filepath = ed.source_file
-            elif ed.converted_raw_path is not None:
-                filepath = ed.converted_raw_path
-            else:
-                # unreachable
-                raise ValueError("EchoData object does not have a file path")
-            filename = Path(filepath).name
-            if filename in echodata_filenames:
-                raise ValueError("EchoData objects have conflicting filenames")
-            echodata_filenames.append(filename)
-        attrs = xr.DataArray(
-            [
-                [group_attrs.get(attr) for attr in all_group_attrs]
-                for group_attrs in old_attrs[group]
-            ],
-            coords={
-                "echodata_filename": echodata_filenames,
-                f"{group}_attr_key": list(all_group_attrs),
-            },
-            dims=["echodata_filename", f"{group}_attr_key"],
-        )
-        result["Provenance"] = result["Provenance"].assign({f"{group}_attrs": attrs})
-
-    # Add back sonar model
-    result.sonar_model = sonar_model
 
     return result
