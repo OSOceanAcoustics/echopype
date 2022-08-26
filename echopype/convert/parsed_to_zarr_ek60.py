@@ -261,11 +261,13 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # convert channel column to a string
         self.datagram_df["channel"] = self.datagram_df["channel"].astype(str)
 
-        self._write_power(df=self.datagram_df, max_mb=max_mb)
+        if not self.datagram_df.empty:
+            self._write_power(df=self.datagram_df, max_mb=max_mb)
 
         del self.datagram_df["power"]  # free memory
 
-        self._write_angle(df=self.datagram_df, max_mb=max_mb)
+        if not self.datagram_df.empty:
+            self._write_angle(df=self.datagram_df, max_mb=max_mb)
 
         del self.datagram_df  # free memory
 
