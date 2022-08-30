@@ -32,15 +32,18 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
         The source files names for all values in ``echodatas``
     """
 
-    sonar_model = None
+    # get the sonar model for the combined object
+    if echodatas[0].sonar_model is None:
+        raise ValueError("all EchoData objects must have non-None sonar_model values")
+    else:
+        sonar_model = echodatas[0].sonar_model
+
     echodata_filenames = []
     for ed in echodatas:
 
-        # check sonar model and store it
+        # check sonar model
         if ed.sonar_model is None:
             raise ValueError("all EchoData objects must have non-None sonar_model values")
-        elif sonar_model is None:
-            sonar_model = ed.sonar_model
         elif ed.sonar_model != sonar_model:
             raise ValueError("all EchoData objects must have the same sonar_model value")
 
@@ -52,6 +55,7 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
         else:
             # unreachable
             raise ValueError("EchoData object does not have a file path")
+
         filename = Path(filepath).name
         if filename in echodata_filenames:
             raise ValueError("EchoData objects have conflicting filenames")
