@@ -138,7 +138,7 @@ def examine_group_time_coords(
     combined_group: xr.Dataset
         Dataset representing a combined ``EchoData`` group
     group: str
-        Group name of ``combined_group`` obtained from ``Echodata.group_map``
+        Group name of ``combined_group`` obtained from ``EchoData.group_map``
     sonar_model: str
         Name of sonar model
     old_times: Dict[str, Optional[xr.DataArray]]
