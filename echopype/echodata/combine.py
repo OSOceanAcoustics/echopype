@@ -146,7 +146,7 @@ def examine_group_time_coords(
 
     Notes
     -----
-    If old time coordinates need to be stored, ``old_times``
+    If old time coordinates need to be stored, the input variable ``old_times``
     will be directly modified.
 
     This does not check the AD2CP time coordinates!
