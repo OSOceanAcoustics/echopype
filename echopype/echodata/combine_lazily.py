@@ -50,7 +50,7 @@ def reassign_attrs(ed_comb: EchoData, common_grps: set):
 
     for group, value in EchoData.group_map.items():
 
-        if (value["ep_group"] != "Provenance") and (value["ep_group"] in common_grps) and (value["ep_group"] != 'Sonar/Beam_group1'):
+        if (value["ep_group"] != "Provenance") and (value["ep_group"] in common_grps):
 
             attr_var_name = group + '_attrs'
             attr_coord_name = group + '_attr_key'
@@ -92,11 +92,10 @@ def lazy_combine(desired_raw_file_paths, fs):
 
     for group, value in EchoData.group_map.items():
 
-        if (value["ep_group"] in common_grps) and (value["ep_group"] != 'Sonar/Beam_group1'):
+        if (value["ep_group"] in common_grps):
 
             print(f"ed group = {value['ep_group']}")
 
-            convention_name = EchoData.group_map
             preprocess_obj.update_ed_group(group)
 
             combined_group = xr.open_mfdataset(desired_raw_file_paths,
