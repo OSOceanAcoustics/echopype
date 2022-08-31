@@ -2,38 +2,75 @@ from .combine_preprocess import PreprocessCallable
 from echopype.echodata import EchoData
 from datatree import DataTree
 import xarray as xr
+from fsspec.implementations.local import LocalFileSystem
 
 # desired_raw_file_paths = fs.glob('OOI_zarrs_ep_ex/temp/*.zarr')
 
 
-def reassign_attrs(ed_comb: EchoData):
+def get_ed_path_from_str(zarr_path: str, path: str):
+    """
+
+    Parameters
+    ----------
+    zarr_path: str
+        Full path to zarr file
+    path: str
+        Full path to ``.zgroup``
+    """
+
+    # the names of the groups that are needed to get to path
+    all_grp_names = [elm for elm in path.split('/') if (elm not in zarr_path.split('/')) and (elm != '.zgroup')]
+
+    return '/'.join(all_grp_names)
+
+
+def get_zarr_grp_names(path: str, fs: LocalFileSystem) -> set:
+    """
+    Identifies the zarr group names using the path
+    """
+
+    # grab all paths that have .zgroup
+    info = fs.glob(path + '/**.zgroup')
+
+    # infer the group name based on the path
+    ed_grp_name = {get_ed_path_from_str(path, entry) for entry in info}
+
+    # remove the zarr file name and replace it with Top-level
+    if '' in ed_grp_name:
+        ed_grp_name.remove('')
+        ed_grp_name.add(None)
+
+    return ed_grp_name
+
+
+def reassign_attrs(ed_comb: EchoData, common_grps: set):
     """
     Reassigns stored group attributes to the Provenance group.
     """
 
     for group, value in EchoData.group_map.items():
 
-        if value["ep_group"] not in ['Sonar/Beam_group2', 'Sonar/Beam_group3', 'Sonar/Beam_group4']:
+        if (value["ep_group"] != "Provenance") and (value["ep_group"] in common_grps) and (value["ep_group"] != 'Sonar/Beam_group1'):
 
-            if value["ep_group"] != "Provenance":
+            attr_var_name = group + '_attrs'
+            attr_coord_name = group + '_attr_key'
 
-                attr_var_name = group + '_attrs'
-                attr_coord_name = group + '_attr_key'
+            if value["ep_group"]:
+                ed_grp = value["ep_group"]
+            else:
+                ed_grp = "Top-level"
 
-                if value["ep_group"]:
-                    ed_grp = value["ep_group"]
-                else:
-                    ed_grp = "Top-level"
+            # move attribute variable to Provenance
+            ed_comb["Provenance"][attr_var_name] = ed_comb[ed_grp][attr_var_name]
 
-                # move attribute variable to Provenance
-                ed_comb["Provenance"][attr_var_name] = ed_comb[ed_grp][attr_var_name]
-
-                # remove attribute variable and coords from group
-                ed_comb[ed_grp] = ed_comb[ed_grp].drop_vars([attr_var_name, attr_coord_name,
-                                                             'echodata_filename'])
+            # remove attribute variable and coords from group
+            ed_comb[ed_grp] = ed_comb[ed_grp].drop_vars([attr_var_name, attr_coord_name,
+                                                         'echodata_filename'])
 
 
-def lazy_combine(desired_raw_file_paths):
+def lazy_combine(desired_raw_file_paths, fs):
+
+    # TODO: test code when we have to do an expansion in range_sample
 
     # initial strucuture for lazy combine
     tree_dict = {}
@@ -42,12 +79,24 @@ def lazy_combine(desired_raw_file_paths):
     # grab object that does pre-processing
     preprocess_obj = PreprocessCallable(desired_raw_file_paths)
 
+    # TODO: the subsequent line is zarr specific!! Account for nc in the future
+    # determine each zarr's group names
+    file_grps = [get_zarr_grp_names(path, fs) for path in desired_raw_file_paths]
+
+    # get the group names that all files share
+    common_grps = set.intersection(*file_grps)
+
+    # check that all zarrs have the same groups
+    if any([common_grps.symmetric_difference(s) for s in file_grps]):
+        raise RuntimeError('All input files must have the same groups!')
+
     for group, value in EchoData.group_map.items():
 
-        print(value["ep_group"])
+        if (value["ep_group"] in common_grps) and (value["ep_group"] != 'Sonar/Beam_group1'):
 
-        if value["ep_group"] not in ['Sonar/Beam_group2', 'Sonar/Beam_group3', 'Sonar/Beam_group4']:
+            print(f"ed group = {value['ep_group']}")
 
+            convention_name = EchoData.group_map
             preprocess_obj.update_ed_group(group)
 
             combined_group = xr.open_mfdataset(desired_raw_file_paths,
@@ -64,7 +113,7 @@ def lazy_combine(desired_raw_file_paths):
     result._load_tree()
 
     # reassign stored group attributes to the provenance group
-    reassign_attrs(result)
+    reassign_attrs(result, common_grps)
 
     # TODO: modify Provenance conversion_time attribute
     #   dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
