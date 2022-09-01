@@ -4,7 +4,10 @@ import dask.array
 import dask
 import numpy as np
 
-const_dims = ['channel']
+const_dims = ['channel']  # those dimensions that should not be chunked
+time_dims = ['time1', 'time2', 'time3']  # those dimensions associated with time
+possible_dims = [] #const_dims + time_dims  # all possible dimensions we can encounter
+
 
 def get_ds_dims_info(ds_list):
 
@@ -20,35 +23,36 @@ def get_ds_dims_info(ds_list):
     return dims_sum, dims_csum, dims_max, dims_df
 
 
-def get_temp_arr_vals(dims, dims_max, dims_sum, dims_df):
+def get_temp_arr_vals(dims, dims_max, dims_sum):
 
     shape = [dims_max[dim] if dim in const_dims else dims_sum[dim] for dim in dims]
 
-    chnk_shape = [None if dim in const_dims else tuple(dims_df[dim].to_list()) for dim in dims]
+    chnk_shape = [None if dim in const_dims else dims_max[dim] for dim in dims]
 
     return shape, chnk_shape
 
 
-def constuct_lazy_ds(ds_model, dims_sum, dims_max, dims_df):
+def construct_lazy_ds(ds_model, dims_sum, dims_max):
 
     xr_dict = dict()
 
-    unwritten_vars = []
+    unwritten_dict = dict()
     for name, val in ds_model.variables.items():
 
-        if ('channel',) != val.dims:
-            shape, chnk_shape = get_temp_arr_vals(val.dims, dims_max, dims_sum, dims_df)
+        if (name not in possible_dims) and (val.dims != ('channel',)):  # TODO: hard coded, can we avoid it?
+            shape, chnk_shape = get_temp_arr_vals(val.dims, dims_max, dims_sum)
 
             temp_arr = dask.array.zeros(shape=shape, chunks=chnk_shape, dtype=val.dtype)
 
             xr_dict[name] = (val.dims, temp_arr, val.attrs)
 
         else:
-            unwritten_vars.append(name)
+            unwritten_dict[name] = val
 
     ds = xr.Dataset(xr_dict)
+    ds_unwritten = xr.Dataset(unwritten_dict)
 
-    return ds, unwritten_vars
+    return ds, ds_unwritten
 
 
 def get_region(ds_ind, dims_csum):
@@ -77,25 +81,52 @@ def get_fill_dict(ds_lazy):
     return fill_vals
 
 
-def direct_write(path, ds_list):
+def direct_write(path, ds_list, group):
 
     dims_sum, dims_csum, dims_max, dims_df = get_ds_dims_info(ds_list)
 
-    ds_lazy, unwritten_vars = constuct_lazy_ds(ds_list[0], dims_sum, dims_max, dims_df)
+    # TODO: Do check that all of the channels are the same and times don't overlap and they increase
+
+    ds_lazy, ds_unwritten = construct_lazy_ds(ds_list[0], dims_sum, dims_max)
 
     # set fill value for each of the arrays
     fill_vals = get_fill_dict(ds_lazy)
 
-    ds_lazy.to_zarr(path, compute=False, encoding=fill_vals)
+    print("group")
+    ds_lazy.to_zarr(path, compute=False, group=group, encoding=fill_vals, consolidated=True)
 
-    for i in range(len(ds_list)):
+    # variables to drop from each ds and write in later
+    drop_vars = list(ds_unwritten) + list(ds_unwritten.dims)
 
-        ds_list[i] = ds_list[i].drop(unwritten_vars)
+    for i in range(len(ds_list)):  # TODO: parallelize this loop
 
-        ds_list[i].to_zarr(path, region=get_region(i, dims_csum))
-        #TODO: figure out why time1 is not being correctly written to zarr
+        region = get_region(i, dims_csum)
+        ds_list[i].drop(drop_vars).to_zarr(path, group=group, region=region)
 
 
+    # TODO: maybe this will work for time:
+    # ds_lazy[0][["time1"]].to_zarr(path, group=grp_name, region={'time1': slice(0, 5923)})
+
+    # ds_opened = xr.open_zarr(path, group=group)
+    #
+    # dims_drop = set(ds_unwritten.dims).intersection(set(time_dims))
+    # for name, val in ds_unwritten.drop(dims_drop).items():
+    #     ds_opened[name] = val
+    #
+    # def func(ds):
+    #
+    #     return ds[time_dims]
+    #
+    # times = xr.concat(list(map(func, ds_lazy)), dim=time_dims, coords='all').drop("concat_dim")
+    #
+    # for time, val in times.coords.items():
+    #     ds_opened[time] = val
+
+
+
+    # TODO: add back in coordinates and attributes for dataset
+
+    # TODO: re-chunk the zarr store after everything has been added
 
 # def lazy_combine(path, eds):
 #
