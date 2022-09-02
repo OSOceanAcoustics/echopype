@@ -2,11 +2,12 @@ import xarray as xr
 import pandas as pd
 import dask.array
 import dask
-import numpy as np
+
 
 const_dims = ['channel']  # those dimensions that should not be chunked
 time_dims = ['time1', 'time2', 'time3']  # those dimensions associated with time
-possible_dims = [] #const_dims + time_dims  # all possible dimensions we can encounter
+possible_dims = const_dims + time_dims  # all possible dimensions we can encounter
+lazy_encodings = ["chunks", "preferred_chunks", "compressor"]
 
 
 def get_ds_dims_info(ds_list):
@@ -23,62 +24,54 @@ def get_ds_dims_info(ds_list):
     return dims_sum, dims_csum, dims_max, dims_df
 
 
-def get_temp_arr_vals(dims, dims_max, dims_sum):
+def get_temp_arr(dims, dtype, dims_max, dims_sum):
 
     shape = [dims_max[dim] if dim in const_dims else dims_sum[dim] for dim in dims]
 
-    chnk_shape = [None if dim in const_dims else dims_max[dim] for dim in dims]
+    chnk_shape = [dims_max[dim] for dim in dims]
 
-    return shape, chnk_shape
+    return dask.array.zeros(shape=shape, chunks=chnk_shape, dtype=dtype)
 
 
 def construct_lazy_ds(ds_model, dims_sum, dims_max):
 
-    xr_dict = dict()
-
-    unwritten_dict = dict()
+    xr_vars_dict = dict()
+    xr_coords_dict = dict()
     for name, val in ds_model.variables.items():
-
-        if (name not in possible_dims) and (val.dims != ('channel',)):  # TODO: hard coded, can we avoid it?
-            shape, chnk_shape = get_temp_arr_vals(val.dims, dims_max, dims_sum)
-
-            temp_arr = dask.array.zeros(shape=shape, chunks=chnk_shape, dtype=val.dtype)
-
-            xr_dict[name] = (val.dims, temp_arr, val.attrs)
+        if name not in possible_dims:
+            temp_arr = get_temp_arr(list(val.dims), val.dtype, dims_max, dims_sum)
+            xr_vars_dict[name] = (val.dims, temp_arr, val.attrs)
 
         else:
-            unwritten_dict[name] = val
+            temp_arr = get_temp_arr(list(val.dims), val.dtype, dims_max, dims_sum)
+            xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
 
-    ds = xr.Dataset(xr_dict)
-    ds_unwritten = xr.Dataset(unwritten_dict)
+    ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict)
 
-    return ds, ds_unwritten
+    # TODO: add ds attributes here?
+
+    return ds
 
 
-def get_region(ds_ind, dims_csum):
+def get_region(ds_ind, dims_csum, ds_dims):
 
     if ds_ind == 0:
-        region = {dim: slice(0, csum[ds_ind]) for dim, csum in dims_csum.items() if dim not in const_dims}
+        region = {dim: slice(0, dims_csum[dim][ds_ind]) for dim in ds_dims}
 
     else:
-        region = {dim: slice(csum[ds_ind-1], csum[ds_ind]) for dim, csum in dims_csum.items() if dim not in const_dims}
+        region = {dim: slice(dims_csum[dim][ds_ind-1], dims_csum[dim][ds_ind]) for dim in ds_dims}
 
     return region
 
 
-def get_fill_dict(ds_lazy):
+def get_ds_encodings(ds_model):
 
-    fill_vals = dict()
-    for var, val in ds_lazy.variables.items():
+    encodings = dict()
+    for name, val in ds_model.variables.items():
+        encodings[name] = {key: encod for key, encod in val.encoding.items() if
+                           key not in lazy_encodings}
 
-        if val.dtype == np.float64:
-            fill_vals[var] = {'_FillValue': np.nan}
-        elif val.dtype == np.dtype('<M8[ns]'):
-            fill_vals[var] = {'_FillValue': np.datetime64("NaT")}
-        else:
-            raise NotImplementedError("Setting fill value for dtype not implemented!")
-
-    return fill_vals
+    return encodings
 
 
 def direct_write(path, ds_list, group):
@@ -86,45 +79,37 @@ def direct_write(path, ds_list, group):
     dims_sum, dims_csum, dims_max, dims_df = get_ds_dims_info(ds_list)
 
     # TODO: Do check that all of the channels are the same and times don't overlap and they increase
+    #  may have an issue with time1 and NaT
 
-    ds_lazy, ds_unwritten = construct_lazy_ds(ds_list[0], dims_sum, dims_max)
+    ds_lazy = construct_lazy_ds(ds_list[0], dims_sum, dims_max)
 
-    # set fill value for each of the arrays
-    fill_vals = get_fill_dict(ds_lazy)
+    # get encodings for each of the arrays
+    encodings = get_ds_encodings(ds_list[0])
 
-    print("group")
-    ds_lazy.to_zarr(path, compute=False, group=group, encoding=fill_vals, consolidated=True)
+    ds_lazy.to_zarr(path, compute=False, group=group, encoding=encodings, consolidated=True)
 
-    # variables to drop from each ds and write in later
-    drop_vars = list(ds_unwritten) + list(ds_unwritten.dims)
+    # constant variables that will be written in later
+    const_vars = ["frequency_nominal", "channel"]  # TODO: generalize this!
+
+    print(f"const_vars = {const_vars}")
 
     for i in range(len(ds_list)):  # TODO: parallelize this loop
 
-        region = get_region(i, dims_csum)
-        ds_list[i].drop(drop_vars).to_zarr(path, group=group, region=region)
+        ds_dims = set(ds_list[i].dims) - set(const_vars)
+
+        region = get_region(i, dims_csum, ds_dims)
+        ds_list[i].drop(const_vars).to_zarr(path, group=group, region=region)
+
+    # write constant vars to zarr using the first element of ds_list
+    for var in const_vars:   # TODO: one should not parallelize this loop??
+
+        if var not in possible_dims:  # dims will be automatically filled in
+
+            region = get_region(0, dims_csum, list(ds_list[0][var].dims))
+            ds_list[0][[var]].to_zarr(path, group=group, region=region)
 
 
-    # TODO: maybe this will work for time:
-    # ds_lazy[0][["time1"]].to_zarr(path, group=grp_name, region={'time1': slice(0, 5923)})
-
-    # ds_opened = xr.open_zarr(path, group=group)
-    #
-    # dims_drop = set(ds_unwritten.dims).intersection(set(time_dims))
-    # for name, val in ds_unwritten.drop(dims_drop).items():
-    #     ds_opened[name] = val
-    #
-    # def func(ds):
-    #
-    #     return ds[time_dims]
-    #
-    # times = xr.concat(list(map(func, ds_lazy)), dim=time_dims, coords='all').drop("concat_dim")
-    #
-    # for time, val in times.coords.items():
-    #     ds_opened[time] = val
-
-
-
-    # TODO: add back in coordinates and attributes for dataset
+    # TODO: add back in attributes for dataset
 
     # TODO: re-chunk the zarr store after everything has been added
 
