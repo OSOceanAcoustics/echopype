@@ -4,9 +4,16 @@ import dask.array
 import dask
 
 
-const_dims = ['channel']  # those dimensions that should not be chunked
-time_dims = ['time1', 'time2', 'time3']  # those dimensions associated with time
-possible_dims = const_dims + time_dims  # all possible dimensions we can encounter
+# those dimensions that should not be chunked
+const_dims = ['channel', 'beam_group', 'beam', 'range_sample', 'pulse_length_bin']
+
+# those dimensions associated with time
+time_dims = ['time1', 'time2', 'time3', 'ping_time']
+
+# all possible dimensions we can encounter
+possible_dims = const_dims + time_dims
+
+# encodings associated with lazy loaded variables
 lazy_encodings = ["chunks", "preferred_chunks", "compressor"]
 
 
@@ -74,7 +81,23 @@ def get_ds_encodings(ds_model):
     return encodings
 
 
-def direct_write(path, ds_list, group):
+def get_constant_vars(ds_model):
+
+    dim_form = [(dim,) for dim in const_dims]
+
+    # account for Vendor_specific vars
+    dim_form.append(('channel', 'pulse_length_bin'))  # TODO: is there a better way?
+
+    const_vars = []
+    for name, val in ds_model.variables.items():
+
+        if val.dims in dim_form:
+            const_vars.append(name)
+
+    return const_vars
+
+
+def direct_write(path, ds_list, group, storage_options):
 
     dims_sum, dims_csum, dims_max, dims_df = get_ds_dims_info(ds_list)
 
@@ -86,10 +109,11 @@ def direct_write(path, ds_list, group):
     # get encodings for each of the arrays
     encodings = get_ds_encodings(ds_list[0])
 
-    ds_lazy.to_zarr(path, compute=False, group=group, encoding=encodings, consolidated=True)
+    ds_lazy.to_zarr(path, compute=False, group=group, encoding=encodings,
+                    consolidated=True, storage_options=storage_options)
 
     # constant variables that will be written in later
-    const_vars = ["frequency_nominal", "channel"]  # TODO: generalize this!
+    const_vars = get_constant_vars(ds_list[0])
 
     print(f"const_vars = {const_vars}")
 
@@ -98,20 +122,28 @@ def direct_write(path, ds_list, group):
         ds_dims = set(ds_list[i].dims) - set(const_vars)
 
         region = get_region(i, dims_csum, ds_dims)
-        ds_list[i].drop(const_vars).to_zarr(path, group=group, region=region)
+        ds_list[i].drop(const_vars).to_zarr(path, group=group, region=region,
+                                            storage_options=storage_options)
 
     # write constant vars to zarr using the first element of ds_list
     for var in const_vars:   # TODO: one should not parallelize this loop??
 
-        if var not in possible_dims:  # dims will be automatically filled in
+        # dims will be automatically filled when they occur in a variable
+        if (var not in possible_dims) or (var in ['beam', 'range_sample']):
 
             region = get_region(0, dims_csum, list(ds_list[0][var].dims))
-            ds_list[0][[var]].to_zarr(path, group=group, region=region)
+            ds_list[0][[var]].to_zarr(path, group=group, region=region,
+                                      storage_options=storage_options)
 
 
     # TODO: add back in attributes for dataset
+    # TODO: correctly add attribute keys for Provenance group
 
-    # TODO: re-chunk the zarr store after everything has been added
+    # TODO: need to consider the case where range_sample needs to be padded
+
+    # TODO: re-chunk the zarr store after everything has been added?
+
+    # TODO: is there a way we can preserve order in variables with writing?
 
 # def lazy_combine(path, eds):
 #
