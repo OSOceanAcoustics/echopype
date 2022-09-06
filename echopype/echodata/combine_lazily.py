@@ -1,8 +1,10 @@
-from .combine_preprocess import PreprocessCallable
-from echopype.echodata import EchoData
-from datatree import DataTree
 import xarray as xr
+from datatree import DataTree
 from fsspec.implementations.local import LocalFileSystem
+
+from echopype.echodata import EchoData
+
+from .combine_preprocess import PreprocessCallable
 
 # desired_raw_file_paths = fs.glob('OOI_zarrs_ep_ex/temp/*.zarr')
 
@@ -19,9 +21,11 @@ def get_ed_path_from_str(zarr_path: str, path: str):
     """
 
     # the names of the groups that are needed to get to path
-    all_grp_names = [elm for elm in path.split('/') if (elm not in zarr_path.split('/')) and (elm != '.zgroup')]
+    all_grp_names = [
+        elm for elm in path.split("/") if (elm not in zarr_path.split("/")) and (elm != ".zgroup")
+    ]
 
-    return '/'.join(all_grp_names)
+    return "/".join(all_grp_names)
 
 
 def get_zarr_grp_names(path: str, fs: LocalFileSystem) -> set:
@@ -30,14 +34,14 @@ def get_zarr_grp_names(path: str, fs: LocalFileSystem) -> set:
     """
 
     # grab all paths that have .zgroup
-    info = fs.glob(path + '/**.zgroup')
+    info = fs.glob(path + "/**.zgroup")
 
     # infer the group name based on the path
     ed_grp_name = {get_ed_path_from_str(path, entry) for entry in info}
 
     # remove the zarr file name and replace it with Top-level
-    if '' in ed_grp_name:
-        ed_grp_name.remove('')
+    if "" in ed_grp_name:
+        ed_grp_name.remove("")
         ed_grp_name.add(None)
 
     return ed_grp_name
@@ -52,8 +56,8 @@ def reassign_attrs(ed_comb: EchoData, common_grps: set):
 
         if (value["ep_group"] != "Provenance") and (value["ep_group"] in common_grps):
 
-            attr_var_name = group + '_attrs'
-            attr_coord_name = group + '_attr_key'
+            attr_var_name = group + "_attrs"
+            attr_coord_name = group + "_attr_key"
 
             if value["ep_group"]:
                 ed_grp = value["ep_group"]
@@ -64,15 +68,16 @@ def reassign_attrs(ed_comb: EchoData, common_grps: set):
             ed_comb["Provenance"][attr_var_name] = ed_comb[ed_grp][attr_var_name]
 
             # remove attribute variable and coords from group
-            ed_comb[ed_grp] = ed_comb[ed_grp].drop_vars([attr_var_name, attr_coord_name,
-                                                         'echodata_filename'])
+            ed_comb[ed_grp] = ed_comb[ed_grp].drop_vars(
+                [attr_var_name, attr_coord_name, "echodata_filename"]
+            )
 
 
 def lazy_combine(desired_raw_file_paths, fs):
 
     # TODO: test code when we have to do an expansion in range_sample
 
-    # initial strucuture for lazy combine
+    # initial structure for lazy combine
     tree_dict = {}
     result = EchoData()
 
@@ -88,19 +93,25 @@ def lazy_combine(desired_raw_file_paths, fs):
 
     # check that all zarrs have the same groups
     if any([common_grps.symmetric_difference(s) for s in file_grps]):
-        raise RuntimeError('All input files must have the same groups!')
+        raise RuntimeError("All input files must have the same groups!")
 
     for group, value in EchoData.group_map.items():
 
-        if (value["ep_group"] in common_grps):
+        if value["ep_group"] in common_grps:
 
             print(f"ed group = {value['ep_group']}")
 
             preprocess_obj.update_ed_group(group)
 
-            combined_group = xr.open_mfdataset(desired_raw_file_paths,
-                                               engine='zarr', coords='minimal', preprocess=preprocess_obj,
-                                               combine="nested", group=value["ep_group"], concat_dim=None)
+            combined_group = xr.open_mfdataset(
+                desired_raw_file_paths,
+                engine="zarr",
+                coords="minimal",
+                preprocess=preprocess_obj,
+                combine="nested",
+                group=value["ep_group"],
+                concat_dim=None,
+            )
 
             if value["ep_group"] is None:
                 tree_dict["/"] = combined_group
@@ -118,7 +129,6 @@ def lazy_combine(desired_raw_file_paths, fs):
     #   dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
 
     return result
-
 
 
 # How to construct  Provenance Group
