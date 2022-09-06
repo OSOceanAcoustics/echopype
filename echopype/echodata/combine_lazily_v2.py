@@ -1,9 +1,10 @@
 from typing import Dict, Hashable, List, Optional, Set
-
+from collections import defaultdict
 import dask
 import dask.array
 import pandas as pd
 import xarray as xr
+from .echodata import EchoData
 
 # TODO: make this a class and have dims info/below lists as a class variable
 
@@ -23,18 +24,24 @@ class LazyCombine:
         # encodings associated with lazy loaded variables
         self.lazy_encodings = ["chunks", "preferred_chunks", "compressor"]
 
-        # dictionary to hold every group's attributes
-        self.group_attrs = dict()
+        # defaultdict of defaultdicts that holds every group's attributes
+        self.group_attrs = defaultdict(lambda: defaultdict(list))
 
-    def _get_ds_dims_info(self, ds_list: List[xr.Dataset]) -> None:
+    def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
         """
         Constructs useful dictionaries that contain information
-        about the dimensions of the Dataset
+        about the dimensions of the Dataset. Additionally, collects
+        the attributes from each Dataset in ``ds_list`` and saves
+        this group specific information to the class variable
+        ``group_attrs``.
 
         Parameters
         ----------
         ds_list: List[xr.Dataset]
             The Datasets that will be combined
+        ed_name: str
+            The name of the EchoData group corresponding to the
+            Datasets in ``ds_list``
 
         Notes
         -----
@@ -60,7 +67,10 @@ class LazyCombine:
         self.dims_max = dims_df.max(axis=0).to_dict()
 
         # collect Dataset attributes
-        # [ds.attrs for count, ds in enumerate(ds_list)]
+        for count, ds in enumerate(ds_list):
+            if count == 0:
+                self.group_attrs[ed_name]['attr_key'].extend(ds.attrs.keys())
+            self.group_attrs[ed_name]['attrs'].append(list(ds.attrs.values()))
 
     def _get_temp_arr(self, dims: List[str], dtype: type) -> dask.array:
         """
@@ -136,9 +146,11 @@ class LazyCombine:
                 xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
 
         # construct lazy Dataset form
-        ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict)
+        ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict, attrs=ds_model.attrs)
 
-        # TODO: add ds attributes here and store all dataset attributes?
+        # TODO: add ds attributes here?
+
+        # TODO: do special case for Provenance, where we create attr variables
 
         return ds
 
@@ -243,7 +255,8 @@ class LazyCombine:
         return region
 
     def direct_write(
-        self, path: str, ds_list: List[xr.Dataset], group: str, storage_options: Optional[dict] = {}
+        self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
+            storage_options: Optional[dict] = {}
     ) -> None:
         """
         Creates a zarr store and then appends each Dataset
@@ -256,18 +269,23 @@ class LazyCombine:
             The full path of the final combined zarr store
         ds_list: List[xr.Dataset]
             The Datasets that will be combined
-        group: str
+        zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
+        ed_name: str
+            The name of the EchoData group corresponding to the
+            Datasets in ``ds_list``
         storage_options: Optional[dict]
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
 
-        self._get_ds_dims_info(ds_list)
+        self._get_ds_info(ds_list, ed_name)
 
         # TODO: Check that all of the channels are the same and times
         #  don't overlap and they increase may have an issue with time1 and NaT
+
+        # TODO: check for and correct reversed time
 
         ds_lazy = self._construct_lazy_ds(ds_list[0])
 
@@ -277,7 +295,7 @@ class LazyCombine:
         ds_lazy.to_zarr(
             path,
             compute=False,
-            group=group,
+            group=zarr_group,
             encoding=encodings,
             consolidated=True,
             storage_options=storage_options,
@@ -286,7 +304,7 @@ class LazyCombine:
         # constant variables that will be written later
         const_vars = self._get_constant_vars(ds_list[0])
 
-        print(f"const_vars = {const_vars}")
+        # print(f"const_vars = {const_vars}")
 
         # write each non-constant variable in ds_list to the zarr store
         for ind, ds in enumerate(ds_list):  # TODO: parallelize this loop
@@ -297,7 +315,7 @@ class LazyCombine:
             region = self._get_region(ind, ds_dims)
 
             ds.drop(const_vars).to_zarr(
-                path, group=group, region=region, storage_options=storage_options
+                path, group=zarr_group, region=region, storage_options=storage_options
             )
 
         # TODO: do a blocking call here, once we parallelize
@@ -311,20 +329,41 @@ class LazyCombine:
                 region = self._get_region(0, set(ds_list[0][var].dims))
 
                 ds_list[0][[var]].to_zarr(
-                    path, group=group, region=region, storage_options=storage_options
+                    path, group=zarr_group, region=region, storage_options=storage_options
                 )
+
+        # TODO: need to consider the case where range_sample needs to be padded?
+        # TODO: is there a way we can preserve order in variables with writing?
+
+    def combine(self, path: str, eds: List[EchoData], storage_options: Optional[dict] = {}):
+
+        for grp_info in EchoData.group_map.values():
+
+            print(grp_info)
+
+            if grp_info['ep_group']:
+                ed_group = grp_info['ep_group']
+            else:
+                ed_group = "Top-level"
+
+            zarr_group = grp_info['ep_group']
+
+            ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+
+            if ds_list:
+                print(ed_group, zarr_group)
+
+                self.direct_write(path,
+                                  ds_list=ds_list,
+                                  zarr_group=zarr_group, ed_name=ed_group, storage_options=storage_options)
 
         # TODO: add back in attributes for dataset
         # TODO: correctly add attribute keys for Provenance group
-
-        # TODO: need to consider the case where range_sample needs to be padded?
-
         # TODO: re-chunk the zarr store after everything has been added?
 
-        # TODO: is there a way we can preserve order in variables with writing?
+        # TODO: do provenance group last
+        # temp = {key: {"dims": ["echodata_filename"], "data": val} for key, val in self.group_attrs.items()}
+        # xr.Dataset.from_dict(temp)
 
-    # def lazy_combine(path, eds):
-    #
-
-    # TODO: do direct_write(path, ds_list) for each group in eds
-    #  then do open_converted(path) --> here we could re-chunk?
+        # TODO: do direct_write(path, ds_list) for each group in eds
+        #  then do open_converted(path) --> here we could re-chunk?
