@@ -24,8 +24,8 @@ class LazyCombine:
         # encodings associated with lazy loaded variables
         self.lazy_encodings = ["chunks", "preferred_chunks", "compressor"]
 
-        # defaultdict of defaultdicts that holds every group's attributes
-        self.group_attrs = defaultdict(lambda: defaultdict(list))
+        # defaultdict that holds every group's attributes
+        self.group_attrs = defaultdict(list)
 
     def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
         """
@@ -66,11 +66,16 @@ class LazyCombine:
         self.dims_csum = dims_df.cumsum(axis=0).to_dict()
         self.dims_max = dims_df.max(axis=0).to_dict()
 
+        # format ed_name appropriately
+        ed_name = ed_name.replace('-', '_').replace('/', '_').lower()
+
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
             if count == 0:
-                self.group_attrs[ed_name]['attr_key'].extend(ds.attrs.keys())
-            self.group_attrs[ed_name]['attrs'].append(list(ds.attrs.values()))
+                self.group_attrs[ed_name + '_attr_key'].extend(ds.attrs.keys())
+            self.group_attrs[ed_name + '_attrs'].append(list(ds.attrs.values()))
+
+        # TODO: document/bring up that I changed naming scheme of attributes
 
     def _get_temp_arr(self, dims: List[str], dtype: type) -> dask.array:
         """
@@ -304,21 +309,26 @@ class LazyCombine:
         # constant variables that will be written later
         const_vars = self._get_constant_vars(ds_list[0])
 
-        # print(f"const_vars = {const_vars}")
+        to_zarr_compute = True
+
+        print(f"to_zarr_compute = {to_zarr_compute}")
 
         # write each non-constant variable in ds_list to the zarr store
-        for ind, ds in enumerate(ds_list):  # TODO: parallelize this loop
+        delayed_to_zarr = []
+        for ind, ds in enumerate(ds_list):
 
             # obtain the names of all ds dimensions that are not constant
             ds_dims = set(ds.dims) - set(const_vars)
 
             region = self._get_region(ind, ds_dims)
 
-            ds.drop(const_vars).to_zarr(
-                path, group=zarr_group, region=region, storage_options=storage_options
-            )
+            delayed_to_zarr.append(ds.drop(const_vars).to_zarr(
+                path, group=zarr_group, region=region, storage_options=storage_options, compute=to_zarr_compute
+            ))
+            # TODO: see if compression is occurring, maybe mess with encoding.
 
-        # TODO: do a blocking call here, once we parallelize
+        if not to_zarr_compute:
+            dask.compute(*delayed_to_zarr)
 
         # write constant vars to zarr using the first element of ds_list
         for var in const_vars:  # TODO: one should not parallelize this loop??
@@ -339,23 +349,23 @@ class LazyCombine:
 
         for grp_info in EchoData.group_map.values():
 
-            print(grp_info)
+            # print(grp_info)
 
             if grp_info['ep_group']:
                 ed_group = grp_info['ep_group']
             else:
                 ed_group = "Top-level"
 
-            zarr_group = grp_info['ep_group']
-
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
             if ds_list:
-                print(ed_group, zarr_group)
+
+                print(f"ed_group = {ed_group}")
 
                 self.direct_write(path,
                                   ds_list=ds_list,
-                                  zarr_group=zarr_group, ed_name=ed_group, storage_options=storage_options)
+                                  zarr_group=grp_info['ep_group'],
+                                  ed_name=ed_group, storage_options=storage_options)
 
         # TODO: add back in attributes for dataset
         # TODO: correctly add attribute keys for Provenance group
