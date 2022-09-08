@@ -5,13 +5,20 @@ import dask.array
 import pandas as pd
 import xarray as xr
 from .echodata import EchoData
+from .api import open_converted
 import zarr
 from numcodecs import blosc
+from ..utils.prov import echopype_prov_attrs
+from warnings import warn
 
-# TODO: make this a class and have dims info/below lists as a class variable
 
+class ZarrCombine:
+    """
+    A class that combines a list of EchoData objects by
+    creating a Zarr store and appending each group's
+    Dataset to the store.
+    """
 
-class LazyCombine:
     def __init__(self):
 
         # those dimensions that should not be chunked
@@ -76,8 +83,6 @@ class LazyCombine:
             if count == 0:
                 self.group_attrs[ed_name + '_attr_key'].extend(ds.attrs.keys())
             self.group_attrs[ed_name + '_attrs'].append(list(ds.attrs.values()))
-
-        # TODO: document/bring up that I changed naming scheme of attributes
 
     def _get_temp_arr(self, dims: List[str], dtype: type) -> dask.array:
         """
@@ -154,10 +159,6 @@ class LazyCombine:
 
         # construct lazy Dataset form
         ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict, attrs=ds_model.attrs)
-
-        # TODO: add ds attributes here?
-
-        # TODO: do special case for Provenance, where we create attr variables
 
         return ds
 
@@ -261,7 +262,7 @@ class LazyCombine:
 
         return region
 
-    def direct_write(
+    def _append_ds_list_to_zarr(
         self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
             storage_options: Optional[dict] = {}, to_zarr_compute: bool = True
     ) -> None:
@@ -327,7 +328,7 @@ class LazyCombine:
             # TODO: see if compression is occurring, maybe mess with encoding.
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr)
+            dask.compute(*delayed_to_zarr)  # TODO: maybe use persist in the future?
 
         # write constant vars to zarr using the first element of ds_list
         for var in const_vars:  # TODO: one should not parallelize this loop??
@@ -343,9 +344,54 @@ class LazyCombine:
                 )
 
         # TODO: need to consider the case where range_sample needs to be padded?
-        # TODO: is there a way we can preserve order in variables with writing?
 
-    def combine(self, path: str, eds: List[EchoData], storage_options: Optional[dict] = {}):
+    def _append_provenance_attr_vars(self, path: str, storage_options: Optional[dict] = {}) -> None:
+        """
+        Creates an xarray Dataset with variables set as the attributes
+        from all groups before the combination. Additionally, appends
+        this Dataset to the ``Provenance`` group located in the zarr
+        store specified by ``path``.
+
+        Parameters
+        ----------
+        path: str
+            The full path of the final combined zarr store
+        storage_options: Optional[dict]
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        """
+
+        xr_dict = dict()
+        for name, val in self.group_attrs.items():
+
+            if "attrs" in name:
+
+                # create Dataset variables
+                coord_name = name[:-1] + "_key"
+                xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
+
+            else:
+
+                # create Dataset coordinates
+                xr_dict[name] = {"dims": [name], "data": val}
+
+        # construct Dataset and assign Provenance attributes
+        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("conversion"))
+
+        # append Dataset to zarr
+        all_ds_attrs.to_zarr(path, group="Provenance", mode="a",
+                             storage_options=storage_options, consolidated=True)
+
+    def combine(self, path: str, eds: List[EchoData] = None,
+                storage_options: Optional[dict] = {}) -> EchoData:
+
+        # return empty EchoData object, if no EchoData objects are provided
+        if (isinstance(eds, list) and len(eds) == 0) or (not eds):
+            warn("No EchoData objects were provided, returning an empty EchoData object.")
+            return EchoData()
+
+        # collect filenames associated with EchoData objects
+        self.group_attrs["echodata_filename"].extend([str(ed.source_file) if ed.source_file is not None else str(ed.converted_raw_path) for ed in eds])
 
         to_zarr_compute = False
 
@@ -355,8 +401,6 @@ class LazyCombine:
         blosc.use_threads = False
 
         for grp_info in EchoData.group_map.values():
-
-            # print(grp_info)
 
             if grp_info['ep_group']:
                 ed_group = grp_info['ep_group']
@@ -369,21 +413,19 @@ class LazyCombine:
 
                 print(f"ed_group = {ed_group}")
 
-                self.direct_write(path,
-                                  ds_list=ds_list,
-                                  zarr_group=grp_info['ep_group'],
-                                  ed_name=ed_group, storage_options=storage_options, to_zarr_compute=to_zarr_compute)
+                self._append_ds_list_to_zarr(path, ds_list=ds_list, zarr_group=grp_info['ep_group'],
+                                             ed_name=ed_group, storage_options=storage_options,
+                                             to_zarr_compute=to_zarr_compute)
 
-        # TODO: add back in attributes for dataset
-        # TODO: correctly add attribute keys for Provenance group
+        # append all group attributes before combination to zarr store
+        self._append_provenance_attr_vars(path, storage_options=storage_options)
+
         # TODO: re-chunk the zarr store after everything has been added?
-
-        # TODO: do provenance group last
-        # temp = {key: {"dims": ["echodata_filename"], "data": val} for key, val in self.group_attrs.items()}
-        # xr.Dataset.from_dict(temp)
-
-        # TODO: do direct_write(path, ds_list) for each group in eds
-        #  then do open_converted(path) --> here we could re-chunk?
 
         # re-enable automatic switching (the default behavior)
         blosc.use_threads = None
+
+        # open lazy loaded combined EchoData object
+        ed_combined = open_converted(path)
+
+        return ed_combined
