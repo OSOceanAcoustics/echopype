@@ -382,11 +382,17 @@ class ZarrCombine:
         all_ds_attrs.to_zarr(path, group="Provenance", mode="a",
                              storage_options=storage_options, consolidated=True)
 
-    def combine(self, path: str, eds: List[EchoData] = None,
+    def combine(self, path: str, eds: List[EchoData] = [],
                 storage_options: Optional[dict] = {}) -> EchoData:
 
+        if not isinstance(eds, list):
+            raise TypeError("The input, eds, must be a list of EchoData objects!")
+
+        if not isinstance(path, str):
+            raise TypeError("The input, path, must be a string!")
+
         # return empty EchoData object, if no EchoData objects are provided
-        if (isinstance(eds, list) and len(eds) == 0) or (not eds):
+        if not eds:
             warn("No EchoData objects were provided, returning an empty EchoData object.")
             return EchoData()
 
