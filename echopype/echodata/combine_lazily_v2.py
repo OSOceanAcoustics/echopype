@@ -5,6 +5,8 @@ import dask.array
 import pandas as pd
 import xarray as xr
 from .echodata import EchoData
+import zarr
+from numcodecs import blosc
 
 # TODO: make this a class and have dims info/below lists as a class variable
 
@@ -261,7 +263,7 @@ class LazyCombine:
 
     def direct_write(
         self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
-            storage_options: Optional[dict] = {}
+            storage_options: Optional[dict] = {}, to_zarr_compute: bool = True
     ) -> None:
         """
         Creates a zarr store and then appends each Dataset
@@ -303,15 +305,11 @@ class LazyCombine:
             group=zarr_group,
             encoding=encodings,
             consolidated=True,
-            storage_options=storage_options,
+            storage_options=storage_options, synchronizer=zarr.ThreadSynchronizer()
         )
 
         # constant variables that will be written later
         const_vars = self._get_constant_vars(ds_list[0])
-
-        to_zarr_compute = True
-
-        print(f"to_zarr_compute = {to_zarr_compute}")
 
         # write each non-constant variable in ds_list to the zarr store
         delayed_to_zarr = []
@@ -323,7 +321,8 @@ class LazyCombine:
             region = self._get_region(ind, ds_dims)
 
             delayed_to_zarr.append(ds.drop(const_vars).to_zarr(
-                path, group=zarr_group, region=region, storage_options=storage_options, compute=to_zarr_compute
+                path, group=zarr_group, region=region, storage_options=storage_options, compute=to_zarr_compute,
+                synchronizer=zarr.ThreadSynchronizer()
             ))
             # TODO: see if compression is occurring, maybe mess with encoding.
 
@@ -339,13 +338,21 @@ class LazyCombine:
                 region = self._get_region(0, set(ds_list[0][var].dims))
 
                 ds_list[0][[var]].to_zarr(
-                    path, group=zarr_group, region=region, storage_options=storage_options
+                    path, group=zarr_group, region=region, storage_options=storage_options,
+                    synchronizer=zarr.ThreadSynchronizer()
                 )
 
         # TODO: need to consider the case where range_sample needs to be padded?
         # TODO: is there a way we can preserve order in variables with writing?
 
     def combine(self, path: str, eds: List[EchoData], storage_options: Optional[dict] = {}):
+
+        to_zarr_compute = False
+
+        print(f"to_zarr_compute = {to_zarr_compute}")
+
+        # tell Blosc to runs in single-threaded contextual mode (necessary for parallel)
+        blosc.use_threads = False
 
         for grp_info in EchoData.group_map.values():
 
@@ -365,7 +372,7 @@ class LazyCombine:
                 self.direct_write(path,
                                   ds_list=ds_list,
                                   zarr_group=grp_info['ep_group'],
-                                  ed_name=ed_group, storage_options=storage_options)
+                                  ed_name=ed_group, storage_options=storage_options, to_zarr_compute=to_zarr_compute)
 
         # TODO: add back in attributes for dataset
         # TODO: correctly add attribute keys for Provenance group
@@ -377,3 +384,6 @@ class LazyCombine:
 
         # TODO: do direct_write(path, ds_list) for each group in eds
         #  then do open_converted(path) --> here we could re-chunk?
+
+        # re-enable automatic switching (the default behavior)
+        blosc.use_threads = None
