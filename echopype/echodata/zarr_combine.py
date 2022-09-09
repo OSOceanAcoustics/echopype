@@ -1,13 +1,15 @@
-from typing import Dict, Hashable, List, Optional, Set
+from typing import Dict, Hashable, List, Optional, Set, Tuple, Any
 from collections import defaultdict
 import dask
 import dask.array
+import dask.distributed
 import pandas as pd
 import xarray as xr
 from .echodata import EchoData
 from .api import open_converted
 import zarr
 from numcodecs import blosc
+from numcodecs import Zstd
 from ..utils.prov import echopype_prov_attrs
 from warnings import warn
 
@@ -21,14 +23,8 @@ class ZarrCombine:
 
     def __init__(self):
 
-        # those dimensions that should not be chunked
-        self.const_dims = ["channel", "beam_group", "beam", "range_sample", "pulse_length_bin"]
-
-        # those dimensions associated with time
-        self.time_dims = ["time1", "time2", "time3", "ping_time"]
-
-        # all possible dimensions we can encounter
-        self.possible_dims = self.const_dims + self.time_dims
+        # all possible dimensions that we will append to (mainly time dims)
+        self.append_dims = {"time1", "time2", "time3", "ping_time", "filenames"}
 
         # encodings associated with lazy loaded variables
         self.lazy_encodings = ["chunks", "preferred_chunks", "compressor"]
@@ -111,7 +107,7 @@ class ZarrCombine:
         # Create the shape of the variable in its final combined
         # form (padding occurs here)  # TODO: make sure this is true
         shape = [
-            self.dims_max[dim] if dim in self.const_dims else self.dims_sum[dim] for dim in dims
+            self.dims_sum[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims
         ]
 
         # Create the chunk shape of the variable
@@ -119,10 +115,14 @@ class ZarrCombine:
 
         return dask.array.zeros(shape=shape, chunks=chnk_shape, dtype=dtype)
 
-    def _construct_lazy_ds(self, ds_model: xr.Dataset) -> xr.Dataset:
+    def _construct_lazy_ds_and_var_info(self, ds_model: xr.Dataset) -> Tuple[xr.Dataset, List[str], Dict[str, dict]]:
         """
         Constructs a lazy Dataset representing the EchoData group
-        Dataset in its final combined form.
+        Dataset in its final combined form. Additionally, collects
+        all variable and dimension names that are constant across
+        the Datasets to be combined, and collects the encodings for
+        all variables and dimensions that will be written to the
+        zarr store by regions
 
         Parameters
         ----------
@@ -132,9 +132,15 @@ class ZarrCombine:
 
         Returns
         -------
-        xr.Dataset
+        ds: xr.Dataset
             A lazy Dataset representing the EchoData group Dataset in
             its final combined form
+        const_names: List[str]
+            The names of all variables and dimensions that are constant
+            across all Datasets to be combined
+        encodings: Dict[str, dict]
+            The encodings for all variables and dimensions that will be
+            written to the zarr store by regions
 
         Notes
         -----
@@ -144,88 +150,46 @@ class ZarrCombine:
 
         xr_vars_dict = dict()
         xr_coords_dict = dict()
+        encodings = dict()
+        const_names = []
         for name, val in ds_model.variables.items():
-            if name not in self.possible_dims:
+
+            # get all dimensions of val that are also append dimensions
+            append_dims_in_val = set(val.dims).intersection(self.append_dims)
+
+            if (not append_dims_in_val) or (name in ds_model.dims):
+
+                # collect the names of all constant variables/dimensions
+                const_names.append(str(name))
+
+            elif name not in ds_model.dims:
 
                 # create lazy DataArray representations corresponding to the variables
                 temp_arr = self._get_temp_arr(list(val.dims), val.dtype)
                 xr_vars_dict[name] = (val.dims, temp_arr, val.attrs)
 
-            else:
+                encodings[str(name)] = {
+                    key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
+                }
+                encodings[str(name)]["compressor"] = Zstd(level=1)
 
-                # create lazy DataArray representations corresponding to the coordinates
-                temp_arr = self._get_temp_arr(list(val.dims), val.dtype)
-                xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
+            # elif name in self.append_dims:
+            #
+            #     # create lazy DataArray for those coordinates that can be appended to
+            #     temp_arr = self._get_temp_arr(list(val.dims), val.dtype)
+            #     xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
+            #
+            #     encodings[str(name)] = {
+            #         key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
+            #     }
+            #
+            #     encodings[str(name)]["compressor"] = Zstd(level=1)
 
         # construct lazy Dataset form
-        ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict, attrs=ds_model.attrs)
+        # ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict, attrs=ds_model.attrs)
+        ds = xr.Dataset(xr_vars_dict, attrs=ds_model.attrs)
 
-        return ds
-
-    def _get_ds_encodings(self, ds_model: xr.Dataset) -> Dict[Hashable, dict]:
-        """
-        Obtains the encodings needed for each variable
-        of the lazy Dataset form.
-
-        Parameters
-        ----------
-        ds_model: xr.Dataset
-            The Dataset that we modelled our lazy Dataset after. In practice,
-            this is the first element in the list of Datasets to be combined.
-
-        Returns
-        -------
-        encodings: Dict[Hashable, dict]
-            The keys are a string representing the variable name and the
-            values are a dictionary of the corresponding encodings
-
-        Notes
-        -----
-        The encodings corresponding to the lazy encodings (e.g. compressor)
-        should not be included here, these will be generated by `to_zarr`.
-        """
-
-        encodings = dict()
-        for name, val in ds_model.variables.items():
-
-            # get all encodings except the lazy encodings
-            encodings[name] = {
-                key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
-            }
-
-        return encodings
-
-    def _get_constant_vars(self, ds_model: xr.Dataset) -> list:
-        """
-        Obtains all variable and dimension names that will
-        be the same across all Datasets that will be combined.
-
-        Parameters
-        ----------
-        ds_model: xr.Dataset
-            The Dataset that we modelled our lazy Dataset after. In practice,
-            this is the first element in the list of Datasets to be combined.
-
-        Returns
-        -------
-        const_vars: list
-            Variable and dimension names that will be the same across all
-            Datasets that will be combined.
-        """
-
-        # obtain the form of the dimensions for each constant variable
-        dim_form = [(dim,) for dim in self.const_dims]
-
-        # account for Vendor_specific variables
-        dim_form.append(("channel", "pulse_length_bin"))  # TODO: is there a better way?
-
-        # obtain all constant variables and dimensions
-        const_vars = []
-        for name, val in ds_model.variables.items():
-            if val.dims in dim_form:
-                const_vars.append(name)
-
-        return const_vars
+        return ds, const_names, encodings
 
     def _get_region(self, ds_ind: int, ds_dims: Set[Hashable]) -> Dict[str, slice]:
         """
@@ -245,22 +209,42 @@ class ZarrCombine:
         region: Dict[str, slice]
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
+
+        Notes
+        -----
+        Only append dimensions should show up in the region result.
         """
 
         if ds_ind == 0:
 
             # get the initial region
-            region = {dim: slice(0, self.dims_csum[dim][ds_ind]) for dim in ds_dims}
+            region = {dim: slice(0, self.dims_csum[dim][ds_ind]) for dim in ds_dims if dim in self.append_dims}
 
         else:
 
             # get all other regions
             region = {
                 dim: slice(self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind])
-                for dim in ds_dims
+                for dim in ds_dims if dim in self.append_dims
             }
 
         return region
+
+    @dask.delayed
+    def _append_const_vars_to_zarr(self, const_vars, ds_list, path, zarr_group, storage_options):
+
+        # write constant vars to zarr using the first element of ds_list
+        for var in const_vars:
+
+            print(f"writing constant vars = {var}")
+
+            # # dims will be automatically filled when they occur in a variable
+            # if (var not in self.possible_dims) or (var in ["beam", "range_sample"]):
+            #     region = self._get_region(0, set(ds_list[0][var].dims))
+            #
+            #     ds_list[0][[var]].to_zarr(
+            #         path, group=zarr_group, region=region, storage_options=storage_options
+            #     )
 
     def _append_ds_list_to_zarr(
         self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
@@ -295,9 +279,7 @@ class ZarrCombine:
 
         # TODO: check for and correct reversed time
 
-        ds_lazy = self._construct_lazy_ds(ds_list[0])
-
-        encodings = self._get_ds_encodings(ds_list[0])
+        ds_lazy, const_names, encodings = self._construct_lazy_ds_and_var_info(ds_list[0])
 
         # create zarr file and all associated metadata (this is delayed)
         ds_lazy.to_zarr(
@@ -309,19 +291,15 @@ class ZarrCombine:
             storage_options=storage_options, synchronizer=zarr.ThreadSynchronizer()
         )
 
-        # constant variables that will be written later
-        const_vars = self._get_constant_vars(ds_list[0])
+        print(f"const_names = {const_names}")
 
         # write each non-constant variable in ds_list to the zarr store
         delayed_to_zarr = []
         for ind, ds in enumerate(ds_list):
 
-            # obtain the names of all ds dimensions that are not constant
-            ds_dims = set(ds.dims) - set(const_vars)
+            region = self._get_region(ind, set(ds.dims))
 
-            region = self._get_region(ind, ds_dims)
-
-            delayed_to_zarr.append(ds.drop(const_vars).to_zarr(
+            delayed_to_zarr.append(ds.drop(const_names).to_zarr(
                 path, group=zarr_group, region=region, storage_options=storage_options, compute=to_zarr_compute,
                 synchronizer=zarr.ThreadSynchronizer()
             ))
@@ -329,19 +307,30 @@ class ZarrCombine:
 
         if not to_zarr_compute:
             dask.compute(*delayed_to_zarr)  # TODO: maybe use persist in the future?
+            # futures = dask.distributed.get_client().submit()
+            # dask.distributed.get_client().wait_for_workers()
 
-        # write constant vars to zarr using the first element of ds_list
-        for var in const_vars:  # TODO: one should not parallelize this loop??
+        # # write constant vars to zarr using the first element of ds_list
+        # for var in const_vars:
+        #
+        #     print(f"writing constant vars = {var}")
+        #
+        #     # dims will be automatically filled when they occur in a variable
+        #     if (var not in self.possible_dims) or (var in ["beam", "range_sample"]):
+        #
+        #         region = self._get_region(0, set(ds_list[0][var].dims))
+        #
+        #         ds_list[0][[var]].to_zarr(
+        #             path, group=zarr_group, region=region, storage_options=storage_options
+        #         )
 
-            # dims will be automatically filled when they occur in a variable
-            if (var not in self.possible_dims) or (var in ["beam", "range_sample"]):
+        delayed_const_append = self._append_const_vars_to_zarr(const_names, ds_list,
+                                                               path, zarr_group, storage_options)
 
-                region = self._get_region(0, set(ds_list[0][var].dims))
+        # TODO: figure things out when to_zarr_compute == True
 
-                ds_list[0][[var]].to_zarr(
-                    path, group=zarr_group, region=region, storage_options=storage_options,
-                    synchronizer=zarr.ThreadSynchronizer()
-                )
+        # if not to_zarr_compute:
+        #     dask.compute(delayed_const_append)
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
@@ -403,8 +392,16 @@ class ZarrCombine:
 
         print(f"to_zarr_compute = {to_zarr_compute}")
 
-        # tell Blosc to runs in single-threaded contextual mode (necessary for parallel)
-        blosc.use_threads = False
+        def set_blosc_thread_options(dask_worker, single_thread: bool):
+
+            if single_thread:
+                # tell Blosc to runs in single-threaded contextual mode (necessary for parallel)
+                blosc.use_threads = False
+            else:
+                # re-enable automatic switching (the default behavior)
+                blosc.use_threads = None
+
+        # dask.distributed.get_client().run(set_blosc_thread_options, single_thread=True)
 
         for grp_info in EchoData.group_map.values():
 
@@ -424,14 +421,15 @@ class ZarrCombine:
                                              to_zarr_compute=to_zarr_compute)
 
         # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(path, storage_options=storage_options)
+        # self._append_provenance_attr_vars(path, storage_options=storage_options)  # TODO: this should be delayed!
 
         # TODO: re-chunk the zarr store after everything has been added?
 
         # re-enable automatic switching (the default behavior)
-        blosc.use_threads = None
+        # dask.distributed.get_client().run(set_blosc_thread_options, single_thread=False)
 
-        # open lazy loaded combined EchoData object
-        ed_combined = open_converted(path)
 
-        return ed_combined
+        # # open lazy loaded combined EchoData object
+        # ed_combined = open_converted(path)
+
+        return #ed_combined
