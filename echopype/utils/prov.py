@@ -27,7 +27,9 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     return prov_dict
 
 
-def source_files_vars(source_paths: Union[str, List[Any]]) -> Tuple[Dict[str, Tuple], Dict[str, Tuple]]:
+def source_files_vars(
+    source_paths: Union[str, List[Any]]
+) -> Tuple[Dict[str, Tuple], Dict[str, Tuple]]:
     """
     Create source_filenames provenance variable dict to be used for creating
     xarray dataarray.

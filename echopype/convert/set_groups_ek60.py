@@ -119,7 +119,7 @@ class SetGroupsEK60(SetGroupsBase):
                     "old_ping_time": self.old_ping_time,
                     **source_files_var,
                 },
-                coords=source_files_coord
+                coords=source_files_coord,
             )
         else:
             ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
