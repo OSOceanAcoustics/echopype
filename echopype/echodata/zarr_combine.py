@@ -8,8 +8,10 @@ import xarray as xr
 from .echodata import EchoData
 from .api import open_converted
 import zarr
+import numpy as np
 from ..utils.prov import echopype_prov_attrs
 from warnings import warn
+from .combine import check_echodatas_input, check_and_correct_reversed_time
 
 
 class ZarrCombine:
@@ -21,14 +23,69 @@ class ZarrCombine:
 
     def __init__(self):
 
+        # all possible time dimensions
+        self.possible_time_dims = {"time1", "time2", "time3", "ping_time"}
+
         # all possible dimensions that we will append to (mainly time dims)
-        self.append_dims = {"time1", "time2", "time3", "ping_time", "filenames"}
+        self.append_dims = {"filenames"}.union(self.possible_time_dims)
 
         # encodings associated with lazy loaded variables
         self.lazy_encodings = ["chunks", "preferred_chunks"]
 
         # defaultdict that holds every group's attributes
         self.group_attrs = defaultdict(list)
+
+        self.sonar_model = None
+
+    def _check_ds_times(self, ds_list: List[xr.Dataset], ed_name: str):
+
+        ed_time_dim = set(ds_list[0].dims).intersection(self.possible_time_dims)
+
+        for time in ed_time_dim:
+
+            max_time = [ds[time].max().values for ds in ds_list]
+            min_time = [ds[time].min().values for ds in ds_list]
+
+            max_all_nan = all(np.isnan(max_time))
+            min_all_nan = all(np.isnan(min_time))
+
+            # checks to see that times are in ascending order
+            if max_time[:-1] > min_time[1:] and (not max_all_nan) and (not min_all_nan):
+
+                raise RuntimeError(f"The coordinate {time} is not in ascending order for group {ed_name}, combine cannot be used!")
+
+
+            # TODO: check and store time values
+            for ds in ds_list:
+                old_time = check_and_correct_reversed_time(ds, time_str=str(time), sonar_model=self.sonar_model)
+
+                print(f"old_time = {old_time}, group = {ed_name}")
+
+    def _check_channels(self, ds_list: List[xr.Dataset], ed_name: str):
+        """
+        Makes sure that each Dataset in ``ds_list`` has the
+        same number of channels and the same name for each
+        of these channels.
+
+        """
+
+        # TODO: document this!
+
+        if "channel" in ds_list[0].dims:
+
+            # check to make sure we have the same number of channels in each ds
+            if np.unique([len(ds["channel"].values) for ds in ds_list]).size == 1:
+
+                # make each array an element of a numpy array
+                channel_arrays = np.array([ds["channel"].values for ds in ds_list])
+
+                # check for unique rows
+                if np.unique(channel_arrays, axis=0).shape[0] > 1:
+
+                    raise RuntimeError(f"All {ed_name} groups do not have that same channel coordinate, combine cannot be used!")
+
+            else:
+                raise RuntimeError(f"All {ed_name} groups do not have that same number of channel coordinates, combine cannot be used!")
 
     def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
         """
@@ -60,6 +117,9 @@ class ZarrCombine:
             Keys as the dimension name and values as the corresponding
             maximum length across all Datasets
         """
+
+        self._check_ds_times(ds_list, ed_name)
+        self._check_channels(ds_list, ed_name)
 
         # Dataframe with column as dim names and rows as the different Datasets
         self.dims_df = pd.DataFrame([ds.dims for ds in ds_list])
@@ -418,8 +478,7 @@ class ZarrCombine:
             warn("No EchoData objects were provided, returning an empty EchoData object.")
             return EchoData()
 
-        # collect filenames associated with EchoData objects
-        self.group_attrs["echodata_filename"].extend([str(ed.source_file) if ed.source_file is not None else str(ed.converted_raw_path) for ed in eds])
+        self.sonar_model, self.group_attrs["echodata_filename"] = check_echodatas_input(eds)
 
         to_zarr_compute = False
 
@@ -448,5 +507,5 @@ class ZarrCombine:
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(path)
-        #
+
         return ed_combined
