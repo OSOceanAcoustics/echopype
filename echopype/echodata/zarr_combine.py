@@ -1,17 +1,19 @@
-from typing import Dict, Hashable, List, Optional, Set, Tuple, Any
 from collections import defaultdict
+from typing import Dict, Hashable, List, Optional, Set, Tuple
+from warnings import warn
+
 import dask
 import dask.array
 import dask.distributed
+import numpy as np
 import pandas as pd
 import xarray as xr
-from .echodata import EchoData
-from .api import open_converted
 import zarr
-import numpy as np
+
 from ..utils.prov import echopype_prov_attrs
-from warnings import warn
-from .combine import check_echodatas_input, check_and_correct_reversed_time
+from .api import open_converted
+from .combine import check_echodatas_input  # , check_and_correct_reversed_time
+from .echodata import EchoData
 
 
 class ZarrCombine:
@@ -54,17 +56,22 @@ class ZarrCombine:
             # checks to see that times are in ascending order
             if max_time[:-1] > min_time[1:] and (not max_all_nan) and (not min_all_nan):
 
-                raise RuntimeError(f"The coordinate {time} is not in ascending order for group {ed_name}, combine cannot be used!")
+                raise RuntimeError(
+                    f"The coordinate {time} is not in ascending order for group {ed_name}, "
+                    f"combine cannot be used!"
+                )
 
             # TODO: check and store time values
 
             # TODO: do this first [exist_reversed_time(ds, time_str) for ds in ds_list]
             #  if any are True, then continue by creating an old time variable in each ds
 
-            for ds in ds_list:
-                old_time = check_and_correct_reversed_time(ds, time_str=str(time), sonar_model=self.sonar_model)
+            # for ds in ds_list:
+            #     old_time = check_and_correct_reversed_time(
+            #         ds, time_str=str(time), sonar_model=self.sonar_model
+            #     )
 
-                # print(f"old_time = {old_time}, group = {ed_name}")
+            # print(f"old_time = {old_time}, group = {ed_name}")
 
     def _check_channels(self, ds_list: List[xr.Dataset], ed_name: str):
         """
@@ -87,10 +94,16 @@ class ZarrCombine:
                 # check for unique rows
                 if np.unique(channel_arrays, axis=0).shape[0] > 1:
 
-                    raise RuntimeError(f"All {ed_name} groups do not have that same channel coordinate, combine cannot be used!")
+                    raise RuntimeError(
+                        f"All {ed_name} groups do not have that same channel coordinate, "
+                        f"combine cannot be used!"
+                    )
 
             else:
-                raise RuntimeError(f"All {ed_name} groups do not have that same number of channel coordinates, combine cannot be used!")
+                raise RuntimeError(
+                    f"All {ed_name} groups do not have that same number of channel coordinates, "
+                    f"combine cannot be used!"
+                )
 
     def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
         """
@@ -135,13 +148,13 @@ class ZarrCombine:
         self.dims_max = self.dims_df.max(axis=0).to_dict()
 
         # format ed_name appropriately
-        ed_name = ed_name.replace('-', '_').replace('/', '_').lower()
+        ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
 
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
             if count == 0:
-                self.group_attrs[ed_name + '_attr_key'].extend(ds.attrs.keys())
-            self.group_attrs[ed_name + '_attrs'].append(list(ds.attrs.values()))
+                self.group_attrs[ed_name + "_attr_key"].extend(ds.attrs.keys())
+            self.group_attrs[ed_name + "_attrs"].append(list(ds.attrs.values()))
 
     def _get_temp_arr(self, dims: List[str], dtype: type) -> Tuple[type(dask.array), list]:
         """
@@ -182,8 +195,9 @@ class ZarrCombine:
 
         return temp_arr, chnk_shape
 
-    def _set_encodings(self, encodings: Dict[str, dict], name: Hashable,
-                       val: xr.Variable, chnk_shape: list) -> None:
+    def _set_encodings(
+        self, encodings: Dict[str, dict], name: Hashable, val: xr.Variable, chnk_shape: list
+    ) -> None:
         """
         Sets the encodings for the variable ``name`` by including all
         encodings in ``val``, except those encodings that are deemed
@@ -218,7 +232,9 @@ class ZarrCombine:
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
 
-    def _construct_lazy_ds_and_var_info(self, ds_model: xr.Dataset) -> Tuple[xr.Dataset, List[str], Dict[str, dict]]:
+    def _construct_lazy_ds_and_var_info(
+        self, ds_model: xr.Dataset
+    ) -> Tuple[xr.Dataset, List[str], Dict[str, dict]]:
         """
         Constructs a lazy Dataset representing the EchoData group
         Dataset in its final combined form. Additionally, collects
@@ -313,20 +329,31 @@ class ZarrCombine:
         if ds_ind == 0:
 
             # get the initial region
-            region = {dim: slice(0, self.dims_csum[dim][ds_ind]) for dim in ds_dims if dim in self.append_dims}
+            region = {
+                dim: slice(0, self.dims_csum[dim][ds_ind])
+                for dim in ds_dims
+                if dim in self.append_dims
+            }
 
         else:
 
             # get all other regions
             region = {
                 dim: slice(self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind])
-                for dim in ds_dims if dim in self.append_dims
+                for dim in ds_dims
+                if dim in self.append_dims
             }
 
         return region
 
-    def _append_const_to_zarr(self, const_vars: List[str], ds_list: List[xr.Dataset],
-                              path: str, zarr_group: str, storage_options: dict):
+    def _append_const_to_zarr(
+        self,
+        const_vars: List[str],
+        ds_list: List[xr.Dataset],
+        path: str,
+        zarr_group: str,
+        storage_options: dict,
+    ):
         """
         Appends all constant (i.e. not chunked) variables and dimensions to the
         zarr group.
@@ -366,12 +393,17 @@ class ZarrCombine:
                 ds_list_ind = int(0)
 
             ds_list[ds_list_ind][[var]].to_zarr(
-                path, group=zarr_group, mode='a', storage_options=storage_options
+                path, group=zarr_group, mode="a", storage_options=storage_options
             )
 
     def _append_ds_list_to_zarr(
-        self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
-            storage_options: Optional[dict] = {}, to_zarr_compute: bool = True
+        self,
+        path: str,
+        ds_list: List[xr.Dataset],
+        zarr_group: str,
+        ed_name: str,
+        storage_options: Optional[dict] = {},
+        to_zarr_compute: bool = True,
     ) -> List[str]:
         """
         Creates a zarr store and then appends each Dataset
@@ -411,7 +443,8 @@ class ZarrCombine:
             group=zarr_group,
             encoding=encodings,
             consolidated=True,
-            storage_options=storage_options, synchronizer=zarr.ThreadSynchronizer()
+            storage_options=storage_options,
+            synchronizer=zarr.ThreadSynchronizer(),
         )
 
         # write each non-constant variable in ds_list to the zarr store
@@ -422,10 +455,16 @@ class ZarrCombine:
 
             ds_drop = ds.drop(const_names)
 
-            delayed_to_zarr.append(ds_drop.to_zarr(
-                path, group=zarr_group, region=region, storage_options=storage_options, compute=to_zarr_compute,
-                synchronizer=zarr.ThreadSynchronizer()
-            ))
+            delayed_to_zarr.append(
+                ds_drop.to_zarr(
+                    path,
+                    group=zarr_group,
+                    region=region,
+                    storage_options=storage_options,
+                    compute=to_zarr_compute,
+                    synchronizer=zarr.ThreadSynchronizer(),
+                )
+            )
 
         if not to_zarr_compute:
             dask.compute(*delayed_to_zarr, retries=1)  # TODO: maybe use persist in the future?
@@ -468,11 +507,13 @@ class ZarrCombine:
         all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("conversion"))
 
         # append Dataset to zarr
-        all_ds_attrs.to_zarr(path, group="Provenance", mode="a",
-                             storage_options=storage_options, consolidated=True)
+        all_ds_attrs.to_zarr(
+            path, group="Provenance", mode="a", storage_options=storage_options, consolidated=True
+        )
 
-    def combine(self, path: str, eds: List[EchoData] = [],
-                storage_options: Optional[dict] = {}) -> EchoData:
+    def combine(
+        self, path: str, eds: List[EchoData] = [], storage_options: Optional[dict] = {}
+    ) -> EchoData:
 
         if not isinstance(eds, list):
             raise TypeError("The input, eds, must be a list of EchoData objects!")
@@ -491,8 +532,8 @@ class ZarrCombine:
 
         for grp_info in EchoData.group_map.values():
 
-            if grp_info['ep_group']:
-                ed_group = grp_info['ep_group']
+            if grp_info["ep_group"]:
+                ed_group = grp_info["ep_group"]
             else:
                 ed_group = "Top-level"
 
@@ -502,12 +543,18 @@ class ZarrCombine:
 
                 print(f"ed_group = {ed_group}")
 
-                const_names = self._append_ds_list_to_zarr(path, ds_list=ds_list, zarr_group=grp_info['ep_group'],
-                                                           ed_name=ed_group, storage_options=storage_options,
-                                                           to_zarr_compute=to_zarr_compute)
+                const_names = self._append_ds_list_to_zarr(
+                    path,
+                    ds_list=ds_list,
+                    zarr_group=grp_info["ep_group"],
+                    ed_name=ed_group,
+                    storage_options=storage_options,
+                    to_zarr_compute=to_zarr_compute,
+                )
 
-                self._append_const_to_zarr(const_names, ds_list,
-                                           path, grp_info['ep_group'], storage_options)
+                self._append_const_to_zarr(
+                    const_names, ds_list, path, grp_info["ep_group"], storage_options
+                )
 
         # append all group attributes before combination to zarr store
         self._append_provenance_attr_vars(path, storage_options=storage_options)
