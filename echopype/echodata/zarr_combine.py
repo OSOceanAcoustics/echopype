@@ -39,6 +39,8 @@ class ZarrCombine:
 
     def _check_ds_times(self, ds_list: List[xr.Dataset], ed_name: str):
 
+        # TODO: document this!
+
         ed_time_dim = set(ds_list[0].dims).intersection(self.possible_time_dims)
 
         for time in ed_time_dim:
@@ -54,12 +56,15 @@ class ZarrCombine:
 
                 raise RuntimeError(f"The coordinate {time} is not in ascending order for group {ed_name}, combine cannot be used!")
 
-
             # TODO: check and store time values
+
+            # TODO: do this first [exist_reversed_time(ds, time_str) for ds in ds_list]
+            #  if any are True, then continue by creating an old time variable in each ds
+
             for ds in ds_list:
                 old_time = check_and_correct_reversed_time(ds, time_str=str(time), sonar_model=self.sonar_model)
 
-                print(f"old_time = {old_time}, group = {ed_name}")
+                # print(f"old_time = {old_time}, group = {ed_name}")
 
     def _check_channels(self, ds_list: List[xr.Dataset], ed_name: str):
         """
@@ -206,6 +211,10 @@ class ZarrCombine:
             key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
         }
 
+        # TODO: if 'compressor' or 'filters' or '_FillValue' or 'dtype' do not exist, then
+        #  assign them to a default value
+        #  'compressor': Blosc(cname='zstd', clevel=3, shuffle=BITSHUFFLE, blocksize=0)
+
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
 
@@ -346,21 +355,19 @@ class ZarrCombine:
         # write constant vars to zarr using the first element of ds_list
         for var in const_vars:
 
-            # dims will be automatically filled when they occur in a variable
-            if (var not in list(ds_list[0].dims)) or (var in ["beam", "range_sample"]):
+            # TODO: when range_sample needs to be padded, here we will
+            #  need to pick the dataset with the max size for range_sample
+            #  (might be done with change below)
 
-                # TODO: when range_sample needs to be padded, here we will
-                #  need to pick the dataset with the max size for range_sample
+            # make sure to choose the dataset with the largest size for variable
+            if var in self.dims_df:
+                ds_list_ind = int(self.dims_df[var].argmax())
+            else:
+                ds_list_ind = int(0)
 
-                # make sure to choose the dataset with the largest size for variable
-                if var in self.dims_df:
-                    ds_list_ind = int(self.dims_df[var].argmax())
-                else:
-                    ds_list_ind = int(0)
-
-                ds_list[ds_list_ind][[var]].to_zarr(
-                    path, group=zarr_group, mode='a', storage_options=storage_options
-                )
+            ds_list[ds_list_ind][[var]].to_zarr(
+                path, group=zarr_group, mode='a', storage_options=storage_options
+            )
 
     def _append_ds_list_to_zarr(
         self, path: str, ds_list: List[xr.Dataset], zarr_group: str, ed_name: str,
