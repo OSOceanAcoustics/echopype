@@ -107,11 +107,7 @@ def check_and_correct_reversed_time(
 def assemble_combined_provenance(input_paths):
     prov_dict = echopype_prov_attrs(process_type="combination")
     source_files_var, source_files_coord = source_files_vars(input_paths)
-    ds = xr.Dataset(
-        data_vars=source_files_var,
-        coords=source_files_coord,
-        attrs=prov_dict
-    )
+    ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord, attrs=prov_dict)
     return ds
 
 
