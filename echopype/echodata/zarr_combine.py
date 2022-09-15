@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Hashable, List, Optional, Set, Tuple
+from typing import Dict, Hashable, List, Optional, Set, Tuple, Any
 from warnings import warn
 
 import dask
@@ -105,6 +105,67 @@ class ZarrCombine:
                     f"combine cannot be used!"
                 )
 
+    @staticmethod
+    def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
+        """
+        Compares two attribute dictionaries to ensure that they
+        are acceptably identical.
+
+        Parameters
+        ----------
+        attr1: dict
+            Attributes from Dataset 1
+        attr2: dict
+            Attributes from Dataset 2
+
+        Returns
+        -------
+        numpy_keys: List[str]
+            All keys that have numpy arrays as values
+
+        Raises
+        ------
+        RuntimeError
+            - If the keys are not the same
+            - If the values are not identical
+            - If the keys ``date_created``, ``conversion_time``
+            do not have the same types
+
+        Notes
+        -----
+        For the keys ``date_created``, ``conversion_time`` the values
+        are not required to be identical, rather their type must be identical.
+        """
+
+        # make sure all keys are identical (this should never be triggered)
+        if attr1.keys() != attr2.keys():
+            raise RuntimeError("The attribute keys amongst the ds lists are not the same, combine cannot be used!")
+
+        # make sure that all values are identical
+        numpy_keys = []
+        for key in attr1.keys():
+
+            if isinstance(attr1[key], np.ndarray):
+
+                numpy_keys.append(key)
+
+                if not np.allclose(attr1[key], attr2[key], rtol=1e-12, atol=1e-12, equal_nan=True):
+                    raise RuntimeError(
+                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!")
+            elif key in ["date_created", "conversion_time"]:
+
+                if not isinstance(attr1[key], type(attr2[key])):
+                    raise RuntimeError(f"The attribute {key}'s type amongst the ds lists "
+                                       f"are not the same, combine cannot be used!")
+
+            else:
+
+                if attr1[key] != attr2[key]:
+                    raise RuntimeError(
+                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!")
+
+        return numpy_keys
+
     def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
         """
         Constructs useful dictionaries that contain information
@@ -134,6 +195,12 @@ class ZarrCombine:
         dims_max: dict
             Keys as the dimension name and values as the corresponding
             maximum length across all Datasets
+
+        Notes
+        -----
+        If attribute values are numpy arrays, then they will not be included
+        in the ``self.group_attrs``. Instead, these values will only appear
+        in the attributes of the combined ``EchoData`` object.
         """
 
         self._check_ds_times(ds_list, ed_name)
@@ -150,11 +217,24 @@ class ZarrCombine:
         # format ed_name appropriately
         ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
 
+        if len(ds_list) == 1:
+            # get numpy keys if we only have one Dataset
+            numpy_keys = self._compare_attrs(ds_list[0].attrs, ds_list[0].attrs)
+        else:
+            # compare attributes and get numpy keys, if they exist
+            for ind in range(len(ds_list) - 1):
+                numpy_keys = self._compare_attrs(ds_list[ind].attrs,
+                                                 ds_list[ind + 1].attrs)
+
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
+
+            # get reduced attributes that do not include numpy keys
+            red_attrs = {key: val for key, val in ds.attrs.items() if key not in numpy_keys}
+
             if count == 0:
-                self.group_attrs[ed_name + "_attr_key"].extend(ds.attrs.keys())
-            self.group_attrs[ed_name + "_attrs"].append(list(ds.attrs.values()))
+                self.group_attrs[ed_name + "_attr_key"].extend(red_attrs.keys())
+            self.group_attrs[ed_name + "_attrs"].append(list(red_attrs.values()))
 
     def _get_temp_arr(self, dims: List[str], dtype: type) -> Tuple[type(dask.array), list]:
         """
@@ -439,17 +519,22 @@ class ZarrCombine:
         # create zarr file and all associated metadata (this is delayed)
         ds_lazy.to_zarr(
             path,
+            mode='w-',
             compute=False,
             group=zarr_group,
             encoding=encodings,
-            consolidated=True,
+            consolidated=None,
             storage_options=storage_options,
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
+        # print("computing ds_lazy")
+        # dask.compute(out)
+        #
         # write each non-constant variable in ds_list to the zarr store
         delayed_to_zarr = []
         for ind, ds in enumerate(ds_list):
+            print(f"ind = {ind}")
 
             region = self._get_region(ind, set(ds.dims))
 
@@ -560,6 +645,6 @@ class ZarrCombine:
         self._append_provenance_attr_vars(path, storage_options=storage_options)
 
         # open lazy loaded combined EchoData object
-        ed_combined = open_converted(path)
+        ed_combined = open_converted(path, chunks={})  # TODO: is this appropriate for chunks?
 
         return ed_combined
