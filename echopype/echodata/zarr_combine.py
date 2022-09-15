@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Hashable, List, Optional, Set, Tuple, Any
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple
 from warnings import warn
 
 import dask
@@ -139,7 +139,9 @@ class ZarrCombine:
 
         # make sure all keys are identical (this should never be triggered)
         if attr1.keys() != attr2.keys():
-            raise RuntimeError("The attribute keys amongst the ds lists are not the same, combine cannot be used!")
+            raise RuntimeError(
+                "The attribute keys amongst the ds lists are not the same, combine cannot be used!"
+            )
 
         # make sure that all values are identical
         numpy_keys = []
@@ -151,18 +153,22 @@ class ZarrCombine:
 
                 if not np.allclose(attr1[key], attr2[key], rtol=1e-12, atol=1e-12, equal_nan=True):
                     raise RuntimeError(
-                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!")
+                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!"
+                    )
             elif key in ["date_created", "conversion_time"]:
 
                 if not isinstance(attr1[key], type(attr2[key])):
-                    raise RuntimeError(f"The attribute {key}'s type amongst the ds lists "
-                                       f"are not the same, combine cannot be used!")
+                    raise RuntimeError(
+                        f"The attribute {key}'s type amongst the ds lists "
+                        f"are not the same, combine cannot be used!"
+                    )
 
             else:
 
                 if attr1[key] != attr2[key]:
                     raise RuntimeError(
-                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!")
+                        f"The attribute {key}'s value amongst the ds lists are not the same, combine cannot be used!"
+                    )
 
         return numpy_keys
 
@@ -223,8 +229,7 @@ class ZarrCombine:
         else:
             # compare attributes and get numpy keys, if they exist
             for ind in range(len(ds_list) - 1):
-                numpy_keys = self._compare_attrs(ds_list[ind].attrs,
-                                                 ds_list[ind + 1].attrs)
+                numpy_keys = self._compare_attrs(ds_list[ind].attrs, ds_list[ind + 1].attrs)
 
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
@@ -519,7 +524,7 @@ class ZarrCombine:
         # create zarr file and all associated metadata (this is delayed)
         ds_lazy.to_zarr(
             path,
-            mode='w-',
+            mode="w-",
             compute=False,
             group=zarr_group,
             encoding=encodings,
