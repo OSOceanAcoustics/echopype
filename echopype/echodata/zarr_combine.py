@@ -548,6 +548,8 @@ class ZarrCombine:
             region = self._get_region(ind, set(ds.dims))
 
             ds_drop = ds.drop(const_names)
+            print(ds_drop)
+            print(" ")
 
             delayed_to_zarr.append(
                 ds_drop.to_zarr(
@@ -561,7 +563,7 @@ class ZarrCombine:
             )
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr, retries=1)  # TODO: maybe use persist in the future?
+            dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
@@ -635,7 +637,7 @@ class ZarrCombine:
 
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list:
+            if ds_list and grp_info["ep_group"] == "Platform/NMEA": #"Environment": #"Top-level": #"Platform"
 
                 print(f"ed_group = {ed_group}")
 
@@ -648,18 +650,18 @@ class ZarrCombine:
                     to_zarr_compute=to_zarr_compute,
                 )
 
-                self._append_const_to_zarr(
-                    const_names, ds_list, path, grp_info["ep_group"], storage_options
-                )
-
-        # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(path, storage_options=storage_options)
+        #         self._append_const_to_zarr(
+        #             const_names, ds_list, path, grp_info["ep_group"], storage_options
+        #         )
+        #
+        # # append all group attributes before combination to zarr store
+        # self._append_provenance_attr_vars(path, storage_options=storage_options)
 
         # blosc.use_threads = None
 
         # open lazy loaded combined EchoData object
-        ed_combined = open_converted(
-            path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
-        )  # TODO: is this appropriate for chunks?
-
-        return ed_combined
+        # ed_combined = open_converted(
+        #     path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+        # )  # TODO: is this appropriate for chunks?
+        #
+        # return ed_combined

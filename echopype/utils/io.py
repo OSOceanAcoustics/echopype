@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
+import numpy as np
+import xarray as xr
 
 import fsspec
 from fsspec import FSMap
@@ -32,14 +34,56 @@ def get_files_from_dir(folder):
     return [f for f in os.listdir(folder) if os.path.splitext(f)[1] in valid_ext]
 
 
+def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict):
+    """
+    Sets all variable encodings based on zarr default values
+    """
+
+    # create zarr specific encoding
+    encoding = dict()
+    for name, val in ds.variables.items():
+
+        val_encoding = val.encoding
+        if np.issubdtype(val.dtype, np.floating):
+            val_encoding.update(compression_settings['float'])
+            encoding[name] = val_encoding
+        elif np.issubdtype(val.dtype, np.integer):
+            val_encoding.update(compression_settings['int'])
+            encoding[name] = val_encoding
+        elif np.issubdtype(val.dtype, np.str_):
+            val_encoding.update(compression_settings['string'])
+            encoding[name] = val_encoding
+        elif np.issubdtype(val.dtype, np.datetime64):
+            val_encoding.update(compression_settings['time'])
+            encoding[name] = val_encoding
+        else:
+            raise NotImplementedError(f"Zarr Encoding for dtype = {val.dtype} has not been set!")
+
+    return encoding
+
+
 def save_file(ds, path, mode, engine, group=None, compression_settings=None):
     """Saves a dataset to netcdf or zarr depending on the engine
     If ``compression_settings`` are set, compress all variables with those settings"""
-    encoding = (
-        {var: compression_settings for var in ds.variables}
-        if compression_settings is not None
-        else {}
-    )
+
+    if compression_settings is not None:
+
+        if "float" in compression_settings:  # only zarr has this key in it
+
+            encoding = set_zarr_encodings(ds, compression_settings)
+
+        else:
+
+            # TODO: below is the encoding we were using for netcdf, we need to make
+            #  sure that the encoding is appropriate for all data variables
+            encoding = (
+                {var: compression_settings for var in ds.data_vars}
+                if compression_settings is not None
+                else {}
+            )
+    else:
+        encoding = {}
+
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding)

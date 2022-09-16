@@ -5,16 +5,21 @@ import xarray as xr
 import zarr
 from xarray import coding
 
-COMPRESSION_SETTINGS = {
-    "netcdf4": {"zlib": True, "complevel": 4},
-    "zarr": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
-}
-
 DEFAULT_TIME_ENCODING = {
     "units": "seconds since 1900-01-01T00:00:00+00:00",
     "calendar": "gregorian",
     "_FillValue": np.nan,
     "dtype": np.dtype("float64"),
+}
+
+COMPRESSION_SETTINGS = {
+    "netcdf4": {"zlib": True, "complevel": 4},
+
+    # zarr compressors were chosen based on xarray results
+    "zarr": {"float": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
+             "int": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)},
+             "string": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)},
+             "time": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)}},
 }
 
 
