@@ -9,7 +9,7 @@ from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
-from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
+from .set_groups_base import SetGroupsBase
 
 # fmt: on
 
@@ -250,7 +250,6 @@ class SetGroupsEK60(SetGroupsBase):
                 )
             },
         )
-        ds = ds.chunk({"time1": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         if not NMEA_only:
             ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -384,8 +383,6 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Merge with NMEA data
             ds = xr.merge([ds, ds_plat], combine_attrs="override")
-
-            ds = ds.chunk({"time2": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         return set_encodings(ds)
 
