@@ -600,7 +600,9 @@ class ZarrCombine:
                 xr_dict[name] = {"dims": [name], "data": val}
 
         # construct Dataset and assign Provenance attributes
-        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("combination"))
+        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(
+            echopype_prov_attrs("combination")
+        )
 
         # append Dataset to zarr
         all_ds_attrs.to_zarr(
