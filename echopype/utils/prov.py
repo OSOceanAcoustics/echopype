@@ -2,9 +2,9 @@ from datetime import datetime as dt
 from pathlib import PosixPath
 from typing import Any, Dict, List, Tuple, Union
 
+from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
 
-from _echopype_version import version as ECHOPYPE_VERSION
 # TODO: It'd be cleaner to use PathHint, but it leads to a circular import error
 # from ..core import PathHint
 
@@ -31,8 +31,7 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
 
 
 def source_files_vars(
-    source_paths: Union[str, List[Any]],
-    meta_source_paths: Union[str, List[Any]] = None
+    source_paths: Union[str, List[Any]], meta_source_paths: Union[str, List[Any]] = None
 ) -> Tuple[Dict[str, Tuple], Dict[str, Tuple], Dict[str, Tuple]]:
     """
     Create source_filenames and meta_source_filenames provenance
