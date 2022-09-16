@@ -563,7 +563,7 @@ class ZarrCombine:
             )
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
+            dask.compute(*delayed_to_zarr)  # , retries=1)  # TODO: maybe use persist in the future?
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
@@ -639,7 +639,9 @@ class ZarrCombine:
 
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list and grp_info["ep_group"] == "Platform/NMEA": #"Environment": #"Top-level": #"Platform"
+            if (
+                ds_list and grp_info["ep_group"] == "Platform/NMEA"
+            ):  # "Environment": #"Top-level": #"Platform"
 
                 print(f"ed_group = {ed_group}")
 

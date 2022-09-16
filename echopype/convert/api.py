@@ -15,9 +15,8 @@ if TYPE_CHECKING:
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
-from ..utils.log import _init_logger
-
 from ..utils.coding import COMPRESSION_SETTINGS
+from ..utils.log import _init_logger
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 

@@ -5,10 +5,10 @@ import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
-import numpy as np
-import xarray as xr
 
 import fsspec
+import numpy as np
+import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
@@ -45,16 +45,16 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict):
 
         val_encoding = val.encoding
         if np.issubdtype(val.dtype, np.floating):
-            val_encoding.update(compression_settings['float'])
+            val_encoding.update(compression_settings["float"])
             encoding[name] = val_encoding
         elif np.issubdtype(val.dtype, np.integer):
-            val_encoding.update(compression_settings['int'])
+            val_encoding.update(compression_settings["int"])
             encoding[name] = val_encoding
         elif np.issubdtype(val.dtype, np.str_):
-            val_encoding.update(compression_settings['string'])
+            val_encoding.update(compression_settings["string"])
             encoding[name] = val_encoding
         elif np.issubdtype(val.dtype, np.datetime64):
-            val_encoding.update(compression_settings['time'])
+            val_encoding.update(compression_settings["time"])
             encoding[name] = val_encoding
         else:
             raise NotImplementedError(f"Zarr Encoding for dtype = {val.dtype} has not been set!")
