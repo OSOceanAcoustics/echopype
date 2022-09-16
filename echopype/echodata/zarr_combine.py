@@ -15,6 +15,7 @@ from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
 from .echodata import EchoData
+from ..utils.io import set_zarr_encodings
 
 
 class ZarrCombine:
@@ -317,8 +318,20 @@ class ZarrCombine:
         #  assign them to a default value
         #  'compressor': Blosc(cname='zstd', clevel=3, shuffle=BITSHUFFLE, blocksize=0)
 
+        # TODO: we should probably use ..utils.io function to reduce repetition
         if "compressor" not in encodings[str(name)]:
             encodings[str(name)]["compressor"] = COMPRESSION_SETTINGS["zarr"]["compressor"]
+
+            if np.issubdtype(val.dtype, np.floating):
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['float'])
+            elif np.issubdtype(val.dtype, np.integer):
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['int'])
+            elif np.issubdtype(val.dtype, np.str_):
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['string'])
+            elif np.issubdtype(val.dtype, np.datetime64):
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['time'])
+            else:
+                raise NotImplementedError(f"Zarr Encoding for dtype = {val.dtype} has not been set!")
 
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
@@ -538,9 +551,6 @@ class ZarrCombine:
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
-        # print("computing ds_lazy")
-        # dask.compute(out)
-        #
         # write each non-constant variable in ds_list to the zarr store
         delayed_to_zarr = []
         for ind, ds in enumerate(ds_list):
@@ -548,8 +558,6 @@ class ZarrCombine:
             region = self._get_region(ind, set(ds.dims))
 
             ds_drop = ds.drop(const_names)
-            print(ds_drop)
-            print(" ")
 
             delayed_to_zarr.append(
                 ds_drop.to_zarr(
@@ -601,7 +609,7 @@ class ZarrCombine:
 
         # construct Dataset and assign Provenance attributes
         all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(
-            echopype_prov_attrs("combination")
+            echopype_prov_attrs("conversion")
         )
 
         # append Dataset to zarr
@@ -639,7 +647,7 @@ class ZarrCombine:
 
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list and grp_info["ep_group"] == "Platform/NMEA": #"Environment": #"Top-level": #"Platform"
+            if ds_list:
 
                 print(f"ed_group = {ed_group}")
 
@@ -652,12 +660,12 @@ class ZarrCombine:
                     to_zarr_compute=to_zarr_compute,
                 )
 
-        #         self._append_const_to_zarr(
-        #             const_names, ds_list, path, grp_info["ep_group"], storage_options
-        #         )
-        #
-        # # append all group attributes before combination to zarr store
-        # self._append_provenance_attr_vars(path, storage_options=storage_options)
+                self._append_const_to_zarr(
+                    const_names, ds_list, path, grp_info["ep_group"], storage_options
+                )
+
+        # append all group attributes before combination to zarr store
+        self._append_provenance_attr_vars(path, storage_options=storage_options)
 
         # blosc.use_threads = None
 
