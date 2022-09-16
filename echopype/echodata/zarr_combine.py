@@ -319,8 +319,6 @@ class ZarrCombine:
 
         # TODO: we should probably use ..utils.io function to reduce repetition
         if "compressor" not in encodings[str(name)]:
-            encodings[str(name)]["compressor"] = COMPRESSION_SETTINGS["zarr"]["compressor"]
-
             if np.issubdtype(val.dtype, np.floating):
                 encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["float"])
             elif np.issubdtype(val.dtype, np.integer):
@@ -572,7 +570,7 @@ class ZarrCombine:
             )
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr)  # , retries=1)  # TODO: maybe use persist in the future?
+            dask.compute(*delayed_to_zarr, retries=1)  # TODO: maybe use persist in the future?
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
@@ -665,6 +663,8 @@ class ZarrCombine:
 
         # append all group attributes before combination to zarr store
         self._append_provenance_attr_vars(path, storage_options=storage_options)
+
+        # TODO: change filenames numbering to range(len(filenames))
 
         # blosc.use_threads = None
 
