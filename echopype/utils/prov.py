@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple, Union
 from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
 
-ProcessType = Literal["conversion", "combination", "processing"]
+ProcessType = Literal["conversion", "processing"]
 
 
 def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
