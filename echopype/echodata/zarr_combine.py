@@ -11,7 +11,6 @@ import xarray as xr
 import zarr
 
 from ..convert.api import COMPRESSION_SETTINGS
-from ..utils.io import set_zarr_encodings
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
@@ -670,8 +669,8 @@ class ZarrCombine:
         # blosc.use_threads = None
 
         # open lazy loaded combined EchoData object
-        # ed_combined = open_converted(
-        #     path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
-        # )  # TODO: is this appropriate for chunks?
-        #
-        # return ed_combined
+        ed_combined = open_converted(
+            path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+        )  # TODO: is this appropriate for chunks?
+
+        return ed_combined
