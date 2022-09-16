@@ -8,7 +8,7 @@ from _echopype_version import version as ECHOPYPE_VERSION
 # TODO: It'd be cleaner to use PathHint, but it leads to a circular import error
 # from ..core import PathHint
 
-ProcessType = Literal["conversion", "combination", "processing"]
+ProcessType = Literal["conversion", "processing"]
 
 
 def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
