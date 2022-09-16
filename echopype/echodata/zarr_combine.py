@@ -11,11 +11,11 @@ import xarray as xr
 import zarr
 
 from ..convert.api import COMPRESSION_SETTINGS
+from ..utils.io import set_zarr_encodings
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
 from .echodata import EchoData
-from ..utils.io import set_zarr_encodings
 
 
 class ZarrCombine:
@@ -323,15 +323,17 @@ class ZarrCombine:
             encodings[str(name)]["compressor"] = COMPRESSION_SETTINGS["zarr"]["compressor"]
 
             if np.issubdtype(val.dtype, np.floating):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['float'])
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["float"])
             elif np.issubdtype(val.dtype, np.integer):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['int'])
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["int"])
             elif np.issubdtype(val.dtype, np.str_):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['string'])
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["string"])
             elif np.issubdtype(val.dtype, np.datetime64):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]['time'])
+                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["time"])
             else:
-                raise NotImplementedError(f"Zarr Encoding for dtype = {val.dtype} has not been set!")
+                raise NotImplementedError(
+                    f"Zarr Encoding for dtype = {val.dtype} has not been set!"
+                )
 
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
@@ -608,9 +610,7 @@ class ZarrCombine:
                 xr_dict[name] = {"dims": [name], "data": val}
 
         # construct Dataset and assign Provenance attributes
-        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(
-            echopype_prov_attrs("conversion")
-        )
+        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("conversion"))
 
         # append Dataset to zarr
         all_ds_attrs.to_zarr(
