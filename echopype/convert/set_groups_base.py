@@ -22,6 +22,7 @@ class SetGroupsBase(abc.ABC):
         self,
         parser_obj,
         input_file,
+        xml_path,
         output_path,
         sonar_model=None,
         engine="zarr",
@@ -37,6 +38,7 @@ class SetGroupsBase(abc.ABC):
         self.sonar_model = sonar_model
 
         self.input_file = input_file
+        self.xml_path = xml_path
         self.output_path = output_path
         self.engine = engine
         self.compress = compress
@@ -81,9 +83,19 @@ class SetGroupsBase(abc.ABC):
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
-        source_files_var, source_files_coord = source_files_vars(self.input_file)
-        ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
+        source_files_var, meta_source_files_var, source_files_coord = source_files_vars(
+            self.input_file,
+            self.xml_path
+        )
+        if meta_source_files_var is None:
+            ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
+        else:
+            ds = xr.Dataset(
+                data_vars={**source_files_var, **meta_source_files_var},
+                coords=source_files_coord
+            )
         ds = ds.assign_attrs(prov_dict)
+
         return ds
 
     @abc.abstractmethod

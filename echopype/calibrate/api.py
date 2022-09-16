@@ -100,7 +100,7 @@ def _compute_cal(
     else:
         source_file = "SOURCE FILE NOT IDENTIFIED"
 
-    source_files_var, source_files_coord = source_files_vars(source_file)
+    source_files_var, _, source_files_coord = source_files_vars(source_file)
     cal_ds = cal_ds.assign(**source_files_var).assign_coords(**source_files_coord)
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"

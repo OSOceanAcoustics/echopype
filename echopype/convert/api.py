@@ -490,6 +490,7 @@ def open_raw(
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
         input_file=file_chk,
+        xml_path=xml_chk,
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
