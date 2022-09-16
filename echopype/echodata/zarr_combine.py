@@ -571,7 +571,7 @@ class ZarrCombine:
             )
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
+            dask.compute(*delayed_to_zarr)  # , retries=1)  # TODO: maybe use persist in the future?
 
         # TODO: need to consider the case where range_sample needs to be padded?
 

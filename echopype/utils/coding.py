@@ -14,12 +14,13 @@ DEFAULT_TIME_ENCODING = {
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
-
     # zarr compressors were chosen based on xarray results
-    "zarr": {"float": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
-             "int": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)},
-             "string": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)},
-             "time": {"compressor": zarr.Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0)}},
+    "zarr": {
+        "float": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
+        "int": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
+        "string": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
+        "time": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
+    },
 }
 
 
