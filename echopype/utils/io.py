@@ -36,7 +36,7 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None):
     """Saves a dataset to netcdf or zarr depending on the engine
     If ``compression_settings`` are set, compress all variables with those settings"""
     encoding = (
-        {var: compression_settings for var in ds.data_vars}
+        {var: compression_settings for var in ds.variables}
         if compression_settings is not None
         else {}
     )

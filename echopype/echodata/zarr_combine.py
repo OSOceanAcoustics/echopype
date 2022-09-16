@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Hashable, List, Optional, Set, Tuple, Any
+from typing import Dict, Hashable, List, Optional, Set, Tuple
 from warnings import warn
 
 import dask
@@ -14,6 +14,7 @@ from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
 from .echodata import EchoData
+from ..convert.api import COMPRESSION_SETTINGS
 
 
 class ZarrCombine:
@@ -309,6 +310,9 @@ class ZarrCombine:
         #  assign them to a default value
         #  'compressor': Blosc(cname='zstd', clevel=3, shuffle=BITSHUFFLE, blocksize=0)
 
+        if 'compressor' not in encodings[str(name)]:
+            encodings[str(name)]['compressor'] = COMPRESSION_SETTINGS['zarr']['compressor']
+
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
 
@@ -519,7 +523,6 @@ class ZarrCombine:
         # create zarr file and all associated metadata (this is delayed)
         ds_lazy.to_zarr(
             path,
-            mode='w-',
             compute=False,
             group=zarr_group,
             encoding=encodings,
@@ -534,7 +537,6 @@ class ZarrCombine:
         # write each non-constant variable in ds_list to the zarr store
         delayed_to_zarr = []
         for ind, ds in enumerate(ds_list):
-            print(f"ind = {ind}")
 
             region = self._get_region(ind, set(ds.dims))
 
@@ -611,6 +613,8 @@ class ZarrCombine:
             warn("No EchoData objects were provided, returning an empty EchoData object.")
             return EchoData()
 
+        # blosc.use_threads = False
+
         self.sonar_model, self.group_attrs["echodata_filename"] = check_echodatas_input(eds)
 
         to_zarr_compute = False
@@ -644,7 +648,9 @@ class ZarrCombine:
         # append all group attributes before combination to zarr store
         self._append_provenance_attr_vars(path, storage_options=storage_options)
 
+        # blosc.use_threads = None
+
         # open lazy loaded combined EchoData object
-        ed_combined = open_converted(path, chunks={})  # TODO: is this appropriate for chunks?
+        ed_combined = open_converted(path, chunks={}, synchronizer=zarr.ThreadSynchronizer())  # TODO: is this appropriate for chunks?
 
         return ed_combined
