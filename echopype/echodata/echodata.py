@@ -182,11 +182,23 @@ class EchoData:
 
     @property
     def version_info(self) -> Tuple[int]:
-        if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
-            version_str = self["Provenance"].attrs.get("conversion_software_version", None)
+
+        # get software name from converted or combined file
+        software_name = self["Provenance"].attrs.get("conversion_software_name", None) or self[
+            "Provenance"
+        ].attrs.get("combination_software_name", None)
+
+        if software_name == "echopype":
+
+            # get software version str from converted or combined file
+            version_str = self["Provenance"].attrs.get("conversion_software_version", None) or self[
+                "Provenance"
+            ].attrs.get("combination_software_version", None)
+
             if version_str is not None:
                 version_num = version_str.split(".")[:3]
                 return tuple([int(i) for i in version_num])
+
         return None
 
     @property
