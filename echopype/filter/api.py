@@ -76,5 +76,3 @@ def remove_noise(ds: xr.Dataset, method: str, save_add_var: bool = False, **kwar
     the estimated background noise are saved in the output dataset.
     """
     pass
-
-
