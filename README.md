@@ -15,8 +15,8 @@
 </div>
 
 <div>
-  <a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml">
-    <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/ci.yaml/badge.svg"/>
+  <a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/build.yaml">
+    <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/build.yaml/badge.svg"/>
   </a>
 
   <a href="https://results.pre-commit.ci/latest/github/OSOceanAcoustics/echopype/master">
