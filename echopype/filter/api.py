@@ -36,7 +36,7 @@ def conv(ds: xr.Dataset, kernel: Union[int, List, np.ndarray]) -> xr.Dataset:
         An Sv or MVBS dataset for which the geographical locations will be added to
     kernel
         The convolutional kernel.
-        
+
         - If is an integer, a square matrix of dimension `kernel` by `kernel` filled
           with 1s will be used.
         - If it is a list or an array, it must be able to be reshaped into a square matrix.
