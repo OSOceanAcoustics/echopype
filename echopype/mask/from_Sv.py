@@ -1,8 +1,11 @@
-from typing import Tuple, Union, List
+from typing import List, Tuple, Union
+
 import xarray as xr
 
 
-def freq_diff(da: xr.DataArray, freq_pair: Union[List, Tuple], del_Sv_min=None, del_Sv_max=None) -> xr.DataArray:
+def freq_diff(
+    da: xr.DataArray, freq_pair: Union[List, Tuple], del_Sv_min=None, del_Sv_max=None
+) -> xr.DataArray:
     """
     Create a mask based on the difference of Sv from a pair of frequencies.
 

@@ -3,7 +3,9 @@ from typing import Union
 import xarray as xr
 
 
-def compute_MVBS(ds: xr.Dataset, range_bin_size: Union[int, float], ping_bin_size: str) -> xr.Dataset:
+def compute_MVBS(
+    ds: xr.Dataset, range_bin_size: Union[int, float], ping_bin_size: str
+) -> xr.Dataset:
     """
     Compute the mean volume backscattering strength (MVBS)
     based on intervals of range (``echo_range`` or ``depth``)

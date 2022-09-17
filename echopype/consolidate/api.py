@@ -116,7 +116,9 @@ def add_depth(
     return ds
 
 
-def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None) -> xr.Dataset:
+def add_location(
+    ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None
+) -> xr.Dataset:
     """
     Add geographical location (latitude/longitude) to the Sv dataset.
 

@@ -70,6 +70,7 @@ class MeanBkgNoiseEst:
     range_sample_num : int
         number of samples along ``echo_range`` to obtain noise estimates
     """
+
     pass
 
 
