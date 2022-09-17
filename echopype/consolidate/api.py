@@ -116,7 +116,7 @@ def add_depth(
     return ds
 
 
-def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None):
+def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None) -> xr.Dataset:
     """
     Add geographical location (latitude/longitude) to the Sv dataset.
 
@@ -174,3 +174,35 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     interp_ds["longitude"] = interp_ds["longitude"].assign_attrs({"history": history})
 
     return interp_ds.drop_vars("time1")
+
+
+def add_splitbeam_angle(ds: xr.Dataset, echodata: EchoData = None) -> xr.Dataset:
+    """
+    Add split-beam (alongship/athwartship) angles into the Sv dataset.
+
+    This function adds the alongship/athwartship angle data stored in the Sonar/Beam_group1 group
+    of the original data file. In cases when the angles do not exist, a warning is issued and
+    no angle variables are added to the dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        An Sv or MVBS dataset for which the geographical locations will be added to
+    echodata
+        An `EchoData` object holding the raw data
+
+    Returns
+    -------
+    The input dataset with the the split-beam angle data added
+
+    Notes
+    -----
+    Split-beam angle data potentially exist for the the following echosounders depending on
+    the instrument configuration and recording setting:
+    - Simrad EK60 echosounder paired with split-beam transducers and configured to store angle data
+    - Simrad EK80 echosounder paired with split-beam transducers and configured to store angle data
+
+    For EK80 collecting broadband data, the split-beam angles can be estimated from the complex data.
+    This functionality will be implemented in the future.
+    """
+    pass
