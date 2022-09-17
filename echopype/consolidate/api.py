@@ -202,7 +202,7 @@ def add_splitbeam_angle(ds: xr.Dataset, echodata: EchoData = None) -> xr.Dataset
     - Simrad EK60 echosounder paired with split-beam transducers and configured to store angle data
     - Simrad EK80 echosounder paired with split-beam transducers and configured to store angle data
 
-    For EK80 collecting broadband data, the split-beam angles can be estimated from the complex data.
+    For EK80 broadband data, the split-beam angles can be estimated from the complex data.
     This functionality will be implemented in the future.
     """
     pass
