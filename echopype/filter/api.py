@@ -15,7 +15,7 @@ def median(ds: xr.Dataset, winsize: int) -> xr.Dataset:
     Parameters
     ----------
     ds : xr.Dataset
-        An Sv or MVBS dataset for which the geographical locations will be added to
+        An Sv dataset the filter will be applied to.
     winsize : int
         Window size to apply the median filter.
 
@@ -33,7 +33,7 @@ def conv(ds: xr.Dataset, kernel: Union[int, List, np.ndarray]) -> xr.Dataset:
     Parameters
     ----------
     ds : xr.Dataset
-        An Sv or MVBS dataset for which the geographical locations will be added to
+        An Sv dataset the filter will be applied to.
     kernel
         The convolutional kernel.
 
