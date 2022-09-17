@@ -47,3 +47,34 @@ def conv(ds: xr.Dataset, kernel: Union[int, List, np.ndarray]) -> xr.Dataset:
     The input dataset with the Sv data filtered with the convolutional kernel.
     """
     pass
+
+
+def remove_noise(ds: xr.Dataset, method: str, save_add_var: bool = False, **kwargs) -> xr.Dataset:
+    """
+    Remove noise from the Sv data.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        dataset containing ``Sv`` and ``echo_range`` [m]
+    method : str
+        method of noise removal
+
+        - "mean_bkg": remove noise by using estimates of background noise
+            from mean calibrated power of a collection of pings.
+            Proposed by De Robertis & Higginbottom 2007, see ``noise.mean_bkg`` for detail.
+        - "spike": remove spikes commonly resulted from interference from other instruments.
+            See ``noise.spike`` for detail.
+
+    # TODO
+    What is the best way to list parameters required for each method in the docstring?
+
+    Returns
+    -------
+    The input dataset with the corrected Sv and parameters used in the noise removal process.
+    If ``save_add_var`` is ``True``, variables such as the original Sv data and
+    the estimated background noise are saved in the output dataset.
+    """
+    pass
+
+
