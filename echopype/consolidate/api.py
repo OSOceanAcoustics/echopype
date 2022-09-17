@@ -193,7 +193,7 @@ def add_splitbeam_angle(ds: xr.Dataset, echodata: EchoData = None) -> xr.Dataset
 
     Returns
     -------
-    The input dataset with the the split-beam angle data added
+    The input dataset with the split-beam angle data added
 
     Notes
     -----
