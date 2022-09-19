@@ -59,8 +59,17 @@ class SetGroupsEK60(SetGroupsBase):
         super().__init__(*args, **kwargs)
 
         self.old_ping_time = None
+
+        # obtain sorted channel dict in ascending order
+        channels = list(self.parser_obj.config_datagram["transceivers"].keys())
+        channel_ids = {ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels}
+        self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+
+        # obtain corresponding frequency dict from sorted channels
+        self.freq = [self.parser_obj.config_datagram["transceivers"][ch]["frequency"] for ch in self.sorted_channel.keys()]
+
         # correct duplicate ping_time
-        for ch in self.parser_obj.config_datagram["transceivers"].keys():
+        for ch in self.sorted_channel.keys():
             ping_time = self.parser_obj.ping_time[ch]
             _, unique_idx = np.unique(ping_time, return_index=True)
             duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
@@ -127,11 +136,10 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
-        ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        ds_env = []
 
         # Loop over channels
-        for ch in ch_ids:
+        ds_env = []
+        for ch in self.sorted_channel.keys():
             ds_tmp = xr.Dataset(
                 {
                     "absorption_indicative": (
@@ -169,7 +177,7 @@ class SetGroupsEK60(SetGroupsBase):
             )
             # Attach channel dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
-                {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
+                {"channel": [self.sorted_channel[ch]]}
             )
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                 self._varattrs["beam_coord_default"]["channel"]
@@ -253,7 +261,6 @@ class SetGroupsEK60(SetGroupsBase):
         ds = ds.chunk({"time1": DEFAULT_CHUNK_SIZE["ping_time"]})
 
         if not NMEA_only:
-            ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
 
             # TODO: consider allow users to set water_level like in EK80?
             # if self.ui_param['water_level'] is not None:
@@ -265,7 +272,7 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Loop over channels and merge all
             ds_plat = []
-            for ch in ch_ids:
+            for ch in self.sorted_channel.keys():
                 ds_tmp = xr.Dataset(
                     {
                         "pitch": (
@@ -357,7 +364,7 @@ class SetGroupsEK60(SetGroupsBase):
 
                 # Attach channel dimension/coordinate
                 ds_tmp = ds_tmp.expand_dims(
-                    {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
+                    {"channel": [self.sorted_channel[ch]]}
                 )
                 ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                     self._varattrs["beam_coord_default"]["channel"]
@@ -427,15 +434,9 @@ class SetGroupsEK60(SetGroupsBase):
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
-        # Get channel keys and frequency
-        ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        freq = np.array(
-            [v["frequency"] for v in self.parser_obj.config_datagram["transceivers"].values()]
-        )
 
         # Channel-specific variables
         params = [
-            "channel_id",
             "beam_type",
             "beamwidth_alongship",
             "beamwidth_athwartship",
@@ -457,7 +458,7 @@ class SetGroupsEK60(SetGroupsBase):
         for param in params:
             beam_params[param] = [
                 self.parser_obj.config_datagram["transceivers"][ch_seq].get(param, np.nan)
-                for ch_seq in ch_ids
+                for ch_seq in self.sorted_channel.keys()
             ]
 
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
@@ -470,7 +471,7 @@ class SetGroupsEK60(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -610,7 +611,7 @@ class SetGroupsEK60(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    beam_params["channel_id"],
+                    list(self.sorted_channel.values()),
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
             },
@@ -619,7 +620,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
-        for ch in ch_ids:
+        for ch in self.sorted_channel.keys():
 
             var_dict = {
                 "sample_interval": (
@@ -752,7 +753,7 @@ class SetGroupsEK60(SetGroupsBase):
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims(
-                {"channel": [self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]]}
+                {"channel": [self.sorted_channel[ch]]}
             )
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                 self._varattrs["beam_coord_default"]["channel"]
@@ -775,23 +776,23 @@ class SetGroupsEK60(SetGroupsBase):
         return [set_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
-        # Retrieve pulse length and sa correction
-        config = self.parser_obj.config_datagram["transceivers"]
-        freq = [v["frequency"] for v in config.values()]
-        ch_ids = list(self.parser_obj.config_datagram["transceivers"].keys())
-        channel = [
-            self.parser_obj.config_datagram["transceivers"][ch_seq].get("channel_id", np.nan)
-            for ch_seq in ch_ids
-        ]
-        pulse_length = np.array([v["pulse_length_table"] for v in config.values()])
-        gain = np.array([v["gain_table"] for v in config.values()])
-        sa_correction = [v["sa_correction_table"] for v in config.values()]
+
+        # Retrieve pulse length, gain, and sa correction
+        pulse_length = np.array([self.parser_obj.config_datagram["transceivers"][ch]["pulse_length_table"] for ch in
+                                 self.sorted_channel.keys()])
+
+        gain = np.array([self.parser_obj.config_datagram["transceivers"][ch]["gain_table"] for ch in
+                         self.sorted_channel.keys()])
+
+        sa_correction = [self.parser_obj.config_datagram["transceivers"][ch]["sa_correction_table"] for ch in
+                         self.sorted_channel.keys()]
+
         # Save pulse length and sa correction
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -804,7 +805,7 @@ class SetGroupsEK60(SetGroupsBase):
                 "pulse_length": (["channel", "pulse_length_bin"], pulse_length),
             },
             coords={
-                "channel": (["channel"], channel, self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (["channel"], list(self.sorted_channel.values()), self._varattrs["beam_coord_default"]["channel"]),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(pulse_length.shape[1]),

@@ -55,6 +55,23 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # obtain power data
         power_series = df.set_index(self.power_dims)["power"].copy()
 
+        print(power_series.iloc[:10])
+        print(" ")
+
+        channels = list(self.parser_obj.config_datagram["transceivers"].keys())
+        channel_ids = {ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels}
+        self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+
+        print(f"self.sorted_channel = {self.sorted_channel}")
+        sort_rule = dict(zip(list(map(str, channels)), self.sorted_channel.keys()))
+        print(f"sort_rule = {sort_rule} ")
+
+        power_series.sort_index(axis=0, level=self.power_dims[1],
+                                ascending=True, key=lambda x: x.map(sort_rule), inplace=True)
+
+        print(power_series.iloc[:10])
+        print(" ")
+
         # get unique indices
         times = power_series.index.get_level_values(0).unique()
         channels = power_series.index.get_level_values(1).unique()
@@ -65,6 +82,9 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         unique_dims = [times, channels]
 
         power_series = self.set_multi_index(power_series, unique_dims)
+
+        print("multi-index")
+        print(power_series.iloc[:10])
 
         # write power data to the power group
         zarr_grp = self.zarr_root.create_group("power")
