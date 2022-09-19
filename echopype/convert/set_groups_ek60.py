@@ -62,11 +62,16 @@ class SetGroupsEK60(SetGroupsBase):
 
         # obtain sorted channel dict in ascending order
         channels = list(self.parser_obj.config_datagram["transceivers"].keys())
-        channel_ids = {ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels}
+        channel_ids = {
+            ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels
+        }
         self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
 
         # obtain corresponding frequency dict from sorted channels
-        self.freq = [self.parser_obj.config_datagram["transceivers"][ch]["frequency"] for ch in self.sorted_channel.keys()]
+        self.freq = [
+            self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
+            for ch in self.sorted_channel.keys()
+        ]
 
         # correct duplicate ping_time
         for ch in self.sorted_channel.keys():
@@ -176,9 +181,7 @@ class SetGroupsEK60(SetGroupsBase):
                 },
             )
             # Attach channel dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
-                {"channel": [self.sorted_channel[ch]]}
-            )
+            ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                 self._varattrs["beam_coord_default"]["channel"]
             )
@@ -363,9 +366,7 @@ class SetGroupsEK60(SetGroupsBase):
                 )
 
                 # Attach channel dimension/coordinate
-                ds_tmp = ds_tmp.expand_dims(
-                    {"channel": [self.sorted_channel[ch]]}
-                )
+                ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
                 ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                     self._varattrs["beam_coord_default"]["channel"]
                 )
@@ -752,9 +753,7 @@ class SetGroupsEK60(SetGroupsBase):
                     )
 
             # Attach frequency dimension/coordinate
-            ds_tmp = ds_tmp.expand_dims(
-                {"channel": [self.sorted_channel[ch]]}
-            )
+            ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
             ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
                 self._varattrs["beam_coord_default"]["channel"]
             )
@@ -778,14 +777,24 @@ class SetGroupsEK60(SetGroupsBase):
     def set_vendor(self) -> xr.Dataset:
 
         # Retrieve pulse length, gain, and sa correction
-        pulse_length = np.array([self.parser_obj.config_datagram["transceivers"][ch]["pulse_length_table"] for ch in
-                                 self.sorted_channel.keys()])
+        pulse_length = np.array(
+            [
+                self.parser_obj.config_datagram["transceivers"][ch]["pulse_length_table"]
+                for ch in self.sorted_channel.keys()
+            ]
+        )
 
-        gain = np.array([self.parser_obj.config_datagram["transceivers"][ch]["gain_table"] for ch in
-                         self.sorted_channel.keys()])
+        gain = np.array(
+            [
+                self.parser_obj.config_datagram["transceivers"][ch]["gain_table"]
+                for ch in self.sorted_channel.keys()
+            ]
+        )
 
-        sa_correction = [self.parser_obj.config_datagram["transceivers"][ch]["sa_correction_table"] for ch in
-                         self.sorted_channel.keys()]
+        sa_correction = [
+            self.parser_obj.config_datagram["transceivers"][ch]["sa_correction_table"]
+            for ch in self.sorted_channel.keys()
+        ]
 
         # Save pulse length and sa correction
         ds = xr.Dataset(
@@ -805,7 +814,11 @@ class SetGroupsEK60(SetGroupsBase):
                 "pulse_length": (["channel", "pulse_length_bin"], pulse_length),
             },
             coords={
-                "channel": (["channel"], list(self.sorted_channel.values()), self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (
+                    ["channel"],
+                    list(self.sorted_channel.values()),
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(pulse_length.shape[1]),
