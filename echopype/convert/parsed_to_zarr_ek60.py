@@ -19,15 +19,22 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
         self.datagram_df = None  # df created from zarr variables
 
-        # get channel and channel_id association and sort by channel_id
-        channels = list(self.parser_obj.config_datagram["transceivers"].keys())
-        channel_ids = {
-            ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels
-        }
-        sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+        # get the channel sort rule for EK60 type sensors
+        if "transceivers" in self.parser_obj.config_datagram:
 
-        # obtain sort rule for the channel index
-        self.channel_sort_rule = dict(zip(list(map(str, channels)), sorted_channel.keys()))
+            # get channel and channel_id association and sort by channel_id
+            channels = list(self.parser_obj.config_datagram["transceivers"].keys())
+            channel_ids = {
+                ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]
+                for ch in channels
+            }
+            sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+
+            # get just the channel
+            sorted_channel = list(sorted_channel.keys())
+
+            # obtain sort rule for the channel index
+            self.channel_sort_rule = {str(ch): sorted_channel.index(ch) for ch in channels}
 
     @staticmethod
     def _get_string_dtype(pd_series: pd.Index) -> str:

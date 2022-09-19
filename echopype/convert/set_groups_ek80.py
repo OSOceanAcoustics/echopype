@@ -160,7 +160,14 @@ class SetGroupsEK80(SetGroupsBase):
             "channel_id_short",
         ]
         var = defaultdict(list)
-        for ch_id, data in self.parser_obj.config_datagram["configuration"].items():
+
+        # get channel_ids and sort them in ascending order
+        channel_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+        channel_ids.sort(reverse=False)
+
+        # collect all variables in params
+        for ch_id in channel_ids:
+            data = self.parser_obj.config_datagram["configuration"][ch_id]
             for param in params:
                 var[param].append(data[param])
 
@@ -198,7 +205,7 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    list(self.parser_obj.config_datagram["configuration"].keys()),
+                    channel_ids,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 **beam_groups_coord,
@@ -219,6 +226,9 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Platform group."""
 
         ch_ids = self.parser_obj.ch_ids["complex"] + self.parser_obj.ch_ids["power"]
+
+        # sort channel ids in ascending order
+        ch_ids.sort(reverse=False)
 
         freq = np.array(
             [
@@ -399,6 +409,10 @@ class SetGroupsEK80(SetGroupsBase):
             beam parameters that do not change across ping
         """
         ch_ids = self.parser_obj.ch_ids[data_type]
+
+        # sort channel ids in ascending order
+        ch_ids.sort(reverse=False)
+
         freq = np.array(
             [
                 self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
@@ -923,7 +937,14 @@ class SetGroupsEK80(SetGroupsBase):
 
         # obtain additional variables that need to be added to ds_power
         ds_tmp = []
-        for ch in self.parser_obj.ch_ids["power"]:
+
+        # get channel ids for power data
+        ch_ids = self.parser_obj.ch_ids["power"]
+
+        # sort channel ids in ascending order
+        ch_ids.sort(reverse=False)
+
+        for ch in ch_ids:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = set_encodings(ds_data)
 
@@ -962,9 +983,15 @@ class SetGroupsEK80(SetGroupsBase):
         ds_complex = xr.merge([backscatter_r, backscatter_i])
         ds_complex = set_encodings(ds_complex)
 
+        # get channel ids for complex data
+        ch_ids = self.parser_obj.ch_ids["complex"]
+
+        # sort channel ids in ascending order
+        ch_ids.sort(reverse=False)
+
         # obtain additional variables that need to be added to ds_complex
         ds_tmp = []
-        for ch in self.parser_obj.ch_ids["complex"]:
+        for ch in ch_ids:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = self._add_freq_start_end_ds(ds_data, ch)
 
@@ -1008,10 +1035,17 @@ class SetGroupsEK80(SetGroupsBase):
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
         if not self.parsed2zarr_obj.temp_zarr_dir:
+
+            # get channel ids
+            ch_ids = list(self.parser_obj.config_datagram["configuration"].keys())
+
+            # sort channel ids in ascending order
+            ch_ids.sort(reverse=False)
+
             # Assemble dataset for backscatter data and other ping-by-ping data
             ds_complex = []
             ds_power = []
-            for ch in self.parser_obj.config_datagram["configuration"].keys():
+            for ch in ch_ids:
                 if ch in self.parser_obj.ch_ids["complex"]:
                     ds_data = self._assemble_ds_complex(ch)
                 elif ch in self.parser_obj.ch_ids["power"]:
@@ -1080,6 +1114,9 @@ class SetGroupsEK80(SetGroupsBase):
         config = self.parser_obj.config_datagram["configuration"]
         channels = list(self.parser_obj.config_datagram["configuration"].keys())
 
+        # sort channel ids in ascending order
+        channels.sort(reverse=False)
+
         # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
         table_params = [
             "transducer_frequency",
@@ -1087,10 +1124,15 @@ class SetGroupsEK80(SetGroupsBase):
             "sa_correction",
             "gain",
         ]
+
+        # grab all variables in table_params
         param_dict = defaultdict(list)
-        for k, v in config.items():
+        for ch in channels:
+            v = self.parser_obj.config_datagram["configuration"][ch]
             for p in table_params:
                 param_dict[p].append(v[p])
+
+        # make values into numpy arrays
         for p in param_dict.keys():
             param_dict[p] = np.array(param_dict[p])
 
@@ -1138,7 +1180,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Broadband calibration parameters: use the zero padding approach
         cal_ch_ids = [
-            ch for ch in config.keys() if "calibration" in config[ch]
+            ch for ch in channels if "calibration" in config[ch]
         ]  # channels with cal params
         ds_cal = []
         for ch_id in cal_ch_ids:
