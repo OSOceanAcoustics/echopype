@@ -1,7 +1,6 @@
 """
 Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
-import itertools
 from typing import List
 
 import numpy as np
@@ -53,6 +52,9 @@ class SetGroupsAZFP(SetGroupsBase):
 
         # obtain channel_ids
         self.channel_ids = self._create_unique_channel_name()
+
+        # Put Frequency in Hz (this should be done after create_unique_channel_name)
+        self.freq = self.freq * 1000  # Frequency in Hz
 
     def _create_unique_channel_name(self):
         """
@@ -187,13 +189,11 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         dig_rate = unpacked_data["dig_rate"][self.freq_ind_sorted]  # dim: freq
-        freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
-        channel_id = self._create_unique_channel_name()
 
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
-        for ich in range(len(freq)):
+        for ich in self.freq_ind_sorted:
             N.append(
                 np.array(
                     [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
@@ -212,31 +212,12 @@ class SetGroupsAZFP(SetGroupsBase):
             N = N_tmp
             del N_tmp
 
-        # temporary channel with the correct length for range_sample
-        temp_channel = [np.nan] * longest_range_sample
-
-        # Pad the power data
-        all_padded_data = []
-        for time_ind, data_along_ping in enumerate(unpacked_data["counts"]):
-
-            # append a temporary channel so correct padding can occur
-            data_along_ping.append(temp_channel)
-
-            # pad data
-            padded_data = list(itertools.zip_longest(*data_along_ping, fillvalue=np.nan))
-            np_padded_data = np.column_stack(padded_data)
-
-            # collect padded data (include all channels except the temporary one)
-            all_padded_data.append(np_padded_data[:-1, :])
-
-        # create power data dims: (ping_time, channel, range_sample)
-        backscatter_r = np.asarray(all_padded_data)
-
-        print(backscatter_r.shape)
-        print(backscatter_r[:, self.freq_ind_sorted, :].shape)
-
-        tdn = unpacked_data["pulse_length"] / 1e6  # Convert microseconds to seconds
-        range_samples_per_bin = unpacked_data["range_samples_per_bin"]  # from data header
+        tdn = (
+            unpacked_data["pulse_length"][self.freq_ind_sorted] / 1e6
+        )  # Convert microseconds to seconds
+        range_samples_per_bin = unpacked_data["range_samples_per_bin"][
+            self.freq_ind_sorted
+        ]  # from data header
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
@@ -251,7 +232,7 @@ class SetGroupsAZFP(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -260,8 +241,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "backscatter_r": (["channel", "ping_time", "range_sample"], N),
-                "equivalent_beam_angle": (["channel"], parameters["BP"]),
-                "gain_correction": (["channel"], unpacked_data["gain"]),
+                "equivalent_beam_angle": (["channel"], parameters["BP"][self.freq_ind_sorted]),
+                "gain_correction": (["channel"], unpacked_data["gain"][self.freq_ind_sorted]),
                 "sample_interval": (["channel"], sample_int, {"units": "s"}),
                 "transmit_duration_nominal": (
                     ["channel"],
@@ -276,7 +257,7 @@ class SetGroupsAZFP(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    channel_id,
+                    self.channel_ids,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
@@ -307,25 +288,23 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Vendor_specific group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
-        tdn = np.array(parameters["pulse_length"]) / 1e6
-        channel_id = self._create_unique_channel_name()
+        tdn = parameters["pulse_length"][self.freq_ind_sorted] / 1e6
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
-        Sv_offset = np.zeros(freq.shape)
-        for ich in range(len(freq)):
+        Sv_offset = np.zeros_like(self.freq)
+        for ind, ich in enumerate(self.freq_ind_sorted):
             # TODO: should not access the private function, better to compute Sv_offset in parser
-            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(
-                freq[ich], unpacked_data["pulse_length"][ich]
+            Sv_offset[ind] = self.parser_obj._calc_Sv_offset(
+                self.freq[ind], unpacked_data["pulse_length"][ich]
             )
 
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -334,21 +313,30 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "XML_transmit_duration_nominal": (["channel"], tdn),
-                "XML_gain_correction": (["channel"], parameters["gain"]),
-                "XML_digitization_rate": (["channel"], parameters["dig_rate"]),
-                "XML_lockout_index": (["channel"], parameters["lockout_index"]),
-                "digitization_rate": (["channel"], unpacked_data["dig_rate"]),
-                "lockout_index": (["channel"], unpacked_data["lockout_index"]),
+                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
+                "XML_digitization_rate": (
+                    ["channel"],
+                    parameters["dig_rate"][self.freq_ind_sorted],
+                ),
+                "XML_lockout_index": (
+                    ["channel"],
+                    parameters["lockout_index"][self.freq_ind_sorted],
+                ),
+                "digitization_rate": (["channel"], unpacked_data["dig_rate"][self.freq_ind_sorted]),
+                "lockout_index": (
+                    ["channel"],
+                    unpacked_data["lockout_index"][self.freq_ind_sorted],
+                ),
                 "number_of_bins_per_channel": (
                     ["channel"],
-                    unpacked_data["num_bins"],
+                    unpacked_data["num_bins"][self.freq_ind_sorted],
                 ),
                 "number_of_samples_per_average_bin": (
                     ["channel"],
-                    unpacked_data["range_samples_per_bin"],
+                    unpacked_data["range_samples_per_bin"][self.freq_ind_sorted],
                 ),
-                "board_number": (["channel"], unpacked_data["board_num"]),
-                "data_type": (["channel"], unpacked_data["data_type"]),
+                "board_number": (["channel"], unpacked_data["board_num"][self.freq_ind_sorted]),
+                "data_type": (["channel"], unpacked_data["data_type"][self.freq_ind_sorted]),
                 "ping_status": (["ping_time"], unpacked_data["ping_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
@@ -369,24 +357,24 @@ class SetGroupsAZFP(SetGroupsBase):
                 "temperature_counts": (["ping_time"], anc[:, 4]),
                 "tilt_x_count": (["ping_time"], anc[:, 0]),
                 "tilt_y_count": (["ping_time"], anc[:, 1]),
-                "DS": (["channel"], parameters["DS"]),
-                "EL": (["channel"], parameters["EL"]),
-                "TVR": (["channel"], parameters["TVR"]),
-                "VTX": (["channel"], parameters["VTX"]),
+                "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
+                "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
+                "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
+                "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],
-                    np.array(parameters["range_samples"]),
+                    parameters["range_samples"][self.freq_ind_sorted],
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
                     ["channel"],
-                    parameters["range_averaging_samples"],
+                    parameters["range_averaging_samples"][self.freq_ind_sorted],
                 ),
             },
             coords={
                 "channel": (
                     ["channel"],
-                    channel_id,
+                    self.channel_ids,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
