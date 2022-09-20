@@ -71,7 +71,7 @@ class SetGroupsEK60(SetGroupsBase):
         # 3: 'GPT  70 kHz 009072058c6c 3-1 ES70-7C'
         # 4: 'GPT 120 kHz 00907205794e 4-1 ES120-7C'
         # 5: 'GPT 200 kHz 0090720346a8 5-1 ES200-7C'
-        # In this particular case the channels are ordered already, but they may not be, hence the sorting here
+        # In some examples the channels may not be ordered, thus sorting is required
         self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
 
         # obtain corresponding frequency dict from sorted channels
