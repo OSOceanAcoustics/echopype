@@ -65,6 +65,13 @@ class SetGroupsEK60(SetGroupsBase):
         channel_ids = {
             ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"] for ch in channels
         }
+        # example sorted_channel from a 5-channel data file for future reference:
+        # 1: 'GPT  18 kHz 009072034d45 1-1 ES18-11'
+        # 2: 'GPT  38 kHz 009072033fa2 2-1 ES38B' 
+        # 3: 'GPT  70 kHz 009072058c6c 3-1 ES70-7C'
+        # 4: 'GPT 120 kHz 00907205794e 4-1 ES120-7C'
+        # 5: 'GPT 200 kHz 0090720346a8 5-1 ES200-7C'
+        # In this particular case the channels are ordered already, but they may not be, hence the sorting here
         self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
 
         # obtain corresponding frequency dict from sorted channels
