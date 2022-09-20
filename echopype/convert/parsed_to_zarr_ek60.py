@@ -23,18 +23,14 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         if "transceivers" in self.parser_obj.config_datagram:
 
             # get channel and channel_id association and sort by channel_id
-            channels = list(self.parser_obj.config_datagram["transceivers"].keys())
-            channel_ids = {
-                ch: self.parser_obj.config_datagram["transceivers"][ch]["channel_id"]
-                for ch in channels
-            }
-            sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+            channels_old = list(self.parser_obj.config_datagram["transceivers"].keys())
 
-            # get just the channel
-            sorted_channel = list(sorted_channel.keys())
+            # sort the channels in ascending order
+            channels_new = channels_old[:]
+            channels_new.sort(reverse=False)
 
             # obtain sort rule for the channel index
-            self.channel_sort_rule = {str(ch): sorted_channel.index(ch) for ch in channels}
+            self.channel_sort_rule = {str(ch): channels_new.index(ch) for ch in channels_old}
 
     @staticmethod
     def _get_string_dtype(pd_series: pd.Index) -> str:
