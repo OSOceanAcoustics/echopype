@@ -73,17 +73,17 @@ class SetGroupsEK80(SetGroupsBase):
 
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
-            "all": self.sort_list(list(self.parser_obj.config_datagram["configuration"].keys())),
-            "power": self.sort_list(self.parser_obj.ch_ids["power"]),
-            "complex": self.sort_list(self.parser_obj.ch_ids["complex"]),
-            "power_complex": self.sort_list(
+            "all": self._sort_list(list(self.parser_obj.config_datagram["configuration"].keys())),
+            "power": self._sort_list(self.parser_obj.ch_ids["power"]),
+            "complex": self._sort_list(self.parser_obj.ch_ids["complex"]),
+            "power_complex": self._sort_list(
                 self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]
             ),
-            "angle": self.sort_list(self.parser_obj.ch_ids["angle"]),
+            "angle": self._sort_list(self.parser_obj.ch_ids["angle"]),
         }
 
     @staticmethod
-    def sort_list(list_in: List[str]) -> List[str]:
+    def _sort_list(list_in: List[str]) -> List[str]:
         """
         Sorts a list in ascending order and then returns
         the sorted list.
