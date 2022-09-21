@@ -413,8 +413,8 @@ class ZarrCombine:
         Parameters
         ----------
         ds_ind: int
-            The key of the values of ``dims_csum`` to use for each
-            dimension name
+            The key of the values of ``dims_csum`` or index of
+            ``self.dims_df`` to use for each dimension name
         ds_dims: Set[Hashable]
             The names of the dimensions used in the region creation
 
@@ -423,29 +423,25 @@ class ZarrCombine:
         region: Dict[str, slice]
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
-
-        Notes
-        -----
-        Only append dimensions should show up in the region result.
         """
 
-        if ds_ind == 0:
+        # get the initial region
+        region = dict()
+        for dim in ds_dims:
 
-            # get the initial region
-            region = {
-                dim: slice(0, self.dims_csum[dim][ds_ind])
-                for dim in ds_dims
-                if dim in self.append_dims
-            }
+            if dim in self.append_dims:
 
-        else:
+                if ds_ind == 0:
+                    # get the initial region
+                    region[dim] = slice(0, self.dims_csum[dim][ds_ind])
+                else:
+                    # get all other regions
+                    region[dim] = slice(
+                        self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind]
+                    )
 
-            # get all other regions
-            region = {
-                dim: slice(self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind])
-                for dim in ds_dims
-                if dim in self.append_dims
-            }
+            else:
+                region[dim] = slice(0, self.dims_df.loc[ds_ind][dim])
 
         return region
 
@@ -554,9 +550,9 @@ class ZarrCombine:
         delayed_to_zarr = []
         for ind, ds in enumerate(ds_list):
 
-            region = self._get_region(ind, set(ds.dims))
-
             ds_drop = ds.drop(const_names)
+
+            region = self._get_region(ind, set(ds_drop.dims))
 
             delayed_to_zarr.append(
                 ds_drop.to_zarr(
