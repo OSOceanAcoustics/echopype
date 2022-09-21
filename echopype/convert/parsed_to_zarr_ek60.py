@@ -19,6 +19,19 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
         self.datagram_df = None  # df created from zarr variables
 
+        # get the channel sort rule for EK60 type sensors
+        if "transceivers" in self.parser_obj.config_datagram:
+
+            # get channel and channel_id association and sort by channel_id
+            channels_old = list(self.parser_obj.config_datagram["transceivers"].keys())
+
+            # sort the channels in ascending order
+            channels_new = channels_old[:]
+            channels_new.sort(reverse=False)
+
+            # obtain sort rule for the channel index
+            self.channel_sort_rule = {str(ch): channels_new.index(ch) for ch in channels_old}
+
     @staticmethod
     def _get_string_dtype(pd_series: pd.Index) -> str:
         """
@@ -58,6 +71,12 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # get unique indices
         times = power_series.index.get_level_values(0).unique()
         channels = power_series.index.get_level_values(1).unique()
+
+        # sort the channels based on rule
+        _, indexer = channels.map(self.channel_sort_rule).sort_values(
+            ascending=True, return_indexer=True
+        )
+        channels = channels[indexer]
 
         self.p2z_ch_ids["power"] = channels.values  # store channel ids for variable
 
@@ -136,6 +155,12 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         # get unique indices
         times = angle_df.index.get_level_values(0).unique()
         channels = angle_df.index.get_level_values(1).unique()
+
+        # sort the channels based on rule
+        _, indexer = channels.map(self.channel_sort_rule).sort_values(
+            ascending=True, return_indexer=True
+        )
+        channels = channels[indexer]
 
         self.p2z_ch_ids["angle"] = channels.values  # store channel ids for variable
 
