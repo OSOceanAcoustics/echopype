@@ -71,30 +71,41 @@ class SetGroupsEK80(SetGroupsBase):
             for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
                 self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
 
-        # construct sorted channel ids (ascending) for various usage scenarios
-        all_chan_ids = list(self.parser_obj.config_datagram["configuration"].keys())
-        all_chan_ids.sort(reverse=False)
-
-        power_chan_ids = self.parser_obj.ch_ids["power"]
-        power_chan_ids.sort(reverse=False)
-
-        complex_chan_ids = self.parser_obj.ch_ids["complex"]
-        complex_chan_ids.sort(reverse=False)
-
-        pow_comp_chan_ids = self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]
-        pow_comp_chan_ids.sort(reverse=False)
-
-        angle_chan_ids = self.parser_obj.ch_ids["angle"]
-        angle_chan_ids.sort(reverse=False)
-
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
-            "all": all_chan_ids,
-            "power": power_chan_ids,
-            "complex": complex_chan_ids,
-            "power_complex": pow_comp_chan_ids,
-            "angle": angle_chan_ids,
+            "all": self.sort_list(list(self.parser_obj.config_datagram["configuration"].keys())),
+            "power": self.sort_list(self.parser_obj.ch_ids["power"]),
+            "complex": self.sort_list(self.parser_obj.ch_ids["complex"]),
+            "power_complex": self.sort_list(
+                self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]
+            ),
+            "angle": self.sort_list(self.parser_obj.ch_ids["angle"]),
         }
+
+    @staticmethod
+    def sort_list(list_in: List[str]) -> List[str]:
+        """
+        Sorts a list in ascending order and then returns
+        the sorted list.
+
+        Parameters
+        ----------
+        list_in: List[str]
+            List to be sorted
+
+        Returns
+        -------
+        List[str]
+            A copy of the input list in ascending order
+        """
+
+        # make copy so we don't directly modify input list
+        list_in_copy = list_in.copy()
+
+        # sort list in ascending order
+        list_in_copy.sort(reverse=False)
+
+        return list_in_copy
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
