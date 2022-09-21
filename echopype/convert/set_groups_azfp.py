@@ -48,13 +48,13 @@ class SetGroupsAZFP(SetGroupsBase):
         self.freq_ind_sorted = [freq_new.index(ch) for ch in freq_old]
 
         # obtain sorted frequencies
-        self.freq = self.parser_obj.unpacked_data["frequency"][self.freq_ind_sorted]
+        self.freq_sorted = self.parser_obj.unpacked_data["frequency"][self.freq_ind_sorted]
 
         # obtain channel_ids
-        self.channel_ids = self._create_unique_channel_name()
+        self.channel_ids_sorted = self._create_unique_channel_name()
 
         # Put Frequency in Hz (this should be done after create_unique_channel_name)
-        self.freq = self.freq * 1000  # Frequency in Hz
+        self.freq_sorted = self.freq_sorted * 1000  # Frequency in Hz
 
     def _create_unique_channel_name(self):
         """
@@ -67,7 +67,7 @@ class SetGroupsAZFP(SetGroupsBase):
 
         if serial_number.size == 1:
 
-            freq_as_str = self.freq.astype(int).astype(str)
+            freq_as_str = self.freq_sorted.astype(int).astype(str)
 
             # TODO: replace str(i+1) with Frequency Number from XML
             channel_id = [
@@ -232,7 +232,7 @@ class SetGroupsAZFP(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq,
+                    self.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -257,7 +257,7 @@ class SetGroupsAZFP(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    self.channel_ids,
+                    self.channel_ids_sorted,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
@@ -293,18 +293,18 @@ class SetGroupsAZFP(SetGroupsBase):
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
-        Sv_offset = np.zeros_like(self.freq)
+        Sv_offset = np.zeros_like(self.freq_sorted)
         for ind, ich in enumerate(self.freq_ind_sorted):
             # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ind] = self.parser_obj._calc_Sv_offset(
-                self.freq[ind], unpacked_data["pulse_length"][ich]
+                self.freq_sorted[ind], unpacked_data["pulse_length"][ich]
             )
 
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq,
+                    self.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -374,7 +374,7 @@ class SetGroupsAZFP(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    self.channel_ids,
+                    self.channel_ids_sorted,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
