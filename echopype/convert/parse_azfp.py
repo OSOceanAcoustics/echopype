@@ -210,6 +210,17 @@ class ParseAZFP(ParseBase):
         # Explicitly cast frequency to a float in accordance with the SONAR-netCDF4 convention
         self.unpacked_data["frequency"] = self.unpacked_data["frequency"].astype(np.float64)
 
+        # cast unpacked_data values to np arrays, so they are easier to reference
+        for key, val in self.unpacked_data.items():
+            # if it is not a nested list, make the value into a ndarray
+            if isinstance(val, list) and (not isinstance(val[0], list)):
+                self.unpacked_data[key] = np.asarray(val)
+
+        # cast all list parameter values to np array, so they are easier to reference
+        for key, val in self.parameters.items():
+            if isinstance(val, list):
+                self.parameters[key] = np.asarray(val)
+
     @staticmethod
     def _get_fields():
         """Returns the fields contained in each header of the raw file."""
