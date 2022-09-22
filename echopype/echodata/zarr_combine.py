@@ -41,39 +41,60 @@ class ZarrCombine:
         # The sonar_model for the new combined EchoData object
         self.sonar_model = None
 
-    def _check_ds_times(self, ds_list: List[xr.Dataset], ed_name: str):
+    def _check_ascending_ds_times(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
+        """
+        Ensures that the time dimensions are in ascending order
+        across all Datasets being combined. For example, the
+        maximum time of the first Dataset must be less than the
+        minimum time of the second Dataset.
 
-        # TODO: document this!
+        Parameters
+        ----------
+        ds_list: List[xr.Dataset]
+            List of Datasets to be combined
+        ed_name: str
+            The name of the ``EchoData`` group being combined
+        """
 
+        # get all time dimensions of the input Datasets
         ed_time_dim = set(ds_list[0].dims).intersection(self.possible_time_dims)
 
         for time in ed_time_dim:
 
+            # get maximum and minimum time of all Datasets
             max_time = [ds[time].max().values for ds in ds_list]
             min_time = [ds[time].min().values for ds in ds_list]
 
+            # see if all Datasets have NaN for time
             max_all_nan = all(np.isnan(max_time))
             min_all_nan = all(np.isnan(min_time))
 
+            # True means our time is not filled with NaNs
+            # This is necessary because some time dims can be filled with NaNs
+            nan_time_cond = (not max_all_nan) and (not min_all_nan)
+
             # checks to see that times are in ascending order
-            if max_time[:-1] > min_time[1:] and (not max_all_nan) and (not min_all_nan):
+            if nan_time_cond and max_time[:-1] > min_time[1:]:
 
                 raise RuntimeError(
                     f"The coordinate {time} is not in ascending order for group {ed_name}, "
                     f"combine cannot be used!"
                 )
 
-            # TODO: check and store time values
+    def _reverse_time_check_and_storage(self, ds_list: List[xr.Dataset], ed_name: str):
 
-            # TODO: do this first [exist_reversed_time(ds, time_str) for ds in ds_list]
-            #  if any are True, then continue by creating an old time variable in each ds
+        # TODO: check and store time values
 
-            # for ds in ds_list:
-            #     old_time = check_and_correct_reversed_time(
-            #         ds, time_str=str(time), sonar_model=self.sonar_model
-            #     )
+        # TODO: do this first [exist_reversed_time(ds, time_str) for ds in ds_list]
+        #  if any are True, then continue by creating an old time variable in each ds
 
-            # print(f"old_time = {old_time}, group = {ed_name}")
+        # for ds in ds_list:
+        #     old_time = check_and_correct_reversed_time(
+        #         ds, time_str=str(time), sonar_model=self.sonar_model
+        #     )
+
+        old_time = None
+        print(f"old_time = {old_time}, group = {ed_name}")
 
     @staticmethod
     def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
@@ -218,7 +239,7 @@ class ZarrCombine:
         in the attributes of the combined ``EchoData`` object.
         """
 
-        self._check_ds_times(ds_list, ed_name)
+        self._check_ascending_ds_times(ds_list, ed_name)
         self._check_channels(ds_list, ed_name)
 
         # Dataframe with column as dim names and rows as the different Datasets
