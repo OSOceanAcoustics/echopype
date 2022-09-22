@@ -38,6 +38,7 @@ class ZarrCombine:
         # defaultdict that holds every group's attributes
         self.group_attrs = defaultdict(list)
 
+        # The sonar_model for the new combined EchoData object
         self.sonar_model = None
 
     def _check_ds_times(self, ds_list: List[xr.Dataset], ed_name: str):
@@ -74,15 +75,20 @@ class ZarrCombine:
 
             # print(f"old_time = {old_time}, group = {ed_name}")
 
-    def _check_channels(self, ds_list: List[xr.Dataset], ed_name: str):
+    @staticmethod
+    def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
         Makes sure that each Dataset in ``ds_list`` has the
         same number of channels and the same name for each
         of these channels.
 
+        Parameters
+        ----------
+        ds_list: List[xr.Dataset]
+            List of Datasets to be combined
+        ed_name: str
+            The name of the ``EchoData`` group being combined
         """
-
-        # TODO: document this!
 
         if "channel" in ds_list[0].dims:
 
