@@ -104,11 +104,18 @@ def check_and_correct_reversed_time(
     return old_time
 
 
-def assemble_combined_provenance(input_paths):
-    prov_dict = echopype_prov_attrs(process_type="combination")
-    # TODO: handle xml_paths if they exist
-    source_files_var, meta_source_files_var, source_files_coord = source_files_vars(input_paths)
-    ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord, attrs=prov_dict)
+def assemble_combined_provenance(input_paths, xml_paths):
+    prov_dict = echopype_prov_attrs(process_type="conversion")
+    source_files_var, meta_source_files_var, source_files_coord = source_files_vars(
+        input_paths, xml_paths
+    )
+    if meta_source_files_var is None:
+        source_vars = source_files_var
+    else:
+        source_vars = {**source_files_var, **meta_source_files_var}
+
+    ds = xr.Dataset(data_vars=source_vars, coords=source_files_coord, attrs=prov_dict)
+
     return ds
 
 
@@ -274,20 +281,23 @@ def in_memory_combine(
         if group_path is None:
             group_path = "Top-level"
 
-        for echodata in echodatas:
-            if echodata[group_path] is not None:
-                group_datasets.append(echodata[group_path])
+        for ed in echodatas:
+            if ed[group_path] is not None:
+                group_datasets.append(ed[group_path])
 
         if group in ("top", "sonar"):
             combined_group = echodatas[0][group_path]
         elif group == "provenance":
+            xml_paths = [ed.xml_path for ed in echodatas if len(ed.xml_path) > 0]
+            xml_paths = None if len(xml_paths) == 0 else xml_paths
             combined_group = assemble_combined_provenance(
                 [
-                    echodata.source_file
-                    if echodata.source_file is not None
-                    else echodata.converted_raw_path
-                    for echodata in echodatas
-                ]
+                    ed.source_file
+                    if ed.source_file is not None
+                    else ed.converted_raw_path
+                    for ed in echodatas
+                ],
+                xml_paths
             )
         else:
             if len(group_datasets) == 0:

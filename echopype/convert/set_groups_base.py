@@ -87,12 +87,11 @@ class SetGroupsBase(abc.ABC):
             self.input_file, self.xml_path
         )
         if meta_source_files_var is None:
-            ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
+            source_vars = source_files_var
         else:
-            ds = xr.Dataset(
-                data_vars={**source_files_var, **meta_source_files_var}, coords=source_files_coord
-            )
-        ds = ds.assign_attrs(prov_dict)
+            source_vars = {**source_files_var, **meta_source_files_var}
+
+        ds = xr.Dataset(data_vars=source_vars, coords=source_files_coord, attrs=prov_dict)
 
         return ds
 
