@@ -292,12 +292,10 @@ def in_memory_combine(
             xml_paths = None if len(xml_paths) == 0 else xml_paths
             combined_group = assemble_combined_provenance(
                 [
-                    ed.source_file
-                    if ed.source_file is not None
-                    else ed.converted_raw_path
+                    ed.source_file if ed.source_file is not None else ed.converted_raw_path
                     for ed in echodatas
                 ],
-                xml_paths
+                xml_paths,
             )
         else:
             if len(group_datasets) == 0:
