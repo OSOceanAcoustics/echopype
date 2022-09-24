@@ -12,6 +12,8 @@ from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
 from echopype.core import SONAR_MODELS
 
+import zarr
+
 
 @pytest.fixture
 def ek60_test_data(test_path):
@@ -319,3 +321,36 @@ def test_combined_echodata_repr(ek60_test_data):
 
     actual = "\n".join(x.rstrip() for x in repr(combined).split("\n"))
     assert actual == expected_repr
+
+
+# TODO: consider the following test structures
+# from distributed.utils_test import client
+# @gen_cluster(client=True)
+# async def test_zarr_combine(client, scheduler, w1, w2):
+# from distributed.utils_test import gen_cluster, inc
+# from distributed.utils_test import client, loop, cluster_fixture, loop_in_thread, cleanup
+
+# from dask.distributed import Client
+#
+# # @pytest.fixture(scope="session")
+# def test_zarr_combine():
+#
+#     client = Client()  # n_workers=1)
+#
+#     from fsspec.implementations.local import LocalFileSystem
+#     fs = LocalFileSystem()
+#
+#     desired_raw_file_paths = fs.glob('/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/OOI_zarrs_ep_ex/temp/*.zarr')
+#
+#     ed_lazy = []
+#     for ed_path in desired_raw_file_paths:
+#         print(ed_path)
+#         ed_lazy.append(echopype.open_converted(ed_path, chunks='auto',
+#                                                synchronizer=zarr.ThreadSynchronizer()))
+#
+#     from echopype.echodata.zarr_combine import ZarrCombine
+#
+#     path = '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/test.zarr'
+#     comb = ZarrCombine()
+#
+#     ed_combined = comb.combine(path, ed_lazy, storage_options={})

@@ -82,6 +82,13 @@ class ZarrCombine:
                 )
 
     def _reverse_time_check_and_storage(self, ds_list: List[xr.Dataset], ed_name: str):
+        """
+        Determine if there exist reversed time dimensions in each
+        of the Datasets individually. Additionally, if there are
+        reversed times correct them and store the old time dimension
+        as a variable of
+
+        """
 
         # TODO: check and store time values
 
@@ -249,6 +256,7 @@ class ZarrCombine:
         self.dims_sum = self.dims_df.sum(axis=0).to_dict()
         self.dims_csum = self.dims_df.cumsum(axis=0).to_dict()
         self.dims_max = self.dims_df.max(axis=0).to_dict()
+        self.dims_min = self.dims_df.min(axis=0).to_dict()
 
         # format ed_name appropriately
         ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
@@ -304,9 +312,13 @@ class ZarrCombine:
         ]
 
         # Create the chunk shape of the variable
-        chnk_shape = [self.dims_max[dim] for dim in dims]
+        # TODO: investigate which of the two chunk shapes is best
+        # chnk_shape = [self.dims_max[dim] for dim in dims]
+        chnk_shape = [
+            self.dims_min[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims
+        ]
 
-        temp_arr = dask.array.zeros(shape=shape, chunks=chnk_shape, dtype=dtype)
+        temp_arr = dask.array.zeros(shape=shape, dtype=dtype, chunks=chnk_shape)
 
         return temp_arr, chnk_shape
 
@@ -472,54 +484,48 @@ class ZarrCombine:
 
         return region
 
-    def _append_const_to_zarr(
-        self,
-        const_vars: List[str],
-        ds_list: List[xr.Dataset],
-        path: str,
-        zarr_group: str,
-        storage_options: dict,
-    ):
-        """
-        Appends all constant (i.e. not chunked) variables and dimensions to the
-        zarr group.
+    @staticmethod
+    def get_intervals(csum):
+        """creates a list of intervals from a cumulative sum
 
-        Parameters
-        ----------
-        const_vars: List[str]
-            The names of all variables/dimensions that are not chunked
-        ds_list: List[xr.Dataset]
-            The Datasets that will be combined
-        path: str
-            The full path of the final combined zarr store
-        zarr_group: str
-            The name of the group of the zarr store
-            corresponding to the Datasets in ``ds_list``
-        storage_options: dict
-            Any additional parameters for the storage
-            backend (ignored for local paths)
-
-        Notes
-        -----
-        Those variables/dimensions that are in ``self.append_dims``
-        should not be appended here.
+        use case: cumulative sum of max append dimensions or
+        self.dims_csum
         """
 
-        # write constant vars to zarr using the first element of ds_list
-        for var in const_vars:
+        # TODO: Document this
 
-            # TODO: when range_sample needs to be padded, here we will
-            #  need to pick the dataset with the max size for range_sample
-            #  (might be done with change below)
+        intervals = []
+        for count, val in enumerate(csum):
 
-            # make sure to choose the dataset with the largest size for variable
-            if var in self.dims_df:
-                ds_list_ind = int(self.dims_df[var].argmax())
+            if count == 0:
+                # get the initial region
+                intervals.append(pd.Interval(left=0, right=val, closed="left"))
+
             else:
-                ds_list_ind = int(0)
+                # get all other regions
+                intervals.append(pd.Interval(left=csum[count - 1], right=val, closed="left"))
 
-            ds_list[ds_list_ind][[var]].to_zarr(
-                path, group=zarr_group, mode="a", storage_options=storage_options
+        return intervals
+
+    @staticmethod
+    def get_common_chunks(interval_list_dim, interval_list_max):
+        """
+        determines what intervals overlap
+
+        use case: makes it so we can determine which to_zarr calls will
+        write to the same chunk, we can use this result to do dask locking
+
+        """
+
+        chunks = defaultdict(list)
+
+        for i in range(len(interval_list_max)):
+            chunks[i].extend(
+                [
+                    count
+                    for count, interval in enumerate(interval_list_dim)
+                    if interval_list_max[i].overlaps(interval)
+                ]
             )
 
     def _append_ds_list_to_zarr(
@@ -573,31 +579,109 @@ class ZarrCombine:
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
+        def ds_to_zarr(dataset, write_path, zarr_grp, rgn, storage_opts, synch):
+
+            dataset.to_zarr(
+                write_path,
+                group=zarr_grp,
+                region=rgn,
+                storage_options=storage_opts,
+                compute=True,
+                synchronizer=synch,
+            )
+
         # write each non-constant variable in ds_list to the zarr store
-        delayed_to_zarr = []
+        # delayed_to_zarr = []
+        to_zarr_futures = []
         for ind, ds in enumerate(ds_list):
+
+            # TODO: may need to write ds in stages of append dimension
+            #  e.g. split ds into a ds with time1 dim and a ds with
+            #  time2 dim, then write them using the locking.
 
             ds_drop = ds.drop(const_names)
 
             region = self._get_region(ind, set(ds_drop.dims))
 
-            delayed_to_zarr.append(
-                ds_drop.to_zarr(
+            # delayed_to_zarr.append(
+            #     ds_drop.to_zarr(
+            #         path,
+            #         group=zarr_group,
+            #         region=region,
+            #         storage_options=storage_options,
+            #         compute=to_zarr_compute,
+            #         synchronizer=zarr.ThreadSynchronizer(),
+            #     )
+            # )
+            to_zarr_futures.append(
+                dask.distributed.get_client().submit(
+                    ds_to_zarr,
+                    ds_drop,
                     path,
-                    group=zarr_group,
-                    region=region,
-                    storage_options=storage_options,
-                    compute=to_zarr_compute,
-                    synchronizer=zarr.ThreadSynchronizer(),
+                    zarr_group,
+                    region,
+                    storage_options,
+                    zarr.ThreadSynchronizer(),
                 )
             )
 
         if not to_zarr_compute:
-            dask.compute(*delayed_to_zarr, retries=1)  # TODO: maybe use persist in the future?
+            # dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
+            [f.result() for f in to_zarr_futures]
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
         return const_names
+
+    def _append_const_to_zarr(
+        self,
+        const_vars: List[str],
+        ds_list: List[xr.Dataset],
+        path: str,
+        zarr_group: str,
+        storage_options: dict,
+    ):
+        """
+        Appends all constant (i.e. not chunked) variables and dimensions to the
+        zarr group.
+
+        Parameters
+        ----------
+        const_vars: List[str]
+            The names of all variables/dimensions that are not chunked
+        ds_list: List[xr.Dataset]
+            The Datasets that will be combined
+        path: str
+            The full path of the final combined zarr store
+        zarr_group: str
+            The name of the group of the zarr store
+            corresponding to the Datasets in ``ds_list``
+        storage_options: dict
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+
+        Notes
+        -----
+        Those variables/dimensions that are in ``self.append_dims``
+        should not be appended here.
+        """
+
+        # write constant vars to zarr using the first element of ds_list
+        for var in const_vars:
+
+            # TODO: when range_sample needs to be padded, here we will
+            #  need to pick the dataset with the max size for range_sample
+            #  (might be done with change below)
+
+            # make sure to choose the dataset with the largest size for variable
+            if var in self.dims_df:
+                ds_list_ind = int(self.dims_df[var].argmax())
+            else:
+                ds_list_ind = int(0)
+
+            ds_list[ds_list_ind][[var]].to_zarr(
+                path, group=zarr_group, mode="a", storage_options=storage_options
+            )
 
     def _append_provenance_attr_vars(self, path: str, storage_options: Optional[dict] = {}) -> None:
         """
