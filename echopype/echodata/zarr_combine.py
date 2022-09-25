@@ -10,9 +10,10 @@ import pandas as pd
 import xarray as xr
 import zarr
 
-from ..convert.api import COMPRESSION_SETTINGS
+from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.prov import echopype_prov_attrs
-from .api import open_converted
+
+# from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
 from .echodata import EchoData
 
@@ -313,10 +314,10 @@ class ZarrCombine:
 
         # Create the chunk shape of the variable
         # TODO: investigate which of the two chunk shapes is best
-        # chnk_shape = [self.dims_max[dim] for dim in dims]
-        chnk_shape = [
-            self.dims_min[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims
-        ]
+        chnk_shape = [self.dims_max[dim] for dim in dims]
+        # chnk_shape = [
+        #     self.dims_min[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims
+        # ]
 
         temp_arr = dask.array.zeros(shape=shape, dtype=dtype, chunks=chnk_shape)
 
@@ -492,7 +493,7 @@ class ZarrCombine:
         self.dims_csum
         """
 
-        # TODO: Document this
+        # TODO: Document this!
 
         intervals = []
         for count, val in enumerate(csum):
@@ -517,6 +518,8 @@ class ZarrCombine:
 
         """
 
+        # TODO: Document this!
+
         chunks = defaultdict(list)
 
         for i in range(len(interval_list_max)):
@@ -526,6 +529,38 @@ class ZarrCombine:
                     for count, interval in enumerate(interval_list_dim)
                     if interval_list_max[i].overlaps(interval)
                 ]
+            )
+
+        return chunks
+
+    @staticmethod
+    def get_common_chunks_key(common_chunks, ind):
+        """
+        Obtains the key in common chunk whose value
+        contains ind
+
+        """
+
+        # TODO: Document this!
+
+        for key, val in common_chunks.items():
+
+            if ind in val:
+                return key
+
+    @dask.delayed
+    def write_ds_to_zarr(self, ds_in, path, group, rgn, name, storage_opts, sync):
+
+        # TODO: document this!
+
+        with dask.distributed.Lock(name):
+            ds_in.to_zarr(
+                path,
+                group=group,
+                region=rgn,
+                compute=True,
+                storage_options=storage_opts,
+                synchronizer=sync,
             )
 
     def _append_ds_list_to_zarr(
@@ -579,20 +614,8 @@ class ZarrCombine:
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
-        def ds_to_zarr(dataset, write_path, zarr_grp, rgn, storage_opts, synch):
-
-            dataset.to_zarr(
-                write_path,
-                group=zarr_grp,
-                region=rgn,
-                storage_options=storage_opts,
-                compute=True,
-                synchronizer=synch,
-            )
-
         # write each non-constant variable in ds_list to the zarr store
         # delayed_to_zarr = []
-        to_zarr_futures = []
         for ind, ds in enumerate(ds_list):
 
             # TODO: may need to write ds in stages of append dimension
@@ -601,7 +624,46 @@ class ZarrCombine:
 
             ds_drop = ds.drop(const_names)
 
-            region = self._get_region(ind, set(ds_drop.dims))
+            append_dims_in_ds = set(ds_drop.dims).intersection(self.append_dims)
+
+            # TODO: there may be a better way to obtain the common chunks!
+            for dim in append_dims_in_ds:
+                # print(f"dim = {dim}")
+                # get all of those variables with dim in their dimensions
+                vars_w_dim = [val.name for val in ds_drop.values() if dim in val.dims]
+
+                ds_drop_dim = ds_drop[vars_w_dim]
+
+                region = self._get_region(ind, set(ds_drop_dim.dims))
+                print(region)
+
+                csum_dim = np.array(list(self.dims_csum[dim].values()))
+
+                # print(f"csum_dim {csum_dim}")
+
+                csum_max = np.cumsum(np.array([self.dims_max[dim]] * len(csum_dim)))
+
+                # print(f"csum_max = {csum_max}")
+
+                interval_list_max = self.get_intervals(csum_max)
+                interval_list_dim = self.get_intervals(csum_dim)
+
+                com_chunks = self.get_common_chunks(interval_list_dim, interval_list_max)
+
+                chunk = self.get_common_chunks_key(com_chunks, ind)
+                lock_name = dim + "_" + str(chunk)
+                print(f"lock_name = {lock_name}")
+                print(f"interval_list_max = {interval_list_max}")
+                print(f"interval_list_dim = {interval_list_dim} \n")
+
+                # TODO: multiple locks can exist for the same region, we may need
+                #  to split up the region
+
+            #
+            # delayed_to_zarr.append(self.write_ds_to_zarr(ds_drop, path,
+            #                                              zarr_group, region,
+            #                                              lock_name, storage_options,
+            #                                              zarr.ThreadSynchronizer()))
 
             # delayed_to_zarr.append(
             #     ds_drop.to_zarr(
@@ -613,21 +675,10 @@ class ZarrCombine:
             #         synchronizer=zarr.ThreadSynchronizer(),
             #     )
             # )
-            to_zarr_futures.append(
-                dask.distributed.get_client().submit(
-                    ds_to_zarr,
-                    ds_drop,
-                    path,
-                    zarr_group,
-                    region,
-                    storage_options,
-                    zarr.ThreadSynchronizer(),
-                )
-            )
 
-        if not to_zarr_compute:
-            # dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
-            [f.result() for f in to_zarr_futures]
+        # if not to_zarr_compute:
+        #     dask.compute(*delayed_to_zarr) #, retries=1)  # TODO: maybe use persist in the future?
+        #     # [f.result() for f in to_zarr_futures]
 
         # TODO: need to consider the case where range_sample needs to be padded?
 
@@ -763,21 +814,21 @@ class ZarrCombine:
                     storage_options=storage_options,
                     to_zarr_compute=to_zarr_compute,
                 )
-
-                self._append_const_to_zarr(
-                    const_names, ds_list, path, grp_info["ep_group"], storage_options
-                )
+                print(const_names)
+                # self._append_const_to_zarr(
+                #     const_names, ds_list, path, grp_info["ep_group"], storage_options
+                # )
 
         # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(path, storage_options=storage_options)
+        # self._append_provenance_attr_vars(path, storage_options=storage_options)
 
         # TODO: change filenames numbering to range(len(filenames))
 
         # blosc.use_threads = None
 
         # open lazy loaded combined EchoData object
-        ed_combined = open_converted(
-            path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
-        )  # TODO: is this appropriate for chunks?
+        # ed_combined = open_converted(
+        #     path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+        # )  # TODO: is this appropriate for chunks?
 
-        return ed_combined
+        return  # ed_combined
