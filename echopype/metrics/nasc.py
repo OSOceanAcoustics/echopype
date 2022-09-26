@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+
 import xarray as xr
 
 
@@ -76,7 +77,7 @@ def compute_NASC(
         The channel to use for computing NASC.
         One of ``channel`` or ``frequency`` must be specified.
         An warning will be issued if both ``chanenl`` and ``frequency`` are specified.
-        ``channel`` takes priority over ``frequency`` if both are specified. 
+        ``channel`` takes priority over ``frequency`` if both are specified.
     frequency : int, float
         The frequency to use for computing NASC.
 
