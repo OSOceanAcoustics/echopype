@@ -34,6 +34,21 @@ def get_files_from_dir(folder):
     return [f for f in os.listdir(folder) if os.path.splitext(f)[1] in valid_ext]
 
 
+def get_zarr_compression(var: xr.Variable, compression_settings: dict) -> dict:
+    """Returns the proper zarr compressor for a given variable type"""
+
+    if np.issubdtype(var.dtype, np.floating):
+        return compression_settings["float"]
+    elif np.issubdtype(var.dtype, np.integer):
+        return compression_settings["int"]
+    elif np.issubdtype(var.dtype, np.str_):
+        return compression_settings["string"]
+    elif np.issubdtype(var.dtype, np.datetime64):
+        return compression_settings["time"]
+    else:
+        raise NotImplementedError(f"Zarr Encoding for dtype = {var.dtype} has not been set!")
+
+
 def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict):
     """
     Sets all variable encodings based on zarr default values
@@ -44,20 +59,8 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict):
     for name, val in ds.variables.items():
 
         val_encoding = val.encoding
-        if np.issubdtype(val.dtype, np.floating):
-            val_encoding.update(compression_settings["float"])
-            encoding[name] = val_encoding
-        elif np.issubdtype(val.dtype, np.integer):
-            val_encoding.update(compression_settings["int"])
-            encoding[name] = val_encoding
-        elif np.issubdtype(val.dtype, np.str_):
-            val_encoding.update(compression_settings["string"])
-            encoding[name] = val_encoding
-        elif np.issubdtype(val.dtype, np.datetime64):
-            val_encoding.update(compression_settings["time"])
-            encoding[name] = val_encoding
-        else:
-            raise NotImplementedError(f"Zarr Encoding for dtype = {val.dtype} has not been set!")
+        val_encoding.update(get_zarr_compression(val, compression_settings))
+        encoding[name] = val_encoding
 
     return encoding
 

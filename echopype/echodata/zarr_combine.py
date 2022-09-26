@@ -11,6 +11,7 @@ import xarray as xr
 import zarr
 
 from ..utils.coding import COMPRESSION_SETTINGS
+from ..utils.io import get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .combine import check_echodatas_input  # , check_and_correct_reversed_time
@@ -325,7 +326,8 @@ class ZarrCombine:
         """
         Sets the encodings for the variable ``name`` by including all
         encodings in ``val``, except those encodings that are deemed
-        lazy encodings.
+        lazy encodings. Additionally, if a compressor is not found,
+        a default compressor will be assigned.
 
         Parameters
         ----------
@@ -349,24 +351,9 @@ class ZarrCombine:
             key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
         }
 
-        # TODO: if 'compressor' or 'filters' or '_FillValue' or 'dtype' do not exist, then
-        #  assign them to a default value
-        #  'compressor': Blosc(cname='zstd', clevel=3, shuffle=BITSHUFFLE, blocksize=0)
-
-        # TODO: we should probably use ..utils.io function to reduce repetition
+        # assign default compressor, if one does not exist
         if "compressor" not in encodings[str(name)]:
-            if np.issubdtype(val.dtype, np.floating):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["float"])
-            elif np.issubdtype(val.dtype, np.integer):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["int"])
-            elif np.issubdtype(val.dtype, np.str_):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["string"])
-            elif np.issubdtype(val.dtype, np.datetime64):
-                encodings[str(name)].update(COMPRESSION_SETTINGS["zarr"]["time"])
-            else:
-                raise NotImplementedError(
-                    f"Zarr Encoding for dtype = {val.dtype} has not been set!"
-                )
+            encodings[str(name)].update(get_zarr_compression(val, COMPRESSION_SETTINGS["zarr"]))
 
         # set the chunk encoding
         encodings[str(name)]["chunks"] = chnk_shape
