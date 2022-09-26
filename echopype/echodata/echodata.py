@@ -185,6 +185,9 @@ class EchoData:
         if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
             version_str = self["Provenance"].attrs.get("conversion_software_version", None)
             if version_str is not None:
+                if version_str.startswith("v"):
+                    # Removes v in case of v0.4.x or less
+                    version_str = version_str.strip("v")
                 version_num = version_str.split(".")[:3]
                 return tuple([int(i) for i in version_num])
         return None

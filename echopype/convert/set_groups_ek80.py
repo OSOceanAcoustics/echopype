@@ -71,6 +71,42 @@ class SetGroupsEK80(SetGroupsBase):
             for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
                 self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
 
+        # obtain sorted channel dict in ascending order for each usage scenario
+        self.sorted_channel = {
+            "all": self._sort_list(list(self.parser_obj.config_datagram["configuration"].keys())),
+            "power": self._sort_list(self.parser_obj.ch_ids["power"]),
+            "complex": self._sort_list(self.parser_obj.ch_ids["complex"]),
+            "power_complex": self._sort_list(
+                self.parser_obj.ch_ids["power"] + self.parser_obj.ch_ids["complex"]
+            ),
+            "angle": self._sort_list(self.parser_obj.ch_ids["angle"]),
+        }
+
+    @staticmethod
+    def _sort_list(list_in: List[str]) -> List[str]:
+        """
+        Sorts a list in ascending order and then returns
+        the sorted list.
+
+        Parameters
+        ----------
+        list_in: List[str]
+            List to be sorted
+
+        Returns
+        -------
+        List[str]
+            A copy of the input list in ascending order
+        """
+
+        # make copy so we don't directly modify input list
+        list_in_copy = list_in.copy()
+
+        # sort list in ascending order
+        list_in_copy.sort(reverse=False)
+
+        return list_in_copy
+
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
 
@@ -160,7 +196,10 @@ class SetGroupsEK80(SetGroupsBase):
             "channel_id_short",
         ]
         var = defaultdict(list)
-        for ch_id, data in self.parser_obj.config_datagram["configuration"].items():
+
+        # collect all variables in params
+        for ch_id in self.sorted_channel["all"]:
+            data = self.parser_obj.config_datagram["configuration"][ch_id]
             for param in params:
                 var[param].append(data[param])
 
@@ -198,7 +237,7 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    list(self.parser_obj.config_datagram["configuration"].keys()),
+                    self.sorted_channel["all"],
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 **beam_groups_coord,
@@ -218,12 +257,10 @@ class SetGroupsEK80(SetGroupsBase):
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
-        ch_ids = self.parser_obj.ch_ids["complex"] + self.parser_obj.ch_ids["power"]
-
         freq = np.array(
             [
                 self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-                for ch in ch_ids
+                for ch in self.sorted_channel["power_complex"]
             ]
         )
 
@@ -289,7 +326,7 @@ class SetGroupsEK80(SetGroupsBase):
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_x", np.nan
                         )
-                        for ch in ch_ids
+                        for ch in self.sorted_channel["power_complex"]
                     ],
                     self._varattrs["platform_var_default"]["transducer_offset_x"],
                 ),
@@ -299,7 +336,7 @@ class SetGroupsEK80(SetGroupsBase):
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_y", np.nan
                         )
-                        for ch in ch_ids
+                        for ch in self.sorted_channel["power_complex"]
                     ],
                     self._varattrs["platform_var_default"]["transducer_offset_y"],
                 ),
@@ -309,7 +346,7 @@ class SetGroupsEK80(SetGroupsBase):
                         self.parser_obj.config_datagram["configuration"][ch].get(
                             "transducer_offset_z", np.nan
                         )
-                        for ch in ch_ids
+                        for ch in self.sorted_channel["power_complex"]
                     ],
                     self._varattrs["platform_var_default"]["transducer_offset_z"],
                 ),
@@ -344,7 +381,11 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             },
             coords={
-                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (
+                    ["channel"],
+                    self.sorted_channel["power_complex"],
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
                 "time2": (
                     ["time2"],
                     time2,
@@ -398,18 +439,18 @@ class SetGroupsEK80(SetGroupsBase):
         params : dict
             beam parameters that do not change across ping
         """
-        ch_ids = self.parser_obj.ch_ids[data_type]
+
         freq = np.array(
             [
                 self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-                for ch in ch_ids
+                for ch in self.sorted_channel[data_type]
             ]
         )
         beam_params = defaultdict()
         for param in params:
             beam_params[param] = [
                 self.parser_obj.config_datagram["configuration"][ch].get(param, np.nan)
-                for ch in ch_ids
+                for ch in self.sorted_channel[data_type]
             ]
         ds = xr.Dataset(
             {
@@ -544,7 +585,11 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
             coords={
-                "channel": (["channel"], ch_ids, self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (
+                    ["channel"],
+                    self.sorted_channel[data_type],
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
             },
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
@@ -758,7 +803,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds_tmp = self._add_trasmit_pulse_complex(ds_tmp, ch)
 
         # If angle data exist
-        if ch in self.parser_obj.ch_ids["angle"]:
+        if ch in self.sorted_channel["angle"]:
             ds_tmp = ds_tmp.assign(
                 {
                     "angle_athwartship": (
@@ -923,7 +968,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         # obtain additional variables that need to be added to ds_power
         ds_tmp = []
-        for ch in self.parser_obj.ch_ids["power"]:
+        for ch in self.sorted_channel["power"]:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = set_encodings(ds_data)
 
@@ -964,7 +1009,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         # obtain additional variables that need to be added to ds_complex
         ds_tmp = []
-        for ch in self.parser_obj.ch_ids["complex"]:
+        for ch in self.sorted_channel["complex"]:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = self._add_freq_start_end_ds(ds_data, ch)
 
@@ -1002,19 +1047,20 @@ class SetGroupsEK80(SetGroupsBase):
         ]
 
         # Assemble dataset for ping-invariant params
-        if self.parser_obj.ch_ids["complex"]:
+        if self.sorted_channel["complex"]:
             ds_invariant_complex = self._assemble_ds_ping_invariant(params, "complex")
-        if self.parser_obj.ch_ids["power"]:
+        if self.sorted_channel["power"]:
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
         if not self.parsed2zarr_obj.temp_zarr_dir:
+
             # Assemble dataset for backscatter data and other ping-by-ping data
             ds_complex = []
             ds_power = []
-            for ch in self.parser_obj.config_datagram["configuration"].keys():
-                if ch in self.parser_obj.ch_ids["complex"]:
+            for ch in self.sorted_channel["all"]:
+                if ch in self.sorted_channel["complex"]:
                     ds_data = self._assemble_ds_complex(ch)
-                elif ch in self.parser_obj.ch_ids["power"]:
+                elif ch in self.sorted_channel["power"]:
                     ds_data = self._assemble_ds_power(ch)
                 else:  # skip for channels containing no data
                     continue
@@ -1023,7 +1069,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ds_data, ch, rs_size=ds_data.range_sample.size
                 )
 
-                if ch in self.parser_obj.ch_ids["complex"]:
+                if ch in self.sorted_channel["complex"]:
                     ds_complex.append(ds_data)
                 else:
                     ds_power.append(ds_data)
@@ -1040,14 +1086,14 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_beam = self.merge_save(ds_power, ds_invariant_power)
         else:
-            if self.parser_obj.ch_ids["power"]:
+            if self.sorted_channel["power"]:
                 ds_power = self._get_ds_beam_power_zarr(ds_invariant_power)
             else:
                 ds_power = None
 
             ds_beam_power = ds_power
 
-            if self.parser_obj.ch_ids["complex"]:
+            if self.sorted_channel["complex"]:
                 ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
             else:
                 ds_complex = None
@@ -1078,7 +1124,6 @@ class SetGroupsEK80(SetGroupsBase):
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
         config = self.parser_obj.config_datagram["configuration"]
-        channels = list(self.parser_obj.config_datagram["configuration"].keys())
 
         # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
         table_params = [
@@ -1087,10 +1132,15 @@ class SetGroupsEK80(SetGroupsBase):
             "sa_correction",
             "gain",
         ]
+
+        # grab all variables in table_params
         param_dict = defaultdict(list)
-        for k, v in config.items():
+        for ch in self.sorted_channel["all"]:
+            v = self.parser_obj.config_datagram["configuration"][ch]
             for p in table_params:
                 param_dict[p].append(v[p])
+
+        # make values into numpy arrays
         for p in param_dict.keys():
             param_dict[p] = np.array(param_dict[p])
 
@@ -1128,7 +1178,11 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
             coords={
-                "channel": (["channel"], channels, self._varattrs["beam_coord_default"]["channel"]),
+                "channel": (
+                    ["channel"],
+                    self.sorted_channel["all"],
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
                 "pulse_length_bin": (
                     ["pulse_length_bin"],
                     np.arange(param_dict["pulse_duration"].shape[1]),
@@ -1138,7 +1192,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Broadband calibration parameters: use the zero padding approach
         cal_ch_ids = [
-            ch for ch in config.keys() if "calibration" in config[ch]
+            ch for ch in self.sorted_channel["all"] if "calibration" in config[ch]
         ]  # channels with cal params
         ds_cal = []
         for ch_id in cal_ch_ids:
@@ -1182,7 +1236,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  Save decimation factors and filter coefficients
         coeffs = dict()
         decimation_factors = dict()
-        for ch in channels:
+        for ch in self.sorted_channel["all"]:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
             if self.parser_obj.fil_coeffs:
                 coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
