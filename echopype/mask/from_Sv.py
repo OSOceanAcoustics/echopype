@@ -25,7 +25,7 @@ def freq_diff(
     Returns
     -------
     A DataArray containing the mask.
-    Regions satisfying the thresholding criteria are filled with 1s,
-    with all other areas filled with 0s.
+    Regions satisfying the thresholding criteria are filled with 1s.
+    All other areas filled with 0s.
     """
     pass
