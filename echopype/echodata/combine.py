@@ -176,6 +176,13 @@ def orchestrate_reverse_time_check(
     directly modified.
     """
 
+    # set Provenance attribute to zero in ed_comb
+    ed_comb["Provenance"].attrs["reversed_ping_times"] = 0
+
+    # set Provenance attribute to zero in zarr (Dataset needed for metadata creation)
+    only_attrs_ds = xr.Dataset(attrs=ed_comb["Provenance"].attrs)
+    only_attrs_ds.to_zarr(zarr_store, group="Provenance", mode="a", storage_options=storage_options)
+
     for group in ed_comb.group_paths:
 
         if group != "Platform/NMEA":
@@ -309,13 +316,6 @@ def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
     )
-
-    # set Provenance attribute to zero in ed_comb
-    ed_comb["Provenance"].attrs["reversed_ping_times"] = 0
-
-    # set Provenance attribute to zero in zarr (Dataset needed for metadata creation)
-    only_attrs_ds = xr.Dataset(attrs=ed_comb["Provenance"].attrs)
-    only_attrs_ds.to_zarr(zarr_store, group="Provenance", mode="a", storage_options=storage_options)
 
     orchestrate_reverse_time_check(ed_comb, zarr_store, comb.possible_time_dims, storage_options)
 

@@ -144,7 +144,7 @@ class ZarrCombine:
         RuntimeError
             - If the keys are not the same
             - If the values are not identical
-            - If the keys ``date_created``, ``conversion_time``
+            - If the keys ``date_created`` or ``conversion_time``
             do not have the same types
 
         Notes
@@ -209,6 +209,9 @@ class ZarrCombine:
         Notes
         -----
         This method creates the following class variables:
+        dims_df: pd.DataFrame
+            Dataframe with column as dim names, rows as the
+            different Datasets, and values as the length of the dimension
         dims_sum: dict
             Keys as the dimension name and values as the corresponding
             sum of the lengths across all Datasets
@@ -220,8 +223,6 @@ class ZarrCombine:
             Keys as the dimension name and values as the corresponding
             maximum length across all Datasets
 
-        Notes
-        -----
         If attribute values are numpy arrays, then they will not be included
         in the ``self.group_attrs``. Instead, these values will only appear
         in the attributes of the combined ``EchoData`` object.
@@ -360,7 +361,7 @@ class ZarrCombine:
             its final combined form
         const_names: List[str]
             The names of all variables and dimensions that are constant
-            across all Datasets to be combined
+            (with respect to chunking) across all Datasets to be combined
         encodings: Dict[str, dict]
             The encodings for all variables and dimensions that will be
             written to the zarr store by regions
@@ -414,7 +415,7 @@ class ZarrCombine:
         Parameters
         ----------
         ds_ind: int
-            The key of the values of ``dims_csum`` or index of
+            The key of the values of ``self.dims_csum`` or index of
             ``self.dims_df`` to use for each dimension name
         ds_dims: Set[Hashable]
             The names of the dimensions used in the region creation
@@ -448,7 +449,7 @@ class ZarrCombine:
 
     def _append_ds_list_to_zarr(
         self,
-        path: str,
+        zarr_path: str,
         ds_list: List[xr.Dataset],
         zarr_group: str,
         ed_name: str,
@@ -461,7 +462,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        path: str
+        zarr_path: str
             The full path of the final combined zarr store
         ds_list: List[xr.Dataset]
             The Datasets that will be combined
@@ -474,6 +475,12 @@ class ZarrCombine:
         storage_options: Optional[dict]
             Any additional parameters for the storage
             backend (ignored for local paths)
+
+        Returns
+        -------
+        const_names: List[str]
+            The names of all variables and dimensions that are constant
+            (with respect to chunking) across all Datasets to be combined
         """
 
         self._get_ds_info(ds_list, ed_name)
@@ -482,7 +489,7 @@ class ZarrCombine:
 
         # create zarr file and all associated metadata (this is delayed)
         ds_lazy.to_zarr(
-            path,
+            zarr_path,
             compute=False,
             group=zarr_group,
             encoding=encodings,
@@ -504,7 +511,7 @@ class ZarrCombine:
             #  we can remove data corruption by implementing a locking scheme
             delayed_to_zarr.append(
                 ds_drop.to_zarr(
-                    path,
+                    zarr_path,
                     group=zarr_group,
                     region=region,
                     compute=False,
@@ -513,6 +520,7 @@ class ZarrCombine:
                 )
             )
 
+        # compute all delayed writes to the zarr store
         dask.compute(*delayed_to_zarr)
 
         return const_names
@@ -521,10 +529,10 @@ class ZarrCombine:
         self,
         const_vars: List[str],
         ds_list: List[xr.Dataset],
-        path: str,
+        zarr_path: str,
         zarr_group: str,
-        storage_options: dict,
-    ):
+        storage_options: Optional[dict],
+    ) -> None:
         """
         Appends all constant (i.e. not chunked) variables and dimensions to the
         zarr group.
@@ -535,12 +543,12 @@ class ZarrCombine:
             The names of all variables/dimensions that are not chunked
         ds_list: List[xr.Dataset]
             The Datasets that will be combined
-        path: str
+        zarr_path: str
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: dict
+        storage_options: Optional[dict]
             Any additional parameters for the storage
             backend (ignored for local paths)
 
@@ -560,19 +568,21 @@ class ZarrCombine:
                 ds_list_ind = int(0)
 
             ds_list[ds_list_ind][[var]].to_zarr(
-                path, group=zarr_group, mode="a", storage_options=storage_options
+                zarr_path, group=zarr_group, mode="a", storage_options=storage_options
             )
 
-    def _append_provenance_attr_vars(self, path: str, storage_options: Optional[dict] = {}) -> None:
+    def _append_provenance_attr_vars(
+        self, zarr_path: str, storage_options: Optional[dict] = {}
+    ) -> None:
         """
         Creates an xarray Dataset with variables set as the attributes
         from all groups before the combination. Additionally, appends
         this Dataset to the ``Provenance`` group located in the zarr
-        store specified by ``path``.
+        store specified by ``zarr_path``.
 
         Parameters
         ----------
-        path: str
+        zarr_path: str
             The full path of the final combined zarr store
         storage_options: Optional[dict]
             Any additional parameters for the storage
@@ -598,11 +608,15 @@ class ZarrCombine:
 
         # append Dataset to zarr
         all_ds_attrs.to_zarr(
-            path, group="Provenance", mode="a", storage_options=storage_options, consolidated=True
+            zarr_path,
+            group="Provenance",
+            mode="a",
+            storage_options=storage_options,
+            consolidated=True,
         )
 
     @staticmethod
-    def _modify_prov_filenames(path: str, len_eds: int) -> None:
+    def _modify_prov_filenames(zarr_path: str, len_eds: int) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -611,47 +625,97 @@ class ZarrCombine:
 
         Parameters
         ----------
-        path: str
+        zarr_path: str
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
         """
 
         # obtain the filenames zarr array
-        zarr_filenames = zarr.open_array(path + "/Provenance/filenames", mode="r+")
+        zarr_filenames = zarr.open_array(zarr_path + "/Provenance/filenames", mode="r+")
 
         zarr_filenames[:] = np.arange(len_eds)
 
     def combine(
         self,
-        path: str,
+        zarr_path: str,
         eds: List[EchoData] = [],
         storage_options: Optional[dict] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
     ) -> EchoData:
+        """
+        Combines all ``EchoData`` objects in ``eds`` by
+        writing each element in parallel to the zarr store
+        specified by ``zarr_path``.
 
+        Parameters
+        ----------
+        zarr_path: str
+            The full path of the final combined zarr store
+        eds: List[EchoData]
+            The list of ``EchoData`` objects to be combined
+        storage_options: Optional[dict]
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        sonar_model : str
+            The sonar model used for all elements in ``eds``
+        echodata_filenames : List[str]
+            The source files names for all elements in ``eds``
+
+        Returns
+        -------
+        ed_combined: EchoData
+            The final combined form of the input ``eds`` before
+            a reversed time check has been run
+
+        Raises
+        ------
+        RuntimeError
+            If the first time value of each Dataset is not less than
+            the first time value of the subsequent Dataset
+        RuntimeError
+            If each Dataset in ``ds_list`` does not have the
+            same number of channels and the same name for each
+            of these channels.
+        RuntimeError
+            If any of the following attribute checks are not met
+            amongst the combined Datasets
+            - the keys are not the same
+            - the values are not identical
+            - the keys ``date_created`` or ``conversion_time``
+            do not have the same types
+
+        Notes
+        -----
+        All attributes that are not arrays will be made into
+        variables and their result will be stored in the
+        ``Provenance`` group.
+        """
+
+        # TODO: the below line should be uncommented, if blosc issues persist
         # blosc.use_threads = False
 
+        # set class variables from input
         self.sonar_model = sonar_model
-
         self.group_attrs["echodata_filename"] = echodata_filenames
 
+        # loop through all possible group and write them to a zarr store
         for grp_info in EchoData.group_map.values():
 
+            # obtain the appropriate group name
             if grp_info["ep_group"]:
                 ed_group = grp_info["ep_group"]
             else:
                 ed_group = "Top-level"
 
+            # collect the group Dataset from all eds
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list:
-
-                print(f"ed_group = {ed_group}")
+            if ds_list:  # necessary because a group may not be present
 
                 const_names = self._append_ds_list_to_zarr(
-                    path,
+                    zarr_path,
                     ds_list=ds_list,
                     zarr_group=grp_info["ep_group"],
                     ed_name=ed_group,
@@ -659,27 +723,28 @@ class ZarrCombine:
                 )
 
                 self._append_const_to_zarr(
-                    const_names, ds_list, path, grp_info["ep_group"], storage_options
+                    const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
                 )
 
         # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(path, storage_options=storage_options)
+        self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
 
         # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(path, len_eds=len(eds))
+        self._modify_prov_filenames(zarr_path, len_eds=len(eds))
 
+        # TODO: the below line should be uncommented, if blosc issues persist
         # blosc.use_threads = None
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
-            path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+            zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
         )  # TODO: is this appropriate for chunks?
 
         return ed_combined
 
 
 # Below are functions that may be useful when generating a locking scheme
-# I am currently removing them until we implement this scheme
+# I am currently removing/commenting out them until we implement this scheme
 # TODO: this lock is extremely inefficient, it makes
 #  it so that the group is written sequentially, However,
 #  no data corruption will occur
