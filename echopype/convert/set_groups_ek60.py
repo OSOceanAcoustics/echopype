@@ -132,7 +132,7 @@ class SetGroupsEK60(SetGroupsBase):
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
         prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        source_files_var, source_files_coord = source_files_vars(self.input_file)
+        source_files_var, _, source_files_coord = source_files_vars(self.input_file)
         if self.old_ping_time is not None:
             ds = xr.Dataset(
                 data_vars={
