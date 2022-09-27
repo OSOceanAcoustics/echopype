@@ -175,7 +175,7 @@ def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
         echopype.open_raw(file, "EK60")
         for file in ek60_reversed_ping_time_test_data
     ]
-    combined = echopype.combine_echodata(eds, "overwrite_conflicts")  # type: ignore
+    combined = echopype.combine_echodata(eds) #, "overwrite_conflicts")  # type: ignore
 
     for group_name, value in combined.group_map.items():
         if value['ep_group'] is None:

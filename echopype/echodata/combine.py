@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from warnings import warn
 
 import xarray as xr
 from datatree import DataTree
@@ -10,6 +11,7 @@ from ..utils.coding import set_encodings
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .echodata import EchoData
+from .zarr_combine import ZarrCombine
 
 logger = _init_logger(__name__)
 
@@ -65,7 +67,7 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
 
 def check_and_correct_reversed_time(
-    combined_group: xr.Dataset, time_str: str, sonar_model: str
+    combined_group: xr.Dataset, time_str: str, ed_group: str
 ) -> Optional[xr.DataArray]:
     """
     Makes sure that the time coordinate ``time_str`` in
@@ -79,8 +81,8 @@ def check_and_correct_reversed_time(
         Dataset representing a combined EchoData group
     time_str : str
         Name of time coordinate to be checked and corrected
-    sonar_model : str
-        Name of sonar model
+    ed_group : str
+        Name of ``EchoData`` group name
 
     Returns
     -------
@@ -92,7 +94,7 @@ def check_and_correct_reversed_time(
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
 
         logger.warning(
-            f"{sonar_model} {time_str} reversal detected; {time_str} will be corrected"  # noqa
+            f"{ed_group} {time_str} reversal detected; {time_str} will be corrected"  # noqa
             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
         )
         old_time = combined_group[time_str]
@@ -343,9 +345,7 @@ def in_memory_combine(
     return result
 
 
-def combine_echodata(
-    echodatas: List[EchoData], combine_attrs: str = "override", in_memory: bool = True
-) -> EchoData:
+def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options={}) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
 
@@ -415,40 +415,103 @@ def combine_echodata(
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
-    if len(echodatas) == 0:
+    if zarr_store is None:
+        zarr_store = "/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/test.zarr"
+        raise RuntimeError("You need to provide a path!")  # TODO: use Don's path
+
+    if not isinstance(echodatas, list):
+        raise TypeError("The input, eds, must be a list of EchoData objects!")
+
+    if not isinstance(zarr_store, str):  # TODO: change this in the future
+        raise TypeError("The input, store, must be a string!")
+
+    # return empty EchoData object, if no EchoData objects are provided
+    if not echodatas:
+        warn("No EchoData objects were provided, returning an empty EchoData object.")
         return EchoData()
 
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
-    # all attributes before combination
-    # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
-    old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
+    comb = ZarrCombine()
+    ed_comb = comb.combine(
+        zarr_store,
+        echodatas,
+        storage_options=storage_options,
+        sonar_model=sonar_model,
+        echodata_filenames=echodata_filenames,
+    )
 
-    # dict that holds times before they are corrected
-    old_times: Dict[str, Optional[xr.DataArray]] = {
-        "old_ping_time": None,
-        "old_time1": None,
-        "old_time2": None,
-        "old_time3": None,
-    }
+    # TODO: perform time check, put this in its own function
+    for group in ed_comb.group_paths:
 
-    if in_memory:
-        result = in_memory_combine(echodatas, sonar_model, combine_attrs, old_attrs, old_times)
-    else:
-        raise NotImplementedError(
-            "Lazy representation of combined EchoData object has not been implemented yet."
-        )
+        if group != "Platform/NMEA":
+            # Platform/NMEA is skipped because we found that the times correspond to other
+            # messages besides GPS. This causes multiple times to be out of order and
+            # correcting them is not possible with the current implementation of
+            # _clean_ping_time in qc.api
 
-    # save times before reversal correction
-    for key, val in old_times.items():
-        if val is not None:
-            result["Provenance"][key] = val
-            result["Provenance"].attrs["reversed_ping_times"] = 1
+            # get all time dimensions of the group
+            ed_comb_time_dims = set(ed_comb[group].dims).intersection(comb.possible_time_dims)
 
-    # save attrs from before combination
-    store_old_attrs(result, old_attrs, echodata_filenames, sonar_model)
+            for time in ed_comb_time_dims:
 
-    # TODO: possible parameter to disable original attributes and original ping_time storage
-    #  in provenance group?
+                old_time = check_and_correct_reversed_time(
+                    combined_group=ed_comb[group], time_str=time, ed_group=group
+                )
 
-    return result
+                if old_time is not None:
+
+                    # get name of old time and dim for Provenance group
+                    ed_name = group.replace("-", "_").replace("/", "_").lower()
+                    old_time_name = ed_name + "_old_" + time
+                    old_time_name_dim = old_time_name + "_dim"
+
+                    # put old times in Provenance and modify attribute
+                    # TODO: should we give old time a long name?
+                    old_time_array = xr.DataArray(data=old_time.values, dims=[old_time_name_dim])
+                    ed_comb["Provenance"][old_time_name] = old_time_array
+                    ed_comb["Provenance"].attrs["reversed_ping_times"] = 1
+
+                    # TODO: save new time and old time to zarr store
+
+    return ed_comb
+
+    # TODO: below is old combine code that will be removed
+
+    # if len(echodatas) == 0:
+    #     return EchoData()
+    #
+    # sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+    #
+    # # all attributes before combination
+    # # { group1: [echodata1 attrs, echodata2 attrs, ...], ... }
+    # old_attrs: Dict[str, List[Dict[str, Any]]] = dict()
+    #
+    # # dict that holds times before they are corrected
+    # old_times: Dict[str, Optional[xr.DataArray]] = {
+    #     "old_ping_time": None,
+    #     "old_time1": None,
+    #     "old_time2": None,
+    #     "old_time3": None,
+    # }
+    #
+    # if in_memory:
+    #     result = in_memory_combine(echodatas, sonar_model, combine_attrs, old_attrs, old_times)
+    # else:
+    #     raise NotImplementedError(
+    #         "Lazy representation of combined EchoData object has not been implemented yet."
+    #     )
+    #
+    # # save times before reversal correction
+    # for key, val in old_times.items():
+    #     if val is not None:
+    #         result["Provenance"][key] = val
+    #         result["Provenance"].attrs["reversed_ping_times"] = 1
+    #
+    # # save attrs from before combination
+    # store_old_attrs(result, old_attrs, echodata_filenames, sonar_model)
+    #
+    # # TODO: possible parameter to disable original attributes and original ping_time storage
+    # #  in provenance group?
+    #
+    # return result

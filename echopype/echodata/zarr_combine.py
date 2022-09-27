@@ -1,6 +1,5 @@
 from collections import defaultdict
 from typing import Dict, Hashable, List, Optional, Set, Tuple
-from warnings import warn
 
 import dask
 import dask.array
@@ -14,7 +13,6 @@ from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.io import get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
-from .combine import check_echodatas_input  # , check_and_correct_reversed_time
 from .echodata import EchoData
 
 
@@ -44,10 +42,9 @@ class ZarrCombine:
 
     def _check_ascending_ds_times(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
-        Ensures that the time dimensions are in ascending order
-        across all Datasets being combined. For example, the
-        maximum time of the first Dataset must be less than the
-        minimum time of the second Dataset.
+        A minimal check that the first time value of each Dataset is less than
+        the first time value of the subsequent Dataset. If each first time value
+        is NaT, then this check is skipped.
 
         Parameters
         ----------
@@ -62,47 +59,30 @@ class ZarrCombine:
 
         for time in ed_time_dim:
 
-            # get maximum and minimum time of all Datasets
-            max_time = [ds[time].max().values for ds in ds_list]
-            min_time = [ds[time].min().values for ds in ds_list]
+            # gather the first time of each Dataset
+            first_times = []
+            for ds in ds_list:
 
-            # see if all Datasets have NaN for time
-            max_all_nan = all(np.isnan(max_time))
-            min_all_nan = all(np.isnan(min_time))
+                times = ds[time].values
+                if isinstance(times, np.ndarray):
+                    # store first time if we have an array
+                    first_times.append(times[0])
+                else:
+                    # store first time if we have a single value
+                    first_times.append(times)
 
-            # True means our time is not filled with NaNs
-            # This is necessary because some time dims can be filled with NaNs
-            nan_time_cond = (not max_all_nan) and (not min_all_nan)
+            first_times = np.array(first_times)
 
-            # checks to see that times are in ascending order
-            if nan_time_cond and max_time[:-1] > min_time[1:]:
+            # skip check if all first times are NaT
+            if not np.isnan(first_times).all():
 
-                raise RuntimeError(
-                    f"The coordinate {time} is not in ascending order for group {ed_name}, "
-                    f"combine cannot be used!"
-                )
+                is_descending = (np.diff(first_times) < np.timedelta64(0, "ns")).any()
 
-    def _reverse_time_check_and_storage(self, ds_list: List[xr.Dataset], ed_name: str):
-        """
-        Determine if there exist reversed time dimensions in each
-        of the Datasets individually. Additionally, if there are
-        reversed times correct them and store the old time dimension
-        as a variable of
-
-        """
-
-        # TODO: check and store time values
-
-        # TODO: do this first [exist_reversed_time(ds, time_str) for ds in ds_list]
-        #  if any are True, then continue by creating an old time variable in each ds
-
-        # for ds in ds_list:
-        #     old_time = check_and_correct_reversed_time(
-        #         ds, time_str=str(time), sonar_model=self.sonar_model
-        #     )
-
-        old_time = None
-        print(f"old_time = {old_time}, group = {ed_name}")
+                if is_descending:
+                    raise RuntimeError(
+                        f"The coordinate {time} is not in ascending order for "
+                        f"group {ed_name}, combine cannot be used!"
+                    )
 
     @staticmethod
     def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
@@ -249,8 +229,6 @@ class ZarrCombine:
 
         self._check_ascending_ds_times(ds_list, ed_name)
         self._check_channels(ds_list, ed_name)
-
-        # TODO: check for and correct reversed time
 
         # Dataframe with column as dim names and rows as the different Datasets
         self.dims_df = pd.DataFrame([ds.dims for ds in ds_list])
@@ -645,23 +623,19 @@ class ZarrCombine:
         zarr_filenames[:] = np.arange(len_eds)
 
     def combine(
-        self, path: str, eds: List[EchoData] = [], storage_options: Optional[dict] = {}
+        self,
+        path: str,
+        eds: List[EchoData] = [],
+        storage_options: Optional[dict] = {},
+        sonar_model: str = None,
+        echodata_filenames: List[str] = [],
     ) -> EchoData:
-
-        if not isinstance(eds, list):
-            raise TypeError("The input, eds, must be a list of EchoData objects!")
-
-        if not isinstance(path, str):
-            raise TypeError("The input, path, must be a string!")
-
-        # return empty EchoData object, if no EchoData objects are provided
-        if not eds:
-            warn("No EchoData objects were provided, returning an empty EchoData object.")
-            return EchoData()
 
         # blosc.use_threads = False
 
-        self.sonar_model, self.group_attrs["echodata_filename"] = check_echodatas_input(eds)
+        self.sonar_model = sonar_model
+
+        self.group_attrs["echodata_filename"] = echodata_filenames
 
         for grp_info in EchoData.group_map.values():
 
