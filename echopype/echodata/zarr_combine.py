@@ -14,6 +14,8 @@ from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
 
+from itertools import islice
+
 
 class ZarrCombine:
     """
@@ -446,6 +448,81 @@ class ZarrCombine:
 
         return region
 
+    @staticmethod
+    def _uniform_chunks_as_np_array(array, chunk_size):
+        """
+        Chunks
+        """
+
+        array_iter = iter(array)
+
+        # construct chunks as an iterable of lists
+        chunks_iter = iter(lambda: list(islice(array_iter, chunk_size)), list())
+
+        # convert each element in the iterable to a numpy array
+        return list(map(np.array, chunks_iter))
+
+    def _get_chunk_dicts(self, dim):
+
+        csum_og_chunks = np.array(list(self.dims_csum[dim].values()))
+
+        x_no_chunk = np.arange(self.dims_sum[dim], dtype=np.int64)
+
+        og_chunk = np.split(x_no_chunk, csum_og_chunks)
+
+        og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
+
+        zarr_chunk_size = self.dims_max[dim]
+        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
+
+        uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
+
+        return og_chunk_dict, uniform_chunk_dict
+
+    def _get_uniform_to_nonuniform_map(self, dim):
+        """
+        Constructs a uniform to non-uniform mapping of chunks
+        for a dimension ``dim``.
+
+
+        Returns
+        -------
+        final_mapping: Dict[int, dict]
+            Uniform to non-uniform mapping where the keys are
+            the chunk index in the uniform chunk and the values
+            are dictionaries with keys corresponding to the index
+            of the non-uniform chunk and the values are ``slice``
+            objects for the non-uniform chunk values.
+
+        """
+
+        og_chunk_dict, uniform_chunk_dict = self._get_chunk_dicts(dim)
+
+        final_mapping = defaultdict(dict)
+        for u_key, u_val in uniform_chunk_dict.items():
+
+            for og_key, og_val in og_chunk_dict.items():
+
+                intersect = np.intersect1d(u_val, og_val)
+
+                if len(intersect) > 0:
+                    start = np.argwhere(og_val == intersect.min())[0, 0]
+                    end = np.argwhere(og_val == intersect.max())[0, 0] + 1
+                    final_mapping[u_key].update({og_key: slice(start, end)})
+
+        return final_mapping
+
+    def _get_all_append_dim_mappings(self, ds_dims: set):
+
+        append_dim_mappings = defaultdict(dict)
+
+        ds_append_dims = ds_dims.intersection(self.append_dims)
+
+        for dim in ds_append_dims:
+            append_dim_mappings[dim] = self._get_uniform_to_nonuniform_map(dim)
+
+        return ds_append_dims, append_dim_mappings
+
     def _append_ds_list_to_zarr(
         self,
         zarr_path: str,
@@ -484,45 +561,58 @@ class ZarrCombine:
 
         self._get_ds_info(ds_list, ed_name)
 
+        # ds_append_dims, append_dim_mappings = self._get_all_append_dim_mappings(set(ds_list[0].dims))
+
         ds_lazy, const_names, encodings = self._construct_lazy_ds_and_var_info(ds_list[0])
-
-        # create zarr file and all associated metadata (this is delayed)
-        ds_lazy.to_zarr(
-            zarr_path,
-            compute=False,
-            group=zarr_group,
-            encoding=encodings,
-            consolidated=None,
-            storage_options=storage_options,
-            synchronizer=zarr.ThreadSynchronizer(),
-        )
-
+        #
+        # # create zarr file and all associated metadata (this is delayed)
+        # ds_lazy.to_zarr(
+        #     zarr_path,
+        #     compute=False,
+        #     group=zarr_group,
+        #     encoding=encodings,
+        #     consolidated=None,
+        #     storage_options=storage_options,
+        #     synchronizer=zarr.ThreadSynchronizer(),
+        # )
+        #
         # collect delayed functions that write each non-constant variable
         # in ds_list to the zarr store
         delayed_to_zarr = []
-        for ind, ds in enumerate(ds_list):
 
-            ds_drop = ds.drop(const_names)
+        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
+        for dim in ds_append_dims:
 
-            region = self._get_region(ind, set(ds_drop.dims))
+            chunk_mapping = self._get_uniform_to_nonuniform_map(dim)
 
-            # TODO: below is an xarray delayed approach, however, data will be corrupted,
-            #  we can remove data corruption by implementing a locking scheme
-            delayed_to_zarr.append(
-                ds_drop.to_zarr(
-                    zarr_path,
-                    group=zarr_group,
-                    region=region,
-                    compute=False,
-                    storage_options=storage_options,
-                    synchronizer=zarr.ThreadSynchronizer(),
-                )
-            )
+            for uniform_ind, non_uniform_dict in chunk_mapping.items():
 
-        # compute all delayed writes to the zarr store
-        dask.compute(*delayed_to_zarr)
+                for ds_list_ind, dim_slice in non_uniform_dict.items():
 
-        return const_names
+                    print(f"uniform_ind (lock), ds_list_ind, dim_slice = {uniform_ind, ds_list_ind, dim_slice}")
+
+            # ds_drop = ds.drop(const_names)
+
+        #
+        #     region = self._get_region(ind, set(ds_drop.dims))
+        #
+        #     # TODO: below is an xarray delayed approach, however, data will be corrupted,
+        #     #  we can remove data corruption by implementing a locking scheme
+        #     delayed_to_zarr.append(
+        #         ds_drop.to_zarr(
+        #             zarr_path,
+        #             group=zarr_group,
+        #             region=region,
+        #             compute=False,
+        #             storage_options=storage_options,
+        #             synchronizer=zarr.ThreadSynchronizer(),
+        #         )
+        #     )
+        #
+        # # compute all delayed writes to the zarr store
+        # dask.compute(*delayed_to_zarr)
+        #
+        # return const_names
 
     def _append_const_to_zarr(
         self,
@@ -711,7 +801,7 @@ class ZarrCombine:
             # collect the group Dataset from all eds
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list:  # necessary because a group may not be present
+            if ds_list and ed_group == "Environment":  # necessary because a group may not be present
 
                 const_names = self._append_ds_list_to_zarr(
                     zarr_path,
@@ -721,22 +811,22 @@ class ZarrCombine:
                     storage_options=storage_options,
                 )
 
-                self._append_const_to_zarr(
-                    const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
-                )
-
-        # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
-
-        # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(zarr_path, len_eds=len(eds))
-
-        # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = None
-
-        # open lazy loaded combined EchoData object
-        ed_combined = open_converted(
-            zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
-        )  # TODO: is this appropriate for chunks?
-
-        return ed_combined
+        #         self._append_const_to_zarr(
+        #             const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
+        #         )
+        #
+        # # append all group attributes before combination to zarr store
+        # self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
+        #
+        # # change filenames numbering to range(len(eds))
+        # self._modify_prov_filenames(zarr_path, len_eds=len(eds))
+        #
+        # # TODO: the below line should be uncommented, if blosc issues persist
+        # # blosc.use_threads = None
+        #
+        # # open lazy loaded combined EchoData object
+        # ed_combined = open_converted(
+        #     zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+        # )  # TODO: is this appropriate for chunks?
+        #
+        # return ed_combined
