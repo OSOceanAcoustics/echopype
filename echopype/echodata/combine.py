@@ -363,8 +363,8 @@ def combine_echodata(
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
       Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
-    * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
-      working directory
+    * If no ``zarr_path`` is provided, it will be set to
+      ``'temp_echopype_output/combined_echodatas.zarr'`` in the current working directory.
 
     Examples
     --------
