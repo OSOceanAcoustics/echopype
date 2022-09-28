@@ -13,6 +13,55 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
+def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
+    """
+    Checks that the zarr path provided to ``combine``
+    is valid.
+
+    Parameters
+    ----------
+    zarr_path: str
+        The full save path to the final combined zarr store
+    storage_options: Optional[dict]
+        Any additional parameters for the storage
+        backend (ignored for local paths)
+
+    Returns
+    -------
+    str
+        The validated zarr path
+
+    Raises
+    ------
+    ValueError
+        If the provided zarr path does not point to a zarr file
+    """
+
+    if zarr_path is None:
+
+        # assign values, if no zarr path has been provided
+        source_file = "combined_echodatas.zarr"
+        save_path = None
+    else:
+
+        # turn string path into Path object
+        path_obj = Path(zarr_path)
+        if path_obj.suffix != ".zarr":
+            raise ValueError("The provided zarr_path input must point to a zarr file!")
+        else:
+
+            # assign values based on zarr path
+            source_file = path_obj.parts[-1]
+            save_path = path_obj.parent
+
+    return validate_output_path(
+        source_file=source_file,
+        engine="zarr",
+        output_storage_options=storage_options,
+        save_path=save_path,
+    )
+
+
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
     Ensures that the input ``echodatas`` for ``combine_echodata``
@@ -29,7 +78,22 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
         The sonar model used for all values in ``echodatas``
     echodata_filenames : List[str]
         The source files names for all values in ``echodatas``
+
+    Raises
+    ------
+    TypeError
+        If a list of ``EchoData`` objects are not provided
+    ValueError
+        If any ``EchoData`` object's ``sonar_model`` is ``None``
+    ValueError
+        If and ``EchoData`` object does not have a file path
+    ValueError
+        If the provided ``EchoData`` objects have the same filenames
     """
+
+    # make sure that the input is a list of EchoData objects
+    if not isinstance(echodatas, list) and all([isinstance(ed, EchoData) for ed in echodatas]):
+        raise TypeError("The input, eds, must be a list of EchoData objects!")
 
     # get the sonar model for the combined object
     if echodatas[0].sonar_model is None:
@@ -86,6 +150,11 @@ def check_and_correct_reversed_time(
     old_time : Optional[xr.DataArray]
         If correction is necessary, returns the time before
         reversal correction, otherwise returns None
+
+    Warns
+    -----
+    UserWarning
+        If a time reversal is detected
     """
 
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
@@ -223,15 +292,19 @@ def orchestrate_reverse_time_check(
 
 
 def combine_echodata(
-    echodatas: List[EchoData], zarr_path: Optional[str] = None, storage_options: Optional[dict] = {}
+    echodatas: List[EchoData] = None,
+    zarr_path: Optional[str] = None,
+    storage_options: Optional[dict] = {},
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
+    This is accomplished by writing each element of ``echodatas`` in parallel
+    (using dask) to the zarr store specified by ``zarr_path``.
 
     Parameters
     ----------
     echodatas : List[EchoData]
-        The list of ``EchoData`` objects to be combined.
+        The list of ``EchoData`` objects to be combined
     zarr_path: str
         The full save path to the final combined zarr store
     storage_options: Optional[dict]
@@ -241,82 +314,87 @@ def combine_echodata(
     Returns
     -------
     EchoData
-        An ``EchoData`` object with all data from the input ``EchoData`` objects combined.
+        A lazy loaded ``EchoData`` object obtained from ``zarr_path``,
+         with all data from the input ``EchoData`` objects combined.
 
     Raises
     ------
     ValueError
-        If ``echodatas`` contains ``EchoData`` objects with different or ``None``
-        ``sonar_model`` values (i.e., all `EchoData` objects must have the same
-        non-None ``sonar_model`` value).
+        If the provided zarr path does not point to a zarr file
+    TypeError
+        If a list of ``EchoData`` objects are not provided
     ValueError
-        If EchoData objects have conflicting source file names.
+        If any ``EchoData`` object's ``sonar_model`` is ``None``
+    ValueError
+        If and ``EchoData`` object does not have a file path
+    ValueError
+        If the provided ``EchoData`` objects have the same filenames
+    RuntimeError
+        If the first time value of each ``EchoData`` group is not less
+        than the first time value of the subsequent corresponding
+        ``EchoData`` group, with respect to the order in ``echodatas``
+    RuntimeError
+        If each corresponding ``EchoData`` group in ``echodatas`` do not
+        have the same number of channels and the same name for each
+        of these channels.
+    RuntimeError
+        If any of the following attribute checks are not met
+        amongst the combined ``EchoData`` groups:
+        - the keys are not the same
+        - the values are not identical
+        - the keys ``date_created`` or ``conversion_time``
+        do not have the same types
 
     Warns
     -----
     UserWarning
-        If the ``sonar_model`` of the input ``EchoData`` objects is ``"EK60"`` and any
-        ``EchoData`` objects have non-monotonically increasing ``ping_time``, ``time1``
-        or ``time2`` values, the corresponding values in the output ``EchoData`` object
-        will be increased starting at the timestamp where the reversal occurs such that
-        all values in the output are monotonically increasing. Additionally, the original
-        ``ping_time``, ``time1`` or ``time2`` values will be stored in the ``Provenance``
-        group, although this behavior may change in future versions.
-
-    Warnings
-    --------
-    Changes in parameters between ``EchoData`` objects are not currently checked;
-    however, they may raise an error in future versions.
+        If any time coordinate in a final combined group is not
+        in ascending order (see Notes below for more details).
 
     Notes
     -----
-    * ``EchoData`` objects are combined by combining their groups individually.
-    * Attributes from all groups before the combination will be stored in the provenance group,
-      although this behavior may change in future versions.
+    * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
+    * All attributes (besides array attributes) from all groups before the combination will be
+    stored in the ``Provenance`` group.
     * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
-      ``EchoData`` object in the given list, but this may change in future versions.
-
-    TODO: if no path is provided blah blah
+    ``EchoData`` object in the given list.
+    * If any time coordinate in a final combined group is not in ascending order, then it will
+    be corrected according to `PR #297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
+    Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
+    a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
+    * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
+    working directory
 
     Examples
     --------
+    Combine lazy loaded ``EchoData`` objects:
     >>> ed1 = echopype.open_converted("file1.nc")
     >>> ed2 = echopype.open_converted("file2.zarr")
-    >>> combined = echopype.combine_echodata([ed1, ed2])
+    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
+    ...                                      zarr_path="path/to/combined.zarr",
+    ...                                      storage_options=my_storage_options)
+
+    Combine in-memory ``EchoData`` objects:
+    >>> ed1 = echopype.open_raw(raw_file="EK60_file1.raw", sonar_model="EK60")
+    >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
+    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
+    ...                                      zarr_path="path/to/combined.zarr",
+    ...                                      storage_options=my_storage_options)
     """
 
-    if zarr_path is None:
-        source_file = "combined_echodatas.zarr"
-        save_path = None
-    else:
-        path_obj = Path(zarr_path)
-
-        if path_obj.suffix != ".zarr":
-            raise ValueError(
-                "The provided zarr_path input must point to a zarr file!"
-            )  # TODO: put in docs
-        else:
-            source_file = path_obj.parts[-1]
-            save_path = path_obj.parent
-
-    zarr_path = validate_output_path(
-        source_file=source_file,
-        engine="zarr",
-        output_storage_options=storage_options,
-        save_path=save_path,
-    )
-
-    if not isinstance(echodatas, list):
-        raise TypeError("The input, eds, must be a list of EchoData objects!")
+    zarr_path = check_zarr_path(zarr_path, storage_options)
 
     # return empty EchoData object, if no EchoData objects are provided
-    if not echodatas:
+    if echodatas is None:
         warn("No EchoData objects were provided, returning an empty EchoData object.")
         return EchoData()
 
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
+    # initiate ZarrCombine object
     comb = ZarrCombine()
+
+    # combine all elements in echodatas by writing to a zarr store
     ed_comb = comb.combine(
         zarr_path,
         echodatas,
