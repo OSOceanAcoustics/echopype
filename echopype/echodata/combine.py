@@ -5,6 +5,7 @@ from warnings import warn
 import xarray as xr
 
 from ..qc import coerce_increasing_time, exist_reversed_time
+from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
 from .echodata import EchoData
 from .zarr_combine import ZarrCombine
@@ -221,7 +222,9 @@ def orchestrate_reverse_time_check(
                     )
 
 
-def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options={}) -> EchoData:
+def combine_echodata(
+    echodatas: List[EchoData], zarr_path: Optional[str] = None, storage_options: Optional[dict] = {}
+) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
 
@@ -229,22 +232,11 @@ def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options
     ----------
     echodatas : List[EchoData]
         The list of ``EchoData`` objects to be combined.
-    combine_attrs : str
-        String indicating how to combine attrs of the ``EchoData`` objects being merged.
-        This parameter matches the identically named xarray parameter
-        (see https://xarray.pydata.org/en/latest/generated/xarray.combine_nested.html)
-        with the exception of the "overwrite_conflicts" value. Possible options:
-        * ``"override"``: Default. skip comparing and copy attrs from the first ``EchoData``
-          object to the result.
-        * ``"drop"``: empty attrs on returned ``EchoData`` object.
-        * ``"identical"``: all attrs must be the same on every object.
-        * ``"no_conflicts"``: attrs from all objects are combined,
-          any that have the same name must also have the same value.
-        * ``"overwrite_conflicts"``: attrs from all ``EchoData`` objects are combined,
-          attrs with conflicting keys will be overwritten by later ``EchoData`` objects.
-    in_memory : bool
-        If True, creates an in-memory form of the combined ``EchoData`` object, otherwise
-        a lazy ``EchoData`` object will be created (not currently implemented).
+    zarr_path: str
+        The full save path to the final combined zarr store
+    storage_options: Optional[dict]
+        Any additional parameters for the storage
+        backend (ignored for local paths)
 
     Returns
     -------
@@ -284,6 +276,8 @@ def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options
     * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
       ``EchoData`` object in the given list, but this may change in future versions.
 
+    TODO: if no path is provided blah blah
+
     Examples
     --------
     >>> ed1 = echopype.open_converted("file1.nc")
@@ -291,15 +285,29 @@ def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options
     >>> combined = echopype.combine_echodata([ed1, ed2])
     """
 
-    if zarr_store is None:
-        zarr_store = "/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/test.zarr"
-        # raise RuntimeError("You need to provide a path!")  # TODO: use Don's path
+    if zarr_path is None:
+        source_file = "combined_echodatas.zarr"
+        save_path = None
+    else:
+        path_obj = Path(zarr_path)
+
+        if path_obj.suffix != ".zarr":
+            raise ValueError(
+                "The provided zarr_path input must point to a zarr file!"
+            )  # TODO: put in docs
+        else:
+            source_file = path_obj.parts[-1]
+            save_path = path_obj.parent
+
+    zarr_path = validate_output_path(
+        source_file=source_file,
+        engine="zarr",
+        output_storage_options=storage_options,
+        save_path=save_path,
+    )
 
     if not isinstance(echodatas, list):
         raise TypeError("The input, eds, must be a list of EchoData objects!")
-
-    if not isinstance(zarr_store, str):  # TODO: change this in the future
-        raise TypeError("The input, store, must be a string!")
 
     # return empty EchoData object, if no EchoData objects are provided
     if not echodatas:
@@ -310,13 +318,13 @@ def combine_echodata(echodatas: List[EchoData], zarr_store=None, storage_options
 
     comb = ZarrCombine()
     ed_comb = comb.combine(
-        zarr_store,
+        zarr_path,
         echodatas,
         storage_options=storage_options,
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
     )
 
-    orchestrate_reverse_time_check(ed_comb, zarr_store, comb.possible_time_dims, storage_options)
+    orchestrate_reverse_time_check(ed_comb, zarr_path, comb.possible_time_dims, storage_options)
 
     return ed_comb
