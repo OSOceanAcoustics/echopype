@@ -315,7 +315,7 @@ def combine_echodata(
     -------
     EchoData
         A lazy loaded ``EchoData`` object obtained from ``zarr_path``,
-         with all data from the input ``EchoData`` objects combined.
+        with all data from the input ``EchoData`` objects combined.
 
     Raises
     ------
@@ -340,9 +340,9 @@ def combine_echodata(
     RuntimeError
         If any of the following attribute checks are not met
         amongst the combined ``EchoData`` groups:
-        - the keys are not the same
-        - the values are not identical
-        - the keys ``date_created`` or ``conversion_time``
+        * the keys are not the same
+        * the values are not identical
+        * the keys ``date_created`` or ``conversion_time``
         do not have the same types
 
     Warns
@@ -355,31 +355,33 @@ def combine_echodata(
     -----
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
     * All attributes (besides array attributes) from all groups before the combination will be
-    stored in the ``Provenance`` group.
+        stored in the ``Provenance`` group.
     * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
-    ``EchoData`` object in the given list.
+        ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
-    be corrected according to `PR #297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
-    Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
-    a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
-    * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
-    working directory
+        be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
+        Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
+        a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
+        * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
+        working directory
 
     Examples
     --------
     Combine lazy loaded ``EchoData`` objects:
+
     >>> ed1 = echopype.open_converted("file1.nc")
     >>> ed2 = echopype.open_converted("file2.zarr")
     >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
-    ...                                      zarr_path="path/to/combined.zarr",
-    ...                                      storage_options=my_storage_options)
+    >>>                                      zarr_path="path/to/combined.zarr",
+    >>>                                      storage_options=my_storage_options)
 
     Combine in-memory ``EchoData`` objects:
+
     >>> ed1 = echopype.open_raw(raw_file="EK60_file1.raw", sonar_model="EK60")
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
     >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
-    ...                                      zarr_path="path/to/combined.zarr",
-    ...                                      storage_options=my_storage_options)
+    >>>                                      zarr_path="path/to/combined.zarr",
+    >>>                                      storage_options=my_storage_options)
     """
 
     zarr_path = check_zarr_path(zarr_path, storage_options)
