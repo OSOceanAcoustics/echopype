@@ -340,10 +340,11 @@ def combine_echodata(
     RuntimeError
         If any of the following attribute checks are not met
         amongst the combined ``EchoData`` groups:
-        * the keys are not the same
-        * the values are not identical
-        * the keys ``date_created`` or ``conversion_time``
-        do not have the same types
+
+        - the keys are not the same
+        - the values are not identical
+        - the keys ``date_created`` or ``conversion_time``
+          do not have the same types
 
     Warns
     -----
@@ -355,15 +356,15 @@ def combine_echodata(
     -----
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
     * All attributes (besides array attributes) from all groups before the combination will be
-        stored in the ``Provenance`` group.
+      stored in the ``Provenance`` group.
     * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
-        ``EchoData`` object in the given list.
+      ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
-        be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
-        Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
-        a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
-        * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
-        working directory
+      be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
+      Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
+      a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
+    * If no ``zarr_path`` is provided, it will be set to 'temp_echopype_output/' in the current
+      working directory
 
     Examples
     --------
