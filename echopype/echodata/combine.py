@@ -257,7 +257,7 @@ def orchestrate_reverse_time_check(
 
         if group != "Platform/NMEA":
             # Platform/NMEA is skipped because we found that the times correspond to other
-            # non-GPS messages are often out of order and correcting them is not possible 
+            # non-GPS messages are often out of order and correcting them is not possible
             # with the current implementation of _clean_ping_time in qc.api due to excessive recursion.
             # There is also no obvious advantage in correcting the order of these timestamps.
 
