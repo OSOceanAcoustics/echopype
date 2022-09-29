@@ -361,6 +361,7 @@ def combine_echodata(
       ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
+      # TODO: change this to description of the gist of the employed correction.
       Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, it will be set to
