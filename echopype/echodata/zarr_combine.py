@@ -8,8 +8,7 @@ import pandas as pd
 import xarray as xr
 import zarr
 
-from ..utils.coding import COMPRESSION_SETTINGS
-from ..utils.io import get_zarr_compression
+from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
