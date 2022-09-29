@@ -364,8 +364,8 @@ def combine_echodata(
       # TODO: change this to description of the gist of the employed correction.
       Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
-    * If no ``zarr_path`` is provided, it will be set to
-      ``'temp_echopype_output/combined_echodatas.zarr'`` in the current working directory.
+    * If no ``zarr_path`` is provided, the combined zarr file will be
+      ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
 
     Examples
     --------
