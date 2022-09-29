@@ -357,7 +357,7 @@ def combine_echodata(
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
     * All attributes (besides array attributes) from all groups before the combination will be
       stored in the ``Provenance`` group.
-    * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
+    * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined ``EchoData`` object will be copied from the first 
       ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
