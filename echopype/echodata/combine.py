@@ -64,7 +64,7 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
 
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
-    Ensures that the input ``echodatas`` for ``combine_echodata``
+    Ensures that the input list of ``EchoData`` objects for ``combine_echodata``
     is in the correct form and all necessary items exist.
 
     Parameters
