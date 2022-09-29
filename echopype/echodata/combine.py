@@ -394,6 +394,7 @@ def combine_echodata(
         warn("No EchoData objects were provided, returning an empty EchoData object.")
         return EchoData()
 
+    # Ensure the list of all EchoData objects to be combined are valid
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
     # initiate ZarrCombine object
