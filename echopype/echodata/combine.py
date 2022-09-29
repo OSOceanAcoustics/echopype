@@ -256,10 +256,11 @@ def orchestrate_reverse_time_check(
     for group in ed_comb.group_paths:
 
         if group != "Platform/NMEA":
-            # Platform/NMEA is skipped because we found that the times correspond to other
-            # non-GPS messages are often out of order and correcting them is not possible
-            # with the current implementation of _clean_ping_time in qc.api due to excessive recursion.
-            # There is also no obvious advantage in correcting the order of these timestamps.
+            # Platform/NMEA is skipped because we found that the times which correspond to
+            # other non-GPS messages are often out of order and correcting them is not
+            # possible with the current implementation of _clean_ping_time in qc.api due
+            # to excessive recursion. There is also no obvious advantage in correcting
+            # the order of these timestamps.
 
             # get all time dimensions of the group
             ed_comb_time_dims = set(ed_comb[group].dims).intersection(possible_time_dims)
@@ -357,8 +358,8 @@ def combine_echodata(
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
     * All attributes (besides array attributes) from all groups before the combination will be
       stored in the ``Provenance`` group.
-    * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined ``EchoData`` object will be copied from the first
-      ``EchoData`` object in the given list.
+    * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
+      ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
       # TODO: change this to description of the gist of the employed correction.
