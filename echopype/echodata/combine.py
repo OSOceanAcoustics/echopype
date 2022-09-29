@@ -326,7 +326,7 @@ def combine_echodata(
     ValueError
         If any ``EchoData`` object's ``sonar_model`` is ``None``
     ValueError
-        If and ``EchoData`` object does not have a file path
+        If any ``EchoData`` object does not have a file path
     ValueError
         If the provided ``EchoData`` objects have the same filenames
     RuntimeError
