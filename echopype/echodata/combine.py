@@ -334,7 +334,7 @@ def combine_echodata(
         than the first time value of the subsequent corresponding
         ``EchoData`` group, with respect to the order in ``echodatas``
     RuntimeError
-        If each corresponding ``EchoData`` group in ``echodatas`` do not
+        If the same ``EchoData`` groups in ``echodatas`` do not
         have the same number of channels and the same name for each
         of these channels.
     RuntimeError
