@@ -10,6 +10,8 @@ from ..utils.log import _init_logger
 from .echodata import EchoData
 from .zarr_combine import ZarrCombine
 
+from dask.distributed import Client
+
 logger = _init_logger(__name__)
 
 
@@ -295,6 +297,7 @@ def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
     storage_options: Optional[dict] = {},
+    client: Client = None
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
@@ -310,6 +313,8 @@ def combine_echodata(
     storage_options: Optional[dict]
         Any additional parameters for the storage
         backend (ignored for local paths)
+    client: dask.distributed.Client
+        TODO: document this!
 
     Returns
     -------
@@ -393,6 +398,17 @@ def combine_echodata(
         return EchoData()
 
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+
+    # TODO: get client as input spit out client.dashboard_link
+    if client is None:
+        client = Client()  # create local cluster
+        print(f"Client dashboard link: {client.dashboard_link}")
+    else:
+
+        if isinstance(client, Client):
+            print(f"Client dashboard link: {client.dashboard_link}")
+        else:
+            raise TypeError("The input client is not of type dask.distributed.Client!")
 
     # initiate ZarrCombine object
     comb = ZarrCombine()

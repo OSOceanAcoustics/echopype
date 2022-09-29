@@ -184,8 +184,6 @@ def test_combine_echodata(raw_datasets):
 
 def test_ping_time_reversal(ek60_reversed_ping_time_test_data):
 
-    client = Client()
-
     eds = [
         echopype.open_raw(file, "EK60")
         for file in ek60_reversed_ping_time_test_data
