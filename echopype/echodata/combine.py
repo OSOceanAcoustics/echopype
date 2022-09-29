@@ -386,6 +386,7 @@ def combine_echodata(
     >>>                                      storage_options=my_storage_options)
     """
 
+    # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
     zarr_path = check_zarr_path(zarr_path, storage_options)
 
     # return empty EchoData object, if no EchoData objects are provided
