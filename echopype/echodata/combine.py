@@ -257,9 +257,9 @@ def orchestrate_reverse_time_check(
 
         if group != "Platform/NMEA":
             # Platform/NMEA is skipped because we found that the times correspond to other
-            # messages besides GPS. This causes multiple times to be out of order and
-            # correcting them is not possible with the current implementation of
-            # _clean_ping_time in qc.api
+            # non-GPS messages are often out of order and correcting them is not possible 
+            # with the current implementation of _clean_ping_time in qc.api due to excessive recursion.
+            # There is also no obvious advantage in correcting the order of these timestamps.
 
             # get all time dimensions of the group
             ed_comb_time_dims = set(ed_comb[group].dims).intersection(possible_time_dims)
