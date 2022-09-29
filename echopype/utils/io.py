@@ -66,8 +66,10 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict):
 
 
 def save_file(ds, path, mode, engine, group=None, compression_settings=None):
-    """Saves a dataset to netcdf or zarr depending on the engine
-    If ``compression_settings`` are set, compress all variables with those settings"""
+    """
+    Saves a dataset to netcdf or zarr depending on the engine
+    If ``compression_settings`` are set, compress all variables with those settings
+    """
 
     if compression_settings is not None:
 
