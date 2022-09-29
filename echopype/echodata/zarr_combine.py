@@ -3,6 +3,7 @@ from typing import Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
+from dask.distributed import Lock
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,6 +16,7 @@ from .api import open_converted
 from .echodata import EchoData
 
 from itertools import islice
+from numcodecs import blosc
 
 
 class ZarrCombine:
@@ -239,6 +241,7 @@ class ZarrCombine:
         self.dims_sum = self.dims_df.sum(axis=0).to_dict()
         self.dims_csum = self.dims_df.cumsum(axis=0).to_dict()
         self.dims_max = self.dims_df.max(axis=0).to_dict()
+        self.dims_min = self.dims_df.min(axis=0).to_dict()
 
         # format ed_name appropriately
         ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
@@ -295,6 +298,7 @@ class ZarrCombine:
         # Create the chunk shape of the variable
         # TODO: investigate if this is the best chunking
         chnk_shape = [self.dims_max[dim] for dim in dims]
+        # chnk_shape = [self.dims_min[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims]
 
         temp_arr = dask.array.zeros(shape=shape, dtype=dtype, chunks=chnk_shape)
 
@@ -411,7 +415,8 @@ class ZarrCombine:
     def _get_region(self, ds_ind: int, ds_dims: Set[Hashable]) -> Dict[str, slice]:
         """
         Returns the region of the zarr file to write to. This region
-        corresponds to the input set of dimensions.
+        corresponds to the input set of dimensions that do not
+        include append dimensions.
 
         Parameters
         ----------
@@ -432,18 +437,8 @@ class ZarrCombine:
         region = dict()
         for dim in ds_dims:
 
-            if dim in self.append_dims:
+            if dim not in self.append_dims:
 
-                if ds_ind == 0:
-                    # get the initial region
-                    region[dim] = slice(0, self.dims_csum[dim][ds_ind])
-                else:
-                    # get all other regions
-                    region[dim] = slice(
-                        self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind]
-                    )
-
-            else:
                 region[dim] = slice(0, self.dims_df.loc[ds_ind][dim])
 
         return region
@@ -472,7 +467,9 @@ class ZarrCombine:
 
         og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
 
-        zarr_chunk_size = self.dims_max[dim]
+        zarr_chunk_size = self.dims_max[dim]  # TODO: investigate if this is the best chunking
+        # zarr_chunk_size = self.dims_min[dim]
+
         uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
 
         uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
@@ -491,8 +488,9 @@ class ZarrCombine:
             Uniform to non-uniform mapping where the keys are
             the chunk index in the uniform chunk and the values
             are dictionaries with keys corresponding to the index
-            of the non-uniform chunk and the values are ``slice``
-            objects for the non-uniform chunk values.
+            of the non-uniform chunk and the values are a tuple of
+            ``slice`` objects for the non-uniform chunk values and
+            region chunk values, respectively.
 
         """
 
@@ -506,22 +504,32 @@ class ZarrCombine:
                 intersect = np.intersect1d(u_val, og_val)
 
                 if len(intersect) > 0:
-                    start = np.argwhere(og_val == intersect.min())[0, 0]
-                    end = np.argwhere(og_val == intersect.max())[0, 0] + 1
-                    final_mapping[u_key].update({og_key: slice(start, end)})
+
+                    min_val = intersect.min()
+                    max_val = intersect.max()
+
+                    start_og = np.argwhere(og_val == min_val)[0, 0]
+                    end_og = np.argwhere(og_val == max_val)[0, 0] + 1
+
+                    start_region = min_val
+                    end_region = max_val + 1
+
+                    final_mapping[u_key].update({og_key: (slice(start_og, end_og),
+                                                          slice(start_region, end_region))})
 
         return final_mapping
 
-    def _get_all_append_dim_mappings(self, ds_dims: set):
+    @dask.delayed
+    def write_to_file(self, ds_in, lock_name, zarr_path, zarr_group, region, storage_options):
 
-        append_dim_mappings = defaultdict(dict)
-
-        ds_append_dims = ds_dims.intersection(self.append_dims)
-
-        for dim in ds_append_dims:
-            append_dim_mappings[dim] = self._get_uniform_to_nonuniform_map(dim)
-
-        return ds_append_dims, append_dim_mappings
+        with Lock(lock_name):
+            ds_in.to_zarr(zarr_path,
+                          group=zarr_group,
+                          region=region,
+                          compute=True,
+                          # safe_chunks=False,
+                          storage_options=storage_options,
+                          synchronizer=zarr.ThreadSynchronizer())
 
     def _append_ds_list_to_zarr(
         self,
@@ -561,27 +569,29 @@ class ZarrCombine:
 
         self._get_ds_info(ds_list, ed_name)
 
-        # ds_append_dims, append_dim_mappings = self._get_all_append_dim_mappings(set(ds_list[0].dims))
-
         ds_lazy, const_names, encodings = self._construct_lazy_ds_and_var_info(ds_list[0])
-        #
-        # # create zarr file and all associated metadata (this is delayed)
-        # ds_lazy.to_zarr(
-        #     zarr_path,
-        #     compute=False,
-        #     group=zarr_group,
-        #     encoding=encodings,
-        #     consolidated=None,
-        #     storage_options=storage_options,
-        #     synchronizer=zarr.ThreadSynchronizer(),
-        # )
-        #
+
+        # create zarr file and all associated metadata (this is delayed)
+        ds_lazy.to_zarr(
+            zarr_path,
+            compute=False,
+            group=zarr_group,
+            encoding=encodings,
+            consolidated=None,
+            storage_options=storage_options,
+            synchronizer=zarr.ThreadSynchronizer(),
+        )
+
         # collect delayed functions that write each non-constant variable
         # in ds_list to the zarr store
         delayed_to_zarr = []
-
+        # futures = []
         ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
         for dim in ds_append_dims:
+
+            drop_names = [var_name for var_name, var_val in ds_list[0].variables.items() if dim not in var_val.dims]
+
+            drop_names.append(dim)
 
             chunk_mapping = self._get_uniform_to_nonuniform_map(dim)
 
@@ -589,30 +599,29 @@ class ZarrCombine:
 
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
 
-                    print(f"uniform_ind (lock), ds_list_ind, dim_slice = {uniform_ind, ds_list_ind, dim_slice}")
+                    ds_drop = ds_list[ds_list_ind].copy().drop(drop_names)
 
-            # ds_drop = ds.drop(const_names)
+                    region = self._get_region(ds_list_ind, set(ds_drop.dims))
+                    region[dim] = dim_slice[1]
 
-        #
-        #     region = self._get_region(ind, set(ds_drop.dims))
-        #
-        #     # TODO: below is an xarray delayed approach, however, data will be corrupted,
-        #     #  we can remove data corruption by implementing a locking scheme
-        #     delayed_to_zarr.append(
-        #         ds_drop.to_zarr(
-        #             zarr_path,
-        #             group=zarr_group,
-        #             region=region,
-        #             compute=False,
-        #             storage_options=storage_options,
-        #             synchronizer=zarr.ThreadSynchronizer(),
-        #         )
-        #     )
-        #
-        # # compute all delayed writes to the zarr store
-        # dask.compute(*delayed_to_zarr)
-        #
-        # return const_names
+                    ds_in = ds_drop.isel({dim: dim_slice[0]})
+
+                    grp_name = zarr_group.replace("-", "_").replace("/", "_").lower()
+                    lock_name = grp_name + "_" + str(dim) + "_" + str(uniform_ind)
+
+                    delayed_to_zarr.append(self.write_to_file(ds_in, lock_name,
+                                                              zarr_path, zarr_group,
+                                                              region, storage_options))
+
+                    # futures.append(dask.distributed.get_client().submit(self.write_to_file, ds_in, lock_name,
+                    #                                           zarr_path, zarr_group,
+                    #                                           region, storage_options))
+
+        # compute all delayed writes to the zarr store
+        dask.compute(*delayed_to_zarr)
+        # results = dask.distributed.get_client().gather(futures)
+
+        return const_names
 
     def _append_const_to_zarr(
         self,
@@ -783,7 +792,7 @@ class ZarrCombine:
         """
 
         # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = False
+        # blosc.use_threads = False  # TODO: Run on each worker
 
         # set class variables from input
         self.sonar_model = sonar_model
@@ -801,7 +810,7 @@ class ZarrCombine:
             # collect the group Dataset from all eds
             ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
 
-            if ds_list and ed_group == "Environment":  # necessary because a group may not be present
+            if ds_list:  # necessary because a group may not be present
 
                 const_names = self._append_ds_list_to_zarr(
                     zarr_path,
@@ -811,22 +820,22 @@ class ZarrCombine:
                     storage_options=storage_options,
                 )
 
-        #         self._append_const_to_zarr(
-        #             const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
-        #         )
-        #
-        # # append all group attributes before combination to zarr store
-        # self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
-        #
-        # # change filenames numbering to range(len(eds))
-        # self._modify_prov_filenames(zarr_path, len_eds=len(eds))
-        #
-        # # TODO: the below line should be uncommented, if blosc issues persist
-        # # blosc.use_threads = None
-        #
-        # # open lazy loaded combined EchoData object
-        # ed_combined = open_converted(
-        #     zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
-        # )  # TODO: is this appropriate for chunks?
-        #
-        # return ed_combined
+                self._append_const_to_zarr(
+                    const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
+                )
+
+        # append all group attributes before combination to zarr store
+        self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
+
+        # change filenames numbering to range(len(eds))
+        self._modify_prov_filenames(zarr_path, len_eds=len(eds))
+
+        # TODO: the below line should be uncommented, if blosc issues persist
+        # blosc.use_threads = None  # TODO: Run on each worker
+
+        # open lazy loaded combined EchoData object
+        ed_combined = open_converted(
+            zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+        )  # TODO: is this appropriate for chunks?
+
+        return ed_combined
