@@ -267,7 +267,9 @@ class ZarrCombine:
     def _get_temp_arr(self, dims: List[str], dtype: type) -> Tuple[type(dask.array), list]:
         """
         Constructs a temporary (or dummy) array representing a
-        variable in its final combined form.
+        variable in its final combined form. This array will
+        specify the shape, data type, and chunks of the final
+        combined data.
 
         Parameters
         ----------
