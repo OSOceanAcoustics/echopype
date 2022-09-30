@@ -356,13 +356,12 @@ def combine_echodata(
     Notes
     -----
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
-    * All attributes (besides array attributes) from all groups before the combination will be
-      stored in the ``Provenance`` group.
+    * All attributes (besides attributes whose values are arrays) from all groups before the
+      combination will be stored in the ``Provenance`` group.
     * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
       ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
-      # TODO: change this to description of the gist of the employed correction.
       Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, the combined zarr file will be
@@ -386,6 +385,7 @@ def combine_echodata(
     >>>                                      zarr_path="path/to/combined.zarr",
     >>>                                      storage_options=my_storage_options)
     """
+    # TODO: change PR #297 reference to a link in our documentation
 
     # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
     zarr_path = check_zarr_path(zarr_path, storage_options)
