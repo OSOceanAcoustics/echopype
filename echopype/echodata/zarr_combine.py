@@ -249,7 +249,6 @@ class ZarrCombine:
         self.dims_sum = self.dims_df.sum(axis=0).to_dict()
         self.dims_csum = self.dims_df.cumsum(axis=0).to_dict()
         self.dims_max = self.dims_df.max(axis=0).to_dict()
-        self.dims_min = self.dims_df.min(axis=0).to_dict()
 
         # format ed_name appropriately
         ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
@@ -711,7 +710,7 @@ class ZarrCombine:
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
 
                     # get ds containing only variables who have dim in their dims
-                    ds_drop = ds_list[ds_list_ind].drop(drop_names)
+                    ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
 
                     # get xarray region for all dims, except dim
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
@@ -783,6 +782,55 @@ class ZarrCombine:
             ds_list[ds_list_ind][[var]].to_zarr(
                 zarr_path, group=zarr_group, mode="a", storage_options=storage_options
             )
+
+    def _write_append_dims(
+        self,
+        ds_list: List[xr.Dataset],
+        zarr_path: str,
+        zarr_group: str,
+        storage_options: Optional[dict],
+    ) -> None:
+        """
+        Sequentially writes each Dataset's append dimension in ``ds_list`` to
+        the appropriate final combined zarr store.
+
+        Parameters
+        ----------
+        ds_list: List[xr.Dataset]
+            The Datasets that will be combined
+        zarr_path: str
+            The full path of the final combined zarr store
+        zarr_group: str
+            The name of the group of the zarr store
+            corresponding to the Datasets in ``ds_list``
+        storage_options: Optional[dict]
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        """
+
+        # get all dimensions in ds that are append dimensions
+        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
+
+        for dim in ds_append_dims:
+
+            for count, ds in enumerate(ds_list):
+
+                # obtain the appropriate region to write to
+                if count == 0:
+                    region = {str(dim): slice(0, self.dims_csum[dim][count])}
+                else:
+                    region = {
+                        str(dim): slice(self.dims_csum[dim][count - 1], self.dims_csum[dim][count])
+                    }
+
+                ds[[dim]].to_zarr(
+                    zarr_path,
+                    group=zarr_group,
+                    region=region,
+                    compute=True,
+                    storage_options=storage_options,
+                    synchronizer=zarr.ThreadSynchronizer(),
+                )
 
     def _append_provenance_attr_vars(
         self, zarr_path: str, storage_options: Optional[dict] = {}
@@ -906,9 +954,6 @@ class ZarrCombine:
         ``Provenance`` group.
         """
 
-        # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = False  # TODO: Run on each worker
-
         # set class variables from input
         self.sonar_model = sonar_model
         self.group_attrs["echodata_filename"] = echodata_filenames
@@ -939,14 +984,13 @@ class ZarrCombine:
                     const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
                 )
 
+                self._write_append_dims(ds_list, zarr_path, grp_info["ep_group"], storage_options)
+
         # append all group attributes before combination to zarr store
         self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
 
         # change filenames numbering to range(len(eds))
         self._modify_prov_filenames(zarr_path, len_eds=len(eds))
-
-        # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = None  # TODO: Run on each worker
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(

@@ -3,14 +3,13 @@ from typing import List, Optional, Tuple
 from warnings import warn
 
 import xarray as xr
+from dask.distributed import Client
 
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
 from .echodata import EchoData
 from .zarr_combine import ZarrCombine
-
-from dask.distributed import Client
 
 logger = _init_logger(__name__)
 
@@ -298,12 +297,12 @@ def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
     storage_options: Optional[dict] = {},
-    client: Client = None
+    client: Optional[Client] = None,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
     This is accomplished by writing each element of ``echodatas`` in parallel
-    (using dask) to the zarr store specified by ``zarr_path``.
+    (using Dask) to the zarr store specified by ``zarr_path``.
 
     Parameters
     ----------
@@ -314,8 +313,8 @@ def combine_echodata(
     storage_options: Optional[dict]
         Any additional parameters for the storage
         backend (ignored for local paths)
-    client: dask.distributed.Client
-        TODO: document this!
+    client: Optional[dask.distributed.Client]
+        An initialized Dask distributed client
 
     Returns
     -------
@@ -371,6 +370,8 @@ def combine_echodata(
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, the combined zarr file will be
       ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
+    * If no ``client`` is provided, then a client with a local scheduler will be used.
+    * For each run of this function, we print our the client dashboard link.
 
     Examples
     --------
@@ -392,9 +393,9 @@ def combine_echodata(
     """
     # TODO: change PR #297 reference to a link in our documentation
 
-    # TODO: get client as input spit out client.dashboard_link
+    # check the client input and print dashboard link
     if client is None:
-        client = Client()  # create local cluster
+        client = Client()  # create client with local scheduler
         print(f"Client dashboard link: {client.dashboard_link}")
     else:
 
