@@ -55,8 +55,7 @@ def coerce_increasing_time(
     would remain undisturbed.
     """
 
-    ping_time_new = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
-    ds[time_name].values[:] = ping_time_new
+    ds[time_name].values[:] = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
 
 
 def exist_reversed_time(ds, time_name):
