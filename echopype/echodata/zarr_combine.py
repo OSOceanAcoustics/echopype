@@ -38,6 +38,12 @@ class ZarrCombine:
         # The sonar_model for the new combined EchoData object
         self.sonar_model = None
 
+        # initialize variables created within class methods
+        self.dims_df = None
+        self.dims_sum = None
+        self.dims_csum = None
+        self.dims_max = None
+
     def _check_ascending_ds_times(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
         A minimal check that the first time value of each Dataset is less than
