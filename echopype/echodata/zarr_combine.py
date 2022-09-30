@@ -39,6 +39,7 @@ class ZarrCombine:
         self.sonar_model = None
 
         # initialize variables created within class methods
+        # descriptions of these variables can be found in _get_ds_info
         self.dims_df = None
         self.dims_sum = None
         self.dims_csum = None
