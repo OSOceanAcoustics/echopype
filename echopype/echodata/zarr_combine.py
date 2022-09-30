@@ -10,8 +10,7 @@ import xarray as xr
 import zarr
 from dask.distributed import Lock
 
-from ..utils.coding import COMPRESSION_SETTINGS
-from ..utils.io import get_zarr_compression
+from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
@@ -44,6 +43,13 @@ class ZarrCombine:
         # The maximum chunk length allowed for every append dimension
         # TODO: in the future we should investigate this value
         self.max_append_chunk_size = 1000
+
+        # initialize variables created within class methods
+        # descriptions of these variables can be found in _get_ds_info
+        self.dims_df = None
+        self.dims_sum = None
+        self.dims_csum = None
+        self.dims_max = None
 
     def _check_ascending_ds_times(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
@@ -269,7 +275,9 @@ class ZarrCombine:
     def _get_temp_arr(self, dims: List[str], dtype: type) -> Tuple[type(dask.array), list]:
         """
         Constructs a temporary (or dummy) array representing a
-        variable in its final combined form.
+        variable in its final combined form. This array will
+        specify the shape, data type, and chunks of the final
+        combined data.
 
         Parameters
         ----------
@@ -310,20 +318,17 @@ class ZarrCombine:
 
         return temp_arr, chnk_shape
 
-    def _set_encodings(
-        self, encodings: Dict[str, dict], name: Hashable, val: xr.Variable, chnk_shape: list
-    ) -> None:
+    def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: list) -> Dict[str, dict]:
         """
-        Sets the encodings for the variable ``name`` by including all
-        encodings in ``val``, except those encodings that are deemed
-        lazy encodings. Additionally, if a compressor is not found,
-        a default compressor will be assigned.
+        Obtains the encodings for the variable ``name`` by including all
+        encodings in ``val``, except those encodings that are specified by
+        ``self.lazy_encodings``, such as ``chunks``  and ``preferred_chunks``
+        here. Additionally, if a compressor is not found, a default compressor
+        will be assigned.
 
         Parameters
         ----------
-        encodings: Dict[str, dict]
-            The dictionary to set the encodings for
-        name: Hashable
+        name: str
             The name of the variable we are setting the encodings for
         val: xr.Variable
             The variable that contains the encodings we want to assign
@@ -331,22 +336,28 @@ class ZarrCombine:
         chnk_shape: list
             The shape of the chunks for ``name`` (used in encodings)
 
-        Notes
-        -----
-        The input ``encodings`` is directly modified
+        Returns
+        -------
+        var_encoding : Dict[str, dict]
+            All encodings associated with ``name``
         """
 
+        # initialize dict that will hold all encodings for the variable name
+        var_encoding = dict()
+
         # gather all encodings, except the lazy encodings
-        encodings[str(name)] = {
+        var_encoding[name] = {
             key: encod for key, encod in val.encoding.items() if key not in self.lazy_encodings
         }
 
         # assign default compressor, if one does not exist
-        if "compressor" not in encodings[str(name)]:
-            encodings[str(name)].update(get_zarr_compression(val, COMPRESSION_SETTINGS["zarr"]))
+        if "compressor" not in var_encoding[name]:
+            var_encoding[name].update(get_zarr_compression(val, COMPRESSION_SETTINGS["zarr"]))
 
         # set the chunk encoding
-        encodings[str(name)]["chunks"] = chnk_shape
+        var_encoding[name]["chunks"] = chnk_shape
+
+        return var_encoding
 
     def _construct_lazy_ds_and_var_info(
         self, ds_model: xr.Dataset
@@ -397,21 +408,18 @@ class ZarrCombine:
                 # collect the names of all constant variables/dimensions
                 const_names.append(str(name))
 
-            elif name not in ds_model.dims:
+            else:
 
-                # create lazy DataArray representations corresponding to the variables
+                # create lazy DataArray representation
                 temp_arr, chnk_shape = self._get_temp_arr(list(val.dims), val.dtype)
-                xr_vars_dict[name] = (val.dims, temp_arr, val.attrs)
 
-                self._set_encodings(encodings, name, val, chnk_shape)
+                if name not in ds_model.dims:
+                    xr_vars_dict[name] = (val.dims, temp_arr, val.attrs)
+                elif name in self.append_dims:
+                    xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
 
-            elif name in self.append_dims:
-
-                # create lazy DataArray for those coordinates that can be appended to
-                temp_arr, chnk_shape = self._get_temp_arr(list(val.dims), val.dtype)
-                xr_coords_dict[name] = (val.dims, temp_arr, val.attrs)
-
-                self._set_encodings(encodings, name, val, chnk_shape)
+                # add var encodings to the everything-in-one encodings dict
+                encodings.update(self._get_encodings(str(name), val, chnk_shape))
 
         # construct lazy Dataset form
         ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict, attrs=ds_model.attrs)

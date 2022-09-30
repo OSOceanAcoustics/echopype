@@ -5,14 +5,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 import xarray as xr
-from xarray.core.merge import MergeError
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
 from echopype.core import SONAR_MODELS
-
-from dask.distributed import Client
 
 import tempfile
 

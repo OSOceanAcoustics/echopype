@@ -66,7 +66,7 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
 
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
-    Ensures that the input ``echodatas`` for ``combine_echodata``
+    Ensures that the input list of ``EchoData`` objects for ``combine_echodata``
     is in the correct form and all necessary items exist.
 
     Parameters
@@ -258,10 +258,11 @@ def orchestrate_reverse_time_check(
     for group in ed_comb.group_paths:
 
         if group != "Platform/NMEA":
-            # Platform/NMEA is skipped because we found that the times correspond to other
-            # messages besides GPS. This causes multiple times to be out of order and
-            # correcting them is not possible with the current implementation of
-            # _clean_ping_time in qc.api
+            # Platform/NMEA is skipped because we found that the times which correspond to
+            # other non-GPS messages are often out of order and correcting them is not
+            # possible with the current implementation of _clean_ping_time in qc.api due
+            # to excessive recursion. There is also no obvious advantage in correcting
+            # the order of these timestamps.
 
             # get all time dimensions of the group
             ed_comb_time_dims = set(ed_comb[group].dims).intersection(possible_time_dims)
@@ -331,7 +332,7 @@ def combine_echodata(
     ValueError
         If any ``EchoData`` object's ``sonar_model`` is ``None``
     ValueError
-        If and ``EchoData`` object does not have a file path
+        If any ``EchoData`` object does not have a file path
     ValueError
         If the provided ``EchoData`` objects have the same filenames
     RuntimeError
@@ -339,7 +340,7 @@ def combine_echodata(
         than the first time value of the subsequent corresponding
         ``EchoData`` group, with respect to the order in ``echodatas``
     RuntimeError
-        If each corresponding ``EchoData`` group in ``echodatas`` do not
+        If the same ``EchoData`` groups in ``echodatas`` do not
         have the same number of channels and the same name for each
         of these channels.
     RuntimeError
@@ -360,16 +361,16 @@ def combine_echodata(
     Notes
     -----
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
-    * All attributes (besides array attributes) from all groups before the combination will be
-      stored in the ``Provenance`` group.
-    * The ``source_file`` and ``converted_raw_path`` attributes will be copied from the first
-      ``EchoData`` object in the given list.
+    * All attributes (besides attributes whose values are arrays) from all groups before the
+      combination will be stored in the ``Provenance`` group.
+    * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
+      ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
     * If any time coordinate in a final combined group is not in ascending order, then it will
       be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
       Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
-    * If no ``zarr_path`` is provided, it will be set to
-      ``'temp_echopype_output/combined_echodatas.zarr'`` in the current working directory.
+    * If no ``zarr_path`` is provided, the combined zarr file will be
+      ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
 
     Examples
     --------
@@ -389,15 +390,7 @@ def combine_echodata(
     >>>                                      zarr_path="path/to/combined.zarr",
     >>>                                      storage_options=my_storage_options)
     """
-
-    zarr_path = check_zarr_path(zarr_path, storage_options)
-
-    # return empty EchoData object, if no EchoData objects are provided
-    if echodatas is None:
-        warn("No EchoData objects were provided, returning an empty EchoData object.")
-        return EchoData()
-
-    sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+    # TODO: change PR #297 reference to a link in our documentation
 
     # TODO: get client as input spit out client.dashboard_link
     if client is None:
@@ -409,6 +402,17 @@ def combine_echodata(
             print(f"Client dashboard link: {client.dashboard_link}")
         else:
             raise TypeError("The input client is not of type dask.distributed.Client!")
+
+    # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
+    zarr_path = check_zarr_path(zarr_path, storage_options)
+
+    # return empty EchoData object, if no EchoData objects are provided
+    if echodatas is None:
+        warn("No EchoData objects were provided, returning an empty EchoData object.")
+        return EchoData()
+
+    # Ensure the list of all EchoData objects to be combined are valid
+    sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
     # initiate ZarrCombine object
     comb = ZarrCombine()
