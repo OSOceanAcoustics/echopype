@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import fsspec
-import zarr
 from datatree import DataTree
 
 # fmt: off
@@ -16,12 +15,8 @@ if TYPE_CHECKING:
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
+from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
-
-COMPRESSION_SETTINGS = {
-    "netcdf4": {"zlib": True, "complevel": 4},
-    "zarr": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
-}
 
 DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
@@ -106,28 +101,23 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
 
     # Top-level group
-    io.save_file(echodata["Top-level"], path=output_path, mode="w", engine=engine)
+    io.save_file(
+        echodata["Top-level"],
+        path=output_path,
+        mode="w",
+        engine=engine,
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+    )
 
     # Environment group
-    if "time1" in echodata["Environment"]:
-        io.save_file(
-            # echodata["Environment"].chunk(
-            #     {"time1": DEFAULT_CHUNK_SIZE["ping_time"]}
-            # ),  # TODO: chunking necessary?
-            echodata["Environment"],
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Environment",
-        )
-    else:
-        io.save_file(
-            echodata["Environment"],
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Environment",
-        )
+    io.save_file(
+        echodata["Environment"],  # TODO: chunking necessary?
+        path=output_path,
+        mode="a",
+        engine=engine,
+        group="Environment",
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+    )
 
     # Platform group
     io.save_file(
@@ -157,6 +147,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         group="Provenance",
         mode="a",
         engine=engine,
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
     )
 
     # Sonar group
@@ -166,6 +157,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         group="Sonar",
         mode="a",
         engine=engine,
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
     )
 
     # /Sonar/Beam_groupX group
@@ -217,27 +209,14 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             )
 
     # Vendor_specific group
-    if "ping_time" in echodata["Vendor_specific"]:
-        io.save_file(
-            # echodata["Vendor_specific"].chunk(
-            #     {"ping_time": DEFAULT_CHUNK_SIZE["ping_time"]}
-            # ),  # TODO: chunking necessary?
-            echodata["Vendor_specific"],
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Vendor_specific",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
-    else:
-        io.save_file(
-            echodata["Vendor_specific"],  # TODO: chunking necessary?
-            path=output_path,
-            mode="a",
-            engine=engine,
-            group="Vendor_specific",
-            compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
-        )
+    io.save_file(
+        echodata["Vendor_specific"],  # TODO: chunking necessary?
+        path=output_path,
+        mode="a",
+        engine=engine,
+        group="Vendor_specific",
+        compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+    )
 
 
 def _set_convert_params(param_dict: Dict[str, str]) -> Dict[str, str]:
