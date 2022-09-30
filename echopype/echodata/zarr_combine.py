@@ -462,6 +462,7 @@ class ZarrCombine:
         """
         Chunks
         """
+        # TODO: finish documentation!
 
         array_iter = iter(array)
 
@@ -471,62 +472,100 @@ class ZarrCombine:
         # convert each element in the iterable to a numpy array
         return list(map(np.array, chunks_iter))
 
-    def _get_chunk_dicts(self, dim):
+    def _get_chunk_dicts(self, dim: str) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray]]:
+        """
+        Obtains dictionaries specifying the chunk index and the
+        indices (with respect to the full combined length) that
+        are contained in that chunk, for both the uniform and
+        non-uniform chunks.
 
-        csum_og_chunks = np.array(list(self.dims_csum[dim].values()))
+        Parameters
+        ----------
+        dim: str
+            The name of the dimension to create the chunk dicts for
 
+        Returns
+        -------
+        og_chunk_dict: Dict[int, np.ndarray]
+            The chunk dictionary corresponding to the original
+            non-uniform chunks
+        uniform_chunk_dict: Dict[int, np.ndarray]
+            The chunk dictionary corresponding to the uniform chunks
+        """
+
+        # an array specifying the indices of the final combined array
         x_no_chunk = np.arange(self.dims_sum[dim], dtype=np.int64)
 
+        # get end indices for the non-uniform chunks
+        csum_og_chunks = np.array(list(self.dims_csum[dim].values()))
+
+        # obtain the indices of the final combined array that are in each non-uniform chunk
         og_chunk = np.split(x_no_chunk, csum_og_chunks)
 
+        # construct a mapping between the non-uniform chunk and the indices
         og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
 
+        # obtain the uniform chunk size
         zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
 
+        # get the indices of the final combined array that are in each uniform chunk
         uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
 
+        # construct a mapping between the uniform chunk and the indices
         uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
 
         return og_chunk_dict, uniform_chunk_dict
 
-    def _get_uniform_to_nonuniform_map(self, dim):
+    def _get_uniform_to_nonuniform_map(self, dim: str) -> Dict[int, dict]:
         """
         Constructs a uniform to non-uniform mapping of chunks
         for a dimension ``dim``.
 
+        Parameters
+        ----------
+        dim: str
+            The name of the dimension to create a mapping for
 
         Returns
         -------
         final_mapping: Dict[int, dict]
             Uniform to non-uniform mapping where the keys are
             the chunk index in the uniform chunk and the values
-            are dictionaries with keys corresponding to the index
-            of the non-uniform chunk and the values are a tuple of
-            ``slice`` objects for the non-uniform chunk values and
-            region chunk values, respectively.
-
+            are dictionaries. The value dictionaries have keys
+            which correspond to the index of the non-uniform chunk
+            and the values are a tuple with the first element being
+            a ``slice`` object for the non-uniform chunk values and
+            the second element is a ``slice`` object for the region
+            chunk values.
         """
 
+        # obtains dictionaries specifying the indices contained in each chunk
         og_chunk_dict, uniform_chunk_dict = self._get_chunk_dicts(dim)
 
+        # construct the uniform to non-uniform mapping
         final_mapping = defaultdict(dict)
         for u_key, u_val in uniform_chunk_dict.items():
 
             for og_key, og_val in og_chunk_dict.items():
 
+                # find the intersection of uniform and non-uniform chunk indices
                 intersect = np.intersect1d(u_val, og_val)
 
                 if len(intersect) > 0:
 
+                    # get min and max indices in intersect
                     min_val = intersect.min()
                     max_val = intersect.max()
 
+                    # determine the start and end index for the og_val
                     start_og = np.argwhere(og_val == min_val)[0, 0]
                     end_og = np.argwhere(og_val == max_val)[0, 0] + 1
 
+                    # determine the start and end index for the region
                     start_region = min_val
                     end_region = max_val + 1
 
+                    # add non-uniform specific information to final mapping
                     final_mapping[u_key].update(
                         {og_key: (slice(start_og, end_og), slice(start_region, end_region))}
                     )
@@ -546,6 +585,8 @@ class ZarrCombine:
                 storage_options=storage_options,
                 synchronizer=zarr.ThreadSynchronizer(),
             )
+
+            # TODO: put a check to make sure that the chunk has been written
 
     def _append_ds_list_to_zarr(
         self,
