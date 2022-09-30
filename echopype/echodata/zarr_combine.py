@@ -458,12 +458,31 @@ class ZarrCombine:
         return region
 
     @staticmethod
-    def _uniform_chunks_as_np_array(array, chunk_size):
+    def _uniform_chunks_as_np_array(array: np.ndarray, chunk_size: int) -> List[np.ndarray]:
         """
-        Chunks
-        """
-        # TODO: finish documentation!
+        Split ``array`` into chunks with size ``chunk_size``, where the
+        last element in the split has length ``len(array) % chunk_size``.
 
+        Parameters
+        ----------
+        array: np.ndarray
+            Array to split up into chunks
+        chunk_size: int
+            The maximum chunk size
+
+        Returns
+        -------
+        List[np.ndarray]
+            The chunked input ``array``
+
+        Example
+        -------
+        >>> arr = np.array([1, 2, 3, 4, 5])
+        >>> _uniform_chunks_as_np_array(arr, 2)
+        [array([1, 2]), array([3, 4]), array([5])]
+        """
+
+        # get array iterable
         array_iter = iter(array)
 
         # construct chunks as an iterable of lists
@@ -573,7 +592,38 @@ class ZarrCombine:
         return final_mapping
 
     @dask.delayed
-    def write_to_file(self, ds_in, lock_name, zarr_path, zarr_group, region, storage_options):
+    def write_to_file(
+        self,
+        ds_in: xr.Dataset,
+        lock_name: str,
+        zarr_path: str,
+        zarr_group: str,
+        region: Dict[str, slice],
+        storage_options: Optional[dict],
+    ) -> None:
+        """
+        Constructs a delayed write of ``ds_in`` to the appropriate zarr
+        store position using a unique lock name.
+
+        Parameters
+        ----------
+        ds_in: xr.Dataset
+            Dataset subset with only one append dimension containing
+            variables with the append dimension in their dimensions
+        lock_name: str
+            A unique lock name for the chunk being written to
+        zarr_path: str
+            The full path of the final combined zarr store
+        zarr_group: str
+            The name of the group of the zarr store
+            corresponding to the Datasets in ``ds_list``
+        region: Dict[str, slice]
+            Keys set as the dimension name and values as
+            the slice of the zarr portion to write to
+        storage_options: Optional[dict]
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        """
 
         with Lock(lock_name):
             ds_in.to_zarr(
@@ -639,38 +689,44 @@ class ZarrCombine:
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
+        # get all dimensions in ds that are append dimensions
+        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
+
         # collect delayed functions that write each non-constant variable
         # in ds_list to the zarr store
         delayed_to_zarr = []
-        # futures = []
-        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
         for dim in ds_append_dims:
 
+            # collect all variables/coordinates that should be dropped
             drop_names = [
                 var_name
                 for var_name, var_val in ds_list[0].variables.items()
                 if dim not in var_val.dims
             ]
-
             drop_names.append(dim)
 
-            chunk_mapping = self._get_uniform_to_nonuniform_map(dim)
+            chunk_mapping = self._get_uniform_to_nonuniform_map(str(dim))
 
             for uniform_ind, non_uniform_dict in chunk_mapping.items():
-
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
 
-                    # ds_drop = ds_list[ds_list_ind].copy().drop(drop_names)
+                    # get ds containing only variables who have dim in their dims
                     ds_drop = ds_list[ds_list_ind].drop(drop_names)
 
+                    # get xarray region for all dims, except dim
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
-                    region[dim] = dim_slice[1]
 
+                    # get xarray region for dim
+                    region[str(dim)] = dim_slice[1]
+
+                    # select subset of dim corresponding to the region
                     ds_in = ds_drop.isel({dim: dim_slice[0]})
 
+                    # construct the unique lock name for the uniform chunk
                     grp_name = zarr_group.replace("-", "_").replace("/", "_").lower()
                     lock_name = grp_name + "_" + str(dim) + "_" + str(uniform_ind)
 
+                    # write the subset of each Dataset to a zarr file
                     delayed_to_zarr.append(
                         self.write_to_file(
                             ds_in, lock_name, zarr_path, zarr_group, region, storage_options
