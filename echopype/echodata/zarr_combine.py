@@ -309,9 +309,10 @@ class ZarrCombine:
     def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: list) -> Dict[str, dict]:
         """
         Obtains the encodings for the variable ``name`` by including all
-        encodings in ``val``, except those encodings that are deemed
-        lazy encodings. Additionally, if a compressor is not found,
-        a default compressor will be assigned.
+        encodings in ``val``, except those encodings that are specified by
+        ``self.lazy_encodings``, such as ``chunks``  and ``preferred_chunks``
+        here. Additionally, if a compressor is not found, a default compressor
+        will be assigned.
 
         Parameters
         ----------
