@@ -1,22 +1,20 @@
 from collections import defaultdict
+from itertools import islice
 from typing import Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
-from dask.distributed import Lock
 import numpy as np
 import pandas as pd
 import xarray as xr
 import zarr
+from dask.distributed import Lock
 
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.io import get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
-
-from itertools import islice
-from numcodecs import blosc
 
 
 class ZarrCombine:
@@ -42,6 +40,10 @@ class ZarrCombine:
 
         # The sonar_model for the new combined EchoData object
         self.sonar_model = None
+
+        # The maximum chunk length allowed for every append dimension
+        # TODO: in the future we should investigate this value
+        self.max_append_chunk_size = 1000
 
     def _check_ascending_ds_times(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
@@ -297,8 +299,12 @@ class ZarrCombine:
 
         # Create the chunk shape of the variable
         # TODO: investigate if this is the best chunking
-        chnk_shape = [self.dims_max[dim] for dim in dims]
-        # chnk_shape = [self.dims_min[dim] if dim in self.append_dims else self.dims_max[dim] for dim in dims]
+        chnk_shape = [
+            min(self.dims_max[dim], self.max_append_chunk_size)
+            if dim in self.append_dims
+            else self.dims_max[dim]
+            for dim in dims
+        ]
 
         temp_arr = dask.array.zeros(shape=shape, dtype=dtype, chunks=chnk_shape)
 
@@ -467,8 +473,7 @@ class ZarrCombine:
 
         og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
 
-        zarr_chunk_size = self.dims_max[dim]  # TODO: investigate if this is the best chunking
-        # zarr_chunk_size = self.dims_min[dim]
+        zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
 
         uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
 
@@ -514,8 +519,9 @@ class ZarrCombine:
                     start_region = min_val
                     end_region = max_val + 1
 
-                    final_mapping[u_key].update({og_key: (slice(start_og, end_og),
-                                                          slice(start_region, end_region))})
+                    final_mapping[u_key].update(
+                        {og_key: (slice(start_og, end_og), slice(start_region, end_region))}
+                    )
 
         return final_mapping
 
@@ -523,13 +529,15 @@ class ZarrCombine:
     def write_to_file(self, ds_in, lock_name, zarr_path, zarr_group, region, storage_options):
 
         with Lock(lock_name):
-            ds_in.to_zarr(zarr_path,
-                          group=zarr_group,
-                          region=region,
-                          compute=True,
-                          # safe_chunks=False,
-                          storage_options=storage_options,
-                          synchronizer=zarr.ThreadSynchronizer())
+            ds_in.to_zarr(
+                zarr_path,
+                group=zarr_group,
+                region=region,
+                compute=True,
+                # safe_chunks=False,
+                storage_options=storage_options,
+                synchronizer=zarr.ThreadSynchronizer(),
+            )
 
     def _append_ds_list_to_zarr(
         self,
@@ -589,7 +597,11 @@ class ZarrCombine:
         ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
         for dim in ds_append_dims:
 
-            drop_names = [var_name for var_name, var_val in ds_list[0].variables.items() if dim not in var_val.dims]
+            drop_names = [
+                var_name
+                for var_name, var_val in ds_list[0].variables.items()
+                if dim not in var_val.dims
+            ]
 
             drop_names.append(dim)
 
@@ -599,7 +611,8 @@ class ZarrCombine:
 
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
 
-                    ds_drop = ds_list[ds_list_ind].copy().drop(drop_names)
+                    # ds_drop = ds_list[ds_list_ind].copy().drop(drop_names)
+                    ds_drop = ds_list[ds_list_ind].drop(drop_names)
 
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
                     region[dim] = dim_slice[1]
@@ -609,17 +622,14 @@ class ZarrCombine:
                     grp_name = zarr_group.replace("-", "_").replace("/", "_").lower()
                     lock_name = grp_name + "_" + str(dim) + "_" + str(uniform_ind)
 
-                    delayed_to_zarr.append(self.write_to_file(ds_in, lock_name,
-                                                              zarr_path, zarr_group,
-                                                              region, storage_options))
-
-                    # futures.append(dask.distributed.get_client().submit(self.write_to_file, ds_in, lock_name,
-                    #                                           zarr_path, zarr_group,
-                    #                                           region, storage_options))
+                    delayed_to_zarr.append(
+                        self.write_to_file(
+                            ds_in, lock_name, zarr_path, zarr_group, region, storage_options
+                        )
+                    )
 
         # compute all delayed writes to the zarr store
         dask.compute(*delayed_to_zarr)
-        # results = dask.distributed.get_client().gather(futures)
 
         return const_names
 
