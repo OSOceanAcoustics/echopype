@@ -524,6 +524,7 @@ class ZarrCombine:
         og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
 
         # obtain the uniform chunk size
+        # TODO: investigate if this if the best chunk size
         zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
 
         # get the indices of the final combined array that are in each uniform chunk
@@ -864,8 +865,21 @@ class ZarrCombine:
                 # create Dataset coordinates
                 xr_dict[name] = {"dims": [name], "data": val}
 
+        # construct the Provenance Dataset's attributes
+        prov_attributes = echopype_prov_attrs("conversion")
+
+        if "duplicate_ping_times" in self.group_attrs["provenance_attr_key"]:
+            dup_pings_position = self.group_attrs["provenance_attr_key"].index(
+                "duplicate_ping_times"
+            )
+            prov_attributes["duplicate_ping_times"] = (
+                1
+                if np.isin(1, np.array(self.group_attrs["provenance_attrs"])[:, dup_pings_position])
+                else 0
+            )
+
         # construct Dataset and assign Provenance attributes
-        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("conversion"))
+        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(prov_attributes)
 
         # append Dataset to zarr
         all_ds_attrs.to_zarr(

@@ -370,7 +370,8 @@ def combine_echodata(
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, the combined zarr file will be
       ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
-    * If no ``client`` is provided, then a client with a local scheduler will be used.
+    * If no ``client`` is provided, then a client with a local scheduler will be used. The
+      created scheduler and client will be shutdown once computation has finished.
     * For each run of this function, we print our the client dashboard link.
 
     Examples
@@ -395,9 +396,16 @@ def combine_echodata(
 
     # check the client input and print dashboard link
     if client is None:
+
+        # set flag specifying that a client was created
+        client_created = True
+
         client = Client()  # create client with local scheduler
         print(f"Client dashboard link: {client.dashboard_link}")
     else:
+
+        # set flag specifying that a client was not created
+        client_created = False
 
         if isinstance(client, Client):
             print(f"Client dashboard link: {client.dashboard_link}")
@@ -428,5 +436,9 @@ def combine_echodata(
     )
 
     orchestrate_reverse_time_check(ed_comb, zarr_path, comb.possible_time_dims, storage_options)
+
+    if client_created:
+        # close client
+        client.close()
 
     return ed_comb
