@@ -25,9 +25,9 @@ def get_ranges(chunks: np.ndarray) -> List[Tuple[int, int]]:
 
     Examples
     --------
-    >>> get_ranges(chunks=np.array([6,7,3,9]))
-    [(0, 6), (6, 13), (13, 16), (16, 25)]
+    get_ranges(np.array([6,7,3,9])) -> [(0, 6), (6, 13), (13, 16), (16, 25)]
     """
+    # TODO: for some reason, Pycharm debugger wont allow properly formatted Examples
 
     cummulative_chunks = np.cumsum(chunks)
 
@@ -66,6 +66,20 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
         A test Dataset where the values of each variable and
         coordinate are between the start and end ranges
         specified by ``append_dims_ranges`` with step size 1.
+
+    Examples
+    --------
+    generate_test_ds(append_dims_ranges: {'time1': (0, 21), 'time2': (0, 14)},
+                     var_names_dims: {'var1': 'time1', 'var2': 'time2'})
+
+    <xarray.Dataset>
+    Dimensions:  (time1: 21, time2: 14)
+    Coordinates:
+        * time1    (time1) datetime64[ns] 1900-01-01 ... 1900-01-01T00:00:20
+        * time2    (time2) datetime64[ns] 1900-01-01 ... 1900-01-01T00:00:13
+    Data variables:
+        var1     (time1) float64 0.0 1.0 2.0 3.0 4.0 ... 16.0 17.0 18.0 19.0 20.0
+        var2     (time2) float64 0.0 1.0 2.0 3.0 4.0 5.0 ... 9.0 10.0 11.0 12.0 13.0
     """
 
     xr_coords_dict = dict()
