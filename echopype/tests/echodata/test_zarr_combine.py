@@ -58,7 +58,7 @@ def get_ranges(lengths: np.ndarray) -> List[Tuple[int, int]]:
     --------
     get_ranges(np.array([6,7,3,9])) -> [(0, 6), (6, 13), (13, 16), (16, 25)]
     """
-    # TODO: for some reason, Pycharm debugger wont allow properly formatted Examples
+    # TODO: for some reason, Pycharm debugger won't allow properly formatted Examples
 
     cummulative_lengths = np.cumsum(lengths)
 
