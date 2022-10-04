@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 from warnings import warn
 
+import dask.distributed
 import xarray as xr
 from dask.distributed import Client
 
@@ -297,7 +298,7 @@ def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
     storage_options: Optional[dict] = {},
-    client: Optional[Client] = None,
+    client: Optional[dask.distributed.Client] = None,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
