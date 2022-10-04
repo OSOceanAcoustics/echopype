@@ -395,23 +395,20 @@ def combine_echodata(
     """
     # TODO: change PR #297 reference to a link in our documentation
 
+    # set flag specifying that a client was not created
+    client_created = False
+
     # check the client input and print dashboard link
     if client is None:
-
         # set flag specifying that a client was created
         client_created = True
 
         client = Client()  # create client with local scheduler
         print(f"Client dashboard link: {client.dashboard_link}")
+    elif isinstance(client, Client):
+        print(f"Client dashboard link: {client.dashboard_link}")
     else:
-
-        # set flag specifying that a client was not created
-        client_created = False
-
-        if isinstance(client, Client):
-            print(f"Client dashboard link: {client.dashboard_link}")
-        else:
-            raise TypeError("The input client is not of type dask.distributed.Client!")
+        raise TypeError(f"The input client is not of type {type(Client)}!")
 
     # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
     zarr_path = check_zarr_path(zarr_path, storage_options)
