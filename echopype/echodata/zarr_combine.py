@@ -872,11 +872,15 @@ class ZarrCombine:
             dup_pings_position = self.group_attrs["provenance_attr_key"].index(
                 "duplicate_ping_times"
             )
-            prov_attributes["duplicate_ping_times"] = (
-                1
-                if np.isin(1, np.array(self.group_attrs["provenance_attrs"])[:, dup_pings_position])
-                else 0
-            )
+
+            # see if the duplicate_ping_times value is equal to 1
+            elem_is_one = [
+                True if val[dup_pings_position] == 1 else False
+                for val in self.group_attrs["provenance_attrs"]
+            ]
+
+            # set duplicate_ping_times = 1 if any file has 1
+            prov_attributes["duplicate_ping_times"] = 1 if any(elem_is_one) else 0
 
         # construct Dataset and assign Provenance attributes
         all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(prov_attributes)

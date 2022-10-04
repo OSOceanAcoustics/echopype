@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 from warnings import warn
 
 import dask.distributed
+import fsspec
 import xarray as xr
 from dask.distributed import Client
 
@@ -15,7 +16,7 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
-def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
+def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: bool) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
@@ -27,6 +28,10 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
     storage_options: Optional[dict]
         Any additional parameters for the storage
         backend (ignored for local paths)
+    overwrite: bool
+        If True, will overwrite the zarr store specified by
+        ``zarr_path`` if it already exists, otherwise an error
+        will be returned if the file already exists.
 
     Returns
     -------
@@ -37,6 +42,8 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
+    RuntimeError
+        If ``zarr_path`` already exists and ``overwrite=False``
     """
 
     if zarr_path is None:
@@ -56,12 +63,29 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
             source_file = path_obj.parts[-1]
             save_path = path_obj.parent
 
-    return validate_output_path(
+    validated_path = validate_output_path(
         source_file=source_file,
         engine="zarr",
         output_storage_options=storage_options,
         save_path=save_path,
     )
+
+    # check if validated_path already exists
+    fs = fsspec.get_mapper(validated_path, **storage_options).fs  # get file system
+    exists = True if fs.exists(validated_path) else False
+
+    if exists and not overwrite:
+        raise RuntimeError(
+            f"{zarr_path} already exists, please provide a different path" " or set overwrite=True."
+        )
+    elif exists and overwrite:
+
+        logger.info(f"overwriting {validated_path}")
+
+        # remove zarr file
+        fs.rm(validated_path, recursive=True)
+
+    return validated_path
 
 
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
@@ -297,6 +321,7 @@ def orchestrate_reverse_time_check(
 def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
+    overwrite: bool = False,
     storage_options: Optional[dict] = {},
     client: Optional[dask.distributed.Client] = None,
 ) -> EchoData:
@@ -311,6 +336,10 @@ def combine_echodata(
         The list of ``EchoData`` objects to be combined
     zarr_path: str
         The full save path to the final combined zarr store
+    overwrite: bool
+        If True, will overwrite the zarr store specified by
+        ``zarr_path`` if it already exists, otherwise an error
+        will be returned if the file already exists.
     storage_options: Optional[dict]
         Any additional parameters for the storage
         backend (ignored for local paths)
@@ -327,6 +356,8 @@ def combine_echodata(
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
+    RuntimeError
+        If ``zarr_path`` already exists and ``overwrite=False``
     TypeError
         If a list of ``EchoData`` objects are not provided
     ValueError
@@ -411,7 +442,7 @@ def combine_echodata(
         raise TypeError(f"The input client is not of type {type(Client)}!")
 
     # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
-    zarr_path = check_zarr_path(zarr_path, storage_options)
+    zarr_path = check_zarr_path(zarr_path, storage_options, overwrite)
 
     # return empty EchoData object, if no EchoData objects are provided
     if echodatas is None:
