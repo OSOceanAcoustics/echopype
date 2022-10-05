@@ -1,4 +1,3 @@
-from typing import Any, List, Dict
 from textwrap import dedent
 from pathlib import Path
 
@@ -9,7 +8,6 @@ import xarray as xr
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
-from echopype.core import SONAR_MODELS
 
 import tempfile
 from dask.distributed import Client
@@ -36,6 +34,14 @@ def ek60_reversed_ping_time_test_data(test_path):
 
 
 @pytest.fixture
+def ek60_diff_range_sample_test_data():
+    return ["s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1701/EK60/TEST-D20170114-T202932.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1701/EK60/TEST-D20170114-T203337.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1701/EK60/TEST-D20170114-T203853.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1701/EK60/TEST-D20170114-T204035.raw"]
+
+
+@pytest.fixture
 def ek80_test_data(test_path):
     files = [
         ("echopype-test-D20211005-T000706.raw",),
@@ -44,6 +50,20 @@ def ek80_test_data(test_path):
         ("echopype-test-D20211005-T000843.raw",),
     ]
     return [test_path["EK80_NEW"].joinpath(*f) for f in files]
+
+
+@pytest.fixture
+def ek80_broadband_same_range_sample_test_data():
+    return ["s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205659.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205742.raw"]
+
+
+@pytest.fixture
+def ek80_narrowband_diff_range_sample_test_data():
+    return ["s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T130426.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T131325.raw",
+            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T131621.raw"]
 
 
 @pytest.fixture
@@ -71,19 +91,41 @@ def azfp_test_xml(test_path):
             "sonar_model": "EK60",
             "xml_file": None,
             "files": "ek60_test_data",
+            "storage_options": {}
+        },
+        {
+            "sonar_model": "EK60",
+            "xml_file": None,
+            "files": "ek60_diff_range_sample_test_data",
+            "storage_options": {'anon': True}
         },
         {
             "sonar_model": "EK60",
             "xml_file": None,
             "files": "ek60_reversed_ping_time_test_data",
+            "storage_options": {}
         },
         {
             "sonar_model": "AZFP",
             "xml_file": "azfp_test_xml",
             "files": "azfp_test_data",
+            "storage_options": {}
+        },
+        {
+            "sonar_model": "EK80",
+            "xml_file": None,
+            "files": "ek80_broadband_same_range_sample_test_data",
+            "storage_options": {'anon': True}
+        },
+        {
+            "sonar_model": "EK80",
+            "xml_file": None,
+            "files": "ek80_narrowband_diff_range_sample_test_data",
+            "storage_options": {'anon': True}
         }
     ],
-    ids=["ek60", "ek60_reversed_time", "azfp"]
+    ids=["ek60", "ek60_diff_range_sample", "ek60_reversed_time", "azfp",
+         "ek80_bb_same_range_sample", "ek80_nb_diff_range_sample"]
 )
 def raw_datasets(request):
     files = request.param["files"]
@@ -97,6 +139,7 @@ def raw_datasets(request):
         files,
         request.param['sonar_model'],
         xml_file,
+        request.param['storage_options'],
         request.node.callspec.id
     )
 
@@ -106,10 +149,15 @@ def test_combine_echodata(raw_datasets):
         files,
         sonar_model,
         xml_file,
-        param_id
+        storage_options,
+        param_id,
     ) = raw_datasets
 
-    eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
+    if param_id == "ek80_nb_diff_range_sample":
+        pytest.xfail("The files in ek80_nb_diff_range_sample cause an error when correcting a reversed time. "
+                     "Once this is fixed, these files should be ran.")
+
+    eds = [echopype.open_raw(file, sonar_model, xml_file, storage_options=storage_options) for file in files]
 
     append_dims = {"filenames", "time1", "time2", "time3", "ping_time"}
 
