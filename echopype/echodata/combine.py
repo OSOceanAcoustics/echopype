@@ -27,7 +27,7 @@ def check_zarr_path(
     ----------
     zarr_path: str
         The full save path to the final combined zarr store
-    storage_options: Optional[dict]
+    storage_options: Dict[str, Any]
         Any additional parameters for the storage
         backend (ignored for local paths)
     overwrite: bool
