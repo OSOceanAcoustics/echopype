@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import islice
-from typing import Dict, Hashable, List, Optional, Set, Tuple
+from typing import Any, Dict, Hashable, List, Set, Tuple
 
 import dask
 import dask.array
@@ -201,7 +201,7 @@ class ZarrCombine:
 
         return numpy_keys
 
-    def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
+    def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
         Constructs useful dictionaries that contain information
         about the dimensions of the Dataset. Additionally, collects
@@ -599,7 +599,7 @@ class ZarrCombine:
         zarr_path: str,
         zarr_group: str,
         region: Dict[str, slice],
-        storage_options: Optional[dict],
+        storage_options: Dict[str, Any] = {},
     ) -> None:
         """
         Constructs a delayed write of ``ds_in`` to the appropriate zarr
@@ -620,7 +620,7 @@ class ZarrCombine:
         region: Dict[str, slice]
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -644,7 +644,7 @@ class ZarrCombine:
         ds_list: List[xr.Dataset],
         zarr_group: str,
         ed_name: str,
-        storage_options: Optional[dict] = {},
+        storage_options: Dict[str, Any] = {},
     ) -> List[str]:
         """
         Creates a zarr store and then appends each Dataset
@@ -663,7 +663,7 @@ class ZarrCombine:
         ed_name: str
             The name of the EchoData group corresponding to the
             Datasets in ``ds_list``
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
 
@@ -744,7 +744,7 @@ class ZarrCombine:
         ds_list: List[xr.Dataset],
         zarr_path: str,
         zarr_group: str,
-        storage_options: Optional[dict],
+        storage_options: Dict[str, Any] = {},
     ) -> None:
         """
         Appends all constant (i.e. not chunked) variables and dimensions to the
@@ -761,7 +761,7 @@ class ZarrCombine:
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
 
@@ -789,7 +789,7 @@ class ZarrCombine:
         ds_list: List[xr.Dataset],
         zarr_path: str,
         zarr_group: str,
-        storage_options: Optional[dict],
+        storage_options: Dict[str, Any] = {},
     ) -> None:
         """
         Sequentially writes each Dataset's append dimension in ``ds_list`` to
@@ -804,7 +804,7 @@ class ZarrCombine:
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -834,7 +834,7 @@ class ZarrCombine:
                 )
 
     def _append_provenance_attr_vars(
-        self, zarr_path: str, storage_options: Optional[dict] = {}
+        self, zarr_path: str, storage_options: Dict[str, Any] = {}
     ) -> None:
         """
         Creates an xarray Dataset with variables set as the attributes
@@ -846,7 +846,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -896,7 +896,7 @@ class ZarrCombine:
 
     @staticmethod
     def _modify_prov_filenames(
-        zarr_path: str, len_eds: int, storage_options: Optional[dict] = {}
+        zarr_path: str, len_eds: int, storage_options: Dict[str, Any] = {}
     ) -> None:
         """
         After the ``Provenance`` group has been constructed, the
@@ -910,7 +910,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -926,7 +926,7 @@ class ZarrCombine:
         self,
         zarr_path: str,
         eds: List[EchoData] = [],
-        storage_options: Optional[dict] = {},
+        storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
     ) -> EchoData:
@@ -941,7 +941,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         eds: List[EchoData]
             The list of ``EchoData`` objects to be combined
-        storage_options: Optional[dict]
+        storage_options: Dict[str, Any]
             Any additional parameters for the storage
             backend (ignored for local paths)
         sonar_model : str
