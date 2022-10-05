@@ -336,7 +336,7 @@ def combine_echodata(
         If True, will overwrite the zarr store specified by
         ``zarr_path`` if it already exists, otherwise an error
         will be returned if the file already exists.
-    storage_options: Optional[dict]
+    storage_options: Dict[str, Any]
         Any additional parameters for the storage
         backend (ignored for local paths)
     client: Optional[dask.distributed.Client]
