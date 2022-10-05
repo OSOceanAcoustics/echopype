@@ -895,7 +895,9 @@ class ZarrCombine:
         )
 
     @staticmethod
-    def _modify_prov_filenames(zarr_path: str, len_eds: int) -> None:
+    def _modify_prov_filenames(
+        zarr_path: str, len_eds: int, storage_options: Optional[dict]
+    ) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -908,10 +910,15 @@ class ZarrCombine:
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
+        storage_options: Optional[dict]
+            Any additional parameters for the storage
+            backend (ignored for local paths)
         """
 
         # obtain the filenames zarr array
-        zarr_filenames = zarr.open_array(zarr_path + "/Provenance/filenames", mode="r+")
+        zarr_filenames = zarr.open_array(
+            zarr_path + "/Provenance/filenames", mode="r+", storage_options=storage_options
+        )
 
         zarr_filenames[:] = np.arange(len_eds)
 
@@ -1008,7 +1015,7 @@ class ZarrCombine:
         self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
 
         # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(zarr_path, len_eds=len(eds))
+        self._modify_prov_filenames(zarr_path, len_eds=len(eds), storage_options=storage_options)
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
