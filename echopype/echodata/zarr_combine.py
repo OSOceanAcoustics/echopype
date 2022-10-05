@@ -896,7 +896,7 @@ class ZarrCombine:
 
     @staticmethod
     def _modify_prov_filenames(
-        zarr_path: str, len_eds: int, storage_options: Optional[dict]
+        zarr_path: str, len_eds: int, storage_options: Optional[dict] = {}
     ) -> None:
         """
         After the ``Provenance`` group has been constructed, the
