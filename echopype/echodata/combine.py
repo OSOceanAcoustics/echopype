@@ -16,7 +16,7 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
-def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: bool) -> str:
+def check_zarr_path(zarr_path: str, storage_options: Dict[str, Any] = {}, overwrite: bool = False) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
