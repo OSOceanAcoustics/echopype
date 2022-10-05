@@ -66,7 +66,7 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: 
 
     if exists and not overwrite:
         raise RuntimeError(
-            f"{zarr_path} already exists, please provide a different path" " or set overwrite=True."
+            f"{zarr_path} already exists, please provide a different path or set overwrite=True."
         )
     elif exists and overwrite:
 
