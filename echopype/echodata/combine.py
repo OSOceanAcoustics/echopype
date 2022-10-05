@@ -318,7 +318,7 @@ def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
     overwrite: bool = False,
-    storage_options: Optional[dict] = {},
+    storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
 ) -> EchoData:
     """
