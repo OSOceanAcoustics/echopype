@@ -46,28 +46,18 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: 
         If ``zarr_path`` already exists and ``overwrite=False``
     """
 
-    if zarr_path is None:
+    # check that the appropriate suffix was provided
+    if not str(zarr_path).strip("/").endswith(".zarr"):
+        raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
 
-        # assign values, if no zarr path has been provided
-        source_file = "combined_echodatas.zarr"
-        save_path = None
-    else:
-
-        # turn string path into Path object
-        path_obj = Path(zarr_path)
-        if path_obj.suffix != ".zarr":
-            raise ValueError("The provided zarr_path input must point to a zarr file!")
-        else:
-
-            # assign values based on zarr path
-            source_file = path_obj.parts[-1]
-            save_path = path_obj.parent
+    # set default source_file name (will be used only if zarr_path is None)
+    source_file = "combined_echodatas.zarr"
 
     validated_path = validate_output_path(
         source_file=source_file,
         engine="zarr",
         output_storage_options=storage_options,
-        save_path=save_path,
+        save_path=zarr_path,
     )
 
     # check if validated_path already exists
