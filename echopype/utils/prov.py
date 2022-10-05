@@ -1,5 +1,5 @@
 from datetime import datetime as dt
-from pathlib import PosixPath
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -62,10 +62,10 @@ def source_files_vars(
         """Handle a plain string containing a single path,
         a single pathlib Path, or a list of strings or pathlib paths
         """
-        if type(paths) in (str, PosixPath):
+        if isinstance(paths, (str, Path)):
             return [str(paths)]
         else:
-            return [str(p) for p in paths]
+            return [str(p) for p in paths if isinstance(p, (str, Path))]
 
     source_files = _source_files(source_paths)
     source_files_var = {
