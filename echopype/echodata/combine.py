@@ -429,9 +429,9 @@ def combine_echodata(
         client_created = True
 
         client = Client()  # create client with local scheduler
-        print(f"Client dashboard link: {client.dashboard_link}")
+        logger.info(f"Client dashboard link: {client.dashboard_link}")
     elif isinstance(client, Client):
-        print(f"Client dashboard link: {client.dashboard_link}")
+        logger.info(f"Client dashboard link: {client.dashboard_link}")
     else:
         raise TypeError(f"The input client is not of type {type(Client)}!")
 
