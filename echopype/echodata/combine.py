@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 from warnings import warn
 
 import dask.distributed
@@ -16,9 +16,7 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
-def check_zarr_path(
-    zarr_path: Union[Path, str], storage_options: Optional[dict], overwrite: bool
-) -> str:
+def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: bool) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
@@ -48,8 +46,12 @@ def check_zarr_path(
         If ``zarr_path`` already exists and ``overwrite=False``
     """
 
+    # check that zarr_path is a string
+    if not isinstance(zarr_path, str):
+        raise TypeError(f"zarr_path must be of type {str}")
+
     # check that the appropriate suffix was provided
-    if not str(zarr_path).strip("/").endswith(".zarr"):
+    if not zarr_path.strip("/").endswith(".zarr"):
         raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
