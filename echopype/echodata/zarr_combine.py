@@ -1012,7 +1012,10 @@ class ZarrCombine:
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
-            zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer(), storage_options=storage_options
+            zarr_path,
+            chunks={},
+            synchronizer=zarr.ThreadSynchronizer(),
+            storage_options=storage_options,
         )  # TODO: is this appropriate for chunks?
 
         return ed_combined
