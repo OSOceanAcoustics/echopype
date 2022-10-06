@@ -2,6 +2,7 @@ import pytest
 import xarray as xr
 from typing import List, Tuple
 from echopype import open_raw
+from pathlib import Path
 
 
 @pytest.fixture
@@ -91,7 +92,13 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         assert os.path.exists(output_save_path)
 
     if offload_to_zarr:
+        # create a copy of zarr_file_name. The join is necessary so that we are not referencing zarr_file_name
+        temp_zarr_path = ''.join(echodata.parsed2zarr_obj.zarr_file_name)
+
         del echodata
+
+        # make sure that the temporary zarr was deleted
+        assert Path(temp_zarr_path).exists() is False
 
 
 @pytest.mark.parametrize(
@@ -162,4 +169,10 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
 
         assert ed_zarr[grp].identical(ed_no_zarr[grp])
 
+    # create a copy of zarr_file_name. The join is necessary so that we are not referencing zarr_file_name
+    temp_zarr_path = ''.join(ed_zarr.parsed2zarr_obj.zarr_file_name)
+
     del ed_zarr
+
+    # make sure that the temporary zarr was deleted
+    assert Path(temp_zarr_path).exists() is False
