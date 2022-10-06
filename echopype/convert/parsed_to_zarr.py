@@ -40,8 +40,12 @@ class Parsed2Zarr:
         # Check permission of cwd, raise exception if no permission
         check_file_permissions(current_dir)
 
+        # since this could be run in parallel, it is best to create a
+        # reasonably unique run directory that can be safely deleted
+        run_dir = "run_" + secrets.token_hex(16)
+
         # construct temporary directory that will hold the zarr file
-        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files")
+        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files" / run_dir)
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 

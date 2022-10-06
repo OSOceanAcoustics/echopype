@@ -84,7 +84,7 @@ class EchoData:
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
 
-        if self.parsed2zarr_obj.temp_zarr_dir is not None:
+        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.temp_zarr_dir is not None):
 
             # get Path object of temporary zarr directory created by Parsed2Zarr
             p2z_temp_dir = Path(self.parsed2zarr_obj.temp_zarr_dir)
