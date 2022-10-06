@@ -1,11 +1,14 @@
+import secrets
 import sys
-import tempfile
+from pathlib import Path
 from typing import List, Tuple, Union
 
 import more_itertools as miter
 import numpy as np
 import pandas as pd
 import zarr
+
+from ..utils.io import check_file_permissions
 
 
 class Parsed2Zarr:
@@ -31,12 +34,26 @@ class Parsed2Zarr:
         the root group of the zarr store.
         """
 
-        # temporary directory that will hold the zarr file
-        # TODO: will this work well in the cloud?
-        self.temp_zarr_dir = tempfile.TemporaryDirectory()
+        # get current working directory
+        current_dir = Path.cwd()
+
+        # Check permission of cwd, raise exception if no permission
+        check_file_permissions(current_dir)
+
+        # construct temporary directory that will hold the zarr file
+        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files")
+        if not out_dir.exists():
+            out_dir.mkdir(parents=True)
+
+        self.temp_zarr_dir = str(out_dir)
 
         # create zarr store and zarr group we want to write to
-        self.zarr_file_name = self.temp_zarr_dir.name + "/temp.zarr"
+        self.zarr_file_name = (
+            str(out_dir / secrets.token_hex(4))
+            + "_"
+            + Path(self.parser_obj.source_file).stem
+            + ".zarr"
+        )
         self.store = zarr.DirectoryStore(self.zarr_file_name)
         self.zarr_root = zarr.group(store=self.store, overwrite=True)
 

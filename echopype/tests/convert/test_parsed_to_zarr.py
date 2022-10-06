@@ -90,6 +90,9 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         # If it goes all the way to here it is most likely successful
         assert os.path.exists(output_save_path)
 
+    if offload_to_zarr:
+        del echodata
+
 
 @pytest.mark.parametrize(
     ["path_model", "raw_file", "sonar_model"],
@@ -158,3 +161,5 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
             ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
 
         assert ed_zarr[grp].identical(ed_no_zarr[grp])
+
+    del ed_zarr
