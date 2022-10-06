@@ -100,8 +100,8 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
 
     Notes
     -----
-    If a coordinate is a time value, then ``set_encodings`` will change
-    the integer values of the coordinates to datetime stamps.
+    If a coordinate is a time value (i.e., having variable names like "*_time" or "time_*"),
+    then ``set_encodings`` will change the integer values of the coordinates to datetime stamps.
 
     Examples
     --------
