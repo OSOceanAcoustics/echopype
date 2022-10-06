@@ -195,7 +195,7 @@ def get_all_test_data(num_datasets: int, randint_low: int,
     return true_comb, ds_list
 
 
-def test_ds_append_ds_list_to_zarr(append_ds_list_params):
+def test_append_ds_list_to_zarr(append_ds_list_params):
     """
     This is a minimal test for ``_append_ds_list_to_zarr`` that
     ensures we are properly combining variables and coordinates
