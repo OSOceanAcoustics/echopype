@@ -94,7 +94,7 @@ class CalibrateEK(CalibrateBase):
         )
 
         # Select corresponding index and clean up the original nan elements
-        da_param = da_param.isel(pulse_length_bin=idxmin, drop=True)
+        da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
         return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
     def get_cal_params(self, cal_params, waveform_mode, encode_mode):
