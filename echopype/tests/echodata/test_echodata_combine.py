@@ -53,17 +53,23 @@ def ek80_test_data(test_path):
 
 
 @pytest.fixture
-def ek80_broadband_same_range_sample_test_data():
-    return ["s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205615.raw",
-            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205659.raw",
-            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH1707/EK80/D20170826-T205742.raw"]
+def ek80_broadband_same_range_sample_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "SH1707", "EK80", "D20170826-T205615.raw"),
+        ("ncei-wcsd", "SH1707", "EK80", "D20170826-T205659.raw"),
+        ("ncei-wcsd", "SH1707", "EK80", "D20170826-T205742.raw"),
+    ]
+    return [test_path["EK80"].joinpath(*f) for f in files]
 
 
 @pytest.fixture
-def ek80_narrowband_diff_range_sample_test_data():
-    return ["s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T130426.raw",
-            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T131325.raw",
-            "s3://noaa-wcsd-pds/data/raw/Bell_M._Shimada/SH2106/EK80/Hake-D20210701-T131621.raw"]
+def ek80_narrowband_diff_range_sample_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "SH2106", "EK80", "Hake-D20210701-T130426.raw"),
+        ("ncei-wcsd", "SH2106", "EK80", "Hake-D20210701-T131325.raw"),
+        ("ncei-wcsd", "SH2106", "EK80", "Hake-D20210701-T131621.raw"),
+    ]
+    return [test_path["EK80"].joinpath(*f) for f in files]
 
 
 @pytest.fixture
