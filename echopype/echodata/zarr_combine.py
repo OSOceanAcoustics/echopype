@@ -59,7 +59,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -104,7 +104,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -147,7 +147,7 @@ class ZarrCombine:
 
         Returns
         -------
-        numpy_keys: List[str]
+        numpy_keys: list
             All keys that have numpy arrays as values
 
         Raises
@@ -211,7 +211,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list
             The Datasets that will be combined
         ed_name: str
             The name of the EchoData group corresponding to the
@@ -280,7 +280,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        dims: List[str]
+        dims: list
             A list of the dimension names
         dtype: type
             The data type of the variable
@@ -288,9 +288,9 @@ class ZarrCombine:
         Returns
         -------
         temp_arr: dask.array
-            a temporary (or dummy) array representing a
+            A temporary (or dummy) array representing a
             variable in its final combined form.
-        chnk_shape: List[int]
+        chnk_shape: list
             The chunk shape used to construct ``temp_arr``
 
         Notes
@@ -337,7 +337,7 @@ class ZarrCombine:
 
         Returns
         -------
-        var_encoding : Dict[str, dict]
+        var_encoding : dict
             All encodings associated with ``name``
         """
 
@@ -380,10 +380,10 @@ class ZarrCombine:
         ds: xr.Dataset
             A lazy Dataset representing the EchoData group Dataset in
             its final combined form
-        const_names: List[str]
+        const_names: list
             The names of all variables and dimensions that are constant
             (with respect to chunking) across all Datasets to be combined
-        encodings: Dict[str, dict]
+        encodings: dict
             The encodings for all variables and dimensions that will be
             written to the zarr store by regions
 
@@ -436,12 +436,12 @@ class ZarrCombine:
         ds_ind: int
             The key of the values of ``self.dims_csum`` or index of
             ``self.dims_df`` to use for each dimension name
-        ds_dims: Set[Hashable]
+        ds_dims: set
             The names of the dimensions used in the region creation
 
         Returns
         -------
-        region: Dict[str, slice]
+        region: dict
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
         """
@@ -471,7 +471,7 @@ class ZarrCombine:
 
         Returns
         -------
-        List[np.ndarray]
+        list
             The chunked input ``array``
 
         Example
@@ -504,10 +504,10 @@ class ZarrCombine:
 
         Returns
         -------
-        og_chunk_dict: Dict[int, np.ndarray]
+        og_chunk_dict: dict
             The chunk dictionary corresponding to the original
             non-uniform chunks
-        uniform_chunk_dict: Dict[int, np.ndarray]
+        uniform_chunk_dict: dict
             The chunk dictionary corresponding to the uniform chunks
         """
 
@@ -547,7 +547,7 @@ class ZarrCombine:
 
         Returns
         -------
-        final_mapping: Dict[int, dict]
+        final_mapping: dict
             Uniform to non-uniform mapping where the keys are
             the chunk index in the uniform chunk and the values
             are dictionaries. The value dictionaries have keys
@@ -617,10 +617,10 @@ class ZarrCombine:
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        region: Dict[str, slice]
+        region: dict
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -631,7 +631,6 @@ class ZarrCombine:
                 group=zarr_group,
                 region=region,
                 compute=True,
-                # safe_chunks=False,
                 storage_options=storage_options,
                 synchronizer=zarr.ThreadSynchronizer(),
             )
@@ -655,7 +654,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        ds_list: List[xr.Dataset]
+        ds_list: list
             The Datasets that will be combined
         zarr_group: str
             The name of the group of the zarr store
@@ -663,13 +662,13 @@ class ZarrCombine:
         ed_name: str
             The name of the EchoData group corresponding to the
             Datasets in ``ds_list``
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
 
         Returns
         -------
-        const_names: List[str]
+        const_names: list
             The names of all variables and dimensions that are constant
             (with respect to chunking) across all Datasets to be combined
         """
@@ -752,16 +751,16 @@ class ZarrCombine:
 
         Parameters
         ----------
-        const_vars: List[str]
+        const_vars: list
             The names of all variables/dimensions that are not chunked
-        ds_list: List[xr.Dataset]
+        ds_list: list
             The Datasets that will be combined
         zarr_path: str
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
 
@@ -797,14 +796,14 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list
             The Datasets that will be combined
         zarr_path: str
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -846,7 +845,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -910,7 +909,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -939,14 +938,14 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        eds: List[EchoData]
+        eds: list
             The list of ``EchoData`` objects to be combined
-        storage_options: Dict[str, Any]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         sonar_model : str
             The sonar model used for all elements in ``eds``
-        echodata_filenames : List[str]
+        echodata_filenames : list
             The source files names for all elements in ``eds``
 
         Returns
