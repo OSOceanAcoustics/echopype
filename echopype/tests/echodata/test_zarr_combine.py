@@ -141,7 +141,7 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
 
 
 def get_all_test_data(num_datasets: int, randint_low: int,
-                      randint_high: int) -> Tuple[xr.Dataset, List[xr.Dataset]]:
+                      randint_high: int) -> Tuple[List[xr.Dataset], xr.Dataset]:
     """
     Generates a list of ``num_datasets`` Datasets with variable and
     coordinate lengths between ``[randint_low, randint_high)``.
@@ -159,10 +159,10 @@ def get_all_test_data(num_datasets: int, randint_low: int,
 
     Returns
     -------
-    true_comb: xr.Dataset
-        The true combined form of the datasets in ``ds_list``
     ds_list: List[xr.Dataset]
         The generated list of Datasets
+    true_comb: xr.Dataset
+        The true combined form of the datasets in ``ds_list``
     """
 
     # generate differing time1 and time2 lengths for each Dataset
@@ -192,7 +192,7 @@ def get_all_test_data(num_datasets: int, randint_low: int,
                                                             "time2": time2_ranges[ind]},
                                         var_names_dims=var_names_dims))
 
-    return true_comb, ds_list
+    return ds_list, true_comb
 
 
 def test_append_ds_list_to_zarr(append_ds_list_params):
@@ -233,7 +233,7 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
     client = Client()
 
     # generate the ds_list and the known combined form of the list
-    true_comb, ds_list = get_all_test_data(randint_low=randint_low,
+    ds_list, true_comb = get_all_test_data(randint_low=randint_low,
                                            randint_high=randint_high,
                                            num_datasets=num_datasets)
 
