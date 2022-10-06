@@ -59,7 +59,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: list
+        ds_list: list of xr.Dataset
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -104,7 +104,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: list
+        ds_list: list of xr.Dataset
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -211,7 +211,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: list
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         ed_name: str
             The name of the EchoData group corresponding to the
@@ -280,7 +280,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        dims: list
+        dims: list of str
             A list of the dimension names
         dtype: type
             The data type of the variable
@@ -290,7 +290,7 @@ class ZarrCombine:
         temp_arr: dask.array
             A temporary (or dummy) array representing a
             variable in its final combined form.
-        chnk_shape: list
+        chnk_shape: list of int
             The chunk shape used to construct ``temp_arr``
 
         Notes
@@ -317,7 +317,7 @@ class ZarrCombine:
 
         return temp_arr, chnk_shape
 
-    def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: list) -> Dict[str, dict]:
+    def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: List[int]) -> Dict[str, dict]:
         """
         Obtains the encodings for the variable ``name`` by including all
         encodings in ``val``, except those encodings that are specified by
@@ -332,7 +332,7 @@ class ZarrCombine:
         val: xr.Variable
             The variable that contains the encodings we want to assign
             to ``name``
-        chnk_shape: list
+        chnk_shape: list of int
             The shape of the chunks for ``name`` (used in encodings)
 
         Returns
@@ -380,7 +380,7 @@ class ZarrCombine:
         ds: xr.Dataset
             A lazy Dataset representing the EchoData group Dataset in
             its final combined form
-        const_names: list
+        const_names: list of str
             The names of all variables and dimensions that are constant
             (with respect to chunking) across all Datasets to be combined
         encodings: dict
@@ -471,7 +471,7 @@ class ZarrCombine:
 
         Returns
         -------
-        list
+        list of np.ndarray
             The chunked input ``array``
 
         Example
@@ -654,7 +654,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        ds_list: list
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         zarr_group: str
             The name of the group of the zarr store
@@ -751,9 +751,9 @@ class ZarrCombine:
 
         Parameters
         ----------
-        const_vars: list
+        const_vars: list of str
             The names of all variables/dimensions that are not chunked
-        ds_list: list
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         zarr_path: str
             The full path of the final combined zarr store
@@ -796,7 +796,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: list
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         zarr_path: str
             The full path of the final combined zarr store
@@ -938,14 +938,14 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        eds: list
+        eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         sonar_model : str
             The sonar model used for all elements in ``eds``
-        echodata_filenames : list
+        echodata_filenames : list of str
             The source files names for all elements in ``eds``
 
         Returns

@@ -91,14 +91,14 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
     Parameters
     ----------
-    echodatas: list
+    echodatas: list of EchoData object
         The list of `EchoData` objects to be combined.
 
     Returns
     -------
     sonar_model : str
         The sonar model used for all values in ``echodatas``
-    echodata_filenames : list
+    echodata_filenames : list of str
         The source files names for all values in ``echodatas``
 
     Raises
@@ -256,7 +256,7 @@ def orchestrate_reverse_time_check(
         combined ``EchoData`` objects
     zarr_store: str
         The zarr store containing the ``ed_comb`` data
-    possible_time_dims: list
+    possible_time_dims: list of str
         All possible time dimensions that can occur within
         ``ed_comb``, which should be checked
     storage_options: dict
@@ -328,7 +328,7 @@ def combine_echodata(
 
     Parameters
     ----------
-    echodatas : list
+    echodatas : list of EchoData object
         The list of ``EchoData`` objects to be combined
     zarr_path: str, optional
         The full save path to the final combined zarr store
