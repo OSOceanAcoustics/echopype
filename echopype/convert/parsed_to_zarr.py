@@ -45,7 +45,9 @@ class Parsed2Zarr:
         run_dir = "run_" + secrets.token_hex(16)
 
         # construct temporary directory that will hold the zarr file
-        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files" / run_dir)
+        out_dir = current_dir.joinpath(
+            Path("temp_echopype_output") / "parsed2zarr_temp_files" / run_dir
+        )
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
