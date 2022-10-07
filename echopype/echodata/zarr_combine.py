@@ -459,30 +459,26 @@ class ZarrCombine:
     @staticmethod
     def _uniform_chunks_as_np_array(array: np.ndarray, chunk_size: int) -> List[np.ndarray]:
         """
-                Split ``array`` into chunks with size ``chunk_size``, where the
-                last element in the split has length ``len(array) % chunk_size``.
+        Split ``array`` into chunks with size ``chunk_size``, where the
+        last element in the split has length ``len(array) % chunk_size``.
 
-                Parameters
-                ----------
-                array: np.ndarray
-                    Array to split up into chunks
-                chunk_size: int
-                    The maximum chunk size
+        Parameters
+        ----------
+        array: np.ndarray
+            Array to split up into chunks
+        chunk_size: int
+            The maximum chunk size
 
-                Returns
-                -------
-        <<<<<<< HEAD
-                List[np.ndarray]
-        =======
-                list of np.ndarray
-        >>>>>>> dev
-                    The chunked input ``array``
+        Returns
+        -------
+        list of np.ndarray
+            The chunked input ``array``
 
-                Example
-                -------
-                >>> arr = np.array([1, 2, 3, 4, 5])
-                >>> _uniform_chunks_as_np_array(arr, 2)
-                [array([1, 2]), array([3, 4]), array([5])]
+        Example
+        -------
+        >>> arr = np.array([1, 2, 3, 4, 5])
+        >>> _uniform_chunks_as_np_array(arr, 2)
+        [array([1, 2]), array([3, 4]), array([5])]
         """
 
         # get array iterable
@@ -496,30 +492,23 @@ class ZarrCombine:
 
     def _get_chunk_dicts(self, dim: str) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray]]:
         """
-                Obtains dictionaries specifying the chunk index and the
-                indices (with respect to the full combined length) that
-                are contained in that chunk, for both the uniform and
-                non-uniform chunks.
+        Obtains dictionaries specifying the chunk index and the
+        indices (with respect to the full combined length) that
+        are contained in that chunk, for both the uniform and
+        non-uniform chunks.
 
-                Parameters
-                ----------
-                dim: str
-                    The name of the dimension to create the chunk dicts for
+        Parameters
+        ----------
+        dim: str
+            The name of the dimension to create the chunk dicts for
 
-                Returns
-                -------
-        <<<<<<< HEAD
-                og_chunk_dict: Dict[int, np.ndarray]
-                    The chunk dictionary corresponding to the original
-                    non-uniform chunks
-                uniform_chunk_dict: Dict[int, np.ndarray]
-        =======
-                og_chunk_dict: dict
-                    The chunk dictionary corresponding to the original
-                    non-uniform chunks
-                uniform_chunk_dict: dict
-        >>>>>>> dev
-                    The chunk dictionary corresponding to the uniform chunks
+        Returns
+        -------
+        og_chunk_dict: dict
+            The chunk dictionary corresponding to the original
+            non-uniform chunks
+        uniform_chunk_dict: dict
+            The chunk dictionary corresponding to the uniform chunks
         """
 
         # an array specifying the indices of the final combined array
