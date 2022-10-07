@@ -1,4 +1,3 @@
-from typing import Any, List, Dict
 from textwrap import dedent
 from pathlib import Path
 
@@ -9,7 +8,6 @@ import xarray as xr
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.qc import exist_reversed_time
-from echopype.core import SONAR_MODELS
 
 import tempfile
 from dask.distributed import Client
@@ -36,6 +34,16 @@ def ek60_reversed_ping_time_test_data(test_path):
 
 
 @pytest.fixture
+def ek60_diff_range_sample_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "SH1701", "TEST-D20170114-T202932.raw"),
+        ("ncei-wcsd", "SH1701", "TEST-D20170114-T203337.raw"),
+        ("ncei-wcsd", "SH1701", "TEST-D20170114-T203853.raw"),
+    ]
+    return [test_path["EK60"].joinpath(*f) for f in files]
+
+
+@pytest.fixture
 def ek80_test_data(test_path):
     files = [
         ("echopype-test-D20211005-T000706.raw",),
@@ -47,7 +55,33 @@ def ek80_test_data(test_path):
 
 
 @pytest.fixture
+def ek80_broadband_same_range_sample_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205615.raw"),
+        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205659.raw"),
+        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205742.raw"),
+    ]
+    return [test_path["EK80"].joinpath(*f) for f in files]
+
+
+@pytest.fixture
+def ek80_narrowband_diff_range_sample_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T130426.raw"),
+        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T131325.raw"),
+        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T131621.raw"),
+    ]
+    return [test_path["EK80"].joinpath(*f) for f in files]
+
+
+@pytest.fixture
 def azfp_test_data(test_path):
+
+    # TODO: in the future we should replace these files with another set of 
+    #  similarly small set of files, for example the files from the location below:
+    #  "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00015/instrmts/dcl37/ZPLSC_sn55076/DATA/202109/*"
+    #  This is because we have lost track of where the current files came from,
+    #  since the filenames does not contain the site identifier.
     files = [
         ("ooi", "18100407.01A"),
         ("ooi", "18100408.01A"),
@@ -64,22 +98,38 @@ def azfp_test_xml(test_path):
 @pytest.fixture(
     params=[
         {
-        "sonar_model": "EK60",
-        "xml_file": None,
-        "files": "ek60_test_data",
-    },
-    #     {
-    #     "sonar_model": "EK80",
-    #     "xml_file": None,
-    #     "files": "ek80_test_data",
-    # },
+            "sonar_model": "EK60",
+            "xml_file": None,
+            "files": "ek60_test_data"
+        },
         {
-        "sonar_model": "AZFP",
-        "xml_file": "azfp_test_xml",
-        "files": "azfp_test_data",
-    }
+            "sonar_model": "EK60",
+            "xml_file": None,
+            "files": "ek60_diff_range_sample_test_data"
+        },
+        {
+            "sonar_model": "EK60",
+            "xml_file": None,
+            "files": "ek60_reversed_ping_time_test_data"
+        },
+        {
+            "sonar_model": "AZFP",
+            "xml_file": "azfp_test_xml",
+            "files": "azfp_test_data"
+        },
+        {
+            "sonar_model": "EK80",
+            "xml_file": None,
+            "files": "ek80_broadband_same_range_sample_test_data"
+        },
+        {
+            "sonar_model": "EK80",
+            "xml_file": None,
+            "files": "ek80_narrowband_diff_range_sample_test_data"
+        }
     ],
-    ids=["ek60", "azfp"] #["ek60", "ek80", "azfp"]
+    ids=["ek60", "ek60_diff_range_sample", "ek60_reversed_time", "azfp",
+         "ek80_bb_same_range_sample", "ek80_nb_diff_range_sample"]
 )
 def raw_datasets(request):
     files = request.param["files"]
@@ -93,8 +143,7 @@ def raw_datasets(request):
         files,
         request.param['sonar_model'],
         xml_file,
-        SONAR_MODELS[request.param['sonar_model']]["concat_dims"],
-        SONAR_MODELS[request.param['sonar_model']]["concat_data_vars"],
+        request.node.callspec.id
     )
 
 
@@ -103,9 +152,12 @@ def test_combine_echodata(raw_datasets):
         files,
         sonar_model,
         xml_file,
-        concat_dims,
-        concat_data_vars,
+        param_id,
     ) = raw_datasets
+
+    if param_id == "ek80_nb_diff_range_sample":
+        pytest.xfail("The files in ek80_nb_diff_range_sample cause an error when correcting a reversed time. "
+                     "Once this is fixed, these files should be ran.")
 
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
 
@@ -133,52 +185,62 @@ def test_combine_echodata(raw_datasets):
     # add dimension for Provenance group
     all_drop_dims.append("echodata_filename")
 
+    # add dimension for reversed time that will show up in Provenance group
+    all_drop_dims.append("platform_old_time1_dim")
+
     for group_name in combined.group_paths:
 
-        # get all Datasets to be combined
-        combined_group: xr.Dataset = combined[group_name]
-        eds_groups = [
-            ed[group_name]
-            for ed in eds
-            if ed[group_name] is not None
-        ]
+        # ignore the Platform group for ek60_reversed_time parameters (these are checked elsewhere)
+        if (param_id != "ek60_reversed_time") or (group_name != "Platform"):
 
-        # all grp dimensions that are in all_drop_dims
-        if combined_group is None:
-            grp_drop_dims = []
-            concat_dims = []
-        else:
-            grp_drop_dims = list(set(combined_group.dims).intersection(set(all_drop_dims)))
-            concat_dims = list(set(combined_group.dims).intersection(append_dims))
+            # get all Datasets to be combined
+            combined_group: xr.Dataset = combined[group_name]
+            eds_groups = [
+                ed[group_name]
+                for ed in eds
+                if ed[group_name] is not None
+            ]
 
-        # concat all Datasets along each concat dimension
-        diff_concats = []
-        for dim in concat_dims:
+            # all grp dimensions that are in all_drop_dims
+            if combined_group is None:
+                grp_drop_dims = []
+                concat_dims = []
+            else:
+                grp_drop_dims = list(set(combined_group.dims).intersection(set(all_drop_dims)))
+                concat_dims = list(set(combined_group.dims).intersection(append_dims))
 
-            drop_dims = [c_dim for c_dim in concat_dims if c_dim != dim]
+            # concat all Datasets along each concat dimension
+            diff_concats = []
+            for dim in concat_dims:
 
-            diff_concats.append(xr.concat([ed_subset.drop_dims(drop_dims) for ed_subset in eds_groups], dim=dim,
-                                coords="minimal", data_vars="minimal"))
+                drop_dims = [c_dim for c_dim in concat_dims if c_dim != dim]
 
-        if len(diff_concats) < 1:
-            test_ds = eds_groups[0]  # needed for groups that do not have append dims
-        else:
-            # create the full combined Dataset
-            test_ds = xr.merge(diff_concats, compat="override")
+                diff_concats.append(xr.concat([ed_subset.drop_dims(drop_dims) for ed_subset in eds_groups], dim=dim,
+                                    coords="minimal", data_vars="minimal"))
 
-            # correctly set filenames values for constructed combined Dataset
-            if "filenames" in test_ds:
-                test_ds.filenames.values[:] = np.arange(len(test_ds.filenames), dtype=int)
+            if len(diff_concats) < 1:
+                test_ds = eds_groups[0]  # needed for groups that do not have append dims
+            else:
+                # create the full combined Dataset
+                test_ds = xr.merge(diff_concats, compat="override")
 
-            # correctly modify Provenance attributes so we can do a direct compare
-            if group_name == "Provenance":
-                test_ds.attrs["reversed_ping_times"] = 0
+                # correctly set filenames values for constructed combined Dataset
+                if "filenames" in test_ds:
+                    test_ds.filenames.values[:] = np.arange(len(test_ds.filenames), dtype=int)
 
-                del test_ds.attrs["conversion_time"]
-                del combined_group.attrs["conversion_time"]
+                # correctly modify Provenance attributes so we can do a direct compare
+                if group_name == "Provenance":
 
-        if (combined_group is not None) and (test_ds is not None):
-            assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
+                    if param_id == "ek60_reversed_time":
+                        test_ds.attrs["reversed_ping_times"] = 1
+                    else:
+                        test_ds.attrs["reversed_ping_times"] = 0
+
+                    del test_ds.attrs["conversion_time"]
+                    del combined_group.attrs["conversion_time"]
+
+            if (combined_group is not None) and (test_ds is not None):
+                assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
 
     temp_zarr_dir.cleanup()
 
