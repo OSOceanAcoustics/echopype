@@ -1,4 +1,4 @@
-dask[array]
+dask[array,distributed]
 jinja2
 netCDF4
 numpy

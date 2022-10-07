@@ -1,4 +1,5 @@
 import datetime
+import shutil
 import warnings
 from html import escape
 from pathlib import Path
@@ -77,6 +78,21 @@ class EchoData:
         # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+
+    def __del__(self):
+
+        # TODO: this destructor seems to not work in Jupyter Lab if restart or
+        #  even clear all outputs is used. It will work if you explicitly delete the object
+
+        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.zarr_file_name is not None):
+
+            # get Path object of temporary zarr file created by Parsed2Zarr
+            p2z_temp_file = Path(self.parsed2zarr_obj.zarr_file_name)
+
+            # remove temporary directory created by Parsed2Zarr, if it exists
+            if p2z_temp_file.exists():
+                # TODO: do we need to check file permissions here?
+                shutil.rmtree(p2z_temp_file)
 
     def __str__(self) -> str:
         fpath = "Internal Memory"

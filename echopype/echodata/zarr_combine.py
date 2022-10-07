@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Dict, Hashable, List, Optional, Set, Tuple
+from itertools import islice
+from typing import Any, Dict, Hashable, List, Set, Tuple
 
 import dask
 import dask.array
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import zarr
+from dask.distributed import Lock
 
 from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
 from ..utils.prov import echopype_prov_attrs
@@ -38,6 +40,10 @@ class ZarrCombine:
         # The sonar_model for the new combined EchoData object
         self.sonar_model = None
 
+        # The maximum chunk length allowed for every append dimension
+        # TODO: in the future we should investigate this value
+        self.max_append_chunk_size = 1000
+
         # initialize variables created within class methods
         # descriptions of these variables can be found in _get_ds_info
         self.dims_df = None
@@ -53,7 +59,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list of xr.Dataset
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -98,7 +104,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list of xr.Dataset
             List of Datasets to be combined
         ed_name: str
             The name of the ``EchoData`` group being combined
@@ -141,7 +147,7 @@ class ZarrCombine:
 
         Returns
         -------
-        numpy_keys: List[str]
+        numpy_keys: list
             All keys that have numpy arrays as values
 
         Raises
@@ -195,7 +201,7 @@ class ZarrCombine:
 
         return numpy_keys
 
-    def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: Optional[str]) -> None:
+    def _get_ds_info(self, ds_list: List[xr.Dataset], ed_name: str) -> None:
         """
         Constructs useful dictionaries that contain information
         about the dimensions of the Dataset. Additionally, collects
@@ -205,7 +211,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        ds_list: List[xr.Dataset]
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         ed_name: str
             The name of the EchoData group corresponding to the
@@ -274,7 +280,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        dims: List[str]
+        dims: list of str
             A list of the dimension names
         dtype: type
             The data type of the variable
@@ -282,9 +288,9 @@ class ZarrCombine:
         Returns
         -------
         temp_arr: dask.array
-            a temporary (or dummy) array representing a
+            A temporary (or dummy) array representing a
             variable in its final combined form.
-        chnk_shape: List[int]
+        chnk_shape: list of int
             The chunk shape used to construct ``temp_arr``
 
         Notes
@@ -300,13 +306,18 @@ class ZarrCombine:
 
         # Create the chunk shape of the variable
         # TODO: investigate if this is the best chunking
-        chnk_shape = [self.dims_max[dim] for dim in dims]
+        chnk_shape = [
+            min(self.dims_max[dim], self.max_append_chunk_size)
+            if dim in self.append_dims
+            else self.dims_max[dim]
+            for dim in dims
+        ]
 
         temp_arr = dask.array.zeros(shape=shape, dtype=dtype, chunks=chnk_shape)
 
         return temp_arr, chnk_shape
 
-    def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: list) -> Dict[str, dict]:
+    def _get_encodings(self, name: str, val: xr.Variable, chnk_shape: List[int]) -> Dict[str, dict]:
         """
         Obtains the encodings for the variable ``name`` by including all
         encodings in ``val``, except those encodings that are specified by
@@ -321,12 +332,12 @@ class ZarrCombine:
         val: xr.Variable
             The variable that contains the encodings we want to assign
             to ``name``
-        chnk_shape: list
+        chnk_shape: list of int
             The shape of the chunks for ``name`` (used in encodings)
 
         Returns
         -------
-        var_encoding : Dict[str, dict]
+        var_encoding : dict
             All encodings associated with ``name``
         """
 
@@ -369,10 +380,10 @@ class ZarrCombine:
         ds: xr.Dataset
             A lazy Dataset representing the EchoData group Dataset in
             its final combined form
-        const_names: List[str]
+        const_names: list of str
             The names of all variables and dimensions that are constant
             (with respect to chunking) across all Datasets to be combined
-        encodings: Dict[str, dict]
+        encodings: dict
             The encodings for all variables and dimensions that will be
             written to the zarr store by regions
 
@@ -417,19 +428,20 @@ class ZarrCombine:
     def _get_region(self, ds_ind: int, ds_dims: Set[Hashable]) -> Dict[str, slice]:
         """
         Returns the region of the zarr file to write to. This region
-        corresponds to the input set of dimensions.
+        corresponds to the input set of dimensions that do not
+        include append dimensions.
 
         Parameters
         ----------
         ds_ind: int
             The key of the values of ``self.dims_csum`` or index of
             ``self.dims_df`` to use for each dimension name
-        ds_dims: Set[Hashable]
+        ds_dims: set
             The names of the dimensions used in the region creation
 
         Returns
         -------
-        region: Dict[str, slice]
+        region: dict
             Keys set as the dimension name and values as
             the slice of the zarr portion to write to
         """
@@ -438,21 +450,192 @@ class ZarrCombine:
         region = dict()
         for dim in ds_dims:
 
-            if dim in self.append_dims:
+            if dim not in self.append_dims:
 
-                if ds_ind == 0:
-                    # get the initial region
-                    region[dim] = slice(0, self.dims_csum[dim][ds_ind])
-                else:
-                    # get all other regions
-                    region[dim] = slice(
-                        self.dims_csum[dim][ds_ind - 1], self.dims_csum[dim][ds_ind]
-                    )
-
-            else:
                 region[dim] = slice(0, self.dims_df.loc[ds_ind][dim])
 
         return region
+
+    @staticmethod
+    def _uniform_chunks_as_np_array(array: np.ndarray, chunk_size: int) -> List[np.ndarray]:
+        """
+        Split ``array`` into chunks with size ``chunk_size``, where the
+        last element in the split has length ``len(array) % chunk_size``.
+
+        Parameters
+        ----------
+        array: np.ndarray
+            Array to split up into chunks
+        chunk_size: int
+            The maximum chunk size
+
+        Returns
+        -------
+        list of np.ndarray
+            The chunked input ``array``
+
+        Example
+        -------
+        >>> arr = np.array([1, 2, 3, 4, 5])
+        >>> _uniform_chunks_as_np_array(arr, 2)
+        [array([1, 2]), array([3, 4]), array([5])]
+        """
+
+        # get array iterable
+        array_iter = iter(array)
+
+        # construct chunks as an iterable of lists
+        chunks_iter = iter(lambda: list(islice(array_iter, chunk_size)), list())
+
+        # convert each element in the iterable to a numpy array
+        return list(map(np.array, chunks_iter))
+
+    def _get_chunk_dicts(self, dim: str) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray]]:
+        """
+        Obtains dictionaries specifying the chunk index and the
+        indices (with respect to the full combined length) that
+        are contained in that chunk, for both the uniform and
+        non-uniform chunks.
+
+        Parameters
+        ----------
+        dim: str
+            The name of the dimension to create the chunk dicts for
+
+        Returns
+        -------
+        og_chunk_dict: dict
+            The chunk dictionary corresponding to the original
+            non-uniform chunks
+        uniform_chunk_dict: dict
+            The chunk dictionary corresponding to the uniform chunks
+        """
+
+        # an array specifying the indices of the final combined array
+        x_no_chunk = np.arange(self.dims_sum[dim], dtype=np.int64)
+
+        # get end indices for the non-uniform chunks
+        csum_og_chunks = np.array(list(self.dims_csum[dim].values()))
+
+        # obtain the indices of the final combined array that are in each non-uniform chunk
+        og_chunk = np.split(x_no_chunk, csum_og_chunks)
+
+        # construct a mapping between the non-uniform chunk and the indices
+        og_chunk_dict = dict(zip(range(len(og_chunk)), og_chunk))
+
+        # obtain the uniform chunk size
+        # TODO: investigate if this if the best chunk size
+        zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
+
+        # get the indices of the final combined array that are in each uniform chunk
+        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
+
+        # construct a mapping between the uniform chunk and the indices
+        uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
+
+        return og_chunk_dict, uniform_chunk_dict
+
+    def _get_uniform_to_nonuniform_map(self, dim: str) -> Dict[int, dict]:
+        """
+        Constructs a uniform to non-uniform mapping of chunks
+        for a dimension ``dim``.
+
+        Parameters
+        ----------
+        dim: str
+            The name of the dimension to create a mapping for
+
+        Returns
+        -------
+        final_mapping: dict
+            Uniform to non-uniform mapping where the keys are
+            the chunk index in the uniform chunk and the values
+            are dictionaries. The value dictionaries have keys
+            which correspond to the index of the non-uniform chunk
+            and the values are a tuple with the first element being
+            a ``slice`` object for the non-uniform chunk values and
+            the second element is a ``slice`` object for the region
+            chunk values.
+        """
+
+        # obtains dictionaries specifying the indices contained in each chunk
+        og_chunk_dict, uniform_chunk_dict = self._get_chunk_dicts(dim)
+
+        # construct the uniform to non-uniform mapping
+        final_mapping = defaultdict(dict)
+        for u_key, u_val in uniform_chunk_dict.items():
+
+            for og_key, og_val in og_chunk_dict.items():
+
+                # find the intersection of uniform and non-uniform chunk indices
+                intersect = np.intersect1d(u_val, og_val)
+
+                if len(intersect) > 0:
+
+                    # get min and max indices in intersect
+                    min_val = intersect.min()
+                    max_val = intersect.max()
+
+                    # determine the start and end index for the og_val
+                    start_og = np.argwhere(og_val == min_val)[0, 0]
+                    end_og = np.argwhere(og_val == max_val)[0, 0] + 1
+
+                    # determine the start and end index for the region
+                    start_region = min_val
+                    end_region = max_val + 1
+
+                    # add non-uniform specific information to final mapping
+                    final_mapping[u_key].update(
+                        {og_key: (slice(start_og, end_og), slice(start_region, end_region))}
+                    )
+
+        return final_mapping
+
+    @dask.delayed
+    def write_to_file(
+        self,
+        ds_in: xr.Dataset,
+        lock_name: str,
+        zarr_path: str,
+        zarr_group: str,
+        region: Dict[str, slice],
+        storage_options: Dict[str, Any] = {},
+    ) -> None:
+        """
+        Constructs a delayed write of ``ds_in`` to the appropriate zarr
+        store position using a unique lock name.
+
+        Parameters
+        ----------
+        ds_in: xr.Dataset
+            Dataset subset with only one append dimension containing
+            variables with the append dimension in their dimensions
+        lock_name: str
+            A unique lock name for the chunk being written to
+        zarr_path: str
+            The full path of the final combined zarr store
+        zarr_group: str
+            The name of the group of the zarr store
+            corresponding to the Datasets in ``ds_list``
+        region: dict
+            Keys set as the dimension name and values as
+            the slice of the zarr portion to write to
+        storage_options: dict
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        """
+
+        with Lock(lock_name):
+            ds_in.to_zarr(
+                zarr_path,
+                group=zarr_group,
+                region=region,
+                compute=True,
+                storage_options=storage_options,
+                synchronizer=zarr.ThreadSynchronizer(),
+            )
+
+            # TODO: put a check to make sure that the chunk has been written
 
     def _append_ds_list_to_zarr(
         self,
@@ -460,7 +643,7 @@ class ZarrCombine:
         ds_list: List[xr.Dataset],
         zarr_group: str,
         ed_name: str,
-        storage_options: Optional[dict] = {},
+        storage_options: Dict[str, Any] = {},
     ) -> List[str]:
         """
         Creates a zarr store and then appends each Dataset
@@ -471,7 +654,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        ds_list: List[xr.Dataset]
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         zarr_group: str
             The name of the group of the zarr store
@@ -479,13 +662,13 @@ class ZarrCombine:
         ed_name: str
             The name of the EchoData group corresponding to the
             Datasets in ``ds_list``
-        storage_options: Optional[dict]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
 
         Returns
         -------
-        const_names: List[str]
+        const_names: list
             The names of all variables and dimensions that are constant
             (with respect to chunking) across all Datasets to be combined
         """
@@ -505,27 +688,49 @@ class ZarrCombine:
             synchronizer=zarr.ThreadSynchronizer(),
         )
 
+        # get all dimensions in ds that are append dimensions
+        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
+
         # collect delayed functions that write each non-constant variable
         # in ds_list to the zarr store
         delayed_to_zarr = []
-        for ind, ds in enumerate(ds_list):
+        for dim in ds_append_dims:
 
-            ds_drop = ds.drop(const_names)
+            # collect all variables/coordinates that should be dropped
+            drop_names = [
+                var_name
+                for var_name, var_val in ds_list[0].variables.items()
+                if dim not in var_val.dims
+            ]
+            drop_names.append(dim)
 
-            region = self._get_region(ind, set(ds_drop.dims))
+            chunk_mapping = self._get_uniform_to_nonuniform_map(str(dim))
 
-            # TODO: below is an xarray delayed approach, however, data will be corrupted,
-            #  we can remove data corruption by implementing a locking scheme
-            delayed_to_zarr.append(
-                ds_drop.to_zarr(
-                    zarr_path,
-                    group=zarr_group,
-                    region=region,
-                    compute=False,
-                    storage_options=storage_options,
-                    synchronizer=zarr.ThreadSynchronizer(),
-                )
-            )
+            for uniform_ind, non_uniform_dict in chunk_mapping.items():
+                for ds_list_ind, dim_slice in non_uniform_dict.items():
+
+                    # get ds containing only variables who have dim in their dims
+                    ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
+
+                    # get xarray region for all dims, except dim
+                    region = self._get_region(ds_list_ind, set(ds_drop.dims))
+
+                    # get xarray region for dim
+                    region[str(dim)] = dim_slice[1]
+
+                    # select subset of dim corresponding to the region
+                    ds_in = ds_drop.isel({dim: dim_slice[0]})
+
+                    # construct the unique lock name for the uniform chunk
+                    grp_name = zarr_group.replace("-", "_").replace("/", "_").lower()
+                    lock_name = grp_name + "_" + str(dim) + "_" + str(uniform_ind)
+
+                    # write the subset of each Dataset to a zarr file
+                    delayed_to_zarr.append(
+                        self.write_to_file(
+                            ds_in, lock_name, zarr_path, zarr_group, region, storage_options
+                        )
+                    )
 
         # compute all delayed writes to the zarr store
         dask.compute(*delayed_to_zarr)
@@ -538,7 +743,7 @@ class ZarrCombine:
         ds_list: List[xr.Dataset],
         zarr_path: str,
         zarr_group: str,
-        storage_options: Optional[dict],
+        storage_options: Dict[str, Any] = {},
     ) -> None:
         """
         Appends all constant (i.e. not chunked) variables and dimensions to the
@@ -546,16 +751,16 @@ class ZarrCombine:
 
         Parameters
         ----------
-        const_vars: List[str]
+        const_vars: list of str
             The names of all variables/dimensions that are not chunked
-        ds_list: List[xr.Dataset]
+        ds_list: list of xr.Dataset
             The Datasets that will be combined
         zarr_path: str
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
             corresponding to the Datasets in ``ds_list``
-        storage_options: Optional[dict]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
 
@@ -578,8 +783,57 @@ class ZarrCombine:
                 zarr_path, group=zarr_group, mode="a", storage_options=storage_options
             )
 
+    def _write_append_dims(
+        self,
+        ds_list: List[xr.Dataset],
+        zarr_path: str,
+        zarr_group: str,
+        storage_options: Dict[str, Any] = {},
+    ) -> None:
+        """
+        Sequentially writes each Dataset's append dimension in ``ds_list`` to
+        the appropriate final combined zarr store.
+
+        Parameters
+        ----------
+        ds_list: list of xr.Dataset
+            The Datasets that will be combined
+        zarr_path: str
+            The full path of the final combined zarr store
+        zarr_group: str
+            The name of the group of the zarr store
+            corresponding to the Datasets in ``ds_list``
+        storage_options: dict
+            Any additional parameters for the storage
+            backend (ignored for local paths)
+        """
+
+        # get all dimensions in ds that are append dimensions
+        ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
+
+        for dim in ds_append_dims:
+
+            for count, ds in enumerate(ds_list):
+
+                # obtain the appropriate region to write to
+                if count == 0:
+                    region = {str(dim): slice(0, self.dims_csum[dim][count])}
+                else:
+                    region = {
+                        str(dim): slice(self.dims_csum[dim][count - 1], self.dims_csum[dim][count])
+                    }
+
+                ds[[dim]].to_zarr(
+                    zarr_path,
+                    group=zarr_group,
+                    region=region,
+                    compute=True,
+                    storage_options=storage_options,
+                    synchronizer=zarr.ThreadSynchronizer(),
+                )
+
     def _append_provenance_attr_vars(
-        self, zarr_path: str, storage_options: Optional[dict] = {}
+        self, zarr_path: str, storage_options: Dict[str, Any] = {}
     ) -> None:
         """
         Creates an xarray Dataset with variables set as the attributes
@@ -591,7 +845,7 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        storage_options: Optional[dict]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         """
@@ -610,8 +864,25 @@ class ZarrCombine:
                 # create Dataset coordinates
                 xr_dict[name] = {"dims": [name], "data": val}
 
+        # construct the Provenance Dataset's attributes
+        prov_attributes = echopype_prov_attrs("conversion")
+
+        if "duplicate_ping_times" in self.group_attrs["provenance_attr_key"]:
+            dup_pings_position = self.group_attrs["provenance_attr_key"].index(
+                "duplicate_ping_times"
+            )
+
+            # see if the duplicate_ping_times value is equal to 1
+            elem_is_one = [
+                True if val[dup_pings_position] == 1 else False
+                for val in self.group_attrs["provenance_attrs"]
+            ]
+
+            # set duplicate_ping_times = 1 if any file has 1
+            prov_attributes["duplicate_ping_times"] = 1 if any(elem_is_one) else 0
+
         # construct Dataset and assign Provenance attributes
-        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(echopype_prov_attrs("conversion"))
+        all_ds_attrs = xr.Dataset.from_dict(xr_dict).assign_attrs(prov_attributes)
 
         # append Dataset to zarr
         all_ds_attrs.to_zarr(
@@ -623,7 +894,9 @@ class ZarrCombine:
         )
 
     @staticmethod
-    def _modify_prov_filenames(zarr_path: str, len_eds: int) -> None:
+    def _modify_prov_filenames(
+        zarr_path: str, len_eds: int, storage_options: Dict[str, Any] = {}
+    ) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -636,10 +909,15 @@ class ZarrCombine:
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
+        storage_options: dict
+            Any additional parameters for the storage
+            backend (ignored for local paths)
         """
 
         # obtain the filenames zarr array
-        zarr_filenames = zarr.open_array(zarr_path + "/Provenance/filenames", mode="r+")
+        zarr_filenames = zarr.open_array(
+            zarr_path + "/Provenance/filenames", mode="r+", storage_options=storage_options
+        )
 
         zarr_filenames[:] = np.arange(len_eds)
 
@@ -647,7 +925,7 @@ class ZarrCombine:
         self,
         zarr_path: str,
         eds: List[EchoData] = [],
-        storage_options: Optional[dict] = {},
+        storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
     ) -> EchoData:
@@ -660,14 +938,14 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        eds: List[EchoData]
+        eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
-        storage_options: Optional[dict]
+        storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
         sonar_model : str
             The sonar model used for all elements in ``eds``
-        echodata_filenames : List[str]
+        echodata_filenames : list of str
             The source files names for all elements in ``eds``
 
         Returns
@@ -700,9 +978,6 @@ class ZarrCombine:
         ``Provenance`` group.
         """
 
-        # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = False
-
         # set class variables from input
         self.sonar_model = sonar_model
         self.group_attrs["echodata_filename"] = echodata_filenames
@@ -733,18 +1008,20 @@ class ZarrCombine:
                     const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
                 )
 
+                self._write_append_dims(ds_list, zarr_path, grp_info["ep_group"], storage_options)
+
         # append all group attributes before combination to zarr store
         self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
 
         # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(zarr_path, len_eds=len(eds))
-
-        # TODO: the below line should be uncommented, if blosc issues persist
-        # blosc.use_threads = None
+        self._modify_prov_filenames(zarr_path, len_eds=len(eds), storage_options=storage_options)
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
-            zarr_path, chunks={}, synchronizer=zarr.ThreadSynchronizer()
+            zarr_path,
+            chunks={},
+            synchronizer=zarr.ThreadSynchronizer(),
+            storage_options=storage_options,
         )  # TODO: is this appropriate for chunks?
 
         return ed_combined
