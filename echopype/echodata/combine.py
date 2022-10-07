@@ -1,8 +1,11 @@
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from warnings import warn
 
+import dask.distributed
+import fsspec
 import xarray as xr
+from dask.distributed import Client
 
 from ..qc import coerce_increasing_time, exist_reversed_time
 from ..utils.io import validate_output_path
@@ -13,7 +16,9 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
-def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
+def check_zarr_path(
+    zarr_path: str, storage_options: Dict[str, Any] = {}, overwrite: bool = False
+) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
@@ -22,9 +27,13 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
     ----------
     zarr_path: str
         The full save path to the final combined zarr store
-    storage_options: Optional[dict]
+    storage_options: dict
         Any additional parameters for the storage
         backend (ignored for local paths)
+    overwrite: bool
+        If True, will overwrite the zarr store specified by
+        ``zarr_path`` if it already exists, otherwise an error
+        will be returned if the file already exists.
 
     Returns
     -------
@@ -35,31 +44,44 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict]) -> str:
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
+    RuntimeError
+        If ``zarr_path`` already exists and ``overwrite=False``
     """
 
-    if zarr_path is None:
+    # check that zarr_path is a string
+    if not isinstance(zarr_path, str):
+        raise TypeError(f"zarr_path must be of type {str}")
 
-        # assign values, if no zarr path has been provided
-        source_file = "combined_echodatas.zarr"
-        save_path = None
-    else:
+    # check that the appropriate suffix was provided
+    if not zarr_path.strip("/").endswith(".zarr"):
+        raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
 
-        # turn string path into Path object
-        path_obj = Path(zarr_path)
-        if path_obj.suffix != ".zarr":
-            raise ValueError("The provided zarr_path input must point to a zarr file!")
-        else:
+    # set default source_file name (will be used only if zarr_path is None)
+    source_file = "combined_echodatas.zarr"
 
-            # assign values based on zarr path
-            source_file = path_obj.parts[-1]
-            save_path = path_obj.parent
-
-    return validate_output_path(
+    validated_path = validate_output_path(
         source_file=source_file,
         engine="zarr",
         output_storage_options=storage_options,
-        save_path=save_path,
+        save_path=zarr_path,
     )
+
+    # check if validated_path already exists
+    fs = fsspec.get_mapper(validated_path, **storage_options).fs  # get file system
+    exists = True if fs.exists(validated_path) else False
+
+    if exists and not overwrite:
+        raise RuntimeError(
+            f"{zarr_path} already exists, please provide a different path or set overwrite=True."
+        )
+    elif exists and overwrite:
+
+        logger.info(f"overwriting {validated_path}")
+
+        # remove zarr file
+        fs.rm(validated_path, recursive=True)
+
+    return validated_path
 
 
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
@@ -69,14 +91,14 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
     Parameters
     ----------
-    echodatas: List[EchoData]
+    echodatas: list of EchoData object
         The list of `EchoData` objects to be combined.
 
     Returns
     -------
     sonar_model : str
         The sonar model used for all values in ``echodatas``
-    echodata_filenames : List[str]
+    echodata_filenames : list of str
         The source files names for all values in ``echodatas``
 
     Raises
@@ -147,7 +169,7 @@ def check_and_correct_reversed_time(
 
     Returns
     -------
-    old_time : Optional[xr.DataArray]
+    old_time : xr.DataArray or None
         If correction is necessary, returns the time before
         reversal correction, otherwise returns None
 
@@ -234,7 +256,7 @@ def orchestrate_reverse_time_check(
         combined ``EchoData`` objects
     zarr_store: str
         The zarr store containing the ``ed_comb`` data
-    possible_time_dims: List[str]
+    possible_time_dims: list of str
         All possible time dimensions that can occur within
         ``ed_comb``, which should be checked
     storage_options: dict
@@ -295,22 +317,30 @@ def orchestrate_reverse_time_check(
 def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
-    storage_options: Optional[dict] = {},
+    overwrite: bool = False,
+    storage_options: Dict[str, Any] = {},
+    client: Optional[dask.distributed.Client] = None,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
     This is accomplished by writing each element of ``echodatas`` in parallel
-    (using dask) to the zarr store specified by ``zarr_path``.
+    (using Dask) to the zarr store specified by ``zarr_path``.
 
     Parameters
     ----------
-    echodatas : List[EchoData]
+    echodatas : list of EchoData object
         The list of ``EchoData`` objects to be combined
-    zarr_path: str
+    zarr_path: str, optional
         The full save path to the final combined zarr store
-    storage_options: Optional[dict]
+    overwrite: bool
+        If True, will overwrite the zarr store specified by
+        ``zarr_path`` if it already exists, otherwise an error
+        will be returned if the file already exists.
+    storage_options: dict
         Any additional parameters for the storage
         backend (ignored for local paths)
+    client: dask.distributed.Client, optional
+        An initialized Dask distributed client
 
     Returns
     -------
@@ -322,6 +352,8 @@ def combine_echodata(
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
+    RuntimeError
+        If ``zarr_path`` already exists and ``overwrite=False``
     TypeError
         If a list of ``EchoData`` objects are not provided
     ValueError
@@ -366,6 +398,9 @@ def combine_echodata(
       a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, the combined zarr file will be
       ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
+    * If no ``client`` is provided, then a client with a local scheduler will be used. The
+      created scheduler and client will be shutdown once computation has finished.
+    * For each run of this function, we print our the client dashboard link.
 
     Examples
     --------
@@ -387,8 +422,23 @@ def combine_echodata(
     """
     # TODO: change PR #297 reference to a link in our documentation
 
+    # set flag specifying that a client was not created
+    client_created = False
+
+    # check the client input and print dashboard link
+    if client is None:
+        # set flag specifying that a client was created
+        client_created = True
+
+        client = Client()  # create client with local scheduler
+        logger.info(f"Client dashboard link: {client.dashboard_link}")
+    elif isinstance(client, Client):
+        logger.info(f"Client dashboard link: {client.dashboard_link}")
+    else:
+        raise TypeError(f"The input client is not of type {type(Client)}!")
+
     # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
-    zarr_path = check_zarr_path(zarr_path, storage_options)
+    zarr_path = check_zarr_path(zarr_path, storage_options, overwrite)
 
     # return empty EchoData object, if no EchoData objects are provided
     if echodatas is None:
@@ -411,5 +461,9 @@ def combine_echodata(
     )
 
     orchestrate_reverse_time_check(ed_comb, zarr_path, comb.possible_time_dims, storage_options)
+
+    if client_created:
+        # close client
+        client.close()
 
     return ed_comb
