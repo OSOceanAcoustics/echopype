@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from warnings import warn
 
 import dask.distributed
@@ -16,7 +16,9 @@ from .zarr_combine import ZarrCombine
 logger = _init_logger(__name__)
 
 
-def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: bool) -> str:
+def check_zarr_path(
+    zarr_path: str, storage_options: Dict[str, Any] = {}, overwrite: bool = False
+) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
@@ -25,7 +27,7 @@ def check_zarr_path(zarr_path: str, storage_options: Optional[dict], overwrite: 
     ----------
     zarr_path: str
         The full save path to the final combined zarr store
-    storage_options: Optional[dict]
+    storage_options: dict
         Any additional parameters for the storage
         backend (ignored for local paths)
     overwrite: bool
@@ -89,14 +91,14 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
     Parameters
     ----------
-    echodatas: List[EchoData]
+    echodatas: list of EchoData object
         The list of `EchoData` objects to be combined.
 
     Returns
     -------
     sonar_model : str
         The sonar model used for all values in ``echodatas``
-    echodata_filenames : List[str]
+    echodata_filenames : list of str
         The source files names for all values in ``echodatas``
 
     Raises
@@ -167,7 +169,7 @@ def check_and_correct_reversed_time(
 
     Returns
     -------
-    old_time : Optional[xr.DataArray]
+    old_time : xr.DataArray or None
         If correction is necessary, returns the time before
         reversal correction, otherwise returns None
 
@@ -254,7 +256,7 @@ def orchestrate_reverse_time_check(
         combined ``EchoData`` objects
     zarr_store: str
         The zarr store containing the ``ed_comb`` data
-    possible_time_dims: List[str]
+    possible_time_dims: list of str
         All possible time dimensions that can occur within
         ``ed_comb``, which should be checked
     storage_options: dict
@@ -316,7 +318,7 @@ def combine_echodata(
     echodatas: List[EchoData] = None,
     zarr_path: Optional[str] = None,
     overwrite: bool = False,
-    storage_options: Optional[dict] = {},
+    storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
 ) -> EchoData:
     """
@@ -326,18 +328,18 @@ def combine_echodata(
 
     Parameters
     ----------
-    echodatas : List[EchoData]
+    echodatas : list of EchoData object
         The list of ``EchoData`` objects to be combined
-    zarr_path: str
+    zarr_path: str, optional
         The full save path to the final combined zarr store
     overwrite: bool
         If True, will overwrite the zarr store specified by
         ``zarr_path`` if it already exists, otherwise an error
         will be returned if the file already exists.
-    storage_options: Optional[dict]
+    storage_options: dict
         Any additional parameters for the storage
         backend (ignored for local paths)
-    client: Optional[dask.distributed.Client]
+    client: dask.distributed.Client, optional
         An initialized Dask distributed client
 
     Returns
