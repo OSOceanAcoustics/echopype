@@ -6,6 +6,7 @@ from echopype.utils.coding import set_encodings
 from typing import List, Tuple, Dict
 import tempfile
 import pytest
+import zarr
 
 
 @pytest.fixture(
@@ -141,7 +142,8 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
 
 
 def get_all_test_data(num_datasets: int, randint_low: int,
-                      randint_high: int) -> Tuple[List[xr.Dataset], xr.Dataset]:
+                      randint_high: int) -> Tuple[List[xr.Dataset],
+                                                  xr.Dataset, int, int]:
     """
     Generates a list of ``num_datasets`` Datasets with variable and
     coordinate lengths between ``[randint_low, randint_high)``.
@@ -163,6 +165,10 @@ def get_all_test_data(num_datasets: int, randint_low: int,
         The generated list of Datasets
     true_comb: xr.Dataset
         The true combined form of the datasets in ``ds_list``
+    max_time1_len: int
+        The max length for all ``time1`` dims that will be combined
+    max_time2_len: int
+        The max length for all ``time2`` dims that will be combined
     """
 
     # generate differing time1 and time2 lengths for each Dataset
@@ -192,7 +198,11 @@ def get_all_test_data(num_datasets: int, randint_low: int,
                                                             "time2": time2_ranges[ind]},
                                         var_names_dims=var_names_dims))
 
-    return ds_list, true_comb
+    # collect max length for time1 and time2, so we can determine the appropriate chunk shape
+    max_time1_len = np.max(time1_lengths)
+    max_time2_len = np.max(time2_lengths)
+
+    return ds_list, true_comb, max_time1_len, max_time2_len
 
 
 def test_append_ds_list_to_zarr(append_ds_list_params):
@@ -233,9 +243,9 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
     client = Client()
 
     # generate the ds_list and the known combined form of the list
-    ds_list, true_comb = get_all_test_data(randint_low=randint_low,
-                                           randint_high=randint_high,
-                                           num_datasets=num_datasets)
+    ds_list, true_comb, max_time1_len, max_time2_len = get_all_test_data(randint_low=randint_low,
+                                                                         randint_high=randint_high,
+                                                                         num_datasets=num_datasets)
 
     if delayed_ds_list:
 
@@ -270,6 +280,16 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
     # ensure that the ZarrCombine method correctly combines ds_list
     assert true_comb.identical(final_comb)
+
+    # ensure that the final combined file has the correct chunk shapes
+    for var_name in final_comb.variables:
+
+        z1 = zarr.open_array(zarr_path + f"/{group}/{var_name}")
+
+        if var_name in ["var1", "time1"]:
+            assert z1.chunks == (min(comb.max_append_chunk_size, max_time1_len),)
+        else:
+            assert z1.chunks == (min(comb.max_append_chunk_size, max_time2_len),)
 
     # close client and scheduler
     client.close()
