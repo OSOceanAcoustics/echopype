@@ -77,9 +77,11 @@ def ek80_narrowband_diff_range_sample_test_data(test_path):
 @pytest.fixture
 def azfp_test_data(test_path):
 
-    # TODO: in the future we should replace these files with a remote pull, one
-    #  possible option is the data in
+    # TODO: in the future we should replace these files with another set of 
+    # similarly small set of files, for example the files from the location below:
     #  "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00015/instrmts/dcl37/ZPLSC_sn55076/DATA/202109/*"
+    # This is because we have lost track of where the current files came from,
+    # since the filenames does not contain the site identifier.
     files = [
         ("ooi", "18100407.01A"),
         ("ooi", "18100408.01A"),
