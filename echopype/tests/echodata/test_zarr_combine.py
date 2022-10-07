@@ -262,8 +262,8 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
         storage_options={},
     )
 
-    # TODO: uncomment the below lines once PR #824 has been merged
-    # comb._write_append_dims(ds_list, zarr_path, group, storage_options={})
+    # write the time1 and time2 coordinates to final combined zarr
+    comb._write_append_dims(ds_list, zarr_path, group, storage_options={})
 
     # open combined Dataset produced by ZarrCombine method
     final_comb = xr.open_zarr(zarr_path, group=group)
