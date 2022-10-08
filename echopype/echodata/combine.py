@@ -267,6 +267,7 @@ def orchestrate_reverse_time_check(
     If correction is necessary, ``ed_comb`` will be
     directly modified.
     """
+    # TODO: move this function and associated functions to QC
 
     # set Provenance attribute to zero in ed_comb
     ed_comb["Provenance"].attrs["reversed_ping_times"] = 0
@@ -379,12 +380,6 @@ def combine_echodata(
         - the keys ``date_created`` or ``conversion_time``
           do not have the same types
 
-    Warns
-    -----
-    UserWarning
-        If any time coordinate in a final combined group is not
-        in ascending order (see Notes below for more details).
-
     Notes
     -----
     * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
@@ -392,10 +387,6 @@ def combine_echodata(
       combination will be stored in the ``Provenance`` group.
     * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
       ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
-    * If any time coordinate in a final combined group is not in ascending order, then it will
-      be corrected according to `#297 <https://github.com/OSOceanAcoustics/echopype/pull/297>`_.
-      Additionally, the uncorrected time coordinate will be stored in the ``Provenace`` group as
-      a variable and the ``Provenance`` attribute ``reversed_ping_times`` will be set to ``1``.
     * If no ``zarr_path`` is provided, the combined zarr file will be
       ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
     * If no ``client`` is provided, then a client with a local scheduler will be used. The
@@ -420,7 +411,6 @@ def combine_echodata(
     >>>                                      zarr_path="path/to/combined.zarr",
     >>>                                      storage_options=my_storage_options)
     """
-    # TODO: change PR #297 reference to a link in our documentation
 
     # set flag specifying that a client was not created
     client_created = False
@@ -459,8 +449,6 @@ def combine_echodata(
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
     )
-
-    orchestrate_reverse_time_check(ed_comb, zarr_path, comb.possible_time_dims, storage_options)
 
     if client_created:
         # close client
