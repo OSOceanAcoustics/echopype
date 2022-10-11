@@ -2,10 +2,10 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
+import dask.array
 import numpy as np
 import pandas as pd
 import xarray as xr
-import dask.array
 
 from ..utils.prov import echopype_prov_attrs
 from .noise_est import NoiseEst
@@ -332,63 +332,46 @@ def regrid():
     return 1
 
 
-def scale_array(array_vals, new_min, new_max):
-    old_max = array_vals.max()
-    old_min = array_vals.min()
-
-    # TODO: error out for old_max == old_min
-
-    old_range = (old_max - old_min)
-    new_range = (new_max - new_min)
-    new_array = (((array_vals - old_min) * new_range) / old_range) + new_min
-
-    return new_array
+def bin_and_mean_2d(arr, bins_ping, bins_er, pings):
+    """
+    Bins and means a 2D array
 
 
-def create_known_mean_data():
+    bins_ping, bins_er are bins in np.digitize format
 
-    num_pings_in_bin = [4, 5, 6]
-    num_er_in_bin = [10, 20, 11]
+    TODO: document!
 
-    er_bin_ranges = [(0, 5), (5.1, 10), (10.1, 20)]
+    Notes
+    -----
+    This function assumes that values in ``arr`` are not outside
+    of the bins presecribed by ``bins_er``. Additionally, it also
+    assumes that values in ``pings`` are not outside the bins given
+    by bins_ping.
+    """
 
-    arrays = []
-    means = []
-    for count, er_bin in enumerate(num_er_in_bin):
+    # TODO: put in check to make sure arr is 2D
 
-        temp = []
-        for ping_bin in num_pings_in_bin:
-            a = np.random.random_sample((er_bin, ping_bin))
-
-            # scale a
-            a = scale_array(a, er_bin_ranges[count][0], er_bin_ranges[count][1])
-
-            temp.append(a)
-
-        means.append([arr.mean() for arr in temp])
-        arrays.append(np.concatenate(temp, axis=1))
-
-    full_array = np.concatenate(arrays, axis=0)
-
-
-def bin_and_mean(arr, bins_ping, bins_er, pings):
-
-    if isinstance(pings, dask.array):
+    if isinstance(pings, dask.array.Array):
         bin_ping_ind = np.digitize(pings.compute(), bins_ping, right=False)
     else:
         bin_ping_ind = np.digitize(pings, bins_ping, right=False)
 
-    # possible bin value, note: 0 means less than first bin val,
-    # and len(bins) + 1 is greater than the last bin value
-    n_bin_ping = len(bins_ping) + 1
-    n_bin_er = len(bins_er) + 1
+    n_bin_ping = len(bins_ping)
+    n_bin_er = len(bins_er)
 
     binned_means = []
-    for bin_ping in range(n_bin_ping):
+    for bin_ping in range(1, n_bin_ping):
 
         da_binned_ping = arr[:, bin_ping_ind == bin_ping]
 
         bin_er_ind = np.digitize(da_binned_ping, bins_er, right=False)
 
-        for bin_er in range(n_bin_er):
+        for bin_er in range(1, n_bin_er):
             binned_means.append(np.nanmean(da_binned_ping[bin_er_ind == bin_er]))
+
+    if isinstance(arr, dask.array.Array):
+        means = dask.array.from_array(binned_means)
+    else:
+        means = np.array(binned_means)
+
+    return means.reshape((n_bin_ping - 1, n_bin_er - 1))

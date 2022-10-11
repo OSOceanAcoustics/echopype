@@ -3,6 +3,9 @@ import pandas as pd
 import xarray as xr
 import echopype as ep
 import pytest
+import dask.array
+
+from echopype.preprocess.api import bin_and_mean_2d
 
 
 @pytest.fixture(
@@ -507,3 +510,76 @@ def test_preprocess_mvbs(test_data_samples):
             range_kwargs.pop('azfp_cal_type')
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
     assert ep.preprocess.compute_MVBS(Sv) is not None
+
+
+def create_bins(csum_array):
+    # TODO: document!
+    bins = []
+    for count, csum in enumerate(csum_array):
+
+        if count == 0:
+            bins.append((0, csum))
+        else:
+            # add 0.01 so that left bins don't overlap
+            bins.append((csum_array[count-1] + 0.01, csum))
+    return bins
+
+
+def create_known_mean_data(create_dask, num_pings_in_bin, num_er_in_bin):
+    # TODO: document!
+
+    ping_csum = np.cumsum(num_pings_in_bin)
+    ping_bins = create_bins(ping_csum)
+
+    er_csum = np.cumsum(num_er_in_bin)
+    er_bins = create_bins(er_csum)
+
+    arrays = []
+    means = []
+    for ping_bin in num_pings_in_bin:
+
+        temp = []
+        for count, bin_val in enumerate(er_bins):
+
+            if create_dask:
+                a = dask.array.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[count], ping_bin))
+            else:
+                a = np.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[count], ping_bin))
+
+            temp.append(a)
+
+        means.append([arr.mean() for arr in temp])
+        arrays.append(np.concatenate(temp, axis=0))
+
+    if create_dask:
+        means = dask.array.from_array(means).compute()
+
+    full_array = np.concatenate(arrays, axis=1)
+
+    return means, full_array, ping_bins, er_bins
+
+
+def test_bin_and_mean_2d():
+    # TODO: document and create a fixture with input of create_dask
+
+    create_dask = True
+
+    num_pings_in_bin = np.random.randint(low=10, high=1000, size=10)
+    num_er_in_bin = np.random.randint(low=10, high=1000, size=10)
+
+    means, full_array, ping_bins, er_bins = create_known_mean_data(create_dask,
+                                                                   num_pings_in_bin, num_er_in_bin)
+
+    ping_times = np.concatenate([np.random.uniform(bin_val[0], bin_val[1], num_pings_in_bin[count])
+                                 for count, bin_val in enumerate(ping_bins)])
+
+    digitize_ping_bin = [*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:]]
+    digitize_er_bin = [*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]]
+
+    calc_means = bin_and_mean_2d(full_array, digitize_ping_bin, digitize_er_bin, ping_times)
+
+    if create_dask:
+        calc_means = calc_means.compute()
+
+    assert np.allclose(calc_means, means, atol=1e-10, rtol=1e-10)
+
