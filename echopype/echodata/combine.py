@@ -46,13 +46,14 @@ def check_zarr_path(
         If ``zarr_path`` already exists and ``overwrite=False``
     """
 
-    # check that zarr_path is a string
-    if not isinstance(zarr_path, str):
-        raise TypeError(f"zarr_path must be of type {str}")
+    if zarr_path is not None:
+        # check that zarr_path is a string
+        if not isinstance(zarr_path, str):
+            raise TypeError(f"zarr_path must be of type {str}")
 
-    # check that the appropriate suffix was provided
-    if not zarr_path.strip("/").endswith(".zarr"):
-        raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
+        # check that the appropriate suffix was provided
+        if not zarr_path.strip("/").endswith(".zarr"):
+            raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
     source_file = "combined_echodatas.zarr"
