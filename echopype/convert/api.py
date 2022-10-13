@@ -18,8 +18,6 @@ from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 
-DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
-
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
 # Logging setup
@@ -99,6 +97,7 @@ def to_file(
 def _save_groups_to_file(echodata, output_path, engine, compress=True):
     """Serialize all groups to file."""
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
+    # TODO: investigate chunking before we save Dataset to a file
 
     # Top-level group
     io.save_file(
@@ -164,11 +163,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
     if echodata.sonar_model == "AD2CP":
         for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
             io.save_file(
-                # echodata[f"Sonar/Beam_group{i}"].chunk(
-                #     {
-                #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                #     }
-                # ),
                 echodata[f"Sonar/Beam_group{i}"],
                 path=output_path,
                 mode="a",
@@ -178,12 +172,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             )
     else:
         io.save_file(
-            # echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"].chunk(
-            #     {
-            #         "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-            #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-            #     }
-            # ),
             echodata[f"Sonar/{BEAM_SUBGROUP_DEFAULT}"],
             path=output_path,
             mode="a",
@@ -194,12 +182,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         if echodata["Sonar/Beam_group2"] is not None:
             # some sonar model does not produce Sonar/Beam_group2
             io.save_file(
-                # echodata["Sonar/Beam_group2"].chunk(
-                #     {
-                #         "range_sample": DEFAULT_CHUNK_SIZE["range_sample"],
-                #         "ping_time": DEFAULT_CHUNK_SIZE["ping_time"],
-                #     }
-                # ),
                 echodata["Sonar/Beam_group2"],
                 path=output_path,
                 mode="a",
