@@ -2,7 +2,7 @@ from echopype.echodata.zarr_combine import ZarrCombine
 from dask.distributed import Client
 import numpy as np
 import xarray as xr
-from echopype.utils.coding import set_encodings
+from echopype.utils.coding import set_time_encodings
 from typing import List, Tuple, Dict
 import tempfile
 import pytest
@@ -102,7 +102,7 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
     Notes
     -----
     If a coordinate is a time value (i.e., having variable names like "*_time" or "time_*"),
-    then ``set_encodings`` will change the integer values of the coordinates to datetime stamps.
+    then ``set_time_encodings`` will change the integer values of the coordinates to datetime stamps.
 
     Examples
     --------
@@ -136,7 +136,7 @@ def generate_test_ds(append_dims_ranges: Dict[str, Tuple[int, int]],
     ds = xr.Dataset(xr_vars_dict, coords=xr_coords_dict)
 
     # set time encodings for time coordinates
-    ds = set_encodings(ds)
+    ds = set_time_encodings(ds)
 
     return ds
 

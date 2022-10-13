@@ -53,7 +53,7 @@ def _encode_dataarray(da, dtype):
     return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
 
 
-def set_encodings(ds: xr.Dataset) -> xr.Dataset:
+def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
     """
     Set the default encoding for variables.
     """

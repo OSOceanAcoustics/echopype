@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
@@ -209,7 +209,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge(ds_env)
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -391,7 +391,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge with NMEA data
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def _set_beam_group1_zarr_vars(self, ds: xr.Dataset) -> xr.Dataset:
         """
@@ -768,7 +768,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [set_encodings(ds)]
+        return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
 
