@@ -10,8 +10,6 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
-DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
-
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
 
