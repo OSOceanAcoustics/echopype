@@ -12,11 +12,11 @@ _(Required)_
 
 ### Computing environment
 _(Required)_
-- Echopype version: 
+- Echopype version:
 - How echopype was installed (e.g., conda or pip):
 - Operating system:
 
-### Minimum example 
+### Minimum example
 _(Required: A minimum code snippet that reproduces your problem.)_
 The following code reproduces the errors I encountered:
 ```python
