@@ -1093,14 +1093,13 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power = None
 
-            ds_beam_power = ds_power
-
             if self.sorted_channel["complex"]:
                 ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
             else:
                 ds_complex = None
 
             # correctly assign the beam groups
+            ds_beam_power = None
             if ds_complex:
                 ds_beam = ds_complex
                 if ds_power:

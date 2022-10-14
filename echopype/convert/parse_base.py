@@ -89,29 +89,26 @@ class ParseEK(ParseBase):
                     self.ch_ids[data_type].append(k)
                     self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
             # Transmit data
-            for k, v in self.ping_data_dict_tx[data_type].items():
-                if all(
-                    (x is None) or (x.size == 0) for x in v
-                ):  # if no data in a particular channel
-                    self.ping_data_dict_tx[data_type][k] = None
-                else:
-                    self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
+            self.rectangularize_transmit_ping_data(data_type)
 
-    def rectangularize_complex_transmit_pulse(self):
+    def rectangularize_transmit_ping_data(self, data_type: str) -> None:
+        """
+        Rectangularize the ``data_type`` data within transmit ping data.
+        Additionally, convert the data to a numpy array
+        indexed by channel.
 
-        # TODO: document!
+        Parameters
+        ----------
+        data_type: str
+            The key of ``self.ping_data_dict_tx`` to rectangularize
+        """
 
-        # if "complex" in self.ping_data_dict_tx.keys():
-        for data_type in ["power", "angle", "complex"]:
-
-            # Transmit data
-            for k, v in self.ping_data_dict_tx[data_type].items():
-                if all(
-                    (x is None) or (x.size == 0) for x in v
-                ):  # if no data in a particular channel
-                    self.ping_data_dict_tx[data_type][k] = None
-                else:
-                    self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
+        # Transmit data
+        for k, v in self.ping_data_dict_tx[data_type].items():
+            if all((x is None) or (x.size == 0) for x in v):  # if no data in a particular channel
+                self.ping_data_dict_tx[data_type][k] = None
+            else:
+                self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""

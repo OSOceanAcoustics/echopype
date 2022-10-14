@@ -96,10 +96,8 @@ def test_convert_ek80_complex_matlab(ek80_path):
         ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat')
     )
 
-    ek80_raw_path_bb = '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/EX2201_EK60-D20220226-T064314.raw'
-
     # Convert file
-    echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80', offload_to_zarr=True)
+    echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
 
     # check water_level
     assert (echodata["Platform"]["water_level"] == 0).all()

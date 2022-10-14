@@ -433,11 +433,21 @@ def open_raw(
 
         # TODO: perform more robust tests for the 'auto' heuristic value
         if offload_to_zarr == "auto" and p2z.write_to_zarr(mem_mult=0.4):
+
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
-            parser.rectangularize_complex_transmit_pulse()
+
+            # rectangularize complex transmit ping data, if it exists
+            if "complex" in parser.ping_data_dict_tx.keys():
+                parser.rectangularize_transmit_ping_data(data_type="complex")
+
         elif offload_to_zarr is True:
+
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
-            parser.rectangularize_complex_transmit_pulse()
+
+            # rectangularize complex transmit ping data, if it exists
+            if "complex" in parser.ping_data_dict_tx.keys():
+                parser.rectangularize_transmit_ping_data(data_type="complex")
+
         else:
             del p2z
             p2z = Parsed2Zarr(parser)
