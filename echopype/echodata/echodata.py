@@ -296,7 +296,11 @@ class EchoData:
                     return p.squeeze(dim="time1").drop("time1")
                 else:
                     if ping_time is not None:
-                        return p.dropna(dim="time1").interp(time1=ping_time)
+                        # Direct assignment if all timestamps are identical (EK60 data)
+                        if np.all(p.time1.values == ping_time.values):
+                            return p.rename({"time1": "ping_time"})
+                        else:
+                            return p.dropna(dim="time1").interp(time1=ping_time)
                     else:
                         raise ValueError("ping_time needs to be provided if p.time1 has length >1")
         else:
