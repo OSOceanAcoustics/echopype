@@ -81,15 +81,17 @@ class SetGroupsBase(abc.ABC):
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
-        source_files_var, meta_source_files_var, source_files_coord = source_files_vars(
-            self.input_file, self.xml_path
-        )
-        if meta_source_files_var is None:
-            source_vars = source_files_var
+        files_vars = source_files_vars(self.input_file, self.xml_path)
+        if files_vars["meta_source_files_var"] is None:
+            source_vars = files_vars["source_files_var"]
         else:
-            source_vars = {**source_files_var, **meta_source_files_var}
+            source_vars = {**files_vars["source_files_var"], **files_vars["meta_source_files_var"]}
 
-        ds = xr.Dataset(data_vars=source_vars, coords=source_files_coord, attrs=prov_dict)
+        ds = xr.Dataset(
+            data_vars=source_vars,
+            coords=files_vars["source_files_coord"],
+            attrs=prov_dict
+        )
 
         return ds
 
