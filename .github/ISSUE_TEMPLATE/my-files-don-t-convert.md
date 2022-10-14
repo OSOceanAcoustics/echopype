@@ -32,7 +32,8 @@ ERROR MESSAGES
 
 ### Provide an example file
 _Required: An example file that allow reproducing the problem._
-Here is a link to an example file: SOME_ONLINE_LOCATION
+- Link to an example raw file: SOME_ONLINE_LOCATION
+- Raw file sensor model: (FOR EXAMPLE: Simrad EK60)
 
 ### Troubleshooting
 _Optional but preferred: Explain any steps that you have taken to identify the cause of conversion error._
