@@ -817,8 +817,14 @@ class EchoData:
             whether or not to use parallel processing. (Not yet implemented)
         output_storage_options : dict
             Additional keywords to pass to the filesystem class.
+        consolidated : bool
+            Flag to consolidate zarr metadata.
+            Defaults to ``True``
         """
         from ..convert.api import to_file
+
+        # set default consolidated if doesn't exist
+        kwargs.setdefault("consolidated", True)
 
         return to_file(self, "zarr", save_path=save_path, **kwargs)
 

@@ -52,6 +52,9 @@ def to_file(
         whether or not to use parallel processing. (Not yet implemented)
     output_storage_options : dict
         Additional keywords to pass to the filesystem class.
+    consolidated : bool
+        Flag to consolidate zarr metadata.
+        Defaults to ``True``
     """
     if parallel:
         raise NotImplementedError("Parallel conversion is not yet implemented.")
@@ -88,13 +91,14 @@ def to_file(
             ),
             engine=engine,
             compress=compress,
+            **kwargs,
         )
 
     # Link path to saved file with attribute as if from open_converted
     echodata.converted_raw_path = output_file
 
 
-def _save_groups_to_file(echodata, output_path, engine, compress=True):
+def _save_groups_to_file(echodata, output_path, engine, compress=True, **kwargs):
     """Serialize all groups to file."""
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
     # TODO: investigate chunking before we save Dataset to a file
@@ -106,6 +110,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="w",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Environment group
@@ -116,6 +121,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Environment",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Platform group
@@ -126,6 +132,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Platform",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Platform/NMEA group: some sonar model does not produce NMEA data
@@ -137,6 +144,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             engine=engine,
             group="Platform/NMEA",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            **kwargs,
         )
 
     # Provenance group
@@ -147,6 +155,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="a",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Sonar group
@@ -157,6 +166,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="a",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # /Sonar/Beam_groupX group
@@ -169,6 +179,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 engine=engine,
                 group=f"Sonar/Beam_group{i}",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+                **kwargs,
             )
     else:
         io.save_file(
@@ -178,6 +189,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             engine=engine,
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            **kwargs,
         )
         if echodata["Sonar/Beam_group2"] is not None:
             # some sonar model does not produce Sonar/Beam_group2
@@ -188,6 +200,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 engine=engine,
                 group="Sonar/Beam_group2",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+                **kwargs,
             )
 
     # Vendor_specific group
@@ -198,6 +211,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Vendor_specific",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
 

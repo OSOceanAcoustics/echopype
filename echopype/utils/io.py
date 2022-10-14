@@ -33,7 +33,7 @@ def get_files_from_dir(folder):
     return [f for f in os.listdir(folder) if os.path.splitext(f)[1] in valid_ext]
 
 
-def save_file(ds, path, mode, engine, group=None, compression_settings=None):
+def save_file(ds, path, mode, engine, group=None, compression_settings=None, **kwargs):
     """
     Saves a dataset to netcdf or zarr depending on the engine
     If ``compression_settings`` are set, compress all variables with those settings
@@ -44,9 +44,9 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None):
 
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
-        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding)
+        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, **kwargs)
     elif engine == "zarr":
-        ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding)
+        ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
 
