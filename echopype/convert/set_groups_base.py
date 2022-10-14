@@ -291,12 +291,13 @@ class SetGroupsBase(abc.ABC):
 
         for var_name in add_ping_time_names:
 
-            ds[var_name] = (
-                ds[var_name]
-                .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
-                .assign_coords(ping_time=ds.ping_time)
-                .copy()
-            )
+            if "ping_time" not in ds[var_name].dims:
+                ds[var_name] = (
+                    ds[var_name]
+                    .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)
+                    .assign_coords(ping_time=ds.ping_time)
+                    .copy()
+                )
 
     def beam_groups_to_convention(
         self,

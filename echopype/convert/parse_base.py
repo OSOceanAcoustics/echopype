@@ -97,6 +97,22 @@ class ParseEK(ParseBase):
                 else:
                     self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
+    def rectangularize_complex_transmit_pulse(self):
+
+        # TODO: document!
+
+        # if "complex" in self.ping_data_dict_tx.keys():
+        for data_type in ["power", "angle", "complex"]:
+
+            # Transmit data
+            for k, v in self.ping_data_dict_tx[data_type].items():
+                if all(
+                    (x is None) or (x.size == 0) for x in v
+                ):  # if no data in a particular channel
+                    self.ping_data_dict_tx[data_type][k] = None
+                else:
+                    self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
+
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
         with RawSimradFile(self.source_file, "r", storage_options=self.storage_options) as fid:
