@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
 from ..calibrate.env_params import EnvParams
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.uwa import calc_sound_speed
@@ -713,7 +713,7 @@ class EchoData:
                 var_attrs["history"] = history_attr
             platform[var] = platform[var].assign_attrs(**var_attrs)
 
-        self["Platform"] = set_encodings(platform)
+        self["Platform"] = set_time_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):
