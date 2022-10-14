@@ -88,9 +88,7 @@ class SetGroupsBase(abc.ABC):
             source_vars = {**files_vars["source_files_var"], **files_vars["meta_source_files_var"]}
 
         ds = xr.Dataset(
-            data_vars=source_vars,
-            coords=files_vars["source_files_coord"],
-            attrs=prov_dict
+            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
         )
 
         return ds

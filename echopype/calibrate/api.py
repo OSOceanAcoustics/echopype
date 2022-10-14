@@ -104,8 +104,7 @@ def _compute_cal(
     prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
     files_vars = source_files_vars(source_file)
     cal_ds = (
-        cal_ds
-        .assign(**files_vars["source_files_var"])
+        cal_ds.assign(**files_vars["source_files_var"])
         .assign_coords(**files_vars["source_files_coord"])
         .assign_attrs(prov_dict)
     )

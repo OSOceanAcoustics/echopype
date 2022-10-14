@@ -139,9 +139,7 @@ class SetGroupsEK60(SetGroupsBase):
             source_vars = files_vars["source_files_var"]
 
         ds = xr.Dataset(
-            data_vars=source_vars,
-            coords=files_vars["source_files_coord"],
-            attrs=prov_dict
+            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
         )
 
         return ds
