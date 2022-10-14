@@ -32,7 +32,7 @@ ERROR MESSAGES
 
 ### Provide an example file
 _Required: An example file that allow reproducing the problem._
-- Link to an example raw file: SOME_ONLINE_LOCATION
+- Link to an example raw file: SOME_ONLINE_LOCATION. Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
 - Raw file sensor model: (FOR EXAMPLE: Simrad EK60)
 
 ### Troubleshooting
