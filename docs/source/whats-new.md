@@ -8,25 +8,25 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This is a minor review that includes an important performance enhancement for combining large volumes of data originally residing in individual files, a number of bug fixes, and other smaller improvements.
+This is a minor release that includes an important performance enhancement for combining large volumes of data residing in individual files into a single entityr, a number of bug fixes, and other smaller improvements.
 
 ## New features
 - Overhaul `combine_echodata` function
   - Allow combine a large number of `EchoData` objects exceeding memory limits (#808, #824, #830)
   - Remove reversed time check from combine_echodata (#835)
   - Add minimal ZarrCombine test (#826)
-  - Order the channel coordinate values to ensure consistent combination across files (#818)
+  - Order the channel coordinate in file conversion to ensure consistent combination across files (#818)
   - Revise outdated data combination behavior (#797, #799)
-- Track provanance for source filenames and auxiliary files
+  - Clean up all coordinate and attribute details under `combine_echodata` function (#848, #849)
+- Track provanance for filenames of raw data files and auxiliary files
   - Propagate `xml_path` as `meta_source_filenames` to combined echodata (#814, #852)
   - Standardize handling of `source_filenames` in individual and combined echodata as well as downstream datasets (#804, #806)
 
 ## Under the hood enhancements
-- Clean up functions for setting encoding (#851)
-- Clean up all coordinate and attribute details under `combine_echodata` function (#848, #849)
+- Clean up functions for setting encoding in the converted files (#851)
 - Add `requests` and `aiohttp` to dependency (#844)
-- Pin `netcdf4` to be <1.6 for pypi package due to ongoing `c-netcdf4` problem (#843)
-- Write Parsed2Zarr generated files to `temp_echopype_output/parsed2zarr_temp_files` (#832)
+- Pin `netcdf4` to be <1.6 for pypi package due to ongoing `netcdf-c` problem (#843)
+- Write `Parsed2Zarr` generated files to `temp_echopype_output/parsed2zarr_temp_files` (#832)
 - Change `isel` to `sel` to fix `compute_Sv` to allow working with dask array (#828)
 - Add `open_raw(offload_to_zarr=True)` integration tests (#794)
 
@@ -36,9 +36,9 @@ This is a minor review that includes an important performance enhancement for co
 - Fix logic problem in `open_raw(offload_to_zarr=True)` that sometimes cause problems (#794, #853)
 
 ## Infrastructure
-- Rename ci.yaml to build.yaml to be more clear (#807)
 - Update CI to use micromamba (#805)
 - Fix version string on CI (#804, #820)
+- Rename `ci.yaml` to `build.yaml` for clarity (#807)
 
 
 
