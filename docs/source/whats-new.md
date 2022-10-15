@@ -8,7 +8,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This is a minor release that includes an important performance enhancement for combining large volumes of data residing in individual files into a single entityr, a number of bug fixes, and other smaller improvements.
+This is a minor release that includes an important performance enhancement for combining large volumes of data residing in individual files into a single entity, a number of bug fixes, and other smaller improvements.
 
 ## New features
 - Overhaul `combine_echodata` function
