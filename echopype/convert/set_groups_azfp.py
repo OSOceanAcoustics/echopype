@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from .set_groups_base import SetGroupsBase
 
 
@@ -37,6 +37,51 @@ class SetGroupsAZFP(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # get frequency values
+        freq_old = list(self.parser_obj.unpacked_data["frequency"])
+
+        # sort the frequencies in ascending order
+        freq_new = freq_old[:]
+        freq_new.sort(reverse=False)
+
+        # obtain sorted frequency indices
+        self.freq_ind_sorted = [freq_new.index(ch) for ch in freq_old]
+
+        # obtain sorted frequencies
+        self.freq_sorted = self.parser_obj.unpacked_data["frequency"][self.freq_ind_sorted]
+
+        # obtain channel_ids
+        self.channel_ids_sorted = self._create_unique_channel_name()
+
+        # Put Frequency in Hz (this should be done after create_unique_channel_name)
+        self.freq_sorted = self.freq_sorted * 1000  # Frequency in Hz
+
+    def _create_unique_channel_name(self):
+        """
+        Creates a unique channel name for AZFP sensor
+        using the variable unpacked_data created by
+        the AZFP parser
+        """
+
+        serial_number = self.parser_obj.unpacked_data["serial_number"]
+
+        if serial_number.size == 1:
+
+            freq_as_str = self.freq_sorted.astype(int).astype(str)
+
+            # TODO: replace str(i+1) with Frequency Number from XML
+            channel_id = [
+                str(serial_number) + "-" + freq + "-" + str(i + 1)
+                for i, freq in enumerate(freq_as_str)
+            ]
+
+            return channel_id
+        else:
+            raise NotImplementedError(
+                "Creating a channel name for more than"
+                + " one serial number has not been implemented."
+            )
+
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
         # TODO Look at why this cannot be encoded without the modifications
@@ -64,7 +109,7 @@ class SetGroupsAZFP(SetGroupsBase):
             attrs={"long_name": "Water temperature", "units": "C"},
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -137,44 +182,18 @@ class SetGroupsAZFP(SetGroupsBase):
             },
         )
         ds = ds.assign_attrs(platform_dict)
-        return set_encodings(ds)
-
-    @staticmethod
-    def _create_unique_channel_name(unpacked_data):
-        """
-        Creates a unique channel name for AZFP sensor
-        using the variable unpacked_data created by
-        the AZFP parser
-        """
-
-        if unpacked_data["serial_number"].size == 1:
-            freq_as_str = unpacked_data["frequency"].astype(int).astype(str)
-
-            # TODO: replace str(i+1) with Frequency Number from XML
-            channel_id = [
-                str(unpacked_data["serial_number"]) + "-" + freq_as_str[i] + "-" + str(i + 1)
-                for i in range(len(freq_as_str))
-            ]
-
-            return channel_id
-        else:
-            raise NotImplementedError(
-                "Creating a channel name for more than"
-                + " one serial number has not been implemented."
-            )
+        return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        dig_rate = unpacked_data["dig_rate"]  # dim: freq
-        freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
+        dig_rate = unpacked_data["dig_rate"][self.freq_ind_sorted]  # dim: freq
         ping_time = self.parser_obj.ping_time
-        channel_id = self._create_unique_channel_name(unpacked_data)
 
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
-        for ich in range(len(freq)):
+        for ich in self.freq_ind_sorted:
             N.append(
                 np.array(
                     [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
@@ -193,8 +212,12 @@ class SetGroupsAZFP(SetGroupsBase):
             N = N_tmp
             del N_tmp
 
-        tdn = unpacked_data["pulse_length"] / 1e6  # Convert microseconds to seconds
-        range_samples_per_bin = unpacked_data["range_samples_per_bin"]  # from data header
+        tdn = (
+            unpacked_data["pulse_length"][self.freq_ind_sorted] / 1e6
+        )  # Convert microseconds to seconds
+        range_samples_per_bin = unpacked_data["range_samples_per_bin"][
+            self.freq_ind_sorted
+        ]  # from data header
 
         # Calculate sample interval in seconds
         if len(dig_rate) == len(range_samples_per_bin):
@@ -209,7 +232,7 @@ class SetGroupsAZFP(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -218,8 +241,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "backscatter_r": (["channel", "ping_time", "range_sample"], N),
-                "equivalent_beam_angle": (["channel"], parameters["BP"]),
-                "gain_correction": (["channel"], unpacked_data["gain"]),
+                "equivalent_beam_angle": (["channel"], parameters["BP"][self.freq_ind_sorted]),
+                "gain_correction": (["channel"], unpacked_data["gain"][self.freq_ind_sorted]),
                 "sample_interval": (["channel"], sample_int, {"units": "s"}),
                 "transmit_duration_nominal": (
                     ["channel"],
@@ -234,7 +257,7 @@ class SetGroupsAZFP(SetGroupsBase):
             coords={
                 "channel": (
                     ["channel"],
-                    channel_id,
+                    self.channel_ids_sorted,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
@@ -259,31 +282,29 @@ class SetGroupsAZFP(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [set_encodings(ds)]
+        return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        freq = np.array(unpacked_data["frequency"]) * 1000  # Frequency in Hz
         ping_time = self.parser_obj.ping_time
-        tdn = np.array(parameters["pulse_length"]) / 1e6
-        channel_id = self._create_unique_channel_name(unpacked_data)
+        tdn = parameters["pulse_length"][self.freq_ind_sorted] / 1e6
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
-        Sv_offset = np.zeros(freq.shape)
-        for ich in range(len(freq)):
+        Sv_offset = np.zeros_like(self.freq_sorted)
+        for ind, ich in enumerate(self.freq_ind_sorted):
             # TODO: should not access the private function, better to compute Sv_offset in parser
-            Sv_offset[ich] = self.parser_obj._calc_Sv_offset(
-                freq[ich], unpacked_data["pulse_length"][ich]
+            Sv_offset[ind] = self.parser_obj._calc_Sv_offset(
+                self.freq_sorted[ind], unpacked_data["pulse_length"][ich]
             )
 
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
-                    freq,
+                    self.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -292,21 +313,30 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "XML_transmit_duration_nominal": (["channel"], tdn),
-                "XML_gain_correction": (["channel"], parameters["gain"]),
-                "XML_digitization_rate": (["channel"], parameters["dig_rate"]),
-                "XML_lockout_index": (["channel"], parameters["lockout_index"]),
-                "digitization_rate": (["channel"], unpacked_data["dig_rate"]),
-                "lockout_index": (["channel"], unpacked_data["lockout_index"]),
+                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
+                "XML_digitization_rate": (
+                    ["channel"],
+                    parameters["dig_rate"][self.freq_ind_sorted],
+                ),
+                "XML_lockout_index": (
+                    ["channel"],
+                    parameters["lockout_index"][self.freq_ind_sorted],
+                ),
+                "digitization_rate": (["channel"], unpacked_data["dig_rate"][self.freq_ind_sorted]),
+                "lockout_index": (
+                    ["channel"],
+                    unpacked_data["lockout_index"][self.freq_ind_sorted],
+                ),
                 "number_of_bins_per_channel": (
                     ["channel"],
-                    unpacked_data["num_bins"],
+                    unpacked_data["num_bins"][self.freq_ind_sorted],
                 ),
                 "number_of_samples_per_average_bin": (
                     ["channel"],
-                    unpacked_data["range_samples_per_bin"],
+                    unpacked_data["range_samples_per_bin"][self.freq_ind_sorted],
                 ),
-                "board_number": (["channel"], unpacked_data["board_num"]),
-                "data_type": (["channel"], unpacked_data["data_type"]),
+                "board_number": (["channel"], unpacked_data["board_num"][self.freq_ind_sorted]),
+                "data_type": (["channel"], unpacked_data["data_type"][self.freq_ind_sorted]),
                 "ping_status": (["ping_time"], unpacked_data["ping_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
@@ -327,24 +357,24 @@ class SetGroupsAZFP(SetGroupsBase):
                 "temperature_counts": (["ping_time"], anc[:, 4]),
                 "tilt_x_count": (["ping_time"], anc[:, 0]),
                 "tilt_y_count": (["ping_time"], anc[:, 1]),
-                "DS": (["channel"], parameters["DS"]),
-                "EL": (["channel"], parameters["EL"]),
-                "TVR": (["channel"], parameters["TVR"]),
-                "VTX": (["channel"], parameters["VTX"]),
+                "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
+                "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
+                "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
+                "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],
-                    np.array(parameters["range_samples"]),
+                    parameters["range_samples"][self.freq_ind_sorted],
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
                     ["channel"],
-                    parameters["range_averaging_samples"],
+                    parameters["range_averaging_samples"][self.freq_ind_sorted],
                 ),
             },
             coords={
                 "channel": (
                     ["channel"],
-                    channel_id,
+                    self.channel_ids_sorted,
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
                 "ping_time": (
@@ -395,4 +425,4 @@ class SetGroupsAZFP(SetGroupsBase):
                 "tilt_Y_d": parameters["Y_d"],
             },
         )
-        return set_encodings(ds)
+        return set_time_encodings(ds)

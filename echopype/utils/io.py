@@ -10,6 +10,7 @@ import fsspec
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
+from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
 
 if TYPE_CHECKING:
@@ -33,13 +34,14 @@ def get_files_from_dir(folder):
 
 
 def save_file(ds, path, mode, engine, group=None, compression_settings=None):
-    """Saves a dataset to netcdf or zarr depending on the engine
-    If ``compression_settings`` are set, compress all variables with those settings"""
-    encoding = (
-        {var: compression_settings for var in ds.data_vars}
-        if compression_settings is not None
-        else {}
-    )
+    """
+    Saves a dataset to netcdf or zarr depending on the engine
+    If ``compression_settings`` are set, compress all variables with those settings
+    """
+
+    # set zarr or netcdf specific encodings for each variable in ds
+    encoding = set_storage_encodings(ds, compression_settings, engine)
+
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding)

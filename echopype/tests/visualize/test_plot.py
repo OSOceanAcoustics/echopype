@@ -173,6 +173,7 @@ def test_plot_mvbs(
     azfp_xml_path,
     range_kwargs,
 ):
+
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':

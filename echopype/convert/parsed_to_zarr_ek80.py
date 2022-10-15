@@ -21,6 +21,16 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.pow_ang_df = None  # df that holds power and angle data
         self.complex_df = None  # df that holds complex data
 
+        # get channel and channel_id association and sort by channel_id
+        channels_old = list(self.parser_obj.config_datagram["configuration"].keys())
+
+        # sort the channels in ascending order
+        channels_new = channels_old[:]
+        channels_new.sort(reverse=False)
+
+        # obtain sort rule for the channel index
+        self.channel_sort_rule = {ch: channels_new.index(ch) for ch in channels_old}
+
     def _get_num_transd_sec(self, x: pd.DataFrame):
         """
         Returns the number of transducer sectors.
@@ -126,6 +136,12 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         times = complex_series.index.get_level_values(0).unique()
         channels = complex_series.index.get_level_values(1).unique()
 
+        # sort the channels based on rule
+        _, indexer = channels.map(self.channel_sort_rule).sort_values(
+            ascending=True, return_indexer=True
+        )
+        channels = channels[indexer]
+
         complex_series = self._reshape_series(complex_series)
 
         complex_df = self._split_complex_data(complex_series)
@@ -203,7 +219,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         self.complex_df = datagram_df.dropna().copy()
 
-    def write_to_zarr(self, mem_mult: float = 0.3) -> bool:
+    def whether_write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
         Determines if the zarr data provided will expand
         into a form that is larger than a percentage of
@@ -281,12 +297,14 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
             self._get_zarr_dfs()
             del self.parser_obj.zarr_datagrams  # free memory
 
-        self._write_power(df=self.pow_ang_df, max_mb=max_mb)
-        self._write_angle(df=self.pow_ang_df, max_mb=max_mb)
+        if not self.pow_ang_df.empty:
+            self._write_power(df=self.pow_ang_df, max_mb=max_mb)
+            self._write_angle(df=self.pow_ang_df, max_mb=max_mb)
 
         del self.pow_ang_df  # free memory
 
-        self._write_complex(df=self.complex_df, max_mb=max_mb)
+        if not self.complex_df.empty:
+            self._write_complex(df=self.complex_df, max_mb=max_mb)
 
         del self.complex_df  # free memory
 

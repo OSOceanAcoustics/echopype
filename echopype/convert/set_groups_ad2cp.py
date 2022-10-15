@@ -7,7 +7,7 @@ import xarray as xr
 import yaml
 
 from .. import convert
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from .parse_ad2cp import DataType, Dimension, Field, HeaderOrDataRecordFormats
 from .set_groups_base import SetGroupsBase
 
@@ -235,7 +235,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             }
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_platform(self) -> xr.Dataset:
         ds = self._make_dataset(
@@ -252,7 +252,7 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "platform_code_ICES": self.ui_param["platform_code_ICES"],  # type: ignore
             }
         )
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:
         # TODO: should we divide beam into burst/average (e.g., beam_burst, beam_average)
@@ -425,7 +425,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         for i, ds in enumerate(beam_groups):
             beam_groups[i] = ds.sel(time1=ds["ping_time"]).drop_vars("time1", errors="ignore")
 
-        return [set_encodings(ds) for ds in beam_groups]
+        return [set_time_encodings(ds) for ds in beam_groups]
 
     def set_vendor(self) -> xr.Dataset:
         ds = self._make_dataset(
@@ -498,7 +498,7 @@ class SetGroupsAd2cp(SetGroupsBase):
             }
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -534,4 +534,4 @@ class SetGroupsAd2cp(SetGroupsBase):
 
         ds = ds.assign_attrs(sonar_attr_dict)
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)

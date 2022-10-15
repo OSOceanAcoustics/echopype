@@ -94,7 +94,7 @@ class CalibrateEK(CalibrateBase):
         )
 
         # Select corresponding index and clean up the original nan elements
-        da_param = da_param.isel(pulse_length_bin=idxmin, drop=True)
+        da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
         return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
     def get_cal_params(self, cal_params, waveform_mode, encode_mode):
@@ -753,6 +753,8 @@ class CalibrateEK80(CalibrateEK):
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
         for p in self.env_params.keys():
+            if "channel" in self.env_params[p].coords:
+                self.env_params[p] = self.env_params[p].sel(channel=chan_sel)
             self.env_params[p] = self.echodata._harmonize_env_param_time(
                 self.env_params[p], ping_time=self.echodata["Sonar/Beam_group1"].ping_time
             )

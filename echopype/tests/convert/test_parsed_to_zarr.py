@@ -1,5 +1,8 @@
 import pytest
+import xarray as xr
+from typing import List, Tuple
 from echopype import open_raw
+from pathlib import Path
 
 
 @pytest.fixture
@@ -7,13 +10,34 @@ def ek60_path(test_path):
     return test_path['EK60']
 
 
-@pytest.fixture
-def ek80_path(test_path):
-    return test_path['EK80']
+def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
+                      var_to_comp: List[str], ed_path) -> Tuple[xr.Dataset, xr.Dataset]:
+    """
+    Compares the dask variables in ``ed_zarr`` against their
+    counterparts in ``ed_no_zarr`` by computing the dask results
+    and using xarray to make sure the variables are identical.
+    Additionally, this function will drop all of these compared
+    variables.
 
+    Parameters
+    ----------
+    ed_zarr : xr.Dataset
+        EchoData object with variables that were written directly
+        to a zarr and then loaded with dask
+    ed_no_zarr : xr.Dataset
+        An in-memory EchoData object
+    var_to_comp : List[str]
+        List representing those variables that were written directly
+        to a zarr and then loaded with dask
+    ed_path : str
+        EchoData group (e.g. "Sonar/Beam_group1")
 
-def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
-    # TODO: add docstring and comments
+    Returns
+    -------
+    Tuple[xr.Dataset, xr.Dataset]
+        Datasets ``ed_zarr`` and ``ed_no_zarr``, respectively with
+        ``var_to_comp`` removed.
+    """
 
     for var in var_to_comp:
 
@@ -25,8 +49,8 @@ def compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, ed_path):
 
             assert var_zarr.identical(var_no_zarr)
 
-    ed_zarr[ed_path] = ed_zarr[ed_path].drop(var_to_comp)
-    ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop(var_to_comp)
+    ed_zarr[ed_path] = ed_zarr[ed_path].drop_vars(var_to_comp)
+    ed_no_zarr[ed_path] = ed_no_zarr[ed_path].drop_vars(var_to_comp)
     return ed_zarr, ed_no_zarr
 
 
@@ -67,45 +91,88 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         # If it goes all the way to here it is most likely successful
         assert os.path.exists(output_save_path)
 
+    if offload_to_zarr:
+        # create a copy of zarr_file_name. The join is necessary so that we are not referencing zarr_file_name
+        temp_zarr_path = ''.join(echodata.parsed2zarr_obj.zarr_file_name)
 
-@pytest.mark.skip(reason="Full testing of writing variables directly to a zarr store has not been implemented yet.")
-def test_writing_directly_to_zarr(ek60_path, ek80_path):
+        del echodata
+
+        # make sure that the temporary zarr was deleted
+        assert Path(temp_zarr_path).exists() is False
+
+
+@pytest.mark.parametrize(
+    ["path_model", "raw_file", "sonar_model"],
+    [
+        ("EK60", "ncei-wcsd/Summer2017-D20170615-T190214.raw", "EK60"),
+        ("EK60", "DY1002_EK60-D20100318-T023008_rep_freq.raw", "EK60"),
+        ("EK80",  "Summer2018--D20180905-T033113.raw", "EK80"),
+        ("EK80_CAL", "2018115-D20181213-T094600.raw", "EK80"),
+        ("EK80",  "Green2.Survey2.FM.short.slow.-D20191004-T211557.raw", "EK80"),
+        ("EK80",  "2019118 group2survey-D20191214-T081342.raw", "EK80"),
+    ],
+    ids=["ek60_summer_2017", "ek60_rep_freq", "ek80_summer_2018",
+         "ek80_bb_w_cal", "ek80_short_slow", "ek80_grp_2_survey"],
+)
+def test_direct_to_zarr_integration(path_model: str, raw_file: str,
+                                    sonar_model: str, test_path: dict) -> None:
     """
-    Tests that ensure writing variables directly to a
-    temporary zarr store and then assigning them to
-    the EchoData object create an EchoData object that
-    is identical to the method of not writing directly
+    Integration Test that ensure writing variables
+    directly to a temporary zarr store and then assigning
+    them to the EchoData object create an EchoData object
+    that is identical to the method of not writing directly
     to a zarr.
+
+    Parameters
+    ----------
+    path_model: str
+        The key in ``test_path`` pointing to the appropriate
+        directory containing ``raw_file``
+    raw_file: str
+        The raw file to test
+    sonar_model: str
+        The sonar model corresponding to ``raw_file``
+    test_path: dict
+        A dictionary of all the model paths.
+
+    Notes
+    -----
+    This test should only be conducted with small raw files
+    as DataSets must be loaded into RAM!
     """
 
-    pass
+    raw_file_path = test_path[path_model] / raw_file
 
-    # TODO: use the below structure to compare small files
-    # TODO: also create a test that runs L0003-D20040909-T161906-EK60.raw (the 95MB file that explodes)
+    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=True, max_zarr_mb=100)
+    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=False)
 
-    # ed_zarr = ep.open_raw(path_to_raw, sonar_model=sonar_model, offload_to_zarr=True, max_zarr_mb=100)
-    # ed_no_zarr = ep.open_raw(path_to_raw, sonar_model=sonar_model, offload_to_zarr=False)
-    #
-    # for grp in ed_zarr.group_paths:
-    #
-    #     if "conversion_time" in ed_zarr[grp].attrs:
-    #         del ed_zarr[grp].attrs["conversion_time"]
-    #         del ed_no_zarr[grp].attrs["conversion_time"]
-    #
-    #     # Compare straight up angle, power, complex, if zarr
-    #     # drop the zarr variables and compare datasets
-    #
-    #     if grp == "Sonar/Beam_group2":
-    #         var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
-    #         ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
-    #
-    #     if grp == "Sonar/Beam_group1":
-    #
-    #         if 'backscatter_i' in ed_zarr[grp]:
-    #             var_to_comp = ['backscatter_r', 'backscatter_i']
-    #         else:
-    #             var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
-    #
-    #         ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
-    #
-    #     assert ed_zarr[grp].identical(ed_no_zarr[grp])
+    for grp in ed_zarr.group_paths:
+
+        # remove conversion time so we can do a direct comparison
+        if "conversion_time" in ed_zarr[grp].attrs:
+            del ed_zarr[grp].attrs["conversion_time"]
+            del ed_no_zarr[grp].attrs["conversion_time"]
+
+        # Compare angle, power, complex, if zarr drop the zarr variables and compare datasets
+        if grp == "Sonar/Beam_group2":
+            var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+
+        if grp == "Sonar/Beam_group1":
+
+            if 'backscatter_i' in ed_zarr[grp]:
+                var_to_comp = ['backscatter_r', 'backscatter_i']
+            else:
+                var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
+
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+
+        assert ed_zarr[grp].identical(ed_no_zarr[grp])
+
+    # create a copy of zarr_file_name. The join is necessary so that we are not referencing zarr_file_name
+    temp_zarr_path = ''.join(ed_zarr.parsed2zarr_obj.zarr_file_name)
+
+    del ed_zarr
+
+    # make sure that the temporary zarr was deleted
+    assert Path(temp_zarr_path).exists() is False

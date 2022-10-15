@@ -127,6 +127,9 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
         .to_dataset()
     )
+    # Added this check to support the test in test_process.py::test_compute_MVBS
+    if "filenames" in ds_MVBS.variables:
+        ds_MVBS = ds_MVBS.drop_vars("filenames")
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
