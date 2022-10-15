@@ -12,11 +12,11 @@ This is a minor review that includes an important performance enhancement for co
 
 ## New features
 - Overhaul `combine_echodata` function
-  - Allow combine a large number of `EchoData` objects exceeding memory limts (#808, #824, #830)
+  - Allow combine a large number of `EchoData` objects exceeding memory limits (#808, #824, #830)
   - Remove reversed time check from combine_echodata (#835)
   - Add minimal ZarrCombine test (#826)
-  - Order the channel coordinate values to ensure consistent combination across files (#818) 
-  - Revise outdated data combination behavior (#797, #799) 
+  - Order the channel coordinate values to ensure consistent combination across files (#818)
+  - Revise outdated data combination behavior (#797, #799)
 - Track provanance for source filenames and auxiliary files
   - Propagate `xml_path` as `meta_source_filenames` to combined echodata (#814, #852)
   - Standardize handling of `source_filenames` in individual and combined echodata as well as downstream datasets (#804, #806)
