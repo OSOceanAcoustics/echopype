@@ -105,19 +105,17 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='WBT 549762-15 ES70-7C',
-                                        ping_time='2017-09-12T23:49:10.722999808')
-        .dropna('range_sample')
-        .values[1:, :],
+        echodata["Sonar/Beam_group1"].backscatter_r.sel(
+            channel='WBT 549762-15 ES70-7C', ping_time='2017-09-12T23:49:10.722999808'
+        ).dropna('range_sample').squeeze().values[1:, :],  # squeeze remove ping_time dimension
         np.real(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # real part
     )
     assert np.array_equal(
-        echodata["Sonar/Beam_group1"].backscatter_i.sel(channel='WBT 549762-15 ES70-7C',
-                                        ping_time='2017-09-12T23:49:10.722999808')
-        .dropna('range_sample')
-        .values[1:, :],
+        echodata["Sonar/Beam_group1"].backscatter_i.sel(
+            channel='WBT 549762-15 ES70-7C', ping_time='2017-09-12T23:49:10.722999808'
+        ).dropna('range_sample').squeeze().values[1:, :],  # squeeze remove ping_time dimension
         np.imag(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # imag part

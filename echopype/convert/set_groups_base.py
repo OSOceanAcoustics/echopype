@@ -7,7 +7,7 @@ import pynmea2
 import xarray as xr
 
 from ..echodata.convention import sonarnetcdf_1
-from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
+from ..utils.coding import COMPRESSION_SETTINGS, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
@@ -150,7 +150,7 @@ class SetGroupsBase(abc.ABC):
             attrs={"description": "All NMEA sensor datagrams"},
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:

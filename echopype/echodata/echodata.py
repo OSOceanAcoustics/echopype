@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
 from ..calibrate.env_params import EnvParams
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.uwa import calc_sound_speed
@@ -292,13 +292,20 @@ class EchoData:
             if "time1" not in p.coords:
                 return p
             else:
-                if p["time1"].size == 1:
-                    return p.squeeze(dim="time1").drop("time1")
+                # If there's only 1 time1 value,
+                # or if after dropping NaN there's only 1 time1 value
+                if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
+                    return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
+
+                # Direct assignment if all timestamps are identical (EK60 data)
+                elif np.all(p["time1"].values == ping_time.values):
+                    return p.rename({"time1": "ping_time"})
+
+                elif ping_time is None:
+                    raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
+
                 else:
-                    if ping_time is not None:
-                        return p.dropna(dim="time1").interp(time1=ping_time)
-                    else:
-                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
+                    return p.dropna(dim="time1").interp(time1=ping_time)
         else:
             return p
 
@@ -713,7 +720,7 @@ class EchoData:
                 var_attrs["history"] = history_attr
             platform[var] = platform[var].assign_attrs(**var_attrs)
 
-        self["Platform"] = set_encodings(platform)
+        self["Platform"] = set_time_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):
