@@ -756,8 +756,7 @@ class CalibrateEK80(CalibrateEK):
             if "channel" in self.env_params[p].coords:
                 self.env_params[p] = self.env_params[p].sel(channel=chan_sel)
             self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p],
-                ping_time=self.echodata["Sonar/Beam_group1"].ping_time
+                self.env_params[p], ping_time=self.echodata["Sonar/Beam_group1"].ping_time
             )
 
         sound_speed = self.env_params["sound_speed"]
