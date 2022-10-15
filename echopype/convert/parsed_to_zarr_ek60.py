@@ -213,7 +213,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         return pow_mem + angle_mem
 
-    def write_to_zarr(self, mem_mult: float = 0.3) -> bool:
+    def whether_write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
         Determines if the zarr data provided will expand
         into a form that is larger than a percentage of

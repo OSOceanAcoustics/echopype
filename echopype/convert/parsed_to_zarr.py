@@ -429,7 +429,7 @@ class Parsed2Zarr:
         # total memory required for series data
         return n_rows * pow_bytes
 
-    def write_to_zarr(self, **kwargs) -> None:
+    def whether_write_to_zarr(self, **kwargs) -> None:
         """
         Determines if the zarr data provided will expand
         into a form that is larger than a percentage of

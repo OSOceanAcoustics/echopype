@@ -736,7 +736,9 @@ class SetGroupsEK80(SetGroupsBase):
         """
 
         # If RAW4 datagram (transmit pulse recorded in complex samples) exists
-        if len(self.parser_obj.ping_data_dict_tx["complex"]) != 0:
+        if (len(self.parser_obj.ping_data_dict_tx["complex"]) != 0) and (
+            ch in self.parser_obj.ping_data_dict_tx["complex"].keys()
+        ):
             # Add coordinate transmit_sample
             ds_tmp = ds_tmp.assign_coords(
                 {
@@ -1091,14 +1093,13 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power = None
 
-            ds_beam_power = ds_power
-
             if self.sorted_channel["complex"]:
                 ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
             else:
                 ds_complex = None
 
             # correctly assign the beam groups
+            ds_beam_power = None
             if ds_complex:
                 ds_beam = ds_complex
                 if ds_power:
@@ -1238,11 +1239,11 @@ class SetGroupsEK80(SetGroupsBase):
         decimation_factors = dict()
         for ch in self.sorted_channel["all"]:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs:
+            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
                 decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
             # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df:
+            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
                 decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
 
