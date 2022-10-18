@@ -373,24 +373,48 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
     n_bin_er = len(bins_er)
 
     binned_means = []
-    for bin_ping in range(1, n_bin_ping + 1):
+    for bin_er in range(1, n_bin_er):
+        # er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
 
-        # ping_selected_data = arr[bin_ping_ind == bin_ping, :]
-        ping_selected_data = np.nanmean(arr[bin_ping_ind == bin_ping, :], axis=0)
+        # er_selected_data = arr[:, bin_er_ind == bin_er]
+        er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
+        #
+        # binned_means.append(er_selected_data)
 
-        data_rows = []
-        # TODO: can we do a mapping here, instead of a for loop?
-        for bin_er in range(1, n_bin_er):
-            # data_rows.append(np.nanmean(ping_selected_data[:, bin_er_ind == bin_er]))
-            data_rows.append(np.nanmean(ping_selected_data[bin_er_ind == bin_er]))
+        data_rows = []  # TODO: rename?
+        for bin_ping in range(1, n_bin_ping + 1):
+            # data_rows.append(np.nanmean(er_selected_data[bin_ping_ind == bin_ping]))
+            # data_rows.append(er_selected_data[bin_ping_ind == bin_ping, :])
+            data_rows.append(er_selected_data[bin_ping_ind == bin_ping])
+        #
+        # binned_means.append(data_rows)
+        temp = np.concatenate(data_rows, axis=0)
+        temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk('auto')  #[None, None], chunks=(1, 1))
+        binned_means.append(temp)
 
-        # TODO:: can we use something besides stack that is more efficient?
-        binned_means.append(np.stack(data_rows, axis=0))
+    stacked_means = np.transpose(np.vstack(binned_means)).rechunk('auto')
+    # return binned_means
+    return 10 * np.log10(stacked_means)
 
-    if isinstance(arr, dask.array.Array):
-        return 10 * np.log10(np.stack(binned_means, axis=0).rechunk("auto"))
-    else:
-        return 10 * np.log10(np.stack(binned_means, axis=0))
+    # binned_means = []
+    # for bin_ping in range(1, n_bin_ping + 1):
+    #
+    #     # ping_selected_data = arr[bin_ping_ind == bin_ping, :]
+    #     ping_selected_data = np.nanmean(arr[bin_ping_ind == bin_ping, :], axis=0)
+    #
+    #     data_rows = []
+    #     # TODO: can we do a mapping here, instead of a for loop?
+    #     for bin_er in range(1, n_bin_er):
+    #         # data_rows.append(np.nanmean(ping_selected_data[:, bin_er_ind == bin_er]))
+    #         data_rows.append(np.nanmean(ping_selected_data[bin_er_ind == bin_er]))
+    #
+    #     # TODO:: can we use something besides stack that is more efficient?
+    #     binned_means.append(np.stack(data_rows, axis=0))
+
+    # if isinstance(arr, dask.array.Array):
+    #     return 10 * np.log10(np.transpose(np.stack(binned_means, axis=0))) #.rechunk("auto")))
+    # else:
+    #     return 10 * np.log10(np.transpose(np.stack(binned_means, axis=0)))
 
 
 def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
@@ -401,7 +425,7 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
     # resample(ping_time='20s', skipna=True).groups.keys()))
 
     all_MVBS = []
-    for chan in ds_Sv.channel:
+    for chan in ds_Sv.channel[:1]:
 
         # squeeze to remove "channel" dim if present
         # TODO: not sure why not already removed for the AZFP case. Investigate.
@@ -435,6 +459,5 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
             )
         )
 
-    MVBS_values = np.stack(all_MVBS, axis=0)
-
-    return MVBS_values
+    # return all_MVBS
+    return np.stack(all_MVBS, axis=0)
