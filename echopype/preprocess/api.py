@@ -332,7 +332,7 @@ def regrid():
     return 1
 
 
-def bin_and_mean_2d(arr, bins_ping, bins_er, pings):
+def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
     """
     Bins and means a 2D array
 
@@ -351,27 +351,90 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings):
 
     # TODO: put in check to make sure arr is 2D
 
+    # turn datetime into integers, so we can use np.digitize
     if isinstance(pings, dask.array.Array):
-        bin_ping_ind = np.digitize(pings.compute(), bins_ping, right=False)
+        pings_i8 = pings.compute().data.view("i8")
     else:
-        bin_ping_ind = np.digitize(pings, bins_ping, right=False)
+        pings_i8 = pings.view("i8")
+
+    # turn datetime into integers, so we can use np.digitize
+    bins_ping_i8 = bins_ping.view("i8")
+
+    # get bin index for each ping
+    bin_ping_ind = np.digitize(pings_i8, bins_ping_i8, right=False)
+
+    # get bin index for each echo_range value
+    if isinstance(echo_range, dask.array.Array):
+        bin_er_ind = np.digitize(echo_range.compute(), bins_er, right=False)
+    else:
+        bin_er_ind = np.digitize(echo_range, bins_er, right=False)
 
     n_bin_ping = len(bins_ping)
     n_bin_er = len(bins_er)
 
     binned_means = []
-    for bin_ping in range(1, n_bin_ping):
+    for bin_ping in range(1, n_bin_ping + 1):
 
-        da_binned_ping = arr[:, bin_ping_ind == bin_ping]
+        # ping_selected_data = arr[bin_ping_ind == bin_ping, :]
+        ping_selected_data = np.nanmean(arr[bin_ping_ind == bin_ping, :], axis=0)
 
-        bin_er_ind = np.digitize(da_binned_ping, bins_er, right=False)
-
+        data_rows = []
+        # TODO: can we do a mapping here, instead of a for loop?
         for bin_er in range(1, n_bin_er):
-            binned_means.append(np.nanmean(da_binned_ping[bin_er_ind == bin_er]))
+            # data_rows.append(np.nanmean(ping_selected_data[:, bin_er_ind == bin_er]))
+            data_rows.append(np.nanmean(ping_selected_data[bin_er_ind == bin_er]))
+
+        # TODO:: can we use something besides stack that is more efficient?
+        binned_means.append(np.stack(data_rows, axis=0))
 
     if isinstance(arr, dask.array.Array):
-        means = dask.array.from_array(binned_means)
+        return 10 * np.log10(np.stack(binned_means, axis=0).rechunk("auto"))
     else:
-        means = np.array(binned_means)
+        return 10 * np.log10(np.stack(binned_means, axis=0))
 
-    return means.reshape((n_bin_ping - 1, n_bin_er - 1))
+
+def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
+
+    # range_meter_bin = 5
+    # range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
+    # ping_interval = np.array(list(ds_Sv.ping_time.
+    # resample(ping_time='20s', skipna=True).groups.keys()))
+
+    all_MVBS = []
+    for chan in ds_Sv.channel:
+
+        # squeeze to remove "channel" dim if present
+        # TODO: not sure why not already removed for the AZFP case. Investigate.
+        ds = ds_Sv.sel(channel=chan).squeeze()
+
+        # average should be done in linear domain
+        sv = 10 ** (ds["Sv"] / 10)
+
+        # set 1D coordinate using the 1st ping echo_range since identical for all pings
+        # remove padded NaN entries if exist for all pings
+        er = (
+            ds["echo_range"]
+            .dropna(dim="range_sample", how="all")
+            .dropna(dim="ping_time")
+            .isel(ping_time=0)
+        )
+
+        # use first ping er as indexer for sv
+        sv = sv.sel(range_sample=er.range_sample.values)
+        sv.coords["echo_range"] = (["range_sample"], er.values)
+        sv = sv.swap_dims({"range_sample": "echo_range"})
+
+        # collect the MVBS calculated for the channel
+        all_MVBS.append(
+            bin_and_mean_2d(
+                sv.data,
+                bins_ping=ping_interval,
+                bins_er=range_interval,
+                pings=sv.ping_time.data,
+                echo_range=sv.echo_range.data,
+            )
+        )
+
+    MVBS_values = np.stack(all_MVBS, axis=0)
+
+    return MVBS_values
