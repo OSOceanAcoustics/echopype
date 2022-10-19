@@ -32,7 +32,7 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
 
 def source_files_vars(
     source_paths: Union[str, List[Any]], meta_source_paths: Union[str, List[Any]] = None
-) -> Tuple[Dict[str, Tuple], Dict[str, Tuple], Dict[str, Tuple]]:
+) -> Dict[str, Dict[str, Tuple]]:
     """
     Create source_filenames and meta_source_filenames provenance
     variables dicts to be used for creating xarray DataArray.
@@ -47,15 +47,17 @@ def source_files_vars(
 
     Returns
     -------
-    source_files_var : Dict[str, Tuple]
-        Single-element dict containing a tuple for creating the
-        source_filenames xarray DataArray with filenames dimension
-    meta_source_files_var : Dict[str, Tuple]
-        Single-element dict containing a tuple for creating the
-        meta_source_filenames xarray DataArray with filenames dimension
-    source_files_coord : Dict[str, Tuple]
-        Single-element dict containing a tuple for creating the
-        filenames coordinate variable DataArray
+    files_vars : Dict[str, Dict[str, Tuple]]
+        Contains 3 items:
+        source_files_var : Dict[str, Tuple]
+            Single-element dict containing a tuple for creating the
+            source_filenames xarray DataArray with filenames dimension
+        meta_source_files_var : Dict[str, Tuple]
+            Single-element dict containing a tuple for creating the
+            meta_source_filenames xarray DataArray with filenames dimension
+        source_files_coord : Dict[str, Tuple]
+            Single-element dict containing a tuple for creating the
+            filenames coordinate variable DataArray
     """
 
     def _source_files(paths):
@@ -68,7 +70,9 @@ def source_files_vars(
             return [str(p) for p in paths if isinstance(p, (str, Path))]
 
     source_files = _source_files(source_paths)
-    source_files_var = {
+    files_vars = dict()
+
+    files_vars["source_files_var"] = {
         "source_filenames": (
             "filenames",
             source_files,
@@ -78,7 +82,7 @@ def source_files_vars(
 
     if meta_source_paths is not None:
         meta_source_files = _source_files(meta_source_paths)
-        meta_source_files_var = {
+        files_vars["meta_source_files_var"] = {
             "meta_source_filenames": (
                 "filenames",
                 meta_source_files,
@@ -86,9 +90,9 @@ def source_files_vars(
             ),
         }
     else:
-        meta_source_files_var = None
+        files_vars["meta_source_files_var"] = None
 
-    source_files_coord = {
+    files_vars["source_files_coord"] = {
         "filenames": (
             "filenames",
             list(range(len(source_files))),
@@ -96,4 +100,4 @@ def source_files_vars(
         ),
     }
 
-    return source_files_var, meta_source_files_var, source_files_coord
+    return files_vars

@@ -47,16 +47,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAZFP,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP,
-        "concat_dims": {
-            "platform": "time2",
-            "nmea": "time1",
-            "vendor": ["ping_time", "channel"],
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "platform": "all",
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {},
     },
     "EK60": {
@@ -65,15 +55,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "parsed2zarr": Parsed2ZarrEK60,
         "set_groups": SetGroupsEK60,
-        "concat_dims": {
-            "platform": ["time1", "time2", "time3"],
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {"power": ["timestamp", "channel"], "angle": ["timestamp", "channel"]},
     },
     "ES70": {
@@ -82,15 +63,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK60,
         "parsed2zarr": Parsed2ZarrEK60,
         "set_groups": SetGroupsEK60,
-        "concat_dims": {
-            "platform": ["time1", "time2", "time3"],
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {"power": ["timestamp", "channel"], "angle": ["timestamp", "channel"]},
     },
     "EK80": {
@@ -99,15 +71,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
-        "concat_dims": {
-            "platform": ["time1", "time2", "time3"],
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
@@ -120,15 +83,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
-        "concat_dims": {
-            "platform": ["time1", "time2", "time3"],
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
@@ -141,15 +95,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseEK80,
         "parsed2zarr": Parsed2ZarrEK80,
         "set_groups": SetGroupsEK80,
-        "concat_dims": {
-            "platform": ["time1", "time2", "time3"],
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {
             "power": ["timestamp", "channel_id"],
             "complex": ["timestamp", "channel_id"],
@@ -162,15 +107,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAd2cp,
         "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
-        "concat_dims": {
-            "platform": "ping_time",
-            "nmea": "time1",
-            "vendor": None,
-            "default": "ping_time",
-        },
-        "concat_data_vars": {
-            "default": "minimal",
-        },
         "dgram_zarr_vars": {},
     },
 }

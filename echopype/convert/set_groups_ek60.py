@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
@@ -132,18 +132,16 @@ class SetGroupsEK60(SetGroupsBase):
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
         prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        source_files_var, _, source_files_coord = source_files_vars(self.input_file)
+        files_vars = source_files_vars(self.input_file)
         if self.old_ping_time is not None:
-            ds = xr.Dataset(
-                data_vars={
-                    "old_ping_time": self.old_ping_time,
-                    **source_files_var,
-                },
-                coords=source_files_coord,
-            )
+            source_vars = {"old_ping_time": self.old_ping_time, **files_vars["source_files_var"]}
         else:
-            ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
-        ds = ds.assign_attrs(prov_dict)
+            source_vars = files_vars["source_files_var"]
+
+        ds = xr.Dataset(
+            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
+        )
+
         return ds
 
     def set_env(self) -> xr.Dataset:
@@ -209,7 +207,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge(ds_env)
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -391,7 +389,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge with NMEA data
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def _set_beam_group1_zarr_vars(self, ds: xr.Dataset) -> xr.Dataset:
         """
@@ -768,7 +766,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [set_encodings(ds)]
+        return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
 

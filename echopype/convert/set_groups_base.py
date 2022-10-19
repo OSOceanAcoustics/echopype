@@ -7,10 +7,8 @@ import pynmea2
 import xarray as xr
 
 from ..echodata.convention import sonarnetcdf_1
-from ..utils.coding import COMPRESSION_SETTINGS, set_encodings
+from ..utils.coding import COMPRESSION_SETTINGS, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
-
-DEFAULT_CHUNK_SIZE = {"range_sample": 25000, "ping_time": 2500}
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
 
@@ -83,15 +81,15 @@ class SetGroupsBase(abc.ABC):
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
-        source_files_var, meta_source_files_var, source_files_coord = source_files_vars(
-            self.input_file, self.xml_path
-        )
-        if meta_source_files_var is None:
-            source_vars = source_files_var
+        files_vars = source_files_vars(self.input_file, self.xml_path)
+        if files_vars["meta_source_files_var"] is None:
+            source_vars = files_vars["source_files_var"]
         else:
-            source_vars = {**source_files_var, **meta_source_files_var}
+            source_vars = {**files_vars["source_files_var"], **files_vars["meta_source_files_var"]}
 
-        ds = xr.Dataset(data_vars=source_vars, coords=source_files_coord, attrs=prov_dict)
+        ds = xr.Dataset(
+            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
+        )
 
         return ds
 
@@ -152,7 +150,7 @@ class SetGroupsBase(abc.ABC):
             attrs={"description": "All NMEA sensor datagrams"},
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     @abc.abstractmethod
     def set_vendor(self) -> xr.Dataset:
