@@ -372,19 +372,35 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
     n_bin_ping = len(bins_ping)
     n_bin_er = len(bins_er)
 
+    binned_means = []
+    for bin_er in range(1, n_bin_er):
+        er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
+
+        binned_means.append(er_selected_data)
+
+    er_means = np.vstack(binned_means).compute()
+
+    final = np.empty((n_bin_ping, n_bin_er - 1))
+    for bin_ping in range(1, n_bin_ping + 1):
+        indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
+        final[bin_ping - 1, :] = 10 * np.log10(np.nanmean(er_means[:, indices], axis=1))
+
+    return final
+    #
     # binned_means = []
     # for bin_er in range(1, n_bin_er):
-    #     # er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-    #     er_selected_data = arr[:, bin_er_ind == bin_er]
+    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
     #
-    #     temp = []
-    #     for bin_ping in range(1, n_bin_ping + 1):
-    #         indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
-    #         temp.append(er_selected_data[indices, :])
+    #     binned_means.append(er_selected_data)
     #
-    #     binned_means.append(temp)
+    # er_means = np.vstack(binned_means)
     #
-    # return binned_means
+    # final_list = []
+    # for bin_ping in range(1, n_bin_ping + 1):
+    #     indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
+    #     final_list.append(10 * np.log10(np.nanmean(er_means[:, indices], axis=1)))
+    #
+    # return np.vstack(final_list)
 
     # binned_means = []
     # for bin_er in range(1, n_bin_er):
@@ -404,20 +420,20 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
 
     # return binned_means
 
-    binned_means = []
-    for bin_er in range(1, n_bin_er):
-        er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-
-        data_rows = []  # TODO: rename?
-        for bin_ping in range(1, n_bin_ping + 1):
-            data_rows.append(er_selected_data[bin_ping_ind == bin_ping])
-
-        temp = np.concatenate(data_rows, axis=0)
-        temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk("auto")
-        binned_means.append(temp)
-
-    stacked_means = np.transpose(np.vstack(binned_means)).rechunk("auto")
-    return 10 * np.log10(stacked_means)
+    # binned_means = []
+    # for bin_er in range(1, n_bin_er):
+    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
+    #
+    #     data_rows = []  # TODO: rename?
+    #     for bin_ping in range(1, n_bin_ping + 1):
+    #         data_rows.append(er_selected_data[bin_ping_ind == bin_ping])
+    #
+    #     temp = np.concatenate(data_rows, axis=0)
+    #     temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk("auto")
+    #     binned_means.append(temp)
+    #
+    # stacked_means = np.transpose(np.vstack(binned_means)).rechunk("auto")
+    # return 10 * np.log10(stacked_means)
 
     # binned_means = []
     # for bin_ping in range(1, n_bin_ping + 1):
