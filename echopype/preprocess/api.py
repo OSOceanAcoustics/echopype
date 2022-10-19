@@ -372,28 +372,51 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
     n_bin_ping = len(bins_ping)
     n_bin_er = len(bins_er)
 
+    # binned_means = []
+    # for bin_er in range(1, n_bin_er):
+    #     # er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
+    #     er_selected_data = arr[:, bin_er_ind == bin_er]
+    #
+    #     temp = []
+    #     for bin_ping in range(1, n_bin_ping + 1):
+    #         indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
+    #         temp.append(er_selected_data[indices, :])
+    #
+    #     binned_means.append(temp)
+    #
+    # return binned_means
+
+    # binned_means = []
+    # for bin_er in range(1, n_bin_er):
+    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
+    #     # er_selected_data = arr[:, bin_er_ind == bin_er]
+    #
+    #     binned_means.append(er_selected_data)
+    #
+    # temp = np.vstack(binned_means)
+    #
+    # temp2 = []
+    # for bin_ping in range(1, n_bin_ping + 1):
+    #     indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
+    #     temp2.append(10 * np.log10(np.nanmean(temp[:, indices], axis=1)))
+
+    # return np.vstack(temp2)
+
+    # return binned_means
+
     binned_means = []
     for bin_er in range(1, n_bin_er):
-        # er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-
-        # er_selected_data = arr[:, bin_er_ind == bin_er]
         er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-        #
-        # binned_means.append(er_selected_data)
 
         data_rows = []  # TODO: rename?
         for bin_ping in range(1, n_bin_ping + 1):
-            # data_rows.append(np.nanmean(er_selected_data[bin_ping_ind == bin_ping]))
-            # data_rows.append(er_selected_data[bin_ping_ind == bin_ping, :])
             data_rows.append(er_selected_data[bin_ping_ind == bin_ping])
-        #
-        # binned_means.append(data_rows)
+
         temp = np.concatenate(data_rows, axis=0)
-        temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk('auto')  #[None, None], chunks=(1, 1))
+        temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk("auto")
         binned_means.append(temp)
 
-    stacked_means = np.transpose(np.vstack(binned_means)).rechunk('auto')
-    # return binned_means
+    stacked_means = np.transpose(np.vstack(binned_means)).rechunk("auto")
     return 10 * np.log10(stacked_means)
 
     # binned_means = []
@@ -425,7 +448,7 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
     # resample(ping_time='20s', skipna=True).groups.keys()))
 
     all_MVBS = []
-    for chan in ds_Sv.channel[:1]:
+    for chan in ds_Sv.channel:
 
         # squeeze to remove "channel" dim if present
         # TODO: not sure why not already removed for the AZFP case. Investigate.
@@ -459,5 +482,4 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
             )
         )
 
-    # return all_MVBS
     return np.stack(all_MVBS, axis=0)
