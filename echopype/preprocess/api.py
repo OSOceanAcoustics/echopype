@@ -332,7 +332,7 @@ def regrid():
     return 1
 
 
-def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
+def bin_and_mean_2d(arr, bins_time, bins_er, times, echo_range):
     """
     Bins and means a 2D array
 
@@ -351,109 +351,67 @@ def bin_and_mean_2d(arr, bins_ping, bins_er, pings, echo_range):
 
     # TODO: put in check to make sure arr is 2D
 
-    # turn datetime into integers, so we can use np.digitize
-    if isinstance(pings, dask.array.Array):
-        pings_i8 = pings.compute().data.view("i8")
-    else:
-        pings_i8 = pings.view("i8")
-
-    # turn datetime into integers, so we can use np.digitize
-    bins_ping_i8 = bins_ping.view("i8")
-
-    # get bin index for each ping
-    bin_ping_ind = np.digitize(pings_i8, bins_ping_i8, right=False)
-
     # get bin index for each echo_range value
     if isinstance(echo_range, dask.array.Array):
         bin_er_ind = np.digitize(echo_range.compute(), bins_er, right=False)
     else:
         bin_er_ind = np.digitize(echo_range, bins_er, right=False)
 
-    n_bin_ping = len(bins_ping)
     n_bin_er = len(bins_er)
 
     binned_means = []
     for bin_er in range(1, n_bin_er):
+
         er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
 
         binned_means.append(er_selected_data)
 
     er_means = np.vstack(binned_means).compute()
 
-    final = np.empty((n_bin_ping, n_bin_er - 1))
-    for bin_ping in range(1, n_bin_ping + 1):
-        indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
-        final[bin_ping - 1, :] = 10 * np.log10(np.nanmean(er_means[:, indices], axis=1))
+    # turn datetime into integers, so we can use np.digitize
+    if isinstance(times, dask.array.Array):
+        times_i8 = times.compute().data.view("i8")
+    else:
+        times_i8 = times.view("i8")
+
+    # turn datetime into integers, so we can use np.digitize
+    bins_time_i8 = bins_time.view("i8")
+
+    final = bin_and_mean_times(er_means, bins_time_i8, times_i8)
 
     return final
-    #
-    # binned_means = []
-    # for bin_er in range(1, n_bin_er):
-    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-    #
-    #     binned_means.append(er_selected_data)
-    #
-    # er_means = np.vstack(binned_means)
-    #
-    # final_list = []
-    # for bin_ping in range(1, n_bin_ping + 1):
-    #     indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
-    #     final_list.append(10 * np.log10(np.nanmean(er_means[:, indices], axis=1)))
-    #
-    # return np.vstack(final_list)
 
-    # binned_means = []
-    # for bin_er in range(1, n_bin_er):
-    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-    #     # er_selected_data = arr[:, bin_er_ind == bin_er]
-    #
-    #     binned_means.append(er_selected_data)
-    #
-    # temp = np.vstack(binned_means)
-    #
-    # temp2 = []
-    # for bin_ping in range(1, n_bin_ping + 1):
-    #     indices = np.argwhere(bin_ping_ind == bin_ping).flatten()
-    #     temp2.append(10 * np.log10(np.nanmean(temp[:, indices], axis=1)))
 
-    # return np.vstack(temp2)
+def bin_and_mean_times(er_means, bins_time_i8, times_i8):
+    """
 
-    # return binned_means
 
-    # binned_means = []
-    # for bin_er in range(1, n_bin_er):
-    #     er_selected_data = np.nanmean(arr[:, bin_er_ind == bin_er], axis=1)
-    #
-    #     data_rows = []  # TODO: rename?
-    #     for bin_ping in range(1, n_bin_ping + 1):
-    #         data_rows.append(er_selected_data[bin_ping_ind == bin_ping])
-    #
-    #     temp = np.concatenate(data_rows, axis=0)
-    #     temp = temp.map_blocks(lambda x: np.nanmean(x), chunks=(1,)).rechunk("auto")
-    #     binned_means.append(temp)
-    #
-    # stacked_means = np.transpose(np.vstack(binned_means)).rechunk("auto")
-    # return 10 * np.log10(stacked_means)
+    Parameters
+    ----------
+    er_means
+    bins_time
+    times
 
-    # binned_means = []
-    # for bin_ping in range(1, n_bin_ping + 1):
-    #
-    #     # ping_selected_data = arr[bin_ping_ind == bin_ping, :]
-    #     ping_selected_data = np.nanmean(arr[bin_ping_ind == bin_ping, :], axis=0)
-    #
-    #     data_rows = []
-    #     # TODO: can we do a mapping here, instead of a for loop?
-    #     for bin_er in range(1, n_bin_er):
-    #         # data_rows.append(np.nanmean(ping_selected_data[:, bin_er_ind == bin_er]))
-    #         data_rows.append(np.nanmean(ping_selected_data[bin_er_ind == bin_er]))
-    #
-    #     # TODO:: can we use something besides stack that is more efficient?
-    #     binned_means.append(np.stack(data_rows, axis=0))
+    Returns
+    -------
 
-    # if isinstance(arr, dask.array.Array):
-    #     return 10 * np.log10(np.transpose(np.stack(binned_means, axis=0))) #.rechunk("auto")))
-    # else:
-    #     return 10 * np.log10(np.transpose(np.stack(binned_means, axis=0)))
+    Notes
+    -----
+    This function assumes that ``times`` corresponds to the
+    columns of ``er_means``.
+    """
+
+    # get bin index for each time
+    bin_time_ind = np.digitize(times_i8, bins_time_i8, right=False)
+
+    n_bin_time = len(bins_time_i8)
+
+    final = np.empty((n_bin_time, er_means.shape[0]))
+    for bin_time in range(1, n_bin_time + 1):
+        indices = np.argwhere(bin_time_ind == bin_time).flatten()
+        final[bin_time - 1, :] = 10 * np.log10(np.nanmean(er_means[:, indices], axis=1))
+
+    return final
 
 
 def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
@@ -491,9 +449,9 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
         all_MVBS.append(
             bin_and_mean_2d(
                 sv.data,
-                bins_ping=ping_interval,
+                bins_time=ping_interval,
                 bins_er=range_interval,
-                pings=sv.ping_time.data,
+                times=sv.ping_time.data,
                 echo_range=sv.echo_range.data,
             )
         )
