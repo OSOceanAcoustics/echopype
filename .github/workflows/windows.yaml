@@ -37,7 +37,7 @@ jobs:
             - 8080:80
       steps:
         - name: Checkout repo
-          uses: actions/checkout@v2
+          uses: actions/checkout@v3
         - name: Copying test data to http server
           run: |
             rm .\echopype\test_data -r -fo

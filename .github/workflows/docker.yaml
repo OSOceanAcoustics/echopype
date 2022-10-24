@@ -18,7 +18,7 @@ jobs:
         image_name: ["minioci", "http"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Retrieve test data
         if: matrix.image_name == 'http'
         uses: ./.github/actions/gdrive-rclone
