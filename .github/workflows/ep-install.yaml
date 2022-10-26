@@ -18,7 +18,7 @@ jobs:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:

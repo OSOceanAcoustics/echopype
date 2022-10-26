@@ -18,7 +18,7 @@ jobs:
     if: github.repository == 'OSOceanAcoustics/echopype'
     steps:
     - name: Checkout
-      uses: actions/checkout@v2.3.4
+      uses: actions/checkout@v3
       with:
         # fetch all history so that setuptools-scm works
         fetch-depth: 0
