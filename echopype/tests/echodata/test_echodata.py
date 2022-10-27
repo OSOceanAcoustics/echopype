@@ -191,27 +191,41 @@ def range_check_files(request, test_path):
 
 
 class TestEchoData:
+    expected_groups = {
+        'Top-level',
+        'Environment',
+        'Platform',
+        'Platform/NMEA',
+        'Provenance',
+        'Sonar',
+        'Sonar/Beam_group1',
+        'Vendor_specific',
+    }
+
     @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
         return single_ek60_zarr
 
+    def create_ed(self, converted_raw_path):
+        return EchoData.from_file(converted_raw_path=converted_raw_path)
+
     def test_constructor(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        expected_groups = [
-            'Top-level',
-            'Environment',
-            'Platform',
-            'Provenance',
-            'Sonar',
-            'Sonar/Beam_group1',
-            'Vendor_specific',
-        ]
+        ed = self.create_ed(converted_zarr)
 
         assert ed.sonar_model == 'EK60'
         assert ed.converted_raw_path == converted_zarr
         assert ed.storage_options == {}
-        for group in expected_groups:
+        for group in self.expected_groups:
             assert isinstance(ed[group], xr.Dataset)
+
+    def test_group_paths(self, converted_zarr):
+        ed = self.create_ed(converted_zarr)
+        assert ed.group_paths == self.expected_groups
+
+    def test_nbytes(self, converted_zarr):
+        ed = self.create_ed(converted_zarr)
+        assert isinstance(ed.nbytes, float)
+        assert ed.nbytes == 4688692.0
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
@@ -227,13 +241,13 @@ class TestEchoData:
             │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
             └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
         )
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
         assert expected_repr == actual
 
     def test_repr_html(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         assert hasattr(ed, "_repr_html_")
         html_repr = ed._repr_html_().strip()
         assert (
@@ -251,7 +265,7 @@ class TestEchoData:
     def test_setattr(self, converted_zarr):
         sample_data = xr.Dataset({"x": [0, 0, 0]})
         sample_data2 = xr.Dataset({"y": [0, 0, 0]})
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         current_ed_beam = ed["Sonar/Beam_group1"]
         current_ed_top = ed['Top-level']
         ed["Sonar/Beam_group1"] = sample_data
@@ -264,7 +278,7 @@ class TestEchoData:
         assert ed['Top-level'].equals(current_ed_top) is False
 
     def test_getitem(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         beam = ed['Sonar/Beam_group1']
         assert isinstance(beam, xr.Dataset)
         assert ed['MyGroup'] is None
@@ -276,7 +290,7 @@ class TestEchoData:
             assert isinstance(e, ValueError)
 
     def test_setitem(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'beam': 'beam_newname'})
 
         assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['beam_newname', 'channel', 'ping_time', 'range_sample']
@@ -287,7 +301,7 @@ class TestEchoData:
             assert isinstance(e, GroupNotFoundError)
 
     def test_get_dataset(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         node = DataTree()
         result = ed._EchoData__get_dataset(node)
 
