@@ -83,7 +83,7 @@ jobs:
           pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ci_test_log
           path: ci_test_log.log
