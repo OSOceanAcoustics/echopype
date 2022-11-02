@@ -93,7 +93,7 @@ jobs:
           python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=${{ env.NUM_WORKERS }},--max-worker-restart=3,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
       - name: Upload ci test log
         if: ${{ success() || failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ci_test_log
           path: ci_test_log.log
