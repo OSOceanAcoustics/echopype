@@ -209,6 +209,10 @@ class EchoData:
         return None
 
     @property
+    def nbytes(self) -> float:
+        return float(sum(self[p].nbytes for p in self.group_paths))
+
+    @property
     def group_paths(self) -> Set[str]:
         return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
 
