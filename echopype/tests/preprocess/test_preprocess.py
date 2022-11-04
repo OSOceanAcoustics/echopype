@@ -6,6 +6,7 @@ import pytest
 import dask.array
 
 from echopype.preprocess.api import bin_and_mean_2d
+from typing import List, Tuple, Iterable
 
 
 @pytest.fixture(
@@ -512,40 +513,80 @@ def test_preprocess_mvbs(test_data_samples):
     assert ep.preprocess.compute_MVBS(Sv) is not None
 
 
-def create_bins(csum_array):
-    # TODO: document!
+def create_bins(csum_array: np.ndarray) -> Iterable:
+    """
+    Constructs bin ranges based off of a cumulative
+    sum array.
+
+    Parameters
+    ----------
+    csum_array: np.ndarray
+        1D array representing a cumulative sum
+
+    Returns
+    -------
+    bins: list
+        A list whose elements are the lower and upper bin ranges
+    """
+
     bins = []
+
+    # construct bins
     for count, csum in enumerate(csum_array):
 
         if count == 0:
-            bins.append((0, csum))
+
+            bins.append([0, csum])
+
         else:
+
             # add 0.01 so that left bins don't overlap
-            bins.append((csum_array[count-1] + 0.01, csum))
+            bins.append([csum_array[count-1] + 0.01, csum])
+
     return bins
 
 
-def create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, er_range):
+def create_echo_range_related_data(ping_bins: Iterable,
+                                   num_pings_in_bin: np.ndarray,
+                                   er_range: list, er_bins: Iterable,
+                                   final_num_er_bins: int) -> Tuple[list, list, list]:
+    """
+    Creates ``echo_range`` values and associated bin information.
 
-    # TODO: document and split up function into parts
+    Parameters
+    ----------
+    ping_bins: list
+        A list whose elements are the lower and upper ping time bin ranges
+    num_pings_in_bin: np.ndarray
+        Specifies the number of pings in each ping time bin
+    er_range: list
+        A list whose first element is the lowest and second element is
+        the highest possible number of echo range values in a given bin
+    er_bins:  list
+        A list whose elements are the lower and upper echo range bin ranges
+    final_num_er_bins: int
+        The total number of echo range bins
 
-    num_pings_in_bin = np.random.randint(low=ping_range[0], high=ping_range[1], size=final_num_ping_bins)
+    Returns
+    -------
+    all_er_bin_nums: list of np.ndarray
+        A list whose elements are the number of values in each echo_range
+        bin, for each ping bin
+    ping_times_in_bin: list of np.ndarray
+        A list whose elements are the ping_time values for each corresponding bin
+    final_arrays: list of np.ndarray
+        A list whose elements are the echo_range values for a given ping and
+        echo range bin block
+    """
 
-    # create bins for ping_time dimension
-    ping_csum = np.cumsum(num_pings_in_bin)
-    ping_bins = create_bins(ping_csum)
-
-    # create bins for echo_range dimension
-    num_er_in_bin = np.random.randint(low=er_range[0], high=er_range[1], size=final_num_er_bins)
-    er_csum = np.cumsum(num_er_in_bin)
-    er_bins = create_bins(er_csum)
-
-    # build echo_range array
     final_arrays = []
     all_er_bin_nums = []
     ping_times_in_bin = []
+
+    # build echo_range array
     for ping_ind, ping_bin in enumerate(ping_bins):
 
+        # create the ping times associated with each ping bin
         ping_times_in_bin.append(np.random.uniform(ping_bin[0], ping_bin[1], (num_pings_in_bin[ping_ind],)))
 
         # randomly determine the number of values in each echo_range bin
@@ -566,8 +607,30 @@ def create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, e
         # collect and construct echo_range row block
         final_arrays.append(np.concatenate(er_row_block, axis=1))
 
-    # get final ping_time dimension
-    final_ping_time = np.concatenate(ping_times_in_bin).astype('datetime64[ns]')
+    return all_er_bin_nums, ping_times_in_bin, final_arrays
+
+
+def construct_2d_echo_range_array(final_arrays: Iterable[np.ndarray],
+                                  ping_csum: np.ndarray) -> Tuple[np.ndarray, int]:
+    """
+    Creates the final 2D ``echo_range`` array with appropriate padding.
+
+    Parameters
+    ----------
+    final_arrays: list of np.ndarray
+        A list whose elements are the echo_range values for a given ping and
+        echo range bin block
+    ping_csum: np.ndarray
+        1D array representing the cumulative sum for the number of ping times
+        in each ping bin
+
+    Returns
+    -------
+    final_er: np.ndarray
+        The final 2D ``echo_range`` array
+    max_num_er_elem: int
+        The maximum number of ``echo_range`` elements amongst all times
+    """
 
     # get maximum number of echo_range elements amongst all times
     max_num_er_elem = max([arr.shape[1] for arr in final_arrays])
@@ -584,6 +647,39 @@ def create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, e
             final_er[0:ping_csum[count], 0:arr.shape[1]] = arr
         else:
             final_er[ping_csum[count - 1]:ping_csum[count], 0:arr.shape[1]] = arr
+
+    return final_er, max_num_er_elem
+
+
+def construct_2d_sv_array(max_num_er_elem: int, ping_csum: np.ndarray,
+                          all_er_bin_nums: Iterable[np.ndarray],
+                          num_pings_in_bin: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Creates the final 2D Sv array with appropriate padding.
+
+    Parameters
+    ----------
+    max_num_er_elem: int
+        The maximum number of ``echo_range`` elements amongst all times
+    ping_csum: np.ndarray
+        1D array representing the cumulative sum for the number of ping times
+        in each ping bin
+    all_er_bin_nums: list of np.ndarray
+        A list whose elements are the number of values in each echo_range
+        bin, for each ping bin
+    num_pings_in_bin: np.ndarray
+        Specifies the number of pings in each ping time bin
+
+    Returns
+    -------
+    final_sv: np.ndarray
+        The final 2D Sv array
+    final_MVBS: np.ndarray
+        The final 2D known MVBS array
+    """
+
+    # total number of ping times
+    tot_num_times = ping_csum[-1]
 
     # pad echo_range dimension with nans and create final sv
     final_sv = np.empty((tot_num_times, max_num_er_elem))
@@ -612,9 +708,85 @@ def create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, e
     # create final sv MVBS
     final_MVBS = np.vstack(final_means)
 
+    return final_sv, final_MVBS
+
+
+def create_known_mean_data(final_num_ping_bins: int,
+                           final_num_er_bins: int,
+                           ping_range: list,
+                           er_range: list) -> Tuple[np.ndarray, np.ndarray, Iterable,
+                                                    Iterable, np.ndarray, np.ndarray]:
+    """
+    Orchestrates the creation of ``echo_range``, ``ping_time``, and ``Sv`` arrays
+    where the MVBS is known.
+
+    Parameters
+    ----------
+    final_num_ping_bins: int
+        The total number of ping time bins
+    final_num_er_bins: int
+        The total number of echo range bins
+    ping_range: list
+        A list whose first element is the lowest and second element is
+        the highest possible number of ping time values in a given bin
+    er_range: list
+        A list whose first element is the lowest and second element is
+        the highest possible number of echo range values in a given bin
+
+    Returns
+    -------
+    final_MVBS: np.ndarray
+        The final 2D known MVBS array
+    final_sv: np.ndarray
+        The final 2D Sv array
+    ping_bins: Iterable
+        A list whose elements are the lower and upper ping time bin ranges
+    er_bins: Iterable
+        A list whose elements are the lower and upper echo range bin ranges
+    final_er: np.ndarray
+        The final 2D ``echo_range`` array
+    final_ping_time: np.ndarray
+        The final 1D ``ping_time`` array
+    """
+
+    # randomly generate the number of pings in each ping bin
+    num_pings_in_bin = np.random.randint(low=ping_range[0], high=ping_range[1], size=final_num_ping_bins)
+
+    # create bins for ping_time dimension
+    ping_csum = np.cumsum(num_pings_in_bin)
+    ping_bins = create_bins(ping_csum)
+
+    # create bins for echo_range dimension
+    num_er_in_bin = np.random.randint(low=er_range[0], high=er_range[1], size=final_num_er_bins)
+    er_csum = np.cumsum(num_er_in_bin)
+    er_bins = create_bins(er_csum)
+
+    # create the echo_range data and associated bin information
+    all_er_bin_nums, ping_times_in_bin, final_er_arrays = create_echo_range_related_data(ping_bins, num_pings_in_bin,
+                                                                                         er_range, er_bins,
+                                                                                         final_num_er_bins)
+
+    # create the final echo_range array using created data and padding
+    final_er, max_num_er_elem = construct_2d_echo_range_array(final_er_arrays, ping_csum)
+
+    # get final ping_time dimension
+    final_ping_time = np.concatenate(ping_times_in_bin).astype('datetime64[ns]')
+
+    # create the final sv array
+    final_sv, final_MVBS = construct_2d_sv_array(max_num_er_elem, ping_csum, all_er_bin_nums, num_pings_in_bin)
+
     return final_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time
 
-def test_bin_and_mean_2d():
+
+def test_bin_and_mean_2d() -> None:
+    """
+    Tests the function ``bin_and_mean_2d``, which is the core
+    method for ``compute_MVBS``. This is done by creating mock
+    data (which can have varying number of ``echo_range`` values
+    for each ``ping_time``) with known means.
+    """
+
+
     # TODO: create lazy option for sv and echo_range
 
     # TODO: document and create a fixture with input of create_dask
@@ -627,15 +799,21 @@ def test_bin_and_mean_2d():
     ping_range = [1, 5]
     er_range = [1, 5]
 
-    known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, er_range)
+    # create echo_range, ping_time, and Sv arrays where the MVBS is known
+    known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins,
+                                                                                                 final_num_er_bins,
+                                                                                                 ping_range, er_range)
 
+    # put the created ping bins into a form that works with bin_and_mean_2d
     digitize_ping_bin = np.array([*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:-1]])
-    digitize_er_bin = np.array([*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]])
     digitize_ping_bin = digitize_ping_bin.astype('datetime64[ns]')
 
+    # put the created echo range bins into a form that works with bin_and_mean_2d
+    digitize_er_bin = np.array([*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]])
+
+    # calculate MVBS for mock data set
     calc_MVBS = bin_and_mean_2d(arr=final_sv, bins_time=digitize_ping_bin,
                                 bins_er=digitize_er_bin, times=final_ping_time, echo_range=final_er)
 
+    # compare known MVBS solution against its calculated counterpart
     assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10)
-
-
