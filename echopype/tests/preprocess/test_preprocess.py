@@ -542,21 +542,24 @@ def create_known_mean_data(create_dask, num_pings_in_bin, num_er_in_bin):
         for count, bin_val in enumerate(er_bins):
 
             if create_dask:
-                a = dask.array.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[count], ping_bin))
+                a = dask.array.random.uniform(bin_val[0], bin_val[1], (num_er_in_bin[count],))
             else:
-                a = np.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[count], ping_bin))
+                a = np.random.uniform(bin_val[0], bin_val[1], (num_er_in_bin[count],))
 
             temp.append(a)
 
         means.append([arr.mean() for arr in temp])
         arrays.append(np.concatenate(temp, axis=0))
 
+    echo_range = np.linspace(0, er_csum.max(), num=er_csum.max() + 1, dtype=np.int64)
+
     if create_dask:
         means = dask.array.from_array(means).compute()
+        echo_range = dask.array.from_array(echo_range)
 
     full_array = np.concatenate(arrays, axis=1)
 
-    return means, full_array, ping_bins, er_bins
+    return means, full_array, ping_bins, er_bins, echo_range
 
 
 def test_bin_and_mean_2d():
@@ -567,7 +570,7 @@ def test_bin_and_mean_2d():
     num_pings_in_bin = np.random.randint(low=10, high=1000, size=10)
     num_er_in_bin = np.random.randint(low=10, high=1000, size=10)
 
-    means, full_array, ping_bins, er_bins = create_known_mean_data(create_dask,
+    means, full_array, ping_bins, er_bins, echo_range = create_known_mean_data(create_dask,
                                                                    num_pings_in_bin, num_er_in_bin)
 
     ping_times = np.concatenate([np.random.uniform(bin_val[0], bin_val[1], num_pings_in_bin[count])
@@ -576,7 +579,7 @@ def test_bin_and_mean_2d():
     digitize_ping_bin = [*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:]]
     digitize_er_bin = [*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]]
 
-    calc_means = bin_and_mean_2d(full_array, digitize_ping_bin, digitize_er_bin, ping_times)
+    calc_means = bin_and_mean_2d(full_array, digitize_ping_bin, digitize_er_bin, ping_times, echo_range)
 
     if create_dask:
         calc_means = calc_means.compute()

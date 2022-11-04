@@ -2,6 +2,8 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
+from typing import Tuple
+
 import dask.array
 import numpy as np
 import pandas as pd
@@ -382,6 +384,115 @@ def bin_and_mean_2d(arr, bins_time, bins_er, times, echo_range):
     return final
 
 
+def get_bin_indices(
+    echo_range: np.ndarray, bins_er: np.ndarray, times: np.ndarray, bins_time: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Obtains the bin index of ``echo_range`` and ``times`` based
+    on the binning ``bins_er`` and ``bins_time``, respectively.
+
+    Parameters
+    ----------
+    echo_range: np.ndarray
+        2D array of echo range values
+    bins_er: np.ndarray
+        1D array (used by np.digitize) representing the binning required for ``echo_range``
+    times: np.ndarray
+        1D array corresponding to the time values that should be binned
+    bins_time: np.ndarray
+        1D array (used by np.digitize) representing the binning required for ``times``
+
+    Returns
+    -------
+    digitized_echo_range: np.ndarray
+        2D array of bin indices for ``echo_range``
+    bin_time_ind: np.ndarray
+        1D array of bin indices for ``times``
+    """
+
+    # get bin index for each echo range value
+    digitized_echo_range = np.digitize(echo_range, bins_er, right=False)
+
+    # turn datetime into integers, so we can use np.digitize
+    if isinstance(times, dask.array.Array):
+        times_i8 = times.compute().data.view("i8")
+    else:
+        times_i8 = times.view("i8")
+
+    # turn datetime into integers, so we can use np.digitize
+    bins_time_i8 = bins_time.view("i8")
+
+    # get bin index for each time
+    bin_time_ind = np.digitize(times_i8, bins_time_i8, right=False)
+
+    return digitized_echo_range, bin_time_ind
+
+
+def mean_temp_arr(n_bin_er, temp_arr, dig_er_subset):
+
+    means = []
+    for bin_er in range(1, n_bin_er):
+        means.append(10 * np.log10(np.nanmean(temp_arr[dig_er_subset == bin_er], axis=0)))
+
+    return means
+
+
+def bin_and_mean_2d_v2(arr, bins_time, bins_er, times, echo_range):
+    """
+
+
+    Returns
+    -------
+
+
+    Notes
+    -----
+    This function assumes that ``arr`` has rows corresponding to
+    ping time and columns corresponding to echo range.
+    """
+
+    # determine if array to bin is lazy or not
+    is_lazy = False
+    if isinstance(arr, dask.array.Array):
+        is_lazy = True
+
+    print(f"is_lazy = {is_lazy}")
+
+    # get the number of echo range and time bins
+    n_bin_er = len(bins_er)
+    n_bin_time = len(bins_time)
+
+    # obtain the bin indices for echo_range and times
+    digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
+
+    all_means = []
+    for bin_time in range(1, n_bin_time + 1):
+
+        # get the indices of time in bin index bin_time
+        indices_time = np.argwhere(bin_time_ind == bin_time).flatten()
+
+        # select only those array values that are in the time bin being considered
+        temp_arr = arr[indices_time, :]
+
+        if is_lazy:
+            all_means.append(
+                dask.delayed(mean_temp_arr)(
+                    n_bin_er, temp_arr, digitized_echo_range[indices_time, :]
+                )
+            )
+        else:
+            all_means.append(
+                mean_temp_arr(n_bin_er, temp_arr, digitized_echo_range[indices_time, :])
+            )
+
+    if is_lazy:
+        all_means = dask.compute(all_means)[0]  # TODO: make this into persist in the future?
+
+    final_reduced = np.array(all_means)
+
+    return final_reduced
+
+
 def bin_and_mean_times(er_means, bins_time_i8, times_i8):
     """
 
@@ -421,6 +532,8 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
     # ping_interval = np.array(list(ds_Sv.ping_time.
     # resample(ping_time='20s', skipna=True).groups.keys()))
 
+    print("account for uneven echo range ")
+
     all_MVBS = []
     for chan in ds_Sv.channel:
 
@@ -431,28 +544,37 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
         # average should be done in linear domain
         sv = 10 ** (ds["Sv"] / 10)
 
-        # set 1D coordinate using the 1st ping echo_range since identical for all pings
-        # remove padded NaN entries if exist for all pings
-        er = (
-            ds["echo_range"]
-            .dropna(dim="range_sample", how="all")
-            .dropna(dim="ping_time")
-            .isel(ping_time=0)
-        )
+        # # set 1D coordinate using the 1st ping echo_range since identical for all pings
+        # # remove padded NaN entries if exist for all pings
+        # er = (
+        #     ds["echo_range"]
+        #     .dropna(dim="range_sample", how="all")
+        #     .dropna(dim="ping_time")
+        #     .isel(ping_time=0)
+        # )
 
-        # use first ping er as indexer for sv
-        sv = sv.sel(range_sample=er.range_sample.values)
-        sv.coords["echo_range"] = (["range_sample"], er.values)
-        sv = sv.swap_dims({"range_sample": "echo_range"})
+        # # use first ping er as indexer for sv
+        # sv = sv.sel(range_sample=er.range_sample.values)
+        # sv.coords["echo_range"] = (["range_sample"], er.values)
+        # sv = sv.swap_dims({"range_sample": "echo_range"})
 
         # collect the MVBS calculated for the channel
+        # all_MVBS.append(
+        #     bin_and_mean_2d(
+        #         sv.data,
+        #         bins_time=ping_interval,
+        #         bins_er=range_interval,
+        #         times=sv.ping_time.data,
+        #         echo_range=sv.echo_range.data,
+        #     )
+        # )
         all_MVBS.append(
-            bin_and_mean_2d(
+            bin_and_mean_2d_v2(
                 sv.data,
                 bins_time=ping_interval,
                 bins_er=range_interval,
                 times=sv.ping_time.data,
-                echo_range=sv.echo_range.data,
+                echo_range=ds["echo_range"].data,
             )
         )
 
