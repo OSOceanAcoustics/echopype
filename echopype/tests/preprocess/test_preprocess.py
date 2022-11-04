@@ -525,64 +525,117 @@ def create_bins(csum_array):
     return bins
 
 
-def create_known_mean_data(create_dask, num_pings_in_bin, num_er_in_bin):
-    # TODO: document!
+def create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, er_range):
 
+    # TODO: document and split up function into parts
+
+    num_pings_in_bin = np.random.randint(low=ping_range[0], high=ping_range[1], size=final_num_ping_bins)
+
+    # create bins for ping_time dimension
     ping_csum = np.cumsum(num_pings_in_bin)
     ping_bins = create_bins(ping_csum)
 
+    # create bins for echo_range dimension
+    num_er_in_bin = np.random.randint(low=er_range[0], high=er_range[1], size=final_num_er_bins)
     er_csum = np.cumsum(num_er_in_bin)
     er_bins = create_bins(er_csum)
 
-    arrays = []
-    means = []
-    for ping_bin in num_pings_in_bin:
+    # build echo_range array
+    final_arrays = []
+    all_er_bin_nums = []
+    ping_times_in_bin = []
+    for ping_ind, ping_bin in enumerate(ping_bins):
 
-        temp = []
+        ping_times_in_bin.append(np.random.uniform(ping_bin[0], ping_bin[1], (num_pings_in_bin[ping_ind],)))
+
+        # randomly determine the number of values in each echo_range bin
+        num_er_in_bin = np.random.randint(low=er_range[0], high=er_range[1], size=final_num_er_bins)
+
+        # store the number of values in each echo_range bin
+        all_er_bin_nums.append(num_er_in_bin)
+
+        er_row_block = []
         for count, bin_val in enumerate(er_bins):
+            # create a block of echo_range values
+            a = np.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[ping_ind],
+                                                           num_er_in_bin[count]))
 
-            if create_dask:
-                a = dask.array.random.uniform(bin_val[0], bin_val[1], (num_er_in_bin[count],))
-            else:
-                a = np.random.uniform(bin_val[0], bin_val[1], (num_er_in_bin[count],))
+            # store the block of echo_range values
+            er_row_block.append(a)
 
-            temp.append(a)
+        # collect and construct echo_range row block
+        final_arrays.append(np.concatenate(er_row_block, axis=1))
 
-        means.append([arr.mean() for arr in temp])
-        arrays.append(np.concatenate(temp, axis=0))
+    # get final ping_time dimension
+    final_ping_time = np.concatenate(ping_times_in_bin).astype('datetime64[ns]')
 
-    echo_range = np.linspace(0, er_csum.max(), num=er_csum.max() + 1, dtype=np.int64)
+    # get maximum number of echo_range elements amongst all times
+    max_num_er_elem = max([arr.shape[1] for arr in final_arrays])
 
-    if create_dask:
-        means = dask.array.from_array(means).compute()
-        echo_range = dask.array.from_array(echo_range)
+    # total number of ping times
+    tot_num_times = ping_csum[-1]
 
-    full_array = np.concatenate(arrays, axis=1)
+    # pad echo_range dimension with nans and create final echo_range
+    final_er = np.empty((tot_num_times, max_num_er_elem))
+    final_er[:] = np.nan
+    for count, arr in enumerate(final_arrays):
 
-    return means, full_array, ping_bins, er_bins, echo_range
+        if count == 0:
+            final_er[0:ping_csum[count], 0:arr.shape[1]] = arr
+        else:
+            final_er[ping_csum[count - 1]:ping_csum[count], 0:arr.shape[1]] = arr
 
+    # pad echo_range dimension with nans and create final sv
+    final_sv = np.empty((tot_num_times, max_num_er_elem))
+    final_sv[:] = np.nan
+
+    final_means = []
+    for count, arr in enumerate(all_er_bin_nums):
+
+        # create sv row values using natural numbers
+        sv_row_list = [np.arange(1, num_elem + 1, 1) for num_elem in arr]
+
+        # create final sv row
+        sv_row = np.concatenate(sv_row_list)
+
+        # get final mean which is n+1/2 (since we are using natural numbers)
+        final_means.append([(len(elem) + 1) / 2.0 for elem in sv_row_list])
+
+        # create sv row block
+        sv_row_block = np.tile(sv_row, (num_pings_in_bin[count], 1))
+
+        if count == 0:
+            final_sv[0:ping_csum[count], 0:sv_row_block.shape[1]] = sv_row_block
+        else:
+            final_sv[ping_csum[count - 1]:ping_csum[count], 0:sv_row_block.shape[1]] = sv_row_block
+
+    # create final sv MVBS
+    final_MVBS = np.vstack(final_means)
+
+    return final_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time
 
 def test_bin_and_mean_2d():
+    # TODO: create lazy option for sv and echo_range
+
     # TODO: document and create a fixture with input of create_dask
 
     create_dask = True
 
-    num_pings_in_bin = np.random.randint(low=10, high=1000, size=10)
-    num_er_in_bin = np.random.randint(low=10, high=1000, size=10)
+    final_num_ping_bins = 2
+    final_num_er_bins = 5
 
-    means, full_array, ping_bins, er_bins, echo_range = create_known_mean_data(create_dask,
-                                                                   num_pings_in_bin, num_er_in_bin)
+    ping_range = [1, 5]
+    er_range = [1, 5]
 
-    ping_times = np.concatenate([np.random.uniform(bin_val[0], bin_val[1], num_pings_in_bin[count])
-                                 for count, bin_val in enumerate(ping_bins)])
+    known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins, final_num_er_bins, ping_range, er_range)
 
-    digitize_ping_bin = [*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:]]
-    digitize_er_bin = [*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]]
+    digitize_ping_bin = np.array([*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:-1]])
+    digitize_er_bin = np.array([*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]])
+    digitize_ping_bin = digitize_ping_bin.astype('datetime64[ns]')
 
-    calc_means = bin_and_mean_2d(full_array, digitize_ping_bin, digitize_er_bin, ping_times, echo_range)
+    calc_MVBS = bin_and_mean_2d(arr=final_sv, bins_time=digitize_ping_bin,
+                                bins_er=digitize_er_bin, times=final_ping_time, echo_range=final_er)
 
-    if create_dask:
-        calc_means = calc_means.compute()
+    assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10)
 
-    assert np.allclose(calc_means, means, atol=1e-10, rtol=1e-10)
 
