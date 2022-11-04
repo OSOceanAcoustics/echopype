@@ -6,7 +6,7 @@ import pytest
 import dask.array
 
 from echopype.preprocess.api import bin_and_mean_2d
-from typing import List, Tuple, Iterable
+from typing import List, Tuple, Iterable, Union
 
 
 @pytest.fixture(
@@ -549,7 +549,8 @@ def create_bins(csum_array: np.ndarray) -> Iterable:
 def create_echo_range_related_data(ping_bins: Iterable,
                                    num_pings_in_bin: np.ndarray,
                                    er_range: list, er_bins: Iterable,
-                                   final_num_er_bins: int) -> Tuple[list, list, list]:
+                                   final_num_er_bins: int,
+                                   create_dask: bool) -> Tuple[list, list, list]:
     """
     Creates ``echo_range`` values and associated bin information.
 
@@ -566,6 +567,9 @@ def create_echo_range_related_data(ping_bins: Iterable,
         A list whose elements are the lower and upper echo range bin ranges
     final_num_er_bins: int
         The total number of echo range bins
+    create_dask: bool
+        If True ``final_arrays`` values will be
+        dask arrays, else they will be numpy arrays
 
     Returns
     -------
@@ -574,7 +578,7 @@ def create_echo_range_related_data(ping_bins: Iterable,
         bin, for each ping bin
     ping_times_in_bin: list of np.ndarray
         A list whose elements are the ping_time values for each corresponding bin
-    final_arrays: list of np.ndarray
+    final_arrays: list of np.ndarray or dask.array.Array
         A list whose elements are the echo_range values for a given ping and
         echo range bin block
     """
@@ -597,9 +601,14 @@ def create_echo_range_related_data(ping_bins: Iterable,
 
         er_row_block = []
         for count, bin_val in enumerate(er_bins):
+
             # create a block of echo_range values
-            a = np.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[ping_ind],
-                                                           num_er_in_bin[count]))
+            if create_dask:
+                a = dask.array.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[ping_ind],
+                                                                       num_er_in_bin[count]))
+            else:
+                a = np.random.uniform(bin_val[0], bin_val[1], (num_pings_in_bin[ping_ind],
+                                                               num_er_in_bin[count]))
 
             # store the block of echo_range values
             er_row_block.append(a)
@@ -611,7 +620,8 @@ def create_echo_range_related_data(ping_bins: Iterable,
 
 
 def construct_2d_echo_range_array(final_arrays: Iterable[np.ndarray],
-                                  ping_csum: np.ndarray) -> Tuple[np.ndarray, int]:
+                                  ping_csum: np.ndarray,
+                                  create_dask: bool) -> Tuple[Union[np.ndarray, dask.array.Array], int]:
     """
     Creates the final 2D ``echo_range`` array with appropriate padding.
 
@@ -623,10 +633,12 @@ def construct_2d_echo_range_array(final_arrays: Iterable[np.ndarray],
     ping_csum: np.ndarray
         1D array representing the cumulative sum for the number of ping times
         in each ping bin
+    create_dask: bool
+        If True ``final_er`` will be a dask array, else it will be a numpy array
 
     Returns
     -------
-    final_er: np.ndarray
+    final_er: np.ndarray or dask.array.Array
         The final 2D ``echo_range`` array
     max_num_er_elem: int
         The maximum number of ``echo_range`` elements amongst all times
@@ -639,8 +651,12 @@ def construct_2d_echo_range_array(final_arrays: Iterable[np.ndarray],
     tot_num_times = ping_csum[-1]
 
     # pad echo_range dimension with nans and create final echo_range
-    final_er = np.empty((tot_num_times, max_num_er_elem))
-    final_er[:] = np.nan
+    if create_dask:
+        final_er = dask.array.ones(shape=(tot_num_times, max_num_er_elem)) * np.nan
+    else:
+        final_er = np.empty((tot_num_times, max_num_er_elem))
+        final_er[:] = np.nan
+
     for count, arr in enumerate(final_arrays):
 
         if count == 0:
@@ -653,7 +669,9 @@ def construct_2d_echo_range_array(final_arrays: Iterable[np.ndarray],
 
 def construct_2d_sv_array(max_num_er_elem: int, ping_csum: np.ndarray,
                           all_er_bin_nums: Iterable[np.ndarray],
-                          num_pings_in_bin: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+                          num_pings_in_bin: np.ndarray,
+                          create_dask: bool) -> Tuple[Union[np.ndarray, dask.array.Array],
+                                                      np.ndarray]:
     """
     Creates the final 2D Sv array with appropriate padding.
 
@@ -669,10 +687,12 @@ def construct_2d_sv_array(max_num_er_elem: int, ping_csum: np.ndarray,
         bin, for each ping bin
     num_pings_in_bin: np.ndarray
         Specifies the number of pings in each ping time bin
+    create_dask: bool
+        If True ``final_sv`` will be a dask array, else it will be a numpy array
 
     Returns
     -------
-    final_sv: np.ndarray
+    final_sv: np.ndarray or dask.array.Array
         The final 2D Sv array
     final_MVBS: np.ndarray
         The final 2D known MVBS array
@@ -682,8 +702,11 @@ def construct_2d_sv_array(max_num_er_elem: int, ping_csum: np.ndarray,
     tot_num_times = ping_csum[-1]
 
     # pad echo_range dimension with nans and create final sv
-    final_sv = np.empty((tot_num_times, max_num_er_elem))
-    final_sv[:] = np.nan
+    if create_dask:
+        final_sv = dask.array.ones(shape=(tot_num_times, max_num_er_elem)) * np.nan
+    else:
+        final_sv = np.empty((tot_num_times, max_num_er_elem))
+        final_sv[:] = np.nan
 
     final_means = []
     for count, arr in enumerate(all_er_bin_nums):
@@ -714,8 +737,8 @@ def construct_2d_sv_array(max_num_er_elem: int, ping_csum: np.ndarray,
 def create_known_mean_data(final_num_ping_bins: int,
                            final_num_er_bins: int,
                            ping_range: list,
-                           er_range: list) -> Tuple[np.ndarray, np.ndarray, Iterable,
-                                                    Iterable, np.ndarray, np.ndarray]:
+                           er_range: list, create_dask: bool) -> Tuple[np.ndarray, np.ndarray, Iterable,
+                                                                       Iterable, np.ndarray, np.ndarray]:
     """
     Orchestrates the creation of ``echo_range``, ``ping_time``, and ``Sv`` arrays
     where the MVBS is known.
@@ -732,6 +755,9 @@ def create_known_mean_data(final_num_ping_bins: int,
     er_range: list
         A list whose first element is the lowest and second element is
         the highest possible number of echo range values in a given bin
+    create_dask: bool
+        If True the ``Sv`` and ``echo_range`` values produced will be
+        dask arrays, else they will be numpy arrays.
 
     Returns
     -------
@@ -764,16 +790,18 @@ def create_known_mean_data(final_num_ping_bins: int,
     # create the echo_range data and associated bin information
     all_er_bin_nums, ping_times_in_bin, final_er_arrays = create_echo_range_related_data(ping_bins, num_pings_in_bin,
                                                                                          er_range, er_bins,
-                                                                                         final_num_er_bins)
+                                                                                         final_num_er_bins,
+                                                                                         create_dask)
 
     # create the final echo_range array using created data and padding
-    final_er, max_num_er_elem = construct_2d_echo_range_array(final_er_arrays, ping_csum)
+    final_er, max_num_er_elem = construct_2d_echo_range_array(final_er_arrays, ping_csum, create_dask)
 
     # get final ping_time dimension
     final_ping_time = np.concatenate(ping_times_in_bin).astype('datetime64[ns]')
 
     # create the final sv array
-    final_sv, final_MVBS = construct_2d_sv_array(max_num_er_elem, ping_csum, all_er_bin_nums, num_pings_in_bin)
+    final_sv, final_MVBS = construct_2d_sv_array(max_num_er_elem, ping_csum,
+                                                 all_er_bin_nums, num_pings_in_bin, create_dask)
 
     return final_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time
 
@@ -784,10 +812,13 @@ def test_bin_and_mean_2d() -> None:
     method for ``compute_MVBS``. This is done by creating mock
     data (which can have varying number of ``echo_range`` values
     for each ``ping_time``) with known means.
+
+    Parameters
+    ----------
+    create_dask: bool
+        If True the ``Sv`` and ``echo_range`` values produced will be
+        dask arrays, else they will be numpy arrays.
     """
-
-
-    # TODO: create lazy option for sv and echo_range
 
     # TODO: document and create a fixture with input of create_dask
 
@@ -802,7 +833,8 @@ def test_bin_and_mean_2d() -> None:
     # create echo_range, ping_time, and Sv arrays where the MVBS is known
     known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins,
                                                                                                  final_num_er_bins,
-                                                                                                 ping_range, er_range)
+                                                                                                 ping_range, er_range,
+                                                                                                 create_dask)
 
     # put the created ping bins into a form that works with bin_and_mean_2d
     digitize_ping_bin = np.array([*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:-1]])
