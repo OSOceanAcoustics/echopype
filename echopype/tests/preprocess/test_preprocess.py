@@ -6,7 +6,7 @@ import pytest
 import dask.array
 
 from echopype.preprocess.api import bin_and_mean_2d
-from typing import List, Tuple, Iterable, Union
+from typing import Tuple, Iterable, Union
 
 
 @pytest.fixture(
@@ -806,7 +806,37 @@ def create_known_mean_data(final_num_ping_bins: int,
     return final_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time
 
 
-def test_bin_and_mean_2d() -> None:
+@pytest.fixture(
+    params=[
+        {
+            "create_dask": True,
+            "final_num_ping_bins": 10,
+            "final_num_er_bins": 10,
+            "ping_range": [10, 1000],
+            "er_range": [10, 1000]
+        },
+        {
+            "create_dask": False,
+            "final_num_ping_bins": 10,
+            "final_num_er_bins": 10,
+            "ping_range": [10, 1000],
+            "er_range": [10, 1000]
+        },
+    ],
+    ids=[
+        "delayed_data",
+        "in_memory_data"
+    ],
+)
+def bin_and_mean_2d_params(request):
+    """
+    Obtains all necessary parameters for ``test_bin_and_mean_2d``.
+    """
+
+    return list(request.param.values())
+
+
+def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
     """
     Tests the function ``bin_and_mean_2d``, which is the core
     method for ``compute_MVBS``. This is done by creating mock
@@ -818,17 +848,20 @@ def test_bin_and_mean_2d() -> None:
     create_dask: bool
         If True the ``Sv`` and ``echo_range`` values produced will be
         dask arrays, else they will be numpy arrays.
+    final_num_ping_bins: int
+        The total number of ping time bins
+    final_num_er_bins: int
+        The total number of echo range bins
+    ping_range: list
+        A list whose first element is the lowest and second element is
+        the highest possible number of ping time values in a given bin
+    er_range: list
+        A list whose first element is the lowest and second element is
+        the highest possible number of echo range values in a given bin
     """
 
-    # TODO: document and create a fixture with input of create_dask
-
-    create_dask = True
-
-    final_num_ping_bins = 2
-    final_num_er_bins = 5
-
-    ping_range = [1, 5]
-    er_range = [1, 5]
+    # get all parameters needed to create the mock data
+    create_dask, final_num_ping_bins, final_num_er_bins, ping_range, er_range = bin_and_mean_2d_params
 
     # create echo_range, ping_time, and Sv arrays where the MVBS is known
     known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins,
