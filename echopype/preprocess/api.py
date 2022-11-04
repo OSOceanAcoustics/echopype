@@ -2,7 +2,7 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
-from typing import Tuple
+from typing import List, Tuple, Union
 
 import dask.array
 import numpy as np
@@ -378,8 +378,34 @@ def get_bin_indices(
     return digitized_echo_range, bin_time_ind
 
 
-def mean_temp_arr(n_bin_er, temp_arr, dig_er_subset):
-    # TODO: document
+def mean_temp_arr(
+    n_bin_er: int,
+    temp_arr: Union[dask.array.Array, np.ndarray],
+    dig_er_subset: Union[dask.array.Array, np.ndarray],
+) -> List[Union[dask.array.Array, np.ndarray]]:
+    """
+    Bins the data in ``temp_arr`` with respect to the
+    ``echo_range`` bin and means the resulting bin.
+
+    Parameters
+    ----------
+    n_bin_er: int
+        The number of echo range bins
+    temp_arr: dask.array.Array or np.ndarray
+        Array of Sv values at the ``ping_time`` bin index being considered
+    dig_er_subset: dask.array.Array or np.ndarray
+        Array representing the digitized (bin indices) for ``echo_range`` at
+        the ``ping_time`` bin index being considered
+
+    Returns
+    -------
+    means: list of dask.array.Array or np.ndarray
+
+    Notes
+    -----
+    It is necessary for this to be a function because we may need to
+    delay it.
+    """
 
     means = []
     for bin_er in range(1, n_bin_er):
@@ -388,28 +414,49 @@ def mean_temp_arr(n_bin_er, temp_arr, dig_er_subset):
     return means
 
 
-def bin_and_mean_2d(arr, bins_time, bins_er, times, echo_range):
+def bin_and_mean_2d(
+    arr: Union[dask.array.Array, np.ndarray],
+    bins_time: np.ndarray,
+    bins_er: np.ndarray,
+    times: np.ndarray,
+    echo_range: np.ndarray,
+) -> np.ndarray:
     """
+    Bins and means ``arr`` based on ``times`` and ``echo_range``,
+    and their corresponding bins. If ``arr`` is ``Sv`` then this
+    will compute the MVBS.
 
+    Parameters
+    ----------
+    arr: dask.array.Array or np.ndarray
+        The 2D array whose values should be binned
+    bins_time: np.ndarray
+        1D array (used by np.digitize) representing the binning required for ``times``
+    bins_er: np.ndarray
+        1D array (used by np.digitize) representing the binning required for ``echo_range``
+    times: np.ndarray
+        1D array corresponding to the time values that should be binned
+    echo_range: np.ndarray
+        2D array of echo range values
 
     Returns
     -------
-
+    final_reduced: np.ndarray
+        The final binned and meaned ``arr``, if ``arr`` is ``Sv`` then this is the MVBS
 
     Notes
     -----
     This function assumes that ``arr`` has rows corresponding to
-    ping time and columns corresponding to echo range.
-    """
+    ``ping_time`` and columns corresponding to ``echo_range``.
 
-    # TODO: document
+    This function allows the number of ``echo_range`` values to
+    vary amongst ``ping_times``.
+    """
 
     # determine if array to bin is lazy or not
     is_lazy = False
     if isinstance(arr, dask.array.Array):
         is_lazy = True
-
-    print(f"is_lazy = {is_lazy}")
 
     # get the number of echo range and time bins
     n_bin_er = len(bins_er)
@@ -427,6 +474,7 @@ def bin_and_mean_2d(arr, bins_time, bins_er, times, echo_range):
         # select only those array values that are in the time bin being considered
         temp_arr = arr[indices_time, :]
 
+        # bin and mean with respect to echo_range bins
         if is_lazy:
             all_means.append(
                 dask.delayed(mean_temp_arr)(
@@ -439,21 +487,40 @@ def bin_and_mean_2d(arr, bins_time, bins_er, times, echo_range):
             )
 
     if is_lazy:
+        # compute all constructs means
         all_means = dask.compute(all_means)[0]  # TODO: make this into persist in the future?
 
+    # construct final reduced form of arr
     final_reduced = np.array(all_means)
 
     return final_reduced
 
 
-def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
+def get_MVBS_along_channels(
+    ds_Sv: xr.Dataset, range_interval: np.ndarray, ping_interval: np.ndarray
+):
+    """
+    Computes the MVBS of ``ds_SV`` along each channel for the given
+    intervals.
+
+    Parameters
+    ----------
+    ds_Sv: xr.Dataset
+
+    range_interval: np.ndarray
+
+    ping_interval: np.ndarray
+
+
+    Returns
+    -------
+
+    """
 
     # range_meter_bin = 5
     # range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
     # ping_interval = np.array(list(ds_Sv.ping_time.
     # resample(ping_time='20s', skipna=True).groups.keys()))
-
-    print("account for uneven echo range ")
 
     all_MVBS = []
     for chan in ds_Sv.channel:
@@ -477,4 +544,5 @@ def get_MVBS_along_channels(ds_Sv, range_interval, ping_interval):
         # apply inverse mapping to get back to the original domain and store values
         all_MVBS.append(10 * np.log10(chan_MVBS))
 
+    # collect the MVBS values for each channel
     return np.stack(all_MVBS, axis=0)
