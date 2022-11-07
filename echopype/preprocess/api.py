@@ -442,7 +442,7 @@ def bin_and_mean_2d(
     Returns
     -------
     final_reduced: np.ndarray
-        The final binned and meaned ``arr``, if ``arr`` is ``Sv`` then this is the MVBS
+        The final binned and mean ``arr``, if ``arr`` is ``Sv`` then this is the MVBS
 
     Notes
     -----
@@ -497,30 +497,35 @@ def bin_and_mean_2d(
 
 
 def get_MVBS_along_channels(
-    ds_Sv: xr.Dataset, range_interval: np.ndarray, ping_interval: np.ndarray
-):
+    ds_Sv: xr.Dataset, echo_range_interval: np.ndarray, ping_interval: np.ndarray
+) -> np.ndarray:
     """
-    Computes the MVBS of ``ds_SV`` along each channel for the given
+    Computes the MVBS of ``ds_Sv`` along each channel for the given
     intervals.
 
     Parameters
     ----------
     ds_Sv: xr.Dataset
-
-    range_interval: np.ndarray
-
+        A Dataset containing ``Sv`` and ``echo_range`` data with coordinates
+        ``channel``, ``ping_time``, and ``range_sample``
+    echo_range_interval: np.ndarray
+        1D array (used by np.digitize) representing the binning required for ``echo_range``
     ping_interval: np.ndarray
-
+        1D array (used by np.digitize) representing the binning required for ``ping_time``
 
     Returns
     -------
+    np.ndarray
+        The MVBS value of the input ``ds_Sv`` for all channels
 
+    Notes
+    -----
+    If the values in ``ds_Sv`` are delayed then the binning and mean of ``Sv`` with
+    respect to ``echo_range`` will take place, then the binning and mean with respect to
+    ``ping_time`` will be a delayed operation, and lastly the delayed values will be
+    computed. It is necessary to apply a compute at the end of this method because Dask
+    graph layers get too large and this makes downstream operations very inefficient.
     """
-
-    # range_meter_bin = 5
-    # range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
-    # ping_interval = np.array(list(ds_Sv.ping_time.
-    # resample(ping_time='20s', skipna=True).groups.keys()))
 
     all_MVBS = []
     for chan in ds_Sv.channel:
@@ -536,7 +541,7 @@ def get_MVBS_along_channels(
         chan_MVBS = bin_and_mean_2d(
             sv.data,
             bins_time=ping_interval,
-            bins_er=range_interval,
+            bins_er=echo_range_interval,
             times=sv.ping_time.data,
             echo_range=ds["echo_range"].data,
         )
