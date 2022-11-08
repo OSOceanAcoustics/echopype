@@ -192,6 +192,122 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     return ds_MVBS
 
 
+def compute_MVBS_v2(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
+    """
+    Compute Mean Volume Backscattering Strength (MVBS)
+    based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
+
+    Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
+    bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as
+    index number.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        dataset containing Sv and ``echo_range`` [m]
+    range_meter_bin : Union[int, float]
+        bin size along ``echo_range`` in meters, default to ``20``
+    ping_time_bin : str
+        bin size along ``ping_time``, default to ``20S``
+
+    Returns
+    -------
+    A dataset containing bin-averaged Sv
+    """
+
+    # TODO: remove this as it is no longer necessary
+    # if not ds_Sv["echo_range"].groupby("channel").apply(_check_range_uniqueness).all():
+    #     raise ValueError(
+    #         "echo_range variable changes across pings in at least one of the frequency channels."
+    #     )
+
+    # create bin information for echo_range
+    range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
+
+    # create bin information needed for ping_time
+    # ping_interval = np.array(list(ds_Sv.ping_time.resample(ping_time=ping_time_bin,
+    # skipna=True).groups.keys()))
+
+    ping_interval = (
+        ds_Sv.ping_time.resample(ping_time=ping_time_bin, skipna=True).asfreq().ping_time.values
+    )
+
+    # calculate the MVBS along each channel
+    MVBS_values = get_MVBS_along_channels(ds_Sv, range_interval, ping_interval)
+
+    # create MVBS dataset
+    ds_MVBS = xr.Dataset(
+        data_vars={"Sv": (["channel", "ping_time", "echo_range"], MVBS_values)},
+        coords={
+            "ping_time": ping_interval,
+            "channel": ds_Sv.channel,
+            "echo_range": range_interval[:-1],
+        },
+    )
+
+    # Added this check to support the test in test_process.py::test_compute_MVBS
+    if "filenames" in ds_MVBS.variables:
+        ds_MVBS = ds_MVBS.drop_vars("filenames")
+
+    # ping_time_bin parsing and conversions
+    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
+    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
+    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
+    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
+    timedelta_units = {
+        "d": {"nptd64": "D", "unitstr": "day"},
+        "h": {"nptd64": "h", "unitstr": "hour"},
+        "t": {"nptd64": "m", "unitstr": "minute"},
+        "min": {"nptd64": "m", "unitstr": "minute"},
+        "s": {"nptd64": "s", "unitstr": "second"},
+        "l": {"nptd64": "ms", "unitstr": "millisecond"},
+        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
+        "u": {"nptd64": "us", "unitstr": "microsecond"},
+        "us": {"nptd64": "ms", "unitstr": "millisecond"},
+        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
+        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
+    }
+    ping_time_bin_td = pd.Timedelta(ping_time_bin)
+    # res = resolution (most granular time unit)
+    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
+    ping_time_bin_resvalue = int(
+        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
+    )
+    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
+
+    # Attach attributes
+    _set_MVBS_attrs(ds_MVBS)
+    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+    ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
+        {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
+                "comment: ping_time is the interval start) "
+                f"echo_range: mean (interval: {range_meter_bin} meter "
+                "comment: echo_range is the interval start)"
+            ),
+            "binning_mode": "physical units",
+            "range_meter_interval": str(range_meter_bin) + "m",
+            "ping_time_interval": ping_time_bin,
+            "actual_range": [
+                round(float(ds_MVBS["Sv"].min().values), 2),
+                round(float(ds_MVBS["Sv"].max().values), 2),
+            ],
+        }
+    )
+
+    prov_dict = echopype_prov_attrs(process_type="processing")
+    prov_dict["processing_function"] = "preprocess.compute_MVBS"
+    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
+    ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
+
+    return ds_MVBS
+    # return MVBS_values
+
+
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
@@ -454,46 +570,67 @@ def bin_and_mean_2d(
     """
 
     # determine if array to bin is lazy or not
-    is_lazy = False
-    if isinstance(arr, dask.array.Array):
-        is_lazy = True
+    # is_lazy = False
+    # if isinstance(arr, dask.array.Array):
+    #     is_lazy = True
 
     # get the number of echo range and time bins
     n_bin_er = len(bins_er)
     n_bin_time = len(bins_time)
+    print(f"n_bin_time = {n_bin_time}")
 
     # obtain the bin indices for echo_range and times
     digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
 
-    all_means = []
-    for bin_time in range(1, n_bin_time + 1):
+    binned_means = []
+    for bin_er in range(1, n_bin_er):
+        er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
 
-        # get the indices of time in bin index bin_time
-        indices_time = np.argwhere(bin_time_ind == bin_time).flatten()
+        binned_means.append(er_selected_data)
 
-        # select only those array values that are in the time bin being considered
-        temp_arr = arr[indices_time, :]
+    er_means = np.vstack(binned_means).compute()
 
-        # bin and mean with respect to echo_range bins
-        if is_lazy:
-            all_means.append(
-                dask.delayed(mean_temp_arr)(
-                    n_bin_er, temp_arr, digitized_echo_range[indices_time, :]
-                )
-            )
+    final = np.empty((n_bin_time, n_bin_er - 1))
+    # for bin_time in range(1, n_bin_time + 1):
+    for bin_time in range(1, n_bin_time):
+        indices = np.argwhere(bin_time_ind == bin_time).flatten()
+
+        if len(indices) == 0:
+            final[bin_time - 1, :] = np.nanmean(er_means[:, :], axis=1)  # TODO: look into this
         else:
-            all_means.append(
-                mean_temp_arr(n_bin_er, temp_arr, digitized_echo_range[indices_time, :])
-            )
+            final[bin_time - 1, :] = np.nanmean(er_means[:, indices], axis=1)
 
-    if is_lazy:
-        # compute all constructs means
-        all_means = dask.compute(all_means)[0]  # TODO: make this into persist in the future?
+    return final
 
-    # construct final reduced form of arr
-    final_reduced = np.array(all_means)
+    # all_means = []
+    # for bin_time in range(1, n_bin_time + 1):
+    #
+    #     # get the indices of time in bin index bin_time
+    #     indices_time = np.argwhere(bin_time_ind == bin_time).flatten()
+    #
+    #     # select only those array values that are in the time bin being considered
+    #     temp_arr = arr[indices_time, :]
+    #
+    #     # bin and mean with respect to echo_range bins
+    #     if is_lazy:
+    #         all_means.append(
+    #             dask.delayed(mean_temp_arr)(
+    #                 n_bin_er, temp_arr, digitized_echo_range[indices_time, :]
+    #             )
+    #         )
+    #     else:
+    #         all_means.append(
+    #             mean_temp_arr(n_bin_er, temp_arr, digitized_echo_range[indices_time, :])
+    #         )
 
-    return final_reduced
+    # if is_lazy:
+    #     # compute all constructs means
+    #     all_means = dask.compute(all_means)[0]  # TODO: make this into persist in the future?
+    #
+    # # construct final reduced form of arr
+    # final_reduced = np.array(all_means)
+    #
+    # return final_reduced
 
 
 def get_MVBS_along_channels(
@@ -534,6 +671,14 @@ def get_MVBS_along_channels(
         # TODO: not sure why not already removed for the AZFP case. Investigate.
         ds = ds_Sv.sel(channel=chan).squeeze()
 
+        echo_range = (
+            ds["echo_range"]
+            .dropna(dim="range_sample", how="all")
+            .dropna(dim="ping_time")
+            .isel(ping_time=0)
+            .values
+        )
+
         # average should be done in linear domain
         sv = 10 ** (ds["Sv"] / 10)
 
@@ -543,8 +688,12 @@ def get_MVBS_along_channels(
             bins_time=ping_interval,
             bins_er=echo_range_interval,
             times=sv.ping_time.data,
-            echo_range=ds["echo_range"].data,
+            echo_range=echo_range,  # ds["echo_range"].data,
         )
+
+        # all_MVBS.append(chan_MVBS)
+        # all_MVBS.extend(chan_MVBS)
+        # return all_MVBS
 
         # apply inverse mapping to get back to the original domain and store values
         all_MVBS.append(10 * np.log10(chan_MVBS))
