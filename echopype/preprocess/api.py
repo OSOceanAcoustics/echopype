@@ -490,6 +490,24 @@ def get_bin_indices(
     return digitized_echo_range, bin_time_ind
 
 
+def bin_and_mean_echo_range(arr, digitized_echo_range, n_bin_er):
+
+    # TODO: document!
+
+    binned_means = []
+    for bin_er in range(1, n_bin_er):
+        # bin and mean echo_range dimension
+        er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
+
+        # collect all echo_range bins
+        binned_means.append(er_selected_data)
+
+    # create full echo_range binned array
+    er_means = np.vstack(binned_means)
+
+    return er_means
+
+
 def bin_and_mean_2d(
     arr: Union[dask.array.Array, np.ndarray],
     bins_time: np.ndarray,
@@ -536,17 +554,52 @@ def bin_and_mean_2d(
     # obtain the bin indices for echo_range and times
     digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
 
-    binned_means = []
-    for bin_er in range(1, n_bin_er):
+    # TODO: clean up the below code!
 
-        # bin and mean echo_range dimension
-        er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
+    # compute bin indices to allow for downstream processes (mainly axis argument in unique)
+    if isinstance(digitized_echo_range, dask.array.Array):
+        digitized_echo_range = digitized_echo_range.compute()
 
-        # collect all echo_range bins
-        binned_means.append(er_selected_data)
+    unique_er_bin_ind, unique_inverse = np.unique(digitized_echo_range, axis=0, return_inverse=True)
 
-    # create full echo_range binned array
-    er_means = np.vstack(binned_means)
+    # TODO: put the below into its own function
+    if unique_er_bin_ind.shape[0] != 1:
+
+        print("grouping necessary")
+        print(unique_er_bin_ind.shape[0])
+        print(unique_er_bin_ind)
+        grps_same_ind = [
+            np.argwhere(unique_inverse == grp).flatten() for grp in np.unique(unique_inverse)
+        ]
+
+        binned_er = []  # the values appended may not be in the correct order
+        for count, grp in enumerate(grps_same_ind):
+            binned_er.append(
+                bin_and_mean_echo_range(arr[grp, :], unique_er_bin_ind[count, :], n_bin_er)
+            )
+
+        # put the columns in the correct order
+        binned_er_array = np.hstack(binned_er)
+        correct_column_ind = np.argsort(np.concatenate(grps_same_ind))
+        er_means = binned_er_array[:, correct_column_ind]
+
+    else:
+        print("no grouping necessary")
+        # make sure this correctly works
+        er_means = bin_and_mean_echo_range(arr, unique_er_bin_ind[0, :], n_bin_er)
+
+    # binned_means = []
+    # for bin_er in range(1, n_bin_er):
+    #
+    #     # bin and mean echo_range dimension
+    #     er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
+    #
+    #     # collect all echo_range bins
+    #     binned_means.append(er_selected_data)
+    #
+    # # create full echo_range binned array
+    # er_means = np.vstack(binned_means)
+    #
 
     # if er_means is a dask array we compute it so the graph does not get too large
     if isinstance(er_means, dask.array.Array):
@@ -610,14 +663,6 @@ def get_MVBS_along_channels(
         # TODO: not sure why not already removed for the AZFP case. Investigate.
         ds = ds_Sv.sel(channel=chan).squeeze()
 
-        echo_range = (
-            ds["echo_range"]
-            .dropna(dim="range_sample", how="all")
-            .dropna(dim="ping_time")
-            .isel(ping_time=0)
-            .values
-        )
-
         # average should be done in linear domain
         sv = 10 ** (ds["Sv"] / 10)
 
@@ -627,7 +672,7 @@ def get_MVBS_along_channels(
             bins_time=ping_interval,
             bins_er=echo_range_interval,
             times=sv.ping_time.data,
-            echo_range=echo_range,
+            echo_range=ds["echo_range"],
         )
 
         # apply inverse mapping to get back to the original domain and store values
