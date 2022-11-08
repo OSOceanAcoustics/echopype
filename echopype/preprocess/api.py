@@ -2,7 +2,7 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
 import dask.array
 import numpy as np
@@ -225,9 +225,6 @@ def compute_MVBS_v2(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
 
     # create bin information needed for ping_time
-    # ping_interval = np.array(list(ds_Sv.ping_time.resample(ping_time=ping_time_bin,
-    # skipna=True).groups.keys()))
-
     ping_interval = (
         ds_Sv.ping_time.resample(ping_time=ping_time_bin, skipna=True).asfreq().ping_time.values
     )
@@ -305,7 +302,6 @@ def compute_MVBS_v2(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     return ds_MVBS
-    # return MVBS_values
 
 
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
@@ -494,42 +490,6 @@ def get_bin_indices(
     return digitized_echo_range, bin_time_ind
 
 
-def mean_temp_arr(
-    n_bin_er: int,
-    temp_arr: Union[dask.array.Array, np.ndarray],
-    dig_er_subset: Union[dask.array.Array, np.ndarray],
-) -> List[Union[dask.array.Array, np.ndarray]]:
-    """
-    Bins the data in ``temp_arr`` with respect to the
-    ``echo_range`` bin and means the resulting bin.
-
-    Parameters
-    ----------
-    n_bin_er: int
-        The number of echo range bins
-    temp_arr: dask.array.Array or np.ndarray
-        Array of Sv values at the ``ping_time`` bin index being considered
-    dig_er_subset: dask.array.Array or np.ndarray
-        Array representing the digitized (bin indices) for ``echo_range`` at
-        the ``ping_time`` bin index being considered
-
-    Returns
-    -------
-    means: list of dask.array.Array or np.ndarray
-
-    Notes
-    -----
-    It is necessary for this to be a function because we may need to
-    delay it.
-    """
-
-    means = []
-    for bin_er in range(1, n_bin_er):
-        means.append(np.nanmean(temp_arr[dig_er_subset == bin_er], axis=0))
-
-    return means
-
-
 def bin_and_mean_2d(
     arr: Union[dask.array.Array, np.ndarray],
     bins_time: np.ndarray,
@@ -565,72 +525,51 @@ def bin_and_mean_2d(
     This function assumes that ``arr`` has rows corresponding to
     ``ping_time`` and columns corresponding to ``echo_range``.
 
-    This function allows the number of ``echo_range`` values to
+    This function should not be run if the number of ``echo_range`` values
     vary amongst ``ping_times``.
     """
-
-    # determine if array to bin is lazy or not
-    # is_lazy = False
-    # if isinstance(arr, dask.array.Array):
-    #     is_lazy = True
 
     # get the number of echo range and time bins
     n_bin_er = len(bins_er)
     n_bin_time = len(bins_time)
-    print(f"n_bin_time = {n_bin_time}")
 
     # obtain the bin indices for echo_range and times
     digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
 
     binned_means = []
     for bin_er in range(1, n_bin_er):
+
+        # bin and mean echo_range dimension
         er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
 
+        # collect all echo_range bins
         binned_means.append(er_selected_data)
 
-    er_means = np.vstack(binned_means).compute()
+    # create full echo_range binned array
+    er_means = np.vstack(binned_means)
 
+    # if er_means is a dask array we compute it so the graph does not get too large
+    if isinstance(er_means, dask.array.Array):
+        er_means = er_means.compute()
+
+    # create final reduced array
     final = np.empty((n_bin_time, n_bin_er - 1))
-    # for bin_time in range(1, n_bin_time + 1):
-    for bin_time in range(1, n_bin_time):
+
+    for bin_time in range(1, n_bin_time + 1):
+
+        # obtain er_mean indices corresponding to the time bin
         indices = np.argwhere(bin_time_ind == bin_time).flatten()
 
         if len(indices) == 0:
-            final[bin_time - 1, :] = np.nanmean(er_means[:, :], axis=1)  # TODO: look into this
+
+            # fill values with NaN, if there are no values in the bin
+            final[bin_time - 1, :] = np.nan
         else:
+
+            # bin and mean the er_mean time bin
             final[bin_time - 1, :] = np.nanmean(er_means[:, indices], axis=1)
 
     return final
-
-    # all_means = []
-    # for bin_time in range(1, n_bin_time + 1):
-    #
-    #     # get the indices of time in bin index bin_time
-    #     indices_time = np.argwhere(bin_time_ind == bin_time).flatten()
-    #
-    #     # select only those array values that are in the time bin being considered
-    #     temp_arr = arr[indices_time, :]
-    #
-    #     # bin and mean with respect to echo_range bins
-    #     if is_lazy:
-    #         all_means.append(
-    #             dask.delayed(mean_temp_arr)(
-    #                 n_bin_er, temp_arr, digitized_echo_range[indices_time, :]
-    #             )
-    #         )
-    #     else:
-    #         all_means.append(
-    #             mean_temp_arr(n_bin_er, temp_arr, digitized_echo_range[indices_time, :])
-    #         )
-
-    # if is_lazy:
-    #     # compute all constructs means
-    #     all_means = dask.compute(all_means)[0]  # TODO: make this into persist in the future?
-    #
-    # # construct final reduced form of arr
-    # final_reduced = np.array(all_means)
-    #
-    # return final_reduced
 
 
 def get_MVBS_along_channels(
@@ -658,10 +597,10 @@ def get_MVBS_along_channels(
     Notes
     -----
     If the values in ``ds_Sv`` are delayed then the binning and mean of ``Sv`` with
-    respect to ``echo_range`` will take place, then the binning and mean with respect to
-    ``ping_time`` will be a delayed operation, and lastly the delayed values will be
-    computed. It is necessary to apply a compute at the end of this method because Dask
-    graph layers get too large and this makes downstream operations very inefficient.
+    respect to ``echo_range`` will take place, then the delayed result will be computed,
+    and lastly the binning and mean with respect to ``ping_time`` will be completed. It
+    is necessary to apply a compute midway through this method because Dask graph layers
+    get too large and this makes downstream operations very inefficient.
     """
 
     all_MVBS = []
@@ -688,12 +627,8 @@ def get_MVBS_along_channels(
             bins_time=ping_interval,
             bins_er=echo_range_interval,
             times=sv.ping_time.data,
-            echo_range=echo_range,  # ds["echo_range"].data,
+            echo_range=echo_range,
         )
-
-        # all_MVBS.append(chan_MVBS)
-        # all_MVBS.extend(chan_MVBS)
-        # return all_MVBS
 
         # apply inverse mapping to get back to the original domain and store values
         all_MVBS.append(10 * np.log10(chan_MVBS))
