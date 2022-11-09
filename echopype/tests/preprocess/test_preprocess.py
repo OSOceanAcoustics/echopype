@@ -860,6 +860,8 @@ def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
         the highest possible number of echo range values in a given bin
     """
 
+    # TODO: add a seed here and print it so we can debug if necessary
+
     # get all parameters needed to create the mock data
     create_dask, final_num_ping_bins, final_num_er_bins, ping_range, er_range = bin_and_mean_2d_params
 

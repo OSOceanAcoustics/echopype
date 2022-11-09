@@ -508,12 +508,96 @@ def bin_and_mean_echo_range(arr, digitized_echo_range, n_bin_er):
     return er_means
 
 
+def get_unequal_rows(mat, row):
+    # compare row against all rows in mat (allowing for NaNs to be equal)
+    element_nan_equal = (mat == row) | (np.isnan(mat) & np.isnan(row))
+
+    # get those row indices that are not equal to row
+    row_not_equal = np.argwhere(np.logical_not(np.all(element_nan_equal, axis=1))).flatten()
+
+    return row_not_equal
+
+
+def is_grouping_needed_comprehensive(er_chan):
+
+    if isinstance(er_chan, xr.DataArray):
+        er_chan = er_chan.values
+
+    # grab the first ping_time that is not filled with NaNs
+    ping_index = 0
+    while np.all(np.isnan(er_chan[ping_index, :])):
+        ping_index += 1
+
+    unequal_ping_ind = get_unequal_rows(er_chan, er_chan[ping_index, :])
+
+    if len(unequal_ping_ind) > 0:
+
+        # see if all unequal_ping_ind are filled with NaNs
+        all_nans = np.all(np.all(np.isnan(er_chan[unequal_ping_ind, :]), axis=1))
+
+        if all_nans:
+            # All echo_range values have the same step size
+            return False
+        else:
+            # Some echo_range values have different step sizes
+            return True
+    else:
+        # All echo_range values have the same step size
+        return False
+
+
+def is_grouping_needed_less_comprehensive(er_chan):
+    """
+
+
+    Parameters
+    ----------
+    er_chan
+
+    Notes
+    -----
+    Although this method is slightly faster than ``is_grouping_needed_comprehensive``,
+    it is possible that this method will incorrectly determine if grouping
+    is necessary.
+    """
+
+    # determine the number of NaNs in each ping and find the unique number of NaNs
+    unique_num_nans = np.unique(np.isnan(er_chan.data).sum(axis=1))
+
+    if isinstance(unique_num_nans, dask.array.Array):
+        unique_num_nans = unique_num_nans.compute()
+
+    # determine if any value is not 0 or er_chan.shape[1]
+    unexpected_num_nans = False in np.logical_or(
+        unique_num_nans == 0, unique_num_nans == er_chan.shape[1]
+    )
+
+    if unexpected_num_nans:
+        # echo_range varies with ping_time
+        return True
+    else:
+
+        # make sure that the final echo_range value for each ping_time is the same (account for NaN)
+        num_non_nans = np.logical_not(np.isnan(np.unique(er_chan.data[:, -1]))).sum()
+
+        if isinstance(num_non_nans, dask.array.Array):
+            num_non_nans = num_non_nans.compute()
+
+        if num_non_nans > 1:
+            # echo_range varies with ping_time
+            return True
+        else:
+            # echo_range does not vary with ping_time
+            return False
+
+
 def bin_and_mean_2d(
     arr: Union[dask.array.Array, np.ndarray],
     bins_time: np.ndarray,
     bins_er: np.ndarray,
     times: np.ndarray,
     echo_range: np.ndarray,
+    comp_er_check: bool = True,
 ) -> np.ndarray:
     """
     Bins and means ``arr`` based on ``times`` and ``echo_range``,
@@ -532,6 +616,9 @@ def bin_and_mean_2d(
         1D array corresponding to the time values that should be binned
     echo_range: np.ndarray
         2D array of echo range values
+    comp_er_check: bool
+        If True, a more comprehensive check will be completed to determine if ``echo_range``
+        grouping along ``ping_time`` is needed, otherwise a less comprehensive check will be done
 
     Returns
     -------
@@ -556,18 +643,23 @@ def bin_and_mean_2d(
 
     # TODO: clean up the below code!
 
-    # compute bin indices to allow for downstream processes (mainly axis argument in unique)
-    if isinstance(digitized_echo_range, dask.array.Array):
-        digitized_echo_range = digitized_echo_range.compute()
+    if comp_er_check:
+        grouping_needed = is_grouping_needed_comprehensive(echo_range)
+    else:
+        grouping_needed = is_grouping_needed_less_comprehensive(echo_range)
 
-    unique_er_bin_ind, unique_inverse = np.unique(digitized_echo_range, axis=0, return_inverse=True)
-
-    # TODO: put the below into its own function
-    if unique_er_bin_ind.shape[0] != 1:
+        # TODO: put the below into its own function
+    if grouping_needed:
 
         print("grouping necessary")
-        print(unique_er_bin_ind.shape[0])
-        print(unique_er_bin_ind)
+
+        # compute bin indices to allow for downstream processes (mainly axis argument in unique)
+        if isinstance(digitized_echo_range, dask.array.Array):
+            digitized_echo_range = digitized_echo_range.compute()
+
+        unique_er_bin_ind, unique_inverse = np.unique(
+            digitized_echo_range, axis=0, return_inverse=True
+        )
         grps_same_ind = [
             np.argwhere(unique_inverse == grp).flatten() for grp in np.unique(unique_inverse)
         ]
@@ -585,21 +677,7 @@ def bin_and_mean_2d(
 
     else:
         print("no grouping necessary")
-        # make sure this correctly works
-        er_means = bin_and_mean_echo_range(arr, unique_er_bin_ind[0, :], n_bin_er)
-
-    # binned_means = []
-    # for bin_er in range(1, n_bin_er):
-    #
-    #     # bin and mean echo_range dimension
-    #     er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
-    #
-    #     # collect all echo_range bins
-    #     binned_means.append(er_selected_data)
-    #
-    # # create full echo_range binned array
-    # er_means = np.vstack(binned_means)
-    #
+        er_means = bin_and_mean_echo_range(arr, digitized_echo_range[0, :], n_bin_er)
 
     # if er_means is a dask array we compute it so the graph does not get too large
     if isinstance(er_means, dask.array.Array):
