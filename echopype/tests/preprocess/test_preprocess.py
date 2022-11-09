@@ -880,7 +880,8 @@ def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
 
     # calculate MVBS for mock data set
     calc_MVBS = bin_and_mean_2d(arr=final_sv, bins_time=digitize_ping_bin,
-                                bins_er=digitize_er_bin, times=final_ping_time, echo_range=final_er)
+                                bins_er=digitize_er_bin, times=final_ping_time,
+                                echo_range=final_er, comp_er_check=True)
 
     # compare known MVBS solution against its calculated counterpart
     assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10)

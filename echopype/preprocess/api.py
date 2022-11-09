@@ -512,10 +512,16 @@ def get_unequal_rows(mat, row):
     # compare row against all rows in mat (allowing for NaNs to be equal)
     element_nan_equal = (mat == row) | (np.isnan(mat) & np.isnan(row))
 
-    # get those row indices that are not equal to row
-    row_not_equal = np.argwhere(np.logical_not(np.all(element_nan_equal, axis=1))).flatten()
+    # determine if mat row is equal to row
+    row_not_equal = np.logical_not(np.all(element_nan_equal, axis=1))
 
-    return row_not_equal
+    if isinstance(row_not_equal, dask.array.Array):
+        row_not_equal = row_not_equal.compute()
+
+    # get those row indices that are not equal to row
+    row_ind_not_equal = np.argwhere(row_not_equal).flatten()
+
+    return row_ind_not_equal
 
 
 def is_grouping_needed_comprehensive(er_chan):
@@ -751,6 +757,7 @@ def get_MVBS_along_channels(
             bins_er=echo_range_interval,
             times=sv.ping_time.data,
             echo_range=ds["echo_range"],
+            comp_er_check=True,
         )
 
         # apply inverse mapping to get back to the original domain and store values
