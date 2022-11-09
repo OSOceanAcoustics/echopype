@@ -657,8 +657,6 @@ def bin_and_mean_2d(
         # TODO: put the below into its own function
     if grouping_needed:
 
-        print("grouping necessary")
-
         # compute bin indices to allow for downstream processes (mainly axis argument in unique)
         if isinstance(digitized_echo_range, dask.array.Array):
             digitized_echo_range = digitized_echo_range.compute()
@@ -682,7 +680,6 @@ def bin_and_mean_2d(
         er_means = binned_er_array[:, correct_column_ind]
 
     else:
-        print("no grouping necessary")
         er_means = bin_and_mean_echo_range(arr, digitized_echo_range[0, :], n_bin_er)
 
     # if er_means is a dask array we compute it so the graph does not get too large
