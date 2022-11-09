@@ -13,63 +13,6 @@ from ..utils.prov import echopype_prov_attrs
 from .noise_est import NoiseEst
 
 
-def _check_range_uniqueness(da):
-    """
-    Check if range (``echo_range``) changes across ping in a given frequency channel.
-    """
-    # squeeze to remove "channel" dim if present
-    # TODO: not sure why not already removed for the AZFP case. Investigate.
-    da = da.squeeze()
-
-    # remove pings with NaN entries if exist
-    # since goal here is to check uniqueness
-    if np.unique(da.isnull(), axis=0).shape[0] != 1:
-        da = da.dropna(dim="ping_time", how="any")
-
-    # remove padded NaN entries if exist for all pings
-    da = da.dropna(dim="range_sample", how="all")
-
-    ping_time_idx = np.argwhere([dim == "ping_time" for dim in da.dims])[0][0]
-    if np.unique(da, axis=ping_time_idx).shape[ping_time_idx] == 1:
-        return xr.DataArray(data=True, coords={"channel": da["channel"].values})
-    else:
-        return xr.DataArray(data=False, coords={"channel": da["channel"].values})
-
-
-def _freq_MVBS(ds, rint, pbin):
-    # squeeze to remove "channel" dim if present
-    # TODO: not sure why not already removed for the AZFP case. Investigate.
-    ds = ds.squeeze()
-
-    # average should be done in linear domain
-    sv = 10 ** (ds["Sv"] / 10)
-
-    # set 1D coordinate using the 1st ping echo_range since identical for all pings
-    # remove padded NaN entries if exist for all pings
-    er = (
-        ds["echo_range"]
-        .dropna(dim="range_sample", how="all")
-        .dropna(dim="ping_time")
-        .isel(ping_time=0)
-    )
-
-    # use first ping er as indexer for sv
-    sv = sv.sel(range_sample=er.range_sample.values)
-    sv.coords["echo_range"] = (["range_sample"], er.values)
-    sv = sv.swap_dims({"range_sample": "echo_range"})
-    sv_groupby_bins = (
-        sv.resample(ping_time=pbin, skipna=True)
-        .mean(skipna=True)
-        .groupby_bins("echo_range", bins=rint, right=False, include_lowest=True)
-        .mean(skipna=True)
-    )
-    sv_groupby_bins.coords["echo_range"] = (["echo_range_bins"], rint[:-1])
-    sv_groupby_bins = sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"}).drop_vars(
-        "echo_range_bins"
-    )
-    return 10 * np.log10(sv_groupby_bins)
-
-
 def _set_MVBS_attrs(ds):
     """
     Attach common attributes.
@@ -117,109 +60,6 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     -------
     A dataset containing bin-averaged Sv
     """
-
-    if not ds_Sv["echo_range"].groupby("channel").apply(_check_range_uniqueness).all():
-        raise ValueError(
-            "echo_range variable changes across pings in at least one of the frequency channels."
-        )
-
-    # Groupby freq in case of different echo_range (from different sampling intervals)
-    range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
-    ds_MVBS = (
-        ds_Sv.groupby("channel")
-        .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
-        .to_dataset()
-    )
-    # Added this check to support the test in test_process.py::test_compute_MVBS
-    if "filenames" in ds_MVBS.variables:
-        ds_MVBS = ds_MVBS.drop_vars("filenames")
-
-    # ping_time_bin parsing and conversions
-    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
-    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
-    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
-    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
-    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
-    timedelta_units = {
-        "d": {"nptd64": "D", "unitstr": "day"},
-        "h": {"nptd64": "h", "unitstr": "hour"},
-        "t": {"nptd64": "m", "unitstr": "minute"},
-        "min": {"nptd64": "m", "unitstr": "minute"},
-        "s": {"nptd64": "s", "unitstr": "second"},
-        "l": {"nptd64": "ms", "unitstr": "millisecond"},
-        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
-        "u": {"nptd64": "us", "unitstr": "microsecond"},
-        "us": {"nptd64": "ms", "unitstr": "millisecond"},
-        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
-        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
-    }
-    ping_time_bin_td = pd.Timedelta(ping_time_bin)
-    # res = resolution (most granular time unit)
-    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
-    ping_time_bin_resvalue = int(
-        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
-    )
-    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
-
-    # Attach attributes
-    _set_MVBS_attrs(ds_MVBS)
-    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
-    ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
-        {
-            "cell_methods": (
-                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
-                "comment: ping_time is the interval start) "
-                f"echo_range: mean (interval: {range_meter_bin} meter "
-                "comment: echo_range is the interval start)"
-            ),
-            "binning_mode": "physical units",
-            "range_meter_interval": str(range_meter_bin) + "m",
-            "ping_time_interval": ping_time_bin,
-            "actual_range": [
-                round(float(ds_MVBS["Sv"].min().values), 2),
-                round(float(ds_MVBS["Sv"].max().values), 2),
-            ],
-        }
-    )
-
-    prov_dict = echopype_prov_attrs(process_type="processing")
-    prov_dict["processing_function"] = "preprocess.compute_MVBS"
-    ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
-    ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
-
-    return ds_MVBS
-
-
-def compute_MVBS_v2(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
-    """
-    Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
-
-    Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
-    bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as
-    index number.
-
-    Parameters
-    ----------
-    ds_Sv : xr.Dataset
-        dataset containing Sv and ``echo_range`` [m]
-    range_meter_bin : Union[int, float]
-        bin size along ``echo_range`` in meters, default to ``20``
-    ping_time_bin : str
-        bin size along ``ping_time``, default to ``20S``
-
-    Returns
-    -------
-    A dataset containing bin-averaged Sv
-    """
-
-    # TODO: remove this as it is no longer necessary
-    # if not ds_Sv["echo_range"].groupby("channel").apply(_check_range_uniqueness).all():
-    #     raise ValueError(
-    #         "echo_range variable changes across pings in at least one of the frequency channels."
-    #     )
 
     # create bin information for echo_range
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
@@ -509,6 +349,9 @@ def bin_and_mean_echo_range(arr, digitized_echo_range, n_bin_er):
 
 
 def get_unequal_rows(mat, row):
+
+    # TODO: document!
+
     # compare row against all rows in mat (allowing for NaNs to be equal)
     element_nan_equal = (mat == row) | (np.isnan(mat) & np.isnan(row))
 
@@ -525,6 +368,8 @@ def get_unequal_rows(mat, row):
 
 
 def is_grouping_needed_comprehensive(er_chan):
+
+    # TODO: document!
 
     if isinstance(er_chan, xr.DataArray):
         er_chan = er_chan.values
@@ -566,6 +411,8 @@ def is_grouping_needed_less_comprehensive(er_chan):
     it is possible that this method will incorrectly determine if grouping
     is necessary.
     """
+
+    # TODO: document!
 
     # determine the number of NaNs in each ping and find the unique number of NaNs
     unique_num_nans = np.unique(np.isnan(er_chan.data).sum(axis=1))
@@ -654,7 +501,7 @@ def bin_and_mean_2d(
     else:
         grouping_needed = is_grouping_needed_less_comprehensive(echo_range)
 
-        # TODO: put the below into its own function
+    # TODO: put the below into its own function
     if grouping_needed:
 
         # compute bin indices to allow for downstream processes (mainly axis argument in unique)
