@@ -330,12 +330,30 @@ def get_bin_indices(
     return digitized_echo_range, bin_time_ind
 
 
-def bin_and_mean_echo_range(arr, digitized_echo_range, n_bin_er):
+def bin_and_mean_echo_range(
+    arr: Union[np.ndarray, dask.array.Array], digitized_echo_range: np.ndarray, n_bin_er: int
+) -> Union[np.ndarray, dask.array.Array]:
+    """
+    Bins and means ``arr`` with respect to the ``echo_range`` bins.
 
-    # TODO: document!
+    Parameters
+    ----------
+    arr: np.ndarray or dask.array.Array
+        2D array to bin and mean
+    digitized_echo_range: np.ndarray
+        2D array of bin indices for ``echo_range``
+    n_bin_er: int
+        The number of echo range bins
+
+    Returns
+    -------
+    er_means: np.ndarray or dask.array.Array
+        2D array representing the bin and mean of ``arr`` along ``echo_range``
+    """
 
     binned_means = []
     for bin_er in range(1, n_bin_er):
+
         # bin and mean echo_range dimension
         er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
 
@@ -348,9 +366,29 @@ def bin_and_mean_echo_range(arr, digitized_echo_range, n_bin_er):
     return er_means
 
 
-def get_unequal_rows(mat, row):
+def get_unequal_rows(mat: np.ndarray, row: np.ndarray) -> np.ndarray:
+    """
+    Obtains those row indices of ``mat`` that are not equal
+    to ``row``.
 
-    # TODO: document!
+    Parameters
+    ----------
+    mat: np.ndarray
+        2D array with the same column dimension as the number
+        of elements in ``row``
+    row: np.ndarray
+        1D array with the same number of element elements as
+        the column dimension of ``mat``
+
+    Returns
+    -------
+    row_ind_not_equal: np.ndarray
+        The row indices of ``mat`` that are not equal to ``row``
+
+    Notes
+    -----
+    Elements with NaNs are considered equal if they are in the same position.
+    """
 
     # compare row against all rows in mat (allowing for NaNs to be equal)
     element_nan_equal = (mat == row) | (np.isnan(mat) & np.isnan(row))
@@ -367,10 +405,30 @@ def get_unequal_rows(mat, row):
     return row_ind_not_equal
 
 
-def is_grouping_needed_comprehensive(er_chan):
+def is_grouping_needed_comprehensive(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
+    """
+    A comprehensive check that determines if all ``echo_range`` values
+    along ``ping_time`` have the same step size. If they do not have
+    the same step sizes, then grouping of the ``echo_range`` values
+    will be necessary.
 
-    # TODO: document!
+    Parameters
+    ----------
+    er_chan: xr.DataArray or np.ndarray
+        2D array containing the ``echo_range`` values for each ``ping_time``
 
+    Returns
+    -------
+    bool
+        True, if grouping of ``echo_range`` along ``ping_time`` is necessary, otherwise False
+
+    Notes
+    -----
+    ``er_chan`` should have rows corresponding to ``ping_time`` and columns
+    corresponding to ``range_sample``
+    """
+
+    # grab the in-memory numpy echo_range values, if necessary
     if isinstance(er_chan, xr.DataArray):
         er_chan = er_chan.values
 
@@ -379,6 +437,7 @@ def is_grouping_needed_comprehensive(er_chan):
     while np.all(np.isnan(er_chan[ping_index, :])):
         ping_index += 1
 
+    # determine those rows of er_chan that are not equal to the row ping_index
     unequal_ping_ind = get_unequal_rows(er_chan, er_chan[ping_index, :])
 
     if len(unequal_ping_ind) > 0:
@@ -397,26 +456,36 @@ def is_grouping_needed_comprehensive(er_chan):
         return False
 
 
-def is_grouping_needed_less_comprehensive(er_chan):
+def is_grouping_needed_less_comprehensive(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
     """
-
+    An alternative (less comprehensive) check that determines if all
+    ``echo_range`` values along ``ping_time`` have the same step size.
+    If they do not have the same step sizes, then grouping of the
+    ``echo_range`` values will be necessary.
 
     Parameters
     ----------
-    er_chan
+    er_chan: xr.DataArray or np.ndarray
+        2D array containing the ``echo_range`` values for each ``ping_time``
+
+    Returns
+    -------
+    bool
+        True, if grouping of ``echo_range`` along ``ping_time`` is necessary, otherwise False
 
     Notes
     -----
-    Although this method is slightly faster than ``is_grouping_needed_comprehensive``,
-    it is possible that this method will incorrectly determine if grouping
+    It is possible that this method will incorrectly determine if grouping
     is necessary.
-    """
 
-    # TODO: document!
+    ``er_chan`` should have rows corresponding to ``ping_time`` and columns
+    corresponding to ``range_sample``
+    """
 
     # determine the number of NaNs in each ping and find the unique number of NaNs
     unique_num_nans = np.unique(np.isnan(er_chan.data).sum(axis=1))
 
+    # compute the results, if necessary, to allow for downstream checks
     if isinstance(unique_num_nans, dask.array.Array):
         unique_num_nans = unique_num_nans.compute()
 
@@ -433,6 +502,7 @@ def is_grouping_needed_less_comprehensive(er_chan):
         # make sure that the final echo_range value for each ping_time is the same (account for NaN)
         num_non_nans = np.logical_not(np.isnan(np.unique(er_chan.data[:, -1]))).sum()
 
+        # compute the results, if necessary, to allow for downstream checks
         if isinstance(num_non_nans, dask.array.Array):
             num_non_nans = num_non_nans.compute()
 
