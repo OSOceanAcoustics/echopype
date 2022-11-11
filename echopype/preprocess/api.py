@@ -514,6 +514,60 @@ def is_grouping_needed_less_comprehensive(er_chan: Union[xr.DataArray, np.ndarra
             return False
 
 
+def group_bin_mean_echo_range(
+    arr: Union[np.ndarray, dask.array.Array],
+    digitized_echo_range: Union[np.ndarray, dask.array.Array],
+    n_bin_er: int,
+) -> Union[np.ndarray, dask.array.Array]:
+    """
+    Groups the rows of ``arr`` such that they have the same corresponding
+    row values in ``digitized_echo_range``, then applies ``bin_and_mean_echo_range``
+    on each group, and lastly assembles the correctly ordered ``er_means`` array
+    representing the bin and mean of ``arr`` with respect to ``echo_range``.
+
+    Parameters
+    ----------
+    arr: dask.array.Array or np.ndarray
+        The 2D array whose values should be binned
+    digitized_echo_range: dask.array.Array or np.ndarray
+        2D array of bin indices for ``echo_range``
+    n_bin_er: int
+        The number of echo range bins
+
+    Returns
+    -------
+    er_means: dask.array.Array or np.ndarray
+        The bin and mean of ``arr`` with respect to ``echo_range``
+    """
+
+    # compute bin indices to allow for downstream processes (mainly axis argument in unique)
+    if isinstance(digitized_echo_range, dask.array.Array):
+        digitized_echo_range = digitized_echo_range.compute()
+
+    # determine the unique rows of digitized_echo_range and the inverse
+    unique_er_bin_ind, unique_inverse = np.unique(digitized_echo_range, axis=0, return_inverse=True)
+
+    # create groups of row indices using the unique inverse
+    grps_same_ind = [
+        np.argwhere(unique_inverse == grp).flatten() for grp in np.unique(unique_inverse)
+    ]
+
+    # for each group bin and mean arr along echo_range
+    # note: the values appended may not be in the correct final order
+    binned_er = []
+    for count, grp in enumerate(grps_same_ind):
+        binned_er.append(
+            bin_and_mean_echo_range(arr[grp, :], unique_er_bin_ind[count, :], n_bin_er)
+        )
+
+    # construct er_means and put the columns in the correct order
+    binned_er_array = np.hstack(binned_er)
+    correct_column_ind = np.argsort(np.concatenate(grps_same_ind))
+    er_means = binned_er_array[:, correct_column_ind]
+
+    return er_means
+
+
 def bin_and_mean_2d(
     arr: Union[dask.array.Array, np.ndarray],
     bins_time: np.ndarray,
@@ -564,59 +618,34 @@ def bin_and_mean_2d(
     # obtain the bin indices for echo_range and times
     digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
 
-    # TODO: clean up the below code!
-
+    # determine if grouping of echo_range values with the same step size is necessary
     if comp_er_check:
         grouping_needed = is_grouping_needed_comprehensive(echo_range)
     else:
         grouping_needed = is_grouping_needed_less_comprehensive(echo_range)
 
-    # TODO: put the below into its own function
     if grouping_needed:
-
-        # compute bin indices to allow for downstream processes (mainly axis argument in unique)
-        if isinstance(digitized_echo_range, dask.array.Array):
-            digitized_echo_range = digitized_echo_range.compute()
-
-        unique_er_bin_ind, unique_inverse = np.unique(
-            digitized_echo_range, axis=0, return_inverse=True
-        )
-        grps_same_ind = [
-            np.argwhere(unique_inverse == grp).flatten() for grp in np.unique(unique_inverse)
-        ]
-
-        binned_er = []  # the values appended may not be in the correct order
-        for count, grp in enumerate(grps_same_ind):
-            binned_er.append(
-                bin_and_mean_echo_range(arr[grp, :], unique_er_bin_ind[count, :], n_bin_er)
-            )
-
-        # put the columns in the correct order
-        binned_er_array = np.hstack(binned_er)
-        correct_column_ind = np.argsort(np.concatenate(grps_same_ind))
-        er_means = binned_er_array[:, correct_column_ind]
-
+        # groups, bins, and means arr with respect to echo_range
+        er_means = group_bin_mean_echo_range(arr, digitized_echo_range, n_bin_er)
     else:
+        # bin and mean arr with respect to echo_range
         er_means = bin_and_mean_echo_range(arr, digitized_echo_range[0, :], n_bin_er)
 
     # if er_means is a dask array we compute it so the graph does not get too large
     if isinstance(er_means, dask.array.Array):
         er_means = er_means.compute()
 
-    # create final reduced array
+    # create final reduced array i.e. MVBS
     final = np.empty((n_bin_time, n_bin_er - 1))
-
     for bin_time in range(1, n_bin_time + 1):
 
         # obtain er_mean indices corresponding to the time bin
         indices = np.argwhere(bin_time_ind == bin_time).flatten()
 
         if len(indices) == 0:
-
             # fill values with NaN, if there are no values in the bin
             final[bin_time - 1, :] = np.nan
         else:
-
             # bin and mean the er_mean time bin
             final[bin_time - 1, :] = np.nanmean(er_means[:, indices], axis=1)
 
