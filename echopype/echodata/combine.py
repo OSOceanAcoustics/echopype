@@ -16,7 +16,7 @@ logger = _init_logger(__name__)
 
 def check_zarr_path(
     zarr_path: Union[str, Path], storage_options: Dict[str, Any] = {}, overwrite: bool = False
-) -> Path:
+) -> str:
     """
     Checks that the zarr path provided to ``combine``
     is valid.
@@ -35,7 +35,7 @@ def check_zarr_path(
 
     Returns
     -------
-    Path
+    str
         The validated zarr path
 
     Raises
@@ -47,16 +47,12 @@ def check_zarr_path(
     """
 
     if zarr_path is not None:
-        # ensure that zarr_path is a Path object, throw an error otherwise
-        if isinstance(zarr_path, str) or isinstance(zarr_path, Path):
-            zarr_path = Path(zarr_path)
-        else:
-            raise TypeError(
-                "The provided zarr_path input must be of type string " "or pathlib.Path!"
-            )
+        # ensure that zarr_path is a string or Path object, throw an error otherwise
+        if (not isinstance(zarr_path, str)) and (not isinstance(zarr_path, Path)):
+            raise TypeError("The provided zarr_path input must be of type string or pathlib.Path!")
 
         # check that the appropriate suffix was provided
-        if not (zarr_path.suffix == ".zarr"):
+        if not (Path(zarr_path).suffix == ".zarr"):
             raise ValueError("The provided zarr_path input must have a '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
@@ -69,25 +65,25 @@ def check_zarr_path(
         save_path=zarr_path,
     )
 
-    # convert created validated_path to a Path object
-    if zarr_path is None:
-        validated_path = Path(validated_path)
+    # convert created validated_path to a string, if necessary
+    if isinstance(validated_path, Path):
+        validated_path = str(validated_path.absolute())
 
     # check if validated_path already exists
-    fs = fsspec.get_mapper(str(validated_path.absolute()), **storage_options).fs  # get file system
+    fs = fsspec.get_mapper(validated_path, **storage_options).fs  # get file system
     exists = True if fs.exists(validated_path) else False
 
     if exists and not overwrite:
         raise RuntimeError(
-            f"{str(validated_path.absolute())} already exists, please provide a "
+            f"{validated_path} already exists, please provide a "
             "different path or set overwrite=True."
         )
     elif exists and overwrite:
 
-        logger.info(f"overwriting {str(validated_path.absolute())}")
+        logger.info(f"overwriting {validated_path}")
 
         # remove zarr file
-        fs.rm(str(validated_path.absolute()), recursive=True)
+        fs.rm(validated_path, recursive=True)
 
     return validated_path
 
