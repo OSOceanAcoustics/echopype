@@ -48,7 +48,7 @@ def check_zarr_path(
 
     if zarr_path is not None:
         # ensure that zarr_path is a string or Path object, throw an error otherwise
-        if (not isinstance(zarr_path, str)) and (not isinstance(zarr_path, Path)):
+        if not isinstance(zarr_path, (str, Path)):
             raise TypeError("The provided zarr_path input must be of type string or pathlib.Path!")
 
         # check that the appropriate suffix was provided
