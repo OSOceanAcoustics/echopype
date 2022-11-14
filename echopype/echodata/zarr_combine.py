@@ -1,5 +1,6 @@
 from collections import defaultdict
 from itertools import islice
+from pathlib import Path
 from typing import Any, Dict, Hashable, List, Set, Tuple
 
 import dask
@@ -596,7 +597,7 @@ class ZarrCombine:
         self,
         ds_in: xr.Dataset,
         lock_name: str,
-        zarr_path: str,
+        zarr_path: Path,
         zarr_group: str,
         region: Dict[str, slice],
         storage_options: Dict[str, Any] = {},
@@ -612,7 +613,7 @@ class ZarrCombine:
             variables with the append dimension in their dimensions
         lock_name: str
             A unique lock name for the chunk being written to
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
@@ -639,7 +640,7 @@ class ZarrCombine:
 
     def _append_ds_list_to_zarr(
         self,
-        zarr_path: str,
+        zarr_path: Path,
         ds_list: List[xr.Dataset],
         zarr_group: str,
         ed_name: str,
@@ -652,7 +653,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         ds_list: list of xr.Dataset
             The Datasets that will be combined
@@ -741,7 +742,7 @@ class ZarrCombine:
         self,
         const_vars: List[str],
         ds_list: List[xr.Dataset],
-        zarr_path: str,
+        zarr_path: Path,
         zarr_group: str,
         storage_options: Dict[str, Any] = {},
     ) -> None:
@@ -755,7 +756,7 @@ class ZarrCombine:
             The names of all variables/dimensions that are not chunked
         ds_list: list of xr.Dataset
             The Datasets that will be combined
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
@@ -786,7 +787,7 @@ class ZarrCombine:
     def _write_append_dims(
         self,
         ds_list: List[xr.Dataset],
-        zarr_path: str,
+        zarr_path: Path,
         zarr_group: str,
         storage_options: Dict[str, Any] = {},
     ) -> None:
@@ -798,7 +799,7 @@ class ZarrCombine:
         ----------
         ds_list: list of xr.Dataset
             The Datasets that will be combined
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         zarr_group: str
             The name of the group of the zarr store
@@ -833,7 +834,7 @@ class ZarrCombine:
                 )
 
     def _append_provenance_attr_vars(
-        self, zarr_path: str, storage_options: Dict[str, Any] = {}
+        self, zarr_path: Path, storage_options: Dict[str, Any] = {}
     ) -> None:
         """
         Creates an xarray Dataset with variables set as the attributes
@@ -843,7 +844,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         storage_options: dict
             Any additional parameters for the storage
@@ -895,7 +896,7 @@ class ZarrCombine:
 
     @staticmethod
     def _modify_prov_filenames(
-        zarr_path: str, len_eds: int, storage_options: Dict[str, Any] = {}
+        zarr_path: Path, len_eds: int, storage_options: Dict[str, Any] = {}
     ) -> None:
         """
         After the ``Provenance`` group has been constructed, the
@@ -905,7 +906,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         len_eds: int
             The number of ``EchoData`` objects being combined
@@ -916,14 +917,14 @@ class ZarrCombine:
 
         # obtain the filenames zarr array
         zarr_filenames = zarr.open_array(
-            zarr_path + "/Provenance/filenames", mode="r+", storage_options=storage_options
+            zarr_path / "Provenance/filenames", mode="r+", storage_options=storage_options
         )
 
         zarr_filenames[:] = np.arange(len_eds)
 
     def combine(
         self,
-        zarr_path: str,
+        zarr_path: Path,
         eds: List[EchoData] = [],
         storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
@@ -936,7 +937,7 @@ class ZarrCombine:
 
         Parameters
         ----------
-        zarr_path: str
+        zarr_path: Path
             The full path of the final combined zarr store
         eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
