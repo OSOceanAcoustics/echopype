@@ -2,8 +2,9 @@ import os
 import fsspec
 from pathlib import Path
 import pytest
+from typing import Tuple
 
-from echopype.utils.io import sanitize_file_path, validate_output_path
+from echopype.utils.io import sanitize_file_path, validate_output_path, join_paths
 
 
 @pytest.mark.parametrize(
@@ -115,3 +116,85 @@ def test_validate_output_path(save_path, engine, minio_bucket):
         elif save_path == 's3://ooi-raw-data/new_test.nc':
             assert isinstance(e, ValueError) is True
             assert str(e) == 'Only local netcdf4 is supported.'
+
+
+def mock_windows_return(*args: Tuple[str, ...]):
+    """
+    A function to mock what ``os.path.join`` should
+    return on a Windows machine.
+
+    Parameters
+    ----------
+    args: tuple of str
+        A variable number of strings to join
+
+    Returns
+    -------
+    str
+        The input strings joined using Windows syntax
+    """
+    return r"\\".join(args)
+
+
+def mock_unix_return(*args: Tuple[str, ...]):
+    """
+    A function to mock what ``os.path.join`` should
+    return on a Unix based machine.
+
+    Parameters
+    ----------
+    args: tuple of str
+        A variable number of strings to join
+
+    Returns
+    -------
+    str
+        The input strings joined using Unix syntax
+
+    Notes
+    -----
+    This function is necessary just in case the tests are being
+    run on a Windows machine.
+    """
+    return r"/".join(args)
+
+
+@pytest.mark.parametrize(
+    "save_path, is_windows, is_cloud",
+    [
+        (r"/folder", False, False),
+        (r"C:\\folder", True, False),
+        (r"s3://folder", False, True),
+        (r"s3://folder", True, True),
+    ]
+)
+def test_join_paths(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
+    """
+    Tests the function ``join_paths`` on varying OS and cloud path scenarios by
+    adding a folder and a file to the input ``save_path``.
+
+    Parameters
+    ----------
+    save_path: str
+        The save path that we want to add a folder and a file to.
+    is_windows: bool
+        If True, signifies that we are "working" on a Windows machine,
+        otherwise on a Unix based machine
+    is_cloud: bool
+        If True, signifies that ``save_path`` corresponds to a cloud path,
+        otherwise it does not
+    """
+
+    # assign the appropriate mock return for os.path.join
+    if is_windows:
+        monkeypatch.setattr(os.path, 'join', mock_windows_return)
+    else:
+        monkeypatch.setattr(os.path, 'join', mock_unix_return)
+
+    # add folder and file to path
+    joined_path = join_paths(save_path, "output", "data.zarr")
+
+    if is_cloud or (not is_windows):
+        assert joined_path == (save_path + r"/output/data.zarr")
+    else:
+        assert joined_path == (save_path + r"\\output\\data.zarr")
