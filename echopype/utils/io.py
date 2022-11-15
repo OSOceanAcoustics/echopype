@@ -280,3 +280,30 @@ def check_file_permissions(FILE_DIR):
                 TEST_FILE.unlink()
     except Exception:
         raise PermissionError("Writing to specified path is not permitted.")
+
+
+def join_paths(*args: str) -> str:
+    """
+    Joins a variable number of paths taking into account the form of
+    cloud storage paths.
+
+    Parameters
+    ----------
+    *args: str
+        A variable number of strings that should be joined in the order
+        they are provided
+
+    Returns
+    -------
+    joined_path: str
+    """
+
+    # TODO: finish documentation and test out the function
+
+    if "://" in args[0]:
+        joined_path = os.path.join(args[0][3:], *args[1:])
+        joined_path = args[0][:3] + joined_path
+    else:
+        joined_path = os.path.join(*args)
+
+    return joined_path
