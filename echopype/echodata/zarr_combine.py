@@ -1,4 +1,3 @@
-import os.path
 from collections import defaultdict
 from itertools import islice
 from typing import Any, Dict, Hashable, List, Set, Tuple
@@ -12,6 +11,7 @@ import zarr
 from dask.distributed import Lock
 
 from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
+from ..utils.io import join_paths
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
@@ -917,7 +917,7 @@ class ZarrCombine:
 
         # obtain the filenames zarr array
         zarr_filenames = zarr.open_array(
-            os.path.join(zarr_path, "Provenance", "filenames"),
+            join_paths(zarr_path, "Provenance", "filenames"),
             mode="r+",
             storage_options=storage_options,
         )

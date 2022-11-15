@@ -296,14 +296,14 @@ def join_paths(*args: str) -> str:
     Returns
     -------
     joined_path: str
+        Full path constructed by joining all input strings
     """
 
-    # TODO: finish documentation and test out the function
-
     if "://" in args[0]:
-        joined_path = os.path.join(args[0][3:], *args[1:])
-        joined_path = args[0][:3] + joined_path
+        # join paths for cloud storage path
+        joined_path = "/".join(args)
     else:
+        # join paths for non-cloud storage path
         joined_path = os.path.join(*args)
 
     return joined_path

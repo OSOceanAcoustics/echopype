@@ -3,11 +3,12 @@ from dask.distributed import Client
 import numpy as np
 import xarray as xr
 from echopype.utils.coding import set_time_encodings
+from echopype.utils.io import join_paths
 from typing import List, Tuple, Dict
 import tempfile
 import pytest
 import zarr
-import os.path
+
 
 
 @pytest.fixture(
@@ -238,7 +239,7 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_path = os.path.join(temp_zarr_dir.name, zarr_name)
+    zarr_path = join_paths(temp_zarr_dir.name, zarr_name)
 
     # obtain a client with a local scheduler
     client = Client()
@@ -252,13 +253,13 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
         # write ds_list to zarr
         for count, ds in enumerate(ds_list):
-            ds_zarr_path = os.path.join(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
+            ds_zarr_path = join_paths(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
             ds.to_zarr(ds_zarr_path)
 
         # get lazy ds_list
         ds_list_lazy = []
         for count, ds in enumerate(ds_list):
-            ds_zarr_path = os.path.join(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
+            ds_zarr_path = join_paths(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
 
             ds_list_lazy.append(xr.open_zarr(ds_zarr_path))
 
@@ -285,7 +286,7 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
     # ensure that the final combined file has the correct chunk shapes
     for var_name in final_comb.variables:
 
-        z1 = zarr.open_array(os.path.join(zarr_path, group, var_name))
+        z1 = zarr.open_array(join_paths(zarr_path, group, var_name))
 
         if var_name in ["var1", "time1"]:
             assert z1.chunks == (min(comb.max_append_chunk_size, max_time1_len),)
