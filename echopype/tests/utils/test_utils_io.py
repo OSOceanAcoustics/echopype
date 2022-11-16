@@ -3,6 +3,7 @@ import fsspec
 from pathlib import Path
 import pytest
 from typing import Tuple
+import platform
 
 from echopype.utils.io import sanitize_file_path, validate_output_path, join_paths
 
@@ -133,7 +134,7 @@ def mock_windows_return(*args: Tuple[str, ...]):
     str
         The input strings joined using Windows syntax
     """
-    return r"\\".join(args)
+    return "\\".join(args)
 
 
 def mock_unix_return(*args: Tuple[str, ...]):
@@ -168,10 +169,10 @@ def mock_unix_return(*args: Tuple[str, ...]):
         (r"s3://folder", True, True),
     ]
 )
-def test_join_paths(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
+def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
     """
-    Tests the function ``join_paths`` on varying OS and cloud path scenarios by
-    adding a folder and a file to the input ``save_path``.
+    Tests the function ``join_paths`` using a mock return on varying OS and cloud
+    path scenarios by adding a folder and a file to the input ``save_path``.
 
     Parameters
     ----------
@@ -183,6 +184,11 @@ def test_join_paths(save_path: str, is_windows: bool, is_cloud: bool, monkeypatc
     is_cloud: bool
         If True, signifies that ``save_path`` corresponds to a cloud path,
         otherwise it does not
+
+    Notes
+    -----
+    This test uses a monkeypatch for ``os.path.join`` to mimic the join we expect
+    from the function. This allows us to test ``join_paths`` on any OS.
     """
 
     # assign the appropriate mock return for os.path.join
@@ -197,4 +203,57 @@ def test_join_paths(save_path: str, is_windows: bool, is_cloud: bool, monkeypatc
     if is_cloud or (not is_windows):
         assert joined_path == (save_path + r"/output/data.zarr")
     else:
-        assert joined_path == (save_path + r"\\output\\data.zarr")
+        assert joined_path == (save_path + r"\output\data.zarr")
+
+
+@pytest.mark.parametrize(
+    "save_path, is_windows, is_cloud",
+    [
+        (r"/root/folder", False, False),
+        (r"C:\\root\folder", True, False),
+        (r"C:\\root\\folder", True, False),
+        (r"C:\root\folder", True, False),
+        (r"C:\root\\folder", True, False),
+        (r"s3://root/folder", False, True),
+        (r"s3://root/folder", True, True),
+    ]
+)
+def test_join_paths_os_dependent(save_path: str, is_windows: bool, is_cloud: bool):
+    """
+    Tests the true output of the function ``join_paths`` on varying OS and cloud path
+    scenarios by adding a folder and a file to the input ``save_path``.
+
+    Parameters
+    ----------
+    save_path: str
+        The save path that we want to add a folder and a file to.
+    is_windows: bool
+        If True, signifies that we are working on a Windows machine,
+        otherwise on a Unix based machine
+    is_cloud: bool
+        If True, signifies that ``save_path`` corresponds to a cloud path,
+        otherwise it does not
+
+    Notes
+    -----
+    This test is OS dependent and the testing of parameters will be skipped if
+    they do not correspond to the OS they are being run on.
+    """
+
+    # add folder and file to path
+    joined_path = join_paths(save_path, "output", "data.zarr")
+
+    if is_cloud:
+        assert joined_path == r"s3://root/folder/output/data.zarr"
+
+    elif is_windows:
+
+        if platform.system() == "Windows":
+            assert joined_path == r"C:\root\folder\output\data.zarr"
+        else:
+            pytest.skip("Skipping Windows parameters because we are not on a Windows machine.")
+
+    else:
+        assert joined_path == r"/root/folder/output/data.zarr"
+
+
