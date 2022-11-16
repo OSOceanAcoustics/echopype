@@ -3,6 +3,10 @@ name: windows-utils-test
 on:
   push:
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+  pull_request:
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+  pull_request_target:
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
   workflow_dispatch:
 
 env:
