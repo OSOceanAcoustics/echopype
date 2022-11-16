@@ -1,0 +1,53 @@
+name: windows-utils-test
+
+on:
+  push:
+    paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+  workflow_dispatch:
+
+env:
+  CONDA_ENV: echopype
+
+jobs:
+  windows-test:
+      name: windows-${{ matrix.python-version }}-build
+      runs-on: "windows-latest"
+      continue-on-error: ${{ matrix.experimental }}
+      strategy:
+        fail-fast: false
+        matrix:
+          include:
+          - python-version: 3.9
+            experimental: false
+      defaults:
+        run:
+          shell: powershell
+      steps:
+        - name: Checkout repo
+          uses: actions/checkout@v3
+          with:
+            fetch-depth: 0 # Fetch all history for all branches and tags.
+        - name: Set environment variables
+          run: |
+            echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+        - name: Setup micromamba
+          uses: mamba-org/provision-with-micromamba@v13
+          with:
+            environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
+            environment-name: ${{ env.CONDA_ENV }}
+            cache-env: true
+            cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
+        - name: Print conda env
+          shell: bash -l {0}
+          run: |
+            conda info
+            conda list
+        - name: Install dev tools
+          run: |
+            mamba install -c conda-forge --yes --file requirements-dev.txt
+        - name: Install echopype
+          run: |
+            python -m pip install -e .
+        - name: Running all Tests
+          run: |
+            pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings echopype/tests/utils |& tee ci_${{ matrix.python-version }}_test_log.log
