@@ -289,7 +289,7 @@ def join_paths(*args: Tuple[str, ...]) -> str:
 
     Parameters
     ----------
-    *args: str
+    *args: tuple of str
         A variable number of strings that should be joined in the order
         they are provided
 
