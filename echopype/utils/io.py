@@ -4,7 +4,7 @@ echopype utilities for file handling
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, Union, Tuple
 
 import fsspec
 from fsspec import FSMap
