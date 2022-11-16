@@ -301,7 +301,7 @@ def join_paths(*args: Tuple[str, ...]) -> str:
 
     if "://" in args[0]:
         # join paths for cloud storage path
-        joined_path = "/".join(args)
+        joined_path = r"/".join(args)
     else:
         # join paths for non-cloud storage path
         joined_path = os.path.join(*args)

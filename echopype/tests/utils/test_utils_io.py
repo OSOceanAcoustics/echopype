@@ -134,7 +134,7 @@ def mock_windows_return(*args: Tuple[str, ...]):
     str
         The input strings joined using Windows syntax
     """
-    return "\\".join(args)
+    return r"\\".join(args)
 
 
 def mock_unix_return(*args: Tuple[str, ...]):
@@ -254,6 +254,10 @@ def test_join_paths_os_dependent(save_path: str, is_windows: bool, is_cloud: boo
             pytest.skip("Skipping Windows parameters because we are not on a Windows machine.")
 
     else:
-        assert joined_path == r"/root/folder/output/data.zarr"
+
+        if platform.system() != "Windows":
+            assert joined_path == r"/root/folder/output/data.zarr"
+        else:
+            pytest.skip("Skipping Unix parameters because we are not on a Unix machine.")
 
 
