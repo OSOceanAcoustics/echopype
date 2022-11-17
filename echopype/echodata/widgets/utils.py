@@ -23,16 +23,15 @@ def make_key(value: str) -> str:
     return value + str(uuid.uuid4())
 
 
-def _single_node_repr(node: DataTree, tree: DataTree) -> str:
+def _single_node_repr(node: DataTree) -> str:
     """
-    Obtains the string repr for a single node in a ``RenderTree``.
+    Obtains the string repr for a single node in a
+    ``RenderTree`` or ``DataTree``.
 
     Parameters
     ----------
     node: DataTree
-        A single node obtained from a ``RenderTree``
-    tree: DataTree
-        The full ``DataTree`` corresponding to``EchoData._tree``
+        A single node obtained from a ``RenderTree`` or ``DataTree``
 
     Returns
     -------
@@ -51,7 +50,7 @@ def _single_node_repr(node: DataTree, tree: DataTree) -> str:
     if "Beam_group" in sonar_group["name"]:
         # get description of Beam_group directly from the Sonar group
         group_descr = str(
-            tree["/Sonar"].ds.beam_group_descr.sel(beam_group=sonar_group["name"]).values
+            node.parent["/Sonar"].ds.beam_group_descr.sel(beam_group=sonar_group["name"]).values
         )
     else:
         # get description of group from yaml file
@@ -68,7 +67,7 @@ def tree_repr(tree: DataTree) -> str:
     lines = []
     for pre, _, node in renderer:
         if node.has_data or node.has_attrs:
-            node_repr = _single_node_repr(node, tree)
+            node_repr = _single_node_repr(node)
 
             node_line = f"{pre}{node_repr.splitlines()[0]}"
             lines.append(node_line)
