@@ -331,7 +331,7 @@ def test_combined_echodata_repr(ek60_test_data):
         │   └── NMEA: contains information specific to the NMEA protocol.
         ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
         ├── Sonar: contains sonar system metadata and sonar beam groups.
-        │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+        │   └── Beam_group1: contains backscatter power (uncalibrated) and other beam or channel-specific data, including split-beam angle data when they exist.
         └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
     )
 
