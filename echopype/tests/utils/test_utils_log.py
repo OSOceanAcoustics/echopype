@@ -1,4 +1,5 @@
 import pytest
+import os.path
 
 EXPECTED_MESSAGE = "Testing log function"
 
@@ -30,7 +31,7 @@ def test_set_log_file():
     logger = log._init_logger('echopype.testing1')
     from tempfile import TemporaryDirectory
     with TemporaryDirectory() as tmpdir:
-        tmpfile = tmpdir + "/testfile.log"
+        tmpfile = os.path.join(tmpdir, "testfile.log")
         log._set_logfile(logger, tmpfile)
         handlers = [h.name for h in logger.handlers]
 
@@ -99,7 +100,7 @@ def test_verbose(id, override, logfile, capsys):
     if logfile is not None:
         from tempfile import TemporaryDirectory
         with TemporaryDirectory() as tmpdir:
-            tmpfile = tmpdir + f'/{logfile}'
+            tmpfile = os.path.join(tmpdir, logfile)
             run_verbose_test(logger, override, tmpfile, capsys)
     else:
         run_verbose_test(logger, override, logfile, capsys)
