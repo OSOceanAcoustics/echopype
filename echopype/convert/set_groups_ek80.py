@@ -49,10 +49,13 @@ class SetGroupsEK80(SetGroupsBase):
     beamgroups_possible = [
         {
             "name": "Beam_group1",
-            "descr": (
-                "contains backscatter data (either complex samples or uncalibrated power samples)"  # noqa
-                " and other beam or channel-specific data"
-            ),
+            "descr": {
+                "power": "contains backscatter power (uncalibrated) and "
+                "other beam or channel-specific data,"
+                " including split-beam angle data when they exist.",
+                "complex": "contains complex backscatter data and other "
+                "beam or channel-specific data.",
+            },
         },
         {
             "name": "Beam_group2",
@@ -185,7 +188,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return set_time_encodings(ds)
 
-    def set_sonar(self, beam_group_count=1) -> xr.Dataset:
+    def set_sonar(self, beam_group_type: list = ["power", None]) -> xr.Dataset:
         # Collect unique variables
         params = [
             "transducer_frequency",
@@ -203,12 +206,25 @@ class SetGroupsEK80(SetGroupsBase):
             for param in params:
                 var[param].append(data[param])
 
-        # Create dataset
+        # obtain the correct beam_group and corresponding description from beamgroups_possible
+        for idx, beam in enumerate(beam_group_type):
+            if beam is None:
+                # obtain values from an element where the key 'descr' does not have keys
+                self._beamgroups.append(self.beamgroups_possible[idx])
+            else:
+                # obtain values from an element where the key 'descr' DOES have keys
+                self._beamgroups.append(
+                    {
+                        "name": self.beamgroups_possible[idx]["name"],
+                        "descr": self.beamgroups_possible[idx]["descr"][beam],
+                    }
+                )
+
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
-        self._beamgroups = self.beamgroups_possible[:beam_group_count]
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
 
+        # Create dataset
         sonar_vars = {
             "frequency_nominal": (
                 ["channel"],
