@@ -65,7 +65,8 @@ def check_zarr_path(
         save_path=zarr_path,
     )
 
-    # convert created validated_path to a string, if necessary
+    # convert created validated_path to a string if it is in other formats,
+    # since fsspec only accepts strings
     if isinstance(validated_path, Path):
         validated_path = str(validated_path.absolute())
 
