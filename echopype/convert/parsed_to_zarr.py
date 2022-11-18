@@ -1,11 +1,14 @@
+import secrets
 import sys
-import tempfile
+from pathlib import Path
 from typing import List, Tuple, Union
 
 import more_itertools as miter
 import numpy as np
 import pandas as pd
 import zarr
+
+from ..utils.io import check_file_permissions
 
 
 class Parsed2Zarr:
@@ -31,12 +34,38 @@ class Parsed2Zarr:
         the root group of the zarr store.
         """
 
-        # temporary directory that will hold the zarr file
-        # TODO: will this work well in the cloud?
-        self.temp_zarr_dir = tempfile.TemporaryDirectory()
+        # get current working directory
+        current_dir = Path.cwd()
+
+        # Check permission of cwd, raise exception if no permission
+        check_file_permissions(current_dir)
+
+        # construct temporary directory that will hold the zarr file
+        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files")
+        if not out_dir.exists():
+            out_dir.mkdir(parents=True)
+
+        # establish temporary directory we will write zarr files to
+        self.temp_zarr_dir = str(out_dir)
+
+        # create zarr store name
+        zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
+
+        # attempt to find different zarr_file_name, if it already exists
+        count = 0
+        while Path(zarr_file_name).exists() and count < 10:
+
+            # generate new zarr_file_name
+            zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
+            count += 1
+
+        # error out if we are unable to get a unique name, else assign name to class variable
+        if (count == 10) and Path(zarr_file_name).exists():
+            raise RuntimeError("Unable to construct an unused zarr file name for Parsed2Zarr!")
+        else:
+            self.zarr_file_name = zarr_file_name
 
         # create zarr store and zarr group we want to write to
-        self.zarr_file_name = self.temp_zarr_dir.name + "/temp.zarr"
         self.store = zarr.DirectoryStore(self.zarr_file_name)
         self.zarr_root = zarr.group(store=self.store, overwrite=True)
 
@@ -400,7 +429,7 @@ class Parsed2Zarr:
         # total memory required for series data
         return n_rows * pow_bytes
 
-    def write_to_zarr(self, **kwargs) -> None:
+    def whether_write_to_zarr(self, **kwargs) -> None:
         """
         Determines if the zarr data provided will expand
         into a form that is larger than a percentage of

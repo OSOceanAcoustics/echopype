@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
 
@@ -183,7 +183,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
         )
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self, beam_group_count=1) -> xr.Dataset:
         # Collect unique variables
@@ -427,7 +427,7 @@ class SetGroupsEK80(SetGroupsBase):
                 # TODO: check what this 'drop_keel_offset' is
             },
         )
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
         """Assemble dataset for ping-invariant params in the /Sonar/Beam_group1 group.
@@ -714,7 +714,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
 
-        return set_encodings(ds_tmp)
+        return set_time_encodings(ds_tmp)
 
     def _add_trasmit_pulse_complex(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
@@ -736,7 +736,9 @@ class SetGroupsEK80(SetGroupsBase):
         """
 
         # If RAW4 datagram (transmit pulse recorded in complex samples) exists
-        if len(self.parser_obj.ping_data_dict_tx["complex"]) != 0:
+        if (len(self.parser_obj.ping_data_dict_tx["complex"]) != 0) and (
+            ch in self.parser_obj.ping_data_dict_tx["complex"].keys()
+        ):
             # Add coordinate transmit_sample
             ds_tmp = ds_tmp.assign_coords(
                 {
@@ -831,7 +833,7 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
 
-        return set_encodings(ds_tmp)
+        return set_time_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_sample_size):
         """Variables common to complex and power/angle data."""
@@ -892,7 +894,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
         )
-        return set_encodings(ds_common)
+        return set_time_encodings(ds_common)
 
     @staticmethod
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
@@ -902,7 +904,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override"
         )  # override keeps the Dataset attributes
-        return set_encodings(ds_combine)
+        return set_time_encodings(ds_combine)
 
     def _attach_vars_to_ds_data(self, ds_data: xr.Dataset, ch: str, rs_size: int) -> xr.Dataset:
         """
@@ -964,13 +966,13 @@ class SetGroupsEK80(SetGroupsBase):
 
         # create power related ds using DataArrays created from zarr file
         ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
-        ds_power = set_encodings(ds_power)
+        ds_power = set_time_encodings(ds_power)
 
         # obtain additional variables that need to be added to ds_power
         ds_tmp = []
         for ch in self.sorted_channel["power"]:
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
-            ds_data = set_encodings(ds_data)
+            ds_data = set_time_encodings(ds_data)
 
             ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_power.range_sample.size)
             ds_tmp.append(ds_data)
@@ -1005,7 +1007,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         # create power related ds using DataArrays created from zarr file
         ds_complex = xr.merge([backscatter_r, backscatter_i])
-        ds_complex = set_encodings(ds_complex)
+        ds_complex = set_time_encodings(ds_complex)
 
         # obtain additional variables that need to be added to ds_complex
         ds_tmp = []
@@ -1013,7 +1015,7 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
             ds_data = self._add_freq_start_end_ds(ds_data, ch)
 
-            ds_data = set_encodings(ds_data)
+            ds_data = set_time_encodings(ds_data)
 
             ds_data = self._attach_vars_to_ds_data(
                 ds_data, ch, rs_size=ds_complex.range_sample.size
@@ -1091,14 +1093,13 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power = None
 
-            ds_beam_power = ds_power
-
             if self.sorted_channel["complex"]:
                 ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
             else:
                 ds_complex = None
 
             # correctly assign the beam groups
+            ds_beam_power = None
             if ds_complex:
                 ds_beam = ds_complex
                 if ds_power:
@@ -1238,11 +1239,11 @@ class SetGroupsEK80(SetGroupsBase):
         decimation_factors = dict()
         for ch in self.sorted_channel["all"]:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs:
+            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
                 decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
             # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df:
+            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
                 decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
 

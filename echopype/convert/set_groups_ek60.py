@@ -4,12 +4,12 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
-from .set_groups_base import DEFAULT_CHUNK_SIZE, SetGroupsBase
+from .set_groups_base import SetGroupsBase
 
 # fmt: on
 
@@ -132,18 +132,16 @@ class SetGroupsEK60(SetGroupsBase):
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
         prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        source_files_var, source_files_coord = source_files_vars(self.input_file)
+        files_vars = source_files_vars(self.input_file)
         if self.old_ping_time is not None:
-            ds = xr.Dataset(
-                data_vars={
-                    "old_ping_time": self.old_ping_time,
-                    **source_files_var,
-                },
-                coords=source_files_coord,
-            )
+            source_vars = {"old_ping_time": self.old_ping_time, **files_vars["source_files_var"]}
         else:
-            ds = xr.Dataset(data_vars=source_files_var, coords=source_files_coord)
-        ds = ds.assign_attrs(prov_dict)
+            source_vars = files_vars["source_files_var"]
+
+        ds = xr.Dataset(
+            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
+        )
+
         return ds
 
     def set_env(self) -> xr.Dataset:
@@ -209,7 +207,7 @@ class SetGroupsEK60(SetGroupsBase):
         # Merge data from all channels
         ds = xr.merge(ds_env)
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -235,7 +233,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         return ds
 
-    def set_platform(self, NMEA_only=False) -> xr.Dataset:
+    def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
 
         # Collect variables
@@ -268,141 +266,130 @@ class SetGroupsEK60(SetGroupsBase):
                 )
             },
         )
-        ds = ds.chunk({"time1": DEFAULT_CHUNK_SIZE["ping_time"]})
 
-        if not NMEA_only:
+        # TODO: consider allow users to set water_level like in EK80?
+        # if self.ui_param['water_level'] is not None:
+        #     water_level = self.ui_param['water_level']
+        # else:
+        #     water_level = np.nan
+        #     print('WARNING: The water_level_draft was not in the file. Value '
+        #           'set to None.')
 
-            # TODO: consider allow users to set water_level like in EK80?
-            # if self.ui_param['water_level'] is not None:
-            #     water_level = self.ui_param['water_level']
-            # else:
-            #     water_level = np.nan
-            #     print('WARNING: The water_level_draft was not in the file. Value '
-            #           'set to None.')
-
-            # Loop over channels and merge all
-            ds_plat = []
-            for ch in self.sorted_channel.keys():
-                ds_tmp = xr.Dataset(
-                    {
-                        "pitch": (
-                            ["time2"],
-                            self.parser_obj.ping_data_dict["pitch"][ch],
-                            self._varattrs["platform_var_default"]["pitch"],
-                        ),
-                        "roll": (
-                            ["time2"],
-                            self.parser_obj.ping_data_dict["roll"][ch],
-                            self._varattrs["platform_var_default"]["roll"],
-                        ),
-                        "vertical_offset": (
-                            ["time2"],
-                            self.parser_obj.ping_data_dict["heave"][ch],
-                            self._varattrs["platform_var_default"]["vertical_offset"],
-                        ),
-                        "water_level": (
-                            ["time3"],
-                            self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                            self._varattrs["platform_var_default"]["water_level"],
-                        ),
-                        "transducer_offset_x": (
-                            [],
-                            self.parser_obj.config_datagram["transceivers"][ch].get(
-                                "pos_x", np.nan
-                            ),
-                            self._varattrs["platform_var_default"]["transducer_offset_x"],
-                        ),
-                        "transducer_offset_y": (
-                            [],
-                            self.parser_obj.config_datagram["transceivers"][ch].get(
-                                "pos_y", np.nan
-                            ),
-                            self._varattrs["platform_var_default"]["transducer_offset_y"],
-                        ),
-                        "transducer_offset_z": (
-                            [],
-                            self.parser_obj.config_datagram["transceivers"][ch].get(
-                                "pos_z", np.nan
-                            ),
-                            self._varattrs["platform_var_default"]["transducer_offset_z"],
-                        ),
-                        **{
-                            var: ([], np.nan, self._varattrs["platform_var_default"][var])
-                            for var in [
-                                "MRU_offset_x",
-                                "MRU_offset_y",
-                                "MRU_offset_z",
-                                "MRU_rotation_x",
-                                "MRU_rotation_y",
-                                "MRU_rotation_z",
-                                "position_offset_x",
-                                "position_offset_y",
-                                "position_offset_z",
-                            ]
+        # Loop over channels and merge all
+        ds_plat = []
+        for ch in self.sorted_channel.keys():
+            ds_tmp = xr.Dataset(
+                {
+                    "pitch": (
+                        ["time2"],
+                        self.parser_obj.ping_data_dict["pitch"][ch],
+                        self._varattrs["platform_var_default"]["pitch"],
+                    ),
+                    "roll": (
+                        ["time2"],
+                        self.parser_obj.ping_data_dict["roll"][ch],
+                        self._varattrs["platform_var_default"]["roll"],
+                    ),
+                    "vertical_offset": (
+                        ["time2"],
+                        self.parser_obj.ping_data_dict["heave"][ch],
+                        self._varattrs["platform_var_default"]["vertical_offset"],
+                    ),
+                    "water_level": (
+                        ["time3"],
+                        self.parser_obj.ping_data_dict["transducer_depth"][ch],
+                        self._varattrs["platform_var_default"]["water_level"],
+                    ),
+                    "transducer_offset_x": (
+                        [],
+                        self.parser_obj.config_datagram["transceivers"][ch].get("pos_x", np.nan),
+                        self._varattrs["platform_var_default"]["transducer_offset_x"],
+                    ),
+                    "transducer_offset_y": (
+                        [],
+                        self.parser_obj.config_datagram["transceivers"][ch].get("pos_y", np.nan),
+                        self._varattrs["platform_var_default"]["transducer_offset_y"],
+                    ),
+                    "transducer_offset_z": (
+                        [],
+                        self.parser_obj.config_datagram["transceivers"][ch].get("pos_z", np.nan),
+                        self._varattrs["platform_var_default"]["transducer_offset_z"],
+                    ),
+                    **{
+                        var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                        for var in [
+                            "MRU_offset_x",
+                            "MRU_offset_y",
+                            "MRU_offset_z",
+                            "MRU_rotation_x",
+                            "MRU_rotation_y",
+                            "MRU_rotation_z",
+                            "position_offset_x",
+                            "position_offset_y",
+                            "position_offset_z",
+                        ]
+                    },
+                },
+                coords={
+                    "time2": (
+                        ["time2"],
+                        self.parser_obj.ping_time[ch],
+                        {
+                            "axis": "T",
+                            "long_name": "Timestamps for platform motion and orientation data",
+                            "standard_name": "time",
+                            "comment": "Time coordinate corresponding to platform motion and "
+                            "orientation data.",
                         },
-                    },
-                    coords={
-                        "time2": (
-                            ["time2"],
-                            self.parser_obj.ping_time[ch],
-                            {
-                                "axis": "T",
-                                "long_name": "Timestamps for platform motion and orientation data",
-                                "standard_name": "time",
-                                "comment": "Time coordinate corresponding to platform motion and "
-                                "orientation data.",
-                            },
-                        ),
-                        "time3": (
-                            ["time3"],
-                            self.parser_obj.ping_time[ch],
-                            {
-                                "axis": "T",
-                                "long_name": "Timestamps for platform-related sampling environment",
-                                "standard_name": "time",
-                                "comment": "Time coordinate corresponding to platform-related "
-                                "sampling environment.",
-                            },
-                        ),
-                    },
-                    attrs={
-                        "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                        "platform_name": self.ui_param["platform_name"],
-                        "platform_type": self.ui_param["platform_type"],
-                    },
-                )
+                    ),
+                    "time3": (
+                        ["time3"],
+                        self.parser_obj.ping_time[ch],
+                        {
+                            "axis": "T",
+                            "long_name": "Timestamps for platform-related sampling environment",
+                            "standard_name": "time",
+                            "comment": "Time coordinate corresponding to platform-related "
+                            "sampling environment.",
+                        },
+                    ),
+                },
+                attrs={
+                    "platform_code_ICES": self.ui_param["platform_code_ICES"],
+                    "platform_name": self.ui_param["platform_name"],
+                    "platform_type": self.ui_param["platform_type"],
+                },
+            )
 
-                # Attach channel dimension/coordinate
-                ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
-                ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
-                    self._varattrs["beam_coord_default"]["channel"]
-                )
+            # Attach channel dimension/coordinate
+            ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
+            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
+                self._varattrs["beam_coord_default"]["channel"]
+            )
 
-                ds_tmp["frequency_nominal"] = (
-                    ["channel"],
-                    [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                        "standard_name": "sound_frequency",
-                    },
-                )
+            ds_tmp["frequency_nominal"] = (
+                ["channel"],
+                [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
+                {
+                    "units": "Hz",
+                    "long_name": "Transducer frequency",
+                    "valid_min": 0.0,
+                    "standard_name": "sound_frequency",
+                },
+            )
 
-                ds_plat.append(ds_tmp)
+            ds_plat.append(ds_tmp)
 
-            # Merge data from all channels
-            # TODO: for current test data we see all
-            #  pitch/roll/heave are the same for all freq channels
-            #  consider only saving those from the first channel
-            ds_plat = xr.merge(ds_plat)
+        # Merge data from all channels
+        # TODO: for current test data we see all
+        #  pitch/roll/heave are the same for all freq channels
+        #  consider only saving those from the first channel
+        ds_plat = xr.merge(ds_plat)
 
-            # Merge with NMEA data
-            ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        # Merge with NMEA data
+        ds = xr.merge([ds, ds_plat], combine_attrs="override")
 
-            ds = ds.chunk({"time2": DEFAULT_CHUNK_SIZE["ping_time"]})
-
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def _set_beam_group1_zarr_vars(self, ds: xr.Dataset) -> xr.Dataset:
         """
@@ -779,7 +766,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [set_encodings(ds)]
+        return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
 

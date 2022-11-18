@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from .set_groups_base import SetGroupsBase
 
 
@@ -109,7 +109,7 @@ class SetGroupsAZFP(SetGroupsBase):
             attrs={"long_name": "Water temperature", "units": "C"},
         )
 
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -182,7 +182,7 @@ class SetGroupsAZFP(SetGroupsBase):
             },
         )
         ds = ds.assign_attrs(platform_dict)
-        return set_encodings(ds)
+        return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:
         """Set the Beam group."""
@@ -282,7 +282,7 @@ class SetGroupsAZFP(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [set_encodings(ds)]
+        return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
@@ -425,4 +425,4 @@ class SetGroupsAZFP(SetGroupsBase):
                 "tilt_Y_d": parameters["Y_d"],
             },
         )
-        return set_encodings(ds)
+        return set_time_encodings(ds)

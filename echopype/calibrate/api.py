@@ -100,11 +100,14 @@ def _compute_cal(
     else:
         source_file = "SOURCE FILE NOT IDENTIFIED"
 
-    source_files_var, source_files_coord = source_files_vars(source_file)
-    cal_ds = cal_ds.assign(**source_files_var).assign_coords(**source_files_coord)
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = f"calibrate.compute_{cal_type}"
-    cal_ds = cal_ds.assign_attrs(prov_dict)
+    files_vars = source_files_vars(source_file)
+    cal_ds = (
+        cal_ds.assign(**files_vars["source_files_var"])
+        .assign_coords(**files_vars["source_files_coord"])
+        .assign_attrs(prov_dict)
+    )
 
     if "water_level" in echodata["Platform"].data_vars.keys():
         # add water_level to the created xr.Dataset

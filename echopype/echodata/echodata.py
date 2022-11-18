@@ -1,4 +1,5 @@
 import datetime
+import shutil
 import warnings
 from html import escape
 from pathlib import Path
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
 from ..calibrate.env_params import EnvParams
-from ..utils.coding import set_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.uwa import calc_sound_speed
@@ -77,6 +78,21 @@ class EchoData:
         # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+
+    def __del__(self):
+
+        # TODO: this destructor seems to not work in Jupyter Lab if restart or
+        #  even clear all outputs is used. It will work if you explicitly delete the object
+
+        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.zarr_file_name is not None):
+
+            # get Path object of temporary zarr file created by Parsed2Zarr
+            p2z_temp_file = Path(self.parsed2zarr_obj.zarr_file_name)
+
+            # remove temporary directory created by Parsed2Zarr, if it exists
+            if p2z_temp_file.exists():
+                # TODO: do we need to check file permissions here?
+                shutil.rmtree(p2z_temp_file)
 
     def __str__(self) -> str:
         fpath = "Internal Memory"
@@ -193,6 +209,10 @@ class EchoData:
         return None
 
     @property
+    def nbytes(self) -> float:
+        return float(sum(self[p].nbytes for p in self.group_paths))
+
+    @property
     def group_paths(self) -> Set[str]:
         return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
 
@@ -276,13 +296,20 @@ class EchoData:
             if "time1" not in p.coords:
                 return p
             else:
-                if p["time1"].size == 1:
-                    return p.squeeze(dim="time1").drop("time1")
+                # If there's only 1 time1 value,
+                # or if after dropping NaN there's only 1 time1 value
+                if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
+                    return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
+
+                # Direct assignment if all timestamps are identical (EK60 data)
+                elif np.all(p["time1"].values == ping_time.values):
+                    return p.rename({"time1": "ping_time"})
+
+                elif ping_time is None:
+                    raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
+
                 else:
-                    if ping_time is not None:
-                        return p.interp(time1=ping_time)
-                    else:
-                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
+                    return p.dropna(dim="time1").interp(time1=ping_time)
         else:
             return p
 
@@ -697,7 +724,7 @@ class EchoData:
                 var_attrs["history"] = history_attr
             platform[var] = platform[var].assign_attrs(**var_attrs)
 
-        self["Platform"] = set_encodings(platform)
+        self["Platform"] = set_time_encodings(platform)
 
     @classmethod
     def _load_convert(cls, convert_obj):

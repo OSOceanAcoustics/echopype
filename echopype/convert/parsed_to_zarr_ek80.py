@@ -219,7 +219,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         self.complex_df = datagram_df.dropna().copy()
 
-    def write_to_zarr(self, mem_mult: float = 0.3) -> bool:
+    def whether_write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
         Determines if the zarr data provided will expand
         into a form that is larger than a percentage of
