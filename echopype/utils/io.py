@@ -2,8 +2,9 @@
 echopype utilities for file handling
 """
 import os
+import platform
 import sys
-from pathlib import Path
+from pathlib import Path, WindowsPath
 from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 import fsspec
@@ -181,6 +182,13 @@ def validate_output_path(
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
     else:
+
+        # convert save_path into a nicely formatted Windows path if we are on
+        # a Windows machine and the path is not a cloud storage path
+        if platform.system() == "Windows":
+            if isinstance(save_path, str) and ("://" not in save_path):
+                save_path = WindowsPath(save_path)
+
         if isinstance(save_path, str):
             # Clean folder path by stripping '/' at the end
             if save_path.endswith("/"):

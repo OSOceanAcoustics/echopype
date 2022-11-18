@@ -134,7 +134,7 @@ def mock_windows_return(*args: Tuple[str, ...]):
     str
         The input strings joined using Windows syntax
     """
-    return r"\\".join(args)
+    return "\\".join(args)
 
 
 def mock_unix_return(*args: Tuple[str, ...]):
@@ -164,7 +164,7 @@ def mock_unix_return(*args: Tuple[str, ...]):
     "save_path, is_windows, is_cloud",
     [
         (r"/folder", False, False),
-        (r"C:\\folder", True, False),
+        (r"C:\folder", True, False),
         (r"s3://folder", False, True),
         (r"s3://folder", True, True),
     ]
@@ -210,10 +210,7 @@ def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool
     "save_path, is_windows, is_cloud",
     [
         (r"/root/folder", False, False),
-        (r"C:\\root\folder", True, False),
-        (r"C:\\root\\folder", True, False),
         (r"C:\root\folder", True, False),
-        (r"C:\root\\folder", True, False),
         (r"s3://root/folder", False, True),
         (r"s3://root/folder", True, True),
     ]
