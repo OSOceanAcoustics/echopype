@@ -239,6 +239,8 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
+    # TODO: all occurrences of join_paths in all tests should be replaced
+    #  with os.join.paths as it introduces an unnecessary possible point of failure.
     zarr_path = join_paths(temp_zarr_dir.name, zarr_name)
 
     # obtain a client with a local scheduler

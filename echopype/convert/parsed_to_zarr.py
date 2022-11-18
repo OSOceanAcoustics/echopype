@@ -63,6 +63,10 @@ class Parsed2Zarr:
         if (count == 10) and Path(zarr_file_name).exists():
             raise RuntimeError("Unable to construct an unused zarr file name for Parsed2Zarr!")
         else:
+
+            # TODO: instead of check_file_permissions above, validate path should be ran
+            #  on zarr_file_name before assigning it to the class variable
+
             self.zarr_file_name = zarr_file_name
 
         # create zarr store and zarr group we want to write to
