@@ -184,14 +184,14 @@ def validate_output_path(
     else:
 
         # convert save_path into a nicely formatted Windows path if we are on
-        # a Windows machine and the path is not a cloud storage path
+        # a Windows machine and the path is not a cloud storage path. Then convert back to a string.
         if platform.system() == "Windows":
             if isinstance(save_path, str) and ("://" not in save_path):
-                save_path = WindowsPath(save_path)
+                save_path = str(WindowsPath(save_path).absolute())
 
         if isinstance(save_path, str):
             # Clean folder path by stripping '/' at the end
-            if save_path.endswith("/"):
+            if save_path.endswith("/") or save_path.endswith("\\"):
                 save_path = save_path[:-1]
 
             # Determine whether this is a directory or not
