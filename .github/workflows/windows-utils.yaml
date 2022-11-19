@@ -54,4 +54,4 @@ jobs:
             python -m pip install -e .
         - name: Running all Tests
           run: |
-            pytest -vvv -rx --numprocesses=1 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings echopype/tests/utils |& tee ci_${{ matrix.python-version }}_test_log.log
+            pytest -vvv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings echopype/tests/utils |& tee ci_${{ matrix.python-version }}_test_log.log
