@@ -30,12 +30,19 @@ def test_set_log_file():
     from echopype.utils import log
     logger = log._init_logger('echopype.testing1')
     from tempfile import TemporaryDirectory
-    with TemporaryDirectory() as tmpdir:
-        tmpfile = os.path.join(tmpdir, "testfile.log")
-        log._set_logfile(logger, tmpfile)
-        handlers = [h.name for h in logger.handlers]
+    tmpdir = TemporaryDirectory()
+    tmpfile = os.path.join(tmpdir.name, "testfile.log")
+    log._set_logfile(logger, tmpfile)
+    handlers = [h.name for h in logger.handlers]
 
-        assert log.LOGFILE_HANDLE_NAME in handlers
+    assert log.LOGFILE_HANDLE_NAME in handlers
+
+    # when done with temporary directory
+    # see: https://www.scivision.dev/python-tempfile-permission-error-windows/
+    try:
+        tmpdir.cleanup()
+    except PermissionError:
+        pass
 
 
 def test_set_verbose(verbose, capsys):
@@ -99,8 +106,15 @@ def test_verbose(id, override, logfile, capsys):
 
     if logfile is not None:
         from tempfile import TemporaryDirectory
-        with TemporaryDirectory() as tmpdir:
-            tmpfile = os.path.join(tmpdir, logfile)
-            run_verbose_test(logger, override, tmpfile, capsys)
+        tmpdir = TemporaryDirectory()
+        tmpfile = os.path.join(tmpdir.name, logfile)
+        run_verbose_test(logger, override, tmpfile, capsys)
+
+        # when done with temporary directory
+        # see: https://www.scivision.dev/python-tempfile-permission-error-windows/
+        try:
+            tmpdir.cleanup()
+        except PermissionError:
+            pass
     else:
         run_verbose_test(logger, override, logfile, capsys)
