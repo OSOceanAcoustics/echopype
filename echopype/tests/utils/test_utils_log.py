@@ -1,5 +1,6 @@
 import pytest
 import os.path
+import platform
 
 EXPECTED_MESSAGE = "Testing log function"
 
@@ -41,8 +42,11 @@ def test_set_log_file():
     # see: https://www.scivision.dev/python-tempfile-permission-error-windows/
     try:
         tmpdir.cleanup()
-    except PermissionError:
-        pass
+    except Exception as e:
+        if platform.system() == "Windows":
+            pass
+        else:
+            raise e
 
 
 def test_set_verbose(verbose, capsys):
@@ -114,7 +118,10 @@ def test_verbose(id, override, logfile, capsys):
         # see: https://www.scivision.dev/python-tempfile-permission-error-windows/
         try:
             tmpdir.cleanup()
-        except PermissionError:
-            pass
+        except Exception as e:
+            if platform.system() == "Windows":
+                pass
+            else:
+                raise e
     else:
         run_verbose_test(logger, override, logfile, capsys)
