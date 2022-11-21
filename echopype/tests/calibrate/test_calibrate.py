@@ -31,7 +31,7 @@ def ek80_cal_path(test_path):
 def test_compute_Sv_returns_water_level(ek60_path):
 
     # get EchoData object that has the water_level variable under platform and compute Sv of it
-    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", "EK60")
     ds_Sv = ep.calibrate.compute_Sv(ed)
 
     # make sure the returned Dataset has water_level and throw an assertion error if the
@@ -81,7 +81,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
     )
     ek60_matlab_path = str(
-        ek60_path.joinpath('from_matlab/DY1801_EK60-D20180211-T164025.mat')
+        ek60_path.joinpath('from_matlab', 'DY1801_EK60-D20180211-T164025.mat')
     )
 
     # Convert file
@@ -133,10 +133,10 @@ def test_compute_Sv_azfp(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
     azfp_matlab_Sv_path = str(
-        azfp_path.joinpath('from_matlab/17082117_matlab_Output_Sv.mat')
+        azfp_path.joinpath('from_matlab', '17082117_matlab_Output_Sv.mat')
     )
     azfp_matlab_TS_path = str(
-        azfp_path.joinpath('from_matlab/17082117_matlab_Output_TS.mat')
+        azfp_path.joinpath('from_matlab', '17082117_matlab_Output_TS.mat')
     )
 
     # Convert to .nc file
@@ -196,7 +196,7 @@ def test_compute_Sv_ek80_matlab(ek80_path):
     """
     ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
     ek80_matlab_path = str(
-        ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat')
+        ek80_path.joinpath('from_matlab', 'D20170912-T234910_data.mat')
     )
 
     echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
@@ -217,7 +217,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
     ek80_bb_pc_test_path = str(
         ek80_path.joinpath(
-            'from_echoview/70 kHz pulse-compressed power.complex.csv'
+            'from_echoview', '70 kHz pulse-compressed power.complex.csv'
         )
     )
 
@@ -344,7 +344,7 @@ def test_env_params(ek60_path):
     Tests EnvParams interpolation
     """
 
-    ed = ep.open_raw(ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw", "EK60")
+    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", "EK60")
 
     # stationary
     # since the raw ping_times go up to 1:43 but the env_params ping_time stops at 1:25,

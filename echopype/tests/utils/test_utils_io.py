@@ -13,8 +13,8 @@ from echopype.utils.io import sanitize_file_path, validate_output_path, join_pat
     [
         ('https://example.com/test.nc', True, 'nc'),
         ('https://example.com/test.zarr', False, 'zarr'),
-        ('folder/test.nc', False, 'nc'),
-        ('folder/test.zarr', False, 'zarr'),
+        (os.path.join('folder', 'test.nc'), False, 'nc'),
+        (os.path.join('folder', 'test.zarr'), False, 'zarr'),
         (Path('https:/example.com/test.nc'), True, 'nc'),
         (Path('https:/example.com/test.zarr'), True, 'zarr'),
         (Path('folder/test.nc'), False, 'nc'),
@@ -44,17 +44,17 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
     "save_path, engine",
     [
         # Netcdf tests
-        ('folder/new_test.nc', 'netcdf4'),
-        ('folder/new_test.nc', 'zarr'),
-        ('folder/path/new_test.nc', 'netcdf4'),
+        (os.path.join('folder', 'new_test.nc'), 'netcdf4'),
+        (os.path.join('folder', 'new_test.nc'), 'zarr'),
+        (os.path.join('folder', 'path', 'new_test.nc'), 'netcdf4'),
         ('folder/', 'netcdf4'),
         ('s3://ooi-raw-data/', 'netcdf4'),
         (Path('folder/'), 'netcdf4'),
         (Path('folder/new_test.nc'), 'netcdf4'),
         # Zarr tests
-        ('folder/new_test.zarr', 'zarr'),
-        ('folder/new_test.zarr', 'netcdf4'),
-        ('folder/path/new_test.zarr', 'zarr'),
+        (os.path.join('folder', 'new_test.zarr'), 'zarr'),
+        (os.path.join('folder', 'new_test.zarr'), 'netcdf4'),
+        (os.path.join('folder', 'path', 'new_test.zarr'), 'zarr'),
         ('folder/', 'zarr'),
         # Empty tests
         (None, 'netcdf4'),
@@ -68,7 +68,7 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
     ],
 )
 def test_validate_output_path(save_path, engine, minio_bucket):
-    output_root_path = './echopype/test_data/dump'
+    output_root_path = os.path.join('.', 'echopype', 'test_data', 'dump')
     source_file = 'test.raw'
     if engine == 'netcdf4':
         ext = '.nc'
