@@ -485,14 +485,22 @@ def open_raw(
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
 
-    valid_beam_groups_count = 0
+    beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
-            valid_beam_groups_count += 1
+
+            # fill in beam_group_type (only necessary for EK80, ES80, EA640)
+            if idx == 1:
+                # choose the appropriate description key for Beam_group1
+                beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
+            else:
+                # provide None for all other beam groups (since the description does not have a key)
+                beam_group_type.append(None)
+
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
     if sonar_model in ["EK80", "ES80", "EA640"]:
-        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_type=beam_group_type)
     else:
         tree_dict["Sonar"] = setgrouper.set_sonar()
 
