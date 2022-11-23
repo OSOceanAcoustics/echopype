@@ -7,6 +7,7 @@ import xarray as xr
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
+import os.path
 
 import tempfile
 from dask.distributed import Client
@@ -145,7 +146,7 @@ def test_combine_echodata(raw_datasets):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -222,7 +223,7 @@ def test_attr_storage(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -268,7 +269,7 @@ def test_combined_encodings(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -315,7 +316,7 @@ def test_combined_echodata_repr(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()

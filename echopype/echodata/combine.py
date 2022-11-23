@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 import dask.distributed
@@ -15,7 +15,7 @@ logger = _init_logger(__name__)
 
 
 def check_zarr_path(
-    zarr_path: str, storage_options: Dict[str, Any] = {}, overwrite: bool = False
+    zarr_path: Union[str, Path], storage_options: Dict[str, Any] = {}, overwrite: bool = False
 ) -> str:
     """
     Checks that the zarr path provided to ``combine``
@@ -23,7 +23,7 @@ def check_zarr_path(
 
     Parameters
     ----------
-    zarr_path: str
+    zarr_path: str or Path
         The full save path to the final combined zarr store
     storage_options: dict
         Any additional parameters for the storage
@@ -47,13 +47,13 @@ def check_zarr_path(
     """
 
     if zarr_path is not None:
-        # check that zarr_path is a string
-        if not isinstance(zarr_path, str):
-            raise TypeError(f"zarr_path must be of type {str}")
+        # ensure that zarr_path is a string or Path object, throw an error otherwise
+        if not isinstance(zarr_path, (str, Path)):
+            raise TypeError("The provided zarr_path input must be of type string or pathlib.Path!")
 
         # check that the appropriate suffix was provided
-        if not zarr_path.strip("/").endswith(".zarr"):
-            raise ValueError("The provided zarr_path input must have '.zarr' suffix!")
+        if not (Path(zarr_path).suffix == ".zarr"):
+            raise ValueError("The provided zarr_path input must have a '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
     source_file = "combined_echodatas.zarr"
@@ -65,13 +65,19 @@ def check_zarr_path(
         save_path=zarr_path,
     )
 
+    # convert created validated_path to a string if it is in other formats,
+    # since fsspec only accepts strings
+    if isinstance(validated_path, Path):
+        validated_path = str(validated_path.absolute())
+
     # check if validated_path already exists
     fs = fsspec.get_mapper(validated_path, **storage_options).fs  # get file system
     exists = True if fs.exists(validated_path) else False
 
     if exists and not overwrite:
         raise RuntimeError(
-            f"{zarr_path} already exists, please provide a different path or set overwrite=True."
+            f"{validated_path} already exists, please provide a "
+            "different path or set overwrite=True."
         )
     elif exists and overwrite:
 
@@ -150,7 +156,7 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
 def combine_echodata(
     echodatas: List[EchoData] = None,
-    zarr_path: Optional[str] = None,
+    zarr_path: Optional[Union[str, Path]] = None,
     overwrite: bool = False,
     storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
@@ -164,7 +170,7 @@ def combine_echodata(
     ----------
     echodatas : list of EchoData object
         The list of ``EchoData`` objects to be combined
-    zarr_path: str, optional
+    zarr_path: str or pathlib.Path, optional
         The full save path to the final combined zarr store
     overwrite: bool
         If True, will overwrite the zarr store specified by
@@ -186,6 +192,8 @@ def combine_echodata(
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
+    TypeError
+        If the a provided `zarr_path` input is not of type string or pathlib.Path
     RuntimeError
         If ``zarr_path`` already exists and ``overwrite=False``
     TypeError

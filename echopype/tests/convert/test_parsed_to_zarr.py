@@ -3,6 +3,7 @@ import xarray as xr
 from typing import List, Tuple
 from echopype import open_raw
 from pathlib import Path
+import os.path
 
 
 @pytest.fixture
@@ -86,7 +87,7 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
     # Most likely succeed if it doesn't crash
     assert isinstance(echodata, EchoData)
     with TemporaryDirectory() as tmpdir:
-        output_save_path = tmpdir + f"/{fname}"
+        output_save_path = os.path.join(tmpdir, fname)
         echodata.to_zarr(output_save_path)
         # If it goes all the way to here it is most likely successful
         assert os.path.exists(output_save_path)
@@ -104,7 +105,7 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
 @pytest.mark.parametrize(
     ["path_model", "raw_file", "sonar_model"],
     [
-        ("EK60", "ncei-wcsd/Summer2017-D20170615-T190214.raw", "EK60"),
+        ("EK60", os.path.join("ncei-wcsd", "Summer2017-D20170615-T190214.raw"), "EK60"),
         ("EK60", "DY1002_EK60-D20100318-T023008_rep_freq.raw", "EK60"),
         ("EK80",  "Summer2018--D20180905-T033113.raw", "EK80"),
         ("EK80_CAL", "2018115-D20181213-T094600.raw", "EK80"),
