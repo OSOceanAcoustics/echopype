@@ -6,7 +6,7 @@ import pytest
 import dask.array
 from numpy.random import default_rng
 
-from echopype.preprocess.api import bin_and_mean_2d
+from echopype.preprocess.mvbs import bin_and_mean_2d
 from typing import Tuple, Iterable, Union
 
 
