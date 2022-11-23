@@ -414,7 +414,7 @@ def get_unequal_rows(mat: np.ndarray, row: np.ndarray) -> np.ndarray:
     return row_ind_not_equal
 
 
-def is_grouping_needed_comprehensive(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
+def if_all_er_steps_identical(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
     """
     A comprehensive check that determines if all ``echo_range`` values
     along ``ping_time`` have the same step size. If they do not have
@@ -465,7 +465,7 @@ def is_grouping_needed_comprehensive(er_chan: Union[xr.DataArray, np.ndarray]) -
         return False
 
 
-def is_grouping_needed_less_comprehensive(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
+def if_last_er_steps_identical(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
     """
     An alternative (less comprehensive) check that determines if all
     ``echo_range`` values along ``ping_time`` have the same step size.
@@ -521,6 +521,34 @@ def is_grouping_needed_less_comprehensive(er_chan: Union[xr.DataArray, np.ndarra
         else:
             # echo_range does not vary with ping_time
             return False
+
+
+def is_er_grouping_needed(
+    echo_range: Union[xr.DataArray, np.ndarray], comprehensive_er_check: bool
+) -> bool:
+    """
+    Determines if ``echo_range`` values along ``ping_time`` can change and
+    thus need to be grouped.
+
+    Parameters
+    ----------
+    echo_range: xr.DataArray or np.ndarray
+        2D array containing the ``echo_range`` values for each ``ping_time``
+    comprehensive_er_check: bool
+        If True, a more comprehensive check will be completed to determine if ``echo_range``
+        grouping along ``ping_time`` is needed, otherwise a less comprehensive check will be done
+
+    Returns
+    -------
+    bool
+        If True grouping of ``echo_range`` will be required, else it will not
+        be necessary
+    """
+
+    if comprehensive_er_check:
+        return if_all_er_steps_identical(echo_range)
+    else:
+        return if_last_er_steps_identical(echo_range)
 
 
 def group_bin_mean_echo_range(
@@ -583,7 +611,7 @@ def bin_and_mean_2d(
     bins_er: np.ndarray,
     times: np.ndarray,
     echo_range: np.ndarray,
-    comp_er_check: bool = True,
+    comprehensive_er_check: bool = True,
 ) -> np.ndarray:
     """
     Bins and means ``arr`` based on ``times`` and ``echo_range``,
@@ -602,7 +630,7 @@ def bin_and_mean_2d(
         1D array corresponding to the time values that should be binned
     echo_range: np.ndarray
         2D array of echo range values
-    comp_er_check: bool
+    comprehensive_er_check: bool
         If True, a more comprehensive check will be completed to determine if ``echo_range``
         grouping along ``ping_time`` is needed, otherwise a less comprehensive check will be done
 
@@ -628,12 +656,9 @@ def bin_and_mean_2d(
     digitized_echo_range, bin_time_ind = get_bin_indices(echo_range, bins_er, times, bins_time)
 
     # determine if grouping of echo_range values with the same step size is necessary
-    if comp_er_check:
-        grouping_needed = is_grouping_needed_comprehensive(echo_range)
-    else:
-        grouping_needed = is_grouping_needed_less_comprehensive(echo_range)
+    er_grouping_needed = is_er_grouping_needed(echo_range, comprehensive_er_check)
 
-    if grouping_needed:
+    if er_grouping_needed:
         # groups, bins, and means arr with respect to echo_range
         er_means = group_bin_mean_echo_range(arr, digitized_echo_range, n_bin_er)
     else:
@@ -709,7 +734,7 @@ def get_MVBS_along_channels(
             bins_er=echo_range_interval,
             times=sv.ping_time.data,
             echo_range=ds["echo_range"],
-            comp_er_check=True,
+            comprehensive_er_check=True,
         )
 
         # apply inverse mapping to get back to the original domain and store values
