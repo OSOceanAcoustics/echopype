@@ -341,7 +341,8 @@ def bin_and_mean_echo_range(
     Parameters
     ----------
     arr: np.ndarray or dask.array.Array
-        2D array to bin and mean
+        2D array (dimension: [``echo_range`` x ``ping_time``]) to bin  along ``echo_range``
+        and compute mean of each bin
     digitized_echo_range: np.ndarray
         2D array of bin indices for ``echo_range``
     n_bin_er: int
