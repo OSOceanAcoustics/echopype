@@ -273,7 +273,7 @@ def is_er_grouping_needed(
         return if_last_er_steps_identical(echo_range)
 
 
-def group_bin_mean_echo_range(
+def group_dig_er_bin_mean_echo_range(
     arr: Union[np.ndarray, dask.array.Array],
     digitized_echo_range: Union[np.ndarray, dask.array.Array],
     n_bin_er: int,
@@ -367,7 +367,8 @@ def bin_and_mean_2d(
     ``ping_time`` and columns corresponding to ``echo_range``.
 
     This function should not be run if the number of ``echo_range`` values
-    vary amongst ``ping_times``.
+    vary amongst ``ping_times``. This should not occur for our current use
+    of echopype-generated Sv data.
     """
 
     # get the number of echo range and time bins
@@ -382,7 +383,7 @@ def bin_and_mean_2d(
 
     if er_grouping_needed:
         # groups, bins, and means arr with respect to echo_range
-        er_means = group_bin_mean_echo_range(arr, digitized_echo_range, n_bin_er)
+        er_means = group_dig_er_bin_mean_echo_range(arr, digitized_echo_range, n_bin_er)
     else:
         # bin and mean arr with respect to echo_range
         er_means = bin_and_mean_echo_range(arr, digitized_echo_range[0, :], n_bin_er)
