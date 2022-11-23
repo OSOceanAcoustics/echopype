@@ -5,7 +5,7 @@ import pytest
 from typing import Tuple
 import platform
 
-from echopype.utils.io import sanitize_file_path, validate_output_path, join_paths
+from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath
 
 
 @pytest.mark.parametrize(
@@ -169,9 +169,9 @@ def mock_unix_return(*args: Tuple[str, ...]):
         (r"s3://folder", True, True),
     ]
 )
-def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
+def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
     """
-    Tests the function ``join_paths`` using a mock return on varying OS and cloud
+    Tests the function ``env_indep_joinpath`` using a mock return on varying OS and cloud
     path scenarios by adding a folder and a file to the input ``save_path``.
 
     Parameters
@@ -188,7 +188,7 @@ def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool
     Notes
     -----
     This test uses a monkeypatch for ``os.path.join`` to mimic the join we expect
-    from the function. This allows us to test ``join_paths`` on any OS.
+    from the function. This allows us to test ``env_indep_joinpath`` on any OS.
     """
 
     # assign the appropriate mock return for os.path.join
@@ -198,7 +198,7 @@ def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool
         monkeypatch.setattr(os.path, 'join', mock_unix_return)
 
     # add folder and file to path
-    joined_path = join_paths(save_path, "output", "data.zarr")
+    joined_path = env_indep_joinpath(save_path, "output", "data.zarr")
 
     if is_cloud or (not is_windows):
         assert joined_path == (save_path + r"/output/data.zarr")
@@ -215,9 +215,9 @@ def test_join_paths_mock_return(save_path: str, is_windows: bool, is_cloud: bool
         (r"s3://root/folder", True, True),
     ]
 )
-def test_join_paths_os_dependent(save_path: str, is_windows: bool, is_cloud: bool):
+def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cloud: bool):
     """
-    Tests the true output of the function ``join_paths`` on varying OS and cloud path
+    Tests the true output of the function ``env_indep_joinpath`` on varying OS and cloud path
     scenarios by adding a folder and a file to the input ``save_path``.
 
     Parameters
@@ -238,7 +238,7 @@ def test_join_paths_os_dependent(save_path: str, is_windows: bool, is_cloud: boo
     """
 
     # add folder and file to path
-    joined_path = join_paths(save_path, "output", "data.zarr")
+    joined_path = env_indep_joinpath(save_path, "output", "data.zarr")
 
     if is_cloud:
         assert joined_path == r"s3://root/folder/output/data.zarr"

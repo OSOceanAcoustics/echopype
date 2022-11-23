@@ -290,7 +290,7 @@ def check_file_permissions(FILE_DIR):
         raise PermissionError("Writing to specified path is not permitted.")
 
 
-def join_paths(*args: Tuple[str, ...]) -> str:
+def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
     """
     Joins a variable number of paths taking into account the form of
     cloud storage paths.
