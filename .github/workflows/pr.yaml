@@ -85,7 +85,7 @@ jobs:
         if: contains(github.event.pull_request.title, '[all tests ci]')
         shell: bash -l {0}
         run: |
-          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+          pytest -vvv -rx --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
         if: "!contains(github.event.pull_request.title, '[all tests ci]')"
         shell: bash -l {0}
