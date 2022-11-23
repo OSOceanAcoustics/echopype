@@ -2,9 +2,11 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
+import warnings
 from typing import Tuple, Union
 
 import dask.array
+import dask.distributed
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -354,8 +356,14 @@ def bin_and_mean_echo_range(
     binned_means = []
     for bin_er in range(1, n_bin_er):
 
-        # bin and mean echo_range dimension
-        er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
+        # Catch a known warning that can occur, which does not impact the results
+        with warnings.catch_warnings():
+
+            # ignore warnings caused by taking a mean of an array filled with NaNs
+            warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+
+            # bin and mean echo_range dimension
+            er_selected_data = np.nanmean(arr[:, digitized_echo_range == bin_er], axis=1)
 
         # collect all echo_range bins
         binned_means.append(er_selected_data)
