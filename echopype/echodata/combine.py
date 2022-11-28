@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
@@ -152,6 +153,82 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
         echodata_filenames.append(filename)
 
     return sonar_model, echodata_filenames
+
+
+def _check_channel_consistency(all_chan_list, channel_selection, ed_group) -> None:
+    """
+    asdfsd
+    """
+
+    # TODO: document!
+
+    # get the number of channels in each Dataset being combined
+    eds_num_chan = set(map(len, all_chan_list))
+
+    if len(eds_num_chan) > 1 and (channel_selection is None):
+
+        # obtain all unique channel names
+        unique_channels = set(itertools.chain.from_iterable(all_chan_list))
+
+        # raise an error if we have varying channel lengths
+        raise RuntimeError(
+            f"For the EchoData group {ed_group} all EchoData objects being "
+            f"combined do not have the following channels: {unique_channels}. "
+            "One can select which channels should be included using the keyword "
+            "argument channel_selection in combine_echodata."
+        )
+
+    elif channel_selection is not None:
+
+        # make channel_selection a set, so it is easier to use
+        channel_selection = set(channel_selection)
+
+        # determine if the selected channels are in each Dataset being combined
+        eds_num_chan_after_select = {
+            len(ed_chans.intersection(channel_selection)) for ed_chans in all_chan_list
+        }
+
+        # TODO: if we will allow for expansion, then the below code should be
+        #  replaced with a section that makes sure the selected channels appear
+        #  at least once in one of the other Datasets
+
+        padding_needed = False
+        if len(eds_num_chan_after_select) > 1:
+
+            # padding needed for scenarios such as eds_num_chan_after_select = {3, 4}
+            padding_needed = True
+
+        elif len(channel_selection) not in eds_num_chan_after_select:
+
+            # padding needed for scenarios such as
+            # eds_num_chan_after_select = {3}, len(channel_selection)=4
+            padding_needed = True
+
+        if padding_needed:
+
+            # raise a not implemented error if expansion (i.e. padding is necessary)
+            raise NotImplementedError("")
+
+        # TODO: make sure logic is correct
+
+
+def _check_echodata_channels(echodatas: List[EchoData], channel_selection: Optional[List] = None):
+    """
+    Ensures that all channels are the same
+
+
+    """
+
+    # TODO: make sure channel_selection is the appropriate type
+
+    for ed_group in echodatas[0].group_paths:
+
+        if "channel" in echodatas[0][ed_group].dims:
+
+            # get each EchoData's channels as a list of sets
+            all_chan_list = [set(ed[ed_group].channel.values) for ed in echodatas]
+
+            print(all_chan_list)
 
 
 def combine_echodata(
