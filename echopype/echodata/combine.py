@@ -155,64 +155,97 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     return sonar_model, echodata_filenames
 
 
-def _check_channel_consistency(all_chan_list, channel_selection, ed_group) -> None:
+def _check_channel_consistency(all_chan_list: List, channel_selection, ed_group) -> None:
     """
-    asdfsd
+    Checks that each element in ``all_chan_list`` has the same
     """
 
     # TODO: document!
 
-    # get the number of channels in each Dataset being combined
-    eds_num_chan = set(map(len, all_chan_list))
+    if channel_selection is None:
 
-    if len(eds_num_chan) > 1 and (channel_selection is None):
+        # get the number of channels in each Dataset being combined
+        eds_num_chan = set(map(len, all_chan_list))
 
-        # obtain all unique channel names
-        unique_channels = set(itertools.chain.from_iterable(all_chan_list))
+        if len(eds_num_chan) > 1:
 
-        # raise an error if we have varying channel lengths
-        raise RuntimeError(
-            f"For the EchoData group {ed_group} all EchoData objects being "
-            f"combined do not have the following channels: {unique_channels}. "
-            "One can select which channels should be included using the keyword "
-            "argument channel_selection in combine_echodata."
-        )
+            # obtain all unique channel names
+            unique_channels = set(itertools.chain.from_iterable(all_chan_list))
 
-    elif channel_selection is not None:
+            # raise an error if we have varying channel lengths
+            raise RuntimeError(
+                f"For the EchoData group {ed_group} the channels: {unique_channels}, are "
+                f"not provided in each EchoData object being combined. One can select which "
+                f"channels should be included using the keyword argument channel_selection in "
+                f"combine_echodata."
+            )
+
+    else:
 
         # make channel_selection a set, so it is easier to use
         channel_selection = set(channel_selection)
 
-        # determine if the selected channels are in each Dataset being combined
-        eds_num_chan_after_select = {
-            len(ed_chans.intersection(channel_selection)) for ed_chans in all_chan_list
-        }
-
         # TODO: if we will allow for expansion, then the below code should be
-        #  replaced with a section that makes sure the selected channels appear
-        #  at least once in one of the other Datasets
+        #  replaced with a code section that makes sure the selected channels
+        #  appear at least once in one of the other Datasets
 
-        padding_needed = False
-        if len(eds_num_chan_after_select) > 1:
+        # determine the number of selected channels in each Dataset being combined
+        eds_num_chan = [channel_selection.intersection(set(ed_chans)) for ed_chans in all_chan_list]
 
-            # padding needed for scenarios such as eds_num_chan_after_select = {3, 4}
-            padding_needed = True
-
-        elif len(channel_selection) not in eds_num_chan_after_select:
-
-            # padding needed for scenarios such as
-            # eds_num_chan_after_select = {3}, len(channel_selection)=4
-            padding_needed = True
-
-        if padding_needed:
-
+        if not all(eds_num_chan):
             # raise a not implemented error if expansion (i.e. padding is necessary)
-            raise NotImplementedError("")
+            raise NotImplementedError(
+                f"For the EchoData group {ed_group}, some EchoData objects do "
+                f"not contain the selected channels. This type of combine is "
+                f"not currently implemented."
+            )
 
-        # TODO: make sure logic is correct
+
+def create_channel_selection_dict(
+    user_channel_selection: Optional[List, Dict[str, list]], sonar_model: str, has_chan_dim: dict
+):
+
+    # TODO: document and comment!
+
+    # base case where the user did not provide selected channels
+    if user_channel_selection is None:
+        return {grp: None for grp in has_chan_dim.keys()}
+
+    # obtain the union of all channels for each beam group
+    if isinstance(user_channel_selection, list):
+        union_beam_chans = user_channel_selection[:]
+    else:
+        union_beam_chans = list(set(itertools.chain.from_iterable(user_channel_selection.values())))
+
+    # make channel_selection dictionary where the keys are the EchoData groups and the
+    # values are based on user provided input.
+    channel_selection = dict()
+    for ed_group, has_chan in has_chan_dim.items():
+
+        if has_chan:
+
+            if sonar_model in ["EK80", "ES80", "EA640"]:
+
+                if ed_group in ["Sonar", "Platform", "Vendor_specific"]:
+
+                    channel_selection[ed_group] = union_beam_chans
+                else:
+
+                    channel_selection[ed_group] = user_channel_selection[ed_group]
+
+            else:
+
+                channel_selection[ed_group] = union_beam_chans
+
+        else:
+            channel_selection[ed_group] = None
+
+    return channel_selection
 
 
-def _check_echodata_channels(echodatas: List[EchoData], channel_selection: Optional[List] = None):
+def _check_echodata_channels(
+    echodatas: List[EchoData], user_channel_selection: Optional[List, Dict[List]] = None
+):
     """
     Ensures that all channels are the same
 
@@ -221,14 +254,41 @@ def _check_echodata_channels(echodatas: List[EchoData], channel_selection: Optio
 
     # TODO: make sure channel_selection is the appropriate type
 
+    # determine if the channel
+    has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
+
+    channel_selection = create_channel_selection_dict(
+        user_channel_selection, echodatas[0].sonar_model, has_chan_dim
+    )
+
     for ed_group in echodatas[0].group_paths:
 
         if "channel" in echodatas[0][ed_group].dims:
 
             # get each EchoData's channels as a list of sets
-            all_chan_list = [set(ed[ed_group].channel.values) for ed in echodatas]
+            all_chan_list = [list(ed[ed_group].channel.values) for ed in echodatas]
 
-            print(all_chan_list)
+            # make sure each EchoData does not have repeating channels
+            all_chan_unique = [len(set(ed_chans)) == len(ed_chans) for ed_chans in all_chan_list]
+
+            if not all(all_chan_unique):
+                # get indices of EchoData objects with repeating channel names
+                false_ind = [ind for ind, x in enumerate(all_chan_unique) if not x]
+
+                # get files that produced the EchoData objects with repeated channels
+                files_w_rep_chan = [
+                    echodatas[ind]["Provenance"].source_filenames.values[0] for ind in false_ind
+                ]
+
+                raise RuntimeError(
+                    f"The EchoData objects produced by the following files "
+                    f"have a channel dimension with repeating values, "
+                    f"combine cannot be used: {files_w_rep_chan}"
+                )
+
+            _check_channel_consistency(all_chan_list, channel_selection, ed_group)
+
+    return channel_selection
 
 
 def combine_echodata(
@@ -355,6 +415,9 @@ def combine_echodata(
 
     # Ensure the list of all EchoData objects to be combined are valid
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+
+    ed_group_chan_sel = _check_echodata_channels(echodatas)
+    print(ed_group_chan_sel)
 
     # initiate ZarrCombine object
     comb = ZarrCombine()
