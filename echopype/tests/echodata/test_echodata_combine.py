@@ -422,17 +422,23 @@ def test_check_channel_consistency(all_chan_list, channel_selection):
     _check_channel_consistency(all_chan_list, "test_group", channel_selection)
 
 
-has_chan_dim_1_beam = {'Top-level': False, 'Environment': False, 'Platform': True, 'Platform/NMEA': False, 'Provenance': False,
- 'Sonar': True, 'Sonar/Beam_group1': True, 'Vendor_specific': True}
+# create duplicated dictionaries used within pytest parameterize
+has_chan_dim_1_beam = {'Top-level': False, 'Environment': False, 'Platform': True,
+                       'Platform/NMEA': False, 'Provenance': False, 'Sonar': True,
+                       'Sonar/Beam_group1': True, 'Vendor_specific': True}
 
-has_chan_dim_2_beam = {'Top-level': False, 'Environment': False, 'Platform': True, 'Platform/NMEA': False, 'Provenance': False,
- 'Sonar': True, 'Sonar/Beam_group1': True, 'Sonar/Beam_group2': True, 'Vendor_specific': True}
+has_chan_dim_2_beam = {'Top-level': False, 'Environment': False, 'Platform': True,
+                       'Platform/NMEA': False, 'Provenance': False, 'Sonar': True,
+                       'Sonar/Beam_group1': True, 'Sonar/Beam_group2': True, 'Vendor_specific': True}
 
-expected_1_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None, 'Platform/NMEA': None, 'Provenance': None,
- 'Sonar': None, 'Sonar/Beam_group1': None, 'Vendor_specific': None}
+expected_1_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None,
+                        'Platform/NMEA': None, 'Provenance': None, 'Sonar': None,
+                        'Sonar/Beam_group1': None, 'Vendor_specific': None}
 
-expected_2_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None, 'Platform/NMEA': None, 'Provenance': None,
- 'Sonar': None, 'Sonar/Beam_group1': None, 'Sonar/Beam_group2': None, 'Vendor_specific': None}
+expected_1_beam_a_b_sel = {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'],
+                           'Platform/NMEA': None, 'Provenance': None, 'Sonar': ['a', 'b'],
+                           'Sonar/Beam_group1': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
+
 
 @pytest.mark.parametrize(
     ("sonar_model", "has_chan_dim", "user_channel_selection", "expected_dict"),
@@ -453,45 +459,45 @@ expected_2_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None
             ["EK80", "ES80", "EA640"],
             has_chan_dim_2_beam,
             [None],
-            expected_2_beam_none
+            {'Top-level': None, 'Environment': None, 'Platform': None, 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': None, 'Sonar/Beam_group1': None,
+             'Sonar/Beam_group2': None, 'Vendor_specific': None}
         ),
         (
             ["EK60", "ES70", "AZFP"],
             has_chan_dim_1_beam,
             [['a', 'b'], {'Sonar/Beam_group1': ['a', 'b']}],
-            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'], 'Platform/NMEA': None, 'Provenance': None,
-             'Sonar': ['a', 'b'], 'Sonar/Beam_group1': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
+            expected_1_beam_a_b_sel
         ),
         (
             ["EK80", "ES80", "EA640"],
             has_chan_dim_1_beam,
             [['a', 'b'], {'Sonar/Beam_group1': ['a', 'b']}],
-            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'], 'Platform/NMEA': None, 'Provenance': None,
-             'Sonar': ['a', 'b'], 'Sonar/Beam_group1': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
+            expected_1_beam_a_b_sel
         ),
         (
             ["EK80", "ES80", "EA640"],
             has_chan_dim_2_beam,
             [['a', 'b']],
-            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'], 'Platform/NMEA': None, 'Provenance': None,
-             'Sonar': ['a', 'b'], 'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['a', 'b'],
-             'Vendor_specific': ['a', 'b']}
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
         ),
         (
             ["EK80", "ES80", "EA640"],
             has_chan_dim_2_beam,
             [{'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['c', 'd']}],
-            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None, 'Provenance': None,
-             'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['c', 'd'],
-             'Vendor_specific': ['a', 'b', 'c', 'd']}
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['c', 'd'], 'Vendor_specific': ['a', 'b', 'c', 'd']}
         ),
         (
             ["EK80", "ES80", "EA640"],
             has_chan_dim_2_beam,
             [{'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['b', 'c', 'd']}],
-            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None, 'Provenance': None,
-             'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['b', 'c', 'd'],
-             'Vendor_specific': ['a', 'b', 'c', 'd']}
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['b', 'c', 'd'], 'Vendor_specific': ['a', 'b', 'c', 'd']}
         ),
     ],
     ids=["EK60_no_sel", "EK80_no_sel_1_beam", "EK80_no_sel_2_beam", "EK60_chan_sel",
@@ -500,9 +506,19 @@ expected_2_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None
 )
 def test_create_channel_selection_dict(sonar_model, has_chan_dim,
                                        user_channel_selection, expected_dict):
+    """
+    Ensures that ``create_channel_selction_dict`` is constructing the correct output
+    for the sonar models ``EK60, EK80, AZFP`` and varying inputs for the input
+    ``user_channel_selection``.
+
+    Notes
+    -----
+    The input ``has_chan_dim`` is unchanged except for the case where we are considering
+    an EK80 sonar model with two beam groups.
+    """
 
     for model in sonar_model:
-
         for usr_sel_chan in user_channel_selection:
+
             channel_selection_dict = create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
             assert channel_selection_dict == expected_dict

@@ -219,13 +219,48 @@ def _check_channel_consistency(
 
 def create_channel_selection_dict(
     sonar_model: str,
-    has_chan_dim: dict,
+    has_chan_dim: Dict[str, bool],
     user_channel_selection: Optional[Union[List, Dict[str, list]]] = None,
-):
+) -> Dict[str, Optional[list]]:
+    """
+    Constructs the dictionary ``channel_selection_dict``, which specifies
+    the ``channel`` dimension names that should be selected for each
+    ``EchoData`` group. If a group does not have a ``channel`` dimension
+    the dictionary value will be set to ``None``
 
-    # TODO: document and comment!
+    Parameters
+    ----------
+    sonar_model: str
+        The name of the sonar model corresponding to ``has_chan_dim``
+    has_chan_dim: dict
+        A dictionary created using an ``EchoData`` object whose keys are
+        the groups of the ``EchoData`` object and values specify if that
+        particular group has a ``channel`` dimension
+    user_channel_selection: list or dict, optional
+        A user provided input that will be used to construct the values of
+        ``channel_selection_dict`` (see below for further details)
 
-    # base case where the user did not provide selected channels
+    Returns
+    -------
+    dict
+        A dictionary with the same keys as ``has_chan_dim`` and values
+        determined by ``sonar_model`` and ``user_channel_selection`` as follows:
+        - If ``user_channel_selection=None``, then the values of the dictionary
+        will be set to ``None``
+        - If ``user_channel_selection`` is a list, then all keys corresponding to
+        an ``EchoData`` group with a ``channel`` dimension will have their values
+        set to the provided list and all other groups will be set to ``None``
+        - If ``user_channel_selection`` is a dictionary, then all keys corresponding to
+        an ``EchoData`` group without a ``channel`` dimension will have their values
+        set as ``None`` and the other group's values will be set as follows:
+            - If ``sonar_model`` is not EK80-like then all values will be set to
+            the union of the values of ``user_channel_selection``
+            - If ``sonar_model`` is EK80-like then the groups ``Sonar, Platform, Vendor_specific``
+            will be set to the union of the values of ``user_channel_selection`` and the rest of
+            the groups will be set to the same value in ``user_channel_selection`` with the same key
+    """
+
+    # base case where the user did not provide selected channels (will be used downstream)
     if user_channel_selection is None:
         return {grp: None for grp in has_chan_dim.keys()}
 
@@ -236,28 +271,33 @@ def create_channel_selection_dict(
         union_beam_chans = list(set(itertools.chain.from_iterable(user_channel_selection.values())))
 
     # make channel_selection dictionary where the keys are the EchoData groups and the
-    # values are based on user provided input.
+    # values are based on the user provided input user_channel_selection
     channel_selection_dict = dict()
     for ed_group, has_chan in has_chan_dim.items():
 
+        # if there are no channel dimensions in the group, set the value to None
         if has_chan:
 
+            # if the model is not EK80-like set value to the union of the values
+            # of user_channel_selection
             if sonar_model in ["EK80", "ES80", "EA640"]:
 
+                # if the model is EK80-like
                 if (ed_group in ["Sonar", "Platform", "Vendor_specific"]) or isinstance(
                     user_channel_selection, list
                 ):
-
+                    # set value to the union of the values of user_channel_selection
                     channel_selection_dict[ed_group] = union_beam_chans
+
                 else:
 
+                    # set value to the user provided input with the same key
                     channel_selection_dict[ed_group] = user_channel_selection[ed_group]
 
             else:
-
                 channel_selection_dict[ed_group] = union_beam_chans
 
-            # sort channel names to produce consistent output
+            # sort channel names to produce consistent output (since we may be using sets)
             channel_selection_dict[ed_group].sort()
 
         else:
@@ -274,8 +314,6 @@ def _check_echodata_channels(
 
 
     """
-
-    # TODO: make sure channel_selection is the appropriate type
 
     # determine if the channel
     has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
@@ -438,6 +476,9 @@ def combine_echodata(
 
     # Ensure the list of all EchoData objects to be combined are valid
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+
+    # TODO: make sure user_channel_selection is the appropriate type and
+    #  only contains the Beam_groups
 
     ed_group_chan_sel = _check_echodata_channels(echodatas)
     print(ed_group_chan_sel)
