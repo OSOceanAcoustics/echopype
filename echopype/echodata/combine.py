@@ -155,12 +155,25 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     return sonar_model, echodata_filenames
 
 
-def _check_channel_consistency(all_chan_list: List, channel_selection, ed_group) -> None:
+def _check_channel_consistency(
+    all_chan_list: List, ed_group: str, channel_selection: Optional[List[str]] = None
+) -> None:
     """
-    Checks that each element in ``all_chan_list`` has the same
-    """
+    If ``channel_selection = None``, checks that each element in ``all_chan_list`` are
+    the same, else makes sure that each element in ``all_chan_list`` contains all channel
+    names in ``channel_selection``.
 
-    # TODO: document!
+    Parameters
+    ----------
+    all_chan_list: list of list
+        A list whose elements correspond to the Datasets to be combined with
+        their values set as a list of the channel dimension names in the Dataset
+    ed_group: str
+        The EchoData group path that produced ``all_chan_list``
+    channel_selection: list of str, optional
+        A list of channel names, which should be a subset of each
+        element in ``all_chan_list``
+    """
 
     if channel_selection is None:
 
@@ -189,8 +202,11 @@ def _check_channel_consistency(all_chan_list: List, channel_selection, ed_group)
         #  replaced with a code section that makes sure the selected channels
         #  appear at least once in one of the other Datasets
 
-        # determine the number of selected channels in each Dataset being combined
-        eds_num_chan = [channel_selection.intersection(set(ed_chans)) for ed_chans in all_chan_list]
+        # determine if channel selection is in each element of all_chan_list
+        eds_num_chan = [
+            channel_selection.intersection(set(ed_chans)) == channel_selection
+            for ed_chans in all_chan_list
+        ]
 
         if not all(eds_num_chan):
             # raise a not implemented error if expansion (i.e. padding is necessary)
@@ -202,7 +218,9 @@ def _check_channel_consistency(all_chan_list: List, channel_selection, ed_group)
 
 
 def create_channel_selection_dict(
-    user_channel_selection: Optional[List, Dict[str, list]], sonar_model: str, has_chan_dim: dict
+    user_channel_selection: Optional[Union[List, Dict[str, list]]],
+    sonar_model: str,
+    has_chan_dim: dict,
 ):
 
     # TODO: document and comment!
@@ -226,7 +244,9 @@ def create_channel_selection_dict(
 
             if sonar_model in ["EK80", "ES80", "EA640"]:
 
-                if ed_group in ["Sonar", "Platform", "Vendor_specific"]:
+                if (ed_group in ["Sonar", "Platform", "Vendor_specific"]) or isinstance(
+                    user_channel_selection, list
+                ):
 
                     channel_selection[ed_group] = union_beam_chans
                 else:
@@ -244,7 +264,7 @@ def create_channel_selection_dict(
 
 
 def _check_echodata_channels(
-    echodatas: List[EchoData], user_channel_selection: Optional[List, Dict[List]] = None
+    echodatas: List[EchoData], user_channel_selection: Optional[Union[List, Dict[str, list]]] = None
 ):
     """
     Ensures that all channels are the same
@@ -286,7 +306,7 @@ def _check_echodata_channels(
                     f"combine cannot be used: {files_w_rep_chan}"
                 )
 
-            _check_channel_consistency(all_chan_list, channel_selection, ed_group)
+            _check_channel_consistency(all_chan_list, ed_group, channel_selection[ed_group])
 
     return channel_selection
 

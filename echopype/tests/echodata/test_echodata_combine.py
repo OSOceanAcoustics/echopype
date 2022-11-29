@@ -12,6 +12,8 @@ import os.path
 import tempfile
 from dask.distributed import Client
 
+from echopype.echodata.combine import create_channel_selection_dict, _check_echodata_channels, _check_channel_consistency
+
 
 @pytest.fixture
 def ek60_test_data(test_path):
@@ -345,3 +347,97 @@ def test_combined_echodata_repr(ek60_test_data):
 
     # close client
     client.close()
+
+
+def test_check_echodata_channels(raw_datasets):
+    (
+        files,
+        sonar_model,
+        xml_file,
+        param_id,
+    ) = raw_datasets
+
+    eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
+
+    beam_group_names = [grp_name for grp_name in eds[0].group_paths if "Beam_group" in grp_name]
+
+    # channel_sel = {beam_name: list(eds[0][beam_name].channel.values) for beam_name in beam_group_names}
+
+    channel_sel = list(eds[0]['Vendor_specific'].channel.values)
+
+
+    # has_chan_dim = {grp: "channel" in eds[0][grp].dims for grp in eds[0].group_paths}
+
+    # channel_selection_dict = create_channel_selection_dict(user_channel_selection=channel_sel, sonar_model=sonar_model,
+    #                                                        has_chan_dim=has_chan_dim)
+    #
+    # print(channel_selection_dict)
+
+    _check_echodata_channels(eds, channel_sel)
+
+# @pytest.fixture(
+#     ("all_chan_list", "channel_selection"),
+#     params=[
+#         {
+#             "all_chan_list": [['a', 'b', 'c'], ['a', 'b', 'c']],
+#             "channel_selection": None
+#         },
+#         {
+#             "all_chan_list": [['a', 'b', 'c'], ['a', 'b']],
+#             "channel_selection": None
+#         },
+#     ],
+#     ids=["chan_sel_none_pass", "chan_sel_none_fail"]
+# )
+# def consistency_params(request):
+#     all_chan_list = request.param["all_chan_list"]
+#     channel_selection = request.param["channel_selection"]
+#
+#     return all_chan_list, channel_selection
+
+
+@pytest.mark.parametrize(
+    ("all_chan_list", "channel_selection"),
+    [
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            None
+        ),
+        pytest.param(
+            [['a', 'b', 'c'], ['a', 'b']],
+            None,
+            marks=pytest.mark.xfail(strict=True,
+                                    reason="This test should not pass because the channels are not consistent")
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            ['a', 'b', 'c']
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            ['a', 'b']
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b']],
+            ['a', 'b']
+        ),
+        pytest.param(
+            [['a', 'c'], ['a', 'b', 'c']],
+            ['a', 'b'],
+            marks=pytest.mark.xfail(strict=True,
+                                    reason="This test should not pass because we are selecting "
+                                           "channels that do not occur in each Dataset")
+        ),
+    ],
+    ids=["chan_sel_none_pass", "chan_sel_none_fail",
+         "chan_sel_same_as_given_chans", "chan_sel_subset_of_given_chans",
+         "chan_sel_subset_of_given_chans_uneven", "chan_sel_diff_from_some_given_chans"]
+)
+def test_check_channel_consistency(all_chan_list, channel_selection):
+    """
+    Ensures that the channel consistency check for combine works
+    as expected using mock data.
+    """
+
+    _check_channel_consistency(all_chan_list, "test_group", channel_selection)
+
