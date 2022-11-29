@@ -12,7 +12,8 @@ import os.path
 import tempfile
 from dask.distributed import Client
 
-from echopype.echodata.combine import create_channel_selection_dict, _check_echodata_channels, _check_channel_consistency
+from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
+    _check_channel_consistency
 
 
 @pytest.fixture
@@ -349,33 +350,6 @@ def test_combined_echodata_repr(ek60_test_data):
     client.close()
 
 
-def test_check_echodata_channels(raw_datasets):
-    (
-        files,
-        sonar_model,
-        xml_file,
-        param_id,
-    ) = raw_datasets
-
-    eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
-
-    beam_group_names = [grp_name for grp_name in eds[0].group_paths if "Beam_group" in grp_name]
-
-    # channel_sel = {beam_name: list(eds[0][beam_name].channel.values) for beam_name in beam_group_names}
-
-    channel_sel = list(eds[0]['Vendor_specific'].channel.values)
-
-
-    # has_chan_dim = {grp: "channel" in eds[0][grp].dims for grp in eds[0].group_paths}
-
-    # channel_selection_dict = create_channel_selection_dict(user_channel_selection=channel_sel, sonar_model=sonar_model,
-    #                                                        has_chan_dim=has_chan_dim)
-    #
-    # print(channel_selection_dict)
-
-    _check_echodata_channels(eds, channel_sel)
-
-
 @pytest.mark.parametrize(
     ("all_chan_list", "channel_selection"),
     [
@@ -520,5 +494,5 @@ def test_create_channel_selection_dict(sonar_model, has_chan_dim,
     for model in sonar_model:
         for usr_sel_chan in user_channel_selection:
 
-            channel_selection_dict = create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
+            channel_selection_dict = _create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
             assert channel_selection_dict == expected_dict

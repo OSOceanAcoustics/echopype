@@ -173,14 +173,26 @@ def _check_channel_consistency(
     channel_selection: list of str, optional
         A list of channel names, which should be a subset of each
         element in ``all_chan_list``
+
+    Raises
+    ------
+    RuntimeError
+        If ``channel_selection=None`` and all ``channel`` dimensions are not the
+        same across all Datasets.
+    NotImplementedError
+        If ``channel_selection`` is a list and the list of channels are not contained
+        in the ``EchoData`` group for all Datasets
     """
 
     if channel_selection is None:
 
-        # get the number of channels in each Dataset being combined
-        eds_num_chan = set(map(len, all_chan_list))
+        # sort each element in list, so correct comparison can be made
+        all_chan_list = list(map(sorted, all_chan_list))
 
-        if len(eds_num_chan) > 1:
+        # determine if the channels are the same across all Datasets
+        all_chans_equal = [all_chan_list[0]] * len(all_chan_list) == all_chan_list
+
+        if not all_chans_equal:
 
             # obtain all unique channel names
             unique_channels = set(itertools.chain.from_iterable(all_chan_list))
@@ -217,7 +229,7 @@ def _check_channel_consistency(
             )
 
 
-def create_channel_selection_dict(
+def _create_channel_selection_dict(
     sonar_model: str,
     has_chan_dim: Dict[str, bool],
     user_channel_selection: Optional[Union[List, Dict[str, list]]] = None,
@@ -308,17 +320,44 @@ def create_channel_selection_dict(
 
 def _check_echodata_channels(
     echodatas: List[EchoData], user_channel_selection: Optional[Union[List, Dict[str, list]]] = None
-):
+) -> Dict[str, Optional[List[str]]]:
     """
-    Ensures that all channels are the same
+    Coordinates the routines that check to make sure each ``EchoData`` group with a ``channel``
+    dimension has consistent channels for all elements in ``echodatas``, taking into account
+    the input ``user_channel_selection``.
 
+    Parameters
+    ----------
+    echodatas: list of EchoData object
+        The list of ``EchoData`` objects to be combined
+    user_channel_selection: list or dict, optional
+        A user provided input that will be used to specify which channels will be
+        selected for each ``EchoData`` group
 
+    Returns
+    -------
+    dict
+        A dictionary with keys corresponding to the ``EchoData`` groups and
+        values specifying the channels that should be selected within that group.
+        For more information on this dictionary see the function ``_create_channel_selection_dict``.
+
+    Raises
+    ------
+    RuntimeError
+        If any ``EchoData`` group has a ``channel`` dimension value
+        with a duplicate value.
+
+    Notes
+    -----
+    For further information on what is deemed consistent, please see the
+    function ``_check_channel_consistency``.
     """
 
-    # determine if the channel
+    # determine if the EchoData group contains a channel dimension
     has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
 
-    channel_selection = create_channel_selection_dict(
+    # create dictionary specifying the channels that should be selected for each group
+    channel_selection = _create_channel_selection_dict(
         echodatas[0].sonar_model, has_chan_dim, user_channel_selection
     )
 
@@ -326,7 +365,7 @@ def _check_echodata_channels(
 
         if "channel" in echodatas[0][ed_group].dims:
 
-            # get each EchoData's channels as a list of sets
+            # get each EchoData's channels as a list of list
             all_chan_list = [list(ed[ed_group].channel.values) for ed in echodatas]
 
             # make sure each EchoData does not have repeating channels
@@ -347,6 +386,7 @@ def _check_echodata_channels(
                     f"combine cannot be used: {files_w_rep_chan}"
                 )
 
+            # perform a consistency check for the channel dims across all Datasets
             _check_channel_consistency(all_chan_list, ed_group, channel_selection[ed_group])
 
     return channel_selection
@@ -418,6 +458,17 @@ def combine_echodata(
         - the values are not identical
         - the keys ``date_created`` or ``conversion_time``
           do not have the same types
+
+          # TODO: add the following error descriptions
+    RuntimeError
+        If any ``EchoData`` group has a ``channel`` dimension value
+        with a duplicate value.
+    RuntimeError
+        If ``channel_selection=None`` and all ``channel`` dimensions are not the
+        same across all Datasets.
+    NotImplementedError
+        If ``channel_selection`` is a list and the list of channels are not contained
+        in the ``EchoData`` group for all Datasets
 
     Notes
     -----
