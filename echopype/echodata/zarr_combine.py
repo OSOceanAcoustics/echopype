@@ -97,43 +97,6 @@ class ZarrCombine:
                     )
 
     @staticmethod
-    def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
-        """
-        Makes sure that each Dataset in ``ds_list`` has the
-        same number of channels and the same name for each
-        of these channels.
-
-        Parameters
-        ----------
-        ds_list: list of xr.Dataset
-            List of Datasets to be combined
-        ed_name: str
-            The name of the ``EchoData`` group being combined
-        """
-
-        if "channel" in ds_list[0].dims:
-
-            # check to make sure we have the same number of channels in each ds
-            if np.unique([len(ds["channel"].values) for ds in ds_list]).size == 1:
-
-                # make each array an element of a numpy array
-                channel_arrays = np.array([ds["channel"].values for ds in ds_list])
-
-                # check for unique rows
-                if np.unique(channel_arrays, axis=0).shape[0] > 1:
-
-                    raise RuntimeError(
-                        f"All {ed_name} groups do not have that same channel coordinate, "
-                        f"combine cannot be used!"
-                    )
-
-            else:
-                raise RuntimeError(
-                    f"All {ed_name} groups do not have that same number of channel coordinates, "
-                    f"combine cannot be used!"
-                )
-
-    @staticmethod
     def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
         """
         Compares two attribute dictionaries to ensure that they
@@ -241,7 +204,6 @@ class ZarrCombine:
         """
 
         self._check_ascending_ds_times(ds_list, ed_name)
-        self._check_channels(ds_list, ed_name)
 
         # Dataframe with column as dim names and rows as the different Datasets
         self.dims_df = pd.DataFrame([ds.dims for ds in ds_list])
