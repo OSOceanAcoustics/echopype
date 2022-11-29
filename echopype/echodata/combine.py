@@ -218,9 +218,9 @@ def _check_channel_consistency(
 
 
 def create_channel_selection_dict(
-    user_channel_selection: Optional[Union[List, Dict[str, list]]],
     sonar_model: str,
     has_chan_dim: dict,
+    user_channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ):
 
     # TODO: document and comment!
@@ -237,7 +237,7 @@ def create_channel_selection_dict(
 
     # make channel_selection dictionary where the keys are the EchoData groups and the
     # values are based on user provided input.
-    channel_selection = dict()
+    channel_selection_dict = dict()
     for ed_group, has_chan in has_chan_dim.items():
 
         if has_chan:
@@ -248,19 +248,22 @@ def create_channel_selection_dict(
                     user_channel_selection, list
                 ):
 
-                    channel_selection[ed_group] = union_beam_chans
+                    channel_selection_dict[ed_group] = union_beam_chans
                 else:
 
-                    channel_selection[ed_group] = user_channel_selection[ed_group]
+                    channel_selection_dict[ed_group] = user_channel_selection[ed_group]
 
             else:
 
-                channel_selection[ed_group] = union_beam_chans
+                channel_selection_dict[ed_group] = union_beam_chans
+
+            # sort channel names to produce consistent output
+            channel_selection_dict[ed_group].sort()
 
         else:
-            channel_selection[ed_group] = None
+            channel_selection_dict[ed_group] = None
 
-    return channel_selection
+    return channel_selection_dict
 
 
 def _check_echodata_channels(
@@ -278,7 +281,7 @@ def _check_echodata_channels(
     has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
 
     channel_selection = create_channel_selection_dict(
-        user_channel_selection, echodatas[0].sonar_model, has_chan_dim
+        echodatas[0].sonar_model, has_chan_dim, user_channel_selection
     )
 
     for ed_group in echodatas[0].group_paths:
