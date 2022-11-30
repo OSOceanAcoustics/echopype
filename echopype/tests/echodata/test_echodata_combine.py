@@ -220,6 +220,19 @@ def test_combine_echodata(raw_datasets):
     client.close()
 
 
+def test_combine_echodata_channel_selection():
+    """
+    This test ensures that the ``channel_selection`` input
+    of ``combine_echodata`` is producing the correct output
+    for all sonar models except AD2CP.
+    """
+
+    # TODO: Once a mock EchoData structure can be easily formed,
+    #  we should implement this test.
+
+    pytest.skip("This test will not be implemented until after a mock EchoData object can be created.")
+
+
 def test_attr_storage(ek60_test_data):
     # check storage of attributes before combination in provenance group
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]

@@ -593,8 +593,6 @@ def combine_echodata(
     # perform channel check and get channel selection for each EchoData group
     ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
 
-    print(ed_group_chan_sel)
-
     # initiate ZarrCombine object
     comb = ZarrCombine()
 
@@ -605,6 +603,7 @@ def combine_echodata(
         storage_options=storage_options,
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
+        ed_group_chan_sel=ed_group_chan_sel,
     )
 
     if client_created:

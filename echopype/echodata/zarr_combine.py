@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import islice
-from typing import Any, Dict, Hashable, List, Set, Tuple
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
@@ -893,6 +893,7 @@ class ZarrCombine:
         storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
+        ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
     ) -> EchoData:
         """
         Combines all ``EchoData`` objects in ``eds`` by
@@ -912,6 +913,11 @@ class ZarrCombine:
             The sonar model used for all elements in ``eds``
         echodata_filenames : list of str
             The source files names for all elements in ``eds``
+        ed_group_chan_sel: dict
+            A dictionary with keys corresponding to the ``EchoData`` groups
+            and values specify what channels should be selected within that
+            group. If a value is ``None``, then a subset of channels should
+            not be selected.
 
         Returns
         -------
@@ -956,8 +962,16 @@ class ZarrCombine:
             else:
                 ed_group = "Top-level"
 
-            # collect the group Dataset from all eds
-            ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+            # collect the group Dataset from all eds that have their channels unselected
+            all_chan_ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+
+            # select only the appropriate channels from each Dataset
+            ds_list = [
+                ds.sel(channel=ed_group_chan_sel[ed_group])
+                if ed_group_chan_sel[ed_group] is not None
+                else ds
+                for ds in all_chan_ds_list
+            ]
 
             if ds_list:  # necessary because a group may not be present
 
