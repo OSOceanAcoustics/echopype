@@ -90,6 +90,56 @@ def check_zarr_path(
     return validated_path
 
 
+def _check_channel_selection_form(
+    channel_selection: Optional[Union[List, Dict[str, list]]] = None
+) -> None:
+    """
+    Ensures that the provided user input ``channel_selection`` is in
+    an acceptable form.
+
+    Parameters
+    ----------
+    channel_selection: list of str or dict, optional
+        Specifies what channels should be selected for an ``EchoData`` group
+        with a ``channel`` dimension (before combination).
+    """
+
+    # check that channel selection is None, a list, or a dict
+    if not isinstance(channel_selection, (type(None), list, dict)):
+        raise TypeError("The input channel_selection does not have an acceptable type!")
+
+    if isinstance(channel_selection, list):
+        # make sure each element is a string
+        are_elem_str = [isinstance(elem, str) for elem in channel_selection]
+        if not all(are_elem_str):
+            raise TypeError("Each element of channel_selection must be a string!")
+
+    if isinstance(channel_selection, dict):
+
+        # make sure all keys are strings
+        are_keys_str = [isinstance(elem, str) for elem in channel_selection.keys()]
+        if not all(are_keys_str):
+            raise TypeError("Each key of channel_selection must be a string!")
+
+        # make sure all keys are of the form Sonar/Beam_group
+        are_keys_right_form = ["Sonar/Beam_group" in elem for elem in channel_selection.keys()]
+        if not all(are_keys_right_form):
+            raise TypeError(
+                "Each key of channel_selection can only be a beam group path of "
+                "the form Sonar/Beam_group!"
+            )
+
+        # make sure all values are a list
+        are_vals_list = [isinstance(elem, list) for elem in channel_selection.values()]
+        if not all(are_vals_list):
+            raise TypeError("Each value of channel_selection must be a list!")
+
+        # make sure all values are a list of strings
+        are_vals_list_str = [set(map(type, elem)) == {str} for elem in channel_selection]
+        if not all(are_vals_list_str):
+            raise TypeError("Each value of channel_selection must be a list of strings!")
+
+
 def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
     Ensures that the input list of ``EchoData`` objects for ``combine_echodata``
@@ -398,6 +448,7 @@ def combine_echodata(
     overwrite: bool = False,
     storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
+    channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
@@ -419,6 +470,16 @@ def combine_echodata(
         backend (ignored for local paths)
     client: dask.distributed.Client, optional
         An initialized Dask distributed client
+    channel_selection: list of str or dict, optional
+        Specifies what channels should be selected for an ``EchoData`` group
+        with a ``channel`` dimension (before combination).
+
+        - if a list is provided, then each ``EchoData`` group with a ``channel`` dimension
+        will only contain the channels in the provided list
+        - if a dictionary is provided, the dictionary should have keys specifying only beam
+        groups (e.g. "Sonar/Beam_group1") and values as a list of channel names to select
+        within that beam group. The rest of the ``EchoData`` groups with a ``channel`` dimension
+        will have their selected channels chosen automatically.
 
     Returns
     -------
@@ -458,17 +519,15 @@ def combine_echodata(
         - the values are not identical
         - the keys ``date_created`` or ``conversion_time``
           do not have the same types
-
-          # TODO: add the following error descriptions
     RuntimeError
         If any ``EchoData`` group has a ``channel`` dimension value
         with a duplicate value.
     RuntimeError
         If ``channel_selection=None`` and all ``channel`` dimensions are not the
-        same across all Datasets.
+        same across ``echodatas`` with the same group.
     NotImplementedError
         If ``channel_selection`` is a list and the list of channels are not contained
-        in the ``EchoData`` group for all Datasets
+        in the ``EchoData`` group across all values in ``echodatas``.
 
     Notes
     -----
@@ -487,7 +546,7 @@ def combine_echodata(
     --------
     Combine lazy loaded ``EchoData`` objects:
 
-    >>> ed1 = echopype.open_converted("file1.nc")
+    >>> ed1 = echopype.open_converted("file1.zarr")
     >>> ed2 = echopype.open_converted("file2.zarr")
     >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
     >>>                                      zarr_path="path/to/combined.zarr",
@@ -528,10 +587,12 @@ def combine_echodata(
     # Ensure the list of all EchoData objects to be combined are valid
     sonar_model, echodata_filenames = check_echodatas_input(echodatas)
 
-    # TODO: make sure user_channel_selection is the appropriate type and
-    #  only contains the Beam_groups
+    # make sure channel_selection is the appropriate type and only contains the beam groups
+    _check_channel_selection_form(channel_selection)
 
-    ed_group_chan_sel = _check_echodata_channels(echodatas)
+    # perform channel check and get channel selection for each EchoData group
+    ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
+
     print(ed_group_chan_sel)
 
     # initiate ZarrCombine object
