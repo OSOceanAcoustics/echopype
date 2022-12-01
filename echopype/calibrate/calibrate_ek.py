@@ -930,7 +930,11 @@ class CalibrateEK80(CalibrateEK):
         if self.echodata["Sonar/Beam_group2"] is not None:  # both power and complex samples exist
             # If both beam and beam_power groups exist,
             #   this means that CW data are encoded as power samples and in beam_power group
-            if waveform_mode == "CW" and encode_mode == "complex":
+            if (
+                waveform_mode == "CW" and encode_mode == "complex"
+            ):  # TODO: this is based off of user input and does not actually test the
+                #  data, right? Can we have echodata["Sonar/Beam_group1"] only,
+                #  complex samples, and CW?
                 raise ValueError("File does not contain CW complex samples")
 
             if encode_mode == "power":
