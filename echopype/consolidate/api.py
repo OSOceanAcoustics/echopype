@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
+from ..echodata.simrad import check_waveform_encode_mode
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -184,37 +185,26 @@ def _check_splitbeam_angle_waveform_encode_mode(
     ``waveform_mode`` and ``encode_mode`` inputs to the function
     ``add_splitbeam_angle`` based off of the supplied ``echodata`` object.
 
+    # TODO: document!
     """
 
-    if waveform_mode not in ["CW", "BB"]:
-        raise RuntimeError("The input waveform_mode must be either 'CW' or 'BB'!")
+    # make sure the modes correspond to the supplied echodata
+    power_ed_group, complex_ed_group = check_waveform_encode_mode(
+        echodata, waveform_mode, encode_mode
+    )
 
-    if encode_mode not in ["complex", "power"]:
-        raise RuntimeError("The input encode_mode must be either 'complex' or 'power'!")
-
+    # perform additional checks specific to split-beam angle calculation
     if echodata.sonar_model in ["EK60", "ES70"]:
-
-        if waveform_mode != "CW":
-            raise RuntimeError("Incorrect waveform_mode input provided!")
-
-        if encode_mode != "power":
-            raise RuntimeError("Incorrect encode_mode input provided!")
 
         # TODO: make sure echodata['Sonar/Beam_group1'].beam_type only has 1's
+        print("Implement check for correct beam_type!")
 
-    # TODO: check waveform and encode mode for EK80
+    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
 
+        # TODO: make sure echodata['Sonar/Beam_group1'].beam_type has appropriate beam_type
+        print("Implement check for correct beam_type!")
 
-def _get_ds_beam(echodata: EchoData):
-    """
-    Obtains the appropriate beam group used to compute the split-beam angle data.
-    """
-
-    if echodata.sonar_model in ["EK60", "ES70"]:
-        return echodata["Sonar/Beam_group1"]
-    else:
-        # TODO: determine ds_beam for EK80 sensors
-        return xr.Dataset()
+    return power_ed_group, complex_ed_group
 
 
 def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
@@ -320,18 +310,18 @@ def add_splitbeam_angle(
         )
 
     # check that the appropriate waveform and encode mode have been given
-    _check_splitbeam_angle_waveform_encode_mode(echodata, waveform_mode, encode_mode)
-
-    # get the appropriate ds_beam Dataset
-    ds_beam = _get_ds_beam(echodata)
+    # and obtain the echodata group paths corresponding to power/complex data
+    power_ed_group, complex_ed_group = _check_splitbeam_angle_waveform_encode_mode(
+        echodata, waveform_mode, encode_mode
+    )
 
     # obtain split-beam angles from
     if (waveform_mode == "CW") and (encode_mode == "power"):
-        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
+        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=echodata[power_ed_group])
     elif (waveform_mode == "CW") and (encode_mode == "complex"):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=echodata[complex_ed_group])
     elif (waveform_mode == "BB") and (encode_mode == "complex"):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB(ds_beam=ds_beam)
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB(ds_beam=echodata[complex_ed_group])
     else:
         raise RuntimeError(
             f"Unable to compute split-beam angle data for "

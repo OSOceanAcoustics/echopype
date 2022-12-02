@@ -1,19 +1,24 @@
 """
 Contains functions that are specific to Simrad echo sounders
 """
+from typing import Optional, Tuple
+
 from .echodata import EchoData
 
 
-def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mode: str):
+def _check_mode_input_without_data(waveform_mode: str, encode_mode: str) -> None:
     """
-    A function to make sure that the user has provided the correct
-    ``waveform_mode`` and ``encode_mode`` inputs based off of the
-    supplied ``echodata`` object.
+    Checks that the ``waveform_mode`` and ``encode_mode`` have
+    the correct values and that the pair of inputs are valid, without
+    considering the actual data.
 
+    Parameters
+    ----------
+    waveform_mode: str
+        Type of transmit waveform.
+    encode_mode: str
+        Type of encoded return echo data.
     """
-
-    # checks logic of mode inputs without referencing data
-    #########################################################################################
 
     if waveform_mode not in ["CW", "BB"]:
         raise RuntimeError("The input waveform_mode must be either 'CW' or 'BB'!")
@@ -25,35 +30,81 @@ def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_m
     if (waveform_mode == "BB") and (encode_mode == "power"):
         raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
 
-    #########################################################################################
 
-    power_data_location = None
-    complex_data_location = None
+def _check_mode_input_with_data_EK60(
+    echodata: EchoData, waveform_mode: str, encode_mode: str
+) -> Optional[str]:
+    """
+    Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
+    with the EK60-like data supplied by ``echodata``.
 
-    # checks mode inputs against data
-    #########################################################################################
+    Parameters
+    ----------
+    echodata: EchoData
+        An ``EchoData`` object holding the data
+    waveform_mode : {"CW", "BB"}
+        Type of transmit waveform.
+    encode_mode : {"complex", "power"}
+        Type of encoded return echo data.
 
-    # EK60-like sensors must have 'power' and 'CW' modes
-    if echodata.sonar_model in ["EK60", "ES70"]:
+    Returns
+    -------
+    power_ed_group: str, optional
+        The ``EchoData`` beam group path containing the power data
+    """
 
-        if waveform_mode != "CW":
-            raise RuntimeError("Incorrect waveform_mode input provided!")
+    # initialize power EchoData group value
+    power_ed_group = None
 
-        if encode_mode != "power":
-            raise RuntimeError("Incorrect encode_mode input provided!")
+    # EK60-like sensors must have 'power' and 'CW' modes only
+    if waveform_mode != "CW":
+        raise RuntimeError("Incorrect waveform_mode input provided!")
+    if encode_mode != "power":
+        raise RuntimeError("Incorrect encode_mode input provided!")
 
-        # ensure that no complex data exists (this should never be triggered)
-        # TODO: is this necessary? I just wanted to provide a check against the data ...
-        if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
-            raise RuntimeError(
-                "Provided echodata object does not correspond to an EK60-like "
-                "sensor, but is labeled as data from an EK60-like sensor!"
-            )
-        else:
-            power_data_location = "Sonar/Beam_group1"
+    # ensure that no complex data exists (this should never be triggered)
+    # TODO: is this necessary? I just wanted to provide a check against the data ...
+    if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
+        raise RuntimeError(
+            "Provided echodata object does not correspond to an EK60-like "
+            "sensor, but is labeled as data from an EK60-like sensor!"
+        )
+    else:
+        power_ed_group = "Sonar/Beam_group1"
+
+    return power_ed_group
+
+
+def _check_mode_input_with_data_EK80(
+    echodata: EchoData, waveform_mode: str, encode_mode: str
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
+    with the EK80-like data supplied by ``echodata``.
+
+    Parameters
+    ----------
+    echodata: EchoData
+        An ``EchoData`` object holding the data
+    waveform_mode : {"CW", "BB"}
+        Type of transmit waveform.
+    encode_mode : {"complex", "power"}
+        Type of encoded return echo data.
+
+    Returns
+    -------
+    power_ed_group: str, optional
+        The ``EchoData`` beam group path containing the power data
+    complex_ed_group: str, optional
+        The ``EchoData`` beam group path containing the complex data
+    """
+
+    # initialize power and complex EchoData group values
+    power_ed_group = None
+    complex_ed_group = None
 
     # EK80-like sensors
-    if encode_mode.sonar_model in ["EK80", "ES80", "EA640"]:
+    if echodata.sonar_model in ["EK80", "ES80", "EA640"]:
 
         if waveform_mode == "BB":
 
@@ -66,7 +117,7 @@ def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_m
             elif echodata["Sonar/Beam_group2"] is not None:
                 raise RuntimeError("Sonar/Beam_group2 should not exist for waveform_mode='BB'!")
             else:
-                complex_data_location = "Sonar/Beam_group1"
+                complex_ed_group = "Sonar/Beam_group1"
 
         else:
 
@@ -83,7 +134,7 @@ def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_m
                             "Data provided does not correspond to encode_mode='power'!"
                         )
                     else:
-                        power_data_location = "Sonar/Beam_group1"
+                        power_ed_group = "Sonar/Beam_group1"
                 elif encode_mode == "complex":
                     # complex samples must be in Sonar/Beam_group1
                     if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
@@ -91,11 +142,12 @@ def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_m
                             "Data provided does not correspond to encode_mode='complex'!"
                         )
                     else:
-                        complex_data_location = "Sonar/Beam_group1"
+                        complex_ed_group = "Sonar/Beam_group1"
 
             else:
 
                 # complex should be in Sonar/Beam_group1 and power in Sonar/Beam_group2
+                # the RuntimeErrors below should never be triggered
                 if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
                     raise RuntimeError(
                         "Complex data does not exist in Sonar/Beam_group1, "
@@ -107,9 +159,62 @@ def _check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_m
                         "input echodata object must be incorrectly constructed!"
                     )
                 else:
-                    complex_data_location = "Sonar/Beam_group1"
-                    power_data_location = "Sonar/Beam_group2"
-    #########################################################################################
+                    complex_ed_group = "Sonar/Beam_group1"
+                    power_ed_group = "Sonar/Beam_group2"
 
-    print(complex_data_location)
-    print(power_data_location)
+    return power_ed_group, complex_ed_group
+
+
+def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mode: str):
+    """
+    A function to make sure that the user has provided the correct
+    ``waveform_mode`` and ``encode_mode`` inputs based off of the
+    supplied ``echodata`` object. Additionally, determine the
+    ``EchoData`` beam group paths of the power and complex data.
+
+    Parameters
+    ----------
+    echodata: EchoData
+        An ``EchoData`` object holding the data corresponding to the
+        waveform and encode modes
+    waveform_mode : {"CW", "BB"}
+        Type of transmit waveform
+    encode_mode : {"complex", "power"}
+        Type of encoded return echo data
+
+    Returns
+    -------
+    power_ed_group: str, optional
+        The ``EchoData`` beam group path containing the power data
+    complex_ed_group: str, optional
+        The ``EchoData`` beam group path containing the complex data
+
+    Notes
+    -----
+    If ``power_ed_group`` or ``complex_ed_group`` are equal to ``None``
+    then no power or complex data exist, respectively.
+    """
+
+    # checks input and logic of modes without referencing data
+    _check_mode_input_without_data(waveform_mode, encode_mode)
+
+    if echodata.sonar_model in ["EK60", "ES70"]:
+
+        # initialize complex_data_location (needed only for EK60)
+        complex_ed_group = None
+
+        # check modes against data for EK60 and get power EchoData group
+        power_ed_group = _check_mode_input_with_data_EK60(echodata, waveform_mode, encode_mode)
+
+    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+
+        # check modes against data for EK80 and get power/complex EchoData groups
+        power_ed_group, complex_ed_group = _check_mode_input_with_data_EK80(
+            echodata, waveform_mode, encode_mode
+        )
+
+    else:
+        # raise error for unknown or unaccounted for sonar model
+        raise RuntimeError("EchoData was produced by a non-Simrad or unknown Simrad echo sounder!")
+
+    return power_ed_group, complex_ed_group
