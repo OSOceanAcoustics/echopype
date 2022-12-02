@@ -1,11 +1,17 @@
 import datetime
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
+from .split_beam_angle import (
+    _add_splitbeam_angle_to_ds,
+    _get_splitbeam_angle_complex_BB,
+    _get_splitbeam_angle_complex_CW,
+    _get_splitbeam_angle_power_CW,
+)
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -177,105 +183,6 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     return interp_ds.drop_vars("time1")
 
 
-def _check_splitbeam_angle_waveform_encode_mode(
-    echodata: EchoData, waveform_mode: str, encode_mode: str
-):
-    """
-    A function to make sure that the user has provided the correct
-    ``waveform_mode`` and ``encode_mode`` inputs to the function
-    ``add_splitbeam_angle`` based off of the supplied ``echodata`` object.
-
-    # TODO: document!
-    """
-
-    # make sure the modes correspond to the supplied echodata
-    power_ed_group, complex_ed_group = check_waveform_encode_mode(
-        echodata, waveform_mode, encode_mode
-    )
-
-    # perform additional checks specific to split-beam angle calculation
-    if echodata.sonar_model in ["EK60", "ES70"]:
-
-        # TODO: make sure echodata['Sonar/Beam_group1'].beam_type only has 1's
-        print("Implement check for correct beam_type!")
-
-    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-
-        # TODO: make sure echodata['Sonar/Beam_group1'].beam_type has appropriate beam_type
-        print("Implement check for correct beam_type!")
-
-    return power_ed_group, complex_ed_group
-
-
-def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
-    """
-    Obtains the split-beam angle data from power encoded data with CW waveform.
-
-
-    Returns
-    -------
-    theta_fc: xr.Dataset
-        The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
-        The calculated split-beam athwartship angle
-
-    Notes
-    -----
-    Can be used on both EK60 and EK80 data
-
-    physical_angle = ((raw_angle * 180 / 128) / sensitivity) - offset
-    """
-
-    # raw_angle scaling constant
-    conversion_const = 180 / 128
-
-    # TODO: maybe create a function to remove repetition below?
-
-    # obtain split-beam alongship angle
-    theta_fc = (
-        conversion_const * ds_beam["angle_alongship"] / ds_beam["angle_sensitivity_alongship"]
-        - ds_beam["angle_offset_alongship"]
-    )
-
-    # obtain split-beam athwartship angle
-    phi_fc = (
-        conversion_const * ds_beam["angle_athwartship"] / ds_beam["angle_sensitivity_athwartship"]
-        - ds_beam["angle_offset_athwartship"]
-    )
-
-    return theta_fc, phi_fc
-
-
-def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
-    """
-    Obtains the split-beam angle data from complex encoded data with CW waveform.
-
-    Returns
-    -------
-    theta_fc: xr.Dataset
-        The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
-        The calculated split-beam athwartship angle
-    """
-
-    return xr.Dataset(), xr.Dataset()
-
-
-def _get_splitbeam_angle_complex_BB(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
-    """
-    Obtains the split-beam angle data from complex encoded data with BB waveform.
-
-    Returns
-    -------
-    theta_fc: xr.Dataset
-        The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
-        The calculated split-beam athwartship angle
-    """
-
-    return xr.Dataset(), xr.Dataset()
-
-
 def add_splitbeam_angle(
     ds: xr.Dataset, echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> xr.Dataset:
@@ -284,22 +191,13 @@ def add_splitbeam_angle(
 
     Parameters
     ----------
-    waveform_mode : {"CW", "BB"}
-        Type of transmit waveform.
-        Required only for data from the EK80 echosounder.
 
-        - `"CW"` for narrowband transmission,
-          returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission,
-          returned echoes recorded as complex samples
+    Returns
+    -------
+    ds: xr.Dataset
+        The input Dataset ``ds`` with split-beam angle data.
 
-    encode_mode : {"complex", "power"}
-        Type of encoded return echo data.
-        Required only for data from the EK80 echosounder.
-
-        - `"complex"` for complex samples
-        - `"power"` for power/angle samples, only allowed when
-          the echosounder is configured for narrowband transmission
+    TODO: add Raises section and finish documentation using Wu-Jung's docs in PR #817
     """
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
@@ -311,7 +209,7 @@ def add_splitbeam_angle(
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group paths corresponding to power/complex data
-    power_ed_group, complex_ed_group = _check_splitbeam_angle_waveform_encode_mode(
+    power_ed_group, complex_ed_group = check_waveform_encode_mode(
         echodata, waveform_mode, encode_mode
     )
 
@@ -328,4 +226,7 @@ def add_splitbeam_angle(
             f"waveform_mode = {waveform_mode} and encode_mode = {encode_mode}!"
         )
 
-    # TODO: create function that adds theta_fc and phi_fc to ds input
+    # add theta_fc and phi_fc to ds input
+    ds = _add_splitbeam_angle_to_ds(theta_fc, phi_fc, ds)
+
+    return ds

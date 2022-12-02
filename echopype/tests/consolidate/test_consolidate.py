@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import xarray as xr
-
+import scipy.io as io
 import echopype as ep
 
 
@@ -181,3 +181,48 @@ def test_add_location(test_path):
 
     ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
     _check_var(ds_sel)
+
+
+@pytest.mark.parametrize(
+    ("sonar_model", "test_path_key", "raw_file_name", "path_to_echoview_mat", "waveform_mode", "encode_mode"),
+    [
+        (
+            "EK60", "EK60", "Winter2017-D20170115-T150122.raw",
+            '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/Winter2017-D20170115-T150122_angles_all_chan.mat',
+            "CW", "power"
+        ),
+    ],
+    ids=["ek60_CW_power"]
+)
+def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
+                             path_to_echoview_mat, waveform_mode, encode_mode):
+
+    # obtain the EchoData object with the data needed for the calculation
+    ed = ep.open_raw(test_path[test_path_key] / raw_file_name, sonar_model=sonar_model)
+
+    # add the split-beam angles to an empty Dataset
+    ds = ep.consolidate.add_splitbeam_angle(ds=xr.Dataset(), echodata=ed,
+                                            waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+    # obtain echoview output
+    echoview_mat = io.loadmat(file_name=path_to_echoview_mat)["chan_splitbeam"]
+
+    # compare echoview output against computed output for all channels
+    for chan_ind in range(echoview_mat.shape[0]):
+
+        # grabs the appropriate ds data to compare against
+        ds_reduced = ds.isel(channel=chan_ind, ping_time=0, beam=0).dropna("range_sample")
+
+        # check the computed angle_alongship values against the echoview output
+        assert np.allclose(ds_reduced.angle_alongship.values[1:],
+                           echoview_mat[chan_ind, 0, :])
+
+        # check the computed angle_alongship values against the echoview output
+        assert np.allclose(ds_reduced.angle_athwartship.values[1:],
+                           echoview_mat[chan_ind, 1, :])
+
+
+
+
+
+
