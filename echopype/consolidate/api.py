@@ -208,18 +208,25 @@ def add_splitbeam_angle(
         )
 
     # check that the appropriate waveform and encode mode have been given
-    # and obtain the echodata group paths corresponding to power/complex data
-    power_ed_group, complex_ed_group = check_waveform_encode_mode(
-        echodata, waveform_mode, encode_mode
-    )
+    # and obtain the echodata group path corresponding to encode_mode
+    encode_mode_ed_group = check_waveform_encode_mode(echodata, waveform_mode, encode_mode)
+
+    # set ds_beam
+    ds_beam = echodata[encode_mode_ed_group]
+
+    # TODO: based on ds (which is Sv) we only choose the channels that are in ds from ds_beam
+
+    # TODO: can we be sure that ds is SV and it corresponds to echodata?
+    #  Fail people if ds does not have the same # of ping_times and
+    #  range_sample and channels as ds_beam
 
     # obtain split-beam angles from
     if (waveform_mode == "CW") and (encode_mode == "power"):
-        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=echodata[power_ed_group])
+        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
     elif (waveform_mode == "CW") and (encode_mode == "complex"):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=echodata[complex_ed_group])
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
     elif (waveform_mode == "BB") and (encode_mode == "complex"):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB(ds_beam=echodata[complex_ed_group])
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB(ds_beam=ds_beam)
     else:
         raise RuntimeError(
             f"Unable to compute split-beam angle data for "

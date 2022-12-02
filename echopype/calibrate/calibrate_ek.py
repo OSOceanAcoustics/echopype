@@ -279,13 +279,13 @@ class CalibrateEK60(CalibrateEK):
             )
 
     def compute_Sv(self, **kwargs):
-        power_ed_group, _ = check_waveform_encode_mode(
+        power_ed_group = check_waveform_encode_mode(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power"
         )
         return self._cal_power(cal_type="Sv", power_ed_group=power_ed_group)
 
     def compute_TS(self, **kwargs):
-        power_ed_group, _ = check_waveform_encode_mode(
+        power_ed_group = check_waveform_encode_mode(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power"
         )
         return self._cal_power(cal_type="TS", power_ed_group=power_ed_group)
@@ -885,7 +885,7 @@ class CalibrateEK80(CalibrateEK):
             An xarray Dataset containing either Sv or TS.
         """
 
-        power_ed_group, _ = check_waveform_encode_mode(
+        power_ed_group = check_waveform_encode_mode(
             echodata=self.echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
 

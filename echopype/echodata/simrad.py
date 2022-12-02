@@ -167,12 +167,12 @@ def _check_mode_input_with_data_EK80(
     return power_ed_group, complex_ed_group
 
 
-def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mode: str):
+def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
     """
     A function to make sure that the user has provided the correct
     ``waveform_mode`` and ``encode_mode`` inputs based off of the
     supplied ``echodata`` object. Additionally, determine the
-    ``EchoData`` beam group paths of the power and complex data.
+    ``EchoData`` beam group corresponding to ``encode_mode``.
 
     Parameters
     ----------
@@ -186,15 +186,8 @@ def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mo
 
     Returns
     -------
-    power_ed_group: str, optional
-        The ``EchoData`` beam group path containing the power data
-    complex_ed_group: str, optional
-        The ``EchoData`` beam group path containing the complex data
-
-    Notes
-    -----
-    If ``power_ed_group`` or ``complex_ed_group`` are equal to ``None``
-    then no power or complex data exist, respectively.
+    str
+        The ``EchoData`` beam group path corresponding to the ``encode_mode`` input
     """
 
     # checks input and logic of modes without referencing data
@@ -219,4 +212,7 @@ def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mo
         # raise error for unknown or unaccounted for sonar model
         raise RuntimeError("EchoData was produced by a non-Simrad or unknown Simrad echo sounder!")
 
-    return power_ed_group, complex_ed_group
+    if encode_mode == "complex":
+        return complex_ed_group
+    else:
+        return power_ed_group

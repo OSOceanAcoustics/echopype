@@ -81,9 +81,50 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr
         The calculated split-beam alongship angle
     phi_fc: xr.Dataset
         The calculated split-beam athwartship angle
+
+    Notes
+    -----
+    Calculation is done by estimating the sphere position in the beam via split-beam
+    processing. The estimate is in a band-average sense i.e. by computing the phase
+    difference via the pulse compression outputs from combined transducer sectors.
     """
 
-    # TODO: ensure that the beam_type is appropriate for calculation
+    # freq_nominal = 120e3  # nominal frequency [Hz]
+
+    # ensure that the beam_type is appropriate for calculation
+    if np.all(ds_beam["beam_type"].data == 1):
+
+        # get complex representation of backscatter
+        backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
+
+        # get backscatter in the forward, aft, starboard, and port directions
+        backscatter_fore = 0.5 * (backscatter.isel(beam=2) + backscatter.isel(beam=3))  # forward
+        backscatter_aft = 0.5 * (backscatter.isel(beam=0) + backscatter.isel(beam=1))  # aft
+        backscatter_star = 0.5 * (backscatter.isel(beam=0) + backscatter.isel(beam=3))  # starboard
+        backscatter_port = 0.5 * (backscatter.isel(beam=1) + backscatter.isel(beam=2))  # port
+
+        # compute the alongship and athwartship backscatter
+        backscatter_theta = backscatter_fore * np.conj(backscatter_aft)  # alongship
+        backscatter_phi = backscatter_star * np.conj(backscatter_port)  # athwartship
+        print(backscatter_phi)
+        print(backscatter_theta)
+
+        # get angle sensitivity alongship and athwartship
+        # Value is unique across the beam dimension, within each channel
+        # Here we only have 1 channel
+        # angle_sensitivity_alongship_fc = np.unique(
+        # ds_beam["angle_sensitivity_alongship"].data)
+        # angle_sensitivity_athwartship_fc = np.unique(
+        # ds_beam["angle_sensitivity_athwartship"].data)
+
+        # TODO: instead of unique do
+        #  ds_beam["angle_sensitivity_alongship"].isel(ping_time=0, beam=0)
+
+        # if
+        # TODO: make sure  angle_sensitivity_alongship/athwartship_fc is correct
+
+    else:
+        raise NotImplementedError("Computing split-beam angle is only available for beam_type=1!")
 
     return xr.Dataset(), xr.Dataset()
 
