@@ -108,14 +108,16 @@ def _check_mode_input_with_data_EK80(
 
         if waveform_mode == "BB":
 
-            # check BB waveform_mode, BB must always have complex data, only 1 beam group,
-            # and frequency_start variable in the beam group
+            # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
+            # when echodata contains CW power and BB complex samples, and frequency_start
+            # variable in Beam_group1
             if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
                 raise ValueError("waveform_mode='BB', but broadband data not found!")
             elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
                 raise RuntimeError("waveform_mode='BB', but complex data does not exist!")
             elif echodata["Sonar/Beam_group2"] is not None:
-                raise RuntimeError("Sonar/Beam_group2 should not exist for waveform_mode='BB'!")
+                power_ed_group = "Sonar/Beam_group2"
+                complex_ed_group = "Sonar/Beam_group1"
             else:
                 complex_ed_group = "Sonar/Beam_group1"
 
