@@ -211,14 +211,15 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     encode_mode_ed_group = check_waveform_encode_mode(echodata, waveform_mode, encode_mode)
 
-    # set ds_beam
-    ds_beam = echodata[encode_mode_ed_group]
+    # check that ds at least has a channel dimension
+    if "channel" not in ds.variables:
+        raise RuntimeError("The input ds Dataset must have a channel dimension!")
 
-    # TODO: based on ds (which is Sv) we only choose the channels that are in ds from ds_beam
+    # set ds_beam, select the same channels that are in ds (which is Sv)
+    ds_beam = echodata[encode_mode_ed_group].sel(channel=ds.channel.values)
 
-    # TODO: can we be sure that ds is SV and it corresponds to echodata?
-    #  Fail people if ds does not have the same # of ping_times and
-    #  range_sample and channels as ds_beam
+    # TODO: Fail if ds does not have the same # of ping_times, range_samples,
+    #  and channels as ds_beam
 
     # obtain split-beam angles from
     if (waveform_mode == "CW") and (encode_mode == "power"):
