@@ -193,21 +193,63 @@ def add_splitbeam_angle(
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
+    This function calculates the alongship/athwartship angle using data stored
+    in the beam groups of ``echodata``. In cases when the data does not exist,
+    an error is issued and no angle variables are added to the dataset.
 
     Parameters
     ----------
+    ds : xr.Dataset
+        An Sv or MVBS dataset for which the split-beam angles should be added to
+    echodata
+        An `EchoData` object holding the raw data
+    waveform_mode : {"CW", "BB"}
+        Type of transmit waveform
 
+        - `"CW"` for narrowband transmission,
+          returned echoes recorded either as complex or power/angle samples
+        - `"BB"` for broadband transmission,
+          returned echoes recorded as complex samples
+
+    encode_mode : {"complex", "power"}
+        Type of encoded return echo data
+
+        - `"complex"` for complex samples
+        - `"power"` for power/angle samples, only allowed when
+          the echosounder is configured for narrowband transmission
     pulse_compression: bool, False
         States whether pulse compression should be used (only valid for
         ``waveform_mode="BB"`` and ``encode_mode="complex"``)
 
-
     Returns
     -------
-    ds: xr.Dataset
-        The input Dataset ``ds`` with split-beam angle data.
+    The input dataset ``ds`` with the split-beam angle data added
 
-    TODO: add Raises section and finish documentation using Wu-Jung's docs in PR #817
+    Raises
+    ------
+    RuntimeError
+        If ``echodata`` has a sonar model that is not analogous to either EK60 or EK80
+    RuntimeError
+        If the input ``ds`` does not have a ``channel`` dimension
+    RuntimeError
+        If ``ds`` does not have appropriate dimension lengths in comparison to ``echodata`` data
+    RuntimeError
+        If the provided ``waveform_mode``, ``encode_mode``, and ``pulse_compression`` are not valid
+    NotImplementedError
+        If an unknown ``beam_type`` is encountered during the split-beam calculation
+
+    Notes
+    -----
+    Split-beam angle data potentially exist for the the following echosounders depending on
+    the instrument configuration and recording setting:
+
+        - Simrad EK60 echosounder paired with split-beam transducers and
+          configured to store angle data
+        - Simrad EK80 echosounder paired with split-beam transducers and
+          configured to store angle data
+
+    For EK80 broadband data, the split-beam angles can be estimated from the complex data.
+    This functionality will be implemented in the future.
     """
 
     # ensure that echodata was produced by EK60 or EK80-like sensors

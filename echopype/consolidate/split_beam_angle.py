@@ -39,7 +39,7 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     """
 
     # raw_angle scaling constant
-    conversion_const = 180 / 128
+    conversion_const = 180.0 / 128.0
 
     # TODO: is this function useful or just annoying? Should we put it outside this function?
     def compute_split_beam_beamtype1(angle_type: str) -> xr.Dataset:
@@ -95,7 +95,7 @@ def _compute_small_angle_approx_splitbeam_angle(
         np.arctan2(np.imag(backscatter), np.real(backscatter))
         / angle_sensitivity  # convert from electrical angle to physical angle
         / np.pi
-        * 180  # convert from radian to degree
+        * 180.0  # convert from radian to degree
         - angle_offset  # correct for offset
     )
 
@@ -207,6 +207,11 @@ def _get_splitbeam_angle_complex_CW(
             "Computing split-beam angle is only available for beam_type=1 or 65!"
         )
 
+    # drop the beam dimension in theta_fc and phi_fc, if it exists
+    if "beam" in theta_fc.coords:
+        theta_fc = theta_fc.drop_vars("beam")
+        phi_fc = phi_fc.drop("beam")
+
     return theta_fc, phi_fc
 
 
@@ -236,12 +241,13 @@ def _get_splitbeam_angle_complex_BB_nopc(ds_beam: xr.Dataset) -> Tuple[xr.DataAr
     freq_center = (
         ds_beam["frequency_start"].isel(ping_time=0, beam=0)
         + ds_beam["frequency_end"].isel(ping_time=0, beam=0)
-    ) / 2
+    ) / 2.0
 
     # get "scale" for angle sensitivity
     ang_sense_scale = freq_center / freq_nominal
 
     # calculate the split-beam angle
+    # TODO: should we use _get_splitbeam_angle_complex_CW or just rewrite all of the code?
     theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam, ang_sense_scale)
 
     return theta_fc, phi_fc

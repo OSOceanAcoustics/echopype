@@ -8,7 +8,6 @@ import xarray as xr
 import scipy.io as io
 import echopype as ep
 from typing import List
-from pathlib import Path
 
 
 @pytest.fixture(
@@ -221,31 +220,32 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
             [
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/DY1801_EK60-D20180211-T164025_echoview_files/DY1801_EK60-D20180211-T164025_angles_T1.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/DY1801_EK60-D20180211-T164025_echoview_files/DY1801_EK60-D20180211-T164025_angles_T2.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/DY1801_EK60-D20180211-T164025_echoview_files/DY1801_EK60-D20180211-T164025_angles_T3.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/DY1801_EK60-D20180211-T164025_echoview_files/DY1801_EK60-D20180211-T164025_angles_T4.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/DY1801_EK60-D20180211-T164025_echoview_files/DY1801_EK60-D20180211-T164025_angles_T5.mat'
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T1.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T2.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T3.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
             ],
             "CW", "power", False
         ),
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T1.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T4.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T6.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T5.mat'
+                'splitbeam/2018115-D20181213-T094600_angles_T1.mat',
+                'splitbeam/2018115-D20181213-T094600_angles_T4.mat',
+                'splitbeam/2018115-D20181213-T094600_angles_T6.mat',
+                'splitbeam/2018115-D20181213-T094600_angles_T5.mat'
             ],
             "CW", "complex", False
         ),
         pytest.param(
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T3_nopc.mat',
-                '/Users/brandonreyes/UW_work/Echopype_work/code_playing_around/scripts/wu_jung_split_beam_code/sample_data/2018115-D20181213-T094600_echoview_files/2018115-D20181213-T094600_angles_T2_nopc.mat'
+                'splitbeam/2018115-D20181213-T094600_angles_T3_pc.mat',
+                'splitbeam/2018115-D20181213-T094600_angles_T2_pc.mat'
             ],
             "BB", "complex", False,
+            # TODO: investigate why these file outputs are not matching our calculations
             marks=pytest.mark.xfail(strict=True, reason="We need to investigate why the echoview data is not matching")
         ),
     ],
@@ -253,8 +253,6 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
                              paths_to_echoview_mat, waveform_mode, encode_mode, pulse_compression):
-
-    # TODO: make sure paths_to_echoview_mat is pathlib so we can get around OS dependency
 
     # obtain the EchoData object with the data needed for the calculation
     ed = ep.open_raw(test_path[test_path_key] / raw_file_name, sonar_model=sonar_model)
@@ -269,26 +267,28 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
                                                pulse_compression=pulse_compression)
 
     # obtain corresponding echoview output
-    echoview_arr_list = _create_array_list_from_echoview_mats(paths_to_echoview_mat)
+    full_echoview_path = [test_path[test_path_key] / path for path in paths_to_echoview_mat]
+    echoview_arr_list = _create_array_list_from_echoview_mats(full_echoview_path)
 
     # compare echoview output against computed output for all channels
     for chan_ind in range(len(echoview_arr_list)):
 
         # grabs the appropriate ds data to compare against
-        ds_reduced = ds_Sv.isel(channel=chan_ind, ping_time=0).dropna("range_sample")
+        reduced_angle_alongship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_alongship.dropna("range_sample")
+        reduced_angle_athwartship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_athwartship.dropna("range_sample")
 
         # for some files the echoview data is shifted by one index, here we account for that
-        if ds_reduced.angle_alongship.shape == (echoview_arr_list[chan_ind].shape[1], ):
+        if reduced_angle_alongship.shape == (echoview_arr_list[chan_ind].shape[1], ):
             start = 0
         else:
             start = 1
 
         # check the computed angle_alongship values against the echoview output
-        assert np.allclose(ds_reduced.angle_alongship.values[start:],
+        assert np.allclose(reduced_angle_alongship.values[start:],
                            echoview_arr_list[chan_ind][0, :], rtol=1e-2, atol=1e-3)
 
         # check the computed angle_alongship values against the echoview output
-        assert np.allclose(ds_reduced.angle_athwartship.values[start:],
+        assert np.allclose(reduced_angle_athwartship.values[start:],
                            echoview_arr_list[chan_ind][1, :], rtol=1e-2, atol=1e-3)
 
 
