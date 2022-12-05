@@ -52,9 +52,11 @@ def to_file(
         whether or not to use parallel processing. (Not yet implemented)
     output_storage_options : dict
         Additional keywords to pass to the filesystem class.
-    consolidated : bool
-        Flag to consolidate zarr metadata.
-        Defaults to ``True``
+    **kwargs : dict, optional
+        Extra arguments to either `xr.Dataset.to_netcdf`
+        or `xr.Dataset.to_zarr`: refer to each method documentation
+        for a list of all possible arguments.
+
     """
     if parallel:
         raise NotImplementedError("Parallel conversion is not yet implemented.")
