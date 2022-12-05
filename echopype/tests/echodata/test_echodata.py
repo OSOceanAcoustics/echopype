@@ -1,6 +1,8 @@
 from textwrap import dedent
 
 import fsspec
+from pathlib import Path
+import shutil
 
 from datatree import DataTree
 from zarr.errors import GroupNotFoundError
@@ -13,6 +15,8 @@ from echopype import open_converted
 import pytest
 import xarray as xr
 import numpy as np
+
+from utils import get_mock_echodata
 
 
 @pytest.fixture(scope="module")
@@ -192,6 +196,10 @@ def range_check_files(request, test_path):
 
 class TestEchoData:
     @pytest.fixture(scope="class")
+    def mock_echodata(self):
+        return get_mock_echodata()
+
+    @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
         return single_ek60_zarr
 
@@ -296,6 +304,49 @@ class TestEchoData:
 
         assert result is None
         assert isinstance(ed_result, xr.Dataset)
+
+    @pytest.mark.parametrize("consolidated", [True, False])
+    def test_to_zarr(self, mock_echodata, consolidated):
+        """
+        Tests to_zarr method. Currently uses a mock echodata object
+        When consolidated=True, every to_zarr call in ea. group will use the flag
+        """
+        zarr_path = Path('test.zarr')
+        mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
+
+        check = True if consolidated else False
+        zmeta_path = zarr_path / ".zmetadata"
+
+        assert zmeta_path.exists() is check
+
+        if check is True:
+            # Check that every group is in
+            # the zmetadata if consolidated
+            expected_zgroups = [
+                ".zgroup",
+                "Environment/.zgroup",
+                "Platform/.zgroup",
+                "Provenance/.zgroup",
+                "Sonar/.zgroup",
+                "Sonar/Beam_group1/.zgroup",
+                "Vendor_specific/.zgroup"
+            ]
+            import json
+            with open(zmeta_path) as f:
+                meta_json = json.load(f)
+
+            file_groups = [
+                k
+                for k in meta_json['metadata'].keys()
+                if k.endswith('.zgroup')
+            ]
+
+            for g in expected_zgroups:
+                assert g in file_groups, f"{g} not Found!"
+
+        # clean up the zarr file
+        shutil.rmtree(zarr_path)
+
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
