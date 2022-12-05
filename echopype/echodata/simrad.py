@@ -6,7 +6,9 @@ from typing import Optional, Tuple
 from .echodata import EchoData
 
 
-def _check_mode_input_without_data(waveform_mode: str, encode_mode: str) -> None:
+def _check_mode_input_without_data(
+    waveform_mode: str, encode_mode: str, pulse_compression: bool
+) -> None:
     """
     Checks that the ``waveform_mode`` and ``encode_mode`` have
     the correct values and that the pair of inputs are valid, without
@@ -15,9 +17,11 @@ def _check_mode_input_without_data(waveform_mode: str, encode_mode: str) -> None
     Parameters
     ----------
     waveform_mode: str
-        Type of transmit waveform.
+        Type of transmit waveform
     encode_mode: str
-        Type of encoded return echo data.
+        Type of encoded return echo data
+    pulse_compression: bool
+        States whether pulse compression should be used
     """
 
     if waveform_mode not in ["CW", "BB"]:
@@ -28,7 +32,14 @@ def _check_mode_input_without_data(waveform_mode: str, encode_mode: str) -> None
 
     # BB has complex data only, but CW can have complex or power data
     if (waveform_mode == "BB") and (encode_mode == "power"):
-        raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
+        raise RuntimeError("encode_mode='power' not allowed when waveform_mode='BB'!")
+
+    # make sure that we have BB and complex inputs, if pulse compression is selected
+    if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
+        raise RuntimeError(
+            "Pulse compression can only be used with "
+            "waveform_mode='BB' and encode_mode='complex'"
+        )
 
 
 def _check_mode_input_with_data_EK60(
@@ -43,9 +54,9 @@ def _check_mode_input_with_data_EK60(
     echodata: EchoData
         An ``EchoData`` object holding the data
     waveform_mode : {"CW", "BB"}
-        Type of transmit waveform.
+        Type of transmit waveform
     encode_mode : {"complex", "power"}
-        Type of encoded return echo data.
+        Type of encoded return echo data
 
     Returns
     -------
@@ -87,9 +98,9 @@ def _check_mode_input_with_data_EK80(
     echodata: EchoData
         An ``EchoData`` object holding the data
     waveform_mode : {"CW", "BB"}
-        Type of transmit waveform.
+        Type of transmit waveform
     encode_mode : {"complex", "power"}
-        Type of encoded return echo data.
+        Type of encoded return echo data
 
     Returns
     -------
@@ -112,7 +123,7 @@ def _check_mode_input_with_data_EK80(
             # when echodata contains CW power and BB complex samples, and frequency_start
             # variable in Beam_group1
             if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
-                raise ValueError("waveform_mode='BB', but broadband data not found!")
+                raise RuntimeError("waveform_mode='BB', but broadband data not found!")
             elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
                 raise RuntimeError("waveform_mode='BB', but complex data does not exist!")
             elif echodata["Sonar/Beam_group2"] is not None:
@@ -167,7 +178,9 @@ def _check_mode_input_with_data_EK80(
     return power_ed_group, complex_ed_group
 
 
-def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
+def check_waveform_encode_mode(
+    echodata: EchoData, waveform_mode: str, encode_mode: str, pulse_compression: bool
+) -> str:
     """
     A function to make sure that the user has provided the correct
     ``waveform_mode`` and ``encode_mode`` inputs based off of the
@@ -183,6 +196,8 @@ def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mo
         Type of transmit waveform
     encode_mode : {"complex", "power"}
         Type of encoded return echo data
+    pulse_compression: bool
+        States whether pulse compression should be used
 
     Returns
     -------
@@ -191,7 +206,7 @@ def check_waveform_encode_mode(echodata: EchoData, waveform_mode: str, encode_mo
     """
 
     # checks input and logic of modes without referencing data
-    _check_mode_input_without_data(waveform_mode, encode_mode)
+    _check_mode_input_without_data(waveform_mode, encode_mode, pulse_compression)
 
     if echodata.sonar_model in ["EK60", "ES70"]:
 

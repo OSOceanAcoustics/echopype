@@ -8,7 +8,8 @@ from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
 from .split_beam_angle import (
     _add_splitbeam_angle_to_ds,
-    _get_splitbeam_angle_complex_BB,
+    _get_splitbeam_angle_complex_BB_nopc,
+    _get_splitbeam_angle_complex_BB_pc,
     _get_splitbeam_angle_complex_CW,
     _get_splitbeam_angle_power_CW,
 )
@@ -184,13 +185,22 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
 
 def add_splitbeam_angle(
-    ds: xr.Dataset, echodata: EchoData, waveform_mode: str, encode_mode: str
+    ds: xr.Dataset,
+    echodata: EchoData,
+    waveform_mode: str,
+    encode_mode: str,
+    pulse_compression: bool = False,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
 
     Parameters
     ----------
+
+    pulse_compression: bool, False
+        States whether pulse compression should be used (only valid for
+        ``waveform_mode="BB"`` and ``encode_mode="complex"``)
+
 
     Returns
     -------
@@ -209,7 +219,9 @@ def add_splitbeam_angle(
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
-    encode_mode_ed_group = check_waveform_encode_mode(echodata, waveform_mode, encode_mode)
+    encode_mode_ed_group = check_waveform_encode_mode(
+        echodata, waveform_mode, encode_mode, pulse_compression
+    )
 
     # check that ds at least has a channel dimension
     if "channel" not in ds.variables:
@@ -218,20 +230,29 @@ def add_splitbeam_angle(
     # set ds_beam, select the same channels that are in ds (which is Sv)
     ds_beam = echodata[encode_mode_ed_group].sel(channel=ds.channel.values)
 
-    # TODO: Fail if ds does not have the same # of ping_times, range_samples,
-    #  and channels as ds_beam
+    # fail if ds and ds_beam do not have the same lengths for ping_time, range_sample, and channel
+    same_dim_lens = [
+        ds_beam.dims[dim] == ds.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
+    ]
+    if not same_dim_lens:
+        raise RuntimeError(
+            "Input ds does not have the same dimension " "lengths as all dimensions in ds_beam!"
+        )
 
     # obtain split-beam angles from
-    if (waveform_mode == "CW") and (encode_mode == "power"):
+    if (waveform_mode == "CW") and (encode_mode == "power") and (pulse_compression is False):
         theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "CW") and (encode_mode == "complex"):
+    elif (waveform_mode == "CW") and (encode_mode == "complex") and (pulse_compression is False):
         theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "BB") and (encode_mode == "complex"):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB(ds_beam=ds_beam)
+    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is False):
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
+    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is True):
+        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
     else:
         raise RuntimeError(
             f"Unable to compute split-beam angle data for "
-            f"waveform_mode = {waveform_mode} and encode_mode = {encode_mode}!"
+            f"waveform_mode = {waveform_mode}, encode_mode = {encode_mode}, "
+            f"and pulse_compression = {pulse_compression}!"
         )
 
     # add theta_fc and phi_fc to ds input
