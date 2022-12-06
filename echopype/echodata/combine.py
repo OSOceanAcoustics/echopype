@@ -154,6 +154,7 @@ def combine_echodata(
     overwrite: bool = False,
     storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
+    consolidated: bool = True,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
@@ -175,6 +176,9 @@ def combine_echodata(
         backend (ignored for local paths)
     client: dask.distributed.Client, optional
         An initialized Dask distributed client
+    consolidated: bool
+        Flag to consolidate zarr metadata.
+        Defaults to ``True``
 
     Returns
     -------
@@ -281,6 +285,7 @@ def combine_echodata(
         storage_options=storage_options,
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
+        consolidated=consolidated,
     )
 
     if client_created:
