@@ -9,6 +9,16 @@ import scipy.io as io
 import echopype as ep
 from typing import List
 
+"""
+For future reference: 
+
+For ``test_add_splitbeam_angle`` the test data is in the following locations:
+- the EK60 raw file is in `test_data/ek60/DY1801_EK60-D20180211-T164025.raw` and the 
+associated echoview split-beam data is in `test_data/ek60/splitbeam`.
+- the EK80 raw file is in `test_data/ek80_bb_with_calibration/2018115-D20181213-T094600.raw` and 
+the associated echoview split-beam data is in `test_data/ek80_bb_with_calibration/splitbeam`
+"""
+
 
 @pytest.fixture(
     params=[
@@ -241,8 +251,8 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
         pytest.param(
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
-                'splitbeam/2018115-D20181213-T094600_angles_T3_pc.mat',
-                'splitbeam/2018115-D20181213-T094600_angles_T2_pc.mat'
+                'splitbeam/2018115-D20181213-T094600_angles_T2_nopc.mat',
+                'splitbeam/2018115-D20181213-T094600_angles_T3_nopc.mat'
             ],
             "BB", "complex", False,
             # TODO: investigate why these file outputs are not matching our calculations
