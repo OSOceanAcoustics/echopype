@@ -49,10 +49,13 @@ class SetGroupsEK80(SetGroupsBase):
     beamgroups_possible = [
         {
             "name": "Beam_group1",
-            "descr": (
-                "contains backscatter data (either complex samples or uncalibrated power samples)"  # noqa
-                " and other beam or channel-specific data"
-            ),
+            "descr": {
+                "power": "contains backscatter power (uncalibrated) and "
+                "other beam or channel-specific data,"
+                " including split-beam angle data when they exist.",
+                "complex": "contains complex backscatter data and other "
+                "beam or channel-specific data.",
+            },
         },
         {
             "name": "Beam_group2",
@@ -185,7 +188,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return set_time_encodings(ds)
 
-    def set_sonar(self, beam_group_count=1) -> xr.Dataset:
+    def set_sonar(self, beam_group_type: list = ["power", None]) -> xr.Dataset:
         # Collect unique variables
         params = [
             "transducer_frequency",
@@ -203,12 +206,25 @@ class SetGroupsEK80(SetGroupsBase):
             for param in params:
                 var[param].append(data[param])
 
-        # Create dataset
+        # obtain the correct beam_group and corresponding description from beamgroups_possible
+        for idx, beam in enumerate(beam_group_type):
+            if beam is None:
+                # obtain values from an element where the key 'descr' does not have keys
+                self._beamgroups.append(self.beamgroups_possible[idx])
+            else:
+                # obtain values from an element where the key 'descr' DOES have keys
+                self._beamgroups.append(
+                    {
+                        "name": self.beamgroups_possible[idx]["name"],
+                        "descr": self.beamgroups_possible[idx]["descr"][beam],
+                    }
+                )
+
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
-        self._beamgroups = self.beamgroups_possible[:beam_group_count]
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
 
+        # Create dataset
         sonar_vars = {
             "frequency_nominal": (
                 ["channel"],
@@ -736,7 +752,9 @@ class SetGroupsEK80(SetGroupsBase):
         """
 
         # If RAW4 datagram (transmit pulse recorded in complex samples) exists
-        if len(self.parser_obj.ping_data_dict_tx["complex"]) != 0:
+        if (len(self.parser_obj.ping_data_dict_tx["complex"]) != 0) and (
+            ch in self.parser_obj.ping_data_dict_tx["complex"].keys()
+        ):
             # Add coordinate transmit_sample
             ds_tmp = ds_tmp.assign_coords(
                 {
@@ -1091,14 +1109,13 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power = None
 
-            ds_beam_power = ds_power
-
             if self.sorted_channel["complex"]:
                 ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
             else:
                 ds_complex = None
 
             # correctly assign the beam groups
+            ds_beam_power = None
             if ds_complex:
                 ds_beam = ds_complex
                 if ds_power:
@@ -1238,11 +1255,11 @@ class SetGroupsEK80(SetGroupsBase):
         decimation_factors = dict()
         for ch in self.sorted_channel["all"]:
             # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs:
+            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
                 decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
             # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df:
+            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
                 coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
                 decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
 

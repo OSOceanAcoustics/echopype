@@ -441,29 +441,30 @@ def open_raw(
 
     parser.parse_raw()
 
-    # code block corresponding to directly writing parsed data to zarr
-    if offload_to_zarr and (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]):
+    # Direct offload to zarr and rectangularization only available for some sonar models
+    if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
 
-        # Determines if writing to zarr is necessary and writes to zarr
+        # Create sonar_model-specific p2z object
         p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
 
-        # TODO: perform more robust tests for the 'auto' heuristic value
-        if offload_to_zarr == "auto" and p2z.write_to_zarr(mem_mult=0.4):
+        # Determines if writing to zarr is necessary and writes to zarr
+        p2z_flag = offload_to_zarr is True or (
+            offload_to_zarr == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
+        )
+
+        if p2z_flag:
             p2z.datagram_to_zarr(max_mb=max_zarr_mb)
-        elif offload_to_zarr is True:
-            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+            # Rectangularize the transmit data
+            parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
             del p2z
+            # Create general p2z object
             p2z = Parsed2Zarr(parser)
-            if "ALL" in parser.data_type:
-                parser.rectangularize_data()
+            parser.rectangularize_data()
 
     else:
-        p2z = Parsed2Zarr(parser)
-        if (sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]) and (
-            "ALL" in parser.data_type
-        ):
-            parser.rectangularize_data()
+        # No rectangularization for other sonar models
+        p2z = Parsed2Zarr(parser)  # Create general p2z object
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
@@ -500,14 +501,22 @@ def open_raw(
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
 
-    valid_beam_groups_count = 0
+    beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
-            valid_beam_groups_count += 1
+
+            # fill in beam_group_type (only necessary for EK80, ES80, EA640)
+            if idx == 1:
+                # choose the appropriate description key for Beam_group1
+                beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
+            else:
+                # provide None for all other beam groups (since the description does not have a key)
+                beam_group_type.append(None)
+
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
     if sonar_model in ["EK80", "ES80", "EA640"]:
-        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_type=beam_group_type)
     else:
         tree_dict["Sonar"] = setgrouper.set_sonar()
 

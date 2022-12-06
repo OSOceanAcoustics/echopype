@@ -12,6 +12,7 @@ import zarr
 from dask.distributed import Lock
 
 from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
+from ..utils.io import env_indep_joinpath
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
@@ -928,7 +929,9 @@ class ZarrCombine:
 
         # obtain the filenames zarr array
         zarr_filenames = zarr.open_array(
-            zarr_path + "/Provenance/filenames", mode="r+", storage_options=storage_options
+            env_indep_joinpath(zarr_path, "Provenance", "filenames"),
+            mode="r+",
+            storage_options=storage_options,
         )
 
         zarr_filenames[:] = np.arange(len_eds)

@@ -2,9 +2,10 @@
 echopype utilities for file handling
 """
 import os
+import platform
 import sys
-from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Union
+from pathlib import Path, WindowsPath
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 import fsspec
 from fsspec import FSMap
@@ -181,9 +182,16 @@ def validate_output_path(
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
     else:
+
+        # convert save_path into a nicely formatted Windows path if we are on
+        # a Windows machine and the path is not a cloud storage path. Then convert back to a string.
+        if platform.system() == "Windows":
+            if isinstance(save_path, str) and ("://" not in save_path):
+                save_path = str(WindowsPath(save_path).absolute())
+
         if isinstance(save_path, str):
             # Clean folder path by stripping '/' at the end
-            if save_path.endswith("/"):
+            if save_path.endswith("/") or save_path.endswith("\\"):
                 save_path = save_path[:-1]
 
             # Determine whether this is a directory or not
@@ -280,3 +288,30 @@ def check_file_permissions(FILE_DIR):
                 TEST_FILE.unlink()
     except Exception:
         raise PermissionError("Writing to specified path is not permitted.")
+
+
+def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
+    """
+    Joins a variable number of paths taking into account the form of
+    cloud storage paths.
+
+    Parameters
+    ----------
+    *args: tuple of str
+        A variable number of strings that should be joined in the order
+        they are provided
+
+    Returns
+    -------
+    joined_path: str
+        Full path constructed by joining all input strings
+    """
+
+    if "://" in args[0]:
+        # join paths for cloud storage path
+        joined_path = r"/".join(args)
+    else:
+        # join paths for non-cloud storage path
+        joined_path = os.path.join(*args)
+
+    return joined_path

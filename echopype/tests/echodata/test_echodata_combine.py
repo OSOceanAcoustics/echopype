@@ -7,6 +7,7 @@ import xarray as xr
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
+import os.path
 
 import tempfile
 from dask.distributed import Client
@@ -135,7 +136,7 @@ def test_combine_echodata(raw_datasets):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -212,7 +213,7 @@ def test_attr_storage(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -258,7 +259,7 @@ def test_combined_encodings(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -305,7 +306,7 @@ def test_combined_echodata_repr(ek60_test_data):
 
     # create temporary directory for zarr store
     temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = temp_zarr_dir.name + "/combined_echodatas.zarr"
+    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodatas.zarr")
 
     # create dask client
     client = Client()
@@ -321,7 +322,7 @@ def test_combined_echodata_repr(ek60_test_data):
         │   └── NMEA: contains information specific to the NMEA protocol.
         ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
         ├── Sonar: contains sonar system metadata and sonar beam groups.
-        │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+        │   └── Beam_group1: contains backscatter power (uncalibrated) and other beam or channel-specific data, including split-beam angle data when they exist.
         └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
     )
 

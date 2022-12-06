@@ -209,6 +209,10 @@ class EchoData:
         return None
 
     @property
+    def nbytes(self) -> float:
+        return float(sum(self[p].nbytes for p in self.group_paths))
+
+    @property
     def group_paths(self) -> Set[str]:
         return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
 
@@ -292,13 +296,20 @@ class EchoData:
             if "time1" not in p.coords:
                 return p
             else:
-                if p["time1"].size == 1:
-                    return p.squeeze(dim="time1").drop("time1")
+                # If there's only 1 time1 value,
+                # or if after dropping NaN there's only 1 time1 value
+                if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
+                    return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
+
+                # Direct assignment if all timestamps are identical (EK60 data)
+                elif np.all(p["time1"].values == ping_time.values):
+                    return p.rename({"time1": "ping_time"})
+
+                elif ping_time is None:
+                    raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
+
                 else:
-                    if ping_time is not None:
-                        return p.dropna(dim="time1").interp(time1=ping_time)
-                    else:
-                        raise ValueError("ping_time needs to be provided if p.time1 has length >1")
+                    return p.dropna(dim="time1").interp(time1=ping_time)
         else:
             return p
 

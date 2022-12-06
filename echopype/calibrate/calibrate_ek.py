@@ -753,6 +753,8 @@ class CalibrateEK80(CalibrateEK):
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
         for p in self.env_params.keys():
+            if "channel" in self.env_params[p].coords:
+                self.env_params[p] = self.env_params[p].sel(channel=chan_sel)
             self.env_params[p] = self.echodata._harmonize_env_param_time(
                 self.env_params[p], ping_time=self.echodata["Sonar/Beam_group1"].ping_time
             )
