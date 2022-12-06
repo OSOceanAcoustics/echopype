@@ -306,7 +306,7 @@ class TestEchoData:
         assert isinstance(ed_result, xr.Dataset)
 
     @pytest.mark.parametrize("consolidated", [True, False])
-    def test_to_zarr(self, mock_echodata, consolidated):
+    def test_to_zarr_consolidated(self, mock_echodata, consolidated):
         """
         Tests to_zarr method. Currently uses a mock echodata object
         When consolidated=True, every to_zarr call in ea. group will use the flag

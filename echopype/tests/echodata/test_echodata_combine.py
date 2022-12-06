@@ -13,16 +13,6 @@ from dask.distributed import Client
 
 
 @pytest.fixture
-def ek60_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
 def ek60_diff_range_sample_test_data(test_path):
     files = [
         ("ncei-wcsd", "SH1701", "TEST-D20170114-T202932.raw"),
