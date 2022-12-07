@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from fsspec.mapping import FSMap
@@ -22,6 +23,14 @@ if TYPE_CHECKING:
     PathHint = Union[str, os.PathLike, FSMap]
     FileFormatHint = Literal[".nc", ".zarr"]
     EngineHint = Literal["netcdf4", "zarr"]
+
+ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
+
+
+def init_ep_dir():
+    """Initialize hidden directory for echopype"""
+    if not ECHOPYPE_DIR.exists():
+        ECHOPYPE_DIR.mkdir()
 
 
 def validate_azfp_ext(test_ext: str):
