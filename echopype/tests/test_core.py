@@ -83,4 +83,4 @@ def test_init_ep_dir(monkeypatch):
 
     assert echopype.core.ECHOPYPE_DIR.exists() is True
 
-    echopype_dir.cleanup()
+    temp_user_dir.cleanup()
