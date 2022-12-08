@@ -69,13 +69,13 @@ def test_file_extension_validation_should_fail(
 
 
 def test_init_ep_dir(monkeypatch):
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = Path(temp_zarr_dir.name) / ".echopype"
+    temp_user_dir = tempfile.TemporaryDirectory()
+    echopype_dir = Path(temp_user_dir.name) / ".echopype"
 
     # Create the .echopype in a temp dir instead of user space.
     # Doing this will avoid accidentally deleting current
     # working directory
-    monkeypatch.setattr(echopype.core, "ECHOPYPE_DIR", zarr_file_name)
+    monkeypatch.setattr(echopype.core, "ECHOPYPE_DIR", echopype_dir)
 
     assert echopype.core.ECHOPYPE_DIR.exists() is False
 
@@ -83,4 +83,4 @@ def test_init_ep_dir(monkeypatch):
 
     assert echopype.core.ECHOPYPE_DIR.exists() is True
 
-    temp_zarr_dir.cleanup()
+    echopype_dir.cleanup()
