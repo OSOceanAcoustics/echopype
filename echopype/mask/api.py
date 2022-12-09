@@ -213,7 +213,7 @@ def frequency_difference(
     chanAB: Optional[List[str]] = None,
     operator: str = ">",
     diff: Union[float, int] = None,
-) -> Union[xr.Dataset, xr.DataArray]:
+) -> xr.DataArray:
     """
     Create a mask based on the differences of Sv values using a pair of
     frequencies. This method is often referred to as the "frequency-differencing"
@@ -245,8 +245,8 @@ def frequency_difference(
 
     Returns
     -------
-    xr.Dataset or xr.DataArray
-        A Dataset or DataArray containing the mask. Regions satisfying the thresholding
+    xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
         criteria are filled with ``True``, else the regions are filled with ``False``.
 
     Raises
