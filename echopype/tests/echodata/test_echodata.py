@@ -323,8 +323,9 @@ class TestEchoData:
     @pytest.mark.parametrize("consolidated", [True, False])
     def test_to_zarr_consolidated(self, mock_echodata, consolidated):
         """
-        Tests to_zarr method. Currently uses a mock echodata object
-        When consolidated=True, every to_zarr call in ea. group will use the flag
+        Tests to_zarr consolidation. Currently, this test uses a mock EchoData object that only
+        has attributes. The consolidated flag provided will be used in every to_zarr call (which 
+        is used to write each EchoData group to zarr_path). 
         """
         zarr_path = Path('test.zarr')
         mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
