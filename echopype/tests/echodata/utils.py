@@ -67,7 +67,6 @@ class SetGroupsTest(SetGroupsBase):
 
 
 def get_mock_echodata(
-    output_path='test.zarr',
     sonar_model='TEST',
     file_chk='./test.raw',
     xml_chk=None,
@@ -79,7 +78,7 @@ def get_mock_echodata(
         parser_obj=None,
         input_file=file_chk,
         xml_path=xml_chk,
-        output_path=output_path,
+        output_path=None,
         sonar_model=sonar_model,
         params={"survey_name": "mock_survey"},
     )
