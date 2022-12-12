@@ -636,6 +636,7 @@ class ZarrCombine:
                 compute=True,
                 storage_options=storage_options,
                 synchronizer=zarr.ThreadSynchronizer(),
+                consolidated=False,
             )
 
             # TODO: put a check to make sure that the chunk has been written
