@@ -74,7 +74,7 @@ def _check_freq_diff_non_data_inputs(
 # TODO: validate_source_Sv is likely to used in other places,
 #  should we move it somewhere else?
 def validate_source_Sv(
-    source_Sv: Union[xr.Dataset, xr.DataArray, str, pathlib.Path], storage_options: Optional[dict]
+    source_Sv: Union[xr.Dataset, str, pathlib.Path], storage_options: Optional[dict]
 ) -> Tuple[Union[xr.Dataset, str, xr.DataArray], Optional[str]]:
     """
     This function ensures that ``source_Sv`` is of the correct
@@ -82,8 +82,8 @@ def validate_source_Sv(
 
     Parameters
     ----------
-    source_Sv: xr.Dataset or xr.DataArray or str or pathlib.Path
-        If a Dataset or DataArray this value contains the Sv data,
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data,
         else it specifies the path to a zarr or netcdf file
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
@@ -92,7 +92,7 @@ def validate_source_Sv(
     Returns
     -------
     source_Sv: xr.Dataset or str
-        A Dataset or DataArray that contains the Sv data (which will be the same as
+        A Dataset that contains the Sv data (which will be the same as
         the input) or a validated path to a zarr or netcdf file
     file_type: {"netcdf4", "zarr"}, optional
         If ``source_Sv`` is a path then corresponds to the file type of input, else
@@ -108,8 +108,8 @@ def validate_source_Sv(
 
     # check that source_Sv is of the correct type, if it is a path validate
     # the path and open the dataset using xarray
-    if not isinstance(source_Sv, (xr.Dataset, xr.DataArray, str, pathlib.Path)):
-        raise TypeError("source_Sv must be a Dataset or DataArray or str or pathlib.Path!")
+    if not isinstance(source_Sv, (xr.Dataset, str, pathlib.Path)):
+        raise TypeError("source_Sv must be a Dataset or str or pathlib.Path!")
     elif isinstance(source_Sv, (str, pathlib.Path)):
 
         # determine if we obtained a zarr or netcdf file
@@ -130,21 +130,20 @@ def validate_source_Sv(
 
 
 def _check_source_Sv_freq_diff(
-    source_Sv: Union[xr.Dataset, xr.DataArray, str, pathlib.Path],
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
     storage_options: Optional[dict],
     freqAB: Optional[List[float]] = None,
     chanAB: Optional[List[str]] = None,
 ) -> Union[xr.Dataset, xr.DataArray]:
     """
     Ensures that ``source_Sv`` is of the correct type, it exists if it is a
-    path, contains ``channel`` as a coordinate and ``frequency_nominal`` as a
-    variable if ``freqAB`` is not ``None``, and contains ``channel`` as a
-    coordinate if ``chanAB`` is not ``None``.
+    path, and contains ``channel`` as a coordinate and ``frequency_nominal`` as a
+    variable.
 
     Parameters
     ----------
-    source_Sv: xr.Dataset or xr.DataArray or str or pathlib.Path
-        If a Dataset or DataArray this value contains the Sv data to create a
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a
         mask for, else it specifies the path to a zarr or netcdf file
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
@@ -160,8 +159,8 @@ def _check_source_Sv_freq_diff(
 
     Returns
     -------
-    source_Sv: xr.Dataset or xr.DataArray
-        A Dataset or DataArray containing the Sv data
+    source_Sv: xr.Dataset
+        A Dataset containing the Sv data
     """
 
     source_Sv, file_type = validate_source_Sv(source_Sv, storage_options)
@@ -207,7 +206,7 @@ def _check_source_Sv_freq_diff(
 
 
 def frequency_difference(
-    source_Sv: Union[xr.Dataset, xr.DataArray, str, pathlib.Path],
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
     storage_options: Optional[dict] = {},
     freqAB: Optional[List[float]] = None,
     chanAB: Optional[List[str]] = None,
@@ -221,12 +220,11 @@ def frequency_difference(
 
     Parameters
     ----------
-    source_Sv: xr.Dataset xr.DataArray or str or pathlib.Path
-        If a Dataset or DataArray this value contains the Sv data to create a
-        mask for, else it specifies the path to a zarr or netcdf file containing
-        a Dataset. If ``source_Sv`` corresponds to a Dataset, it must have the
-        coordinate ``channel`` and variable ``frequency_nominal``, if it
-        corresponds to a DataArray it must have the coordinate ``channel``.
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
@@ -315,10 +313,12 @@ def frequency_difference(
         chanB = chanAB[1]
 
     # get the left-hand side of condition
-    if isinstance(source_Sv, xr.Dataset):
-        lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
-    else:
-        lhs = source_Sv.sel(channel=chanA) - source_Sv.sel(channel=chanB)
+    lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
 
     # create mask using operator lookup table
-    return xr.where(str2ops[operator](lhs, diff), True, False)
+    da = xr.where(str2ops[operator](lhs, diff), True, False)
+
+    # assign a name to DataArray
+    da.name = "frequency_difference_mask"
+
+    return da
