@@ -17,7 +17,7 @@ import pytest
 import xarray as xr
 import numpy as np
 
-from utils import get_mock_echodata
+from utils import get_mock_echodata, check_consolidated
 
 
 @pytest.fixture(scope="module")
@@ -336,24 +336,7 @@ class TestEchoData:
         assert zmeta_path.exists() is check
 
         if check is True:
-            # Check that every group is in
-            # the zmetadata if consolidated
-            expected_zgroups = [
-                os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
-                for p in mock_echodata.group_paths
-            ]
-            import json
-            with open(zmeta_path) as f:
-                meta_json = json.load(f)
-
-            file_groups = [
-                k
-                for k in meta_json['metadata'].keys()
-                if k.endswith('.zgroup')
-            ]
-
-            for g in expected_zgroups:
-                assert g in file_groups, f"{g} not Found!"
+            check_consolidated(mock_echodata, zmeta_path)
 
         # clean up the zarr file
         shutil.rmtree(zarr_path)

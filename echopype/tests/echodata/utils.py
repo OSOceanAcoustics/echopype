@@ -1,3 +1,6 @@
+import os
+import json
+
 import xarray as xr
 
 from datatree import DataTree
@@ -111,3 +114,29 @@ def get_mock_echodata(
     echodata._set_tree(tree)
     echodata._load_tree()
     return echodata
+
+
+def check_consolidated(echodata, zmeta_path):
+    """
+        Checks for the presense of `.zgroup`
+        for every group in echodata within the `.zmetadata`
+        file.
+    """
+    # Check that every group is in
+    # the zmetadata if consolidated
+    expected_zgroups = [
+        os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
+        for p in echodata.group_paths
+    ]
+
+    with open(zmeta_path) as f:
+        meta_json = json.load(f)
+
+    file_groups = [
+        k
+        for k in meta_json['metadata'].keys()
+        if k.endswith('.zgroup')
+    ]
+
+    for g in expected_zgroups:
+        assert g in file_groups, f"{g} not Found!"

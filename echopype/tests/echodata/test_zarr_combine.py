@@ -13,6 +13,8 @@ import tempfile
 import pytest
 import zarr
 import os.path
+from utils import check_consolidated
+
 
 @pytest.fixture(scope="module")
 def ek60_test_data(test_path):
@@ -417,25 +419,7 @@ class TestZarrCombine:
         assert zmeta_path.exists() is check
 
         if check is True:
-            # Check that every group is in
-            # the zmetadata if consolidated
-            expected_zgroups = [
-                os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
-                for p in combined_echodata.group_paths
-            ]
-            import json
-
-            with open(zmeta_path) as f:
-                meta_json = json.load(f)
-
-            file_groups = [
-                k
-                for k in meta_json['metadata'].keys()
-                if k.endswith('.zgroup')
-            ]
-
-            for g in expected_zgroups:
-                assert g in file_groups, f"{g} not Found!"
+            check_consolidated(combined_echodata, zmeta_path)
 
         temp_zarr_dir.cleanup()
 
