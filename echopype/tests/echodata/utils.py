@@ -118,7 +118,7 @@ def get_mock_echodata(
 
 def check_consolidated(echodata, zmeta_path):
     """
-        Checks for the presense of `.zgroup`
+        Checks for the presence of `.zgroup`
         for every group in echodata within the `.zmetadata`
         file.
     """
