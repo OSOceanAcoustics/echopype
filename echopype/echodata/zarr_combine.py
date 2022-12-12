@@ -628,7 +628,6 @@ class ZarrCombine:
         """
 
         with Lock(lock_name):
-            # Write to region is not consolidated by default
             ds_in.to_zarr(
                 zarr_path,
                 group=zarr_group,
