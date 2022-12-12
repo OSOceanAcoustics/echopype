@@ -41,6 +41,16 @@ class SetGroupsTest(SetGroupsBase):
 
         return ds
 
+    def set_nmea(self) -> xr.Dataset:
+        # TODO: add mock data
+        ds = xr.Dataset(
+            attrs={
+                "description": "All Mock NMEA datagrams",
+            }
+        )
+
+        return ds
+
     def set_sonar(self) -> xr.Dataset:
         # TODO: add mock data
         ds = xr.Dataset()
@@ -87,6 +97,7 @@ def get_mock_echodata(
     )
     tree_dict["Environment"] = setgrouper.set_env()
     tree_dict["Platform"] = setgrouper.set_platform()
+    tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
     tree_dict["Provenance"] = setgrouper.set_provenance()
     tree_dict["Sonar"] = None
     tree_dict["Sonar/Beam_group1"] = setgrouper.set_beam()

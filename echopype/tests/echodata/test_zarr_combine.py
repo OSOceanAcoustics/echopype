@@ -15,7 +15,6 @@ import zarr
 import os.path
 
 
-
 @pytest.fixture(
     params=[
         (
@@ -276,13 +275,17 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
         # write ds_list to zarr
         for count, ds in enumerate(ds_list):
-            ds_zarr_path = os.path.join(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
+            ds_zarr_path = os.path.join(
+                temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr"
+            )
             ds.to_zarr(ds_zarr_path)
 
         # get lazy ds_list
         ds_list_lazy = []
         for count, ds in enumerate(ds_list):
-            ds_zarr_path = os.path.join(temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr")
+            ds_zarr_path = os.path.join(
+                temp_zarr_dir.name, "ds_sets", "file_" + str(count) + ".zarr"
+            )
 
             ds_list_lazy.append(xr.open_zarr(ds_zarr_path))
 
@@ -341,9 +344,14 @@ class TestZarrCombine:
             "ping_time",
         }
         # all possible dimensions that we will append to (mainly time dims)
-        assert self.zarr_combine.append_dims == {"filenames"}.union(self.zarr_combine.possible_time_dims)
+        assert self.zarr_combine.append_dims == {"filenames"}.union(
+            self.zarr_combine.possible_time_dims
+        )
         # encodings associated with lazy loaded variables
-        assert self.zarr_combine.lazy_encodings == ["chunks", "preferred_chunks"]
+        assert self.zarr_combine.lazy_encodings == [
+            "chunks",
+            "preferred_chunks",
+        ]
         # defaultdict that holds every group's attributes
         assert self.zarr_combine.group_attrs == defaultdict(list)
 
@@ -372,7 +380,10 @@ class TestZarrCombine:
         ]
         # create temporary directory for zarr store
         temp_zarr_dir = tempfile.TemporaryDirectory()
-        zarr_file_name = temp_zarr_dir.name + f"/combined_echodatas_{str(consolidated)}.zarr"
+        zarr_file_name = (
+            temp_zarr_dir.name
+            + f"/combined_echodatas_{str(consolidated)}.zarr"
+        )
 
         zarr_path = check_zarr_path(zarr_file_name)
 
@@ -383,7 +394,7 @@ class TestZarrCombine:
 
         # combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
         # combine all elements in echodatas by writing to a zarr store
-        _ = zarr_combine.combine(
+        combined_echodata = zarr_combine.combine(
             zarr_path,
             eds,
             sonar_model=self.sonar_model,
@@ -400,15 +411,11 @@ class TestZarrCombine:
             # Check that every group is in
             # the zmetadata if consolidated
             expected_zgroups = [
-                ".zgroup",
-                "Environment/.zgroup",
-                "Platform/.zgroup",
-                "Provenance/.zgroup",
-                "Sonar/.zgroup",
-                "Sonar/Beam_group1/.zgroup",
-                "Vendor_specific/.zgroup"
+                os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
+                for p in combined_echodata.group_paths
             ]
             import json
+
             with open(zmeta_path) as f:
                 meta_json = json.load(f)
 

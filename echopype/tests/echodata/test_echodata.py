@@ -1,5 +1,6 @@
 from textwrap import dedent
 
+import os
 import fsspec
 from pathlib import Path
 import shutil
@@ -337,13 +338,8 @@ class TestEchoData:
             # Check that every group is in
             # the zmetadata if consolidated
             expected_zgroups = [
-                ".zgroup",
-                "Environment/.zgroup",
-                "Platform/.zgroup",
-                "Provenance/.zgroup",
-                "Sonar/.zgroup",
-                "Sonar/Beam_group1/.zgroup",
-                "Vendor_specific/.zgroup"
+                os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
+                for p in mock_echodata.group_paths
             ]
             import json
             with open(zmeta_path) as f:
