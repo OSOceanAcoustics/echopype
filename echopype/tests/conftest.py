@@ -29,16 +29,6 @@ def test_path():
 
 
 @pytest.fixture(scope="session")
-def ek60_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture(scope="session")
 def minio_bucket():
     return dict(
         client_kwargs=dict(endpoint_url="http://localhost:9000/"),
