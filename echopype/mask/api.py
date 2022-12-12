@@ -1,11 +1,11 @@
 import operator as op
 import pathlib
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import xarray as xr
 
-from echopype.utils.io import check_file_existence, get_file_format, validate_output_path
+from ..utils.data_proc_lvls import validate_source_Sv
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -69,64 +69,6 @@ def _check_freq_diff_non_data_inputs(
     # ensure that diff is a float or an int
     if not isinstance(diff, (float, int)):
         raise TypeError("diff must be a float or int!")
-
-
-# TODO: validate_source_Sv is likely to used in other places,
-#  should we move it somewhere else?
-def validate_source_Sv(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path], storage_options: Optional[dict]
-) -> Tuple[Union[xr.Dataset, str, xr.DataArray], Optional[str]]:
-    """
-    This function ensures that ``source_Sv`` is of the correct
-    type and validates the path of ``source_Sv``, if it is provided.
-
-    Parameters
-    ----------
-    source_Sv: xr.Dataset or str or pathlib.Path
-        If a Dataset this value contains the Sv data,
-        else it specifies the path to a zarr or netcdf file
-    storage_options: dict, optional
-        Any additional parameters for the storage backend, corresponding to the
-        path provided for ``source_Sv``
-
-    Returns
-    -------
-    source_Sv: xr.Dataset or str
-        A Dataset that contains the Sv data (which will be the same as
-        the input) or a validated path to a zarr or netcdf file
-    file_type: {"netcdf4", "zarr"}, optional
-        If ``source_Sv`` is a path then corresponds to the file type of input, else
-        is ``None``
-    """
-
-    # initialize file_type
-    file_type = None
-
-    # make sure that storage_options is of the appropriate type
-    if not isinstance(storage_options, dict):
-        raise TypeError("storage_options must be a dict!")
-
-    # check that source_Sv is of the correct type, if it is a path validate
-    # the path and open the dataset using xarray
-    if not isinstance(source_Sv, (xr.Dataset, str, pathlib.Path)):
-        raise TypeError("source_Sv must be a Dataset or str or pathlib.Path!")
-    elif isinstance(source_Sv, (str, pathlib.Path)):
-
-        # determine if we obtained a zarr or netcdf file
-        file_type = get_file_format(source_Sv)
-
-        # validate source_Sv if it is a path
-        source_Sv = validate_output_path(
-            source_file="blank",  # will be unused since source_Sv cannot be none
-            engine=file_type,
-            output_storage_options=storage_options,
-            save_path=source_Sv,
-        )
-
-        # check that the path exists
-        check_file_existence(file_path=source_Sv, storage_options=storage_options)
-
-    return source_Sv, file_type
 
 
 def _check_source_Sv_freq_diff(
