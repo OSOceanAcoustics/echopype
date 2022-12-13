@@ -51,13 +51,13 @@ def _check_freq_diff_non_data_inputs(
     elif freqAB is not None:
         if not isinstance(freqAB, list):
             raise TypeError("freqAB must be a list!")
-        elif len(freqAB) != 2:
-            raise RuntimeError("freqAB must be a list of length 2!")
+        elif len(set(freqAB)) != 2:
+            raise RuntimeError("freqAB must be a list of length 2 with unique elements!")
     else:
         if not isinstance(chanAB, list):
             raise TypeError("chanAB must be a list!")
-        elif len(chanAB) != 2:
-            raise RuntimeError("chanAB must be a list of length 2!")
+        elif len(set(chanAB)) != 2:
+            raise RuntimeError("chanAB must be a list of length 2 with unique elements!")
 
     # check that operator is a string and a valid operator
     if not isinstance(operator, str):
@@ -109,40 +109,46 @@ def _check_source_Sv_freq_diff(
 
     if isinstance(source_Sv, str):
 
-        # TODO: check that this works with zarr and netcdf (create test)
         # open up Dataset using source_Sv path
         source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
 
-    # TODO: create a mock test for chanAB/freqAB code block checks below
-    # check that channel and frequency nominal are in source_Sv, if freqAB is used
+    # check that channel and frequency nominal are in source_Sv
+    if "channel" not in source_Sv.coords:
+        raise RuntimeError("The Dataset defined by source_Sv must have channel as a coordinate!")
+    elif "frequency_nominal" not in source_Sv.variables:
+        raise RuntimeError(
+            "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
+        )
+
+    def get_positions(var_name, input_list):
+
+        # obtain position of input in either frequency_nominal or channel
+        inputA_pos = np.argwhere(source_Sv[var_name].values == input_list[0]).flatten()
+        inputB_pos = np.argwhere(source_Sv[var_name].values == input_list[1]).flatten()
+
+        return inputA_pos, inputB_pos
+
+    # check that the element of freqAB or chanAB are in frequency_nominal or channel, respectively
     if freqAB is not None:
-        if "channel" not in source_Sv.coords:
-            raise RuntimeError(
-                "The Dataset defined by source_Sv must have channel as a coordinate!"
-            )
-        elif not isinstance(source_Sv, xr.Dataset):
-            raise RuntimeError("source_Sv must be a Dataset, if freqAB is provided!")
-        elif "frequency_nominal" not in source_Sv.variables:
-            raise RuntimeError(
-                "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
-            )
+        inputA_pos, inputB_pos = get_positions(var_name="frequency_nominal", input_list=freqAB)
+    else:
+        inputA_pos, inputB_pos = get_positions(var_name="channel", input_list=chanAB)
 
-        # obtain position of frequency provided in frequency_nominal
-        freqA_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[0]).flatten()
-        freqB_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[1]).flatten()
+    # TODO: add tests for the below block
+    if (len(inputA_pos) != 1) or (len(inputB_pos) != 1):
 
-        # TODO: create test for this!
-        # check that freqA and freqB are contained in frequency_nominal and unique
-        if (len(freqA_pos) != 1) or (len(freqB_pos) != 1):
+        if freqAB is not None:
             raise RuntimeError(
                 "A provided frequency is either not contained in "
                 "frequency_nominal or frequency_nominal has repeated "
                 "frequencies, which is not allowed!"
             )
-
-    # check that channel is in source_SV, if chanAB is used
-    if (chanAB is not None) and ("channel" not in source_Sv.coords):
-        raise RuntimeError("The Dataset defined by source_Sv must have channel as a coordinate!")
+        else:
+            raise RuntimeError(
+                "A provided channel is either not contained in "
+                "the channel coordinate or the coordinate has repeated "
+                "channels, which is not allowed!"
+            )
 
     return source_Sv
 
