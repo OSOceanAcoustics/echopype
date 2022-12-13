@@ -118,13 +118,6 @@ def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
         The pair of channels that will be used to select the nominal frequencies to be
         used for frequency-differencing, where the first element corresponds to ``freqA``
         and the second element corresponds to ``freqB``
-
-    Notes
-    -----
-    The following checks are made:
-
-    - If ``source_Sv_is_path=True`` then makes sure that
-
     """
 
     ds = get_mock_freq_diff_data(n, add_chan, add_freq_nom)
