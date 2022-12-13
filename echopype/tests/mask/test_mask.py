@@ -78,6 +78,14 @@ def get_mock_freq_diff_data(n: int, add_chan: bool, add_freq_nom: bool):
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because the Dataset "
                                                     "will not have the frequency_nominal variable.")),
+        pytest.param(5, True, True, False, [1.0, 3.0], None,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because not all selected frequencies"
+                                                    "are in the frequency_nominal variable.")),
+        pytest.param(5, True, True, False, None, ['chan1', 'chan3'],
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because not all selected channels"
+                                                    "are in the channel coordinate.")),
     ]
 
 )
@@ -140,11 +148,9 @@ def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
     # ensure that ds is equal to the source_Sv produced
     assert ds.identical(source_Sv_output)
 
-
     if source_Sv_is_path:
         # remove temporary directory
         temp_zarr_dir.cleanup()
-
 
 
 # @pytest.mark.parametrize(

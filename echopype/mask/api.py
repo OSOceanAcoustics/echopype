@@ -79,8 +79,9 @@ def _check_source_Sv_freq_diff(
 ) -> Union[xr.Dataset, xr.DataArray]:
     """
     Ensures that ``source_Sv`` is of the correct type, it exists if it is a
-    path, and contains ``channel`` as a coordinate and ``frequency_nominal`` as a
-    variable.
+    path, contains ``channel`` as a coordinate and ``frequency_nominal`` as a
+    variable, and that the provided list input (``freqAB`` or ``chanAB``) are
+    contained in the coordinate ``channel`` or variable ``frequency_nominal``.
 
     Parameters
     ----------
@@ -120,6 +121,18 @@ def _check_source_Sv_freq_diff(
             "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
         )
 
+    # make sure that the channel and frequency_nominal values are not repeated in source_Sv
+    if len(set(source_Sv.channel.values)) != 2:
+        raise RuntimeError(
+            "The provided source_Sv contains repeated channel values, " "this is not allowed!"
+        )
+
+    if len(set(source_Sv.frequency_nominal.values)) != 2:
+        raise RuntimeError(
+            "The provided source_Sv contains repeated frequency_nominal "
+            "values, this is not allowed!"
+        )
+
     def get_positions(var_name, input_list):
 
         # obtain position of input in either frequency_nominal or channel
@@ -128,26 +141,24 @@ def _check_source_Sv_freq_diff(
 
         return inputA_pos, inputB_pos
 
-    # check that the element of freqAB or chanAB are in frequency_nominal or channel, respectively
+    # get the position of freqAB or chanAB values in frequency_nominal or channel, respectively
     if freqAB is not None:
         inputA_pos, inputB_pos = get_positions(var_name="frequency_nominal", input_list=freqAB)
     else:
         inputA_pos, inputB_pos = get_positions(var_name="channel", input_list=chanAB)
 
-    # TODO: add tests for the below block
-    if (len(inputA_pos) != 1) or (len(inputB_pos) != 1):
+    # check that the elements of freqAB or chanAB are in frequency_nominal or channel, respectively
+    if (len(inputA_pos) == 0) or (len(inputB_pos) == 0):
 
         if freqAB is not None:
             raise RuntimeError(
-                "A provided frequency is either not contained in "
-                "frequency_nominal or frequency_nominal has repeated "
-                "frequencies, which is not allowed!"
+                "The provided list input freqAB contains values that "
+                "are not in the frequency_nominal variable!"
             )
         else:
             raise RuntimeError(
-                "A provided channel is either not contained in "
-                "the channel coordinate or the coordinate has repeated "
-                "channels, which is not allowed!"
+                "The provided list input chanAB contains values that are "
+                "not in the channel coordinate!"
             )
 
     return source_Sv
