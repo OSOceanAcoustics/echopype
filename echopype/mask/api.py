@@ -215,38 +215,61 @@ def frequency_difference(
     TypeError
         If any input is not of the correct type
     RuntimeError
-        If either ``freqAB`` or ``chanAB`` are provided and not of length 2
+        If either ``freqAB`` or ``chanAB`` are provided and the list
+        does not contain 2 distinct elements
     RuntimeError
-        If ``freqAB`` contains values that are repeated or not contained
-        in ``frequency_nominal``
+        If ``freqAB`` contains values that are not contained in ``frequency_nominal``
     RuntimeError
-        If operator is not one of the following: ``">", "<", "<=", ">=", "=="``
+        If ``chanAB`` contains values that not contained in ``channel``
+    RuntimeError
+        If ``operator`` is not one of the following: ``">", "<", "<=", ">=", "=="``
     RuntimeError
         If the path provided for ``source_Sv`` is not a valid path
     RuntimeError
-        If ``freqAB`` is provided and the Dataset produced by ``source_Sv`` does not
-        contain the coordinate ``channel`` and variable ``frequency_nominal``
-    RuntimeError
-        If ``chanAB`` is provided and the Dataset or DataArray produced by ``source_Sv``
-        does not contain the coordinate ``channel``
+        If ``freqAB`` or ``chanAB`` is provided and the Dataset produced by ``source_Sv``
+        does not contain the coordinate ``channel`` and variable ``frequency_nominal``
 
     Notes
     -----
-    TODO: mention it is freqA - freqB operator diff, thus if operator = "<" and diff = "5"
-        we would have freqA - freqB < 5
+    Either ``freqAB`` or ``chanAB`` must be provided, but both parameters
+    cannot be given.
 
-
-    Either ``freqAB`` or ``chanAB`` must be provided, but both parameters cannot be
-    given.
-
-    * return a mask as xarray Dataset (xr.where())
+    This function computes the frequency differencing as follows:
+    ``Sv_freqA - Sv_freqB operator diff``. Thus, if ``operator = "<"``
+    and ``diff = "5"`` the following would be calculated:
+    ``Sv_freqA - Sv_freqB < 5``.
 
     Examples
     --------
+    Compute frequency-differencing mask using a mock Dataset and channel selection:
 
-    ep.mask.frequency_difference()
+    >>> n = 5 # set the number of ping times and range samples
 
+    >>> # create mock Sv data
+    >>> Sv_da = xr.DataArray(data=np.stack([np.arange(n**2).reshape(n,n), np.identity(n)]),
+    >>>                      coords={"channel": ['chan1', 'chan2'],
+    >>>                              "ping_time": np.arange(n), "range_sample":np.arange(n)})
 
+    >>> # obtain mock frequency_nominal data
+    >>> freq_nom = xr.DataArray(data=np.array([1.0, 2.0]),
+    >>>                         coords={"channel": ['chan1', 'chan2']})
+
+    >>> # construct mock Sv Dataset
+    >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
+
+    >>> # compute frequency-differencing mask using channel names
+    >>> frequency_difference(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
+    >>>                      chanAB = ['chan1', 'chan2'],
+    >>>                      operator = ">=", diff=10.0)
+    <xarray.DataArray 'frequency_difference_mask' (ping_time: 5, range_sample: 5)>
+    array([[False, False, False, False, False],
+           [False, False, False, False, False],
+           [ True,  True,  True,  True,  True],
+           [ True,  True,  True,  True,  True],
+           [ True,  True,  True,  True,  True]])
+    Coordinates:
+      * ping_time     (ping_time) int64 0 1 2 3 4
+      * range_sample  (range_sample) int64 0 1 2 3 4
     """
 
     # check that non-data related inputs were correctly provided
