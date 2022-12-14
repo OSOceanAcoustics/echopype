@@ -321,6 +321,11 @@ def _create_channel_selection_dict(
             - If ``sonar_model`` is EK80-like then the groups ``Sonar, Platform, Vendor_specific``
             will be set to the union of the values of ``user_channel_selection`` and the rest of
             the groups will be set to the same value in ``user_channel_selection`` with the same key
+
+    Notes
+    -----
+    See ``tests/echodata/test_echodata_combine.py::test_create_channel_selection_dict`` for example
+    outputs from this function.
     """
 
     # base case where the user did not provide selected channels (will be used downstream)
