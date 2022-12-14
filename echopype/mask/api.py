@@ -244,7 +244,7 @@ def frequency_difference(
     Compute frequency-differencing mask using a mock Dataset and channel selection:
 
     >>> n = 5 # set the number of ping times and range samples
-    >>>
+    ...
     >>> # create mock Sv data
     >>> Sv_da = xr.DataArray(data=np.stack([np.arange(n**2).reshape(n,n), np.identity(n)]),
     ...                      coords={"channel": ['chan1', 'chan2'],
