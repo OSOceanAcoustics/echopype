@@ -2,7 +2,6 @@ from textwrap import dedent
 from pathlib import Path
 
 import numpy as np
-import pytest
 import xarray as xr
 
 import echopype
@@ -11,125 +10,6 @@ import os.path
 
 import tempfile
 from dask.distributed import Client
-
-
-@pytest.fixture
-def ek60_diff_range_sample_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "SH1701", "TEST-D20170114-T202932.raw"),
-        ("ncei-wcsd", "SH1701", "TEST-D20170114-T203337.raw"),
-        ("ncei-wcsd", "SH1701", "TEST-D20170114-T203853.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture(scope="module")
-def ek60_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
-def ek80_test_data(test_path):
-    files = [
-        ("echopype-test-D20211005-T000706.raw",),
-        ("echopype-test-D20211005-T000737.raw",),
-        ("echopype-test-D20211005-T000810.raw",),
-        ("echopype-test-D20211005-T000843.raw",),
-    ]
-    return [test_path["EK80_NEW"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
-def ek80_broadband_same_range_sample_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205615.raw"),
-        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205659.raw"),
-        ("ncei-wcsd", "SH1707", "Reduced_D20170826-T205742.raw"),
-    ]
-    return [test_path["EK80"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
-def ek80_narrowband_diff_range_sample_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T130426.raw"),
-        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T131325.raw"),
-        ("ncei-wcsd", "SH2106", "EK80", "Reduced_Hake-D20210701-T131621.raw"),
-    ]
-    return [test_path["EK80"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
-def azfp_test_data(test_path):
-
-    # TODO: in the future we should replace these files with another set of 
-    #  similarly small set of files, for example the files from the location below:
-    #  "https://rawdata.oceanobservatories.org/files/CE01ISSM/R00015/instrmts/dcl37/ZPLSC_sn55076/DATA/202109/*"
-    #  This is because we have lost track of where the current files came from,
-    #  since the filenames does not contain the site identifier.
-    files = [
-        ("ooi", "18100407.01A"),
-        ("ooi", "18100408.01A"),
-        ("ooi", "18100409.01A"),
-    ]
-    return [test_path["AZFP"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
-def azfp_test_xml(test_path):
-    return test_path["AZFP"].joinpath(*("ooi", "18092920.XML"))
-
-
-@pytest.fixture(
-    params=[
-        {
-            "sonar_model": "EK60",
-            "xml_file": None,
-            "files": "ek60_test_data"
-        },
-        {
-            "sonar_model": "EK60",
-            "xml_file": None,
-            "files": "ek60_diff_range_sample_test_data"
-        },
-        {
-            "sonar_model": "AZFP",
-            "xml_file": "azfp_test_xml",
-            "files": "azfp_test_data"
-        },
-        {
-            "sonar_model": "EK80",
-            "xml_file": None,
-            "files": "ek80_broadband_same_range_sample_test_data"
-        },
-        {
-            "sonar_model": "EK80",
-            "xml_file": None,
-            "files": "ek80_narrowband_diff_range_sample_test_data"
-        }
-    ],
-    ids=["ek60", "ek60_diff_range_sample", "azfp",
-         "ek80_bb_same_range_sample", "ek80_nb_diff_range_sample"]
-)
-def raw_datasets(request):
-    files = request.param["files"]
-    xml_file = request.param["xml_file"]
-    if xml_file is not None:
-        xml_file = request.getfixturevalue(xml_file)
-
-    files = request.getfixturevalue(files)
-
-    return (
-        files,
-        request.param['sonar_model'],
-        xml_file,
-        request.node.callspec.id
-    )
 
 
 def test_combine_echodata(raw_datasets):

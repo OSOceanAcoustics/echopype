@@ -9,51 +9,12 @@ output tests.**
 
 
 import os
-import fsspec
 import xarray as xr
 import pytest
 from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
-
-
-def _check_file_group(data_file, engine, groups):
-    for g in groups:
-        ds = xr.open_dataset(data_file, engine=engine, group=g)
-
-        assert isinstance(ds, xr.Dataset) is True
-
-
-def _check_output_files(engine, output_files, storage_options):
-    groups = [
-        "Provenance",
-        "Environment",
-        "Sonar/Beam_group1",
-        "Sonar",
-        "Vendor_specific",
-        "Platform",
-    ]
-    if isinstance(output_files, list):
-        fs = fsspec.get_mapper(output_files[0], **storage_options).fs
-        for f in output_files:
-            if engine == "zarr":
-                _check_file_group(fs.get_mapper(f), engine, groups)
-                fs.delete(f, recursive=True)
-            else:
-                _check_file_group(f, engine, groups)
-                fs.delete(f)
-    else:
-        fs = fsspec.get_mapper(output_files, **storage_options).fs
-        if engine == "zarr":
-            _check_file_group(fs.get_mapper(output_files), engine, groups)
-            fs.delete(output_files, recursive=True)
-        else:
-            _check_file_group(output_files, engine, groups)
-            fs.delete(output_files)
-
-
-def _create_path_str(test_folder, paths):
-    return str(test_folder.joinpath(*paths).absolute())
+from echopype.testing import _check_output_files, _create_path_str
 
 
 @pytest.fixture(

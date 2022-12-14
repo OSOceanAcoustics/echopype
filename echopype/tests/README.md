@@ -27,4 +27,9 @@ This file contains all of the fixtures used within that module.
 However, the `conftest.py` within the root of the `tests` directory should contain fixtures that can be used by all tests,
 therefore, the fixtures `scope` must be `"session"`.
 
-Within echopype's software module there's a module called `testing`. Within this module contains any helper functions or classes to be used in testing.
+Within echopype there's a module called `testing`. Within this module contains any helper functions to be used in testing.
+
+Lastly, the test files begin with the word `test` sucn as `test_echodata.py`.
+These files contains code for *unit testing*,
+and any files that ends with `integration` contains code that performs *integration testing* against actual datasets, for example,
+`test_echodata_integration.py`.
