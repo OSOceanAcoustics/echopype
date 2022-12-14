@@ -350,23 +350,16 @@ def _create_channel_selection_dict(
         # if there are no channel dimensions in the group, set the value to None
         if has_chan:
 
-            # if the model is not EK80-like set value to the union of the values
-            # of user_channel_selection
-            if sonar_model in ["EK80", "ES80", "EA640"]:
-
-                # if the model is EK80-like
-                if (ed_group in ["Sonar", "Platform", "Vendor_specific"]) or isinstance(
-                    user_channel_selection, list
-                ):
-                    # set value to the union of the values of user_channel_selection
-                    channel_selection_dict[ed_group] = union_beam_chans
-
-                else:
-
-                    # set value to the user provided input with the same key
-                    channel_selection_dict[ed_group] = user_channel_selection[ed_group]
+            if (
+                sonar_model in ["EK80", "ES80", "EA640"]
+                and (ed_group not in ["Sonar", "Platform", "Vendor_specific"])
+                and (not isinstance(user_channel_selection, list))
+            ):
+                # set value to the user provided input with the same key
+                channel_selection_dict[ed_group] = user_channel_selection[ed_group]
 
             else:
+                # set value to the union of the values of user_channel_selection
                 channel_selection_dict[ed_group] = union_beam_chans
 
             # sort channel names to produce consistent output (since we may be using sets)
