@@ -247,20 +247,20 @@ def frequency_difference(
     >>>
     >>> # create mock Sv data
     >>> Sv_da = xr.DataArray(data=np.stack([np.arange(n**2).reshape(n,n), np.identity(n)]),
-    >>>                      coords={"channel": ['chan1', 'chan2'],
-    >>>                              "ping_time": np.arange(n), "range_sample":np.arange(n)})
-    >>>
+    ...                      coords={"channel": ['chan1', 'chan2'],
+    ...                              "ping_time": np.arange(n), "range_sample":np.arange(n)})
+    ...
     >>> # obtain mock frequency_nominal data
     >>> freq_nom = xr.DataArray(data=np.array([1.0, 2.0]),
-    >>>                         coords={"channel": ['chan1', 'chan2']})
-    >>>
+    ...                         coords={"channel": ['chan1', 'chan2']})
+    ...
     >>> # construct mock Sv Dataset
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
-    >>>
+    ...
     >>> # compute frequency-differencing mask using channel names
-    >>> frequency_difference(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
-    >>>                      chanAB = ['chan1', 'chan2'],
-    >>>                      operator = ">=", diff=10.0)
+    >>> echopype.mask.frequency_difference(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
+    ...                                    chanAB = ['chan1', 'chan2'],
+    ...                                    operator = ">=", diff=10.0)
     <xarray.DataArray 'frequency_difference_mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
