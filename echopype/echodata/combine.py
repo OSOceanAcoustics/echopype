@@ -231,7 +231,7 @@ def _check_channel_consistency(
         same across all Datasets.
     NotImplementedError
         If ``channel_selection`` is a list and the listed channels are not contained
-        in the ``EchoData`` group for all Datasets and need to be created and 
+        in the ``EchoData`` group for all Datasets and need to be created and
         padded with NaN. This "expansion" type of combination has not been implemented.
     """
 
