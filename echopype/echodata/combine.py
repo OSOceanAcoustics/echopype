@@ -305,7 +305,7 @@ def _create_channel_selection_dict(
 
     Returns
     -------
-    dict
+    channel_selection_dict : dict
         A dictionary with the same keys as ``has_chan_dim`` and values
         determined by ``sonar_model`` and ``user_channel_selection`` as follows:
         - If ``user_channel_selection=None``, then the values of the dictionary
