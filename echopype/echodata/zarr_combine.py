@@ -919,6 +919,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
+            The list of ``EchoData`` objects to be combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
