@@ -13,7 +13,7 @@ import tempfile
 import pytest
 import zarr
 import os.path
-from utils import check_consolidated
+from echopype.testing import check_consolidated
 
 
 @pytest.fixture(scope="module")

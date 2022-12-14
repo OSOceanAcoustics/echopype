@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-import os
 import fsspec
 from pathlib import Path
 import shutil
@@ -17,7 +16,7 @@ import pytest
 import xarray as xr
 import numpy as np
 
-from utils import get_mock_echodata, check_consolidated
+from echopype.testing import check_consolidated
 
 
 @pytest.fixture(scope="module")
@@ -206,10 +205,6 @@ class TestEchoData:
         'Sonar/Beam_group1',
         'Vendor_specific',
     }
-
-    @pytest.fixture(scope="class")
-    def mock_echodata(self):
-        return get_mock_echodata()
 
     @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
@@ -404,7 +399,6 @@ def test_compute_range(compute_range_samples):
             pass
         else:
             raise AssertionError
-
 
     mobile_env_params = EnvParams(
         xr.Dataset(

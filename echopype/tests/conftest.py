@@ -2,8 +2,6 @@
 
 import pytest
 
-import fsspec
-
 from echopype.testing import TEST_DATA_FOLDER
 
 
