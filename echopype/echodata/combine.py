@@ -230,8 +230,9 @@ def _check_channel_consistency(
         If ``channel_selection=None`` and all ``channel`` dimensions are not the
         same across all Datasets.
     NotImplementedError
-        If ``channel_selection`` is a list and the list of channels are not contained
-        in the ``EchoData`` group for all Datasets
+        If ``channel_selection`` is a list and the listed channels are not contained
+        in the ``EchoData`` group for all Datasets and need to be created and 
+        padded with NaN. This "expansion" type of combination has not been implemented.
     """
 
     if channel_selection is None:
@@ -249,10 +250,10 @@ def _check_channel_consistency(
 
             # raise an error if we have varying channel lengths
             raise RuntimeError(
-                f"For the EchoData group {ed_group} the channels: {unique_channels}, are "
-                f"not provided in each EchoData object being combined. One can select which "
-                f"channels should be included using the keyword argument channel_selection in "
-                f"combine_echodata."
+                f"For the EchoData group {ed_group} the channels: {unique_channels} are "
+                f"not found in all EchoData objects being combined. Select which "
+                f"channels should be included in the combination using the keyword argument "
+                f"channel_selection in combine_echodata."
             )
 
     else:
@@ -296,7 +297,7 @@ def _create_channel_selection_dict(
         The name of the sonar model corresponding to ``has_chan_dim``
     has_chan_dim: dict
         A dictionary created using an ``EchoData`` object whose keys are
-        the groups of the ``EchoData`` object and values specify if that
+        the ``EchoData`` groups and whose values specify if that
         particular group has a ``channel`` dimension
     user_channel_selection: list or dict, optional
         A user provided input that will be used to construct the values of
@@ -523,11 +524,11 @@ def combine_echodata(
         If any ``EchoData`` group has a ``channel`` dimension value
         with a duplicate value.
     RuntimeError
-        If ``channel_selection=None`` and all ``channel`` dimensions are not the
-        same across ``echodatas`` with the same group.
+        If ``channel_selection=None`` and the ``channel`` dimensions are not the
+        same across the same group under each object in ``echodatas``.
     NotImplementedError
-        If ``channel_selection`` is a list and the list of channels are not contained
-        in the ``EchoData`` group across all values in ``echodatas``.
+        If ``channel_selection`` is a list and the listed channels are not contained
+        in the ``EchoData`` group across all objects in ``echodatas``.
 
     Notes
     -----
