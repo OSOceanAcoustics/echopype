@@ -1,4 +1,5 @@
 import itertools
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
@@ -121,8 +122,11 @@ def _check_channel_selection_form(
         if not all(are_keys_str):
             raise TypeError("Each key of channel_selection must be a string!")
 
-        # make sure all keys are of the form Sonar/Beam_group
-        are_keys_right_form = ["Sonar/Beam_group" in elem for elem in channel_selection.keys()]
+        # make sure all keys are of the form Sonar/Beam_group using regular expression
+        are_keys_right_form = [
+            True if re.match("Sonar/Beam_group(\d{1})", elem) else False  # noqa
+            for elem in channel_selection.keys()
+        ]
         if not all(are_keys_right_form):
             raise TypeError(
                 "Each key of channel_selection can only be a beam group path of "
