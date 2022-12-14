@@ -450,6 +450,7 @@ def combine_echodata(
     storage_options: Dict[str, Any] = {},
     client: Optional[dask.distributed.Client] = None,
     channel_selection: Optional[Union[List, Dict[str, list]]] = None,
+    consolidated: bool = True,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
@@ -481,6 +482,9 @@ def combine_echodata(
         groups (e.g. "Sonar/Beam_group1") and values as a list of channel names to select
         within that beam group. The rest of the ``EchoData`` groups with a ``channel`` dimension
         will have their selected channels chosen automatically.
+    consolidated: bool
+        Flag to consolidate zarr metadata.
+        Defaults to ``True``
 
     Returns
     -------
@@ -605,6 +609,7 @@ def combine_echodata(
         sonar_model=sonar_model,
         echodata_filenames=echodata_filenames,
         ed_group_chan_sel=ed_group_chan_sel,
+        consolidated=consolidated,
     )
 
     if client_created:

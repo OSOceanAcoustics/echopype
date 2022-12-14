@@ -4,6 +4,7 @@ from typing import Any, Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
+import fsspec
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -596,6 +597,7 @@ class ZarrCombine:
                 compute=True,
                 storage_options=storage_options,
                 synchronizer=zarr.ThreadSynchronizer(),
+                consolidated=False,
             )
 
             # TODO: put a check to make sure that the chunk has been written
@@ -646,9 +648,9 @@ class ZarrCombine:
             compute=False,
             group=zarr_group,
             encoding=encodings,
-            consolidated=None,
             storage_options=storage_options,
             synchronizer=zarr.ThreadSynchronizer(),
+            consolidated=False,
         )
 
         # get all dimensions in ds that are append dimensions
@@ -691,7 +693,12 @@ class ZarrCombine:
                     # write the subset of each Dataset to a zarr file
                     delayed_to_zarr.append(
                         self.write_to_file(
-                            ds_in, lock_name, zarr_path, zarr_group, region, storage_options
+                            ds_in,
+                            lock_name,
+                            zarr_path,
+                            zarr_group,
+                            region,
+                            storage_options,
                         )
                     )
 
@@ -743,7 +750,11 @@ class ZarrCombine:
                 ds_list_ind = int(0)
 
             ds_list[ds_list_ind][[var]].to_zarr(
-                zarr_path, group=zarr_group, mode="a", storage_options=storage_options
+                zarr_path,
+                group=zarr_group,
+                mode="a",
+                storage_options=storage_options,
+                consolidated=False,
             )
 
     def _write_append_dims(
@@ -793,6 +804,7 @@ class ZarrCombine:
                     compute=True,
                     storage_options=storage_options,
                     synchronizer=zarr.ThreadSynchronizer(),
+                    consolidated=False,
                 )
 
     def _append_provenance_attr_vars(
@@ -853,7 +865,7 @@ class ZarrCombine:
             group="Provenance",
             mode="a",
             storage_options=storage_options,
-            consolidated=True,
+            consolidated=False,
         )
 
     @staticmethod
@@ -894,6 +906,7 @@ class ZarrCombine:
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
         ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
+        consolidated: bool = True,
     ) -> EchoData:
         """
         Combines all ``EchoData`` objects in ``eds`` by
@@ -918,6 +931,9 @@ class ZarrCombine:
             and values specify what channels should be selected within that
             group. If a value is ``None``, then a subset of channels should
             not be selected.
+        consolidated: bool
+            Flag to consolidate zarr metadata.
+            Defaults to ``True``
 
         Returns
         -------
@@ -984,16 +1000,33 @@ class ZarrCombine:
                 )
 
                 self._append_const_to_zarr(
-                    const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
+                    const_names,
+                    ds_list,
+                    zarr_path,
+                    grp_info["ep_group"],
+                    storage_options,
                 )
 
-                self._write_append_dims(ds_list, zarr_path, grp_info["ep_group"], storage_options)
+                self._write_append_dims(
+                    ds_list,
+                    zarr_path,
+                    grp_info["ep_group"],
+                    storage_options,
+                )
 
         # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
+        self._append_provenance_attr_vars(
+            zarr_path,
+            storage_options=storage_options,
+        )
 
         # change filenames numbering to range(len(eds))
         self._modify_prov_filenames(zarr_path, len_eds=len(eds), storage_options=storage_options)
+
+        if consolidated:
+            # consolidate at the end if consolidated flag is True
+            store = fsspec.get_mapper(zarr_path, **storage_options)
+            zarr.consolidate_metadata(store=store)
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
@@ -1001,6 +1034,7 @@ class ZarrCombine:
             chunks={},
             synchronizer=zarr.ThreadSynchronizer(),
             storage_options=storage_options,
+            backend_kwargs={"consolidated": consolidated},
         )  # TODO: is this appropriate for chunks?
 
         return ed_combined

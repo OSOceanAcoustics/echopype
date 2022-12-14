@@ -17,21 +17,21 @@ from echopype.echodata.combine import _create_channel_selection_dict, _check_ech
 
 
 @pytest.fixture
-def ek60_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture
 def ek60_diff_range_sample_test_data(test_path):
     files = [
         ("ncei-wcsd", "SH1701", "TEST-D20170114-T202932.raw"),
         ("ncei-wcsd", "SH1701", "TEST-D20170114-T203337.raw"),
         ("ncei-wcsd", "SH1701", "TEST-D20170114-T203853.raw"),
+    ]
+    return [test_path["EK60"].joinpath(*f) for f in files]
+
+
+@pytest.fixture(scope="module")
+def ek60_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
     ]
     return [test_path["EK60"].joinpath(*f) for f in files]
 
