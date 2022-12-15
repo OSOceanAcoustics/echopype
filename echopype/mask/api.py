@@ -194,8 +194,8 @@ def frequency_differencing(
     chanAB: list of float, optional
         The pair of channels that will be used to select the nominal frequencies to be
         used for frequency-differencing, where the first element corresponds to ``freqA``
-        and the second element corresponds to ``freqB``.
-        Only one of ``freqAB`` and ``chanAB`` should be provided, and not both.
+        and the second element corresponds to ``freqB``. Only one of ``freqAB`` and ``chanAB``
+        should be provided, and not both.
     operator: {">", "<", "<=", ">=", "=="}
         The operator for the frequency-differencing
     diff: float or int
@@ -232,7 +232,6 @@ def frequency_differencing(
 
     Notes
     -----
-
     This function computes the frequency differencing as follows:
     ``Sv_freqA - Sv_freqB operator diff``. Thus, if ``operator = "<"``
     and ``diff = "5"`` the following would be calculated:
