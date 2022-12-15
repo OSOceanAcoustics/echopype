@@ -214,7 +214,7 @@ def test_frequency_difference_mask(n: int, source_Sv_is_path: bool,
     assert isinstance(out, xr.DataArray)
 
     # test that the output DataArray is correctly names
-    assert out.name == "frequency_difference_mask"
+    assert out.name == "mask"
 
 
 
