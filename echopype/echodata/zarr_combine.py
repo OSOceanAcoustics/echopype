@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import islice
-from typing import Any, Dict, Hashable, List, Set, Tuple
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
@@ -96,43 +96,6 @@ class ZarrCombine:
                         f"The coordinate {time} is not in ascending order for "
                         f"group {ed_name}, combine cannot be used!"
                     )
-
-    @staticmethod
-    def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
-        """
-        Makes sure that each Dataset in ``ds_list`` has the
-        same number of channels and the same name for each
-        of these channels.
-
-        Parameters
-        ----------
-        ds_list: list of xr.Dataset
-            List of Datasets to be combined
-        ed_name: str
-            The name of the ``EchoData`` group being combined
-        """
-
-        if "channel" in ds_list[0].dims:
-
-            # check to make sure we have the same number of channels in each ds
-            if np.unique([len(ds["channel"].values) for ds in ds_list]).size == 1:
-
-                # make each array an element of a numpy array
-                channel_arrays = np.array([ds["channel"].values for ds in ds_list])
-
-                # check for unique rows
-                if np.unique(channel_arrays, axis=0).shape[0] > 1:
-
-                    raise RuntimeError(
-                        f"All {ed_name} groups do not have that same channel coordinate, "
-                        f"combine cannot be used!"
-                    )
-
-            else:
-                raise RuntimeError(
-                    f"All {ed_name} groups do not have that same number of channel coordinates, "
-                    f"combine cannot be used!"
-                )
 
     @staticmethod
     def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
@@ -242,7 +205,6 @@ class ZarrCombine:
         """
 
         self._check_ascending_ds_times(ds_list, ed_name)
-        self._check_channels(ds_list, ed_name)
 
         # Dataframe with column as dim names and rows as the different Datasets
         self.dims_df = pd.DataFrame([ds.dims for ds in ds_list])
@@ -943,6 +905,7 @@ class ZarrCombine:
         storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
+        ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
         consolidated: bool = True,
     ) -> EchoData:
         """
@@ -956,6 +919,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
+            The list of ``EchoData`` objects to be combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
@@ -963,6 +927,11 @@ class ZarrCombine:
             The sonar model used for all elements in ``eds``
         echodata_filenames : list of str
             The source files names for all elements in ``eds``
+        ed_group_chan_sel: dict
+            A dictionary with keys corresponding to the ``EchoData`` groups
+            and values specify what channels should be selected within that
+            group. If a value is ``None``, then a subset of channels should
+            not be selected.
         consolidated: bool
             Flag to consolidate zarr metadata.
             Defaults to ``True``
@@ -1010,8 +979,16 @@ class ZarrCombine:
             else:
                 ed_group = "Top-level"
 
-            # collect the group Dataset from all eds
-            ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+            # collect the group Dataset from all eds that have their channels unselected
+            all_chan_ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+
+            # select only the appropriate channels from each Dataset
+            ds_list = [
+                ds.sel(channel=ed_group_chan_sel[ed_group])
+                if ed_group_chan_sel[ed_group] is not None
+                else ds
+                for ds in all_chan_ds_list
+            ]
 
             if ds_list:  # necessary because a group may not be present
 

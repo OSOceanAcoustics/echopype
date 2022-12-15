@@ -12,6 +12,9 @@ import os.path
 import tempfile
 from dask.distributed import Client
 
+from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
+    _check_channel_consistency
+
 
 @pytest.fixture
 def ek60_diff_range_sample_test_data(test_path):
@@ -217,6 +220,19 @@ def test_combine_echodata(raw_datasets):
     client.close()
 
 
+def test_combine_echodata_channel_selection():
+    """
+    This test ensures that the ``channel_selection`` input
+    of ``combine_echodata`` is producing the correct output
+    for all sonar models except AD2CP.
+    """
+
+    # TODO: Once a mock EchoData structure can be easily formed,
+    #  we should implement this test.
+
+    pytest.skip("This test will not be implemented until after a mock EchoData object can be created.")
+
+
 def test_attr_storage(ek60_test_data):
     # check storage of attributes before combination in provenance group
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
@@ -345,3 +361,151 @@ def test_combined_echodata_repr(ek60_test_data):
 
     # close client
     client.close()
+
+
+@pytest.mark.parametrize(
+    ("all_chan_list", "channel_selection"),
+    [
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            None
+        ),
+        pytest.param(
+            [['a', 'b', 'c'], ['a', 'b']],
+            None,
+            marks=pytest.mark.xfail(strict=True,
+                                    reason="This test should not pass because the channels are not consistent")
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            ['a', 'b', 'c']
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b', 'c']],
+            ['a', 'b']
+        ),
+        (
+            [['a', 'b', 'c'], ['a', 'b']],
+            ['a', 'b']
+        ),
+        pytest.param(
+            [['a', 'c'], ['a', 'b', 'c']],
+            ['a', 'b'],
+            marks=pytest.mark.xfail(strict=True,
+                                    reason="This test should not pass because we are selecting "
+                                           "channels that do not occur in each Dataset")
+        ),
+    ],
+    ids=["chan_sel_none_pass", "chan_sel_none_fail",
+         "chan_sel_same_as_given_chans", "chan_sel_subset_of_given_chans",
+         "chan_sel_subset_of_given_chans_uneven", "chan_sel_diff_from_some_given_chans"]
+)
+def test_check_channel_consistency(all_chan_list, channel_selection):
+    """
+    Ensures that the channel consistency check for combine works
+    as expected using mock data.
+    """
+
+    _check_channel_consistency(all_chan_list, "test_group", channel_selection)
+
+
+# create duplicated dictionaries used within pytest parameterize
+has_chan_dim_1_beam = {'Top-level': False, 'Environment': False, 'Platform': True,
+                       'Platform/NMEA': False, 'Provenance': False, 'Sonar': True,
+                       'Sonar/Beam_group1': True, 'Vendor_specific': True}
+
+has_chan_dim_2_beam = {'Top-level': False, 'Environment': False, 'Platform': True,
+                       'Platform/NMEA': False, 'Provenance': False, 'Sonar': True,
+                       'Sonar/Beam_group1': True, 'Sonar/Beam_group2': True, 'Vendor_specific': True}
+
+expected_1_beam_none = {'Top-level': None, 'Environment': None, 'Platform': None,
+                        'Platform/NMEA': None, 'Provenance': None, 'Sonar': None,
+                        'Sonar/Beam_group1': None, 'Vendor_specific': None}
+
+expected_1_beam_a_b_sel = {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'],
+                           'Platform/NMEA': None, 'Provenance': None, 'Sonar': ['a', 'b'],
+                           'Sonar/Beam_group1': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
+
+
+@pytest.mark.parametrize(
+    ("sonar_model", "has_chan_dim", "user_channel_selection", "expected_dict"),
+    [
+        (
+            ["EK60", "ES70", "AZFP"],
+            has_chan_dim_1_beam,
+            [None],
+            expected_1_beam_none
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_1_beam,
+            [None],
+            expected_1_beam_none
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_2_beam,
+            [None],
+            {'Top-level': None, 'Environment': None, 'Platform': None, 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': None, 'Sonar/Beam_group1': None,
+             'Sonar/Beam_group2': None, 'Vendor_specific': None}
+        ),
+        (
+            ["EK60", "ES70", "AZFP"],
+            has_chan_dim_1_beam,
+            [['a', 'b'], {'Sonar/Beam_group1': ['a', 'b']}],
+            expected_1_beam_a_b_sel
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_1_beam,
+            [['a', 'b'], {'Sonar/Beam_group1': ['a', 'b']}],
+            expected_1_beam_a_b_sel
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_2_beam,
+            [['a', 'b']],
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['a', 'b'], 'Vendor_specific': ['a', 'b']}
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_2_beam,
+            [{'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['c', 'd']}],
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['c', 'd'], 'Vendor_specific': ['a', 'b', 'c', 'd']}
+        ),
+        (
+            ["EK80", "ES80", "EA640"],
+            has_chan_dim_2_beam,
+            [{'Sonar/Beam_group1': ['a', 'b'], 'Sonar/Beam_group2': ['b', 'c', 'd']}],
+            {'Top-level': None, 'Environment': None, 'Platform': ['a', 'b', 'c', 'd'], 'Platform/NMEA': None,
+             'Provenance': None, 'Sonar': ['a', 'b', 'c', 'd'], 'Sonar/Beam_group1': ['a', 'b'],
+             'Sonar/Beam_group2': ['b', 'c', 'd'], 'Vendor_specific': ['a', 'b', 'c', 'd']}
+        ),
+    ],
+    ids=["EK60_no_sel", "EK80_no_sel_1_beam", "EK80_no_sel_2_beam", "EK60_chan_sel",
+         "EK80_chan_sel_1_beam", "EK80_list_chan_sel_2_beam", "EK80_dict_chan_sel_2_beam_diff_beam_group_chans",
+         "EK80_dict_chan_sel_2_beam_overlap_beam_group_chans"]
+)
+def test_create_channel_selection_dict(sonar_model, has_chan_dim,
+                                       user_channel_selection, expected_dict):
+    """
+    Ensures that ``create_channel_selction_dict`` is constructing the correct output
+    for the sonar models ``EK60, EK80, AZFP`` and varying inputs for the input
+    ``user_channel_selection``.
+
+    Notes
+    -----
+    The input ``has_chan_dim`` is unchanged except for the case where we are considering
+    an EK80 sonar model with two beam groups.
+    """
+
+    for model in sonar_model:
+        for usr_sel_chan in user_channel_selection:
+
+            channel_selection_dict = _create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
+            assert channel_selection_dict == expected_dict
