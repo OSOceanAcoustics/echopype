@@ -164,7 +164,7 @@ def _check_source_Sv_freq_diff(
     return source_Sv
 
 
-def frequency_difference(
+def frequency_differencing(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     storage_options: Optional[dict] = {},
     freqAB: Optional[List[float]] = None,
