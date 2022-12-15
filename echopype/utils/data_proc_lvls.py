@@ -32,8 +32,7 @@ def validate_source_Sv(
         A Dataset that contains the Sv data (which will be the same as
         the input) or a validated path to a zarr or netcdf file
     file_type: {"netcdf4", "zarr"}, optional
-        If ``source_Sv`` is a path then corresponds to the file type of input, else
-        is ``None``
+        The file type of the input path if ``source_Sv`` is a path, otherwise ``None``
     """
 
     # initialize file_type
