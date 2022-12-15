@@ -122,12 +122,12 @@ def _check_source_Sv_freq_diff(
         )
 
     # make sure that the channel and frequency_nominal values are not repeated in source_Sv
-    if len(set(source_Sv.channel.values)) != 2:
+    if len(set(source_Sv.channel.values)) < source_Sv.channel.size:
         raise RuntimeError(
             "The provided source_Sv contains repeated channel values, " "this is not allowed!"
         )
 
-    if len(set(source_Sv.frequency_nominal.values)) != 2:
+    if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
         raise RuntimeError(
             "The provided source_Sv contains repeated frequency_nominal "
             "values, this is not allowed!"
