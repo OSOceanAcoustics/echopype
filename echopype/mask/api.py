@@ -24,7 +24,7 @@ def _check_freq_diff_non_data_inputs(
     diff: Union[float, int] = None,
 ) -> None:
     """
-    Checks that the non-data related inputs of ``frequency_difference`` (i.e. ``freqAB``,
+    Checks that the non-data related inputs of ``frequency_differencing`` (i.e. ``freqAB``,
     ``chanAB``, ``operator``, ``diff``) were correctly provided.
 
     Parameters
@@ -258,10 +258,10 @@ def frequency_differencing(
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
     ...
     >>> # compute frequency-differencing mask using channel names
-    >>> echopype.mask.frequency_difference(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
-    ...                                    chanAB = ['chan1', 'chan2'],
-    ...                                    operator = ">=", diff=10.0)
-    <xarray.DataArray 'frequency_difference_mask' (ping_time: 5, range_sample: 5)>
+    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
+    ...                                      chanAB = ['chan1', 'chan2'],
+    ...                                      operator = ">=", diff=10.0)
+    <xarray.DataArray 'mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
            [ True,  True,  True,  True,  True],

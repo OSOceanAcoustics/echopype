@@ -170,12 +170,12 @@ def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
          "freqAB_sel_op_greater", "chanAB_sel_op_greater", "freqAB_sel_op_le",
          "chanAB_sel_op_le", "freqAB_sel_op_less", "chanAB_sel_op_less"]
 )
-def test_frequency_difference_mask(n: int, source_Sv_is_path: bool,
-                                   freqAB: List[float], chanAB: List[str],
-                                   diff: Union[float, int], operator: str,
-                                   mask_truth: np.ndarray):
+def test_frequency_differencing(n: int, source_Sv_is_path: bool,
+                                freqAB: List[float], chanAB: List[str],
+                                diff: Union[float, int], operator: str,
+                                mask_truth: np.ndarray):
     """
-    Tests that the output values of ``frequency_difference_mask`` are what we
+    Tests that the output values of ``frequency_differencing`` are what we
     expect, the output is a DataArray, and that the name of the DataArray is correct.
 
     Parameters
@@ -203,9 +203,9 @@ def test_frequency_difference_mask(n: int, source_Sv_is_path: bool,
     mock_Sv_ds = get_mock_freq_diff_data(n, add_chan=True, add_freq_nom=True)
 
     # obtain the frequency-difference mask for mock_Sv_ds
-    out = ep.mask.frequency_difference(source_Sv=mock_Sv_ds, storage_options={}, freqAB=freqAB,
-                                       chanAB=chanAB,
-                                       operator=operator, diff=diff)
+    out = ep.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqAB=freqAB,
+                                         chanAB=chanAB,
+                                         operator=operator, diff=diff)
 
     # ensure that the output values are correct
     assert np.all(out == mask_truth)

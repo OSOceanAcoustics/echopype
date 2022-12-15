@@ -1,3 +1,3 @@
-from .api import frequency_difference
+from .api import frequency_differencing
 
-__all__ = ["frequency_difference"]
+__all__ = ["frequency_differencing"]
