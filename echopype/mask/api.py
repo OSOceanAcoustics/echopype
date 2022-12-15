@@ -301,6 +301,6 @@ def frequency_difference(
     da = xr.where(str2ops[operator](lhs, diff), True, False)
 
     # assign a name to DataArray
-    da.name = "frequency_difference_mask"
+    da.name = "mask"
 
     return da
