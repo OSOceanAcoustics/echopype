@@ -351,9 +351,9 @@ def _create_channel_selection_dict(
         if has_chan:
 
             if (
-                sonar_model in ["EK80", "ES80", "EA640"]
+                (not isinstance(user_channel_selection, list))
+                and (sonar_model in ["EK80", "ES80", "EA640"])
                 and (ed_group not in ["Sonar", "Platform", "Vendor_specific"])
-                and (not isinstance(user_channel_selection, list))
             ):
                 # set value to the user provided input with the same key
                 channel_selection_dict[ed_group] = user_channel_selection[ed_group]
