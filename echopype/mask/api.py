@@ -72,25 +72,21 @@ def _check_freq_diff_non_data_inputs(
 
 
 def _check_source_Sv_freq_diff(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    storage_options: Optional[dict],
+    source_Sv: xr.Dataset,
     freqAB: Optional[List[float]] = None,
     chanAB: Optional[List[str]] = None,
-) -> Union[xr.Dataset, xr.DataArray]:
+) -> None:
     """
-    Ensures that ``source_Sv`` is of the correct type, it exists if it is a
-    path, contains ``channel`` as a coordinate and ``frequency_nominal`` as a
-    variable, and that the provided list input (``freqAB`` or ``chanAB``) are
-    contained in the coordinate ``channel`` or variable ``frequency_nominal``.
+    Ensures that ``source_Sv`` contains ``channel`` as a coordinate and
+    ``frequency_nominal`` as a variable, the provided list input
+    (``freqAB`` or ``chanAB``) are contained in the coordinate ``channel``
+    or variable ``frequency_nominal``, and ``source_Sv`` does not have
+    repeated values for ``channel`` and ``frequency_nominal``.
 
     Parameters
     ----------
-    source_Sv: xr.Dataset or str or pathlib.Path
-        If a Dataset this value contains the Sv data to create a
-        mask for, else it specifies the path to a zarr or netcdf file
-    storage_options: dict, optional
-        Any additional parameters for the storage backend, corresponding to the
-        path provided for ``source_Sv``
+    source_Sv: xr.Dataset
+        A Dataset that contains the Sv data to create a mask for
     freqAB: list of float, optional
         The pair of nominal frequencies to be used for frequency-differencing, where
         the first element corresponds to ``freqA`` and the second element corresponds
@@ -99,19 +95,7 @@ def _check_source_Sv_freq_diff(
         The pair of channels that will be used to select the nominal frequencies to be
         used for frequency-differencing, where the first element corresponds to ``freqA``
         and the second element corresponds to ``freqB``
-
-    Returns
-    -------
-    source_Sv: xr.Dataset
-        A Dataset containing the Sv data
     """
-
-    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
-
-    if isinstance(source_Sv, str):
-
-        # open up Dataset using source_Sv path
-        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
 
     # check that channel and frequency nominal are in source_Sv
     if "channel" not in source_Sv.coords:
@@ -160,8 +144,6 @@ def _check_source_Sv_freq_diff(
                 "The provided list input chanAB contains values that are "
                 "not in the channel coordinate!"
             )
-
-    return source_Sv
 
 
 def frequency_differencing(
@@ -273,8 +255,15 @@ def frequency_differencing(
     # check that non-data related inputs were correctly provided
     _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
 
-    # check the source_Sv input
-    source_Sv = _check_source_Sv_freq_diff(source_Sv, storage_options, freqAB, chanAB)
+    # validate the source_Sv type or path (if it is provided)
+    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
+
+    if isinstance(source_Sv, str):
+        # open up Dataset using source_Sv path
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
+
+    # check the source_Sv with respect to channel and frequency_nominal
+    _check_source_Sv_freq_diff(source_Sv, freqAB, chanAB)
 
     # determine chanA and chanB
     if freqAB is not None:

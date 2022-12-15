@@ -64,36 +64,32 @@ def get_mock_freq_diff_data(n: int, add_chan: bool, add_freq_nom: bool):
 
 
 @pytest.mark.parametrize(
-    ("n", "add_chan", "add_freq_nom", "source_Sv_is_path", "freqAB", "chanAB"),
+    ("n", "add_chan", "add_freq_nom", "freqAB", "chanAB"),
     [
-        (5, True, True, True, [1.0, 2.0], None),
-        (5, True, True, True, None, ['chan1', 'chan2']),
-        (5, True, True, False, [1.0, 2.0], None),
-        (5, True, True, False, None, ['chan1', 'chan2']),
-        pytest.param(5, False, True, False, [1.0, 2.0], None,
+        (5, True, True, [1.0, 2.0], None),
+        (5, True, True, None, ['chan1', 'chan2']),
+        pytest.param(5, False, True, [1.0, 2.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because the Dataset "
                                                     "will not have the channel coordinate.")),
-        pytest.param(5, True, False, False, [1.0, 2.0], None,
+        pytest.param(5, True, False, [1.0, 2.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because the Dataset "
                                                     "will not have the frequency_nominal variable.")),
-        pytest.param(5, True, True, False, [1.0, 3.0], None,
+        pytest.param(5, True, True, [1.0, 3.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because not all selected frequencies"
                                                     "are in the frequency_nominal variable.")),
-        pytest.param(5, True, True, False, None, ['chan1', 'chan3'],
+        pytest.param(5, True, True, None, ['chan1', 'chan3'],
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because not all selected channels"
                                                     "are in the channel coordinate.")),
     ],
-    ids=["path_input_freqAB_provided", "path_input_chanAB_provided",
-         "dataset_input_freqAB_provided", "dataset_input_chanAB_provided", "dataset_no_channel",
+    ids=["dataset_input_freqAB_provided", "dataset_input_chanAB_provided", "dataset_no_channel",
          "dataset_no_frequency_nominal", "dataset_missing_freqAB_in_freq_nom",
          "dataset_missing_chanAB_in_channel"]
 )
 def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
-                                   source_Sv_is_path: bool,
                                    freqAB: List[float],
                                    chanAB: List[str]):
     """
@@ -109,10 +105,6 @@ def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
         be named "data_coord"
     add_freq_nom: bool
         If True the ``frequency_nominal`` variable will be added to the Dataset
-    source_Sv_is_path: bool
-        If True a mock in-memory Dataset is created then this Dataset is written
-        to a zarr file and ``source_Sv`` is set to the zarr path, else
-        ``source_Sv`` will be set to the mock Dataset.
     freqAB: list of float, optional
         The pair of nominal frequencies to be used for frequency-differencing, where
         the first element corresponds to ``freqA`` and the second element corresponds
@@ -123,30 +115,9 @@ def test_check_source_Sv_freq_diff(n: int, add_chan: bool, add_freq_nom: bool,
         and the second element corresponds to ``freqB``
     """
 
-    ds = get_mock_freq_diff_data(n, add_chan, add_freq_nom)
+    source_Sv = get_mock_freq_diff_data(n, add_chan, add_freq_nom)
 
-    if source_Sv_is_path:
-
-        # create temporary directory for zarr store
-        temp_zarr_dir = tempfile.TemporaryDirectory()
-        zarr_path = os.path.join(temp_zarr_dir.name, "test.zarr")
-
-        # save source_Sv to zarr and set the variable to zarr_path
-        ds.to_zarr(zarr_path)
-        source_Sv_input = zarr_path
-
-    else:
-        source_Sv_input = ds
-
-    source_Sv_output = _check_source_Sv_freq_diff(source_Sv_input, storage_options={},
-                                                  freqAB=freqAB, chanAB=chanAB)
-
-    # ensure that ds is equal to the source_Sv produced
-    assert ds.identical(source_Sv_output)
-
-    if source_Sv_is_path:
-        # remove temporary directory
-        temp_zarr_dir.cleanup()
+    _check_source_Sv_freq_diff(source_Sv, freqAB=freqAB, chanAB=chanAB)
 
 
 @pytest.mark.parametrize(
