@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from ..utils.data_proc_lvls import validate_source_Sv
+from ..utils.io import validate_source_ds
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -106,7 +106,7 @@ def _check_source_Sv_freq_diff(
         A Dataset containing the Sv data
     """
 
-    source_Sv, file_type = validate_source_Sv(source_Sv, storage_options)
+    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
 
     if isinstance(source_Sv, str):
 

@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 from typing import Tuple
 import platform
+import xarray as xr
 
-from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath
+from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath, validate_source_ds
 
 
 @pytest.mark.parametrize(
@@ -258,3 +259,43 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
             pytest.skip("Skipping Unix parameters because we are not on a Unix machine.")
 
 
+@pytest.mark.parametrize(
+    ("source_ds_input", "storage_options_input", "true_file_type"),
+    [
+        pytest.param(42, {}, None,
+                     marks=pytest.mark.xfail(
+                         strict=True,
+                         reason='This test should fail because source_ds is not of the correct type.')
+                     ),
+        pytest.param(xr.DataArray(), {}, None,
+                     marks=pytest.mark.xfail(
+                         strict=True,
+                         reason='This test should fail because source_ds is not of the correct type.')
+                     ),
+        pytest.param({}, 42, None,
+                     marks=pytest.mark.xfail(
+                         strict=True,
+                         reason='This test should fail because storage_options is not of the correct type.')
+                     ),
+        (xr.Dataset(attrs={"test": 42}), {}, None),
+        (os.path.join('folder', 'new_test.nc'), {}, 'netcdf4'),
+        (os.path.join('folder', 'new_test.zarr'), {}, 'zarr')
+    ]
+
+)
+def test_validate_source_ds(source_ds_input, storage_options_input, true_file_type):
+    """
+    Tests that ``validate_source_ds`` has the appropriate outputs. It should
+    be noted that an exhaustive combination of ``source_ds`` and ``storage_options``
+    has not been implemented when ``source_ds`` is a path. These are tested in
+    ``test_validate_output_path``.
+    """
+
+    source_ds_output, file_type_output = validate_source_ds(source_ds_input, storage_options_input)
+
+    if isinstance(source_ds_input, xr.Dataset):
+        assert source_ds_output.identical(source_ds_input)
+        assert file_type_output is None
+    else:
+        assert isinstance(source_ds_output, str)
+        assert file_type_output == true_file_type
