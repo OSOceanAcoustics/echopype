@@ -117,33 +117,19 @@ def _check_source_Sv_freq_diff(
             "values, this is not allowed!"
         )
 
-    def get_positions(var_name, input_list):
+    # check that the elements of freqAB are in frequency_nominal
+    if (freqAB is not None) and (not all([freq in source_Sv.frequency_nominal for freq in freqAB])):
+        raise RuntimeError(
+            "The provided list input freqAB contains values that "
+            "are not in the frequency_nominal variable!"
+        )
 
-        # obtain position of input in either frequency_nominal or channel
-        inputA_pos = np.argwhere(source_Sv[var_name].values == input_list[0]).flatten()
-        inputB_pos = np.argwhere(source_Sv[var_name].values == input_list[1]).flatten()
-
-        return inputA_pos, inputB_pos
-
-    # get the position of freqAB or chanAB values in frequency_nominal or channel, respectively
-    if freqAB is not None:
-        inputA_pos, inputB_pos = get_positions(var_name="frequency_nominal", input_list=freqAB)
-    else:
-        inputA_pos, inputB_pos = get_positions(var_name="channel", input_list=chanAB)
-
-    # check that the elements of freqAB or chanAB are in frequency_nominal or channel, respectively
-    if (len(inputA_pos) == 0) or (len(inputB_pos) == 0):
-
-        if freqAB is not None:
-            raise RuntimeError(
-                "The provided list input freqAB contains values that "
-                "are not in the frequency_nominal variable!"
-            )
-        else:
-            raise RuntimeError(
-                "The provided list input chanAB contains values that are "
-                "not in the channel coordinate!"
-            )
+    # check that the elements of chanAB are in channel
+    if (chanAB is not None) and (not all([chan in source_Sv.channel for chan in chanAB])):
+        raise RuntimeError(
+            "The provided list input chanAB contains values that are "
+            "not in the channel coordinate!"
+        )
 
 
 def frequency_differencing(
