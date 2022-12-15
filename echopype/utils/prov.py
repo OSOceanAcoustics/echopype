@@ -2,6 +2,8 @@ from datetime import datetime as dt
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
+import numpy as np
+
 from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
 
@@ -30,8 +32,11 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     return prov_dict
 
 
+# TODO: Change [Any] in List and Tuple to [str, Path]?
+#   Can we do the same thing with np.ndarray?
 def source_files_vars(
-    source_paths: Union[str, List[Any]], meta_source_paths: Union[str, List[Any]] = None
+    source_paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray],
+    meta_source_paths: Union[None, str, Path, List[Any], Tuple[Any], np.ndarray] = None
 ) -> Dict[str, Dict[str, Tuple]]:
     """
     Create source_filenames and meta_source_filenames provenance
@@ -39,11 +44,11 @@ def source_files_vars(
 
     Parameters
     ----------
-    source_paths : Union[str, List[Any]]
-        Source file paths as either a single path string or a list of Path-type paths
-    meta_source_paths : Union[str, List[Any]]
+    source_paths : Union[str, Path, List[Any], Tuple[Any], np.ndarray]
+        Source file paths as either a single path string or a sequence of Path-type paths
+    meta_source_paths : Union[None, str, Path, List[Any], Tuple[Any], np.ndarray]
         Source file paths for metadata files (often as XML files),
-        as either a single path string or a list of Path-type paths
+        as either a single path string or a sequence of Path-type paths
 
     Returns
     -------
@@ -60,14 +65,30 @@ def source_files_vars(
             filenames coordinate variable DataArray
     """
 
+    # TODO: It's probably cleaner to move this function outside the parent function
     def _source_files(paths):
-        """Handle a plain string containing a single path,
-        a single pathlib Path, or a list of strings or pathlib paths
+        """Handle a plain string containing a single path, a single pathlib Path,
+        a sequence (tuple, list or np.ndarray) of strings or pathlib paths,
+        or a mix sequence that may contain another sequence as an element
         """
+        sequence_types = (list, tuple, np.ndarray)
         if isinstance(paths, (str, Path)):
             return [str(paths)]
-        else:
-            return [str(p) for p in paths if isinstance(p, (str, Path))]
+        elif isinstance(paths, sequence_types):
+            # Assumes a list, tuple or np.ndarray sequence
+            paths_list = []
+            for p in paths:
+                if isinstance(p, (str, Path)):
+                    paths_list.append(str(p))
+                elif isinstance(p, sequence_types):
+                    paths_list += [str(pp) for pp in p if isinstance(pp, (str, Path))]
+                else:  # TODO: issue error
+                    print(f"Path element type not recognized. Skipping.\n{p}")
+            return paths_list
+        else:  # TODO: issue error
+            print(f"Path element type not recognized. Skipping.\n{paths}")
+            # TODO: Temporary. Error handling will replace this
+            return None
 
     source_files = _source_files(source_paths)
     files_vars = dict()
