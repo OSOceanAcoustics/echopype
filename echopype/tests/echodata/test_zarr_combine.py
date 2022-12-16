@@ -7,7 +7,7 @@ import xarray as xr
 import echopype
 from echopype.utils.coding import set_time_encodings
 from pathlib import Path
-from echopype.echodata.combine import check_echodatas_input, check_zarr_path
+from echopype.echodata.combine import check_echodatas_input, check_zarr_path, _check_echodata_channels
 from typing import List, Tuple, Dict
 import tempfile
 import pytest
@@ -400,16 +400,19 @@ class TestZarrCombine:
 
         _, echodata_filenames = check_echodatas_input(eds)
 
+        # get channel selection for each EchoData group
+        ed_group_chan_sel = _check_echodata_channels(eds, user_channel_selection=None)
+
         # create dask client
         client = Client()
 
-        # combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
         # combine all elements in echodatas by writing to a zarr store
         combined_echodata = zarr_combine.combine(
             zarr_path,
             eds,
             sonar_model=self.sonar_model,
             echodata_filenames=echodata_filenames,
+            ed_group_chan_sel=ed_group_chan_sel,
             consolidated=consolidated,
         )
 
