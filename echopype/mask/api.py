@@ -24,6 +24,8 @@ def apply_mask(
         Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
     ],
     fill_value: Union[int, float, np.ndarray, xr.DataArray] = np.nan,
+    storage_options_ds: dict = {},
+    storage_options_mask: Union[dict, List[dict]] = {},
 ) -> xr.Dataset:
     """
     Applies the provided mask(s) to the variable ``var_name``
@@ -40,6 +42,14 @@ def apply_mask(
         single input or list that corresponds to a DataArray or a path to a DataArray.
     fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
         Specifies the value(s) at false indices
+    storage_options_ds: dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``source_ds``
+    storage_options_mask: dict or list of dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``mask``. If ``mask`` is a list, then this input should either
+        be a list of dictionaries or a single dictionary with storage options that
+        correspond to all elements in ``mask`` that are paths.
 
     Returns
     -------
@@ -52,17 +62,59 @@ def apply_mask(
     mask that will be applied to ``var_name``.
     """
 
-    # TODO: use validate_source_Sv on source_ds
+    # TODO: check types of all inputs
+
+    # TODO: if mask is a list and storage_options_mask is not, create a list filled
+    #  with single dict provided only for those elements that are paths
+
+    # validate the source_ds type or path (if it is provided)
+    source_ds, file_type = validate_source_ds(source_ds, storage_options_ds)
+
+    if isinstance(source_ds, str):
+        # open up Dataset using source_ds path
+        source_ds = xr.open_dataset(
+            source_ds, engine=file_type, chunks="auto", **storage_options_ds
+        )
+
+    mask_file_types = []  # TODO: create this!
+
+    if isinstance(mask, list) and any([isinstance(mask_elem, str) for mask_elem in mask]):
+        # TODO: create a test for this!
+        # if mask is a list of paths, open all paths up and put the Datarray in the list
+        for mask_ind in range(len(mask)):
+
+            if isinstance(mask[mask_ind], str):
+                mask[mask_ind] = xr.open_dataarray(
+                    mask[mask_ind],
+                    engine=mask_file_types[mask_ind],
+                    chunks="auto",
+                    **storage_options_mask[mask_ind]
+                )
+
+    # TODO: check that var_name is in source_ds
 
     # TODO: if fill_value is an array, then make sure its dimensions match var_name variable
 
-    print("hello")
-    print(source_ds)
-    print(var_name)
-    print(mask)
-    print(fill_value)
+    # obtain final mask to be applied to var_name
+    if isinstance(mask, list):
+        final_mask = np.logical_and(mask)
+    else:
+        final_mask = mask
 
-    return xr.Dataset()
+    # TODO: make sure final_mask is the same shape as source_ds[var_name]
+
+    # apply the mask to var_name
+    var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value, keep_attrs=True)
+
+    # obtain a shallow copy of source_ds
+    output_ds = source_ds.copy(deep=False)
+
+    # replace var_name with var_name_masked
+    output_ds[var_name] = var_name_masked
+
+    # TODO: add provenance or attributes specifying that a mask was applied here!
+
+    return output_ds
 
 
 def _check_freq_diff_non_data_inputs(
