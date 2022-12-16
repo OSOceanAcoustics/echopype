@@ -116,11 +116,12 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int) -> xr.Dataset:
 
     # create mock var1 and var2 DataArrays
     mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
-                                coords={"channel": chan_vals, "x": np.arange(n),
-                                        "y": np.arange(n)},
+                                coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
+                                        "x": np.arange(n), "y": np.arange(n)},
                                 attrs={"long_name": "variable 1"})
     mock_var2_da = xr.DataArray(data=np.stack(mock_var_data),
-                                coords={"channel": chan_vals, "x": np.arange(n),
+                                coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
+                                        "x": np.arange(n),
                                         "y": np.arange(n)},
                                 attrs={"long_name": "variable 2"})
 
@@ -266,25 +267,31 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
 @pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "mask", "var_masked_truth"),
     [
-        (5, 1, "var1", np.identity(5), np.nan*np.ones((5, 5))),
+        (2, 1, "var1", np.identity(2), np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], np.array([[2.0, 2.0], [2.0, 1]])),
     ],
-    ids=["test1"]
+    ids=["single_mask", "list_mask_all_np"]
 )
 def test_apply_mask(n: int, n_chan: int, var_name: str,
                     mask: Union[Union[np.ndarray], List[np.ndarray]],
                     var_masked_truth: np.ndarray):
 
     # TODO: test different fill_value
-    fill_value = np.nan
+    fill_value = 2.0  # having this be a number, rather than nan makes for easier testing
 
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan)
 
     # TODO: create test for list of masks
+    if isinstance(mask, list):
+        mask_list = []
+        for elem in mask:
+            mask_list.append(xr.DataArray(data=np.stack([elem for i in range(n_chan)]),
+                                          coords=mock_ds.coords))
+        mask = mask_list
 
-    mask = xr.DataArray(data=np.stack([mask for i in range(n_chan)]),
-                        coords=mock_ds.coords)
-
-    np.fill_diagonal(var_masked_truth, 1.0)
+    else:
+        mask = xr.DataArray(data=np.stack([mask for i in range(n_chan)]),
+                            coords=mock_ds.coords)
 
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
                                     coords=mock_ds[var_name].coords, attrs=mock_ds[var_name].attrs)
@@ -298,9 +305,9 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
 
     # TODO: check that masked_ds[var_name] == var_masked_truth
 
-    print("hello")
-
     assert masked_ds[var_name].identical(var_masked_truth)
+
+    # TODO: test for lazy in (or path) and you get a lazy out
 
 
 

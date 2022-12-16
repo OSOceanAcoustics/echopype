@@ -40,6 +40,7 @@ def apply_mask(
     mask: xr.DataArray or str or pathlib.Path or list of xr.DataArray or str or pathlib.Path
         The mask(s) to apply to the variable specified by ``var_name``. This input can be a
         single input or list that corresponds to a DataArray or a path to a DataArray.
+        # TODO: if it is a path it is only to .zarr or .nc no array groups
     fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
         Specifies the value(s) at false indices
     storage_options_ds: dict, default={}
@@ -97,7 +98,11 @@ def apply_mask(
 
     # obtain final mask to be applied to var_name
     if isinstance(mask, list):
-        final_mask = np.logical_and(mask)
+        # perform a logical AND element-wise operation across the masks
+        final_mask = np.logical_and.reduce(mask)
+
+        # xr.where has issues with attrs when final_mask is an array, so we make it a DataArray
+        final_mask = xr.DataArray(final_mask, coords=mask[0].coords)
     else:
         final_mask = mask
 

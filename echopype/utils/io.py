@@ -371,3 +371,4 @@ def validate_source_ds(
         check_file_existence(file_path=source_ds, storage_options=storage_options)
 
     return source_ds, file_type
+    # TODO extend to DataArray
