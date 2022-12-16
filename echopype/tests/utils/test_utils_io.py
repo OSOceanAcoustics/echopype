@@ -285,10 +285,9 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
 )
 def test_validate_source_ds(source_ds_input, storage_options_input, true_file_type):
     """
-    Tests that ``validate_source_ds`` has the appropriate outputs. It should
-    be noted that an exhaustive combination of ``source_ds`` and ``storage_options``
-    has not been implemented when ``source_ds`` is a path. These are tested in
-    ``test_validate_output_path``.
+    Tests that ``validate_source_ds`` has the appropriate outputs. 
+    An exhaustive list of combinations of ``source_ds`` and ``storage_options``
+    are tested in ``test_validate_output_path`` and are therefore not included here.
     """
 
     source_ds_output, file_type_output = validate_source_ds(source_ds_input, storage_options_input)
