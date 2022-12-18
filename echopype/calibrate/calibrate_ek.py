@@ -7,7 +7,7 @@ from ..echodata.simrad import check_waveform_encode_mode
 from ..utils import uwa
 from ..utils.log import _init_logger
 from .calibrate_base import CalibrateBase
-from .cal_params import get_cal_params_EK
+from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_cal_params_complex_EK80
 
 logger = _init_logger(__name__)
 
@@ -47,54 +47,6 @@ class CalibrateEK(CalibrateBase):
             ek_waveform_mode=waveform_mode,
             ek_encode_mode=encode_mode,
         )
-
-    def _get_vend_cal_params_power(self, param, waveform_mode):
-        """Get cal parameters stored in the Vendor_specific group.
-
-        Parameters
-        ----------
-        param : str {"sa_correction", "gain_correction"}
-            name of parameter to retrieve
-        """
-        ds_vend = self.echodata["Vendor_specific"]
-
-        if ds_vend is None or param not in ds_vend:
-            return None
-
-        if param not in ["sa_correction", "gain_correction"]:
-            raise ValueError(f"Unknown parameter {param}")
-
-        if waveform_mode == "CW" and self.echodata["Sonar/Beam_group2"] is not None:
-            beam = self.echodata["Sonar/Beam_group2"]
-        else:
-            beam = self.echodata["Sonar/Beam_group1"]
-
-        # indexes of frequencies that are for power, not complex
-        relevant_indexes = np.where(
-            np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"])
-        )[0]
-
-        # Find idx to select the corresponding param value
-        # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
-        transmit_isnull = beam["transmit_duration_nominal"].isnull()
-        idxmin = np.abs(
-            beam["transmit_duration_nominal"] - ds_vend["pulse_length"][relevant_indexes]
-        ).idxmin(dim="pulse_length_bin")
-
-        # fill nan position with 0 (witll remove before return)
-        # and convert to int for indexing
-        idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
-
-        # Get param dataarray into correct shape
-        da_param = (
-            ds_vend[param][relevant_indexes]
-            .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
-            .sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
-        )
-
-        # Select corresponding index and clean up the original nan elements
-        da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
-        return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
     def _cal_power(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
@@ -367,32 +319,6 @@ class CalibrateEK80(CalibrateEK):
                 )
             )
 
-    def _get_vend_cal_params_complex(self, channel_id, filter_name, param_type):
-        """Get filter coefficients stored in the Vendor_specific group attributes.
-
-        Parameters
-        ----------
-        channel_id : str
-            channel id for which the param to be retrieved
-        filter_name : str
-            name of filter coefficients to retrieve
-        param_type : str
-            'coeff' or 'decimation'
-        """
-        if param_type == "coeff":
-            v = self.echodata["Vendor_specific"].attrs[
-                "%s %s filter_r" % (channel_id, filter_name)
-            ] + 1j * np.array(
-                self.echodata["Vendor_specific"].attrs["%s %s filter_i" % (channel_id, filter_name)]
-            )
-            if v.size == 1:
-                v = np.expand_dims(v, axis=0)  # expand dims for convolution
-            return v
-        else:
-            return self.echodata["Vendor_specific"].attrs[
-                "%s %s decimation" % (channel_id, filter_name)
-            ]
-
     def _tapered_chirp(
         self,
         transmit_duration_nominal,
@@ -432,10 +358,10 @@ class CalibrateEK80(CalibrateEK):
             channel_id to select the right coefficients and factors
         """
         # filter coefficients and decimation factor
-        wbt_fil = self._get_vend_cal_params_complex(ch_id, "WBT", "coeff")
-        pc_fil = self._get_vend_cal_params_complex(ch_id, "PC", "coeff")
-        wbt_decifac = self._get_vend_cal_params_complex(ch_id, "WBT", "decimation")
-        pc_decifac = self._get_vend_cal_params_complex(ch_id, "PC", "decimation")
+        wbt_fil = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "WBT", "coeff")
+        pc_fil = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "PC", "coeff")
+        wbt_decifac = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "WBT", "decimation")
+        pc_decifac = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "PC", "decimation")
 
         # WBT filter and decimation
         ytx_wbt = signal.convolve(y, wbt_fil)
@@ -570,67 +496,6 @@ class CalibrateEK80(CalibrateEK):
 
         return pc_merge
 
-    def _get_gain_for_complex(self, waveform_mode, chan_sel) -> xr.DataArray:
-        """Get gain factor for calibrating complex samples.
-
-        Use values from ``gain_correction`` in the Vendor_specific group for CW mode samples,
-        or interpolate ``gain`` to the center frequency of each ping for BB mode samples
-        if nominal frequency is within the calibrated frequencies range
-
-        Parameters
-        ----------
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
-        chan_sel : xr.DataArray
-            Nominal channel for CW mode samples
-            and a xr.DataArray of selected channels for BB mode samples
-
-        Returns
-        -------
-        An xr.DataArray
-        """
-        if waveform_mode == "BB":
-            gain_single = self._get_vend_cal_params_power(
-                "gain_correction", waveform_mode=waveform_mode
-            )
-            gain = []
-            if "gain" in self.echodata["Vendor_specific"].data_vars:
-                # index using channel_id as order of frequency across channel can be arbitrary
-                # reference to freq_center in case some channels are CW complex samples
-                # (already dropped when computing freq_center in the calling function)
-                for ch_id in chan_sel:
-                    # if channel gain exists in data
-                    if ch_id in self.echodata["Vendor_specific"].cal_channel_id:
-                        gain_vec = self.echodata["Vendor_specific"].gain.sel(cal_channel_id=ch_id)
-                        gain_temp = (
-                            gain_vec.interp(
-                                cal_frequency=self.echodata[
-                                    "Vendor_specific"
-                                ].frequency_nominal.sel(channel=ch_id)
-                            ).drop(["cal_channel_id", "cal_frequency"])
-                        ).expand_dims("channel")
-                    # if no freq-dependent gain use CW gain
-                    else:
-                        gain_temp = (
-                            gain_single.sel(channel=ch_id)
-                            .reindex_like(
-                                self.echodata["Sonar/Beam_group1"].backscatter_r, method="nearest"
-                            )
-                            .expand_dims("channel")
-                        )
-                    gain_temp.name = "gain"
-                    gain.append(gain_temp)
-                gain = xr.merge(gain).gain  # select the single data variable
-            else:
-                gain = gain_single
-        elif waveform_mode == "CW":
-            gain = self._get_vend_cal_params_power(
-                "gain_correction", waveform_mode=waveform_mode
-            ).sel(channel=chan_sel)
-
-        return gain
-
     def _cal_complex(self, cal_type, waveform_mode) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
@@ -732,7 +597,8 @@ class CalibrateEK80(CalibrateEK):
             )
 
             # use true center frequency to interpolate for gain factor
-            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, chan_sel=chan_sel)
+            gain = get_gain_for_complex(
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel)
 
         else:
             # use nominal channel frequency for CW pulse
@@ -741,7 +607,8 @@ class CalibrateEK80(CalibrateEK):
             )
 
             # use nominal channel frequency to select gain factor
-            gain = self._get_gain_for_complex(waveform_mode=waveform_mode, chan_sel=chan_sel)
+            gain = get_gain_for_complex(
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel)
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))

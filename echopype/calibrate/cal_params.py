@@ -244,7 +244,7 @@ def get_gain_for_complex(
     """
     if waveform_mode == "BB":
         gain_single = get_vend_cal_params_power(
-            "gain_correction", waveform_mode=waveform_mode
+            echodata=echodata, param="gain_correction", waveform_mode=waveform_mode
         )
         gain = []
         if "gain" in echodata["Vendor_specific"].data_vars:
@@ -278,7 +278,7 @@ def get_gain_for_complex(
             gain = gain_single
     elif waveform_mode == "CW":
         gain = get_vend_cal_params_power(
-            "gain_correction", waveform_mode=waveform_mode
+            echodata=echodata, param="gain_correction", waveform_mode=waveform_mode
         ).sel(channel=chan_sel)
 
     return gain
