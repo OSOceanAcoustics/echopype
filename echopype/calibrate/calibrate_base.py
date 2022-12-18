@@ -22,15 +22,11 @@ class CalibrateBase(abc.ABC):
             raise ValueError(
                 "invalid env_params type; provide an EnvParams instance, a dict, or None"
             )
-        self.env_params = env_params  # env_params are set in child class
-        self.cal_params = None  # cal_params are set in child class
+        self.env_params = env_params
+        self.cal_params = cal_params
 
         # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
-
-    @abc.abstractmethod
-    def get_env_params(self, **kwargs):
-        pass
 
     @abc.abstractmethod
     def compute_range_meter(self, **kwargs):

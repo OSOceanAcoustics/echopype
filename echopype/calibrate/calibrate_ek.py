@@ -4,7 +4,6 @@ from scipy import signal
 
 from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
-from ..utils import uwa
 from ..utils.log import _init_logger
 from .calibrate_base import CalibrateBase
 from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_cal_params_complex_EK80
@@ -154,9 +153,6 @@ class CalibrateEK60(CalibrateEK):
         # default to CW mode recorded as power samples
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
-    def get_env_params(self, **kwargs):
-        pass
-
     def compute_Sv(self, **kwargs):
         power_ed_group = check_waveform_encode_mode(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
@@ -195,9 +191,6 @@ class CalibrateEK80(CalibrateEK):
 
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
-
-    def get_env_params(self, **kwargs):
-        pass
 
     def _tapered_chirp(
         self,

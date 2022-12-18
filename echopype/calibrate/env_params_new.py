@@ -102,7 +102,7 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None
             if "sound_absorption" in user_env_dict
             else echodata["Environment"]["absorption_indicative"]
         )
-    
+
     return out_dict
 
 

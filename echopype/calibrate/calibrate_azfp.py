@@ -1,7 +1,6 @@
 import numpy as np
 
 from ..echodata import EchoData
-from ..utils import uwa
 from .calibrate_ek import CalibrateBase
 from .cal_params import get_cal_params_AZFP
 from .env_params_new import get_env_params_AZFP
@@ -20,9 +19,6 @@ class CalibrateAZFP(CalibrateBase):
 
         # self.range_meter computed under self._cal_power()
         # because the implementation is different for Sv and TS
-
-    def get_env_params(self, **kwargs):
-        pass
 
     def compute_range_meter(self, cal_type):
         """Calculate range (``echo_range``) in meter using AZFP formula.
