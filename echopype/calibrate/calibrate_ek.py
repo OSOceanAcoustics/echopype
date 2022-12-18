@@ -1,13 +1,13 @@
 import numpy as np
 import xarray as xr
-from scipy import signal
 
 from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
 from ..utils.log import _init_logger
 from .calibrate_base import CalibrateBase
-from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_cal_params_complex_EK80
+from .cal_params import get_cal_params_EK, get_gain_for_complex
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
+import ek80_utils
 
 logger = _init_logger(__name__)
 
@@ -192,183 +192,6 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def _tapered_chirp(
-        self,
-        transmit_duration_nominal,
-        slope,
-        transmit_power,
-        frequency_nominal=None,
-        frequency_start=None,
-        frequency_end=None,
-    ):
-        """Create a baseline chirp template."""
-        if frequency_start is None and frequency_end is None:  # CW waveform
-            frequency_start = frequency_nominal
-            frequency_end = frequency_nominal
-
-        t = np.arange(0, transmit_duration_nominal, 1 / self.fs)
-        nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
-        wtx_tmp = np.hanning(nwtx)  # hanning window
-        nwtxh = int(np.round(nwtx / 2))  # half length of the hanning window
-        wtx = np.concatenate(
-            [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
-        )  # assemble full tapering window
-        y_tmp = (
-            np.sqrt((transmit_power / 4) * (2 * self.z_et))  # amplitude
-            * signal.chirp(t, frequency_start, t[-1], frequency_end)
-            * wtx
-        )  # taper and scale linear chirp
-        return y_tmp / np.max(np.abs(y_tmp)), t  # amp has no actual effect
-
-    def _filter_decimate_chirp(self, y, ch_id):
-        """Filter and decimate the chirp template.
-
-        Parameters
-        ----------
-        y : np.array
-            chirp from _tapered_chirp
-        ch_id : str
-            channel_id to select the right coefficients and factors
-        """
-        # filter coefficients and decimation factor
-        wbt_fil = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "WBT", "coeff")
-        pc_fil = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "PC", "coeff")
-        wbt_decifac = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "WBT", "decimation")
-        pc_decifac = get_vend_cal_params_complex_EK80(self.echodata, ch_id, "PC", "decimation")
-
-        # WBT filter and decimation
-        ytx_wbt = signal.convolve(y, wbt_fil)
-        ytx_wbt_deci = ytx_wbt[0::wbt_decifac]
-
-        # PC filter and decimation
-        if len(pc_fil.squeeze().shape) == 0:  # in case it is a single element
-            pc_fil = [pc_fil.squeeze()]
-        ytx_pc = signal.convolve(ytx_wbt_deci, pc_fil)
-        ytx_pc_deci = ytx_pc[0::pc_decifac]
-        ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / self.fs * wbt_decifac * pc_decifac
-
-        return ytx_pc_deci, ytx_pc_deci_time
-
-    @staticmethod
-    def _get_tau_effective(ytx, fs_deci, waveform_mode):
-        """Compute effective pulse length.
-
-        Parameters
-        ----------
-        ytx :array
-            transmit signal
-        fs_deci : float
-            sampling frequency of the decimated (recorded) signal
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
-        """
-        if waveform_mode == "BB":
-            ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
-            ptxa = abs(ytxa) ** 2
-        elif waveform_mode == "CW":
-            ptxa = np.abs(ytx) ** 2  # energy of transmit signal
-        return ptxa.sum() / (
-            ptxa.max() * fs_deci
-        )  # TODO: verify fs_deci = 1.5e6 in spheroid data sets
-
-    def get_transmit_chirp(self, waveform_mode):
-        """Reconstruct transmit signal and compute effective pulse length.
-
-        Parameters
-        ----------
-        waveform_mode : str
-            ``CW`` for CW-mode samples, either recorded as complex or power samples
-            ``BB`` for BB-mode samples, recorded as complex samples
-        """
-        # Make sure it is BB mode data
-        if waveform_mode == "BB" and (
-            ("frequency_start" not in self.echodata["Sonar/Beam_group1"])
-            or ("frequency_end" not in self.echodata["Sonar/Beam_group1"])
-        ):
-            raise TypeError("File does not contain BB mode complex samples!")
-
-        y_all = {}
-        y_time_all = {}
-        tau_effective = {}
-        for chan in self.echodata["Sonar/Beam_group1"].channel.values:
-            # TODO: currently only deal with the case with
-            # a fixed tx key param values within a channel
-            if waveform_mode == "BB":
-                tx_param_names = [
-                    "transmit_duration_nominal",
-                    "slope",
-                    "transmit_power",
-                    "frequency_start",
-                    "frequency_end",
-                ]
-            else:
-                tx_param_names = [
-                    "transmit_duration_nominal",
-                    "slope",
-                    "transmit_power",
-                    "frequency_nominal",
-                ]
-            tx_params = {}
-            for p in tx_param_names:
-                tx_params[p] = np.unique(self.echodata["Sonar/Beam_group1"][p].sel(channel=chan))
-                if tx_params[p].size != 1:
-                    raise TypeError("File contains changing %s!" % p)
-            y_tmp, _ = self._tapered_chirp(**tx_params)
-
-            # Filter and decimate chirp template
-            fs_deci = (
-                1 / self.echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
-            )
-            y_tmp, y_tmp_time = self._filter_decimate_chirp(y_tmp, chan)
-
-            # Compute effective pulse length
-            tau_effective_tmp = self._get_tau_effective(y_tmp, fs_deci, waveform_mode=waveform_mode)
-
-            y_all[chan] = y_tmp
-            y_time_all[chan] = y_tmp_time
-            tau_effective[chan] = tau_effective_tmp
-
-        return y_all, y_time_all, tau_effective
-
-    def compress_pulse(self, chirp, chan_BB=None):
-        """Perform pulse compression on the backscatter data.
-
-        Parameters
-        ----------
-        chirp : dict
-            transmit chirp replica indexed by channel_id
-        chan_BB : str
-            channels that transmit in BB mode
-            (since CW mode can be in mixed in complex samples too)
-        """
-        backscatter = self.echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
-            channel=chan_BB
-        ) + 1j * self.echodata["Sonar/Beam_group1"]["backscatter_i"].sel(channel=chan_BB)
-
-        pc_all = []
-        for chan in chan_BB:
-            backscatter_chan = (
-                backscatter.sel(channel=chan)
-                .dropna(dim="range_sample", how="all")
-                .dropna(dim="beam", how="all")
-                .dropna(dim="ping_time")
-            )
-            replica = xr.DataArray(np.conj(chirp[str(chan.values)]), dims="window")
-            # Pulse compression via rolling
-            pc = (
-                backscatter_chan.rolling(range_sample=replica.size).construct("window").dot(replica)
-                / np.linalg.norm(chirp[str(chan.values)]) ** 2
-            )
-            # Expand dimension and add name to allow merge
-            pc = pc.expand_dims(dim="channel")
-            pc.name = "pulse_compressed_output"
-            pc_all.append(pc)
-
-        pc_merge = xr.merge(pc_all)
-
-        return pc_merge
-
     def _cal_complex(self, cal_type, waveform_mode) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
@@ -391,7 +214,8 @@ class CalibrateEK80(CalibrateEK):
             The calibrated dataset containing Sv or TS
         """
         # Transmit replica and effective pulse length
-        chirp, _, tau_effective = self.get_transmit_chirp(waveform_mode=waveform_mode)
+        chirp, _, tau_effective = ek80_utils.get_transmit_chirp(
+            echodata=self.echodata, waveform_mode=waveform_mode)
 
         # use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
@@ -417,7 +241,8 @@ class CalibrateEK80(CalibrateEK):
             chan_sel = freq_center.dropna(dim="channel").channel
 
             # backscatter data
-            pc = self.compress_pulse(chirp, chan_BB=chan_sel)  # has beam dim
+            pc = ek80_utils.compress_pulse(
+                echodata=self.echodata, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = (
                 self.echodata["Sonar/Beam_group1"].beam.size
                 * np.abs(pc.mean(dim="beam")) ** 2
