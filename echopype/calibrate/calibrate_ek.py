@@ -8,6 +8,7 @@ from ..utils import uwa
 from ..utils.log import _init_logger
 from .calibrate_base import CalibrateBase
 from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_cal_params_complex_EK80
+from .env_params_new import get_env_params_EK60, get_env_params_EK80
 
 logger = _init_logger(__name__)
 
@@ -142,7 +143,8 @@ class CalibrateEK60(CalibrateEK):
         super().__init__(echodata, env_params, cal_params)
 
         # load env and cal parameters
-        self.get_env_params()
+        self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
+
         if cal_params is None:
             cal_params = {}
         self.cal_params = get_cal_params_EK(
@@ -153,45 +155,7 @@ class CalibrateEK60(CalibrateEK):
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
     def get_env_params(self, **kwargs):
-        """Get env params using user inputs or values from data file.
-
-        EK60 file by default contains only sound speed and absorption.
-        In cases when temperature, salinity, and pressure values are supplied
-        by the user simultaneously, the sound speed and absorption are re-calculated.
-
-        Parameters
-        ----------
-        env_params : dict
-        """
-        # Re-calculate environment parameters if user supply all env variables
-        if (
-            ("temperature" in self.env_params)
-            and ("salinity" in self.env_params)
-            and ("pressure" in self.env_params)
-        ):
-            self.env_params["sound_speed"] = uwa.calc_sound_speed(
-                temperature=self.env_params["temperature"],
-                salinity=self.env_params["salinity"],
-                pressure=self.env_params["pressure"],
-            )
-            self.env_params["sound_absorption"] = uwa.calc_absorption(
-                frequency=self.echodata["Sonar/Beam_group1"]["frequency_nominal"],
-                temperature=self.env_params["temperature"],
-                salinity=self.env_params["salinity"],
-                pressure=self.env_params["pressure"],
-            )
-        # Otherwise get sound speed and absorption from user inputs or raw data file
-        else:
-            self.env_params["sound_speed"] = (
-                self.env_params["sound_speed"]
-                if "sound_speed" in self.env_params
-                else self.echodata["Environment"]["sound_speed_indicative"]
-            )
-            self.env_params["sound_absorption"] = (
-                self.env_params["sound_absorption"]
-                if "sound_absorption" in self.env_params
-                else self.echodata["Environment"]["absorption_indicative"]
-            )
+        pass
 
     def compute_Sv(self, **kwargs):
         power_ed_group = check_waveform_encode_mode(

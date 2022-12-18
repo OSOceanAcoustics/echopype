@@ -4,6 +4,7 @@ from ..echodata import EchoData
 from ..utils import uwa
 from .calibrate_ek import CalibrateBase
 from .cal_params import get_cal_params_AZFP
+from .env_params_new import get_env_params_AZFP
 
 
 class CalibrateAZFP(CalibrateBase):
@@ -11,7 +12,7 @@ class CalibrateAZFP(CalibrateBase):
         super().__init__(echodata, env_params)
 
         # load env and cal parameters
-        self.get_env_params()
+        self.env_params = get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
 
         if cal_params is None:
             cal_params = {}
@@ -20,41 +21,8 @@ class CalibrateAZFP(CalibrateBase):
         # self.range_meter computed under self._cal_power()
         # because the implementation is different for Sv and TS
 
-    def get_env_params(self):
-        """Get env params using user inputs or values from data file.
-
-        Parameters
-        ----------
-        env_params : dict
-        """
-        # Temperature comes from either user input or data file
-        self.env_params["temperature"] = (
-            self.env_params["temperature"]
-            if "temperature" in self.env_params
-            else self.echodata["Environment"]["temperature"]
-        )
-
-        # Salinity and pressure always come from user input
-        if ("salinity" not in self.env_params) or ("pressure" not in self.env_params):
-            raise ReferenceError("Please supply both salinity and pressure in env_params.")
-        else:
-            self.env_params["salinity"] = self.env_params["salinity"]
-            self.env_params["pressure"] = self.env_params["pressure"]
-
-        # Always calculate sound speed and absorption
-        self.env_params["sound_speed"] = uwa.calc_sound_speed(
-            temperature=self.env_params["temperature"],
-            salinity=self.env_params["salinity"],
-            pressure=self.env_params["pressure"],
-            formula_source="AZFP",
-        )
-        self.env_params["sound_absorption"] = uwa.calc_absorption(
-            frequency=self.echodata["Sonar/Beam_group1"]["frequency_nominal"],
-            temperature=self.env_params["temperature"],
-            salinity=self.env_params["salinity"],
-            pressure=self.env_params["pressure"],
-            formula_source="AZFP",
-        )
+    def get_env_params(self, **kwargs):
+        pass
 
     def compute_range_meter(self, cal_type):
         """Calculate range (``echo_range``) in meter using AZFP formula.
