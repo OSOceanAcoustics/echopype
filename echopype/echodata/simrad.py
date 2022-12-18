@@ -7,7 +7,7 @@ from .echodata import EchoData
 
 
 def _check_mode_input_without_data(
-    waveform_mode: str, encode_mode: str, pulse_compression: bool
+    waveform_mode: str, encode_mode: str, pulse_compression: bool = None
 ) -> None:
     """
     Checks that the ``waveform_mode`` and ``encode_mode`` have
@@ -35,11 +35,12 @@ def _check_mode_input_without_data(
         raise RuntimeError("encode_mode='power' not allowed when waveform_mode='BB'!")
 
     # make sure that we have BB and complex inputs, if pulse compression is selected
-    if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
-        raise RuntimeError(
-            "Pulse compression can only be used with "
-            "waveform_mode='BB' and encode_mode='complex'"
-        )
+    if pulse_compression is not None:
+        if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
+            raise RuntimeError(
+                "Pulse compression can only be used with "
+                "waveform_mode='BB' and encode_mode='complex'"
+            )
 
 
 def _check_mode_input_with_data_EK60(
