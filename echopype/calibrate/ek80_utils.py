@@ -2,13 +2,16 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
-from .calibrate_ek import CalibrateEK80
 from .cal_params import get_vend_cal_params_complex_EK80
 from ..echodata import EchoData
 
 
+# TODO: can eliminate use of cal_obj for a few functions and just use echodata:
+#       - fs can be set from the outset and passed in as input arg
+#       - z_et, z_er are stored in raw file
 def tapered_chirp(
-    cal_obj: CalibrateEK80,
+    fs,
+    z_et,
     transmit_duration_nominal,
     slope,
     transmit_power,
@@ -21,7 +24,7 @@ def tapered_chirp(
         frequency_start = frequency_nominal
         frequency_end = frequency_nominal
 
-    t = np.arange(0, transmit_duration_nominal, 1 / cal_obj.fs)
+    t = np.arange(0, transmit_duration_nominal, 1 / fs)
     nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
     wtx_tmp = np.hanning(nwtx)  # hanning window
     nwtxh = int(np.round(nwtx / 2))  # half length of the hanning window
@@ -29,14 +32,14 @@ def tapered_chirp(
         [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
     )  # assemble full tapering window
     y_tmp = (
-        np.sqrt((transmit_power / 4) * (2 * cal_obj.z_et))  # amplitude
+        np.sqrt((transmit_power / 4) * (2 * z_et))  # amplitude
         * signal.chirp(t, frequency_start, t[-1], frequency_end)
         * wtx
     )  # taper and scale linear chirp
     return y_tmp / np.max(np.abs(y_tmp)), t  # amp has no actual effect
 
 
-def filter_decimate_chirp(cal_obj: CalibrateEK80, echodata: EchoData, y: np.array, ch_id: str):
+def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str):
     """Filter and decimate the chirp template.
 
     Parameters
@@ -61,7 +64,7 @@ def filter_decimate_chirp(cal_obj: CalibrateEK80, echodata: EchoData, y: np.arra
         pc_fil = [pc_fil.squeeze()]
     ytx_pc = signal.convolve(ytx_wbt_deci, pc_fil)
     ytx_pc_deci = ytx_pc[0::pc_decifac]
-    ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / cal_obj.fs * wbt_decifac * pc_decifac
+    ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / fs * wbt_decifac * pc_decifac
 
     return ytx_pc_deci, ytx_pc_deci_time
 
@@ -89,7 +92,7 @@ def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
     )
 
 
-def get_transmit_chirp(echodata: EchoData, waveform_mode: str):
+def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: float):
     """Reconstruct transmit signal and compute effective pulse length.
 
     Parameters
@@ -131,13 +134,15 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str):
             tx_params[p] = np.unique(echodata["Sonar/Beam_group1"][p].sel(channel=chan))
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
+        tx_params["fs"] = fs
+        tx_params["z_et"] = z_et
         y_tmp, _ = tapered_chirp(**tx_params)
 
         # Filter and decimate chirp template
         fs_deci = (
             1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
         )
-        y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, y=y_tmp, ch_id=chan)
+        y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, fs=fs, y=y_tmp, ch_id=chan)
 
         # Compute effective pulse length
         tau_effective_tmp = get_tau_effective(

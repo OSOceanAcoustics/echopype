@@ -7,7 +7,7 @@ from ..utils.log import _init_logger
 from .calibrate_base import CalibrateBase
 from .cal_params import get_cal_params_EK, get_gain_for_complex
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
-import ek80_utils
+from .ek80_utils import get_transmit_chirp, compress_pulse
 
 logger = _init_logger(__name__)
 
@@ -214,8 +214,8 @@ class CalibrateEK80(CalibrateEK):
             The calibrated dataset containing Sv or TS
         """
         # Transmit replica and effective pulse length
-        chirp, _, tau_effective = ek80_utils.get_transmit_chirp(
-            echodata=self.echodata, waveform_mode=waveform_mode)
+        chirp, _, tau_effective = get_transmit_chirp(
+            echodata=self.echodata, waveform_mode=waveform_mode, fs=self.fs, z_et=self.z_et)
 
         # use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
@@ -241,8 +241,7 @@ class CalibrateEK80(CalibrateEK):
             chan_sel = freq_center.dropna(dim="channel").channel
 
             # backscatter data
-            pc = ek80_utils.compress_pulse(
-                echodata=self.echodata, chirp=chirp, chan_BB=chan_sel)  # has beam dim
+            pc = compress_pulse(echodata=self.echodata, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = (
                 self.echodata["Sonar/Beam_group1"].beam.size
                 * np.abs(pc.mean(dim="beam")) ** 2
