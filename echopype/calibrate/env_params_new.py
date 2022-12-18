@@ -6,12 +6,20 @@ from ..echodata.simrad import _check_mode_input_with_data_EK80, _check_mode_inpu
 from ..utils import uwa
 
 
+# TODO: create default dict with empty values but specific keys for out_dict
+# like in cal_params, right now it is initiated as {}
+
+
 def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None):
     """Get env params using user inputs or values from data file.
 
     Parameters
     ----------
     user_env_dict : dict
+
+    Returns
+    -------
+    A dictionary containing the calibration parameters.
     """
     out_dict = {}
 
@@ -57,7 +65,12 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None
     Parameters
     ----------
     user_env_dict : dict
+
+    Returns
+    -------
+    A dictionary containing the calibration parameters.
     """
+    # Initiate input/output dict
     out_dict = {}
     if user_env_dict is None:
         user_env_dict = {}
@@ -94,9 +107,9 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None
 
 
 def get_env_params_EK80(
-    echodata: EchoData, env_params: Optional[dict] = None,
+    echodata: EchoData, user_env_dict: Optional[dict] = None,
     waveform_mode: Optional[str] = None, encode_mode: Optional[str] = None
-):
+) -> dict:
     """Get env params using user inputs or values from data file.
 
     EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -106,7 +119,7 @@ def get_env_params_EK80(
 
     Parameters
     ----------
-    env_params : dict
+    user_env_dict : dict
 
     waveform_mode : {"CW", "BB"}
         Type of transmit waveform.
@@ -122,6 +135,10 @@ def get_env_params_EK80(
         - (default) `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
             the echosounder is configured for narrowband transmission
+
+    Returns
+    -------
+    A dictionary containing the calibration parameters.
     """
     # Verify input
     _check_mode_input_without_data(waveform_mode=waveform_mode, encode_mode=encode_mode)
@@ -141,20 +158,25 @@ def get_env_params_EK80(
     else:
         freq = beam["frequency_nominal"]
 
+    # Initiate input/output dict
+    out_dict = {}
+    if user_env_dict is None:
+        user_env_dict = {}
+
     # Re-calculate environment parameters if user supply all env variables
-    tsp_all_exist = np.all([p in env_params for p in ["temperature", "salinity", "pressure"]])
+    tsp_all_exist = np.all([p in user_env_dict for p in ["temperature", "salinity", "pressure"]])
 
     if tsp_all_exist:
-        env_params["sound_speed"] = uwa.calc_sound_speed(
-            temperature=env_params["temperature"],
-            salinity=env_params["salinity"],
-            pressure=env_params["pressure"],
+        out_dict["sound_speed"] = uwa.calc_sound_speed(
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
         )
-        env_params["sound_absorption"] = uwa.calc_absorption(
+        out_dict["sound_absorption"] = uwa.calc_absorption(
             frequency=freq,
-            temperature=env_params["temperature"],
-            salinity=env_params["salinity"],
-            pressure=env_params["pressure"],
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
         )
     # Otherwise
     #  get temperature, salinity, and pressure from raw data file
@@ -166,26 +188,28 @@ def get_env_params_EK80(
             ["temperature", "salinity", "pressure"],
             ["temperature", "salinity", "depth"],
         ):
-            env_params[p1] = (
-                env_params[p1]
-                if p1 in env_params
+            out_dict[p1] = (
+                user_env_dict[p1]
+                if p1 in user_env_dict
                 else echodata["Environment"][p2]
             )
-        env_params["sound_speed"] = (
-            env_params["sound_speed"]
-            if "sound_speed" in env_params
+        out_dict["sound_speed"] = (
+            user_env_dict["sound_speed"]
+            if "sound_speed" in user_env_dict
             else echodata["Environment"]["sound_speed_indicative"]
         )
-        env_params["sound_absorption"] = (
-            env_params["sound_absorption"]
-            if "sound_absorption" in env_params
+        out_dict["sound_absorption"] = (
+            user_env_dict["sound_absorption"]
+            if "sound_absorption" in user_env_dict
             else uwa.calc_absorption(
                 frequency=freq,
-                temperature=env_params["temperature"],
-                salinity=env_params["salinity"],
-                pressure=env_params["pressure"],
+                temperature=out_dict["temperature"],
+                salinity=out_dict["salinity"],
+                pressure=out_dict["pressure"],
             )
         )
+
+    return out_dict
 
 
 def get_env_params(
@@ -196,4 +220,4 @@ def get_env_params(
     elif sonar_model in ["EK60", "ES70"]:
         return get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
     elif sonar_model in ["EK80", "ES80", "EA640"]:
-        return get_env_params_EK80(echodata=echodata, env_params=env_params, **kwarg)
+        return get_env_params_EK80(echodata=echodata, user_env_dict=env_params, **kwarg)

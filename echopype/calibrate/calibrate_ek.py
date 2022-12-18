@@ -181,7 +181,11 @@ class CalibrateEK80(CalibrateEK):
         # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
-        self.get_env_params(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        self.env_params = get_env_params_EK80(
+            echodata=echodata, user_env_dict=env_params,
+            waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+
         if cal_params is None:
             cal_params = {}
         self.cal_params = get_cal_params_EK(
@@ -192,96 +196,8 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def get_env_params(self, waveform_mode=None, encode_mode="complex"):
-        """Get env params using user inputs or values from data file.
-
-        EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
-        therefore absorption is always calculated unless it is supplied by the user.
-        In cases when temperature, salinity, and pressure values are supplied
-        by the user simultaneously, both the sound speed and absorption are re-calculated.
-
-        Parameters
-        ----------
-        env_params : dict
-
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - (default) `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        encode_mode : {"complex", "power"}
-            Type of encoded return echo data.
-
-            - (default) `"complex"` for complex samples
-            - `"power"` for power/angle samples, only allowed when
-              the echosounder is configured for narrowband transmission
-        """
-
-        if (
-            encode_mode == "power"
-            and waveform_mode == "CW"
-            and self.echodata["Sonar/Beam_group2"] is not None
-        ):
-            beam = self.echodata["Sonar/Beam_group2"]
-        else:
-            beam = self.echodata["Sonar/Beam_group1"]
-
-        # Use center frequency if in BB mode, else use nominal channel frequency
-        if waveform_mode == "BB":
-            freq = (beam["frequency_start"] + beam["frequency_end"]) / 2
-        else:
-            freq = beam["frequency_nominal"]
-
-        # Re-calculate environment parameters if user supply all env variables
-        if (
-            ("temperature" in self.env_params)
-            and ("salinity" in self.env_params)
-            and ("pressure" in self.env_params)
-        ):
-            self.env_params["sound_speed"] = uwa.calc_sound_speed(
-                temperature=self.env_params["temperature"],
-                salinity=self.env_params["salinity"],
-                pressure=self.env_params["pressure"],
-            )
-            self.env_params["sound_absorption"] = uwa.calc_absorption(
-                frequency=freq,
-                temperature=self.env_params["temperature"],
-                salinity=self.env_params["salinity"],
-                pressure=self.env_params["pressure"],
-            )
-        # Otherwise
-        #  get temperature, salinity, and pressure from raw data file
-        #  get sound speed from user inputs or raw data file
-        #  get absorption from user inputs or computing from env params stored in raw data file
-        else:
-            # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
-            for p1, p2 in zip(
-                ["temperature", "salinity", "pressure"],
-                ["temperature", "salinity", "depth"],
-            ):
-                self.env_params[p1] = (
-                    self.env_params[p1]
-                    if p1 in self.env_params
-                    else self.echodata["Environment"][p2]
-                )
-            self.env_params["sound_speed"] = (
-                self.env_params["sound_speed"]
-                if "sound_speed" in self.env_params
-                else self.echodata["Environment"]["sound_speed_indicative"]
-            )
-            self.env_params["sound_absorption"] = (
-                self.env_params["sound_absorption"]
-                if "sound_absorption" in self.env_params
-                else uwa.calc_absorption(
-                    frequency=freq,
-                    temperature=self.env_params["temperature"],
-                    salinity=self.env_params["salinity"],
-                    pressure=self.env_params["pressure"],
-                )
-            )
+    def get_env_params(self, **kwargs):
+        pass
 
     def _tapered_chirp(
         self,
