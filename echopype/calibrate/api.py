@@ -26,6 +26,9 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
+    # TODO: change below to use echodata.simrad::_check_mode_input_without_data
+    #       for checking Simrad sonar models
+
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
@@ -59,6 +62,15 @@ def _compute_cal(
         encode_mode=encode_mode,
     )
 
+    # Perform calibration
+    if cal_type == "Sv":
+        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+    elif cal_type == "TS":
+        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
+    else:
+        raise ValueError("cal_type must be Sv or TS")
+
+    # Add attributes
     def add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
@@ -84,13 +96,9 @@ def _compute_cal(
                 }
             )
 
-    # Perform calibration
-    if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
-    else:
-        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
-
     add_attrs(cal_type, cal_ds)
+
+    # Add provinance
     # Provenance source files may originate from raw files (echodata.source_files)
     # or converted files (echodata.converted_raw_path)
     if echodata.source_file is not None:
@@ -109,8 +117,8 @@ def _compute_cal(
         .assign_attrs(prov_dict)
     )
 
+    # Add water_level to the created xr.Dataset
     if "water_level" in echodata["Platform"].data_vars.keys():
-        # add water_level to the created xr.Dataset
         cal_ds["water_level"] = echodata["Platform"].water_level
 
     return cal_ds

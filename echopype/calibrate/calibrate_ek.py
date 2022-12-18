@@ -6,17 +6,15 @@ from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
 from ..utils import uwa
 from ..utils.log import _init_logger
-from .calibrate_base import CAL_PARAMS, CalibrateBase
+from .calibrate_base import CalibrateBase
+from .cal_params import get_cal_params_EK
 
 logger = _init_logger(__name__)
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata: EchoData, env_params):
-        super().__init__(echodata, env_params)
-
-        # cal params specific to EK echosounders
-        self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
+    def __init__(self, echodata: EchoData, env_params, cal_params):
+        super().__init__(echodata, env_params, cal_params)
 
     def compute_range_meter(self, waveform_mode, encode_mode):
         """
@@ -97,43 +95,6 @@ class CalibrateEK(CalibrateBase):
         # Select corresponding index and clean up the original nan elements
         da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
         return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
-
-    def get_cal_params(self, cal_params, waveform_mode, encode_mode):
-        """Get cal params using user inputs or values from data file.
-
-        Parameters
-        ----------
-        cal_params : dict
-        """
-
-        if (
-            encode_mode == "power"
-            and waveform_mode == "CW"
-            and self.echodata["Sonar/Beam_group2"] is not None
-        ):
-            beam = self.echodata["Sonar/Beam_group2"]
-        else:
-            beam = self.echodata["Sonar/Beam_group1"]
-
-        # Params from the Vendor_specific group
-
-        # only execute this if cw and power
-        if waveform_mode == "CW" and beam is not None:
-            params_from_vend = ["sa_correction", "gain_correction"]
-            for p in params_from_vend:
-                # substitute if None in user input
-                self.cal_params[p] = (
-                    cal_params[p]
-                    if p in cal_params
-                    else self._get_vend_cal_params_power(p, waveform_mode=waveform_mode)
-                )
-
-        # Other params
-        self.cal_params["equivalent_beam_angle"] = (
-            cal_params["equivalent_beam_angle"]
-            if "equivalent_beam_angle" in cal_params
-            else beam["equivalent_beam_angle"]
-        )
 
     def _cal_power(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
@@ -226,13 +187,15 @@ class CalibrateEK(CalibrateBase):
 
 class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
-        super().__init__(echodata, env_params)
+        super().__init__(echodata, env_params, cal_params)
 
         # load env and cal parameters
         self.get_env_params()
         if cal_params is None:
             cal_params = {}
-        self.get_cal_params(cal_params, waveform_mode="CW", encode_mode="power")
+        self.cal_params = get_cal_params_EK(
+            echodata=echodata, user_cal_dict=cal_params, waveform_mode="CW", encode_mode="power"
+        )
 
         # default to CW mode recorded as power samples
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
@@ -297,19 +260,18 @@ class CalibrateEK80(CalibrateEK):
     z_er = 1000
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
-        super().__init__(echodata, env_params)
+        super().__init__(echodata, env_params, cal_params)
 
-        # initialize cal params
-        # cal params are those used by both complex and power data calibration
-        # TODO: add complex data-specific params, like the freq-dependent gain factor
-        self.cal_params = dict.fromkeys(CAL_PARAMS["EK"])
         # TODO: make waveform_mode and encode_mode class attributes
 
         # load env and cal parameters
         self.get_env_params(waveform_mode=waveform_mode, encode_mode=encode_mode)
         if cal_params is None:
             cal_params = {}
-        self.get_cal_params(cal_params, waveform_mode=waveform_mode, encode_mode=encode_mode)
+        self.cal_params = get_cal_params_EK(
+            echodata=echodata, user_cal_dict=cal_params,
+            waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
 
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode

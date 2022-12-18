@@ -12,7 +12,7 @@ CAL_PARAMS = {
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
-    def __init__(self, echodata: EchoData, env_params=None):
+    def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
         self.echodata = echodata
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(echodata)
@@ -30,10 +30,6 @@ class CalibrateBase(abc.ABC):
 
     @abc.abstractmethod
     def get_env_params(self, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def get_cal_params(self, **kwargs):
         pass
 
     @abc.abstractmethod

@@ -114,6 +114,9 @@ def test_compute_Sv_ek60_matlab(ek60_path):
 
 
 def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+
+    # TODO: add comparison of actual values in this test
+
     ek60_raw_path = str(
         ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
     )

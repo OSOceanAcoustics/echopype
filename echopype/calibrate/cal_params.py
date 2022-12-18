@@ -125,7 +125,8 @@ def get_cal_params_EK(
             out_dict[p] = (
                 user_cal_dict[p]
                 if p in user_cal_dict
-                else _get_vend_cal_params_power(p, waveform_mode=waveform_mode)
+                else get_vend_cal_params_power(
+                    echodata=echodata, param=p, waveform_mode=waveform_mode)
             )
 
     # Other params
@@ -168,7 +169,7 @@ def get_vend_cal_params_complex_EK80(
         ]
 
 
-def _get_vend_cal_params_power(echodata: EchoData, param: str, waveform_mode: str):
+def get_vend_cal_params_power(echodata: EchoData, param: str, waveform_mode: str):
     """
     Get cal parameters stored in the Vendor_specific group.
 
@@ -242,7 +243,7 @@ def get_gain_for_complex(
     An xr.DataArray
     """
     if waveform_mode == "BB":
-        gain_single = _get_vend_cal_params_power(
+        gain_single = get_vend_cal_params_power(
             "gain_correction", waveform_mode=waveform_mode
         )
         gain = []
@@ -276,7 +277,7 @@ def get_gain_for_complex(
         else:
             gain = gain_single
     elif waveform_mode == "CW":
-        gain = _get_vend_cal_params_power(
+        gain = get_vend_cal_params_power(
             "gain_correction", waveform_mode=waveform_mode
         ).sel(channel=chan_sel)
 
