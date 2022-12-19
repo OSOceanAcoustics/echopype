@@ -2,6 +2,7 @@ import pytest
 
 import numpy as np
 import xarray as xr
+import dask.array
 
 import echopype as ep
 import echopype.mask
@@ -87,7 +88,7 @@ def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
     return mock_Sv_ds
 
 
-def get_mock_source_ds_apply_mask(n: int, n_chan: int) -> xr.Dataset:
+def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.Dataset:
     """
     Constructs a mock ``source_ds`` Dataset input for the
     ``apply_mask`` function.
@@ -99,6 +100,9 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int) -> xr.Dataset:
         each channel matrix
     n_chan: int
         Determines the size of the ``channel`` coordinate
+    is_delayed: bool
+        If True, the returned Dataset variables ``var1`` and ``var2`` will be
+        a Dask arrays, else they will be in-memory arrays
 
     Returns
     -------
@@ -112,7 +116,10 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int) -> xr.Dataset:
     chan_vals = ['chan' + str(i) for i in range(1, n_chan + 1)]
 
     # construct mock variable data for each channel
-    mock_var_data = [np.ones((n, n)) for i in range(n_chan)]
+    if is_delayed:
+        mock_var_data = [dask.array.ones((n, n)) for i in range(n_chan)]
+    else:
+        mock_var_data = [np.ones((n, n)) for i in range(n_chan)]
 
     # create mock var1 and var2 DataArrays
     mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
@@ -265,21 +272,44 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan", "var_name", "mask", "var_masked_truth"),
+    ("n", "n_chan", "var_name", "mask", "is_delayed", "var_masked_truth"),
     [
-        (2, 1, "var1", np.identity(2), np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], np.array([[2.0, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), False, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], False, np.array([[2.0, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), True, np.array([[1, 2.0], [2.0, 1]])),
     ],
-    ids=["single_mask", "list_mask_all_np"]
+    ids=["single_mask", "list_mask_all_np", "single_mask_ds_delayed"]
 )
 def test_apply_mask(n: int, n_chan: int, var_name: str,
-                    mask: Union[Union[np.ndarray], List[np.ndarray]],
-                    var_masked_truth: np.ndarray):
+                    mask: Union[np.ndarray, List[np.ndarray]],
+                    var_masked_truth: np.ndarray, is_delayed: bool):
+    """
+
+
+    Parameters
+    ----------
+    n: int
+
+    n_chan: int
+
+    var_name: str
+
+    mask: np.ndarray or list of np.ndarray
+
+    var_masked_truth: np.ndarray
+
+    is_delayed: bool
+        If True, makes all variables in constructed mock Dataset Dask arrays,
+        else they will be in-memory arrays
+
+    """
 
     # TODO: test different fill_value
     fill_value = 2.0  # having this be a number, rather than nan makes for easier testing
 
-    mock_ds = get_mock_source_ds_apply_mask(n, n_chan)
+    mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
+
+    # TODO: test path input for mask
 
     # TODO: create test for list of masks
     if isinstance(mask, list):
@@ -303,14 +333,9 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
 
     # TODO: check that masked_ds has the same structure as mock_ds
 
-    # TODO: check that masked_ds[var_name] == var_masked_truth
-
+    # check that masked_ds[var_name] == var_masked_truth
     assert masked_ds[var_name].identical(var_masked_truth)
 
-    # TODO: test for lazy in (or path) and you get a lazy out
-
-
-
-
-
-
+    # check that the output Dataset has lazy elements, if the input was lazy
+    if is_delayed:
+        assert isinstance(masked_ds[var_name].data, dask.array.Array)
