@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from ..utils.io import validate_source_ds
+from ..utils.io import validate_source_ds_da
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -15,6 +15,13 @@ str2ops = {
     ">=": op.ge,
     "==": op.eq,
 }
+
+
+# def _check_apply_mask_inputs(source_ds: xr.Dataset, var_name: str, mask, ):
+#     """
+#     Ensures that the inputs to the function ``apply_mask`` are
+#     appropriate.
+#     """
 
 
 def apply_mask(
@@ -39,8 +46,8 @@ def apply_mask(
         The variable name in ``source_ds`` that the mask should be applied to
     mask: xr.DataArray or str or pathlib.Path or list of xr.DataArray or str or pathlib.Path
         The mask(s) to apply to the variable specified by ``var_name``. This input can be a
-        single input or list that corresponds to a DataArray or a path to a DataArray.
-        # TODO: if it is a path it is only to .zarr or .nc no array groups
+        single input or list that corresponds to a DataArray or a path to a DataArray. If a path
+        is provided this should point to a zarr or netcdf file with only one array in it.
     fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
         Specifies the value(s) at false indices
     storage_options_ds: dict, default={}
@@ -63,19 +70,19 @@ def apply_mask(
     mask that will be applied to ``var_name``.
     """
 
-    # TODO: check types of all inputs
-
-    # TODO: if mask is a list and storage_options_mask is not, create a list filled
-    #  with single dict provided only for those elements that are paths
-
     # validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source_ds(source_ds, storage_options_ds)
+    source_ds, file_type = validate_source_ds_da(source_ds, storage_options_ds)
 
     if isinstance(source_ds, str):
         # open up Dataset using source_ds path
         source_ds = xr.open_dataset(
             source_ds, engine=file_type, chunks="auto", **storage_options_ds
         )
+
+    # TODO: check types of all inputs
+
+    # TODO: if mask is a list and storage_options_mask is not, create a list filled
+    #  with single dict provided only for those elements that are paths
 
     mask_file_types = []  # TODO: create this!
 
@@ -347,7 +354,7 @@ def frequency_differencing(
     _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
 
     # validate the source_Sv type or path (if it is provided)
-    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
+    source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
 
     if isinstance(source_Sv, str):
         # open up Dataset using source_Sv path
