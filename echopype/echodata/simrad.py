@@ -74,7 +74,6 @@ def _check_mode_input_with_data_EK60(
         raise RuntimeError("Incorrect encode_mode input provided!")
 
     # ensure that no complex data exists (this should never be triggered)
-    # TODO: is this necessary? I just wanted to provide a check against the data ...
     if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
         raise RuntimeError(
             "Provided echodata object does not correspond to an EK60-like "
