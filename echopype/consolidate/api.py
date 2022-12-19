@@ -283,14 +283,18 @@ def add_splitbeam_angle(
         )
 
     # obtain split-beam angles from
-    if (waveform_mode == "CW") and (encode_mode == "power") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "CW") and (encode_mode == "complex") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
-    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is True):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+    # CW mode data
+    if waveform_mode == "CW":
+       if encode_mode == "power":  # power data
+          theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
+       else:  # complex data
+          theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
+    # BB mode data
+    else:
+       if pulse_compression:  # with pulse compression
+          theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+       else:  # without pulse compression
+          theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)          
     else:
         raise RuntimeError(
             f"Unable to compute split-beam angle data for "
